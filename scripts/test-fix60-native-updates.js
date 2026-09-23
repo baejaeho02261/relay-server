@@ -35,7 +35,13 @@ function progressCheck(client,flow,live,currency){
  assert.match(live,/FMember\.ReadPending\('live'\)/);
  for(const action of ['currency.list','currency.quote'])assert.ok(currency.includes("FMember.ReadPending('"+action+"')"));
  assert.match(currency,/FHubCurrencyLoading:=False;FHubCurrencyDueAt:=0;\s*try\s*if FMember\.Request\('preferences.save'/,'saving a selected currency clears the canceled catalogue wait');
- assert.match(routine(client,'TMoaPlayMemberClient.RetryPending'),/MemberTick - FLastRetryAt < 12000/,'durable mutation recovery must retain its independent idempotent retry policy');
+ // FIX69 recovers a missing first reply sooner, without interrupting a
+ // progressing photo response or manufacturing a second mutation identity.
+ const retry=routine(client,'TMoaPlayMemberClient.RetryPending');
+ assert.match(retry,/MemberTick - FLastRetryAt < 4000/,'missing first replies have a bounded retry delay');
+ assert.match(retry,/Entry\.PartsReceived>0[\s\S]*MemberTick-Entry\.StartedAt<15000/,'multipart progress protects an in-flight response from restart');
+ assert.match(retry,/SendRequest\(FPendingID,FPendingAction,FPendingBody\)/,'recovery reuses the exact durable operation ID and body');
+ assert.doesNotMatch(retry,/CreateGUID|FPendingID\s*:=/,'retry must not create a duplicate purchase or message');
 }
 function Check(){
  const motion=read('MoaPlayApp.Member.Motion.inc'),flow=read('MoaPlayApp.Member.Flow.inc'),loading=read('MoaPlayApp.Member.Loading.inc');

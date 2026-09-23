@@ -77,7 +77,9 @@ assert.match(native, /Matches>=MentionMaxMatches/);assert.match(native, /Rectang
 assert.match(native, /Lookup.TryGetValue\(Token.Handle,ID\)/, 'only server-authorized aliases are linked');
 assert.doesNotMatch(native, /MentionText\(Member,'handle'\)/, 'a rename cannot redirect old text through the current handle');
 assert.match(native, /Tap.TouchScope:=Scope;Tap.TagString:=ActionPrefix\+ID/);
-assert.match(native, /Tap.OnClick:=Handler/);assert.match(native, /Underline.HitTest:=False/);
+assert.match(native, /Tap.OnClick:=Handler/);assert.doesNotMatch(native, /Underline|fsUnderline/);
+assert.match(native, /FPaintLayout.Color:=MemberLink/);assert.match(native, /Canvas.IntersectClipRect\(LocalRect\)/);
+assert.match(native, /Tap:=TMentionLinkOverlay.Create\(Parent\);Tap.Parent:=Host/);
 assert.doesNotMatch(native, /Layout.Free|Members.Free|Parent.Free|Sender.Free/);
 const clipping = native.match(/Bounds:=RectF\((Max\(0,Region.Left\)),(Max\(0,Region.Top\)),\s*(Min\(Parent.Width,Region.Right\)),(Min\(Parent.Height,Region.Bottom\))\)/);
 assert.ok(clipping, 'all wrapped line regions are clipped to the visible text body');

@@ -4,6 +4,12 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
 const dir=path.resolve(__dirname,'../../MoaPlayApp_Android64');
 const read=name=>fs.readFileSync(path.join(dir,name),'utf8').replace(/^\uFEFF/,'').replace(/\r/g,'');
 const flow=read('MoaPlayApp.Member.Flow.inc'),delta=read('MoaPlayApp.Member.Delta.inc'),live=read('MoaPlayApp.Member.Live.inc');
+// FIX69: the client follows the native viewport, never a centered 480-unit root.
+const ui=read('MoaPlayApp.Ui.inc');
+assert.match(ui,/FRoot\.Align := TAlignLayout\.Client/);
+assert.doesNotMatch(ui,/FRoot\.SetBounds|RootWidth\s*:?=\s*Min\(480/);
+assert.match(ui,/RootWidth := Max\(1, Trunc\(FRoot\.Width\)\)/);
+
 const routine=(s,name)=>{const rows=[...s.matchAll(/^(?:procedure|function)\s+([\w.]+)/gm)],i=rows.findIndex(x=>x[1]===name);assert.ok(i>=0,name);return s.slice(rows[i].index,rows[i+1]?.index??s.length);};
 const reply=routine(flow,'TMoaPlayForm.HubReply'),poll=routine(flow,'TMoaPlayForm.HubPollTimerTimer'),fetch=routine(flow,'TMoaPlayForm.HubFetch');
 assert.match(flow,/FHubView='home' then Result:='home'/);assert.match(flow,/FHubView='archives'\) then Result:=FHubView/);

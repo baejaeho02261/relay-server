@@ -31,7 +31,7 @@ function navigationContract(source){
  }
  const first=visit('catalog','people','arcade'),second=visit('people','all','@친구');
  assert.equal(expression(restore,{Snapshot:second.snapshot}),'@친구');assert.equal(expression(restore,{Snapshot:first.snapshot}),'arcade');
- assert.ok(back.indexOf("FHubSearchText:=")<back.indexOf('HubRecordVisit(FHubView);HubFetch'),'query restored before issuing read');
+ assert.ok(back.indexOf("FHubSearchText:=")<back.indexOf('HubFetch;HubRecordVisit(FHubView)'),'query restored before issuing read');
 }
 navigationContract(flow);
 assert.throws(()=>navigationContract(flow.replace("Snapshot.AddPair('searchText',FHubSearchText);",'')),'lost query snapshot is detected');
@@ -77,18 +77,20 @@ const gallery=read('MoaPlayApp.Member.ProfileGallery.inc');
 const mediaExpr=match(activity,/mediaKind:([^,]+),quotePostId:/,'compact media discriminator')[1];
 function galleryContract(source){
  const skip=match(source,/ID:=HubText\(Item,'id'\);if (.+?) then Continue;/)[1];
- const markers=match(source,/Icon:='';\s*if (.+?) then Icon:='([^']+)'\s*else if (.+?) then Icon:='([^']+)';/);
+ const markers=match(source,/Icon:='';\s*if (.+?) then Icon:='([^']+)'\s*else if (.+?) then Icon:='([^']+)'\s*else if (.+?) then Icon:='([^']+)';/);
+ const markerFor=vars=>expression(markers[1],vars)?markers[2]:expression(markers[3],vars)?markers[4]:expression(markers[5],vars)?markers[6]:'';
  const fixtures=[{id:'HIDDEN',unavailable:true},{id:''},{id:'TEXT',post:{}},{id:'PHOTO',post:{image:'data:photo'}},{id:'GIF',post:{gifId:'GIF1'}},{id:'ORIGINALGIF',post:{gifMedia:{frames:['frame']}}}];
  const shown=[];
  for(const Item of fixtures){
   const ID=Item.id;if(expression(skip,{ID,Item}))continue;
   Item.mediaKind=Function('post',`return (${mediaExpr});`)(Item.post);
   const vars={Item,Gif:null,ActivityKind:''};
-  const icon=expression(markers[1],vars)?markers[2]:expression(markers[3],vars)?markers[4]:'';
+  const icon=markerFor(vars);
   shown.push([ID,icon]);
  }
  assert.deepEqual(shown,[['TEXT',''],['PHOTO',''],['GIF','play'],['ORIGINALGIF','play']]);
- assert.equal(expression(markers[1],{Item:{quotePostId:'POST'},Gif:null,ActivityKind:'repost'}),true,'repost attribution takes priority over media marker');
+ assert.equal(markerFor({Item:{quotePostId:'POST',mediaKind:'gif'},Gif:{},ActivityKind:'repost'}),'repost','repost attribution takes priority over media marker');
+ assert.equal(markerFor({Item:{pinned:true,quotePostId:'POST',mediaKind:'gif'},Gif:{},ActivityKind:'repost'}),'pin','profile pin takes priority without removing repost/GIF fallbacks');
 }
 galleryContract(gallery);
 assert.throws(()=>galleryContract(gallery.replace("(ID='') or HubBool(Item,'unavailable')","(ID='')")),'removed post cannot remain clickable');
@@ -100,7 +102,7 @@ assert.throws(()=>galleryContract(gallery.replace("Assigned(Gif) or (HubText(Ite
 const compose=read('MoaPlayApp.Member.Compose.inc'),actions=read('MoaPlayApp.Member.Actions.inc');
 function inlineComposeContract(source){
  assert.doesNotMatch(source,/HubPostTaggedText|FHubEdits\[2\]|사람 태그|taggedMemberIds/,'no separate people-tag field or payload remains');
- assert.match(source,/PromptText:=MemberCaption\('이야기를 작성하세요'\)/);
+ assert.match(source,/PromptText:=MemberCaption\('서로를 존중하는 글을 남겨주세요\. 개인정보, 욕설, 도배 및 무단 광고는 삼가주세요\.'\)/);
  assert.match(source,/FHubMemo\.OnEnter:=HubInputEnter;FHubMemo\.OnExit:=HubInputExit;HubRestoreDraft/);
  assert.match(actions,/Body.AddPair\('body',FHubMemo.Text\)/,'post creation/edit sends original inline mention text');
  assert.match(actions,/Body.AddPair\('body',Trim\(FHubCommentEdit.Text\)\)/,'comment creation/edit uses its single composer');
