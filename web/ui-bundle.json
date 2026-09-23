@@ -1,8 +1,8 @@
 {
   "webAdminVersion": "5.0.1",
-  "uiRevision": "fix68",
+  "uiRevision": "fix69",
   "files": {
-    "index.html": "22d583201ce49fb6d31a6d2dc7da2a804e1862568aee58b075faac6c35b56e73",
+    "index.html": "3bb7f2793062d7cac37ea7803e895d65f838105d1a619b9d266e5d5e6745b9e3",
     "admin.css": "155d685b90472fae0909c42d58031fbfde1f3cc9d29c3b5429f05b582ae0f1a2",
     "admin-theme.css": "62f6ea85fae20540d82195d92cc965342d972a87a49228d2c969cbda84d7bc8b",
     "admin-appearance.css": "19f7a687c8eaa6dcf3caffb82956efab81abea142cd992a9fcd62787c5d3e3ed",
@@ -11,7 +11,7 @@
     "admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "admin-navigation.css": "b4dfe7add02b3459ccafe03bf048b6f705c2cdd97e15a2fa57c30135e5ade104",
     "admin-i18n.js": "dbf870f79f0242fb2b688419807aebcdba0f737f0d8e21a40a8f5929dabf9929",
-    "admin.js": "9082bf8b008babf137b92c99821c9e65c0c19464d3431dfc23789527ca79a9d5",
+    "admin.js": "935790d92bb486e35972f8e3fd9211d1d24b438a80fe786260bc3459249b4c71",
     "admin-navigation.js": "91919e287d821d82ba4414c7853391c32ec927a8ac13b4a465df6a9c48d84508",
     "admin-pages-monitoring.js": "8ec770a183e43f4c54bfde09016417fa2862056e333a7ae1c7d0d33b6bf779c5",
     "admin-terminal.js": "7ebfcbe23fed621000c1412d3ef60c517908fb312c0a8113a820cc07f058fe84",
@@ -46,7 +46,7 @@
     "admin-member.css": "458d1d32d40e150029e94180328d5a0d5bf526821ebba10f6f7a82985f40af85",
     "admin-palette.js": "592501c81ded079397e06e08124163e0bdb7d62c12befb334656e68c1bcbf73c",
     "admin-pages-production.js": "b0c9d7d19b88ab4756849e0c57289c22e57b5f4a61a61eef46566764856653c4",
-    "service-worker.js": "6eaefe954cbb3bef6fce029a99a2d4baa78dff8484447cf92a3415d25dc60e7c",
+    "service-worker.js": "312b91e95fa1a8fe1de9b2e8602ef55784f39a6eaf0f2357e70609d094b59091",
     "ui-refresh.html": "f187ed39e3847c0cab81785762e67f014dd8a480677d31e3bbccdd4301ae21e9",
     "ui-refresh.js": "18c00a09bdc6409509b42ce6a7d4e5480d6edd1e7feabcd575aafa6922e42dac"
   }

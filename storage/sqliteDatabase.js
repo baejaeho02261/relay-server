@@ -8,6 +8,13 @@ const config = require('../config/config');
 const { SCHEMA_VERSION, SQLITE_SCHEMA } = require('./sqliteSchema');
 
 let database = null;
+let normalizedChecksum = '';
+const NORMALIZED_KEYS = ['servers','serverAliases','serverNotes','disabledServers','drainingServers','serverDrainMeta',
+    'clients','clientAliases','clientNotes','disabledClients','licenses','qrAuthRequests','deviceSecrets','deviceSecretMeta',
+    'serverFeatureOverrides','clientFeatureOverrides','serverProtocolProfiles','clientProtocolProfiles'];
+function NormalizedChecksum(snapshot) {
+    return Checksum(JSON.stringify(NORMALIZED_KEYS.map(key => snapshot[key] ?? null)));
+}
 
 function EnsureNullableClientServerId(db) {
     const columns = db.prepare('PRAGMA table_info(clients)').all();
@@ -101,13 +108,18 @@ function SaveSnapshot(snapshot, options = {}) {
     const text = JSON.stringify(snapshot);
     const checksum = Checksum(text);
     const savedAt = Date.now();
+    const nextNormalizedChecksum = NormalizedChecksum(snapshot);
+    const normalizedChanged = normalizedChecksum !== nextNormalizedChecksum;
     const previous = db.prepare('SELECT snapshot_revision,checksum_sha256 FROM state_snapshot WHERE id=1').get();
     const previousRevision = Number(previous && previous.snapshot_revision) || 0;
     const contentRevision = previous && previous.checksum_sha256 === checksum ? previousRevision : previousRevision + 1;
     const revision = Math.max(Number(options.revision) || 0, contentRevision || 1);
     db.exec('BEGIN IMMEDIATE');
     try {
-        InsertNormalized(db, snapshot);
+        // Member interactions alter the authoritative snapshot, not device and
+        // license tables. Do not delete/reinsert every relay row for a like,
+        // message, attendance, or read receipt. Commit durability is unchanged.
+        if (normalizedChanged) InsertNormalized(db, snapshot);
         db.prepare('INSERT INTO state_snapshot(id,snapshot_revision,saved_at,source_instance,checksum_sha256,snapshot_json) VALUES(1,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET snapshot_revision=excluded.snapshot_revision,saved_at=excluded.saved_at,source_instance=excluded.source_instance,checksum_sha256=excluded.checksum_sha256,snapshot_json=excluded.snapshot_json').run(revision, savedAt, String(options.sourceInstance || config.HA_INSTANCE_ID || ''), checksum, text);
         db.prepare('INSERT INTO meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run('last_saved_at', String(savedAt));
         db.exec('COMMIT');
@@ -115,7 +127,9 @@ function SaveSnapshot(snapshot, options = {}) {
         try { db.exec('ROLLBACK'); } catch (_) {}
         throw error;
     }
-    return { revision, savedAt, checksum, size: Buffer.byteLength(text) };
+    // Publish this cache only after COMMIT. A failed write must be retried.
+    normalizedChecksum = nextNormalizedChecksum;
+    return { revision, savedAt, checksum, size: Buffer.byteLength(text), normalizedChanged };
 }
 
 function LoadSnapshot() {
@@ -141,6 +155,7 @@ function Close() {
     if (!database) return;
     database.close();
     database = null;
+    normalizedChecksum = '';
 }
 
 module.exports = { Open, SaveSnapshot, LoadSnapshot, Status, Close };
