@@ -1,0 +1,46 @@
+'use strict';
+const s=require('./store');
+function Blocked(a,b){return !!(s.DB().blocks[a+':'+b]||s.DB().blocks[b+':'+a]);}
+function Visible(post,p){return !!post&&!post.deleted&&!post.hidden&&!s.ProfileById(post.accountId)?.blocked&&(!p||!Blocked(p.id,post.accountId))&&require('./post-controls').CanRead(post,p);}
+function Post(p,id){const row=s.DB().posts[id];if(!Visible(row,p))s.Fail('POST_NOT_FOUND');return row;}
+function Comment(p,id){const row=s.DB().comments[id];if(!row||row.deleted||row.hidden||Blocked(p.id,row.accountId)||s.ProfileById(row.accountId)?.blocked||!require('./activity-settings').CommentVisible(p,row))s.Fail('COMMENT_NOT_FOUND');Post(p,row.postId);return row;}
+function Target(p,body){if(!['post','comment'].includes(body.kind))s.Fail('INPUT_INVALID');return body.kind==='comment'?Comment(p,body.id):Post(p,body.id);}
+function Block(p,body){const target=s.Resolve(body.id);if(!target||target.id===p.id||typeof body.blocked!=='boolean')s.Fail('INPUT_INVALID');const db=s.DB(),key=p.id+':'+target.id;if(body.blocked){db.blocks[key]={accountId:p.id,targetId:target.id,at:Date.now()};delete db.follows[p.id+':'+target.id];delete db.follows[target.id+':'+p.id];}else delete db.blocks[key];return {id:target.id,blocked:body.blocked,blocks:Blocks(p,{offset:0,limit:12})};}
+function Blocks(p,body){const page=s.Page(Object.values(s.DB().blocks).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at),body,12);return {...page,items:page.items.map(x=>({...s.PublicProfile(s.ProfileById(x.targetId)||{id:x.targetId,nickname:'탈퇴 회원',bio:''}),blocked:true}))};}
+function Bookmarked(p,kind,id){return !!s.DB().bookmarks[p.id+':'+kind+':'+id];}
+function Bookmark(p,body){const row=Target(p,body);if(typeof body.saved!=='boolean')s.Fail('INPUT_INVALID');const key=p.id+':'+body.kind+':'+row.id;if(body.saved)s.DB().bookmarks[key]={accountId:p.id,kind:body.kind,targetId:row.id,at:Date.now()};else delete s.DB().bookmarks[key];return {saved:body.saved,kind:body.kind,id:row.id};}
+function Bookmarks(p,body){const rows=Object.values(s.DB().bookmarks).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at).filter(x=>{try{Target(p,{kind:x.kind,id:x.targetId});return true;}catch(_){return false;}});const page=s.Page(rows,body,12);return {...page,items:page.items.map(x=>x.kind==='post'?{kind:'post',post:require('./social').PublicPost(Post(p,x.targetId),p,false,body._wire==='zlib')}:{kind:'comment',comment:PublicComment(Comment(p,x.targetId),p)})};}
+function Repost(p,body){
+ const post=Post(p,body.postId);if(post.archived)s.Fail('POST_ARCHIVED');
+ // Only the original author may publish a direct repost. Other members still
+ // create their own quoted post through the composer and its visibility checks.
+ if(post.accountId!==p.id)s.Fail('REPOST_COMPOSE_REQUIRED');
+ if(typeof body.value!=='boolean')s.Fail('INPUT_INVALID');
+ const db=s.DB(),key=p.id+':'+post.id;
+ if(body.value){
+  // Each confirmed action may promote the same post again. Operation() replays
+  // an existing request ID before reaching here, so a network retry never bumps
+  // it twice. Retain one relationship and preserve the original post/content.
+  if(db.reposts[key]&&!Object.values(db.repostEvents).some(row=>row.accountId===p.id&&row.postId===post.id)){const previous={...db.reposts[key],id:s.Id('RPE')};db.repostEvents[previous.id]=previous;}
+  const at=require('./reposts').NextDirectAt(p);
+  if(db.reposts[key])db.reposts[key].at=at;
+  else db.reposts[key]={id:s.Id('RPS'),accountId:p.id,postId:post.id,at};
+  const event={id:s.Id('RPE'),accountId:p.id,postId:post.id,at};db.repostEvents[event.id]=event;
+ }else delete db.reposts[key];
+ return {reposted:!!db.reposts[key],post:require('./social').PublicPost(post,p,false,body._wire==='zlib',body._delta===true)};
+}
+function RepostInfo(post,p){return require('./reposts').Info(post,p);}
+function PollInput(value,previous,postId){
+ if(value===undefined)return previous||null;
+ if(value===null){if(previous&&Object.values(s.DB().pollVotes).some(x=>x.postId===postId))s.Fail('POLL_LOCKED');return null;}
+ if(!value||!Array.isArray(value.options)||value.options.length<2||value.options.length>4)s.Fail('POLL_INVALID');
+ const question=s.Text(value.question,90,true),options=value.options.map((x,i)=>({id:String(i),text:require('./pollText').Input(typeof x==='string'?x:x.text,previous?.options?.[i]?.text)}));
+ const result={question,options};if(previous&&JSON.stringify(previous)!==JSON.stringify(result)&&Object.values(s.DB().pollVotes).some(x=>x.postId===postId))s.Fail('POLL_LOCKED');return result;
+}
+function Poll(post,p){if(!post.poll)return null;const votes=Object.values(s.DB().pollVotes).filter(x=>x.postId===post.id);return {...post.poll,total:votes.length,myVote:s.DB().pollVotes[p.id+':'+post.id]?.optionId??'',options:post.poll.options.map(x=>({...x,votes:votes.filter(v=>v.optionId===x.id).length}))};}
+function Vote(p,body){const post=Post(p,body.postId);if(!post.poll||!post.poll.options.some(x=>x.id===body.optionId))s.Fail('POLL_INVALID');if(s.DB().pollVotes[p.id+':'+post.id])s.Fail('POLL_ALREADY_VOTED');s.DB().pollVotes[p.id+':'+post.id]={accountId:p.id,postId:post.id,optionId:body.optionId,at:Date.now()};return {post:require('./social').PublicPost(post,p,false,body._wire==='zlib',body._delta===true)};}
+function PublicComment(row,p,counts){const hideLikeCounts=require('./activity-settings').Values(p).hideLikeCounts;counts=counts||require('./commentThreads').Counts(row.postId,p);const post=Post(p,row.postId),reactions=Object.values(s.DB().commentReactions).filter(x=>x.commentId===row.id);return {hideLikeCounts,id:row.id,postId:row.postId,body:row.body,mentionMembers:require('./mentions').Members(row,p),at:row.at,updatedAt:row.updatedAt||row.at,revision:row.revision||0,parentId:row.parentId||'',replyToId:require('./commentThreads').Parent(row,counts.parents),replies:counts.get(row.id)||0,replyTo:row.replyTo||'',replyToName:row.replyTo?require('./social').Author(row.replyTo,p).nickname:'',replyToHandle:row.replyTo?require('./social').Author(row.replyTo,p).handle:'',author:require('./social').Author(row.accountId,p),own:row.accountId===p.id,isPostAuthor:row.accountId===post.accountId,likes:hideLikeCounts?null:reactions.length,myReaction:s.DB().commentReactions[p.id+':'+row.id]?1:0,bookmarked:Bookmarked(p,'comment',row.id)};}
+function CommentReact(p,body){const row=Comment(p,body.id);if(![0,1].includes(body.value))s.Fail('REACTION_INVALID');const key=p.id+':'+row.id;if(body.value)s.DB().commentReactions[key]={accountId:p.id,commentId:row.id};else delete s.DB().commentReactions[key];return {comment:PublicComment(row,p)};}
+function CommentEdit(p,body){const row=Comment(p,body.id);if(row.accountId!==p.id)s.Fail('NOT_OWNER');if(body.revision!==(row.revision||0))s.Fail('CONTENT_CHANGED');if(!require('./activity-settings').CanInteract(s.ProfileById(s.DB().posts[row.postId].accountId),p,'comment',body.body))s.Fail('INTERACTION_UNAVAILABLE');row.body=s.Text(body.body,600,true);row.mentions=require('./mentions').Capture(p,row.body);row.updatedAt=Date.now();row.revision=(row.revision||0)+1;return {comment:PublicComment(row,p)};}
+function Report(p,body){const kind=body.kind==='comment'?'comment':'post',row=Target(p,{kind,id:body.id||body.postId});if(row.accountId===p.id)s.Fail('INPUT_INVALID');const key=p.id+':'+kind+':'+row.id;if(s.DB().reports[key])return {reported:true};s.DB().reports[key]={id:s.Id('RPT'),kind,targetId:row.id,postId:kind==='post'?row.id:row.postId,commentId:kind==='comment'?row.id:'',accountId:p.id,reason:s.Text(body.reason,300,true),at:Date.now(),status:'OPEN'};return {reported:true};}
+module.exports={Blocked,Visible,Post,Comment,Block,Blocks,Bookmark,Bookmarks,Bookmarked,Repost,RepostInfo,PollInput,Poll,Vote,PublicComment,CommentReact,CommentEdit,Report};

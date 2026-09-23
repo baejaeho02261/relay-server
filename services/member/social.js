@@ -1,0 +1,131 @@
+'use strict';
+const s=require('./store'),extra=require('./socialActions');
+function Avatar(value){
+ if(!value)return '';
+ const m=/^data:image\/png;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(value));if(!m||m[1].length>360000)s.Fail('AVATAR_INVALID');
+ const b=Buffer.from(m[1],'base64');if(b.length<24||b.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')s.Fail('AVATAR_INVALID');
+ const w=b.readUInt32BE(16),h=b.readUInt32BE(20);if(w<1||h<1||w>256||h>256)s.Fail('AVATAR_INVALID');
+ try{const {PNG}=require('pngjs');const png=PNG.sync.read(b);const normalized=PNG.sync.write(png).toString('base64');if(normalized.length>360000)s.Fail('AVATAR_INVALID');return 'data:image/png;base64,'+normalized;}catch(_){s.Fail('AVATAR_INVALID');}
+}
+function AvatarThumb(value){
+ if(!value)return '';
+ const png=require('pngjs').PNG.sync.read(Buffer.from(value.split(',')[1],'base64'));
+ const width=Math.min(128,png.width),height=Math.min(128,png.height),data=Buffer.alloc(width*height*4);
+ // Area resampling preserves detail; flatten transparency on a neutral surface.
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+  const sum=[0,0,0];let count=0;
+  for(let sy=Math.floor(y*png.height/height);sy<Math.ceil((y+1)*png.height/height);sy++)for(let sx=Math.floor(x*png.width/width);sx<Math.ceil((x+1)*png.width/width);sx++){
+   const i=(sy*png.width+sx)*4,a=png.data[i+3]/255;for(let c=0;c<3;c++)sum[c]+=png.data[i+c]*a+255*(1-a);count++;
+  }
+  const out=(y*width+x)*4;for(let c=0;c<3;c++)data[out+c]=Math.round(sum[c]/count);data[out+3]=255;
+ }
+ for(let quality=82;quality>=22;quality-=12){const encoded=require('jpeg-js').encode({width,height,data},quality).data;if(encoded.length<=12000)return 'data:image/jpeg;base64,'+encoded.toString('base64');}
+ return '';
+}
+function SaveProfile(p,body){
+ if(!['nickname','bio','pronouns','gender','handle','avatar','links','banners','gridOrder','aiProfile','accountType','showVerification'].some(key=>Object.hasOwn(body,key)))s.Fail('INPUT_INVALID');
+ const revision=Math.max(p.profileRevision||0,p.avatarRevision||0)+1,now=Date.now();
+ // Validate the complete edit before changing a name or consuming an entitlement.
+ const nickname=body.nickname===undefined?p.nickname:s.Text(body.nickname,24,true),bio=body.bio===undefined?p.bio:s.Text(body.bio,160);
+ const details=require('./profile-details').Fields(p,body);
+ const pronouns=body.pronouns===undefined?p.pronouns:s.Text(body.pronouns,40);
+ const gender=body.gender===undefined?p.gender:body.gender;
+ if(body.gender!==undefined&&!['MALE','FEMALE','UNDISCLOSED'].includes(gender))s.Fail('INPUT_INVALID');
+ let handle;
+ if(body.handle!==undefined){
+  handle=s.NormalizeHandle(body.handle);
+  if(handle!==s.Handle(p)){if(p.handleChangedAt)s.Fail('HANDLE_LOCKED');if(s.Resolve(handle))s.Fail('HANDLE_TAKEN');}
+ }
+ let avatar,avatarThumb;
+ if(body.avatar!==undefined){avatar=Avatar(body.avatar);avatarThumb=AvatarThumb(avatar);}
+ if(nickname!==p.nickname){
+  if(p.nicknameChangedAt&&now<p.nicknameChangedAt+30*86400000)require('./customization').Consume(p,'nicknameTickets','NICKNAME_TICKET',nickname);
+  p.nickname=nickname;p.nicknameChangedAt=now;
+ }
+ if(handle!==undefined&&handle!==s.Handle(p)){p.handle=handle;p.handleChangedAt=now;}
+ Object.assign(p,details);p.bio=bio;if(body.bio!==undefined)p.bioMentions=require('./mentions').Capture(p,bio);if(pronouns!==undefined)p.pronouns=pronouns;if(gender!==undefined)p.gender=gender;
+ if(body.avatar!==undefined){p.avatar=avatar;p.avatarThumb=avatarThumb;p.avatarRevision++;}
+ p.profileRevision=revision;return {profile:s.PublicProfile(p,true),publicProfile:s.PublicProfile(p,false,p)};
+}
+function Author(id,viewer){const p=s.ProfileById(id);return p?s.PublicProfile(p,false,viewer):{id,nickname:'탈퇴 회원',avatar:''};}
+function NewsCategory(value){return value==='UPDATE'?'NOTICE':value;}
+function NewsRows(p,body={}){return Object.values(s.DB().news).filter(x=>!x.deleted&&x.published&&(!x.publishAt||x.publishAt<=Date.now())&&(!x.audience||x.audience===p.id)&&(!body.category||NewsCategory(x.category)===body.category)).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.at-a.at);}
+function NewsUnread(p,x){return (p.readNews?.[x.id]||((p.readNewsAt||0)>=x.at?(x.revision||1):0))<(x.revision||1);}
+function UnreadNewsCount(p){return NewsRows(p).filter(x=>NewsUnread(p,x)).length;}
+function PublicNews(row,summary=false){
+ // News is a text publication, independent of the game catalogue. Keep retired
+ // media in storage for recovery, but do not send it to old or current clients.
+ const keys=['id','title','category','published','pinned','audience','deleted','revision','at','publishAt','updatedAt','updatedBy'];
+ if(!summary)keys.push('body');
+ const result=Object.fromEntries(keys.filter(key=>row[key]!==undefined).map(key=>[key,key==='category'?NewsCategory(row[key]):row[key]]));
+ // A compact list still needs a real preview. Normalize line breaks and bound
+ // Unicode code points without exposing the complete body or retired metadata.
+ if(summary)result.summary=[...String(row.body||'').replace(/\s+/gu,' ').trim()].slice(0,140).join('');
+ return result;
+}
+function News(p,body={}){
+ const page=s.Page(NewsRows(p,body),body);
+ return {...page,items:page.items.map(x=>({...PublicNews(x,!!body.summary),views:s.ViewCount('news',x.id),unread:NewsUnread(p,x)}))};
+}
+function Article(p,body){
+ const row=s.DB().news[body.id];
+ if(!row||row.deleted||!row.published||(row.publishAt&&row.publishAt>Date.now())||(row.audience&&row.audience!==p.id))s.Fail('NEWS_NOT_FOUND');
+ const revision=row.revision||1;
+ if((p.readNews?.[row.id]||0)<revision)s.Atomic(()=>{p.readNews={...(p.readNews||{}),[row.id]:revision};});
+ require('./views').Article(p,row);return {article:{...PublicNews(row),views:s.ViewCount('news',row.id),unread:false}};
+}
+function EditPost(p,body){
+ const post=extra.Post(p,body.id),oldQuote=post.quotePostId;if(post.accountId!==p.id)s.Fail('NOT_OWNER');
+ if(body.revision!==(post.revision||0))s.Fail('CONTENT_CHANGED');
+ post.title=s.Text(body.title===undefined?post.title:body.title,90);post.poll=extra.PollInput(body.poll,post.poll,post.id);Object.assign(post,require('./gifMedia').Fields(body,post));post.body=s.Text(body.body,2000);delete post.bodyFormats;Object.assign(post,require('./reposts').Fields(p,body,post));Object.assign(post,require('./media').PostFields(body.image,post));post.imagePosition=require('./media').PostPosition(body.imagePosition,post);if(!post.title&&!post.body&&!post.image&&!post.gifId&&!post.poll&&!post.quotePostId)s.Fail('INPUT_INVALID');post.mentions=require('./mentions').CaptureContent(p,post);post.taggedMemberIds=require('./profile-activity').Tags(p,body,post,post.taggedMemberIds);post.updatedAt=Date.now();post.revision=(post.revision||0)+1;
+ return {post:PublicPost(post,p,false,body._wire==='zlib'),quoteSource:require('./reposts').Delta(post,p,body._wire==='zlib'),quoteSources:oldQuote&&oldQuote!==post.quotePostId?[require('./reposts').Delta({quotePostId:oldQuote},p,body._wire==='zlib')].filter(Boolean):[]};
+}
+function NewsAudience(value){const text=s.Text(value,40);if(!text.startsWith('@'))return text;const member=s.Resolve(text);if(!member)s.Fail('MEMBER_NOT_FOUND');return member.id;}
+function SaveNews(body){const id=body.id||s.Id('NEWS');if(body.id&&!s.DB().news[id])s.Fail('NEWS_NOT_FOUND');const previous=s.DB().news[id];if(previous&&body.revision!==undefined&&body.revision!==(previous.revision||0))s.Fail('CONTENT_CHANGED');const requested=s.Text(body.category===undefined?previous?.category:body.category,20),category=previous?.category==='UPDATE'?NewsCategory(requested):requested;if(!['NOTICE','ALERT','EVENT'].includes(category))s.Fail('CATEGORY_INVALID');const row={...previous,id,deleted:previous?.deleted||false,revision:(previous?.revision||0)+1,title:s.Text(body.title,90,true),body:s.Text(body.body,5000,true),category,published:body.published===true,pinned:body.pinned===true,audience:NewsAudience(body.audience),at:Date.now(),publishAt:0};return s.Atomic(()=>{s.DB().news[id]=row;return PublicNews(row);});}
+function VisiblePost(id){const post=s.DB().posts[id];if(!post||post.deleted||post.hidden)s.Fail('POST_NOT_FOUND');return post;}
+function PublicPost(post,p,detail=false,sharp=false,compact=false,depth=0){const settings=require('./post-controls').Counts(post,p);const reactions=Object.values(s.DB().reactions).filter(x=>x.postId===post.id);return {...require('./post-controls').Public(post,p),id:post.id,...require('./profile-activity').PublicTags(post,p),mentionMembers:require('./mentions').Members(post,p),title:post.title||'',body:post.body,quotePostId:post.quotePostId||'',quote:compact?undefined:require('./reposts').Public(post,p,sharp,depth),poll:extra.Poll(post,p),gif:compact?undefined:require('./gifMedia').Public(post,false,sharp),bookmarked:extra.Bookmarked(p,'post',post.id),...extra.RepostInfo(post,p),imagePosition:post.imagePosition==='before'?'before':'after',image:compact?undefined:detail?(post.image||''):(sharp?require('./media').FeedImage(post):require('./media').LegacyFeedImage(post)),at:post.at,updatedAt:post.updatedAt||post.at,revision:post.revision||0,views:s.ViewCount('post',post.id),author:compact?undefined:Author(post.accountId,p),own:post.accountId===p.id,following:require('./follows').IsFollowing(p.id,post.accountId),likes:settings.hideLikeCounts?null:reactions.filter(x=>x.value===1).length,myReaction:reactions.find(x=>x.accountId===p.id)?.value===1?1:0,comments:Object.values(s.DB().comments).filter(x=>x.postId===post.id&&!x.deleted&&!x.hidden&&!extra.Blocked(p.id,x.accountId)&&!s.ProfileById(x.accountId)?.blocked&&require('./activity-settings').CommentVisible(p,x)).length};}
+function FeedRows(p,body){
+ const latest=new Map();for(const row of Object.values(s.DB().reposts))if(!extra.Blocked(p.id,row.accountId)&&!s.ProfileById(row.accountId)?.blocked)latest.set(row.postId,Math.max(latest.get(row.postId)||0,row.at));
+ const rows=Object.values(s.DB().posts).filter(x=>!x.archived&&extra.Visible(x,p)&&require('./activity-settings').FeedVisible(p,x)&&(!body.mine||x.accountId===p.id)&&(!body.following||require('./follows').IsFollowing(p.id,x.accountId)));
+ if(body.sort&& !['latest','popular'].includes(body.sort))s.Fail('INPUT_INVALID');
+ const score=new Map();
+ if(body.sort==='popular'){
+  const visibleIds=new Set(rows.map(x=>x.id)),add=(id,value)=>{if(visibleIds.has(id))score.set(id,(score.get(id)||0)+value);};
+  const active=id=>!extra.Blocked(p.id,id)&&!s.ProfileById(id)?.blocked;
+  for(const x of Object.values(s.DB().reactions))if(x.value===1&&active(x.accountId))add(x.postId,3);
+  for(const x of Object.values(s.DB().comments))if(!x.deleted&&!x.hidden&&active(x.accountId))add(x.postId,2);
+  for(const x of rows)if(x.quotePostId)add(x.quotePostId,3);
+ }
+ rows.sort((a,b)=>(body.sort==='popular'?(score.get(b.id)||0)-(score.get(a.id)||0):0)||Math.max(b.at,latest.get(b.id)||0)-Math.max(a.at,latest.get(a.id)||0)||b.id.localeCompare(a.id));
+ return rows;
+}
+function Feed(p,body){
+ const page=s.Page(FeedRows(p,body),body,8);return {...page,items:page.items.map(x=>PublicPost(x,p,false,body._wire==='zlib'))};
+}
+function Popular(p,body={}){
+ // A fixed ranked collection, independent of ordinary feed filters/pagination.
+ // Preserve the same viewer visibility and popularity rules as the feed.
+ const rows=FeedRows(p,{sort:'popular'}).slice(0,10);
+ return {items:rows.map(x=>PublicPost(x,p,false,body._wire==='zlib')),total:rows.length,offset:0,limit:10,nextOffset:null};
+}
+function ThreadRows(p,post){
+ const visible=Object.values(s.DB().comments).filter(x=>x.postId===post.id&&!x.deleted&&!x.hidden&&!extra.Blocked(p.id,x.accountId)&&!s.ProfileById(x.accountId)?.blocked&&require('./activity-settings').CommentVisible(p,x));
+ // Group by the original parent before paging: late replies stay beside their conversation.
+ const rootId=x=>x.parentId||x.id,rootTime=x=>s.DB().comments[rootId(x)]?.at||x.at;
+ visible.sort((a,b)=>rootTime(a)-rootTime(b)||rootId(a).localeCompare(rootId(b))||Number(!!a.parentId)-Number(!!b.parentId)||a.at-b.at||a.id.localeCompare(b.id));
+ return visible;
+}
+function Thread(p,body){
+ const post=extra.Post(p,body.postId);
+ const comments=s.Page(ThreadRows(p,post),body,12),replyCounts=require('./commentThreads').Counts(post.id,p);
+ // Old clients identify a view by opening thread; current clients suppress background reads explicitly.
+ if(body.countView!==false)require('./views').OpenPost(p,post);
+ return {post:PublicPost(post,p,true,body._wire==='zlib'),comments:{...comments,items:comments.items.map(x=>extra.PublicComment(x,p,replyCounts))}};
+}
+function Rate(p,kind,ms){const at=Date.now(),key='last_'+kind;if(at-(p[key]||0)<ms)s.Fail('PLEASE_WAIT');p[key]=at;}
+function Post(p,body){Rate(p,'post',10000);const id=s.Id('POST'),post={id,accountId:p.id,audience:body.audience===undefined?'PUBLIC':require('./post-controls').Audience(body.audience),title:s.Text(body.title,90),poll:extra.PollInput(body.poll),...require('./gifMedia').Fields(body),body:s.Text(body.body,2000),...require('./reposts').Fields(p,body),...require('./media').PostFields(body.image),imagePosition:require('./media').PostPosition(body.imagePosition),at:Date.now(),deleted:false,hidden:false};if(!post.title&&!post.body&&!post.image&&!post.gifId&&!post.poll&&!post.quotePostId)s.Fail('INPUT_INVALID');post.mentions=require('./mentions').CaptureContent(p,post);post.taggedMemberIds=require('./profile-activity').Tags(p,body,post);s.DB().posts[id]=post;return {post:PublicPost(post,p,false,body._wire==='zlib'),quoteSource:require('./reposts').Delta(post,p,body._wire==='zlib')};}
+function Comment(p,body){const post=extra.Post(p,body.postId);if(post.commentsDisabled||post.archived)s.Fail('COMMENTS_DISABLED');if(!require('./activity-settings').CanInteract(s.ProfileById(post.accountId),p,'comment',body.body))s.Fail('INTERACTION_UNAVAILABLE');Rate(p,'comment',1500);const parent=body.parentId?extra.Comment(p,body.parentId):null;if(parent&&parent.postId!==post.id)s.Fail('INPUT_INVALID');const id=s.Id('COM'),comment={id,postId:post.id,parentId:parent?(parent.parentId||parent.id):'',replyToId:parent?.id||'',replyTo:parent?.accountId||'',revision:0,accountId:p.id,body:s.Text(body.body,600,true),at:Date.now(),deleted:false,hidden:false};comment.mentions=require('./mentions').Capture(p,comment.body);s.DB().comments[id]=comment;return {post:PublicPost(post,p,false,false,true),comment:extra.PublicComment(comment,p),replyCounts:require('./commentThreads').Delta(comment,p),commentPage:require('./commentThreads').Page(p,post,body,id)};}
+function Remove(p,body,table){const item=s.DB()[table][body.id];if(!item||item.accountId!==p.id)s.Fail('NOT_OWNER');const alreadyDeleted=!!item.deleted;item.deleted=true;item.deletedByMember=true;item.body='';item.mentions=[];if(table==='posts'){delete item.bodyFormats;item.image='';item.imageFeed='';item.imageThumb='';item.gifMedia=null;item.gifId='';item.poll=null;}return {removed:true,alreadyDeleted,comments:table==='comments'?Object.values(s.DB().comments).filter(x=>x.postId===item.postId&&!x.deleted&&!x.hidden&&!extra.Blocked(p.id,x.accountId)&&!s.ProfileById(x.accountId)?.blocked&&require('./activity-settings').CommentVisible(p,x)).length:undefined,id:item.id,kind:table==='posts'?'post':'comment',replyCounts:table==='comments'?require('./commentThreads').Delta(item,p):[],quoteSource:table==='posts'?require('./reposts').Delta(item,p,false):null,postId:table==='posts'?item.id:item.postId};}
+function React(p,body){const post=extra.Post(p,body.postId);const value=Number(body.value);if(![0,1].includes(value))s.Fail('REACTION_INVALID');const key=p.id+':'+post.id;if(value===0)delete s.DB().reactions[key];else s.DB().reactions[key]={postId:post.id,accountId:p.id,value};return {post:PublicPost(post,p,false,body._wire==='zlib',body._delta===true)};}
+function Report(p,body){return extra.Report(p,body);}
+module.exports={NewsRows,PublicNews,UnreadNewsCount,FeedRows,ThreadRows,AvatarThumb,Article,EditPost,Avatar,SaveProfile,News,SaveNews,Feed,Popular,Thread,Post,Comment,Remove,React,Report,PublicPost,Author};
