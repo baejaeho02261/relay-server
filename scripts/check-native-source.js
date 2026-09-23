@@ -43,7 +43,7 @@ assert.match(flow,/finally FHubRendering:=False;end;/);
 assert.match(motion,/if FClosing or FHubRendering/);
 assert.match(compose,/Draft\.AddPair\('imageChanged'/);assert.match(compose,/HubSaveComposeMedia;HubRenderComposeChange/);
 assert.match(compose,/for I:=0 to 1 do/);assert.doesNotMatch(compose,/for I:=0 to 3 do/);
-assert.match(compose,/제목을 작성하세요/);assert.match(compose,/이야기를 작성하세요/);
+assert.match(compose,/제목을 작성하세요/);assert.match(compose,/서로를 존중하는 글을 남겨주세요/);assert.doesNotMatch(compose,/투표 질문을 작성하세요/);
 assert.match(read('MoaPlayGifPicker.pas'),/ACTION_GET_CONTENT/);assert.match(read('MoaPlayGifPicker.pas'),/image\/gif/);
 assert.match(read('MoaPlayMemberGif.pas'),/FAnimated\.LoadFromStream\(Stream\)/);
 assert.doesNotMatch(social,/Row\('닫기'/);assert.doesNotMatch(read('MoaPlayApp.Member.MyPage.inc'),/fsUnderline/);
