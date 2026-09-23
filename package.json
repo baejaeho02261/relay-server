@@ -1,0 +1,58 @@
+{
+  "name": "moaplay-relay",
+  "version": "7.0.1",
+  "description": "Pure TCP Relay with signed QR approval, strong biometric proof, leased Build sessions, fixed device pairing, typed processors, SQLite storage and active/standby HA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node scripts/check-modules.js",
+    "test:roadmap14": "node scripts/test-roadmap11-14.js",
+    "test:roadmap18": "node scripts/test-roadmap15-18.js",
+    "test:roadmap23": "node scripts/test-roadmap19-23.js",
+    "test:qrauth": "node scripts/test-qr-auth.js",
+    "test:buildsessions": "node scripts/test-build-sessions.js",
+    "test:registry": "node scripts/test-device-registry-history.js",
+    "test:webapi": "node scripts/test-web-api-empty-state.js",
+    "test:production": "node scripts/test-production-hardening.js",
+    "loadtest": "node tools/load-simulator.js",
+    "test:installation": "node scripts/test-client-installation.js",
+    "test:support": "node scripts/test-support-center.js",
+    "check:ui": "node scripts/check-web-ui.js",
+    "ui:manifest": "node scripts/check-web-ui.js --write",
+    "test:uicache": "node scripts/test-web-ui-cache.js",
+    "test:authrecovery": "node scripts/test-auth-recovery.js",
+    "test:support-persistence": "node scripts/test-support-persistence.js",
+    "test:fix10": "node scripts/test-fix10-support-installation.js",
+    "test:permissions": "node scripts/test-client-permissions.js",
+    "test:webdom": "node scripts/test-web-dom.js",
+    "test": "node scripts/run-regressions.js",
+    "test:fix12": "node scripts/run-regressions.js --fix12",
+    "test:fix13": "node scripts/run-regressions.js --fix13",
+    "test:fix18": "node scripts/run-regressions.js --fix18",
+    "test:fix19": "node scripts/run-regressions.js --fix19",
+    "test:fix20": "node scripts/run-regressions.js --fix20",
+    "test:fix21": "node scripts/run-regressions.js --fix21",
+    "test:fix22": "node scripts/run-regressions.js --fix22",
+    "test:fix25": "node scripts/run-regressions.js",
+    "test:fix23": "node scripts/run-regressions.js --fix23",
+    "test:fix24": "node scripts/run-regressions.js",
+    "test:feed": "node scripts/test-feed-gallery.js",
+    "check:native": "node scripts/check-native-source.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "jpeg-js": "^0.4.4",
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0",
+    "qrcode": "^1.5.4",
+    "web-push": "^3.6.7"
+  },
+  "optionalDependencies": {
+    "geoip-lite": "^1.4.10"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}
