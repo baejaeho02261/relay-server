@@ -1,0 +1,58 @@
+'use strict';
+// Verify the actual palette and source coverage. This is not FMX/device rendering.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+function Check(apk=path.resolve(__dirname,'../../MoaPlayApp_Android64')){
+ const read=n=>fs.readFileSync(path.join(apk,n),'utf8');
+ const theme=read('MoaPlayMemberTheme.pas').split(/\bimplementation\b/i)[1];
+ function color(name,dark){
+  const body=new RegExp('function '+name+':TAlphaColor;\\s*begin ([^\\n]+)end;','i').exec(theme)?.[1];
+  assert.ok(body,'Missing palette role '+name);
+  const pair=/if DarkValue then Result:=\$([\da-f]{8}) else Result:=\$([\da-f]{8});/i.exec(body);
+  if(pair)return parseInt(pair[dark?1:2],16);
+  const alias=/Result:=(Member\w+);/.exec(body);if(alias)return color(alias[1],dark);
+  const literal=/Result:=\$([\da-f]{8});/i.exec(body);assert.ok(literal,'Unsupported palette expression '+name);
+  return parseInt(literal[1],16);
+ }
+ const rgb=c=>[16,8,0].map(s=>(c>>>s)&255);
+ const luma=c=>rgb(c).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;}).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
+ const contrast=(a,b)=>(Math.max(luma(a),luma(b))+.05)/(Math.min(luma(a),luma(b))+.05);
+ const blend=(fg,bg)=>{const alpha=(fg>>>24)/255;return rgb(fg).map((v,i)=>Math.round(v*alpha+rgb(bg)[i]*(1-alpha))).reduce((r,v)=>r*256+v,0);};
+ for(const dark of [false,true]){
+  for(const surface of ['MemberBackground','MemberSurface','MemberSoft'])
+   for(const text of ['MemberText','MemberMuted','MemberLink'])
+    assert.ok(contrast(color(text,dark),color(surface,dark))>=4.5,`${dark?'dark':'light'} ${text} on ${surface}`);
+  assert.ok(contrast(color('MemberPrimary',dark),color('MemberOnPrimary',dark))>=4.5,'Primary labels/icons (WCAG normal text on the FIX64 blue action)');
+  for(const role of ['MemberSuccessOnPrimary','MemberErrorOnPrimary'])
+   assert.ok(contrast(color(role,dark),color('MemberPrimary',dark))>=4.5,role);
+  assert.ok(contrast(color('MemberText',dark),blend(color('MemberSelection',dark),color('MemberSoft',dark)))>=4.5,'Selected input text');
+  // Category badges share one foreground, but every category has a paired fill.
+  const category=theme.split('function MemberCategoryColor')[1].split('function MemberTextColor')[0];
+  for(const m of category.matchAll(/if MemberDark then (?:Exit\(|Result:=)\$([\da-f]{8})\)?;? else (?:Exit\(|Result:=)\$([\da-f]{8})/gi))
+   assert.ok(contrast(color('MemberText',dark),parseInt(m[dark?1:2],16))>=4.5,'Category badge text');
+ }
+ const files=fs.readdirSync(apk).filter(n=>/^MoaPlayApp.*\.(inc|pas)$/.test(n));
+ for(const name of files){
+  const code=read(name);
+  assert.doesNotMatch(code,/COLOR_(?:QR_BG|QR_TEXT|USER_BG)|SetAndroidBarsDark\(False\)/,name+' bypasses theme');
+  for(const line of code.split(/\r?\n/))
+   if(/(?:Fill\.Color|FontColor|UiLabel\(|UiRect\(|HubLabel\()/.test(line))
+    assert.doesNotMatch(line,/\$[\da-f]{8}|TAlphaColorRec\./i,name+' fixed UI color');
+ }
+ assert.match(read('MoaPlayMemberSvg.pas'),/MemberOnPrimary/);assert.match(read('MoaPlaySmoothGlyphs.pas'),/MemberText/);
+ assert.match(read('MoaPlayMemberMemo.pas'),/inherited GetStyleObject/);assert.match(read('MoaPlayMemberMemo.pas'),/MemberSelection/);
+ assert.doesNotMatch(read('MoaPlayApp.Theme.inc'),/for \w+ in \w+\.Children\b/,'No unsafe recursive style enumeration');
+ assert.match(read('AndroidManifest.full.xml'),/configChanges="[^"]*\buiMode\b/,'Theme changes must not recreate the authenticated activity');
+ assert.doesNotMatch(read('MoaPlaySystemBars.pas'),/\.setNightMode\(/,'Use app-local mode only');
+ const night=read('AndroidResources/res/values-night/moaplay_colors.xml'),day=read('AndroidResources/res/values/moaplay_colors.xml');
+ // FIX52 starts in dark mode even before the FMX surface appears. The app's
+ // saved in-app choice is restored after startup; both native launch variants
+ // must therefore share a dark background and light system-bar icons.
+ for(const launch of [night,day]){assert.match(launch,/moaplay_background">#0C0F14/);assert.match(launch,/moaplay_foreground">#F5F5F5/);assert.match(launch,/moaplay_light_bars">false/);}
+ assert.match(read('MoaPlayMemberTheme.pas'),/initialization\s+DarkValue:=True;/);
+ for(const n of ['values/moaplay_launch_theme.xml','values-v31/moaplay_launch_theme.xml','drawable/moaplay_splash.xml','drawable/moaplay_launch_icon.xml'])
+  assert.doesNotMatch(read('AndroidResources/res/'+n),/#[\da-f]{6}/i,'Launch color must follow day/night resource: '+n);
+ for(const n of ['values','values-v31'])assert.match(read('AndroidResources/res/'+n+'/moaplay_launch_theme.xml'),/forceDarkAllowed">false/,'Do not auto-invert a theme drawn by FMX');
+ return files.length;
+}
+if(require.main===module)console.log(`Native theme source check passed: ${Check()} form files, light/dark text contrast, primary icons and Android night resources (device rendering not run).`);
+module.exports={Check};
