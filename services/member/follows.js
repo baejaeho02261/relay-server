@@ -5,7 +5,9 @@ const SORTS=['default','newest','oldest'],CATEGORIES=['all','low_interaction','f
 function IsFollowing(viewer,target){return !!s.DB().follows[viewer+':'+target];}
 function Counts(id){
  let followers=0,following=0;
- for(const row of Object.values(s.DB().follows)){
+ const index=require('./readScope');
+ const rows=index.Active()?new globalThis.Set([...index.By('follows','follower',id),...index.By('follows','following',id)]):Object.values(s.DB().follows);
+ for(const row of rows){
   if(row.follower!==id&&row.following!==id)continue;
   const from=s.ProfileById(row.follower),to=s.ProfileById(row.following);
   if(!from||!to||from.blocked||to.blocked||require('./socialActions').Blocked(from.id,to.id))continue;

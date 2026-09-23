@@ -43,13 +43,13 @@ function Execute(c,requestId,action,body={}){
  if(action==='dm')return require('./direct-messages').List(p,body);
  if(action==='dmthread')return require('./direct-messages').Thread(p,body);
  const read={home:()=>require('./home').Read(p),archives:()=>require('./post-controls').Archives(p,body),'post.insights':()=>require('./post-controls').Insights(p,body),'post.recipients':()=>require('./post-controls').Recipients(p,body),'profile.details':()=>require('./profile-details').Read(p,body),people:()=>require('./people').Read(p,body),'activity.settings':()=>require('./activity-settings').Read(p),'account.list':()=>require('./activity-settings').List(p,body),withdraw:()=>require('./withdrawals').Read(p,body),topgames:()=>require('./topGames').Read(p,body),notifications:()=>require('./notifications').Read(p,body),history:()=>require('./history').Read(p),casino:()=>require('./casino').Read(p,body),shop:()=>require('./customization').Read(p),badges:()=>require('./badges').Read(p,body),arcade:()=>require('./arcade').Read(p,body),popular:()=>social.Popular(p,body),rewards:()=>require('./rewards').Read(p,body),activity:()=>require('./activity').Purchases(p,body),mycomments:()=>require('./activity').Comments(p,body),policies:()=>require('./documents').Read(body),preferences:()=>({preferences:require('./preferences').Read(p),profile:s.PublicProfile(p,true)}),live:()=>require('./live').Read(p,body),gif:()=>{const post=require('./socialActions').Post(p,body.id);return {photo:{id:post.id,gif:require('./gifMedia').Public(post,true)}};},photo:()=>{const post=require('./socialActions').Post(p,body.id);return {photo:{id:post.id,image:post.image||''}};},gifs:()=>require('./gifs').List(),bookmarks:()=>require('./socialActions').Bookmarks(p,body),blocks:()=>require('./socialActions').Blocks(p,body),member:()=>require('./profiles').Read(p,body),follows:()=>require('./follows').List(p,body),charge:()=>require('./charges').Read(p),product:()=>commerce.Product(body,p),article:()=>social.Article(p,body),menu:()=>require('./menu').Read(p),news:()=>social.News(p,body),catalog:()=>({...commerce.Catalog(body,p),profile:s.PublicProfile(p,true)}),me:()=>commerce.Mine(p,body),feed:()=>social.Feed(p,body),thread:()=>social.Thread(p,body)};
- if(read[action]){
+ if(read[action])return require('./readScope').Run(()=>{
   // Validate visibility (and explicit detail opens) before accepting a cached revision.
   const beforePoints=p.points||0;let data=read[action]();badges.AfterRead(p,action,body,data);data=CurrentWallet(p,data,body,(p.points||0)!==beforePoints);
   if(action==='live')return {...data,memberProtocol:35};
   if(!body._ifNoneMatch&&['feed','popular','thread','bookmarks'].includes(action)&&body._since===s.DB().revision)return {unchanged:true,revision:s.DB().revision,memberProtocol:35};
   return require('./readResponse').Pack(data,s.PublicProfile(p,false,p),s.DB().revision,body);
- }
+ });
  const mutations={
   'post.settings':()=>require('./post-controls').Settings(p,body),
   'post.share':()=>require('./post-controls').Share(p,body),

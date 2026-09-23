@@ -143,7 +143,7 @@ function PurchasePayments(p){
    return {...x,title:x.title||(owned?order.title:'게임 이용권'),days,displayExpiresAt:x.displayExpiresAt||(owned?DisplayExpiresAt(original):x.at+days*DAY),orderId:owned?order.id:'',refunded:owned&&order.status==='REFUNDED'};
   });
 }
-function OwnPostRows(p){return Object.values(s.DB().posts).filter(x=>x.accountId===p.id&&!x.deleted&&!x.hidden&&!x.archived).sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));}
+function OwnPostRows(p){return require('./readScope').By('posts','accountId',p.id).filter(x=>!x.deleted&&!x.hidden&&!x.archived).sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));}
 function Mine(p,body){
  const orders=OwnOrders(p),db=s.DB(),content=require('./profile-activity').Read(p,p,body);
  return {profile:s.PublicProfile(p,true),...content,activeGame:ActiveGame(p),activeGames:ActiveGames(p),orders:s.Page(orders,body,20),payments:s.Page(body.purchasesOnly===true?PurchasePayments(p):Object.values(db.ledger).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at),body,20)};

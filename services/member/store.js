@@ -34,7 +34,7 @@ function NormalizeHandle(value){const v=String(value||'').trim().replace(/^@/,''
 function Resolve(value){if(typeof value!=='string')return;return ProfileById(value)||Object.values(DB().profiles).find(p=>[Handle(p),DefaultHandle(p)].includes(value.trim().replace(/^@/,'').toLowerCase()));}
 function PublicAvatar(p){if(!p.avatar)return '';if(p.avatarThumb&&p.avatarThumb.length<=16100)return p.avatarThumb;try{return require('./social').AvatarThumb(p.avatar);}catch(_){return '';}}
 function PublicProfile(p,own=false,viewer=own?p:null){
- const metrics={posts:Object.values(DB().posts).filter(x=>x.accountId===p.id&&!x.deleted&&!x.hidden&&!x.archived).length,...require('./follows').Counts(p.id)};
+ const metrics={posts:require('./readScope').By('posts','accountId',p.id).filter(x=>!x.deleted&&!x.hidden&&!x.archived).length,...require('./follows').Counts(p.id)};
  return {...require('./profile-details').Public(p,own),id:p.id,handle:Handle(p),nickname:p.nickname,nicknameColor:p.nicknameColor||'',titleBadge:require('./badges').Public(p,metrics),bio:p.bio,...(viewer?{mentionMembers:require('./mentions').Members(p,viewer,'profile')}:{}),pronouns:p.pronouns||'',avatar:own?p.avatar:PublicAvatar(p),avatarRevision:p.avatarRevision,profileRevision:p.profileRevision||p.avatarRevision||0,...metrics,...(own?{balance:p.balance,points:p.points||0,eventSpins:p.eventSpins||0,inventory:require('./customization').Inventory(p),createdAt:p.createdAt,handleEditable:!p.handleChangedAt,nicknameChangeAt:p.nicknameChangedAt?p.nicknameChangedAt+30*86400000:0,gender:p.gender||'UNDISCLOSED',preferences:require('./preferences').Read(p)}: {})};
 }
 function ViewCount(kind,id){return DB().viewCounters?.[kind+':'+id]?.count||0;}
@@ -51,9 +51,13 @@ function ProfileById(id){
 }
 function Page(rows,body={},max=12){const offset=Math.max(0,Math.min(100000,Number(body.offset)||0));const limit=Math.max(1,Math.min(max,Number(body.limit)||max));return {items:rows.slice(offset,offset+limit),total:rows.length,nextOffset:offset+limit<rows.length?offset+limit:null};}
 function Atomic(fn,extras=[]){
+ // A read may explicitly open content and commit a view or badge. Drop its
+ // local indexes before and after a transaction, including rollback.
+ require('./readScope').Reset();
  const previous=structuredClone(DB());const saved=extras.map(name=>[name,structuredClone(state[name])]);
- try{const result=fn();DB().revision++;if(!require('../../storage/database').SaveDatabase())Fail('STORAGE_SAVE_FAILED');return result;}
+ try{const result=require('./readScope').Write(fn);DB().revision++;if(!require('../../storage/database').SaveDatabase())Fail('STORAGE_SAVE_FAILED');return result;}
  catch(e){state.memberHub=previous;for(const [name,value]of saved){if(state[name]instanceof Map){state[name].clear();for(const [k,v]of value)state[name].set(k,v);}else state[name]=value;}throw e;}
+ finally{require('./readScope').Reset();}
 }
 function Operation(account,requestId,action,body,fn,extras=[]){
  if(!/^[A-Za-z0-9_-]{8,80}$/.test(requestId))Fail('REQUEST_ID_INVALID');

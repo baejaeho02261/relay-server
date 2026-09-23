@@ -11,7 +11,7 @@ function SmallPhoto(row){
 }
 function Read(p){
  const db=s.DB(),commerce=require('./commerce'),rewards=require('./rewards'),history=require('./history'),prefs=require('./preferences');
- const visibleNews=social.NewsRows(p),visiblePosts=social.FeedRows(p,{sort:'latest'});
+ const visibleNews=social.NewsRows(p),visiblePosts=social.FeedRows(p,{sort:'popular'});
  const products=Object.values(db.products).filter(x=>x.published&&!x.deleted).sort((a,b)=>(a.sort||0)-(b.sort||0)||(b.updatedAt||0)-(a.updatedAt||0));
  // Do not call Mine/OwnOrders: those functions intentionally merge legacy
  // passes. A dashboard refresh is not an authorization to modify entitlements.
@@ -34,7 +34,7 @@ function Read(p){
   orders:orders.slice(0,LIMIT).map(row=>{const item=commerce.PublicOrder(row);return {id:item.id,title:short(item.title,70),days:item.days,status:item.status,at:item.at,displayExpiresAt:item.displayExpiresAt};}),
   payments:payments.slice(0,LIMIT).map(row=>({id:row.id,title:short(row.title,70),days:row.days,amount:row.amount,at:row.at,displayExpiresAt:row.displayExpiresAt,refunded:row.refunded})),
   pointHistory:points.slice(0,LIMIT).map(row=>({id:row.id,kind:row.kind,amount:row.amount,at:row.at})),
-  feed:visiblePosts.slice(0,2).map(row=>({id:row.id,title:short(row.title||row.body||'사진 · 투표 게시글',90),summary:short(row.title?row.body:'',120),at:row.at,authorName:short(s.ProfileById(row.accountId)?.nickname||'회원',24)})),
+  feed:visiblePosts.slice(0,10).map((row,index)=>({rank:index+1,id:row.id,title:short(row.title||row.body||'사진 · 투표 게시글',90),summary:short(row.title?row.body:'',120),at:row.at,authorName:short(s.ProfileById(row.accountId)?.nickname||'회원',24)})),
   recentProducts,recentServices,
   purchases:purchases.slice(0,LIMIT).map(row=>({title:short(row.title||db.products[row.productId]?.title,70),memberName:short(s.ProfileById(row.accountId)?.nickname,24),at:row.at,productId:row.productId})),
   topGames:require('./topGames').RankedPurchases().slice(0,LIMIT).map((row,index)=>({id:row.id,title:short(row.title,70),rank:index+1,imageThumb:SmallPhoto(db.products[row.id])})),
