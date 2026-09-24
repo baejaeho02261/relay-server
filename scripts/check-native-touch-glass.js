@@ -100,8 +100,6 @@ function Check(apk = path.resolve(__dirname, '../../MoaPlayApp_Android64')) {
     assert.match(caption, /State:=2;/);
     assert.doesNotMatch(caption, /IsFocused|State:=1|SetFocus|ApplyStyleLookup/);
   }
-  const indicators = read('MoaPlayCasinoIndicators.pas');
-  assert.doesNotMatch(indicators, /FStats|FStatLines|bestStreak|matched|'played'/);
   const feedback = read('MoaPlayUiFeedback.pas');
   assert.match(feedback, /Fill.Kind:=TBrushKind.Solid;FPanel.Fill.Color:=MemberFloatingFill/);
   assert.match(feedback, /FText.TextSettings.FontColor:=MemberFloatingInk/);

@@ -40,36 +40,16 @@ function Check(apk) {
  const dm = read('MoaPlayDirectMessages.pas');
  for (const name of ['TMoaPlayDirectMessages', 'TDirectMessageText'])
   assert.deepEqual(declarations.Check(ClassProjection(dm, name), name), [], name);
- for (const [file, name] of [['MoaPlaySkillGames.pas', 'TMoaPlaySkillGame'], ['MoaPlayPassWindow.pas', 'TMoaPlayPassWindow']])
+ for (const [file, name] of [['MoaPlayPassWindow.pas', 'TMoaPlayPassWindow']])
   assert.deepEqual(declarations.Check(read(file), name), [], file);
 
  const flow = read('MoaPlayApp.Member.Flow.inc');
  const reply = Routine(flow, 'TMoaPlayForm.HubReply');
  Before(reply, /\bHubDirectMessagesReply\s*\(/i, /\bMutation\s*:=/i,
   'Private replies must exit before generic page-mutation handling');
- Before(reply, /\bHubEventGameReply\s*\(/i, /\bMutation\s*:=/i,
-  'Game acknowledgements must reach the retained board before page handling');
- const render = Routine(flow, 'TMoaPlayForm.HubRenderNow');
- Before(render, /\bHubEventGamePause\s*;/i, /\bFreeAndNil\s*\(\s*FHubPage\s*\)/i,
-  'Detach and pause retained boards before destroying their former parent page');
-
- const events = read('MoaPlayApp.Member.EventGames.inc');
- const pause = Routine(events, 'TMoaPlayForm.HubEventGamePause');
- Before(pause, /\.SetActive\s*\(\s*False\s*,\s*False\s*\)/i, /\.Parent\s*:=\s*nil/i,
-  'Board timer must stop before detachment');
- assert.doesNotMatch(pause, /\bFreeAndNil\s*\(|\.Free\b/i, 'Same-page detachment retains the board instance');
- const eventRender = Routine(events, 'TMoaPlayForm.HubRenderEventGame');
- assert.match(eventRender, /\bBoard\s*:=\s*FHubEventBoards\s*\[/i, 'Reattach the per-game instance');
- assert.match(eventRender, /\bTMoaPlaySkillGame\.Create\s*\(\s*Self\s*\)/i, 'Boards must be form-owned');
- for (const name of ['HubNavigate', 'HubGoBack'])
-  assert.doesNotMatch(Routine(flow, 'TMoaPlayForm.' + name), /\bHubEventGameReset\b/i,
-   name + ' stops the run while retaining its reusable board instance');
- const eventRefresh = /if\s*\(Action\s*=\s*'rewards'\)[\s\S]*?FHubView\.StartsWith\('event\.'\)[\s\S]*?then\s+begin([\s\S]*?)\bend\s*;/i.exec(reply);
- assert.ok(eventRefresh, 'Mounted event metadata refresh branch');
- assert.match(eventRefresh[1], /\bExit\s*;/i, 'Mounted board refresh must finish in place');
- assert.doesNotMatch(eventRefresh[1], /\bHubRender(?:Now)?\b|\bFreeAndNil\s*\(/i,
-  'Event metadata must not rebuild an active board');
-
+ assert.doesNotMatch(reply, /\bHubEventGameReply\b/,'retired game callbacks are absent');
+ const wheel = read('MoaPlayApp.Member.Rewards.inc');
+ assert.match(Routine(wheel, 'TMoaPlayForm.HubWheelStop'), /CancelAnimation/,'retained reward wheel still stops on navigation/background');
  const timer = Routine(flow, 'TMoaPlayForm.HubRenderTimerTimer');
  Before(timer, /if\s+not\s+FHubPageChanged\s+and\s+FHubTouch\.Busy\s+then\s+Exit/i, /\bHubRenderNow\s*;/i,
   'Local renders must retain a held card until release');
@@ -88,10 +68,7 @@ function Check(apk) {
  const markRead = Routine(dm, 'TMoaPlayDirectMessages.RequestRead');
  assert.match(markRead, /\bFDirty\b[\s\S]*?then\s+Exit/i, 'Read receipts wait for rendered messages');
  assert.match(markRead, /\bFConfirm\.Visible\b[\s\S]*?then\s+Exit/i, 'Covered messages remain unread');
- const skill = read('MoaPlaySkillGames.pas');
- const destroy = Routine(skill, 'TMoaPlaySkillGame.Destroy');
- Before(destroy, /\bFTimer\.Enabled\s*:=\s*False/i, /\binherited\b/i, 'Game timer stops before teardown');
- assert.match(destroy, /\bFTimer\.OnTimer\s*:=\s*nil/i, 'Game timer callback detached at teardown');
+
 }
 module.exports = {Check};
 if (require.main === module) {

@@ -33,8 +33,29 @@ function Check(apk=path.resolve(__dirname,'../../MoaPlayApp_Android64')){
  const files=fs.readdirSync(apk).filter(n=>/^MoaPlayApp.*\.(inc|pas)$/.test(n));
  for(const name of files){
   const code=read(name);
+  let themedCode=code;
+  if(name==='MoaPlayApp.AuthSteps.inc'){
+   // These five exact brand statements have theme-independent brand colors.
+   // Do not exempt the file, a whole line, or arbitrary future button colors.
+   const brands=[
+    /FAuthKakaoButton\s*:=\s*UiRect\(Self,\s*FAuthSocialPanel,\s*\$FFFEE500,\s*12\);/,
+    /FAuthKakaoLabel\s*:=\s*UiLabel\(Self,\s*FAuthKakaoButton,\s*MemberCaption\('[^']*'\),\s*14,\s*\$FF191919,\s*TTextAlign.Center\);/,
+    /FAuthGoogleButton\s*:=\s*UiRect\(Self,\s*FAuthSocialPanel,\s*\$FFFFFFFF,\s*12\);/,
+    /FAuthGoogleLabel\s*:=\s*UiLabel\(Self,\s*FAuthGoogleButton,\s*MemberCaption\('[^']*'\),\s*14,\s*\$FF1F1F1F,\s*TTextAlign.Center\);/,
+    /FAuthGoogleButton.Stroke.Color\s*:=\s*\$FFDADCE0;/,
+   ];
+   for(const rule of brands){
+    assert.equal([...code.matchAll(new RegExp(rule.source,'g'))].length,1,'Expected one exact branded color statement: '+rule);
+    themedCode=themedCode.replace(rule,statement=>statement.replace(/\$[\da-f]{8}/gi,'BrandColor'));
+   }
+   assert.ok(contrast(0xFFFEE500,0xFF191919)>=7,'Kakao branded text contrast');
+   assert.ok(contrast(0xFFFFFFFF,0xFF1F1F1F)>=7,'Google branded text contrast');
+   const provider=code.slice(code.indexOf('procedure TMoaPlayForm.AuthProviderClick'));
+   assert.match(provider,/계정 연결은 준비 중/);
+   assert.doesNotMatch(provider,/FMember\.Request|MemberTestEnterClick|ShowFinalPage|(?:LicenseAuthenticated|BiometricAuthenticated|FMemberTestGranted)\s*:=/,'branding preview cannot grant access');
+  }
   assert.doesNotMatch(code,/COLOR_(?:QR_BG|QR_TEXT|USER_BG)|SetAndroidBarsDark\(False\)/,name+' bypasses theme');
-  for(const line of code.split(/\r?\n/))
+  for(const line of themedCode.split(/\r?\n/))
    if(/(?:Fill\.Color|FontColor|UiLabel\(|UiRect\(|HubLabel\()/.test(line))
     assert.doesNotMatch(line,/\$[\da-f]{8}|TAlphaColorRec\./i,name+' fixed UI color');
  }
@@ -47,7 +68,7 @@ function Check(apk=path.resolve(__dirname,'../../MoaPlayApp_Android64')){
  // FIX52 starts in dark mode even before the FMX surface appears. The app's
  // saved in-app choice is restored after startup; both native launch variants
  // must therefore share a dark background and light system-bar icons.
- for(const launch of [night,day]){assert.match(launch,/moaplay_background">#0C0F14/);assert.match(launch,/moaplay_foreground">#F5F5F5/);assert.match(launch,/moaplay_light_bars">false/);}
+ for(const launch of [night,day]){assert.match(launch,/moaplay_background">#000000/);assert.match(launch,/moaplay_foreground">#F5F5F5/);assert.match(launch,/moaplay_light_bars">false/);}
  assert.match(read('MoaPlayMemberTheme.pas'),/initialization\s+DarkValue:=True;/);
  for(const n of ['values/moaplay_launch_theme.xml','values-v31/moaplay_launch_theme.xml','drawable/moaplay_splash.xml','drawable/moaplay_launch_icon.xml'])
   assert.doesNotMatch(read('AndroidResources/res/'+n),/#[\da-f]{6}/i,'Launch color must follow day/night resource: '+n);
