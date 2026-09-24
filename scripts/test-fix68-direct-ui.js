@@ -73,7 +73,8 @@ assert.doesNotMatch(routine('TMoaPlayDirectMessages.Build'), /FThreadMore|thread
 const render = routine('TMoaPlayDirectMessages.RenderThread');
 assert.match(render, /CanOpen:=not DMBool\(Shared,'unavailable'\)/);
 assert.match(render, /SharedCard.Enabled:=CanOpen;SharedCard.HitTest:=CanOpen/);
-assert.match(render, /Image.WrapMode:=TImageWrapMode.Fit/);
+assert.match(render, /FOnPostCard\(SharedCard,Shared\)/, 'shared media uses the complete feed card renderer');
+assert.match(routine('TMoaPlayForm.HubDirectMessagesPostCard', bridge), /HubFillPostCard\(Card,Post,True,0,True\)/);
 assert.match(routine('TMoaPlayForm.HubDirectMessagesRoute', bridge), /'post.open' then begin HubNavigate\('comments','',ID\)/);
 for (const name of ['AndroidManifest.template.xml', 'AndroidManifest.full.xml']) {
   const manifest = fs.readFileSync(path.join(native, name), 'utf8');

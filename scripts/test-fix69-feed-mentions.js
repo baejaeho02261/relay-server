@@ -36,13 +36,13 @@ for(const Origin of [{X:16,Y:32},{X:12,Y:8},{X:0,Y:0},{X:44,Y:-350}])
    assert.equal(actual[0]+ink[0],Origin.X+TopLeft.X,'the overlay and base text have the same glyph origin');
    assert.equal(actual[1]+ink[1],Origin.Y+TopLeft.Y,'wrapped lines and scroll positions cannot displace glyphs');cases++;
   }
-// One compose card, a plain title placeholder, no duplicated question field,
+// Standalone title/body inputs, a plain title placeholder, no duplicated question field,
 // and an actual question supplied to the unchanged server poll contract.
 assert.match(compose,/C:=HubCard\(400\);C.Fill.Kind:=TBrushKind.None;C.Fill.Color:=MemberTransparent;C.XRadius:=12;C.YRadius:=12/);
-assert.match(compose,/C.Stroke.Kind:=TBrushKind.Solid;C.Stroke.Color:=MemberBorder/);
-assert.match(compose,/Box.Stroke.Kind:=TBrushKind.None;FHubComposeBody:=Box/);
+assert.match(compose,/C.Stroke.Kind:=TBrushKind.None;/);
+assert.match(compose,/Box.Stroke.Kind:=TBrushKind.Solid;Box.Stroke.Color:=MemberBorder;Box.Stroke.Thickness:=MemberPanelBorderWidth\(1\);FHubComposeBody:=Box/);
 assert.match(compose,/Result.FloatingLabel:=False;Result.FixedLabel:=False/);
-assert.match(compose,/FHubEdits\[0\]:=EditAt\(C,Title,'제목을 작성하세요',16,90\)/);
+assert.match(compose,/FHubEdits\[0\]:=EditAt\(C,Title,'제목을 작성하세요',48,90\)/);
 assert.doesNotMatch(compose,/FHubEdits\[1\]:=|투표 질문을 작성하세요|PromptText:=MemberCaption\('이야기를 작성하세요'\)/);
 assert.match(compose,/PromptText:=MemberCaption\('서로를 존중하는 글/);
 assert.match(compose,/Question:=Trim\(FHubMemo.Text\)/);assert.match(compose,/Question:=Trim\(FHubEdits\[0\].Text\)/);
@@ -58,13 +58,13 @@ assert.match(widgets,/function HubBodyHeight\(const Text:string; Width,FontSize:
 assert.match(widgets,/if Bold or \(FontSize>=17\) then Layout.Font.Style:=\[TFontStyle.fsBold\]/);
 assert.match(feed,/HubBodyHeight\(Title,C.Width-32,16,True\)/);
 assert.match(feed,/HubBodyHeight\(HubText\(Poll,'question'\),C.Width-32,14,True\)/);
-assert.match(feed,/AudienceIcon:='closefriends'/);assert.match(tools,/Choice\('친한 친구만','closefriends','CLOSE_FRIENDS'/);
+assert.doesNotMatch(feed,/AddMemberSvg\(C,C,AudienceIcon/);assert.match(tools,/Choice\('친한 친구만','closefriends','CLOSE_FRIENDS'/);
 assert.match(feed,/if HubBool\(Post,'own'\) then begin[\s\S]*AudienceText:=Text/);
-assert.match(feed,/AudienceText,C.Width-36-AudienceW,HeaderTop\+3,AudienceW-16,18/);
-assert.match(feed,/'post.menu','more\|post\|'.*C.Width-52,HeaderTop-10,44,44/);
+assert.match(feed,/AudienceText,C.Width-52-AudienceW,HeaderTop\+3,AudienceW,18/);
+assert.match(feed,/'post.menu','more\|post\|'.*C.Width-52,6,44,44/);
 for(const headerTop of [16,34]){
- const nicknameCenter=headerTop+3+18/2,audienceCenter=headerTop+3+18/2,menuCenter=headerTop-10+44/2;
- assert.equal(nicknameCenter,audienceCenter);assert.equal(nicknameCenter,menuCenter);cases++;
+ const nicknameCenter=headerTop+3+18/2,audienceCenter=headerTop+3+18/2,menuCenter=6+44/2;
+ assert.equal(nicknameCenter,audienceCenter);assert.equal(menuCenter,28);cases++;
 }
 for(const width of [280,320,360,412,480,600,1000]){
  const outer=width-40,body=outer-32,poll=body-24;
@@ -73,4 +73,4 @@ for(const width of [280,320,360,412,480,600,1000]){
 for(const name of ['MoaPlayApp.Member.Compose.inc','MoaPlayApp.Member.Feed.inc','MoaPlayApp.Member.PostTools.inc','MoaPlayMentionLinks.pas']){
  const bytes=fs.readFileSync(path.join(base,name));assert.equal(bytes.subarray(0,3).toString('hex'),'efbbbf');assert.doesNotMatch(bytes.toString('utf8'),/(?<!\r)\n/);
 }
-console.log(`FIX69 feed/mentions PASS: ${cases} glyph/geometry/UTF-16 cases, explicit color paint, sibling touch ownership, authorized links, single compose surface and poll contract. Delphi/device execution remains required.`);
+console.log(`FIX69 feed/mentions PASS: ${cases} glyph/geometry/UTF-16 cases, explicit color paint, sibling touch ownership, authorized links, standalone aligned inputs and poll contract. Delphi/device execution remains required.`);

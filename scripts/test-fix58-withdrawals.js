@@ -59,22 +59,13 @@ const request={amount:1500,bank:'테스트은행',account:'123-456-789012',holde
  before=JSON.stringify(s.DB());assert.throws(()=>s.Atomic(()=>s.Ledger(own(cap),1,'TOPUP','OVERFLOW')),/BALANCE_INVALID/);assert.equal(JSON.stringify(s.DB()),before);
  const random=crypto.randomInt;let draws=0;crypto.randomInt=()=>{draws++;throw Error('OUTCOME_DRAW_MUST_NOT_RUN');};
  try{
-  for(const [game,choice] of [['BACCARAT','PLAYER'],['ROULETTE','RED'],['SLOTS','SPIN']])assert.throws(()=>run(cap,'arcade.play',{game,choice,amount:100,rulesRevision:4}),/ARCADE_BALANCE_LIMIT/);
-  for(const body of [{game:'DICE',direction:'UNDER',threshold:50},{game:'PLINKO',risk:'LOW'},{game:'LIMBO',targetMultiplier:2}])assert.throws(()=>run(cap,'casino.play',{...body,amount:100,rulesRevision:1}),/ARCADE_BALANCE_LIMIT/);
-  for(const game of ['CRASH','MINES','HILO','TOWER','BLACKJACK'])assert.throws(()=>run(cap,'casino.start',{game,amount:100,rulesRevision:1,...(game==='MINES'?{mines:3}:{})}),/ARCADE_BALANCE_LIMIT/);
+  for(const [game,choice] of [['BACCARAT','PLAYER'],['ROULETTE','RED'],['SLOTS','SPIN']])assert.throws(()=>run(cap,'arcade.play',{game,choice,amount:100,rulesRevision:4}),/UNKNOWN_ACTION/);
+  for(const body of [{game:'DICE',direction:'UNDER',threshold:50},{game:'PLINKO',risk:'LOW'},{game:'LIMBO',targetMultiplier:2}])assert.throws(()=>run(cap,'casino.play',{...body,amount:100,rulesRevision:1}),/UNKNOWN_ACTION/);
+  for(const game of ['CRASH','MINES','HILO','TOWER','BLACKJACK'])assert.throws(()=>run(cap,'casino.start',{game,amount:100,rulesRevision:1,...(game==='MINES'?{mines:3}:{})}),/UNKNOWN_ACTION/);
  }finally{crypto.randomInt=random;}
- assert.equal(draws,0,'every game rejects an unpayable wager before sampling any outcome');assert.equal(JSON.stringify(s.DB()),before,'rejected stakes never change wallet, rounds or operations');
+ assert.equal(draws,0,'retired game requests never sample any outcome');assert.equal(JSON.stringify(s.DB()),before,'rejected stakes never change wallet, rounds or operations');
  admin('withdraw.reject',{id:held.id,reason:'한도 복원'});assert.equal(balance(cap),Number.MAX_SAFE_INTEGER,'a rejection can always restore its reserved amount');
- // An already open blackjack round also rechecks the reserved headroom
- // before hit/stand/double, rather than rejecting only drawn winning outcomes.
- const live=client(58005);run(live,'withdraw');s.Atomic(()=>s.Ledger(own(live),5000,'TOPUP','LIVE'));
- crypto.randomInt=()=>0;let blackjack;try{blackjack=run(live,'casino.start',{game:'BLACKJACK',amount:100,rulesRevision:1});}finally{crypto.randomInt=random;}
- assert.ok(blackjack.active);run(live,'withdraw.request',{...request,amount:2000},'WITHDRAW-LIVE');
- s.Atomic(()=>s.Ledger(own(live),Number.MAX_SAFE_INTEGER-s.ReservedBalance(own(live))-balance(live),'TOPUP','LIVE-CAP'));
- const liveView=run(live,'casino',{game:'BLACKJACK'});assert.equal(liveView.active.canHit,false);assert.equal(liveView.active.canStand,false);assert.equal(liveView.active.canDouble,false);
- before=JSON.stringify(s.DB());draws=0;crypto.randomInt=()=>{draws++;throw Error('OUTCOME_DRAW_MUST_NOT_RUN');};
- try{for(const action of ['HIT','STAND','DOUBLE'])assert.throws(()=>run(live,'casino.action',{game:'BLACKJACK',roundId:blackjack.active.id,action}),/ARCADE_BALANCE_LIMIT/);}finally{crypto.randomInt=random;}
- assert.equal(draws,0);assert.equal(JSON.stringify(s.DB()),before,'live decisions preserve the stake and deck without drawing');
+ // Pending-game refund headroom is covered by test-fix70-retirement-refunds.
  // Existing HTTP boundary rejects a non-admin before private account access.
  const route=require('../web/routes/memberRoutes');const res={writeHead(status){this.status=status;},end(value){this.body=value;},setHeader(){}};
  await route.Handle({method:'GET',pathname:'/api/member',url:new URL('http://localhost/api/member?view=withdrawals&id='+id),body:{},res,session:{role:'VIEWER'}});

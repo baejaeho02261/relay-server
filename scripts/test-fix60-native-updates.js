@@ -16,10 +16,8 @@ function gateCheck(motion,flow,loading){
  const timer=routine(flow,'TMoaPlayForm.HubRenderTimerTimer');
  assert.match(timer,/if not FHubPageChanged and FHubTouch\.Busy then Exit;/,'a live click sender stays alive until dispatch ends');
  assert.match(timer,/HubInputFocused[\s\S]*?then Exit;/,'background refresh cannot replace a live editor');
- const reply=routine(flow,'TMoaPlayForm.HubReply');
- assert.match(reply,/not FHubPageChanged and not FHubSkeleton and HubEventGameMounted then begin/,'only an actually mounted event board may skip page painting');
+ assert.doesNotMatch(flow,/HubEventGameMounted/,'retired boards cannot suppress page painting');
  const render=routine(flow,'TMoaPlayForm.HubRenderNow');
- assert.ok(render.indexOf("if FHubView.StartsWith('event.')")<render.indexOf('then HubRenderSkeleton'),'first event paints its shell before a server response');
  assert.ok(render.indexOf("FHubView.StartsWith('settings')")<render.indexOf('then HubRenderSkeleton'),'local settings are not hidden behind a server skeleton');
  assert.match(loading,/FHubSkeleton or \(FHubRefreshAction<>''\)/,'a cached page remains usable during background refresh');
  assert.doesNotMatch(loading,/FHubSkeleton or FHubVisualLoading/,'opening a populated event cannot show an indefinite dimmed veil');
@@ -65,8 +63,6 @@ function Check(){
  assert.match(routine(flow,'TMoaPlayForm.HubReply'),/finally[^\n]*HubUpdateCommentComposer/,'success and failure acknowledgements refresh send state immediately');
  assert.doesNotMatch(routine(dashboard,'TMoaPlayForm.HubCommentChanged'),/HubActionClick|HubCommentSendClick/,'typing and IME composition cannot submit');
  assert.match(dashboard,/FHubDirectMessages\.Back/);
- const unit=read('MoaPlaySkillGames.pas');
- assert.match(unit.split(/\bimplementation\b/i)[1],/uses[^;]*MoaPlayMemberOptions;/i,'MemberLanguage import regression');
  const imports=read('MoaPlayApp.pas');assert.match(imports,/MoaPlayAndroidUi/);
  assert.match(read('MoaPlayAndroidUi.pas'),/setRequestedOrientation\(1\)/);
  assert.match(read('MoaPlayApp.Lifecycle.Construction.inc'),/AndroidLockPortrait;/);
@@ -74,9 +70,8 @@ function Check(){
   assert.match(read(name),/<activity[\s\S]*?FMXNativeActivity[\s\S]*?android:screenOrientation="portrait"/);
  // Fault injection proves these guards catch the reported permanent stalls
  // and a too-short timer that would starve progressing multipart responses.
- assert.throws(()=>gateCheck(motion.replace('Result:=Assigned(FHubTouch) and FHubTouch.Busy;', 'Result:=FDashboardScroll.AniCalculations.Down;'),flow,loading));
- assert.throws(()=>gateCheck(motion,flow.replace('not FHubPageChanged and not FHubSkeleton and HubEventGameMounted then begin','not FHubPageChanged then begin'),loading));
+ assert.throws(()=>gateCheck(motion.replace('Assigned(FHubTouch) and FHubTouch.Busy', 'FDashboardScroll.AniCalculations.Down'),flow,loading));
  assert.throws(()=>progressCheck(client,flow.replace('FHubLoading and not FMember.ReadPending(HubReadAction)','FHubLoading and (TStopwatch.GetTimeStamp-FHubRequestedAt>TStopwatch.Frequency*6)'),live,currency));
 }
 module.exports={Check};
-if(require.main===module){Check();console.log('FIX60 native updates PASS: released-touch rendering, first event/settings shell, progress-aware read recovery, currency cancellation, shared keyboard/button comment actions and portrait source paths (Delphi/device not run).');}
+if(require.main===module){Check();console.log('FIX60 native updates PASS: released-touch rendering, settings shell, progress-aware read recovery, currency cancellation, shared keyboard/button comment actions and portrait source paths (Delphi/device not run).');}

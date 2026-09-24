@@ -14,7 +14,7 @@ const run=(c,action,body={},requestId='FIX52-REPOST-'+(++sequence))=>hub.Execute
 function SameReceipt(actual,expected,p,message){
  const {wallet:actualWallet,...actualReceipt}=actual,{wallet:expectedWallet,...expectedReceipt}=expected;
  assert.deepEqual(actualReceipt,expectedReceipt,message);
- if(expectedWallet)assert.deepEqual(actualWallet,require('../services/member/arcade').Wallet(s.ProfileById(p.id)),'only the authenticated wallet reflects the latest committed state');
+ if(expectedWallet)assert.deepEqual(actualWallet,require('../services/member/wallet').Read(s.ProfileById(p.id)),'only the authenticated wallet reflects the latest committed state');
  else assert.equal(actualWallet,undefined);
 }
 try{

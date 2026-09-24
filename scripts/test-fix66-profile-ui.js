@@ -17,7 +17,7 @@ function align(source){
   assert.ok(calc(number[4],{W})>0&&calc(caption[4],{W})>0,'both text boxes remain measurable');
   assert.ok(Number(number[3])+Number(number[5])<=Number(caption[3]),'number and caption cannot overlap vertically');
   // Nickname, number and caption start on the exact same first-stat axis.
-  const nickname=profile.match(/nickname[^\n]+\),(StatX\+\d+),(\d+),(Max\(1,W-\d+\)),(\d+),(\d+),HubNicknameColor/);assert.ok(nickname);
+  const nickname=profile.match(/nickname[^\n]+\),(StatX\+\d+),(\d+),(Max\(1,C.Width-StatX-10\)),(\d+),(\d+),HubNicknameColor/);assert.ok(nickname);
   assert.equal(calc(nickname[1],{StatX}),StatX+left(number));
   const nameLines=profile.split('\n').filter(line=>line.includes("L.TagString:='member-name|'"));
   assert.equal(nameLines.length,2);for(const line of nameLines)assert.match(line,/HorzAlign:=TTextAlign.Leading/);
@@ -61,4 +61,4 @@ assert.match(preview,/FHubProfilePhotoRemove.Visible:=Encoded<>''/);
 for(const name of ['MoaPlayApp.Member.MyPage.inc','MoaPlayApp.Member.ProfileEdit.inc']){
  const bytes=fs.readFileSync(path.join(root,name));assert.deepEqual([...bytes.subarray(0,3)],[239,187,191]);assert.doesNotMatch(bytes.toString(),/(?<!\r)\n/);
 }
-console.log(`FIX66 profile UI PASS on FIX68: ${checks} responsive layouts, aligned numbers/name, removed notes, bordered static fields, reference order/full-width actions, real saved details and reusable person-avatar fallback.`);
+console.log(`FIX66 profile UI PASS on FIX70: ${checks} responsive layouts, aligned numbers/name, removed notes, bordered static fields, reference order/full-width actions, real saved details and reusable person-avatar fallback.`);

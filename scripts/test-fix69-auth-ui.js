@@ -20,8 +20,10 @@ const notification = read('MoaPlayApp.Lifecycle.Notifications.inc');
 const support = read('MoaPlayApp.Support.Permissions.inc');
 const qr = read('MoaPlayApp.Protocol.Qr.inc');
 const splash = read('MoaPlayApp.Splash.inc');
-assert.match(ui, /FRoot\.Align := TAlignLayout\.Client/);
-assert.doesNotMatch(ui, /Min\(480,.*ClientWidth|FRoot\.SetBounds/);
+assert.match(ui, /FRoot\.Align := TAlignLayout\.None/);
+assert.match(ui, /RootWidth := Max\(1, Min\(480, ClientWidth\)\)/);
+assert.match(ui, /FRoot\.SetBounds\(Max\(0,\(ClientWidth-RootWidth\)\/2\),0,RootWidth,RootHeight\)/);
+assert.doesNotMatch(ui, /OverrideScreenScale|densityDpi\s*:=|ScreenScale\s*:=/);
 assert.match(routine(splash, 'TMoaPlayForm.UpdateSplash'), /FSplashPanel\.Visible := False/);
 assert.doesNotMatch(startup, /GetTimeStamp < FSplashMinUntil|RequestNotificationPermissionOnce/);
 assert.doesNotMatch(routine(support, 'TMoaPlayForm.UpdateAutomaticPermissions'), /RequestNotificationPermissionOnce|RequestSupportPhonePermission|RequestRequiredRuntimePermissions/);
@@ -50,7 +52,7 @@ assert.match(routine(steps, 'TMoaPlayForm.CloseAuthDetail'), /FAuthDetailMode :=
 assert.match(routine(ui, 'TMoaPlayForm.SetCurrentScreen'), /if not FAuthStepsPanel\.Visible then[\s\S]*FAuthDetailBack\.Visible := False/);
 assert.match(routine(steps, 'TMoaPlayForm.UpdateAuthSteps'), /if not AuthSurface or FReinstallBlocked or FReinstallProbe/);
 const methods = read('MoaPlayApp.Methods.inc');
-for (const name of ['BuildAuthStepsUI', 'ResizeAuthStepsUI', 'UpdateAuthSteps', 'AuthStepClick', 'AuthContinueClick', 'AuthDetailBackClick', 'CloseAuthDetail']) {
+for (const name of ['BuildAuthStepsUI', 'ResizeAuthStepsUI', 'UpdateAuthSteps', 'AuthStepClick', 'AuthContinueClick', 'AuthDetailBackClick', 'CloseAuthDetail', 'AuthProviderClick']) {
   assert.match(methods, new RegExp('(?:procedure|function)\\s+' + name + '\\b'));
   assert.match(steps, new RegExp('(?:procedure|function)\\s+TMoaPlayForm\\.' + name + '\\b'));
 }
@@ -59,4 +61,4 @@ for (const name of ['MoaPlayApp.AuthSteps.inc', 'MoaPlayApp.Ui.inc', 'MoaPlayApp
   assert.equal(b.subarray(0, 3).toString('hex'), 'efbbbf');
   assert.doesNotMatch(b.toString('utf8'), /(?<!\r)\n/);
 }
-console.log('FIX69 auth UI PASS: one user-owned permission batch, SDK branches, persistent steps, opt-in details/back, unchanged server gates, no startup progress/delay, full client width. Delphi/device execution not performed.');
+console.log('FIX69 auth UI PASS: one user-owned permission batch, SDK branches, persistent steps, opt-in details/back, unchanged server gates, no startup progress/delay, centered logical viewport capped at 480 dp. Delphi/device execution not performed.');

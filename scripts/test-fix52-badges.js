@@ -71,13 +71,8 @@ try{
  assert.equal(JSON.stringify(s.DB()),chargeBefore);charges.Approve(approval,'FIX52-TEST');assert.equal(badge(d,'QR_CHARGE_1').earned,true);
  const chargeAt=badge(d,'QR_CHARGE_1').earnedAt,chargeState=JSON.stringify(s.DB());charges.Approve(approval,'FIX52-TEST');assert.equal(JSON.stringify(s.DB()),chargeState);assert.equal(badge(d,'QR_CHARGE_1').earnedAt,chargeAt);
  const spinBody={revision:rewards.Rules().revision};run(d,'event.spin',spinBody,'FIX52-FIRST-WHEEL');const spinProgress=JSON.stringify(progress(d));run(d,'event.spin',spinBody,'FIX52-FIRST-WHEEL');assert.equal(JSON.stringify(progress(d)),spinProgress);assert.equal(badge(d,'WHEEL_1').earned,true);assert.equal(progress(d).counts.wheel,1);
- const casinoBefore=JSON.stringify(s.DB());assert.throws(()=>run(d,'arcade.play',{game:'BACCARAT',choice:'INVALID',amount:100,rulesRevision:run(d,'arcade').rules.revision}),/INPUT_INVALID/);assert.equal(JSON.stringify(s.DB()),casinoBefore);
- for(const [game,choice] of [['BACCARAT','PLAYER'],['ROULETTE','RED'],['SLOTS','SPIN']]){
-  now+=500;const playBody={game,choice,amount:100,rulesRevision:run(d,'arcade',{game}).rules.revision};run(d,'arcade.play',playBody,'FIX52-FIRST-'+game);assert.equal(badge(d,game+'_1').earned,true);
-  const playProgress=JSON.stringify(progress(d));run(d,'arcade.play',playBody,'FIX52-FIRST-'+game);assert.equal(JSON.stringify(progress(d)),playProgress);
- }
- assert.equal(progress(d).counts.casinoPlays,3);
- const game=hub.AdminWrite('product.save',{title:'뱃지 결제 검증 게임',description:'이용권',genre:'게임',accessType:'TYPE1',plans:[{days:1,price:100},{days:7,price:700}],published:true},'FIX52-TEST');
+ const retiredBefore=JSON.stringify(s.DB());for(const action of ['arcade','arcade.play','casino.start'])assert.throws(()=>run(d,action,{game:'BACCARAT'}),/UNKNOWN_ACTION/);assert.equal(JSON.stringify(s.DB()),retiredBefore);
+ const game=hub.AdminWrite('product.save',{gameKey:'PUBG',title:'배틀그라운드',description:'이용권',genre:'게임',accessType:'TYPE1',plans:[{days:1,price:100},{days:7,price:700}],published:true},'FIX52-TEST');
  run(d,'product',{id:game.id,countView:true});assert.equal(badge(d,'GAME_READ_1').earned,true);
  const purchaseBody={productId:game.id,days:1,price:100,revision:game.revision},bought=run(d,'purchase',purchaseBody,'FIX52-FIRST-PURCHASE');run(d,'purchase',purchaseBody,'FIX52-FIRST-PURCHASE');
  assert.equal(progress(d).counts.purchases,1);assert.equal(badge(d,'GAME_PURCHASE_1').earned,true);
@@ -92,6 +87,6 @@ try{
  const projectionBefore=JSON.stringify(s.DB());for(let i=0;i<50;i++)badges.Public(account(a),{posts:0,followers:0});assert.equal(JSON.stringify(s.DB()),projectionBefore);
  const snapshot=database.BuildDatabaseObject(),awards=structuredClone(progress(a).awards);assert.equal(database.ImportDatabaseObject(snapshot),true);
  assert.deepEqual(progress(a).awards,awards);assert.equal(run(a,'me').profile.titleBadge.id,'REPORT_RECEIVED_1');assert.equal(badge(a,'POSTS_10').earnedAt,legacyAt);
- const all=run(a,'badges').items;for(const id of ['BACCARAT_1','ROULETTE_1','SLOTS_1','WHEEL_1','LIKES_1','COMMENTS_1','FOLLOWING_1','GAME_PURCHASE_1','REPORT_RECEIVED_1','REPORT_1','POSTS_1','PROFILE_VISIT_1','CRASH_1','DICE_1','MINES_1','PLINKO_1','QR_CHARGE_1','POINT_EXCHANGE_1'])assert.ok(all.some(x=>x.id===id),id+' catalog entry');
+ const all=run(a,'badges').items;for(const id of ['WHEEL_1','LIKES_1','COMMENTS_1','FOLLOWING_1','GAME_PURCHASE_1','REPORT_RECEIVED_1','REPORT_1','POSTS_1','PROFILE_VISIT_1','QR_CHARGE_1','POINT_EXCHANGE_1'])assert.ok(all.some(x=>x.id===id),id+' catalog entry');
  console.log('FIX52 BADGES PASS: durable legacy and new awards, deletion/unfollow/block permanence, unique successful actions, replay/failed-action/failed-save isolation, authenticated explicit visits, profile edits, report owner capture without private content, readonly inventory, and restart persistence.');
 }finally{Date.now=realNow;fs.rmSync(temp,{recursive:true,force:true});}

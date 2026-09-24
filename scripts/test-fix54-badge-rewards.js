@@ -18,7 +18,7 @@ function failedSave(fn){const before=snapshot(),save=database.SaveDatabase;try{d
 try{
  const a=client(1),b=client(2),legacy=client(3),capped=client(4),failure=client(5),games=client(6);
  for(const c of [a,b,legacy,capped,failure,games])run(c,'me');
- const catalog=read(a).items;assert.equal(catalog.length,62);assert.equal(new Set(catalog.map(row=>row.id)).size,catalog.length);
+ const catalog=read(a).items;assert.equal(catalog.length,49);assert.equal(new Set(catalog.map(row=>row.id)).size,catalog.length);
  assert.ok(catalog.every(row=>Number.isSafeInteger(row.rewardPoints)&&row.rewardPoints>0),'every published title has a positive point award');
  assert.equal(ledger(a).length,0,'unearned titles do not pay');
  const postBody={body:'첫 칭호 포인트 확인'},first=run(a,'post.create',postBody,'FIX54-FIRST-POST');
@@ -49,33 +49,39 @@ try{
  const remote=run(b,'badges',{profileId:account(legacy).id});assert.equal(remote.readOnly,true);assert.equal(remote.items.length,catalog.length);
  for(const field of ['balance','points','inventory','eventSpins','subject','badgeProgress'])assert.equal(remote.profile[field],undefined);
  assert.ok(remote.items.every(row=>row.progress===undefined&&row.rewardPaid===undefined&&row.rewardStatus===undefined&&row.rewardPoints>0),'public titles do not reveal another wallet or payment state');
- // A capped point wallet defers rewards without blocking balance-funded play.
+ // A capped point wallet defers rewards without blocking ordinary social actions.
  s.Atomic(()=>{Object.assign(account(capped),{points:100000000,balance:50000,badgeProgress:{version:1,counts:{posts:1},seen:{},awards:{POSTS_1:{at:earnedAt}}}});});
  const pending=read(capped).items.find(row=>row.id==='POSTS_1');assert.equal(pending.rewardStatus,'PENDING');assert.equal(pending.rewardPaid,false);assert.equal(ledger(capped).length,0);
  const pendingBefore=snapshot();read(capped);assert.equal(snapshot(),pendingBefore,'unpayable rewards do not generate writes on every refresh');
- const arcadeBody={game:'ROULETTE',choice:'RED',amount:100,rulesRevision:run(capped,'arcade').rules.revision};
- const played=run(capped,'arcade.play',arcadeBody,'FIX54-CAPPED-GAME');assert.ok(played.result.id);assert.equal(played.wallet.points,100000000);assert.equal(award(capped,'ROULETTE_1').rewardPaid,false);
- assert.equal(ledger(capped).length,0);assert.equal(account(capped).arcade.ROULETTE.played,1);
+ const cappedBody={postId:target.id,value:1};
+ run(capped,'react',cappedBody,'FIX54-CAPPED-LIKE');assert.equal(account(capped).points,100000000);assert.equal(award(capped,'LIKES_1').rewardPaid,false);
+ assert.equal(ledger(capped).length,0);
  s.Atomic(()=>{require('../services/member/rewards').Credit(account(capped),-75,'FIX54_SPEND','FIRST');});
  failedSave(()=>read(capped));const partial=read(capped);assert.equal(account(capped).points,99999975);assert.equal(ledger(capped).length,1);
- assert.equal(partial.items.find(row=>row.id==='POSTS_1').rewardStatus,'PAID');assert.equal(partial.items.find(row=>row.id==='ROULETTE_1').rewardStatus,'PENDING');
+ assert.equal(partial.items.find(row=>row.id==='POSTS_1').rewardStatus,'PAID');assert.equal(partial.items.find(row=>row.id==='LIKES_1').rewardStatus,'PENDING');
  s.Atomic(()=>{require('../services/member/rewards').Credit(account(capped),-25,'FIX54_SPEND','SECOND');});
- let selectSaves=0;const originalSave=database.SaveDatabase;try{database.SaveDatabase=(...args)=>{selectSaves++;return originalSave(...args);};run(capped,'badge.select',{id:'ROULETTE_1'});}finally{database.SaveDatabase=originalSave;}
+ let selectSaves=0;const originalSave=database.SaveDatabase;try{database.SaveDatabase=(...args)=>{selectSaves++;return originalSave(...args);};run(capped,'badge.select',{id:'LIKES_1'});}finally{database.SaveDatabase=originalSave;}
  assert.equal(selectSaves,1,'selecting a title and paying its pending reward uses one transaction, with no nested read save');assert.equal(account(capped).points,100000000);assert.equal(ledger(capped).length,2);
- const cappedBefore=snapshot(),oldPlay=run(capped,'arcade.play',arcadeBody,'FIX54-CAPPED-GAME');assert.equal(oldPlay.wallet.points,100000000);assert.equal(snapshot(),cappedBefore,'old play replay uses the current wallet without repaying titles');
+ const cappedBefore=snapshot();run(capped,'react',cappedBody,'FIX54-CAPPED-LIKE');assert.equal(account(capped).points,100000000);assert.equal(snapshot(),cappedBefore,'old social replay does not repay titles');
  // New activity awards and their ledgers share the action's one save boundary.
  const bioBody={nickname:account(failure).nickname,bio:'원자적 칭호 지급 확인'};
  failedSave(()=>run(failure,'profile.save',bioBody,'FIX54-FAILED-BIO'));assert.equal(account(failure).badgeProgress,undefined);assert.equal(account(failure).points||0,0);
  run(failure,'profile.save',bioBody,'FIX54-FAILED-BIO');assert.equal(account(failure).points,100);assert.equal(ledger(failure).length,2);
  const failedActionBefore=snapshot();assert.throws(()=>run(failure,'post.create',{}),/INPUT_INVALID/);assert.equal(snapshot(),failedActionBefore);
- // All newly added game records participate in the common completed-play metrics.
+ // Retired game evidence remains historical data and cannot issue new titles.
  s.Atomic(()=>{account(games).casino=Object.fromEntries(['LIMBO','HILO','TOWER','BLACKJACK'].map(game=>[game,{played:1}]));});
- read(games);for(const game of ['LIMBO','HILO','TOWER','BLACKJACK'])assert.equal(award(games,game+'_1').rewardPaid,true);
- assert.equal(account(games).badgeProgress.counts.casinoPlays,4);assert.equal(account(games).points,200);
+ const oldGames=structuredClone(account(games).casino);read(games);for(const game of ['LIMBO','HILO','TOWER','BLACKJACK'])assert.equal(award(games,game+'_1'),undefined);
+ assert.equal(account(games).badgeProgress.counts.casinoPlays,undefined);assert.equal(account(games).points||0,0);assert.deepEqual(account(games).casino,oldGames);
+ // Already earned, unpaid retired titles retain their original credit promise.
+ s.Atomic(()=>{account(games).points=100000000;account(games).badgeProgress.awards.BLACKJACK_1={at:earnedAt,rewardPoints:50,rewardPaid:false};});
+ assert.ok(!read(games).items.some(row=>row.id==='BLACKJACK_1'),'removed mission does not reappear');assert.equal(ledger(games).length,0);
+ s.Atomic(()=>{require('../services/member/rewards').Credit(account(games),-50,'FIX70_SPEND','LEGACY');});
+ failedSave(()=>read(games));read(games);assert.equal(account(games).points,100000000);assert.equal(ledger(games).length,1);assert.equal(ledger(games)[0].reference,'BLACKJACK_1');
+ const retiredPaid=snapshot();read(games);assert.equal(snapshot(),retiredPaid,'retired promised payment is issued exactly once');
  // Public projections are pure; disk reload retains both payout guards.
  const pureBefore=snapshot();for(let i=0;i<10;i++)badges.Public(account(a));assert.equal(snapshot(),pureBefore);
  const exported=database.BuildDatabaseObject();assert.equal(database.ImportDatabaseObject(exported),true);
  const restartBefore=snapshot();read(legacy);read(capped);read(games);assert.equal(snapshot(),restartBefore);assert.equal(account(legacy).points,total);
- assert.equal(ledger(legacy).length,catalog.length);assert.equal(ledger(games).length,4);
- console.log('FIX54 BADGE REWARDS PASS: all published positive title rewards, atomic action/owner payments, permanent awards, once-only reads and replay, legacy backfill and ledger repair, cap deferral, rollback, new-game metrics, private wallet isolation and restart persistence.');
+ assert.equal(ledger(legacy).length,catalog.length);assert.equal(ledger(games).length,1);
+ console.log('FIX54 BADGE REWARDS PASS: all published positive title rewards, atomic action/owner payments, permanent awards, once-only reads and replay, legacy backfill and ledger repair, cap deferral, rollback, retired game evidence isolation, private wallet isolation and restart persistence.');
 }finally{Date.now=realNow;fs.rmSync(temp,{recursive:true,force:true});}

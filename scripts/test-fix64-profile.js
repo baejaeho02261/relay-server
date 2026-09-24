@@ -20,7 +20,10 @@ function suggestions(source){
  const rows=section(source,'function TMoaPlayForm.HubProfileSuggestions','procedure TMoaPlayForm.HubRenderPeople');
  assert.match(rows,/THorzScrollBox.Create/);assert.match(rows,/Count>=12 then Break/,'bounded carousel avoids building all members');
  assert.match(rows,/ID=HubText\(FHubOwnProfile,'id'\)/,'own profile is never recommended');
- assert.doesNotMatch(rows,/people.dismiss\|/,'FIX69 removes recommendation X controls');assert.match(rows,/HubFollowButton/);
+ const realCards=section(rows,'if Assigned(Items) then for V in Items do','{ The final card');
+ const finalCard=rows.slice(rows.indexOf('{ The final card'));
+ assert.match(realCards,/HubIconButton\(C,'close','people.dismiss\|'\+ID/,'real suggestions retain dismiss actions');
+ assert.doesNotMatch(finalCard,/people.dismiss\|/,'the final discovery prompt is permanent');assert.match(rows,/HubFollowButton/);
  assert.match(rows,/C.TagString:='profile.people'/,'final finder card opens the complete list');
  assert.doesNotMatch(rows,/FMember.Request|HubFetch/,'rendering cannot trigger a network loop');
 }
@@ -44,4 +47,4 @@ for(const name of ['MoaPlayApp.Member.MyPage.inc','MoaPlayApp.Member.People.inc'
  const raw=fs.readFileSync(path.join(root,name));assert.deepEqual([...raw.subarray(0,3)],[239,187,191]);
  assert.equal(raw.toString().replace(/\r\n/g,'').includes('\n'),false,'Delphi source uses BOM/CRLF');
 }
-console.log('FIX64 profile contracts PASS on FIX69: public-only native share, read-only peer badges, purchased colors, profile privacy, bounded server suggestions, safe search and durable non-self mutations.');
+console.log('FIX64 profile contracts PASS on FIX70: public-only native share, read-only peer badges, purchased colors, profile privacy, bounded server suggestions, safe search and durable non-self mutations.');

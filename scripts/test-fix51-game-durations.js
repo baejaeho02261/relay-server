@@ -11,7 +11,7 @@ const product=title=>admin('product.save',{title,description:'기간 합산 검�
 function fund(c){const p=s.Account(c);s.Atomic(()=>s.Ledger(p,10000,'QR_TOPUP','FIX51-FUND-'+c.clientId));return p;}
 const buy=(c,game,days,id)=>run(c,'purchase',{productId:game.id,days,price:days*100,revision:game.revision},id);
 try{
- const c=device('5151000000000001'),other=device('5151000000000002'),legacy=device('5151000000000003'),legacyActive=device('5151000000000004');let p=fund(c);fund(other);const lp=fund(legacy),ap=fund(legacyActive);const game=product('기간 합산 게임'),separate=product('별도 게임');
+ const c=device('5151000000000001'),other=device('5151000000000002'),legacy=device('5151000000000003'),legacyActive=device('5151000000000004');let p=fund(c);fund(other);const lp=fund(legacy),ap=fund(legacyActive);const game=product('배틀그라운드'),separate=product('발로란트');
  const first=buy(c,game,1,'FIX51-FIRST-PURCHASE'),firstAt=now;assert.equal(first.order.days,1);assert.equal(first.order.displayExpiresAt,firstAt+DAY);assert.equal(first.activeGame,null);
  now+=60000;const second=buy(c,game,7,'FIX51-SECOND-PURCHASE');assert.equal(second.order.id,first.order.id);assert.equal(second.order.days,8);assert.equal(second.order.amount,800);assert.equal(second.order.expiresAt,0);assert.equal(second.order.displayExpiresAt,firstAt+8*DAY);assert.equal(second.profile.balance,9200);
  assert.deepEqual(buy(c,game,7,'FIX51-SECOND-PURCHASE'),second,'retried extension does not add duration or charge twice');
