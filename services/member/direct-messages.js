@@ -14,12 +14,12 @@ function Peer(p){
  if(!avatar&&p.avatar)try{avatar=require('./social').AvatarThumb(p.avatar);}catch(_){}
  return {id:p.id,nickname:p.nickname,handle:s.Handle(p),avatar,avatarRevision:p.avatarRevision||0,profileRevision:p.profileRevision||p.avatarRevision||0,nicknameColor:p.nicknameColor||'',titleBadge:require('./badges').Public(p)};
 }
-function PublicMessage(row,p){return {id:row.id,seq:row.seq,text:row.text,mentionMembers:require('./mentions').Members(row,p),at:row.at,own:row.senderId===p.id,...(row.sharedPostId?{sharedPost:require('./post-controls').Shared(row.sharedPostId,p)}:{})};}
+function PublicMessage(row,p,compact=false,sharp=false){return {id:row.id,seq:row.seq,text:row.text,mentionMembers:require('./mentions').Members(row,p),at:row.at,own:row.senderId===p.id,...(row.sharedPostId?{sharedPost:require('./post-controls').Shared(row.sharedPostId,p,compact,sharp)}:{})};}
 function Unread(row,p){return Math.max(0,(row.received[p.id]||0)-(row.readReceived[p.id]||0));}
 function Incoming(row,p){return row.pendingTo===p.id;}
 function Summary(row,p,peer){
  const last=row.messages.at(-1);
- return {id:row.id,peer:Peer(peer),isRequest:Incoming(row,p),requestIncoming:Incoming(row,p),requestPending:!!row.pendingTo,revision:row.revision,createdAt:row.createdAt,updatedAt:row.updatedAt,lastSeq:row.lastSeq,unreadCount:Unread(row,p),lastMessage:last?{...PublicMessage(last,p),text:last.text.slice(0,160)}:null};
+ return {id:row.id,peer:Peer(peer),isRequest:Incoming(row,p),requestIncoming:Incoming(row,p),requestPending:!!row.pendingTo,revision:row.revision,createdAt:row.createdAt,updatedAt:row.updatedAt,lastSeq:row.lastSeq,unreadCount:Unread(row,p),lastMessage:last?{...PublicMessage(last,p,true),text:last.text.slice(0,160)}:null};
 }
 function PageValue(value,fallback,min,max){if(value===undefined)return fallback;if(!Number.isSafeInteger(value)||value<min||value>max)s.Fail('INPUT_INVALID');return value;}
 function List(p,body={}){
@@ -39,7 +39,7 @@ function Thread(p,body={}){
  // Sequence numbers are contiguous; slicing by cursor avoids scanning the
  // conversation on every live refresh, while returning chronological messages.
  const end=Math.min(row.messages.length,before-1),start=Math.max(0,end-limit),messages=row.messages.slice(start,end);
- return {thread,messages:messages.map(message=>PublicMessage(message,p)),total:row.messages.length,nextBeforeSeq:start>0?messages[0].seq:null,beforeSeq:body.beforeSeq||0};
+ return {thread,messages:messages.map(message=>PublicMessage(message,p,false,body._wire==='zlib')),total:row.messages.length,nextBeforeSeq:start>0?messages[0].seq:null,beforeSeq:body.beforeSeq||0};
 }
 function Open(p,body={}){
  if(typeof body.memberId!=='string'||body.memberId.length>80)s.Fail('DM_UNAVAILABLE');

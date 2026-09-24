@@ -1,7 +1,7 @@
 'use strict';
 const s=require('./store');
 function RankedPurchases(){
- const db=s.DB(),groups=new Map(),orders=new Map();
+ const db=s.DB(),groups=new Map(),orders=new Map(),catalogIds=new Set(require('./commerce').CatalogRows().map(x=>x.id));
  // Purchases retain one wallet receipt per payment even when pass durations merge.
  // Resolve aliases read-only so refunds of a combined pass remove every receipt.
  const paidStates=new Set(['PAID','ACTIVE','EXPIRED','MERGED']);
@@ -22,7 +22,7 @@ function RankedPurchases(){
     payment.refunded||payment.refundedAt||payment.status&&!['PAID','COMPLETED','SUCCESS'].includes(payment.status))continue;
   const original=db.orders[payment.reference],order=Order(payment.reference);
   if(!original||!order||payment.accountId!==order.accountId||payment.productId&&payment.productId!==original.productId)continue;
-  const game=db.products[original.productId];if(!game||!game.published||game.deleted)continue;
+  const game=db.products[original.productId];if(!game||!catalogIds.has(game.id))continue;
   let row=groups.get(game.id);
   if(!row){row={id:game.id,title:game.title,genre:game.genre||game.details?.genre||'기타',purchaseCount:0,totalDays:0};groups.set(game.id,row);}
   row.purchaseCount++;
@@ -37,6 +37,6 @@ function RankedPurchases(){
 function Read(p,body={}){
  const offset=Math.max(0,Math.min(100000,Math.floor(Number(body.offset)||0)));
  const page=s.Page(RankedPurchases(),{...body,offset},12);
- return {...page,items:page.items.map((item,i)=>({id:item.id,title:item.title,genre:item.genre,imageCover:require('./media').GameCover(s.DB().products[item.id]),rank:offset+i+1}))};
+ return {...page,items:page.items.map((item,i)=>({id:item.id,title:item.title,genre:item.genre,gameKey:require('./commerce').GameKey(s.DB().products[item.id]),icon:require('./commerce').GameIcon(s.DB().products[item.id]),rank:offset+i+1}))};
 }
 module.exports={Read,RankedPurchases};

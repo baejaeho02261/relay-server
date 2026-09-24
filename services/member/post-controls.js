@@ -57,9 +57,13 @@ function Share(p,body={}){
  // Receipts contain no recipient, title, body, image or conversation snapshot.
  return {...receipt,postId:post.id};
 }
-function Shared(postId,p){
+function Shared(postId,p,compact=false,sharp=false){
  const post=s.DB().posts[postId];if(!require('./socialActions').Visible(post,p)||post.archived)return {id:postId,unavailable:true};
- return {id:post.id,title:post.title||'',body:String(post.body||'').slice(0,220),imageThumb:post.imageThumb||post.gifMedia?.frames?.[0]||'',previewPosition:post.previewPosition||'center',author:require('./direct-messages').Peer(s.ProfileById(post.accountId))};
+ // Inbox rows only need a safe identifier. The opened thread receives the
+ // complete canonical feed projection, with fresh audience/block checks for
+ // this viewer (including quoted posts, mentions, counters, polls and media).
+ if(compact)return {id:post.id};
+ return require('./social').PublicPost(post,p,false,sharp);
 }
 function ProjectShare(p,receipt){const result=require('./direct-messages').Project(p,'post.share',receipt),post=s.DB().posts[receipt.postId];return {...result,...(require('./socialActions').Visible(post,p)?{post:require('./social').PublicPost(post,p,false,false,true)}:{postUnavailable:true})};}
 function FilterProjection(value,viewer){

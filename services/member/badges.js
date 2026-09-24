@@ -2,7 +2,7 @@
 const s=require('./store');
 // A completed mission is a durable fact, not a projection of today's post or
 // follower count. Each title grants its published point reward exactly once.
-const icons={posts:'create',comments:'bubble',replies:'reply-thread',likes:'like',likesReceived:'heart',following:'following',followers:'followers',profileVisits:'eye',profileEdits:'edit',avatar:'photo',bio:'user',photoPosts:'photo',gifPosts:'gif',pollsCreated:'poll',pollVotes:'poll',reposts:'repost',bookmarks:'bookmark',newsRead:'news',gamesRead:'shop',postsRead:'feed',attendance:'calendar',attendanceStreak:'calendar',wheel:'wheel',baccarat:'baccarat',roulette:'roulette',slots:'slots',crash:'crash',dice:'dice',mines:'mines',plinko:'plinko',limbo:'limbo',hilo:'hilo',tower:'tower',blackjack:'blackjack',casinoPlays:'casino.group',purchases:'ticket',gameStarts:'shop',charges:'wallet',exchanges:'refresh',shopPurchases:'store',nicknameColor:'user',reports:'report',reportsReceived:'bell'};
+const icons={posts:'create',comments:'bubble',replies:'reply-thread',likes:'like',likesReceived:'heart',following:'following',followers:'followers',profileVisits:'eye',profileEdits:'edit',avatar:'photo',bio:'user',photoPosts:'photo',gifPosts:'gif',pollsCreated:'poll',pollVotes:'poll',reposts:'repost',bookmarks:'bookmark',newsRead:'news',gamesRead:'shop',postsRead:'feed',attendance:'calendar',attendanceStreak:'calendar',wheel:'wheel',purchases:'ticket',gameStarts:'shop',charges:'wallet',exchanges:'refresh',shopPurchases:'store',nicknameColor:'user',reports:'report',reportsReceived:'bell'};
 const baseCatalog=[
  {id:'POSTS_1',title:'첫 이야기',description:'첫 공개 게시글을 작성했어요.',metric:'posts',target:1},
  {id:'POSTS_10',title:'이야기꾼',description:'공개 게시글을 누적 10개 작성했어요.',metric:'posts',target:10},
@@ -43,19 +43,6 @@ const baseCatalog=[
  {id:'ATTENDANCE_STREAK_7',title:'일주일의 약속',description:'7일 연속 출석했어요.',metric:'attendanceStreak',target:7},
  {id:'WHEEL_1',title:'행운의 첫 회전',description:'이벤트 돌림판을 처음 이용했어요.',metric:'wheel',target:1},
  {id:'WHEEL_10',title:'돌아가는 행운',description:'이벤트 돌림판을 누적 10회 이용했어요.',metric:'wheel',target:10},
- {id:'BACCARAT_1',title:'바카라 첫 테이블',description:'바카라 한 판을 끝까지 이용했어요.',metric:'baccarat',target:1},
- {id:'ROULETTE_1',title:'룰렛 첫 회전',description:'룰렛 한 판을 끝까지 이용했어요.',metric:'roulette',target:1},
- {id:'SLOTS_1',title:'슬롯 첫 스핀',description:'슬롯 한 판을 끝까지 이용했어요.',metric:'slots',target:1},
- {id:'CRASH_1',title:'크래시 첫 비행',description:'크래시 한 판을 끝까지 이용했어요.',metric:'crash',target:1},
- {id:'DICE_1',title:'다이스 첫 굴림',description:'다이스 한 판을 끝까지 이용했어요.',metric:'dice',target:1},
- {id:'MINES_1',title:'마인즈 첫 탐험',description:'마인즈 한 판을 끝까지 이용했어요.',metric:'mines',target:1},
- {id:'PLINKO_1',title:'플링코 첫 낙하',description:'플링코 한 판을 끝까지 이용했어요.',metric:'plinko',target:1},
- {id:'LIMBO_1',title:'림보 첫 도전',description:'림보 한 판을 끝까지 이용했어요.',metric:'limbo',target:1},
- {id:'HILO_1',title:'하이로 첫 선택',description:'하이로 한 판을 끝까지 이용했어요.',metric:'hilo',target:1},
- {id:'TOWER_1',title:'타워 첫 등반',description:'타워 한 판을 끝까지 이용했어요.',metric:'tower',target:1},
- {id:'BLACKJACK_1',title:'블랙잭 첫 핸드',description:'블랙잭 한 판을 끝까지 이용했어요.',metric:'blackjack',target:1},
- {id:'CASINO_10',title:'테이블 탐방',description:'카지노 게임을 누적 10판 완료했어요.',metric:'casinoPlays',target:10},
- {id:'CASINO_100',title:'백 번의 플레이',description:'카지노 게임을 누적 100판 완료했어요.',metric:'casinoPlays',target:100},
  {id:'GAME_PURCHASE_1',title:'첫 게임 이용권',description:'충전 잔액으로 게임 이용권을 처음 구매했어요.',metric:'purchases',target:1},
  {id:'GAME_PURCHASE_10',title:'계속되는 즐거움',description:'게임 이용권 구매를 누적 10회 완료했어요.',metric:'purchases',target:10},
  {id:'GAME_START_1',title:'이용 시작',description:'구매한 게임 이용권을 처음 사용했어요.',metric:'gameStarts',target:1},
@@ -71,8 +58,11 @@ const baseCatalog=[
 // collection and the published sum are frozen by the same durable award rules.
 const catalog=[...baseCatalog,{id:'ALL_TITLES',title:'모든 칭호 보유자',description:'모든 기본 칭호를 모았어요.',metric:'completedTitles',target:baseCatalog.length,icon:'badge',rewardPoints:baseCatalog.reduce((sum,row)=>sum+row.rewardPoints,0)}];
 const REWARD_KIND='BADGE_REWARD',POINT_CAP=100000000;
+// Compatibility payments only: these removed missions can never be awarded
+// again, but an existing durable unpaid award remains owed to its owner.
+const retiredRewards=Object.freeze({BACCARAT_1:50,ROULETTE_1:50,SLOTS_1:50,CRASH_1:50,DICE_1:50,MINES_1:50,PLINKO_1:50,LIMBO_1:50,HILO_1:50,TOWER_1:50,BLACKJACK_1:50,CASINO_10:100,CASINO_100:300});
+const PaymentRows=data=>[...catalog,...Object.keys(retiredRewards).filter(id=>!!data?.awards[id]).map(id=>({id,rewardPoints:retiredRewards[id]}))];
 const VERSION=1,MAX=Object.fromEntries(catalog.map(row=>[row.metric,Math.max(...catalog.filter(x=>x.metric===row.metric).map(x=>x.target))]));
-const GAMES=['BACCARAT','ROULETTE','SLOTS','CRASH','DICE','MINES','PLINKO','LIMBO','HILO','TOWER','BLACKJACK'];
 const LEGACY_SELECTED=new Set(['FOLLOWERS_500','POSTS_10','POSTS_50','ATTENDANCE_7','ATTENDANCE_30']);
 const NumberOf=value=>Number.isSafeInteger(value)&&value>0?value:0;
 const Record=p=>p.badgeProgress&&p.badgeProgress.version===VERSION?p.badgeProgress:null;
@@ -100,6 +90,11 @@ function Award(p,legacy=false){
   if(!NumberOf(award.rewardPoints))award.rewardPoints=row.rewardPoints;
   if(award.rewardPaid!==true)award.rewardPaid=false;
  }
+ for(const [id,points] of Object.entries(retiredRewards)){
+  const award=data.awards[id];if(!award)continue;
+  if(!NumberOf(award.rewardPoints))award.rewardPoints=points;
+  if(award.rewardPaid!==true)award.rewardPaid=false;
+ }
 }
 function RewardLedger(p,id){return s.DB().pointLedger[p.id+':'+REWARD_KIND+':'+id];}
 function CanPay(p,award){
@@ -107,13 +102,13 @@ function CanPay(p,award){
  return Number.isSafeInteger(points)&&points>=0&&Number.isSafeInteger(points+award.rewardPoints)&&points+award.rewardPoints<=POINT_CAP;
 }
 function HasPayableReward(p,data){
- return catalog.some(row=>{const award=data?.awards[row.id];return award&&!award.rewardPaid&&(RewardLedger(p,row.id)||CanPay(p,award));});
+ return PaymentRows(data).some(row=>{const award=data?.awards[row.id];return award&&!award.rewardPaid&&(RewardLedger(p,row.id)||CanPay(p,award));});
 }
 // Call only inside the caller's Atomic transaction. The durable award and its
 // account + kind + badge ledger key jointly prevent read/replay/upgrade credits.
 function PayRewards(p){
  const data=Record(p);if(!data)return;
- for(const row of catalog){
+ for(const row of PaymentRows(data)){
   const award=data.awards[row.id];if(!award||award.rewardPaid)continue;
   let ledger=RewardLedger(p,row.id);
   // A full wallet must not cancel the activity that earned this title. Leave the
@@ -137,8 +132,7 @@ function ReportOwner(row){
 }
 function Derived(p){
  Observe(p,'attendance',p.attendance?.count);Observe(p,'attendanceStreak',p.attendance?.streak);
- let played=0;for(const game of GAMES){const n=NumberOf(p.arcade?.[game]?.played)+NumberOf(p.casino?.[game]?.played);Observe(p,game.toLowerCase(),n);played+=Math.min(MAX.casinoPlays,n);}
- Observe(p,'casinoPlays',played);if(p.avatar)Observe(p,'avatar',1);if(p.bio)Observe(p,'bio',1);
+ if(p.avatar)Observe(p,'avatar',1);if(p.bio)Observe(p,'bio',1);
  if(p.nicknameColor)Observe(p,'nicknameColor',1);
 }
 function Seed(p){

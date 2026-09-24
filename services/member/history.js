@@ -5,12 +5,6 @@ const LIMIT=20;
 // enter service history, and labels always come from this server-owned map.
 const SERVICES=Object.freeze({
  news:['소식','News','news'],catalog:['게임','Games','shop'],feed:['피드','Feed','feed'],
- 'event.dino':['공룡 게임','Dino Run','event.dino'],'event.flappy':['플래피 버드','Flappy Bird','event.flappy'],
- 'event.whack':['두더지 게임','Whack-a-mole','event.whack'],'event.dodge':['똥피하기','Dodge','event.dodge'],'event.rhythm':['리듬 게임','Rhythm','event.rhythm'],
- events:['이벤트','Events','gift'],playground:['모아의 놀이터','Moa Playground','casino'],casino:['모아의 놀이터','Moa Playground','casino'],original:['모아의 놀이터','Moa Playground','casino'],
- baccarat:['바카라','Baccarat','casino'],roulette:['룰렛','Roulette','casino'],slots:['슬롯','Slots','casino'],blackjack:['블랙잭','Blackjack','casino'],
- crash:['크래시','Crash','casino'],dice:['다이스','Dice','casino'],mines:['마인즈','Mines','casino'],plinko:['플링코','Plinko','casino'],
- limbo:['림보','Limbo','casino'],hilo:['힐로','HiLo','casino'],tower:['타워','Tower','casino'],
  shop:['상점','Shop','store'],me:['마이페이지','My Page','user'],all:['전체 메뉴','All menus','grid'],
  orders:['이용권 내역','Pass history','ticket'],payments:['결제 내역','Payment history','receipt'],myfeed:['내 게시물','My posts','grid'],
  charge:['개인 지갑','Wallet','wallet'],bookmarks:['저장한 내용','Saved','bookmark'],blocks:['차단한 회원','Blocked members','block'],
@@ -38,7 +32,7 @@ function Entries(p,key){
 }
 function Read(p){
  return {
-  recentProducts:Entries(p,'products').map(row=>{const product=ValidProduct(row.id);return {...row,title:product.title,imageCover:require('./media').GameCover(product),genre:product.genre||product.details?.genre||'게임'};}),
+  recentProducts:Entries(p,'products').map(row=>{const product=ValidProduct(row.id);return {...row,title:product.title,gameKey:require('./commerce').GameKey(product),icon:require('./commerce').GameIcon(product),genre:product.genre||product.details?.genre||'게임'};}),
   recentServices:Entries(p,'services').map(row=>{const [title,titleEn,icon]=SERVICES[row.route];return {...row,title,titleEn,icon};})
  };
 }

@@ -10,7 +10,7 @@ function Public(row){
 }
 function Read(p,body={}){
  const rows=Object.values(s.DB().withdrawRequests).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));
- return {wallet:require('./arcade').Wallet(p),...s.Page(rows.map(Public),body,20),pending:rows.some(x=>x.status==='PENDING')};
+ return {wallet:require('./wallet').Read(p),...s.Page(rows.map(Public),body,20),pending:rows.some(x=>x.status==='PENDING')};
 }
 function Request(p,body){
  const amount=s.Money(body.amount),bank=s.Text(body.bank,40,true),account=s.Text(body.account,40,true).replace(/[\s-]/g,''),holder=s.Text(body.holder,60,true);
