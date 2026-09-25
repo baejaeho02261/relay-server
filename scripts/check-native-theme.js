@@ -50,9 +50,27 @@ function Check(apk=path.resolve(__dirname,'../../MoaPlayApp_Android64')){
    }
    assert.ok(contrast(0xFFFEE500,0xFF191919)>=7,'Kakao branded text contrast');
    assert.ok(contrast(0xFFFFFFFF,0xFF1F1F1F)>=7,'Google branded text contrast');
-   const provider=code.slice(code.indexOf('procedure TMoaPlayForm.AuthProviderClick'));
-   assert.match(provider,/계정 연결은 준비 중/);
-   assert.doesNotMatch(provider,/FMember\.Request|MemberTestEnterClick|ShowFinalPage|(?:LicenseAuthenticated|BiometricAuthenticated|FMemberTestGranted)\s*:=/,'branding preview cannot grant access');
+   const provider=code.slice(code.indexOf('procedure TMoaPlayForm.AuthProviderClick'),code.indexOf('procedure TMoaPlayForm.AuthContinueClick'));
+   assert.match(provider,/FIdentityPending or not FIdentityStatusKnown/);
+   assert.match(provider,/not FIdentityKakaoConfigured/);assert.match(provider,/not FIdentityGoogleConfigured/);
+   assert.match(provider,/HubIdentityRequest\('identity.start',Body.ToJSON\)/,'provider clicks start the server-owned OAuth flow');
+   assert.doesNotMatch(provider,/FMember\.Request|MemberTestEnterClick|ShowFinalPage|(?:LicenseAuthenticated|BiometricAuthenticated|FMemberTestGranted)\s*:=/,'a provider click cannot manufacture device, license or biometric approval');
+  }
+  if(name==='MoaPlayApp.Member.Charge.inc'){
+   // Payment buttons use explicit provider branding; no other charge surface
+   // is exempted from the normal semantic light/dark palette.
+   const brands=[
+    /if Name='KAKAOPAY' then B.Fill.Color:=\$FFFEE500 else B.Fill.Color:=\$FF3182F6;/,
+    /if Name='KAKAOPAY' then L.TextSettings.FontColor:=\$FF191919 else L.TextSettings.FontColor:=\$FFFFFFFF;/,
+   ];
+   for(const rule of brands){assert.equal([...code.matchAll(new RegExp(rule.source,'g'))].length,1);themedCode=themedCode.replace(rule,statement=>statement.replace(/\$[\da-f]{8}/gi,'BrandColor'));}
+   assert.ok(contrast(0xFFFEE500,0xFF191919)>=7);assert.ok(contrast(0xFF3182F6,0xFFFFFFFF)>=3);
+  }
+  if(name==='MoaPlayApp.Member.History.inc'){
+   // The top-three medals intentionally retain distinct gold/silver/bronze
+   // colors in either theme, with a separately verified legible foreground.
+   const medals=[['FFF0CB67','FF493600'],['FFCCD4E1','FF303B4D'],['FFD6A080','FF4C2817']];
+   medals.forEach(([fill,ink],index)=>{const statement=(index+1)+':begin Disc.Fill.Color:=$'+fill+';Ink:=$'+ink+';end;';assert.equal(code.split(statement).length-1,1);assert.ok(contrast(parseInt(fill,16),parseInt(ink,16))>=4.5);themedCode=themedCode.replace(statement,statement.replace(/\$[\da-f]{8}/gi,'MedalColor'));});
   }
   assert.doesNotMatch(code,/COLOR_(?:QR_BG|QR_TEXT|USER_BG)|SetAndroidBarsDark\(False\)/,name+' bypasses theme');
   for(const line of themedCode.split(/\r?\n/))

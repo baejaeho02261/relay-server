@@ -48,7 +48,12 @@ assert.match(read('MoaPlayGifPicker.pas'),/ACTION_GET_CONTENT/);assert.match(rea
 assert.match(read('MoaPlayMemberGif.pas'),/FAnimated\.LoadFromStream\(Stream\)/);
 assert.doesNotMatch(social,/Row\('닫기'/);assert.doesNotMatch(read('MoaPlayApp.Member.MyPage.inc'),/fsUnderline/);
 assert.doesNotMatch(read('MoaPlayApp.Member.Feed.inc'),/'reply','reply\|'/);
-assert.match(read('MoaPlayApp.Member.Feed.inc'),/'bubble',HubCount\(HubNumber\(Item,'replies'\)\),'reply\|'/);
+const feed=read('MoaPlayApp.Member.Feed.inc');
+assert.match(feed,/'bubble',HubCount\(HubNumber\(Item,'replies'\)\),ReplyAction/);
+assert.match(feed,/ReplyAction:='reply\|'\+ID/);
+assert.match(feed,/if ShowPostLink then ReplyAction:='comment.thread\|'\+ID\+'\|'\+HubText\(Item,'postId'\)/);
+assert.match(social,/Action='comment.thread'[\s\S]*HubText\(Item,'postId'\)=Parts\[2\]/,'profile reply navigation validates its thread identity');
+assert.match(feed,/HubFillCommentCard\(C,Item,False\)/);assert.match(read('MoaPlayApp.Member.MyPage.inc'),/HubFillCommentCard\(C,Item,True\)/);
 assert.match(social,/GifView\.LoadFrames\(GifData\)/);
 // FIX70: retired game classes and endpoints must not remain linked.
 for(const name of ['MoaPlayCasinoBoard.pas','MoaPlayCasinoAmount.pas','MoaPlayCasinoIndicators.pas','MoaPlaySkillGames.pas'])
