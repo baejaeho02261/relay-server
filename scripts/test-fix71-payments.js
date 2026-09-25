@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moaplay-pay71-'));process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';
+process.env.NODE_ENV='test';
 process.env.PAYMENT_ENABLED='true';process.env.PAYMENT_PUBLIC_ORIGIN='https://merchant.example';process.env.KAKAOPAY_CID='TC0ONETIME';process.env.KAKAOPAY_SECRET_KEY='test-private';process.env.TOSSPAYMENTS_CLIENT_KEY='test_ck_contract';process.env.TOSSPAYMENTS_SECRET_KEY='test_sk_contract';
 require('../core/utils').EnsureDirs();
 const s=require('../services/member/store'),db=require('../storage/database'),pay=require('../services/member/payments'),provider=require('../services/member/payment-provider'),retire=require('../services/member/withdraw-retirement');

@@ -6,8 +6,7 @@ function client(n){const id=String(n).padStart(16,'0'),key='FIX71-HOME-'+n,c={ty
 const run=(c,action,body={})=>service.Execute(c,'FIX71-HOME-'+(++serial),action,body),snapshot=()=>JSON.stringify(s.DB());
 try{
  commerce.EnsureCatalog();const ca=client(7001),cb=client(7002),cc=client(7003);for(const client of [ca,cb,cc]){
- const member=s.Account(client),key='verified-provider-fixture-'+client.clientId;
- s.Atomic(()=>{member.providerIdentity={provider:'google',key,label:'테스트 계정',linkedAt:Date.now()};s.DB().oauthAccounts[key]={provider:'google',accountId:member.id,installationSubject:member.subject,linkedAt:Date.now()};});run(client,'me');
+ s.Atomic(()=>require('./helpers/member-identity-fixture')(client));run(client,'me');
  }
  const a=s.Account(ca),b=s.Account(cb),c=s.Account(cc),now=Date.now()-100,today=rewards.Day(now),yesterday=rewards.Day(now-86400000),pubg=commerce.CatalogRows().find(g=>commerce.GameKey(g)==='PUBG');
  s.Atomic(()=>{

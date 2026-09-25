@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
-const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moa-fix71-credential-'));process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE='json';require('../core/utils').EnsureDirs();
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moa-fix71-credential-'));process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE='json';process.env.MEMBER_OAUTH_TOKEN_KEY=crypto.randomBytes(32).toString('hex');require('../core/utils').EnsureDirs();
 const state=require('../core/state'),s=require('../services/member/store'),bio=require('../services/clientBiometric'),service=require('../services/member/service');
 try{
  const id='7100710071007100',device='FIX71-CREDENTIAL',secret=crypto.randomBytes(32).toString('hex'),sent=[];
@@ -10,7 +10,7 @@ try{
  c.licenseKey=require('../license/licenseManager').CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;
  const member=s.Account(c),key='verified-google-test-fixture';
  assert.equal(bio.Begin(c).reason,'IDENTITY_REQUIRED');
- s.Atomic(()=>{member.providerIdentity={key,provider:'google',label:'검증 계정'};s.DB().oauthAccounts[key]={provider:'google',accountId:member.id,installationSubject:member.subject};});
+ s.Atomic(()=>{member.providerIdentity={key,provider:'google',label:'검증 계정'};s.DB().oauthAccounts[key]=require('../services/member/oauthLifecycle').Fresh(member,{accessToken:'credential-test-access',refreshToken:'credential-test-refresh',expiresAt:Date.now()+3600000,refreshExpiresAt:0});});
  assert.equal(bio.Begin(c).ok,true);assert.equal(service.Allowed(c),false);
  let challenge=state.clientBiometricChallenges.get(id);const first=challenge.nonce;
  assert.equal(bio.HandleProof(c,['BIOMETRIC_PROOF',challenge.mode,challenge.nonce,'0'.repeat(64)]),false);assert.equal(c.biometricVerified,false);

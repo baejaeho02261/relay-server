@@ -2,11 +2,12 @@
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moa-fix71-oauth-'));process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE='json';process.env.MEMBER_OAUTH_PUBLIC_URL='https://moa.example';
 process.env.GOOGLE_OAUTH_CLIENT_ID='test-google';process.env.GOOGLE_OAUTH_CLIENT_SECRET='test-secret';process.env.KAKAO_OAUTH_CLIENT_ID='test-kakao';process.env.KAKAO_OAUTH_CLIENT_SECRET='kakao-secret';
+process.env.MEMBER_OAUTH_TOKEN_KEY=crypto.randomBytes(32).toString('hex');
 delete process.env.MOAPLAY_ALLOW_LEGACY_TEST_IDENTITY;delete process.env.MEMBER_BIOMETRIC_TEST_MODE;
 require('../core/utils').EnsureDirs();
 const state=require('../core/state'),s=require('../services/member/store'),oauth=require('../services/member/oauthIdentity'),service=require('../services/member/service'),protocol=require('../services/member/protocol'),database=require('../storage/database');
 const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),jwk={...publicKey.export({format:'jwk'}),kid:'real-rsa-key',alg:'RS256',use:'sig'};
-let calls=[],expectedNonce='',tokenClaims={},nextProvider='google',codeVerifier='';
+let calls=[],expectedNonce='',tokenClaims={},nextProvider='google',codeVerifier='',holdToken=null;
 const originalFetch=global.fetch;
 global.fetch=async(url,options={})=>{
  calls.push({url,options});assert.equal(options.redirect,'error');
@@ -15,7 +16,8 @@ global.fetch=async(url,options={})=>{
  const b=new URLSearchParams(options.body);assert.equal(b.get('grant_type'),'authorization_code');assert.equal(b.get('code_verifier'),codeVerifier||b.get('code_verifier'));
  const challenge=crypto.createHash('sha256').update(b.get('code_verifier')).digest('base64url');assert.equal(challenge,currentChallenge);
  const now=Math.floor(Date.now()/1000),payload={iss:nextProvider==='google'?'https://accounts.google.com':'https://kauth.kakao.com',aud:'test-'+nextProvider,sub:'provider-subject-1',nonce:expectedNonce,iat:now,exp:now+300,name:'Google 회원',nickname:'카카오 회원',...tokenClaims};
- return new Response(JSON.stringify({id_token:jwt(payload)}),{headers:{'content-type':'application/json'}});
+ if(holdToken)await holdToken;
+ return new Response(JSON.stringify({id_token:jwt(payload),access_token:'test-access-token',refresh_token:'test-refresh-token',expires_in:3600}),{headers:{'content-type':'application/json'}});
 };
 function jwt(p,h={alg:'RS256',kid:jwk.kid}){const a=Buffer.from(JSON.stringify(h)).toString('base64url'),b=Buffer.from(JSON.stringify(p)).toString('base64url');return a+'.'+b+'.'+crypto.sign('RSA-SHA256',Buffer.from(a+'.'+b),privateKey).toString('base64url');}
 function client(n){const id='AAAAAAAAAAAAAAA'+n,key='TEST-OAUTH-DEVICE-'+n,socket={destroyed:false,lines:[],write(x){this.lines.push(x);},cork(){},uncork(){}};const c={clientId:id,installationDeviceKey:key,connected:true,socket,permissionsGranted:true,permissionSequence:1,permissionMask:7,deviceAuthVerified:true,deviceAuthChallengeId:'CHALLENGE-'+n,licenseAuthorized:false,biometricVerified:false};state.clientIdentities.set(key,{id});state.clients.set(id,c);state.deviceSecrets.set('CLIENT:'+id,'secret-'+n);return c;}
@@ -44,6 +46,8 @@ async function callback(f,extra={}){const res=response(),u=new URL('https://moa.
  const statusParts=c.socket.lines.pop().trim().split('|');assert.equal(statusParts[2],'identity.status');assert.equal(protocol.Verify(c,statusParts.slice(1,6),statusParts[6],'HUB_RESPONSE'),true);assert.equal(JSON.parse(Buffer.from(statusParts[5],'base64')).data.identity.linked,false);
  const encoded=Buffer.from('{"provider":"google"}').toString('base64');service.Handle(c,['HUB','FORGED-ID-111','identity.start',encoded,'0'.repeat(64)].join('|'));assert.equal(c.oauthLastStart,undefined);
  const f=await begin(c);const replay=call(c,f.request,'identity.start',{provider:'google'});assert.equal(replay.flowId,f.r.flowId);assert.throws(()=>call(c,f.request,'identity.start',{provider:'kakao'}),/REQUEST_REUSED/);
+ assert.equal(f.auth.searchParams.get('access_type'),'offline');assert.match(f.auth.searchParams.get('prompt'),/consent/);
+ const wrongState=response();await oauth.HandleHttp({method:'GET',headers:{cookie:f.cookie}},wrongState,new URL('https://moa.example/member/oauth/callback/google?state=unrelated-state&code=code'));assert.equal(wrongState.status,400);assert.equal(calls.length,0);
  const wrong=response();await oauth.HandleHttp({method:'GET',headers:{cookie:'__Host-moa_oauth=wrong'}},wrong,new URL('https://moa.example/member/oauth/callback/google?state='+f.auth.searchParams.get('state')+'&code=code'));assert.equal(wrong.status,400);assert.equal(calls.length,0);
  assert.equal((await callback(f)).status,200);assert.equal(oauth.Ready(c),false,'Browser callback cannot grant native access');
  const oldSave=database.SaveDatabase;database.SaveDatabase=()=>false;assert.throws(()=>call(c,'POLL-SAVE-FAIL','identity.poll',{flowId:f.r.flowId}),/STORAGE_SAVE_FAILED/);database.SaveDatabase=oldSave;assert.equal(oauth.Ready(c),false);
@@ -55,6 +59,14 @@ async function callback(f,extra={}){const res=response(),u=new URL('https://moa.
  const other=client('B'),g=await begin(other);assert.equal((await callback(g)).status,200);assert.equal(call(other,'POLL-OTHER-1','identity.poll',{flowId:g.r.flowId}).reason,'IDENTITY_LINKED_ELSEWHERE');assert.equal(oauth.Ready(other),false);
  const third=client('C'),h=await begin(third);third.deviceAuthChallengeId+='NEW';assert.equal((await callback(h)).status,400);assert.throws(()=>call(third,'POLL-ROTATED-1','identity.poll',{flowId:h.r.flowId}),/IDENTITY_FLOW_EXPIRED/);
  const fourth=client('D'),j=await begin(fourth,'kakao');tokenClaims={sub:'kakao-unique'};assert.equal((await callback(j)).status,200);assert.equal(call(fourth,'POLL-KAKAO-1','identity.poll',{flowId:j.r.flowId}).identity.provider,'kakao');tokenClaims={};
+ // Admin/provider revocation invalidates already verified and in-flight browser
+ // work, even if the stored grant was already revoked before that flow began.
+ const fourthId=s.Account(fourth).id;oauth.RevokeAccount(fourthId);
+ const verifiedBeforeReset=await begin(fourth,'kakao');tokenClaims={sub:'kakao-unique'};assert.equal((await callback(verifiedBeforeReset)).status,200);oauth.RevokeAccount(fourthId);
+ assert.throws(()=>call(fourth,'POLL-RESET-VERIFIED','identity.poll',{flowId:verifiedBeforeReset.r.flowId}),/IDENTITY_FLOW_EXPIRED/);
+ const duringReset=await begin(fourth,'kakao');let releaseToken;holdToken=new Promise(resolve=>{releaseToken=resolve;});const callbackPending=callback(duringReset);await new Promise(resolve=>setImmediate(resolve));oauth.RevokeAccount(fourthId);releaseToken();holdToken=null;
+ assert.equal((await callbackPending).status,400);assert.throws(()=>call(fourth,'POLL-RESET-INFLIGHT','identity.poll',{flowId:duringReset.r.flowId}),/IDENTITY_FLOW_EXPIRED/);assert.equal(oauth.Ready(fourth),false);
+ const afterReset=await begin(fourth,'kakao');assert.equal((await callback(afterReset)).status,200);assert.equal(call(fourth,'POLL-RESET-NEW','identity.poll',{flowId:afterReset.r.flowId}).status,'linked');assert.equal(s.Account(fourth).id,fourthId);tokenClaims={};
  const now=Math.floor(Date.now()/1000),base={iss:'https://accounts.google.com',aud:'test-google',sub:'test',nonce:'N',iat:now,exp:now+300};
  for(const patch of [{iss:'https://evil.example'},{aud:'other'},{exp:now-1},{iat:now+120},{nonce:'wrong'},{sub:''},{aud:['test-google','other']},{azp:'other'}])await assert.rejects(oauth.VerifyToken(jwt({...base,...patch}),'google','N'),/IDENTITY_TOKEN_INVALID/);
  await assert.rejects(oauth.VerifyToken(jwt(base,{alg:'none',kid:jwk.kid}),'google','N'),/IDENTITY_TOKEN_INVALID/);
