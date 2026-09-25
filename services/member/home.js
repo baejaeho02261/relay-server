@@ -21,6 +21,12 @@ function Read(p){
  const products=commerce.CatalogRows(),productIds=new Set(products.map(row=>row.id));
  const product=(id)=>products.find(row=>row.id===id)||db.products[id];
  const gameIdentity=row=>({gameKey:commerce.GameKey(product(row.productId||row.id)||row),icon:commerce.GameIcon(product(row.productId||row.id)||row)});
+ const orderReceipt=row=>{
+  const item=commerce.PublicOrder(row);
+  return {id:item.id,productId:item.productId,title:short(item.title,70),days:item.days,amount:item.amount,status:item.status,at:item.at,
+   activatedAt:item.activatedAt||0,expiresAt:item.expiresAt||0,lastUsedAt:item.lastUsedAt||0,source:item.source||'',
+   refundedAt:item.refundedAt||0,refundReason:item.refundReason||'',purchases:item.purchases||[],...gameIdentity(item)};
+ };
  // Do not call Mine/OwnOrders: these intentionally merge legacy passes.
  const orders=latest(Object.values(db.orders).filter(x=>x.accountId===p.id&&!x.mergedInto));
  const payments=commerce.PurchasePayments(p),points=latest(Object.values(db.pointLedger).filter(x=>x.accountId===p.id));
@@ -39,17 +45,17 @@ function Read(p){
   counts:{online:OnlineCount(),todayPosts:visiblePosts.filter(row=>rewards.Day(row.at)===today).length,todayComments:visibleComments.filter(row=>rewards.Day(row.at)===today).length,news:visibleNews.length,unreadNews:social.UnreadNewsCount(p),catalog:products.length,feed:visiblePosts.length,orders:orders.length,payments:payments.length,pointHistory:points.length,notifications:notifications.total,messages:messageCount,requests:requestCount,unreadMessages:unreadCount,...require('./follows').Counts(p.id)},
   news:visibleNews.slice(0,LIMIT).map(row=>({...social.PublicNews(row,true),views:s.ViewCount('news',row.id),unread:(p.readNews?.[row.id]||((p.readNewsAt||0)>=row.at?(row.revision||1):0))<(row.revision||1)})),
   catalog:products.slice(0,LIMIT).map(row=>commerce.PublicGame(row)),
-  orders:orders.slice(0,LIMIT).map(row=>{const item=commerce.PublicOrder(row);return {id:item.id,productId:item.productId,title:short(item.title,70),days:item.days,status:item.status,at:item.at,...gameIdentity(row)};}),
-  payments:payments.slice(0,LIMIT).map(row=>({id:row.id,productId:row.productId,title:short(row.title,70),days:row.days,amount:row.amount,at:row.at,refunded:row.refunded,...gameIdentity(row)})),
+  orders:orders.slice(0,LIMIT).map(orderReceipt),
+  payments:payments.slice(0,LIMIT).map(row=>({id:row.id,productId:row.productId,title:short(row.title,70),days:row.days,amount:row.amount,at:row.at,refunded:row.refunded,orderId:row.orderId,reference:row.reference,kind:row.kind,paymentMethod:row.paymentMethod||'WALLET',refundedAt:row.order?.refundedAt||0,refundReason:row.order?.refundReason||'',...gameIdentity(row)})),
   pointHistory:points.slice(0,LIMIT).map(row=>({id:row.id,kind:row.kind,amount:row.amount,at:row.at})),
   // The expanded row uses the actual feed renderer and the exact same privacy
   // projection, including polls/media/mentions/reposts and action counts.
   feed:visiblePosts.slice(0,POPULAR_LIMIT).map((row,index)=>({...social.PublicPost(row,p,false,true),rank:index+1})),
   recentComments:visibleComments.slice(0,COMMENT_LIMIT).map(row=>extra.PublicComment(row,p)),recentProducts,recentServices,
-  purchases:purchases.slice(0,LIMIT).map(row=>({id:row.id,title:short(row.title||product(row.productId)?.title,70),member:s.PublicProfile(s.ProfileById(row.accountId),false,p),at:row.at,productId:row.productId})),
+  purchases:purchases.slice(0,LIMIT).map(row=>({id:row.id,title:short(row.title||product(row.productId)?.title,70),member:s.PublicProfile(s.ProfileById(row.accountId),false,p),at:row.at,productId:row.productId,...gameIdentity(row)})),
   topGames:require('./topGames').RankedPurchases().filter(row=>productIds.has(row.id)).slice(0,LIMIT).map((row,index)=>({id:row.id,title:short(row.title,70),rank:index+1,...gameIdentity(row)})),
   activeGame:commerce.ActiveGame(p),activeGames,runningGames:activeGames.slice(0,12),
-  events:{spins:p.eventSpins||0,wheelEnabled:rewards.Rules().enabled},
+  events:{spins:p.eventSpins||0,wheelEnabled:rewards.Rules().enabled,rules:rewards.Rules()},
  };
 }
 module.exports={Read,LIMIT,POPULAR_LIMIT,COMMENT_LIMIT,RANKING_LIMIT,OnlineCount};

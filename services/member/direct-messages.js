@@ -12,7 +12,7 @@ function Peer(p){
  let avatar=p.avatarThumb||'';
  // Legacy thumbnails are computed without writing to a public read projection.
  if(!avatar&&p.avatar)try{avatar=require('./social').AvatarThumb(p.avatar);}catch(_){}
- return {id:p.id,nickname:p.nickname,handle:s.Handle(p),avatar,avatarRevision:p.avatarRevision||0,profileRevision:p.profileRevision||p.avatarRevision||0,nicknameColor:p.nicknameColor||'',titleBadge:require('./badges').Public(p)};
+ return {id:p.id,nickname:p.nickname,handle:s.Handle(p),...require('./identity').PublicAccount(p),avatar,avatarRevision:p.avatarRevision||0,profileRevision:p.profileRevision||p.avatarRevision||0,nicknameColor:p.nicknameColor||'',titleBadge:require('./badges').Public(p)};
 }
 function PublicMessage(row,p,compact=false,sharp=false){return {id:row.id,seq:row.seq,text:row.text,mentionMembers:require('./mentions').Members(row,p),at:row.at,own:row.senderId===p.id,...(row.sharedPostId?{sharedPost:require('./post-controls').Shared(row.sharedPostId,p,compact,sharp)}:{})};}
 function Unread(row,p){return Math.max(0,(row.received[p.id]||0)-(row.readReceived[p.id]||0));}

@@ -30,6 +30,7 @@ function SendChallenge(connection, challenge) {
 }
 
 function Begin(connection, requestedType = '') {
+    if (!require('./member/identity').Ready(connection)) return { ok: false, reason: 'IDENTITY_REQUIRED' };
     if (!require('./clientPermissions').Ready(connection) || require('./clientPermissions').NeedsApproval(connection)) return { ok: false, reason: 'PERMISSIONS_REQUIRED' };
     if (!connection || !connection.connected || !connection.clientId ||
         !connection.licenseAuthorized) return { ok: false, reason: 'LICENSE_REQUIRED' };
@@ -63,24 +64,57 @@ function Begin(connection, requestedType = '') {
     return { ok: true, mode: challenge.mode, accessType };
 }
 
-function NotifyAuthorized(connection, accessType) {
+function NotifyAuthorized(connection, accessType, profile) {
+    if (!require('./member/identity').Ready(connection)) return false;
     if (!require('./clientPermissions').Ready(connection) || require('./clientPermissions').NeedsApproval(connection)) return false;
-    const active = require('../license/licenseManager')
-        .GetUsableLicenseForConnection(connection);
+    const active = require('../license/licenseManager').GetUsableLicenseForConnection(connection);
     if (!active) {
         connection.biometricVerified = false;
         require('./member/testAccess').Revoke(connection);
         SendLine(connection.socket, 'BIOMETRIC_ERROR|LICENSE_REQUIRED');
         return false;
     }
-    if (!require('./clientInstallation').Ready(connection)) return false;
-    connection.biometricVerified = true;
-    const game=require('./member/entryPass').ForClient(connection);
-    connection.accessType = game?NormalizeAccessType(game.accessType):'';
+    const installation = require('./clientInstallation');
+    if (!installation.Ready(connection)) return false;
+    const saved = require('../identity/identityManager').GetSavedClientByID(connection.clientId);
+    const savedBefore = structuredClone(saved);
+    const deviceKey = connection.installationDeviceKey || require('../identity/identityManager').FindClientDeviceKey(connection.clientId);
+    const registryKey = installation.RegistryKey(deviceKey);
+    const registryBefore = state.clientInstallations.has(registryKey) ? structuredClone(state.clientInstallations.get(registryKey)) : null;
+    const existing = state.clientBiometricProfiles.get(connection.clientId);
+    const groupsBefore = new Map(state.accessGroupGuids);
+    const previousAccessType = connection.accessType;
+    let groupGuid = '';
+    let failure = 'STORAGE_SAVE_FAILED';
+    try {
+        // Profile enrollment, installation trust and group metadata are one durable commit.
+        // No authorized frame or Build dispatch may escape before persistence succeeds.
+        state.clientBiometricProfiles.set(connection.clientId, profile);
+        connection.biometricVerified = true;
+        const game = require('./member/entryPass').ForClient(connection);
+        connection.accessType = game ? NormalizeAccessType(game.accessType) : '';
+        if (!installation.MarkAuthorized(connection)) { failure = 'INSTALLATION_REQUIRED'; throw Error(failure); }
+        groupGuid = require('./userDashboard').GroupGuid(connection.accessType);
+        if (!require('../storage/database').SaveDatabase()) throw Error(failure);
+    } catch (_) {
+        if (existing) state.clientBiometricProfiles.set(connection.clientId, existing);
+        else state.clientBiometricProfiles.delete(connection.clientId);
+        for (const key of Object.keys(saved)) delete saved[key];
+        Object.assign(saved, savedBefore);
+        if (registryBefore) state.clientInstallations.set(registryKey, registryBefore);
+        else state.clientInstallations.delete(registryKey);
+        state.accessGroupGuids.clear();
+        for (const [key, value] of groupsBefore) state.accessGroupGuids.set(key, value);
+        connection.biometricVerified = false;
+        connection.accessType = previousAccessType;
+        require('./member/testAccess').Revoke(connection);
+        // Keep the still-unexpired challenge retryable; it has granted no access.
+        SendLine(connection.socket, `BIOMETRIC_ERROR|${failure}`);
+        return false;
+    }
     state.clientBiometricChallenges.delete(connection.clientId);
-    require('./clientInstallation').MarkAuthorized(connection);
-    require('../storage/database').SaveDatabase();
-    const groupGuid = require('./userDashboard').GroupGuid(connection.accessType);
+    require('../storage/audit').LogEvent(existing ? 'CLIENT_BIOMETRIC_VERIFIED' : 'CLIENT_BIOMETRIC_ENROLLED',
+        `${connection.clientId} / ${accessType}`);
     SendLine(connection.socket, `BIOMETRIC_OK|${connection.accessType}|${groupGuid}`);
     require('../relay/notifications').NotifyServerAuthorized(connection.clientId,
         connection.serverId, active.license.expiresAt, 'QR_BIOMETRIC');
@@ -89,6 +123,7 @@ function NotifyAuthorized(connection, accessType) {
 }
 
 function HandleProof(connection, parts) {
+    if (!require('./member/identity').Ready(connection)) return false;
     if (!require('./clientPermissions').Ready(connection) || require('./clientPermissions').NeedsApproval(connection)) return false;
     if (!Array.isArray(parts) || parts.length !== 4) {
         if (connection && connection.socket)
@@ -128,19 +163,15 @@ function HandleProof(connection, parts) {
     }
     const now = Now();
     const existing = state.clientBiometricProfiles.get(clientId);
-    state.clientBiometricProfiles.set(clientId, {
+    const profile = {
         accessType: challenge.accessType,
         enrolledAt: existing ? Number(existing.enrolledAt) || now : now,
         verifiedAt: now,
         verificationCount: Math.max(0, Number(existing && existing.verificationCount) || 0) + 1,
         resetAt: Math.max(0, Number(existing && existing.resetAt) || 0),
         resetBy: String(existing && existing.resetBy || '')
-    });
-    require('../storage/database').SaveDatabase();
-    require('../storage/audit').LogEvent(existing ?
-        'CLIENT_BIOMETRIC_VERIFIED' : 'CLIENT_BIOMETRIC_ENROLLED',
-        `${clientId} / ${challenge.accessType}`);
-    return NotifyAuthorized(connection, challenge.accessType);
+    };
+    return NotifyAuthorized(connection, challenge.accessType, profile);
 }
 
 function SetAccessType(clientId, accessType) {

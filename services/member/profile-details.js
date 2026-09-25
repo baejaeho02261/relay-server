@@ -9,6 +9,15 @@ function Url(value,reason){
  return url.href;
 }
 function Text(value,max,reason){if(typeof value!=='string'||!value.trim()||[...value].length>max)s.Fail(reason);return s.Text(value,max*2,true);}
+function BannerTarget(p,value){
+ const direct=s.Resolve(value);if(direct)return direct;
+ if(typeof value!=='string'||!value.trim()||value.length>128)return null;
+ const label=value.trim().toLocaleLowerCase(),settings=require('./activity-settings');
+ const matches=Object.values(s.DB().profiles).filter(target=>settings.Eligible(p,target)&&require('./identity').PublicAccount(target).accountLabel.toLocaleLowerCase()===label);
+ // Provider display names are not unique identities. Never pick the first
+ // account when several names match; persisted links always use stable IDs.
+ return matches.length===1?matches[0]:null;
+}
 function Fields(p,body){
  const next={};
  for(const key of FIELDS){if(!Object.hasOwn(body,key))continue;const value=body[key];
@@ -22,10 +31,10 @@ function Fields(p,body){
   if(key==='banners'){
    if(!Array.isArray(value)||value.length>LIMITS.banners)s.Fail('PROFILE_BANNER_INVALID');
    next.banners=value.map(row=>{
-    if(!row||Array.isArray(row)||typeof row!=='object'||!['music','profile'].includes(row.kind)||Object.keys(row).some(k=>!['kind','title','url','memberId','handle'].includes(k)))s.Fail('PROFILE_BANNER_INVALID');
+    if(!row||Array.isArray(row)||typeof row!=='object'||!['music','profile'].includes(row.kind)||Object.keys(row).some(k=>!['kind','title','url','memberId','handle','accountLabel'].includes(k)))s.Fail('PROFILE_BANNER_INVALID');
     const title=Text(row.title,60,'PROFILE_BANNER_INVALID');
     if(row.kind==='music'){if(row.memberId!==undefined)s.Fail('PROFILE_BANNER_INVALID');return {kind:'music',title,url:Url(row.url,'PROFILE_BANNER_INVALID')};}
-    if(row.url!==undefined)s.Fail('PROFILE_BANNER_INVALID');const target=s.Resolve(row.memberId);
+    if(row.url!==undefined)s.Fail('PROFILE_BANNER_INVALID');const target=BannerTarget(p,row.memberId);
     if(!require('./activity-settings').Eligible(p,target))s.Fail('PROFILE_BANNER_INVALID');
     return {kind:'profile',title,memberId:target.id};
    });
@@ -56,7 +65,7 @@ function Verification(p){
  return {status:approved?'DEVICE_AUTHENTICATED':'UNVERIFIED',label:approved?'MoaPlay 기기 승인':'기기 승인 내역 없음',verified:false,deviceApproved:approved};
 }
 function Public(p,own=false){
- return {links:(p.links||[]).map(({title,url})=>({title,url})),banners:(p.banners||[]).filter(row=>row.kind!=='profile'||!!s.ProfileById(row.memberId)&&!s.ProfileById(row.memberId).blocked&&!require('./socialActions').Blocked(p.id,row.memberId)).map(row=>row.kind==='profile'?{...row,handle:s.Handle(s.ProfileById(row.memberId))}:{...row}),aiProfile:p.aiProfile===true,accountType:['CREATOR','BUSINESS'].includes(p.accountType)?p.accountType:'PERSONAL',showVerification:p.showVerification===true,verification:Verification(p),...(own?{gridOrder:(p.gridOrder||[]).filter(id=>{const row=s.DB().posts[id];return row?.accountId===p.id&&!row.deleted&&!row.hidden;})}:{})};
+ return {links:(p.links||[]).map(({title,url})=>({title,url})),banners:(p.banners||[]).filter(row=>row.kind!=='profile'||!!s.ProfileById(row.memberId)&&!s.ProfileById(row.memberId).blocked&&!require('./socialActions').Blocked(p.id,row.memberId)).map(row=>row.kind==='profile'?{...row,handle:s.Handle(s.ProfileById(row.memberId)),accountLabel:require('./identity').PublicAccount(s.ProfileById(row.memberId)).accountLabel}:{...row}),aiProfile:p.aiProfile===true,accountType:['CREATOR','BUSINESS'].includes(p.accountType)?p.accountType:'PERSONAL',showVerification:p.showVerification===true,verification:Verification(p),...(own?{gridOrder:(p.gridOrder||[]).filter(id=>{const row=s.DB().posts[id];return row?.accountId===p.id&&!row.deleted&&!row.hidden;})}:{})};
 }
 function Read(p,body={}){return {profile:s.PublicProfile(p,true),posts:require('./profile-activity').Page(p,p,{...body,activity:'posts',postCards:false,limit:LIMITS.grid},LIMITS.grid),limits:{...LIMITS}};}
 function Save(p,body={}){

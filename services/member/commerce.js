@@ -1,5 +1,11 @@
 'use strict';
 const s=require('./store'),state=require('../../core/state'),plans=require('./gamePlans');
+const media=require('./media');
+function Gallery(value,previous=[]){
+ if(value===undefined)return previous;
+ if(!Array.isArray(value)||value.length>6)s.Fail('CONTENT_IMAGE_INVALID');
+ return value.filter(x=>x!=='').map(value=>{const image=media.Fields(value);return {image:image.image,thumb:image.imageThumb};});
+}
 const GAMES=Object.freeze({PUBG:{title:'배틀그라운드',genre:'배틀로얄',accessType:'TYPE1'},VALORANT:{title:'발로란트',genre:'전술 슈팅',accessType:'TYPE2'}});
 function GameKey(value){
  const candidates=typeof value==='string'?[value]:[value?.gameKey,value?.title];
@@ -29,11 +35,11 @@ function EnsureCatalog(){
   db.settings.catalogVersion=70;
  });
 }
-function PublicGame(p){return {id:p.id,gameKey:GameKey(p),icon:GameIcon(p),title:p.title,description:p.description,genre:p.genre||p.details?.genre||'게임',accessType:p.accessType,plans:plans.Plans(p),published:p.published,deleted:p.deleted,sort:p.sort,revision:p.revision,updatedAt:p.updatedAt,views:s.ViewCount('product',p.id)};}
+function PublicGame(p){return {id:p.id,gameKey:GameKey(p),icon:GameIcon(p),title:p.title,description:p.description,genre:p.genre||p.details?.genre||'게임',accessType:p.accessType,plans:plans.Plans(p),published:p.published,deleted:p.deleted,sort:p.sort,revision:p.revision,updatedAt:p.updatedAt,views:s.ViewCount('product',p.id),gallery:(p.gallery||[]).map(x=>({thumb:x.thumb||'',image:x.image||''})),artifact:require('./game-downloads').PublicArtifact(p.artifactId,GameKey(p)),artifactId:p.artifactId||''};}
 function Catalog(body={},viewer){
  const page=s.Page(CatalogRows(),{...body,offset:0,limit:2});
  return {...page,q:'',items:page.items.map(p=>{
-  const item={...PublicGame(p),unread:!!viewer&&(viewer.readProducts?.[p.id]||0)<(p.revision||1)};
+  const item={...PublicGame(p),gallery:(p.gallery||[]).map(x=>({thumb:x.thumb||''})),unread:!!viewer&&(viewer.readProducts?.[p.id]||0)<(p.revision||1)};
   if(body.summary===true)item.description=String(p.description||'').replace(/\s+/g,' ').trim().slice(0,140);
   return item;
  })};
@@ -50,13 +56,13 @@ function SaveProduct(body){
  if(previous&&body.revision!==undefined&&body.revision!==(previous.revision||0))s.Fail('CONTENT_CHANGED');
  const accessType=s.Text(body.accessType||previous?.accessType||GAMES[key].accessType,16);if(!['TYPE1','TYPE2','TYPE3'].includes(accessType))s.Fail('ACCESS_TYPE_INVALID');
  const genre=s.Text(body.genre===undefined?(previous?.genre||GAMES[key].genre):body.genre,50,true);
- const row={...previous,id,gameKey:key,title:GAMES[key].title,description:s.Text(body.description,1500),genre,accessType,plans:plans.Validate(body.plans,previous),published:body.published===true,deleted:previous?.deleted||false,catalogRetired:false,sort:key==='PUBG'?0:1,revision:(previous?.revision||0)+1,updatedAt:Date.now()};
+ const row={...previous,id,gameKey:key,title:GAMES[key].title,description:s.Text(body.description,1500),genre,accessType,plans:plans.Validate(body.plans,previous),published:body.published===true,deleted:previous?.deleted||false,catalogRetired:false,sort:key==='PUBG'?0:1,revision:(previous?.revision||0)+1,updatedAt:Date.now(),gallery:Gallery(body.gallery,previous?.gallery||[]),artifactId:require('./game-downloads').ResolveArtifact(body.artifactId,key,previous?.artifactId||'')};
  delete row.image;delete row.imageCover;delete row.imageThumb;
  return s.Atomic(()=>{s.DB().products[id]=row;s.DB().settings.catalogGameIds||={};s.DB().settings.catalogGameIds[key]=id;return PublicGame(row);});
 }
 const DAY=86400000;
 function DisplayExpiresAt(row){return row.expiresAt>0?row.expiresAt:row.at+row.days*DAY;}
-function PublicOrder(row){const {licenseKey,...result}=row;if(result.status!=='REFUNDED'&&result.status!=='MERGED'&&result.expiresAt>0&&result.expiresAt<=Date.now())result.status='EXPIRED';return {...result,gameKey:GameKey(s.DB().products[row.productId]||row),icon:GameIcon(s.DB().products[row.productId]||row),displayExpiresAt:DisplayExpiresAt(row)};}
+function PublicOrder(row){const {licenseKey,...result}=row;if(result.status!=='REFUNDED'&&result.status!=='MERGED'&&result.expiresAt>0&&result.expiresAt<=Date.now())result.status='EXPIRED';return {...result,gameKey:GameKey(s.DB().products[row.productId]||row),icon:GameIcon(s.DB().products[row.productId]||row),displayExpiresAt:DisplayExpiresAt(row),paymentMethod:row.source==='WALLET_PURCHASE'?'WALLET':row.source,purchases:Object.values(s.DB().ledger).filter(x=>x.kind==='PURCHASE'&&x.accountId===row.accountId&&ResolveOrder(x.reference)?.id===row.id).map(x=>({id:x.id,at:x.at,days:x.days||row.days,amount:x.amount,paymentMethod:'WALLET'}))};}
 function ResolveOrder(id){
  const db=s.DB(),seen=new Set();let order=db.orders[id];
  while(order?.mergedInto){if(seen.has(order.id))return null;seen.add(order.id);const parent=db.orders[order.mergedInto];if(!parent||parent.accountId!==order.accountId)return null;order=parent;}
@@ -140,7 +146,7 @@ function Activate(p,c,body){
  if(!bound)s.Fail('MEMBER_AUTH_REQUIRED');
  require('./entryPass').Convert(bound.license);
  order.status='ACTIVE';state.licenseRevision++;
- return {order:PublicOrder(order),activeGame:ActiveGame(p),activeGames:ActiveGames(p),requiresBiometric:true};
+ return {requestedOrderId:body.orderId,order:PublicOrder(order),activeGame:ActiveGame(p),activeGames:ActiveGames(p),requiresBiometric:true};
 }
 function AfterActivation(c){
  require('../buildGate').RevokeForClient(c.clientId,'PURCHASE_SWITCH');
@@ -169,7 +175,7 @@ function PurchasePayments(p){
   .sort((a,b)=>b.at-a.at).map(x=>{
    const original=db.orders[x.reference],order=ResolveOrder(x.reference),owned=order?.accountId===p.id;
    const days=x.days??(owned?original.days:0);
-   return {...x,gameKey:GameKey(db.products[x.productId||original?.productId]||x),icon:GameIcon(db.products[x.productId||original?.productId]||x),title:x.title||(owned?order.title:'게임 이용권'),days,displayExpiresAt:x.displayExpiresAt||(owned?DisplayExpiresAt(original):x.at+days*DAY),orderId:owned?order.id:'',refunded:owned&&order.status==='REFUNDED'};
+   return {...x,gameKey:GameKey(db.products[x.productId||original?.productId]||x),icon:GameIcon(db.products[x.productId||original?.productId]||x),title:x.title||(owned?order.title:'게임 이용권'),days,displayExpiresAt:x.displayExpiresAt||(owned?DisplayExpiresAt(original):x.at+days*DAY),orderId:owned?order.id:'',paymentMethod:'WALLET',source:'WALLET_PURCHASE',order:owned?PublicOrder(order):null,refunded:owned&&order.status==='REFUNDED'};
   });
 }
 function OwnPostRows(p){return require('./readScope').By('posts','accountId',p.id).filter(x=>!x.deleted&&!x.hidden&&!x.archived).sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));}

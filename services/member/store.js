@@ -1,7 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const state = require('../../core/state');
-const OPTIONAL_TABLES = ['commentReactions','bookmarks','blocks','reposts','pollVotes','pointLedger','eventSpins','pointConversions','shopPurchases','cosmeticUses','withdrawRequests','directThreads','directPairs','repostEvents','postShares'];
+const OPTIONAL_TABLES = ['commentReactions','bookmarks','blocks','reposts','pollVotes','pointLedger','eventSpins','pointConversions','shopPurchases','cosmeticUses','withdrawRequests','directThreads','directPairs','repostEvents','postShares','oauthAccounts'];
 const EXTRA_TABLES = ['coins','quotes','viewCounters','viewHits','chargeRequests','follows',...OPTIONAL_TABLES];
 const TABLES = ['profiles','products','news','orders','topups','ledger','posts','comments','reactions','reports','operations'];
 function Empty() {
@@ -35,7 +35,7 @@ function Resolve(value){if(typeof value!=='string')return;return ProfileById(val
 function PublicAvatar(p){if(!p.avatar)return '';if(p.avatarThumb&&p.avatarThumb.length<=16100)return p.avatarThumb;try{return require('./social').AvatarThumb(p.avatar);}catch(_){return '';}}
 function PublicProfile(p,own=false,viewer=own?p:null){
  const metrics={posts:require('./readScope').By('posts','accountId',p.id).filter(x=>!x.deleted&&!x.hidden&&!x.archived).length,...require('./follows').Counts(p.id)};
- return {...require('./profile-details').Public(p,own),id:p.id,handle:Handle(p),nickname:p.nickname,nicknameColor:p.nicknameColor||'',titleBadge:require('./badges').Public(p,metrics),bio:p.bio,...(viewer?{mentionMembers:require('./mentions').Members(p,viewer,'profile')}:{}),pronouns:p.pronouns||'',avatar:own?p.avatar:PublicAvatar(p),avatarRevision:p.avatarRevision,profileRevision:p.profileRevision||p.avatarRevision||0,...metrics,...(own?{balance:p.balance,points:p.points||0,eventSpins:p.eventSpins||0,inventory:require('./customization').Inventory(p),createdAt:p.createdAt,handleEditable:!p.handleChangedAt,nicknameChangeAt:p.nicknameChangedAt?p.nicknameChangedAt+30*86400000:0,gender:p.gender||'UNDISCLOSED',preferences:require('./preferences').Read(p)}: {})};
+ return {...require('./profile-details').Public(p,own),...require('./oauthIdentity').Public(p),id:p.id,handle:Handle(p),nickname:p.nickname,nicknameColor:p.nicknameColor||'',titleBadge:require('./badges').Public(p,metrics),bio:p.bio,...(viewer?{mentionMembers:require('./mentions').Members(p,viewer,'profile')}:{}),pronouns:p.pronouns||'',avatar:own?p.avatar:PublicAvatar(p),avatarRevision:p.avatarRevision,profileRevision:p.profileRevision||p.avatarRevision||0,...metrics,...(own?{balance:p.balance,points:p.points||0,eventSpins:p.eventSpins||0,inventory:require('./customization').Inventory(p),createdAt:p.createdAt,handleEditable:!p.handleChangedAt,nicknameChangeAt:p.nicknameChangedAt?p.nicknameChangedAt+30*86400000:0,gender:p.gender||'UNDISCLOSED',preferences:require('./preferences').Read(p)}: {})};
 }
 function ViewCount(kind,id){return DB().viewCounters?.[kind+':'+id]?.count||0;}
 let profileTable,profileRevision=-1,profileIndex=new Map();

@@ -1,7 +1,7 @@
 'use strict';
 const s=require('./store');
 function Query(value){if(value===undefined)return '';if(typeof value!=='string'||value.length>100)s.Fail('INPUT_INVALID');return s.Text(value,100).replace(/^@/,'').toLocaleLowerCase();}
-function Matches(p,q){return !q||[p.nickname,s.Handle(p)].some(x=>String(x||'').toLocaleLowerCase().includes(q));}
+function Matches(p,q){return !q||[p.nickname,s.Handle(p),require('./identity').PublicAccount(p).accountLabel].some(x=>String(x||'').toLocaleLowerCase().includes(q));}
 function Page(rows,body={}){const offset=body.offset===undefined?0:body.offset,limit=body.limit===undefined?12:body.limit;if(!Number.isSafeInteger(offset)||offset<0||offset>100000||!Number.isSafeInteger(limit)||limit<1||limit>30)s.Fail('INPUT_INVALID');return {...s.Page(rows,{offset,limit},30),offset};}
 function Public(p,target){return {...s.PublicProfile(target,false,p),isFollowing:require('./follows').IsFollowing(p.id,target.id)};}
 function Read(p,body={}){

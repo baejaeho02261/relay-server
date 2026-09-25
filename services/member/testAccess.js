@@ -1,8 +1,7 @@
 'use strict';
-// Temporary member-UI tests only. Set MEMBER_BIOMETRIC_TEST_MODE=0 and the APK
-// constant False to restore automatic biometric entry. No grant is persisted.
+// Test-only fixture. Production cannot enable this bypass, even with the flag set.
 const grants=new WeakMap();
-const Enabled=()=>String(process.env.MEMBER_BIOMETRIC_TEST_MODE??'1')==='1';
+const Enabled=()=>process.env.NODE_ENV==='test'&&process.env.MEMBER_BIOMETRIC_TEST_MODE==='1';
 function Revoke(c){if(c)grants.delete(c);}
 function Valid(c){
  if(!c)return false;

@@ -61,4 +61,4 @@ function Read(p,body={},admin=false){
  const counts={};for(const [key,get]of Object.entries(sections)){const v=get();counts[key]=Array.isArray(v)?v.length:v.total;}
  return {profile:{...s.PublicProfile(p,true),...(admin?{blocked:!!p.blocked}:{})},devices:devices().slice(0,12),counts,qr:qr().slice(0,12),support:support().slice(0,12)};
 }
-module.exports={MemberIndex,ClientIds,ResolveClient,ResolveSupport,Read};
+module.exports={MemberIndex,ClientIds,ResolveClient,ResolveSupport,Read,Ready:c=>require('./oauthIdentity').Ready(c),PublicAccount:p=>require('./oauthIdentity').Public(p)};

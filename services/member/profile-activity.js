@@ -49,16 +49,19 @@ function ProtectQuote(viewer,value){
  const source=s.DB().posts[value.quote.id];
  if(!Visible(viewer,source))value.quote={id:value.quote.id,unavailable:true};else ProtectQuote(viewer,value.quote);
 }
-function Projection(viewer,row,body,small=false){
+function Projection(viewer,row,body,small=false,target=null){
  const post=row.post,thumb=(!small?require('./media').FeedImage(post):'')||post.imageThumb||post.gifMedia?.frames?.[0]||require('./gifs').Get(post.gifId)?.frames?.[0]||'';
  const value=body.postCards===true?require('./social').PublicPost(post,viewer,false,body._wire==='zlib'):{id:post.id,title:post.title||'',body:(post.title||post.body||'사진 · GIF · 투표').slice(0,140),at:post.at,revision:post.revision||0};
  ProtectQuote(viewer,value);
+ // Each replay row keeps the actor and timestamp of that historical event,
+ // rather than the newest global repost chosen by the feed projection.
+ if(row.activityKind==='repost'&&target){const actor=s.PublicProfile(target,false,viewer);value.repostedBy={id:actor.id,handle:actor.handle,accountLabel:actor.accountLabel,nickname:actor.nickname,at:row.activityAt};}
  return {...value,previewPosition:post.previewPosition||'center',pinned:!!post.pinnedAt,mentionMembers:require('./mentions').Members(post,viewer),imageThumb:thumb,mediaKind:post.gifId||post.gifMedia?'gif':post.image?'photo':'text',quotePostId:post.quotePostId||'',eventId:row.eventId,activityKind:row.activityKind,activityAt:row.activityAt};
 }
 function Page(viewer,target,body={},max=12){
  const mode=Mode(body);
  if(mode==='comments')return require('./profiles').Comments(viewer,target,body);
- const page=s.Page(Rows(viewer,target,body),body,max);return {...page,items:page.items.map(row=>Projection(viewer,row,body,max>12))};
+ const page=s.Page(Rows(viewer,target,body),body,max);return {...page,items:page.items.map(row=>Projection(viewer,row,body,max>12,target))};
 }
 function Read(viewer,target,body={}){
  const mode=Mode(body),page=Page(viewer,target,body),empty={items:[],total:0,nextOffset:null};

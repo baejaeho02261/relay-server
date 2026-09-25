@@ -239,9 +239,12 @@ function AfterRead(p,action,body={},data={}){
  if(metric)Persist(p,draft=>Unique(draft,metric,id));
 }
 function ChargeApproved(p,row){
- // Inside charges.Approve's Atomic, after both the receipt and approval exist.
+ // A charge badge requires a committed server payment ledger. Provider return
+ // parameters alone never qualify; its order must be the persisted paid row.
  const payment=s.DB().ledger[row?.paymentId];
- if(!row||row.accountId!==p.id||row.status!=='APPROVED'||row.mode!=='WALLET'||!payment||payment.accountId!==p.id||payment.kind!=='QR_TOPUP'||payment.reference!==row.id||payment.amount!==row.amount||payment.amount<=0)return;
+ const legacy=row?.status==='APPROVED'&&row.mode==='WALLET'&&payment?.kind==='QR_TOPUP';
+ const provider=row?.status==='PAID'&&s.DB().settings.paymentOrders?.[row.id]===row&&payment?.kind==='PAYMENT_TOPUP';
+ if(!row||row.accountId!==p.id||(!legacy&&!provider)||!payment||payment.accountId!==p.id||payment.reference!==row.id||payment.amount!==row.amount||payment.amount<=0)return;
  Capture(p);Unique(p,'charges',row.id);Award(p);PayRewards(p);
 }
 function Appearance(p,row){
