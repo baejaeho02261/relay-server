@@ -7,6 +7,7 @@ function openModal(options) {
     modalBody.innerHTML = `${options.message ? `<p>${esc(options.message)}</p>` : ''}${options.html || ''}${fields.map(f => {
       if (f.type === 'plans') return `<fieldset class="modal-plans" data-modal-plans="${esc(f.name)}"><legend>${esc(f.label)}</legend><p class="small-note">1~3650일, 최대 24개. 가격 0원은 판매 준비 중입니다.</p><div data-plan-rows>${(f.value||[]).map(memberPlanRow).join('')}</div><button type="button" data-plan-add>기간 추가</button><p role="alert" data-plan-error></p></fieldset>`;
       if (f.type === 'section') return `<h3 class="modal-section">${esc(f.label)}</h3>`;
+      if (f.type === 'game-exe') return `<div class="modal-media"><label>${esc(f.label)}<input type="hidden" data-modal-field="${esc(f.name)}" value="${esc(f.value||'')}"><input type="file" accept=".exe,application/octet-stream" data-modal-game-exe="${esc(f.name)}" data-game-key="${esc(f.gameKey)}" aria-label="게임 실행 파일 선택"></label><p class="small-note" data-game-status="${esc(f.name)}">${esc(f.fileName||'이 게임에 제공할 실행 파일을 등록하세요. 미등록 상태에서는 다운로드할 수 없습니다.')}</p><button type="button" data-game-remove="${esc(f.name)}">파일 연결 해제</button></div>`;
       if (f.type === 'image') return `<div class="modal-media"><label>${esc(f.label)}<input type="hidden" data-modal-field="${esc(f.name)}" value="${esc(f.value||'')}"><input type="file" accept="image/png,image/jpeg" data-modal-image="${esc(f.name)}" aria-label="${esc(f.label)} 선택"></label><img data-modal-preview="${esc(f.name)}" ${f.value?`src="${esc(f.value)}"`:'hidden'} alt="사진 미리보기"><button type="button" data-modal-image-remove="${esc(f.name)}">사진 삭제</button><p class="small-note" data-modal-image-status="${esc(f.name)}">PNG·JPEG 사진을 선택하세요. 앱 표시 크기로 최적화합니다.</p></div>`;
       if (f.type === 'textarea') return `<label>${esc(f.label)}<textarea ${f.readOnly?'readonly aria-readonly="true"':''} data-modal-field="${esc(f.name)}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea></label>`;
       if (f.type === 'select') return `<label>${esc(f.label)}<select data-modal-field="${esc(f.name)}">${(f.options || []).map(o => `<option value="${esc(o.value ?? o)}" ${String(o.value ?? o)===String(f.value ?? '')?'selected':''}>${esc(o.label ?? o)}</option>`).join('')}</select></label>`;
@@ -31,6 +32,7 @@ function openModal(options) {
     modalCancel.onclick = () => close(null);
     modalEl.querySelectorAll('[data-modal-close]').forEach(x => x.onclick = () => close(null));
     modalBody.onclick = event => {
+      const gameRemove=event.target.closest('[data-game-remove]');if(gameRemove){const name=CSS.escape(gameRemove.dataset.gameRemove);modalBody.querySelector(`[data-modal-field="${name}"]`).value='';modalBody.querySelector(`[data-game-status="${name}"]`).textContent='파일 연결을 해제합니다. 저장을 눌러 적용하세요.';return;}
       const planAdd=event.target.closest('[data-plan-add]');if(planAdd){const rows=planAdd.closest('[data-modal-plans]').querySelector('[data-plan-rows]');if(rows.children.length<24)rows.insertAdjacentHTML('beforeend',memberPlanRow({days:'',price:0}));return;}
       const planRemove=event.target.closest('[data-plan-remove]');if(planRemove){planRemove.closest('[data-plan-row]').remove();return;}
       const previewTap=event.target.closest('[data-modal-preview]');if(previewTap&&!previewTap.hidden){previewTap.classList.toggle('media-expanded');return;}
@@ -46,7 +48,23 @@ function openModal(options) {
       input.focus();
     };
     modalBody.onchange=async event=>{
-      const input=event.target;if(!input.matches('[data-modal-image]'))return;
+      const input=event.target;
+      if(input.matches('[data-modal-game-exe]')){
+        const file=input.files?.[0];if(!file)return;
+        const field=CSS.escape(input.dataset.modalGameExe),status=modalBody.querySelector(`[data-game-status="${field}"]`);
+        pending++;modalConfirm.disabled=true;input.disabled=true;status.textContent='실행 파일을 업로드하고 검증하고 있어요.';
+        try{
+          if(!/^[A-Za-z0-9][A-Za-z0-9._ -]{0,99}\.exe$/i.test(file.name)||file.size>256*1024*1024)throw Error('영문 파일명으로 된 256MB 이하 EXE를 선택해주세요.');
+          const gameKey=modalBody.querySelector('[data-modal-field="gameKey"]')?.value||input.dataset.gameKey;
+          const query=new URLSearchParams({gameKey,fileName:file.name});
+          const response=await fetch('/api/games/upload?'+query,{method:'POST',headers:{'X-CSRF-Token':session.csrf,'Content-Type':'application/octet-stream'},credentials:'same-origin',body:file});
+          const data=await response.json();if(!response.ok||!data.ok)throw Error(data.message||data.code||'업로드 실패');
+          if(active){modalBody.querySelector(`[data-modal-field="${field}"]`).value=data.artifact.id;status.textContent=data.artifact.fileName+' · 검증 완료. 저장을 눌러 이 게임에 연결하세요.';}
+        }catch(error){if(active)status.textContent=error.message||'파일 업로드에 실패했습니다.';}
+        finally{pending--;if(active){modalConfirm.disabled=pending>0;input.disabled=false;}}
+        return;
+      }
+      if(!input.matches('[data-modal-image]'))return;
       const file=input.files?.[0];if(!file)return;
       const name=CSS.escape(input.dataset.modalImage),serial=Number(input.dataset.sequence||0)+1;input.dataset.sequence=String(serial);
       const status=modalBody.querySelector(`[data-modal-image-status="${name}"]`);pending++;modalConfirm.disabled=true;status.textContent='사진을 준비하고 있어요.';

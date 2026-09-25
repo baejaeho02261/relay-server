@@ -379,6 +379,9 @@ function HandleClientLine(connection, line) {
         SendLine(connection.socket, oldMoaPlay ? 'ERROR|CLIENT_UPDATE_REQUIRED|2.10.0' : 'ERROR|PERMISSIONS_REQUIRED'); return;
     }
 
+    if (/^(LICENSE_AUTH|QR_AUTH_RESUME|QR_AUTH_STATUS|BIOMETRIC_BEGIN|BIOMETRIC_PROOF|BUILD|SEND)\|/.test(line) &&
+        !require('../services/member/identity').Ready(connection)) { SendLine(connection.socket, 'ERROR|IDENTITY_REQUIRED'); return; }
+
     if (line.startsWith('LICENSE_AUTH|')) {
         const parts = line.split('|');
         const requestedClient = parts.length >= 3 ? NormalizeID(parts[2]) : '';

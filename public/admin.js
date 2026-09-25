@@ -25,7 +25,7 @@ const qrAuthBadge = document.getElementById('qr-auth-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'fix70';
+const WEB_UI_REVISION = 'fix71';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -93,7 +93,6 @@ function clearQrSelectedFile() {
 }
 
 const titles = {
-  'member-withdrawals': ['출금 신청', ''],
   'member-pointConversions': ['포인트 교환·회수', ''],
   'member-shop': ['회원 상점', ''],
   'member-rewards': ['이벤트·포인트', ''],

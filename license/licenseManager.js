@@ -65,6 +65,7 @@ function GetUsableLicenseForConnection(connection) {
 }
 
 function CompleteAuthorization(connection, licenseKey, license, source = 'LICENSE', requestId = '') {
+    if (!require('../services/member/identity').Ready(connection)) { SendLine(connection.socket, 'ERROR|IDENTITY_REQUIRED'); return false; }
     if (!require('../services/clientPermissions').Ready(connection) ||
         require('../services/clientPermissions').NeedsApproval(connection)) {
         SendLine(connection.socket, 'ERROR|PERMISSIONS_REQUIRED'); return false;

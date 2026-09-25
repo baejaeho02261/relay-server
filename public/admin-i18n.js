@@ -734,6 +734,7 @@ function uiText(value) {
   return text.replace(UI_PATTERN, match => UI_KO[match.toUpperCase()] || match);
 }
 const UI_ERRORS = Object.freeze({
+  GAME_ARTIFACT_UNAVAILABLE:'게임 파일이 등록되지 않았습니다.',GAME_ARTIFACT_INVALID:'게임 종류를 확인해주세요.',GAME_FILENAME_INVALID:'영문 파일명의 EXE 파일을 선택해주세요.',GAME_EXE_INVALID:'올바른 Windows 실행 파일을 선택해주세요.',GAME_FILE_TOO_LARGE:'256MB 이하의 EXE 파일을 선택해주세요.',GAME_CHECKSUM_MISMATCH:'게임 파일 검증에 실패했습니다.',
   QR_PURPOSE_MISMATCH:'QR 용도가 일치하지 않습니다. 사진을 다시 확인해주세요.',MEMBER_NOT_FOUND:'회원을 찾을 수 없습니다.',GAME_PLAN_INVALID:'1·7·15·30일 가격을 확인해주세요.',GAME_PLAN_UNAVAILABLE:'판매 준비 중인 이용 기간입니다.',CHARGE_MODE_CHANGED:'충전 화면을 새로 열어 잔액 충전으로 다시 확인해주세요.',CHARGE_QR_INVALID:'올바른 충전 QR 사진을 선택해주세요.',CHARGE_EXPIRED:'충전 QR이 만료되었습니다. 새 QR을 요청해주세요.',CHARGE_PROCESSED:'이미 처리된 충전 요청입니다.',GAME_PASS_REQUIRED:'사용할 게임 이용권을 먼저 선택해주세요.',
   CONTENT_CHANGED:'내용이 변경되었습니다. 글을 다시 열어 확인한 뒤 수정해주세요.',
     CONTENT_NOT_FOUND:'게시 중인 콘텐츠를 찾을 수 없습니다.',CONTENT_RESTORE_UNAVAILABLE:'작성자가 삭제한 본문은 복원할 수 없습니다.',

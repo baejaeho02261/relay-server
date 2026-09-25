@@ -1,7 +1,6 @@
 'use strict';
 async function handleMemberAction(event){
  const b=event.target.closest('[data-member-action]');if(!b)return false;const action=b.dataset.memberAction;let row=memberRows.get(b.dataset.id)||{};
- if(action==='withdraw.approve'||action==='withdraw.reject'){if(b.disabled)return true;b.disabled=true;try{await processMemberWithdrawal(action,row);}finally{if(b.isConnected)b.disabled=false;}return true;}
  if(action==='shop.edit'){await editMemberShop();return true;}
  if(action==='points.reverse'){if(b.disabled)return true;b.disabled=true;try{await reverseMemberPoints(row);}finally{if(b.isConnected)b.disabled=false;}return true;}
  if(action==='rewards.edit'){await editMemberRewards();return true;}
@@ -21,8 +20,8 @@ async function handleMemberAction(event){
   values=await openModal({title:row.title||'문서 수정',fields:[{name:'body',label:'본문',type:'textarea',value:row.body||''},{name:'published',label:'게시 상태',type:'select',value:String(!!row.published),options:[{value:'false',label:'임시 저장'},{value:'true',label:'앱에 게시'}]}],confirmLabel:'저장'});
   if(values)body={action:'policy.save',kind:row.kind||b.dataset.id,body:values.body,published:values.published==='true',revision:row.revision||0};
  }else if(action==='product.new'||action==='product.edit'){
-  values=await openModal({title:row.id?'게임 안내 수정':'게임 등록',fields:[{name:'gameKey',label:'게임',type:'select',value:row.gameKey||'PUBG',options:[{value:'PUBG',label:'배틀그라운드'},{value:'VALORANT',label:'발로란트'}],readOnly:!!row.id},{name:'description',label:'게임 소개',type:'textarea',value:row.description},gameGenreField(row.genre||row.details?.genre),{name:'accessType',label:'게임 분류',type:'select',value:row.accessType||'TYPE1',options:['TYPE1','TYPE2','TYPE3'].map(value=>({value,label:accessTypeName(value)}))},{name:'plans',label:'이용 기간 · 가격',type:'plans',value:row.plans||[1,7,15,30].map(days=>({days,price:0}))},{name:'published',label:'공개 상태',type:'select',value:String(row.published||false),options:[{value:'false',label:'비공개'},{value:'true',label:'공개'}]}],confirmLabel:'저장'});
-  if(values)body={...values,action:'product.save',...(row.id?{id:row.id,revision:row.revision||0}:{}),published:values.published==='true',plans:JSON.parse(values.plans)};
+  values=await openModal({title:row.id?'게임 안내 수정':'게임 등록',fields:[{name:'gameKey',label:'게임',type:'select',value:row.gameKey||'PUBG',options:[{value:'PUBG',label:'배틀그라운드'},{value:'VALORANT',label:'발로란트'}],readOnly:!!row.id},{name:'description',label:'게임 소개',type:'textarea',value:row.description},gameGenreField(row.genre||row.details?.genre),{name:'accessType',label:'게임 분류',type:'select',value:row.accessType||'TYPE1',options:['TYPE1','TYPE2','TYPE3'].map(value=>({value,label:accessTypeName(value)}))},{name:'plans',label:'이용 기간 · 가격',type:'plans',value:row.plans||[1,7,15,30].map(days=>({days,price:0}))},{name:'artifactId',label:'이 게임의 Windows 실행 파일 (.exe)',type:'game-exe',gameKey:row.gameKey||'PUBG',value:row.artifactId||'',fileName:row.artifact?.fileName||''},...Array.from({length:6},(_,i)=>({name:'gallery'+i,label:'게임 사진 '+(i+1)+' (선택)',type:'image',value:row.gallery?.[i]?.image||''})),{name:'published',label:'공개 상태',type:'select',value:String(row.published||false),options:[{value:'false',label:'비공개'},{value:'true',label:'공개'}]}],confirmLabel:'저장'});
+  if(values)body={...values,action:'product.save',...(row.id?{id:row.id,revision:row.revision||0}:{}),published:values.published==='true',plans:JSON.parse(values.plans),gallery:Array.from({length:6},(_,i)=>values['gallery'+i]||'').filter(Boolean)};
  }else if(action==='news.new'||action==='news.edit'){
   values=await openModal({title:'소식 작성',fields:[{name:'title',label:'제목',value:row.title},{name:'body',label:'내용',type:'textarea',value:row.body},{name:'category',label:'분류',type:'select',value:memberNewsCategory(row.category)||'NOTICE',options:['NOTICE','ALERT','EVENT'].map(value=>({value,label:memberStatus[value]}))},{name:'published',label:'공개',type:'select',value:String(row.published||false),options:[{value:'false',label:'임시 저장'},{value:'true',label:'공개'}]},{name:'pinned',label:'상단 고정',type:'select',value:String(row.pinned||false),options:[{value:'false',label:'사용 안 함'},{value:'true',label:'고정'}]}],confirmLabel:'저장'});
   if(values)body={...values,action:'news.save',...(row.id?{id:row.id,revision:row.revision||0}:{}),published:values.published==='true',pinned:values.pinned==='true'};
@@ -43,7 +42,7 @@ async function handleMemberAction(event){
   values=await openModal({title:b.textContent,message:label,danger:['order.refund','profile.block'].includes(action),fields:['order.refund'].includes(action)?[{name:'reason',label:'사유',type:'textarea'}]:[],confirmLabel:b.textContent});
   if(values)body={action,id:row.id,reason:values.reason||'',hidden:!row.hidden,blocked:!row.blocked};
  }
- if(body){await api('/api/member/action',{method:'POST',body});toast('반영되었습니다.');await renderMember();}return true;
+ if(body){for(let i=0;i<6;i++)delete body['gallery'+i];await api('/api/member/action',{method:'POST',body});toast('반영되었습니다.');await renderMember();}return true;
 }
 
 function updateMemberSelection(){
