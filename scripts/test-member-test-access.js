@@ -16,7 +16,7 @@ function connect(){return new Promise((resolve,reject)=>{
  socket.once('error',reject);socket.once('connect',()=>resolve(peer));
 });}
 function mac(p,prefix,fields){return crypto.createHmac('sha256',p.secret).update([prefix,p.c.clientId,p.c.deviceAuthChallengeId,...fields].join('|')).digest('hex').toUpperCase();}
-async function login(){const p=await connect();p.send('CONNECT|2|2.20.0|MEMBER-REFRESH-FIX49-'+peers.length);const id=(await p.wait('CONNECTED|')).split('|')[1];p.c=state.clients.get(id);p.secret=crypto.randomBytes(32).toString('hex');Object.assign(p.c,{permissionsGranted:true,deviceAuthVerified:true,biometricVerified:true,licenseAuthorized:true,deviceAuthChallengeId:'AUTH-FIX49-'+id});state.deviceSecrets.set('CLIENT:'+id,p.secret);state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});return p;}
+async function login(){const p=await connect();p.send('CONNECT|2|2.20.0|MEMBER-REFRESH-FIX49-'+peers.length);const id=(await p.wait('CONNECTED|')).split('|')[1];p.c=state.clients.get(id);p.secret=crypto.randomBytes(32).toString('hex');Object.assign(p.c,{permissionsGranted:true,deviceAuthVerified:true,biometricVerified:true,licenseAuthorized:true,deviceAuthChallengeId:'AUTH-FIX49-'+id});state.deviceSecrets.set('CLIENT:'+id,p.secret);state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});require('./helpers/member-identity-fixture')(p.c);return p;}
 async function request(p,action,body={},id='FIX49-REQUEST-'+(++seq)){
  p.c.hubRate=null;const plain=Buffer.from(JSON.stringify(body)),packed=body._wire==='zlib'&&plain.length>24000?zlib.deflateSync(plain,{level:1}):null;
  const compressed=packed&&packed.length<plain.length*.95,encoded=(compressed?packed:plain).toString('base64');
@@ -33,7 +33,8 @@ async function run(p,action,body,id){const r=await request(p,action,body,id);ass
  const peer=await login(),service=require('../services/member/service'),access=require('../services/member/testAccess');
  const c=peer.c;c.biometricVerified=false;
  const before=JSON.stringify([...state.clientBiometricProfiles]);
- assert.equal(access.Enabled(),true,'Temporary test build works without manual server setup');
+ assert.equal(access.Enabled(),false,'Biometric bypass is disabled by default');
+ process.env.NODE_ENV='test';
  assert.equal(service.Allowed(c),false);
  assert.equal((await request(peer,'feed',{testAccess:true})).reason,'MEMBER_AUTH_REQUIRED');
  // An unsigned forged request must never create a test grant.
@@ -65,7 +66,7 @@ async function run(p,action,body,id){const r=await request(p,action,body,id);ass
  assert.throws(()=>service.Execute(c,'FIX49-STOPPED','test.enter',{}),/SERVICE_DISABLED/);state.serviceEnabled=true;
  assert.equal(service.Allowed(c),false);await run(peer,'test.enter');
  const account=store.ProfileById(profile.id);account.blocked=true;
- assert.equal((await request(peer,'test.enter')).reason,'ACCOUNT_BLOCKED');
+ assert.equal((await request(peer,'test.enter')).reason,'MEMBER_AUTH_REQUIRED');
  assert.equal((await request(peer,'feed')).reason,'MEMBER_AUTH_REQUIRED');account.blocked=false;
  assert.equal(service.Allowed(c),false);await run(peer,'test.enter');
  service.AdminWrite('profile.block',{id:profile.id,blocked:true},'FIX49_TEST');

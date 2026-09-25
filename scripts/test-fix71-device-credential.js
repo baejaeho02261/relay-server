@@ -1,0 +1,31 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moa-fix71-credential-'));process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE='json';require('../core/utils').EnsureDirs();
+const state=require('../core/state'),s=require('../services/member/store'),bio=require('../services/clientBiometric'),service=require('../services/member/service');
+try{
+ const id='7100710071007100',device='FIX71-CREDENTIAL',secret=crypto.randomBytes(32).toString('hex'),sent=[];
+ const c={type:'client',clientId:id,installationDeviceKey:device,connected:true,permissionsGranted:true,deviceAuthVerified:true,deviceAuthChallengeId:'AUTH-FIX71-CREDENTIAL',licenseAuthorized:true,biometricVerified:false,accessType:'TYPE1',socket:{destroyed:false,write(line){sent.push(line);return true;}}};
+ state.clients.set(id,c);state.clientIdentities.set(device,{id,serverId:'',createdAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,secret);state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});
+ require('../services/deviceControl').RecordCapabilities('CLIENT',id,'BIOMETRIC_AUTH,DEVICE_HMAC,QR_DEVICE_APPROVAL');
+ c.licenseKey=require('../license/licenseManager').CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;
+ const member=s.Account(c),key='verified-google-test-fixture';
+ assert.equal(bio.Begin(c).reason,'IDENTITY_REQUIRED');
+ s.Atomic(()=>{member.providerIdentity={key,provider:'google',label:'검증 계정'};s.DB().oauthAccounts[key]={provider:'google',accountId:member.id,installationSubject:member.subject};});
+ assert.equal(bio.Begin(c).ok,true);assert.equal(service.Allowed(c),false);
+ let challenge=state.clientBiometricChallenges.get(id);const first=challenge.nonce;
+ assert.equal(bio.HandleProof(c,['BIOMETRIC_PROOF',challenge.mode,challenge.nonce,'0'.repeat(64)]),false);assert.equal(c.biometricVerified,false);
+ challenge=state.clientBiometricChallenges.get(id);assert.notEqual(challenge.nonce,first);challenge.expiresAt=Date.now()-1;
+ assert.equal(bio.HandleProof(c,['BIOMETRIC_PROOF',challenge.mode,challenge.nonce,bio.Proof(secret,challenge.mode,id,challenge.nonce,challenge.accessType)]),false,'expired native result cannot enter');
+ challenge=state.clientBiometricChallenges.get(id);const proof=['BIOMETRIC_PROOF',challenge.mode,challenge.nonce,bio.Proof(secret,challenge.mode,id,challenge.nonce,challenge.accessType)];
+ assert.equal(bio.HandleProof(c,proof),true);assert.equal(c.biometricVerified,true);assert.equal(service.Allowed(c),true);
+ c.permissionsGranted=false;assert.equal(bio.HandleProof(c,proof),false);assert.equal(service.Allowed(c),false);c.permissionsGranted=true;
+ const native=path.resolve(__dirname,'../../MoaPlayApp_Android64'),helper=fs.readFileSync(path.join(native,'MoaPlayDeviceCredential.pas'),'utf8'),app=fs.readFileSync(path.join(native,'MoaPlayApp.BiometricBuild.inc'),'utf8');
+ const callback=helper.slice(helper.indexOf('procedure TMoaPlayDeviceCredential.ActivityResult'));
+ assert.ok(callback.includes('Reply.RequestCode<>FRequestCode'));assert.ok(callback.includes('not FPending'));assert.ok(callback.includes('Reply.ResultCode=TJActivity.JavaClass.RESULT_OK'));assert.ok(callback.includes('FPending:=False;FRequestCode:=0'));
+ assert.ok(helper.includes('Manager.isDeviceSecure'));assert.ok(helper.includes('createConfirmDeviceCredentialIntent'));assert.ok(helper.includes('Inc(NextCredentialRequest)'));assert.ok(!helper.includes('FPending:=True;FOnResult(True)'));
+ const result=app.slice(app.indexOf('procedure TMoaPlayForm.CredentialResult'));
+ for(const guard of ['not Success','not FState.Connected','not FDeviceAuthVerified','not PermissionsReady','not HubIdentityReady','not FState.LicenseAuthenticated','FCredentialClientID<>FState.ClientID','FCredentialChallengeID<>FPermissionAuthID','FBiometricPromptNonce<>FBiometricNonce'])assert.ok(result.includes(guard),guard);
+ assert.ok(result.includes('BiometricAuthenticateSuccess(Self)'));assert.ok(!result.includes('BiometricAuthenticated:=True'));assert.ok(!result.includes('ShowMainPage'));
+ assert.ok(app.includes('FSecurity.BuildBiometricHmac'));assert.ok(app.includes('BuildBiometricProofLine'));assert.ok(app.includes('FDeviceCredential.Cancel'));
+ console.log('FIX71 CREDENTIAL PASS: unlinked/forged/expired proofs rejected; actual signed nonce enters only with all existing gates; source validates pending OS result, unique request, account/device/client/challenge/nonce and no local success bypass. Android runtime is not exercised.');
+}finally{fs.rmSync(dir,{recursive:true,force:true});}

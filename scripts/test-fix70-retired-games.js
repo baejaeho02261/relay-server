@@ -6,7 +6,7 @@ const state=require('../core/state'),s=require('../services/member/store'),servi
 function client(){const id='0000000000007070',key='FIX70-RETIREMENT',c={type:'client',clientId:id,connected:true,permissionsGranted:true,deviceAuthVerified:true,licenseAuthorized:true,biometricVerified:true,installationDeviceKey:key,deviceAuthChallengeId:'AUTH-'+id,socket:{destroyed:false,write(){return true;}}};state.clients.set(id,c);state.clientIdentities.set(key,{id,serverId:'',createdAt:Date.now()});state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,crypto.randomBytes(32).toString('hex'));c.licenseKey=require('../license/licenseManager').CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;return c;}
 let serial=0;const run=(c,action,body={})=>service.Execute(c,'FIX70-RETIRE-'+(++serial),action,body);
 try{
- const c=client();run(c,'me');const p=s.Account(c);
+ const c=client();require('./helpers/member-identity-fixture')(c);run(c,'me');const p=s.Account(c);
  s.Atomic(()=>{
   p.balance=76543;p.points=1234;p.eventSpins=3;
   p.arcade={BACCARAT:{played:99,lastResult:{id:'OLD-HAND'}}};p.casino={CRASH:{played:50,active:{id:'OLD-ROUND',betAmount:1000}}};
@@ -21,7 +21,8 @@ try{
   assert.equal(JSON.stringify(s.DB()),before,action+' rejection must not mutate balances, records, awards or pending legacy states');
  }
  const wallet=require('../services/member/wallet').Read(p);assert.equal(wallet.balance,76543);assert.equal(wallet.points,1234);assert.equal(wallet.eventSpins,3);
- assert.deepEqual(require('../services/member/withdrawals').Read(p).wallet,wallet,'normal wallet/withdrawal survives engine deletion');
+ assert.equal(require('../services/member/withdraw-retirement').Ensure(p).released,0,'wallet with no pending reservation remains unchanged');
+ assert.deepEqual(require('../services/member/wallet').Read(p),wallet,'normal wallet survives retired game and withdrawal UI deletion');
  const visible=badges.Read(p).items||badges.Read(p).badges||[];
  assert.ok(!JSON.stringify(visible).includes('BACCARAT_1'),'retired missions are not available for new earning or selection');
  const services=require('../services/member/history').SERVICES;

@@ -45,9 +45,10 @@ try{
  assert.ok(source.includes('C.OnClick:=HubActionClick;C.OnDblClick:=nil'));
  assert.ok(!source.includes('TMoaPlayDiscoverCard'));assert.ok(!source.includes('게임 검색'));
  const fill=source.slice(source.indexOf('function TMoaPlayForm.HubFillGameCard'),source.indexOf('procedure TMoaPlayForm.HubRenderNews'));
- assert.ok(fill.indexOf('if Buying then begin')<fill.indexOf("Plans:=HubArray(Full,'plans')"),'duration buttons only render after double click');
- assert.ok(fill.includes('Tap.OnOpen:=HubActionClick;Tap.OnBuy:=HubCatalogCardDoubleClick'));
- assert.ok(source.includes('FHubGameBuyID<>SelectedID'),'only the currently revealed game may request confirmation');
+ assert.ok(!fill.includes('product.plan|'),'FIX71 has no inline purchase button');
+ assert.ok(fill.includes('Tap.OnOpen:=HubActionClick'));assert.ok(fill.includes('if Days>0 then Tap.OnBuy:=HubCatalogCardLongPress'));
+ assert.ok(source.includes('if FHubGameBuyID=ID then begin'),'only the pending game reply may open a confirmation');
+ assert.ok(source.includes('for Days in [1,7,15,30]'),'each product has four duration cards');
  const web=fs.readFileSync(path.join(__dirname,'../public/admin-member-actions.js'),'utf8');assert.ok(!web.includes("label:'게임 사진'"));
- console.log('FIX70 CATALOG PASS: two games, correct icons, price-preserving migration, no photo fields, pure reads, retired pass/history retention, unavailable unpriced plans, unchanged payment authorization/replay/rollback, restart persistence, inline purchase guards.');
+ console.log('FIX70 CATALOG PASS: two games, correct icons, price-preserving migration, no photo fields, pure reads, retired pass/history retention, unavailable unpriced plans, unchanged payment authorization/replay/rollback, restart persistence, long-press purchase guards.');
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

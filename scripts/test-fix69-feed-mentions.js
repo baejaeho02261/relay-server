@@ -42,7 +42,7 @@ assert.match(compose,/C:=HubCard\(400\);C.Fill.Kind:=TBrushKind.None;C.Fill.Colo
 assert.match(compose,/C.Stroke.Kind:=TBrushKind.None;/);
 assert.match(compose,/Box.Stroke.Kind:=TBrushKind.Solid;Box.Stroke.Color:=MemberBorder;Box.Stroke.Thickness:=MemberPanelBorderWidth\(1\);FHubComposeBody:=Box/);
 assert.match(compose,/Result.FloatingLabel:=False;Result.FixedLabel:=False/);
-assert.match(compose,/FHubEdits\[0\]:=EditAt\(C,Title,'제목을 작성하세요',48,90\)/);
+assert.match(compose,/FHubEdits\[0\]:=EditAt\(C,Title,'제목을 작성하세요',4,90\)/);
 assert.doesNotMatch(compose,/FHubEdits\[1\]:=|투표 질문을 작성하세요|PromptText:=MemberCaption\('이야기를 작성하세요'\)/);
 assert.match(compose,/PromptText:=MemberCaption\('서로를 존중하는 글/);
 assert.match(compose,/Question:=Trim\(FHubMemo.Text\)/);assert.match(compose,/Question:=Trim\(FHubEdits\[0\].Text\)/);
@@ -59,8 +59,8 @@ assert.match(widgets,/if Bold or \(FontSize>=17\) then Layout.Font.Style:=\[TFon
 assert.match(feed,/HubBodyHeight\(Title,C.Width-32,16,True\)/);
 assert.match(feed,/HubBodyHeight\(HubText\(Poll,'question'\),C.Width-32,14,True\)/);
 assert.doesNotMatch(feed,/AddMemberSvg\(C,C,AudienceIcon/);assert.match(tools,/Choice\('친한 친구만','closefriends','CLOSE_FRIENDS'/);
-assert.match(feed,/if HubBool\(Post,'own'\) then begin[\s\S]*AudienceText:=Text/);
-assert.match(feed,/AudienceText,C.Width-52-AudienceW,HeaderTop\+3,AudienceW,18/);
+assert.doesNotMatch(feed,/AudienceText|전체 공개/,'post previews no longer show an audience label');
+assert.doesNotMatch(compose,/post.channel|Channel\('전체'/,'composer follows the selected game without channel chips');
 assert.match(feed,/'post.menu','more\|post\|'.*C.Width-52,6,44,44/);
 for(const headerTop of [16,34]){
  const nicknameCenter=headerTop+3+18/2,audienceCenter=headerTop+3+18/2,menuCenter=6+44/2;

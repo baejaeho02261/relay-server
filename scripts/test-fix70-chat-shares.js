@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moaplay-fix70-chat-'));process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE='json';require('../core/utils').EnsureDirs();
 const state=require('../core/state'),s=require('../services/member/store'),hub=require('../services/member/service'),lm=require('../license/licenseManager');let serial=0;
-function client(n){const id=String(n).padStart(16,'0'),key='FIX70-CHAT-'+n,c={type:'client',clientId:id,connected:true,permissionsGranted:true,deviceAuthVerified:true,licenseAuthorized:true,biometricVerified:true,installationDeviceKey:key,deviceAuthChallengeId:'AUTH-'+id,socket:{destroyed:false,write(){return true;}}};state.clients.set(id,c);state.clientIdentities.set(key,{id,serverId:'',createdAt:Date.now()});state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,crypto.randomBytes(32).toString('hex'));c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;return c;}
+function client(n){const id=String(n).padStart(16,'0'),key='FIX70-CHAT-'+n,c={type:'client',clientId:id,connected:true,permissionsGranted:true,deviceAuthVerified:true,licenseAuthorized:true,biometricVerified:true,installationDeviceKey:key,deviceAuthChallengeId:'AUTH-'+id,socket:{destroyed:false,write(){return true;}}};state.clients.set(id,c);state.clientIdentities.set(key,{id,serverId:'',createdAt:Date.now()});state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,crypto.randomBytes(32).toString('hex'));c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;require('./helpers/member-identity-fixture')(c);return c;}
 const run=(c,action,body={},id)=>hub.Execute(c,id||'FIX70-CHAT-'+(++serial),action,body),own=c=>s.Account(c);
 const post=(c,body)=>{s.Atomic(()=>{own(c).last_post=0;});return run(c,'post.create',body).post;};
 const settings=(c,p,patch)=>run(c,'post.settings',{id:p.id,revision:s.DB().posts[p.id].revision||0,...patch});
@@ -44,7 +44,7 @@ try{
  assert.match(dm,/TDirectComposerMemo\(FInput\).CenterText/);assert.match(dm,/TDirectComposerMemo.ApplyStyle;\s*begin inherited;CenterText;end/);
  assert.match(dm,/TextSettings.VertAlign:=TTextAlign.Center;\s*Prompt:=FindStyleResource\('member-memo-prompt'\)/);
  assert.match(dm,/SharedH:=Max\(80,FOnPostCard\(SharedCard,Shared\)\)/);assert.match(dm,/DMLabel\(Row,'공유한 게시글'/);
- assert.match(bridge,/Result:=HubFillPostCard\(Card,Post,True,0,True\)/);assert.match(bridge,/ReadOnlyChildren\(Card\)/);
+ assert.match(bridge,/Result:=HubFillPostCard\(Card,Snapshot,True,0,True\)/);assert.match(bridge,/ReadOnlyChildren\(Card\)/);
  assert.match(bridge,/TControl\(Child\).HitTest:=False/);assert.match(bridge,/TRectangle\(Child\).OnClick:=nil/);
  assert.match(dashboard,/FHubCommentBox.Fill.Kind:=TBrushKind.None;FHubCommentBox.Stroke.Kind:=TBrushKind.Solid/);
  assert.doesNotMatch(dm,/'@'\+DMTxt\([^,]+,'handle'\)/);
