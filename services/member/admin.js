@@ -21,12 +21,13 @@ function Counter(row){
 }
 function Read(body={}){
     const db=s.DB(),view=body.view||'overview';
+    if(['integrations','oauthAccounts'].includes(view))return require('./adminAccounts').Read(body);
     if(view==='pointConversions')return require('./points').Admin(body);
     if(view==='shop')return require('./customization').Admin(body);
     if(view==='rewards')return require('./rewards').Admin(body);
     if(view==='policies')return require('./documents').AdminRead();
-    if(view==='lookup'){const p=s.Resolve(body.handle||body.id||body.q);if(!p)s.Fail('MEMBER_NOT_FOUND');return require('./identity').Read(p,body,true);}
-    const table={charges:()=>Object.values(db.chargeRequests).map(require('./charges').Public),products:()=>commerce.CatalogRows(true).map(p=>commerce.PublicGame(p)),news:()=>Object.values(db.news).map(row=>social.PublicNews(row)),orders:()=>Object.values(db.orders).filter(x=>!x.mergedInto).map(commerce.PublicOrder),ledger:()=>Object.values(db.ledger),profiles:()=>Object.values(db.profiles).map(p=>({...s.PublicProfile(p,true),blocked:p.blocked})),posts:()=>Object.values(db.posts).map(post=>{const {image,imageFeed,bodyFormats,...rest}=post;return {...rest,...(body.id?{image:image||''}:{}),author:social.Author(post.accountId),quote:post.quotePostId?(()=>{const q=db.posts[post.quotePostId];return q?{id:q.id,title:q.title||'',body:q.deleted?'':q.body,author:social.Author(q.accountId),image:q.deleted?'':q.imageThumb||'',at:q.at,deleted:!!q.deleted,hidden:!!q.hidden}: {id:post.quotePostId,deleted:true};})():null};}),comments:()=>Object.values(db.comments).map(c=>({...c,author:social.Author(c.accountId)})),reports:()=>Object.values(db.reports),analytics:()=>Object.values(db.viewCounters).filter(x=>x.kind==='post').map(Counter)};
+    if(view==='lookup'){const p=s.Resolve(body.handle||body.id||body.q);if(!p)s.Fail('MEMBER_NOT_FOUND');const page={...body,...(body.offset!==undefined?{offset:Number(body.offset)}:{}),...(body.limit!==undefined?{limit:Number(body.limit)}:{})};const result=require('./identity').Read(p,page,true);return {...result,profile:{...result.profile,identity:require('./oauthIdentity').AdminStatus(p)}};}
+    const table={charges:()=>Object.values(db.chargeRequests).map(require('./charges').Public),products:()=>commerce.CatalogRows(true).map(p=>commerce.PublicGame(p)),news:()=>Object.values(db.news).map(row=>social.PublicNews(row)),orders:()=>Object.values(db.orders).filter(x=>!x.mergedInto).map(commerce.PublicOrder),ledger:()=>Object.values(db.ledger),walletGrants:()=>Object.values(db.ledger).filter(row=>row.kind==='ADMIN_GRANT'),profiles:()=>Object.values(db.profiles).map(require('./adminAccounts').Profile),posts:()=>Object.values(db.posts).map(post=>{const {image,imageFeed,bodyFormats,...rest}=post;return {...rest,...(body.id?{image:image||''}:{}),author:social.Author(post.accountId),quote:post.quotePostId?(()=>{const q=db.posts[post.quotePostId];return q?{id:q.id,title:q.title||'',body:q.deleted?'':q.body,author:social.Author(q.accountId),image:q.deleted?'':q.imageThumb||'',at:q.at,deleted:!!q.deleted,hidden:!!q.hidden}: {id:post.quotePostId,deleted:true};})():null};}),comments:()=>Object.values(db.comments).map(c=>({...c,author:social.Author(c.accountId)})),reports:()=>Object.values(db.reports),analytics:()=>Object.values(db.viewCounters).filter(x=>x.kind==='post').map(Counter)};
     if(['coins','topups'].includes(view))s.Fail('TOPUP_UNAVAILABLE');
     const settings={};
     if(table[view]){
@@ -61,6 +62,8 @@ function Content(body,actor){
     });
 }
 function Write(action,body,actor){
+    if(action==='wallet.grant')return require('./adminWallet').Grant(body,actor);
+    if(['oauth.recheck','oauth.reauth'].includes(action))return require('./adminAccounts').Write(action,body,actor);
     if(action==='points.reverse')return require('./points').Reverse(body,actor);
     if(action==='shop.save')return require('./customization').SaveRules(body,actor);
     if(action==='rewards.save')return require('./rewards').SaveRules(body,actor);

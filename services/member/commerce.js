@@ -179,8 +179,9 @@ function PurchasePayments(p){
   });
 }
 function OwnPostRows(p){return require('./readScope').By('posts','accountId',p.id).filter(x=>!x.deleted&&!x.hidden&&!x.archived).sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));}
+function PublicLedger(row){if(row.kind!=='ADMIN_GRANT')return row;const {actor,reason,requestId,memberHandle,reference,...publicRow}=row;return publicRow;}
 function Mine(p,body){
  const orders=OwnOrders(p),db=s.DB(),content=require('./profile-activity').Read(p,p,body);
- return {profile:s.PublicProfile(p,true),...content,activeGame:ActiveGame(p),activeGames:ActiveGames(p),orders:s.Page(orders,body,20),payments:s.Page(body.purchasesOnly===true?PurchasePayments(p):Object.values(db.ledger).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at),body,20)};
+ return {profile:s.PublicProfile(p,true),...content,activeGame:ActiveGame(p),activeGames:ActiveGames(p),orders:s.Page(orders,body,20),payments:s.Page(body.purchasesOnly===true?PurchasePayments(p):Object.values(db.ledger).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at).map(PublicLedger),body,20)};
 }
 module.exports={GAMES,GameKey,GameIcon,CatalogRows,EnsureCatalog,PublicGame,Product,Catalog,SaveProduct,Purchase,Activate,AfterActivation,Refund,Mine,OwnPostRows,PurchasePayments,PublicOrder,OwnOrders,ActiveGame,ActiveGames};

@@ -1,5 +1,5 @@
 'use strict';
-const crypto=require('node:crypto'),payments=require('./payments'),providers=require('./payment-provider'),engine=payments.Engine();
+const crypto=require('node:crypto'),payments=require('./payments'),engine=payments.Engine();
 const escape=v=>String(v).replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 function Html(res,status,title,message,extra='',nonce=''){
  res.writeHead(status,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff',
@@ -8,7 +8,7 @@ function Html(res,status,title,message,extra='',nonce=''){
 }
 function Checkout(res,data){
  const nonce=crypto.randomBytes(18).toString('base64'),safe=JSON.stringify(data).replace(/</g,'\\u003c');
- Html(res,200,'토스페이로 충전','결제를 완료하면 MoaPlay 충전 잔액에 자동으로 반영됩니다.','<strong>'+data.amount.toLocaleString('ko-KR')+'원</strong><button id="pay">토스페이로 결제</button><p id="message" role="status"></p><script nonce="'+nonce+'" src="https://js.tosspayments.com/v2/standard"></script><script nonce="'+nonce+'">const d='+safe+';const b=document.getElementById("pay");b.addEventListener("click",async()=>{b.disabled=true;try{await TossPayments(d.clientKey).payment({customerKey:d.customerKey}).requestPayment({method:"CARD",amount:{currency:"KRW",value:d.amount},orderId:d.id,orderName:"MoaPlay 잔액 충전",successUrl:d.successUrl,failUrl:d.failUrl,card:{flowMode:"DIRECT",easyPay:"TOSSPAY"}});}catch(e){document.getElementById("message").textContent="결제를 완료하지 못했어요. 다시 시도해주세요.";b.disabled=false;}});</script>',nonce);
+ Html(res,200,'토스페이로 충전',data.mode==='test'?'테스트 결제입니다. 실제 금액은 결제되지 않으며 테스트 서버의 잔액에만 반영됩니다.':'결제를 완료하면 MoaPlay 충전 잔액에 자동으로 반영됩니다.','<strong>'+data.amount.toLocaleString('ko-KR')+'원</strong><button id="pay">토스페이로 결제</button><p id="message" role="status"></p><script nonce="'+nonce+'" src="https://js.tosspayments.com/v2/standard"></script><script nonce="'+nonce+'">const d='+safe+';const b=document.getElementById("pay");b.addEventListener("click",async()=>{b.disabled=true;try{await TossPayments(d.clientKey).payment({customerKey:d.customerKey}).requestPayment({method:"CARD",amount:{currency:"KRW",value:d.amount},orderId:d.id,orderName:"MoaPlay 잔액 충전",successUrl:d.successUrl,failUrl:d.failUrl,windowTarget:"self",card:{flowMode:"DIRECT",easyPay:"TOSSPAY"}});}catch(e){const code=String(e&&e.code||"");document.getElementById("message").textContent=code==="USER_CANCEL"?"결제가 취소됐어요. 원하면 다시 결제할 수 있어요.":/KEY|UNAUTHORIZED|NOT_SUPPORTED/.test(code)?"가맹점 결제 연결을 확인해야 합니다. MoaPlay 고객센터에 문의해주세요.":typeof TossPayments!=="function"?"결제창을 불러오지 못했어요. 인터넷 연결을 확인하고 이 페이지를 새로고침해주세요.":"결제를 완료하지 못했어요. 다시 시도해주세요.";b.disabled=false;}});</script>',nonce);
 }
 async function JsonBody(req){let size=0;const parts=[];for await(const chunk of req){size+=chunk.length;if(size>16384)throw Error('INPUT_INVALID');parts.push(chunk);}return JSON.parse(Buffer.concat(parts).toString('utf8'));}
 const webhookRate=new Map();
@@ -32,13 +32,13 @@ async function Handle(req,res,url){
   const parts=url.pathname.split('/').filter(Boolean);
   if(parts[1]==='webhook'&&['kakao','toss'].includes(parts[2])){await Webhook(req,res,parts[2]);return true;}
   if(req.method!=='GET'){res.writeHead(405);res.end();return true;}
-  if(parts[1]==='start'&&parts.length===4){const data=await engine.Launch(parts[2],parts[3]);if(data.redirect){res.writeHead(303,{Location:data.redirect,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'});res.end();}else Checkout(res,data);return true;}
+  if(parts[1]==='start'&&parts.length===4){const agent=String(req.headers?.['user-agent']||''),mobile=/Android|iPhone|iPad|iPod|Mobile/i.test(agent)||req.headers?.['sec-ch-ua-mobile']==='?1';const data=await engine.Launch(parts[2],parts[3],{mobile});if(data.redirect){res.writeHead(303,{Location:data.redirect,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'});res.end();}else Checkout(res,data);return true;}
   if(parts[1]==='return'&&parts.length===5){
    if(parts[4]==='complete'){const result=await engine.Complete(parts[2],parts[3],Object.fromEntries(url.searchParams));Html(res,200,'충전이 완료됐어요',result.amount.toLocaleString('ko-KR')+'원이 충전되었습니다.\nMoaPlay로 돌아가 잔액을 확인해주세요.');}
-   else if(['cancel','fail'].includes(parts[4])){engine.Cancel(parts[2],parts[3]);Html(res,200,'결제가 취소됐어요','충전 잔액은 변경되지 않았습니다. MoaPlay에서 다시 시도해주세요.');}
+   else if(['cancel','fail'].includes(parts[4])){const result=engine.Cancel(parts[2],parts[3]);if(result.status==='PAID')Html(res,200,'이미 충전이 완료됐어요',result.amount.toLocaleString('ko-KR')+'원이 충전되었습니다. MoaPlay에서 잔액을 확인해주세요.');else if(result.status==='APPROVING')Html(res,200,'결제 결과를 확인하고 있어요','승인 요청이 진행 중입니다. 결제를 다시 시작하지 말고 MoaPlay에서 잠시 후 잔액을 확인해주세요.');else Html(res,200,'결제가 취소됐어요','충전 잔액은 변경되지 않았습니다. MoaPlay에서 다시 시도해주세요.');}
    else{res.writeHead(404);res.end();}return true;
   }
   res.writeHead(404);res.end();return true;
- }catch(e){const waiting=['PAYMENT_PROVIDER_WAIT','STORAGE_SAVE_FAILED'].includes(e.message);Html(res,waiting?503:400,waiting?'결제 결과를 확인하고 있어요':'결제를 진행할 수 없어요',waiting?'승인 결과 확인이 지연되고 있습니다. 결제를 다시 시작하지 말고 잠시 후 이 페이지를 새로고침해주세요.':'결제 정보 또는 유효 시간을 확인해주세요. MoaPlay에서 새 충전을 시작할 수 있습니다.');return true;}
+ }catch(e){const waiting=['PAYMENT_PROVIDER_WAIT','STORAGE_SAVE_FAILED'].includes(e.message),unavailable=['PAYMENT_UNAVAILABLE','PAYMENT_PROVIDER_CONFIG'].includes(e.message);Html(res,waiting||unavailable?503:400,waiting?'결제 결과를 확인하고 있어요':'결제를 진행할 수 없어요',waiting?'승인 결과 확인이 지연되고 있습니다. 결제를 다시 시작하지 말고 잠시 후 이 페이지를 새로고침해주세요.':unavailable?'결제 서비스의 가맹점 연결 설정을 확인해야 합니다. MoaPlay 고객센터에 문의해주세요.':'결제 정보 또는 유효 시간을 확인해주세요. MoaPlay에서 새 충전을 시작할 수 있습니다.');return true;}
 }
 module.exports={Handle};

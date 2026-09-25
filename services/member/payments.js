@@ -14,7 +14,7 @@ function Recover(p){
  }
  if(retryAt.size>5000)for(const[id,at]of retryAt)if(now-at>3600000)retryAt.delete(id);
 }
-function Read(p){Recover(p);return {wallet:require('./wallet').Read(p),providers:['KAKAOPAY','TOSSPAY'].map(id=>({id,enabled:provider.Ready(id),name:id==='KAKAOPAY'?'카카오페이':'토스페이'})),items:Object.values(orders()).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at).slice(0,10).map(Public)};}
+function Read(p){Recover(p);return {wallet:require('./wallet').Read(p),providers:provider.Capabilities(),items:Object.values(orders()).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at).slice(0,10).map(Public)};}
 // Invoked by the signed member dispatcher inside its replay-protected transaction.
 function Start(p,body){
  const name=body.provider,amount=s.Money(body.amount,1000,1000000);if(!provider.Ready(name))s.Fail('PAYMENT_UNAVAILABLE');
@@ -22,7 +22,7 @@ function Start(p,body){
  if(!Number.isSafeInteger(p.balance+amount+s.ReservedBalance(p)))s.Fail('BALANCE_INVALID');
  const now=Date.now();if(Object.values(orders()).filter(x=>x.accountId===p.id&&x.at>now-TTL&&['CREATED','READY','PREPARING','APPROVING'].includes(x.status)).length>=4)s.Fail('PLEASE_WAIT');
  const launch=crypto.randomBytes(32).toString('base64url'),id=s.Id('MPO');
- const row={id,accountId:p.id,provider:name,amount,currency:'KRW',at:now,expiresAt:now+TTL,launchHash:hash(launch),status:'CREATED'};
+ const row={id,accountId:p.id,provider:name,paymentMode:provider.Status(name).mode,amount,currency:'KRW',at:now,expiresAt:now+TTL,launchHash:hash(launch),status:'CREATED'};
  if(!s.DB().settings.paymentOrders)s.DB().settings.paymentOrders={};s.DB().settings.paymentOrders[id]=row;
  return {checkout:Public(row),checkoutUrl:provider.Config().origin+'/pay/start/'+id+'/'+launch};
 }
@@ -54,16 +54,17 @@ function Reward(id){
 function Engine(client=provider.Client()){
  const busy=new Map();
  async function Lock(id,fn){if(busy.has(id))return busy.get(id);const work=Promise.resolve().then(fn);busy.set(id,work);try{return await work;}finally{busy.delete(id);}}
- async function Launch(id,token){
+ async function Launch(id,token,options={}){
   const initial=Find(id);Token(initial,token,'launchHash');if(initial.status!=='CREATED'||initial.expiresAt<=Date.now())s.Fail('PAYMENT_EXPIRED');
   return Lock(id,async()=>{
    let row=Find(id);Token(row,token,'launchHash');if(row.status!=='CREATED'||row.expiresAt<=Date.now())s.Fail('PAYMENT_EXPIRED');Active(row);
+   const capability=provider.Status(row.provider);if(!capability.enabled||row.paymentMode&&row.paymentMode!==capability.mode)s.Fail('PAYMENT_UNAVAILABLE');
    const callback=crypto.randomBytes(32).toString('base64url');
    Atomic(()=>{row=Find(id);row.status='PREPARING';row.callbackHash=hash(callback);row.launchedAt=Date.now();});
    const base=provider.Config().origin+'/pay/return/'+id+'/'+callback;
-   if(row.provider==='TOSSPAY'){Atomic(()=>{Find(id).status='READY';});return {provider:row.provider,id:row.id,amount:row.amount,customerKey:row.accountId,clientKey:provider.Config().tossClient,successUrl:base+'/complete',failUrl:base+'/fail'};}
+   if(row.provider==='TOSSPAY'){Atomic(()=>{Find(id).status='READY';});return {provider:row.provider,id:row.id,amount:row.amount,mode:row.paymentMode||provider.Status(row.provider).mode,customerKey:row.accountId,clientKey:provider.Config().tossClient,successUrl:base+'/complete',failUrl:base+'/fail'};}
    try{
-    const result=await client.Prepare(structuredClone(row),base),redirect=client.Redirect(result.next_redirect_mobile_url||result.next_redirect_pc_url);
+    const result=await client.Prepare(structuredClone(row),base),redirect=client.Redirect(options.mobile?result.next_redirect_mobile_url||result.next_redirect_pc_url:result.next_redirect_pc_url||result.next_redirect_mobile_url);
     if(typeof result.tid!=='string'||!result.tid||result.tid.length>100)s.Fail('PAYMENT_PROVIDER_INVALID');
     Atomic(()=>{row=Find(id);row.status='READY';row.providerId=result.tid;});return {provider:'KAKAOPAY',redirect};
    }catch(e){Atomic(()=>{Find(id).status='FAILED';});throw e;}
@@ -102,4 +103,4 @@ function Engine(client=provider.Client()){
  function Cancel(id,state){const row=Find(id);Token(row,state,'callbackHash');if(row.status==='PAID')return Public(row);if(row.status==='READY')Atomic(()=>{Find(id).status='CANCELED';});return Public(Find(id));}
  return {Launch,Complete,Reconcile,Cancel};
 }
-module.exports={Read,Start,Public,Find,Engine,orders};
+module.exports={Read,Start,Public,Find,Engine,orders,AdminStatus:provider.AdminStatus};
