@@ -158,6 +158,10 @@ async function RequestHandler(req, res) {
         if (ServeUpdateArtifact(req, res, pathname, url)) return;
     }
 
+    if (await require('../services/member/oauthIdentity').HandleHttp(req, res, url)) return;
+    if (await require('../services/member/payment-http').Handle(req, res, url)) return;
+    if (await require('../services/member/game-downloads').Serve(req, res, pathname, url)) return;
+
     if (pathname === '/api/login' && method === 'POST') {
         let body;
         try { body = await ReadJsonBody(req); }
@@ -215,6 +219,19 @@ async function RequestHandler(req, res) {
 
         if (pathname === '/api/events' && method === 'GET') {
             OpenEventStream(req, res, session);
+            return;
+        }
+
+        if (pathname === '/api/games/upload' && method === 'POST') {
+            if (!ValidateCsrf(req, session)) { ApiError(res, 403, 'CSRF_FAILED'); return; }
+            if (session.role !== 'admin') { ApiError(res, 403, 'FORBIDDEN'); return; }
+            if (!require('../services/haCoordinator').CanAcceptTraffic()) { ApiError(res, 409, 'RELAY_STANDBY_READ_ONLY'); return; }
+            try {
+                const artifact = await require('../services/member/game-downloads').Upload(req,
+                    url.searchParams.get('gameKey'), url.searchParams.get('fileName'));
+                RecordAdminActivity(session.role, session.ip, method, pathname, 200, 'GAME_ARTIFACT_UPLOAD');
+                Json(res, 200, { ok: true, artifact });
+            } catch (error) { ApiError(res, 400, error.message || 'GAME_UPLOAD_FAILED'); }
             return;
         }
 

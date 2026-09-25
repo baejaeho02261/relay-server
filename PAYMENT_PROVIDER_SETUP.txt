@@ -1,0 +1,46 @@
+MoaPlay FIX71 결제 연동 설정
+
+연동 방식
+- 카카오페이 단건 결제: 서버 ready -> 사용자 결제 -> 서버 approve/주문조회 -> 충전 원장.
+- 토스페이: 토스페이먼츠 SDK v2 개별 연동 결제창 -> 서버 confirm/주문조회 -> 충전 원장.
+- Google Pay는 결제 토큰을 처리할 별도 결제대행 계약이 필요하므로 요청한 대체 수단인 토스페이를 사용합니다.
+- 카카오/구글 로그인 키와 결제 키는 서로 다릅니다.
+- 공급자 비밀 키는 서버 환경변수에만 넣습니다. APK/웹 JavaScript/저장소에 넣지 마세요.
+
+필수 환경변수
+PAYMENT_ENABLED=true
+PAYMENT_PUBLIC_ORIGIN=https://relay-server-production-5386.up.railway.app
+
+카카오페이 가맹점 등록/온라인 단건 결제 계약 후 발급
+KAKAOPAY_CID=가맹점 CID
+KAKAOPAY_SECRET_KEY=서버 Secret key
+
+토스페이먼츠 가맹점 및 토스페이 계약 후 API 개별 연동 키 사용
+TOSSPAYMENTS_CLIENT_KEY=클라이언트 키
+TOSSPAYMENTS_SECRET_KEY=시크릿 키
+
+테스트 키는 테스트 서버/테스트 회원에서만 사용하세요. 운영에는 승인된 운영 키를 넣으세요.
+PAYMENT_ENABLED 미설정/false 또는 필수 키 미설정이면 결제를 시작할 수 없습니다.
+PAYMENT_PUBLIC_ORIGIN은 경로/쿼리/자격증명 없는 공개 HTTPS origin입니다.
+카카오페이 개발자센터에 이 도메인을 등록하고 모바일 리다이렉트가 허용되는지 확인하세요.
+
+서버 콜백 (앱으로 성공 URL만 돌아온다고 충전하지 않습니다)
+/pay/return/<orderId>/<oneTimeState>/complete
+/pay/return/<orderId>/<oneTimeState>/cancel
+/pay/return/<orderId>/<oneTimeState>/fail
+Webhook: POST /pay/webhook/kakao, POST /pay/webhook/toss
+웹훅은 주문조회 요청을 위한 힌트로만 처리하며, 서버 API로 실제 결제 상태/금액/주문번호를 검증합니다.
+결제 결과가 지연되면 같은 결과 화면을 새로고침하세요. 기존 주문의 승인/조회 결과를 복구하며 중복 적립하지 않습니다.
+충전은 1,000~1,000,000 KRW 정수 금액입니다. 앱의 표시 통화 설정과 결제 통화는 구분됩니다.
+기존 잔액과 결제 원장을 유지합니다. 출금 메뉴와 실행 기능은 제거하고 미처리 예약금만 원장 확인 후 한 번 반환합니다.
+
+검증/운영 준비
+공급자 테스트 결제 승인/취소, 통신 단절 후 재확인, 웹훅 중복, 운영 심사 및 사용 상품의 결제 허용 여부를 가맹점에서 확인한 후 운영 키를 설정하세요.
+현재 소스에는 실제 가맹점 키가 포함되지 않았습니다.
+
+공식 참고 문서
+https://developers.kakaopay.com/docs/payment/online/single-payment
+https://developers.kakaopay.com/docs/payment/online/payment-detail
+https://docs.tosspayments.com/sdk/v2/js/payment
+https://docs.tosspayments.com/reference
+https://developers.google.com/pay/api/web/guides/tutorial

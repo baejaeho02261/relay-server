@@ -54,6 +54,7 @@ const { servers, clients } = state;
 
 EnsureDirs();
 LoadDatabase();
+require('./services/member/withdraw-retirement').Ensure();
 require('./services/member/retirement').Ensure();
 require('./services/member/commerce').EnsureCatalog();
 LoadRecentAudit();

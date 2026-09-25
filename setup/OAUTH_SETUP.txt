@@ -1,0 +1,94 @@
+MoaPlay FIX71 - 카카오 / Google 계정 연동
+
+이 소스에는 운영 앱 키와 클라이언트 시크릿이 포함되어 있지 않습니다.
+키가 없으면 준비 여부를 표시하며 로그인을 우회하지 않습니다.
+두 제공자를 모두 사용하려면 각각 서비스 등록과 검수가 필요합니다.
+
+서버 환경 변수
+MEMBER_OAUTH_PUBLIC_URL=https://relay-server-production-5386.up.railway.app
+GOOGLE_OAUTH_CLIENT_ID=<Google 웹 애플리케이션 OAuth 클라이언트 ID>
+GOOGLE_OAUTH_CLIENT_SECRET=<Google 클라이언트 시크릿>
+KAKAO_OAUTH_CLIENT_ID=<카카오 REST API 키>
+KAKAO_OAUTH_CLIENT_SECRET=<카카오 클라이언트 시크릿>
+
+MEMBER_OAUTH_PUBLIC_URL은 경로나 쿼리 없는 HTTPS 원본 주소입니다.
+비워두면 기존 UPDATE_BASE_URL을 사용합니다. 모바일 앱이나 공개 웹 파일에
+클라이언트 시크릿을 넣지 마세요. 기존 TCP 프록시 주소/포트는 그대로입니다.
+
+Google Cloud
+1. OAuth 동의 화면 및 배포/테스트 사용자 설정을 완료합니다.
+2. 웹 애플리케이션 클라이언트를 생성합니다.
+3. 승인된 리디렉션 URI에 아래 주소를 정확히 등록합니다.
+   https://relay-server-production-5386.up.railway.app/member/oauth/callback/google
+
+카카오 Developers
+1. 카카오 로그인과 OpenID Connect를 활성화합니다.
+2. 닉네임(profile_nickname) 동의 항목을 설정합니다.
+3. REST API 키와 활성화된 클라이언트 시크릿을 서버에 등록합니다.
+4. Redirect URI에 아래 주소를 정확히 등록합니다.
+   https://relay-server-production-5386.up.railway.app/member/oauth/callback/kakao
+
+공개 도메인을 바꾸면 위 두 콜백 URI도 동일한 새 도메인으로 등록합니다.
+앱의 MoaPlayRelayConfig.pas / GAME_DOWNLOAD_ORIGIN도 같은 HTTPS 원본으로 바꾸세요.
+계정 연결·결제·게임 다운로드는 이 원본 주소만 허용합니다.
+OAuth 화면은 기기의 외부 브라우저로 열립니다. 웹뷰 내 자격 증명 수집을 하지 않습니다.
+성공 화면의 앱 복귀 링크는 moaplay://auth/complete입니다.
+이 링크에는 인증 정보가 없으며 링크 자체로 로그인되지 않습니다.
+앱은 서명된 연결에서 identity.poll 응답을 확인해야 합니다.
+
+인증 순서
+기기 HMAC/설치 증명 + 실제 권한 동의 -> 카카오 또는 Google 계정 연결 ->
+출입증 QR 승인 -> 실제 Android 생체 인증 또는 시스템 기기 잠금 인증 -> MoaPlay.
+이전에 같은 설치 기기에 연결한 계정은 기존 기기 증명 확인 후 자동으로 복원됩니다.
+다른 설치 기기로 같은 제공자 계정을 연결하려 하면 소유권 확인 없이는 거절됩니다.
+기존 잔액, 포인트, 주문, 게시글, 프로필 ID를 다른 계정으로 합치거나 바꾸지 않습니다.
+
+서명된 앱 API (기존 HUB 프레이밍과 현재 deviceAuthChallengeId HMAC 사용)
+identity.status {}
+ 응답 identity: linked, required, provider, accountLabel
+ 응답 providers: [{id:google|kakao, name, configured, missing:[환경 변수 이름]}]
+identity.start {provider:google|kakao}
+ 응답 flowId, authorizationUrl, expiresAt, status, identity
+identity.poll {flowId}
+ 응답 status: pending|processing|linked|failed, reason, identity
+2초 정도 간격으로 전경에서 폴링합니다. linked 응답 후 QR 단계로 진행합니다.
+재연결로 기기 증명 challenge 또는 권한 sequence가 바뀌면 이전 flow는 만료됩니다.
+새 identity.status 후 미연결 상태면 identity.start로 다시 시작합니다.
+
+주요 오류
+IDENTITY_NOT_CONFIGURED: 서버 제공자 키 또는 공개 HTTPS 주소 미설정
+IDENTITY_FLOW_EXPIRED: 5분 경과/연결 변경/권한 변경/없는 flow
+IDENTITY_LINKED_ELSEWHERE: 다른 설치 기기에 이미 연결된 제공자 계정
+IDENTITY_ACCOUNT_CHANGED: 현재 설치에 다른 제공자 계정으로 덮어쓰기 시도
+IDENTITY_CANCELLED: 사용자가 제공자 동의를 취소
+IDENTITY_TOKEN_INVALID: 서명/발급자/수신자/만료/nonce 검증 실패
+IDENTITY_PROVIDER_UNAVAILABLE: 제공자 통신 실패
+IDENTITY_DEVICE_REQUIRED: 기기 증명/설치 증명/권한 동의 필요
+
+보안 / 데이터
+OAuth code + PKCE S256, 256비트 state/nonce, 브라우저 Secure/HttpOnly 쿠키를 검증합니다.
+JWT는 고정된 제공자 JWKS 주소에서 받은 RSA 키로 RS256 서명을 확인합니다.
+iss, aud, azp, exp, iat, nonce, sub를 모두 검사하며 외부 jku/x5u 키는 허용하지 않습니다.
+제공자 액세스/리프레시/ID 토큰은 DB와 앱에 저장하거나 반환하지 않습니다.
+공개 accountLabel은 검증된 닉네임/이름이며 이메일이나 제공자 고유 sub를 공개하지 않습니다.
+내부 handle 및 USR ID는 기존 글/대화/태그의 참조 안정성을 위해 유지합니다.
+제공자+sub 해시 -> 기존 회원/설치 식별자 매핑만 영구 저장합니다.
+콜백은 한 번만 사용되며, 완료 후 60초 안에 동일한 서명된 앱 연결에서 확정합니다.
+서버 재시작 도중 미완료 연결은 다시 시작해야 합니다. 완료된 계정 매핑은 보존됩니다.
+여러 서버 인스턴스에서는 OAuth 시작 TCP 연결과 HTTP 콜백을 같은 활성 서버로 라우팅하세요.
+
+운영에서는 MEMBER_BIOMETRIC_TEST_MODE를 사용하지 않습니다.
+이 플래그는 NODE_ENV=test 및 MEMBER_BIOMETRIC_TEST_MODE=1인 자동 테스트에서만 동작합니다.
+운영 플래그만 1로 바꾸어도 인증을 건너뛸 수 없습니다.
+
+검증
+node scripts/test-fix71-oauth-identity.js
+node scripts/test-member-test-access.js
+실제 RSA 키로 서명/오류/재전송/다른 기기 연결/롤백/영구 저장을 검사합니다.
+네트워크 제공자는 테스트에서 모의 응답합니다. 실제 운영 키로의 최종 로그인 검증은 별도입니다.
+
+공식 참고 자료 (2026-09-25 확인)
+https://developers.kakao.com/docs/ko/kakaologin/rest-api
+https://developers.kakao.com/docs/ko/kakaologin/utilize
+https://developers.google.com/identity/openid-connect/openid-connect
+https://developers.google.com/identity/protocols/oauth2/web-server
