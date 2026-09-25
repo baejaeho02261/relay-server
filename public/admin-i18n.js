@@ -763,6 +763,7 @@ const UI_ERRORS = Object.freeze({
   "NOT_OWNER": "본인이 작성한 내용만 변경할 수 있습니다.",
   "PLEASE_WAIT": "잠시 후 다시 작성해주세요.",
   "REQUEST_REUSED": "요청 번호가 중복되었습니다. 다시 시도해주세요.",
+  ADMIN_CONFIRM_REQUIRED:'대상 회원과 금액을 확인한 후 다시 진행해주세요.',ADMIN_REASON_REQUIRED:'처리 사유를 3자 이상 입력해주세요.',IDENTITY_PROVIDER_INVALID:'지원하는 계정을 선택해주세요.',IDENTITY_NOT_CONFIGURED:'계정 연결 설정을 완료해주세요.',IDENTITY_PROVIDER_UNAVAILABLE:'계정 인증 서비스에 연결하지 못했습니다. 잠시 후 다시 확인해주세요.',
   "REQUEST_ID_INVALID": "요청 정보를 확인해주세요.",
   "UNKNOWN_ACTION": "지원하지 않는 작업입니다.",
   INVALID_ACTION:'지원하지 않는 작업입니다.', NO_KEYS:'QR 라이선스를 먼저 선택하세요.',

@@ -3,13 +3,14 @@ let memberLookupHandle='',memberLookupSection='',memberLookupOffset=0,memberLook
 let memberView='overview',memberOffset=0,memberRows=new Map(),memberRenderSerial=0;
 let memberQuery='',memberFilter='',memberSort='recent',memberSelected=new Set();
 let memberPointerDown=false,memberPointerUntil=0,memberInteractionUntil=0,memberLastRefresh=0,memberFingerprint='';
-const memberTabs={overview:'운영 요약',rewards:'이벤트·포인트',pointConversions:'포인트 교환·회수',shop:'회원 상점',news:'소식',products:'게임',profiles:'회원',posts:'피드 글',comments:'댓글',reports:'신고',orders:'이용권 내역',ledger:'결제 원장',policies:'약관·개인정보'};
-const memberStatus={PAID:'이용 대기',ACTIVE:'사용 중',REFUNDED:'환불 완료',QR_CHARGE:'이전 이용권 등록',QR_TOPUP:'잔액 충전',PAYMENT_TOPUP:'간편결제 충전',WITHDRAW_RETIREMENT_RELEASE:'예약 잔액 복원',POINT_RECHARGE:'포인트 충전',POINT_EXCHANGE:'포인트 교환',POINT_EXCHANGE_REVERSE:'포인트 교환 회수',SHOP_PURCHASE:'상점 구매',WITHDRAW_RESERVE:'출금 신청',WITHDRAW_RELEASE:'출금 반려 · 잔액 복원',ARCADE_BET:'가상머니 베팅',ARCADE_PAYOUT:'가상머니 정산',PENDING:'확인 대기',APPROVED:'충전 완료',REJECTED:'반려',EXPIRED:'기간 만료',TOPUP:'이전 잔액 반영',PURCHASE:'구매',REFUND:'환불',OPEN:'접수',RESOLVED:'처리 완료',NOTICE:'공지',EVENT:'이벤트',ALERT:'알림'};
+const memberTabs={overview:'운영 요약',integrations:'계정·결제 연결 설정',oauthAccounts:'카카오·Google 계정',walletGrants:'관리자 잔액 지급',rewards:'이벤트·포인트',pointConversions:'포인트 교환·회수',shop:'회원 상점',news:'소식',products:'게임',profiles:'회원',posts:'피드 글',comments:'댓글',reports:'신고',orders:'이용권 내역',ledger:'결제 원장',policies:'약관·개인정보'};
+const memberStatus={ADMIN_GRANT:'관리자 잔액 지급',PAID:'이용 대기',ACTIVE:'사용 중',REFUNDED:'환불 완료',QR_CHARGE:'이전 이용권 등록',QR_TOPUP:'잔액 충전',PAYMENT_TOPUP:'간편결제 충전',WITHDRAW_RETIREMENT_RELEASE:'예약 잔액 복원',POINT_RECHARGE:'포인트 충전',POINT_EXCHANGE:'포인트 교환',POINT_EXCHANGE_REVERSE:'포인트 교환 회수',SHOP_PURCHASE:'상점 구매',WITHDRAW_RESERVE:'출금 신청',WITHDRAW_RELEASE:'출금 반려 · 잔액 복원',ARCADE_BET:'가상머니 베팅',ARCADE_PAYOUT:'가상머니 정산',PENDING:'확인 대기',APPROVED:'충전 완료',REJECTED:'반려',EXPIRED:'기간 만료',TOPUP:'이전 잔액 반영',PURCHASE:'구매',REFUND:'환불',OPEN:'접수',RESOLVED:'처리 완료',NOTICE:'공지',EVENT:'이벤트',ALERT:'알림'};
 const memberEditable=view=>['products','news','posts','comments'].includes(view);
 function memberMoney(n){return Number(n||0).toLocaleString('ko-KR')+'원';}
 function memberButton(action,id,label,danger=false){return `<button type="button" data-member-action="${action}" data-id="${esc(id||'')}" class="${danger?'danger':''}">${label}</button>`;}
-function memberState(row,view){if(view==='ledger')return '기록';if(view==='profiles')return row.blocked?'이용 제한':'정상';return row.deleted?'삭제 보관':row.hidden?'숨김':row.status?memberStatus[row.status]||row.status:row.published===false?'비공개':'공개';}
+function memberState(row,view){if(['ledger','walletGrants'].includes(view))return '기록';if(view==='oauthAccounts')return memberOauthState(row.identity?.status);if(view==='profiles')return row.blocked?'이용 제한':'정상';return row.deleted?'삭제 보관':row.hidden?'숨김':row.status?memberStatus[row.status]||row.status:row.published===false?'비공개':'공개';}
 function memberFilters(view){
+ if(view==='oauthAccounts')return [['checking','연결 확인 중'],['active','연결 정상'],['degraded','확인 지연'],['reauth_required','재인증 필요'],['revoked','연결 해제됨'],['unlinked','미연결']];
  if(['products','news'].includes(view))return [['active','공개'],['draft','비공개'],['deleted','삭제 보관']];
  if(['posts','comments'].includes(view))return [['active','공개'],['hidden','숨김'],['deleted','삭제 보관']];
  if(view==='reports')return [['OPEN','접수'],['RESOLVED','처리 완료']];
@@ -25,8 +26,9 @@ function memberRow(row,view){
  if(view==='products'){meta=accessTypeName(row.accessType)+' · '+(row.plans||[]).map(x=>x.days+'일 '+(x.available?memberMoney(x.price):'판매 준비 중')).join(' / ');body=row.description;actions=memberButton('product.edit',row.id,'수정');}
  if(view==='news'){meta=row.pinned?'상단 고정':'';body=row.body;actions=memberButton('news.edit',row.id,'수정');}
  if(view==='orders'){meta=`${row.memberHandle||row.accountId} · ${row.days}일 · ${memberMoney(row.amount)}`;body=row.activatedAt?'사용 시작 '+fmtTime(row.activatedAt):'미사용';if(!row.activatedAt&&row.status==='PAID'&&row.source!=='QR_CHARGE')actions=memberButton('order.refund',row.id,'잔액 환불',true);}
- if(view==='ledger'){title=memberStatus[row.kind]||'거래';meta=`${row.memberHandle||row.accountId} · ${memberMoney(row.amount)} · ${row.kind==='QR_CHARGE'?'이용권 등록':'잔액 '+memberMoney(row.balance)}`;body=row.reference;}
- if(view==='profiles'){title='@'+row.handle+' · '+row.nickname;meta=`잔액 ${memberMoney(row.balance)}`;body=row.bio;actions=memberButton('profile.lookup',row.id,'통합 조회')+memberButton('profile.edit',row.id,'프로필 수정')+memberButton('profile.block',row.id,row.blocked?'제한 해제':'이용 제한',!row.blocked);}
+ if(['ledger','walletGrants'].includes(view)){title=memberStatus[row.kind]||'거래';meta=`${row.memberHandle||row.accountId} · ${memberMoney(row.amount)} · ${row.kind==='QR_CHARGE'?'이용권 등록':'잔액 '+memberMoney(row.balance)}`;body=[row.reason,row.actor?'처리자 '+row.actor:'',row.reference].filter(Boolean).join(' · ');}
+ if(view==='profiles'){title='@'+row.handle+' · '+row.nickname;meta=`잔액 ${memberMoney(row.balance)} · ${memberProviderName(row.identity?.provider)} · ${memberOauthState(row.identity?.status)}`;body=row.bio;actions=memberButton('profile.lookup',row.id,'통합 조회')+memberButton('profile.edit',row.id,'프로필 수정')+memberButton('wallet.grant',row.id,'잔액 지급')+memberButton('oauth.detail',row.id,'계정 연결')+memberButton('profile.block',row.id,row.blocked?'제한 해제':'이용 제한',!row.blocked);}
+ if(view==='oauthAccounts'){title='@'+row.handle+' · '+row.nickname;meta=memberProviderName(row.identity?.provider)+' · '+(row.identity?.accountLabel||'연결된 계정 없음');body=row.identity?.lastCheckedAt?'최근 확인 '+fmtTime(row.identity.lastCheckedAt):'연결 상세에서 인증 상태와 기록을 확인하세요.';actions=memberButton('oauth.detail',row.id,'연결 상세')+memberButton('profile.lookup',row.id,'회원 조회');}
  if(view==='posts'||view==='comments'){title=(row.memberHandle?row.memberHandle+' · ':'')+(row.author?.nickname||row.accountId);body=row.body||'작성자가 삭제한 내용입니다.';if(!row.deleted)actions=memberButton(view==='posts'?'post.edit':'comment.edit',row.id,'수정')+memberButton('content.'+(row.hidden?'show':'hide'),row.id,row.hidden?'공개':'숨기기');}
  if(view==='reports'){meta=`${row.memberHandle||row.accountId}`;body=row.reason+(row.resolution?'\n처리 메모: '+row.resolution:'');actions=memberButton('report.post',row.id,'신고 글')+memberButton(row.status==='OPEN'?'report.resolve':'report.reopen',row.id,row.status==='OPEN'?'처리 완료':'다시 열기');}
  if(memberEditable(view)){
@@ -46,9 +48,10 @@ function memberCanAutoRefresh(){
 }
 async function renderMember(automatic=false){
  if(!isMemberPage()||(automatic&&!memberCanAutoRefresh()))return;
+ if(memberView==='oauthAccounts'&&memberOauthDetail)return renderMemberOauth(automatic);
  if(memberView==='profiles'&&memberLookupHandle)return renderMemberLookup(automatic);
  const serial=++memberRenderSerial,view=memberView,offset=memberOffset;
- const query=new URLSearchParams({view,offset:String(offset),limit:'30',q:memberQuery,status:memberFilter,sort:memberSort});
+ const query=new URLSearchParams({view,offset:String(offset),limit:'30',q:memberQuery,status:memberFilter,sort:memberSort,...(view==='oauthAccounts'?{provider:memberProviderFilter}:{})});
  const result=await api('/api/member?'+query);
  if(serial!==memberRenderSerial||!isMemberPage()||view!==memberView||offset!==memberOffset||(automatic&&!memberCanAutoRefresh()))return;
  memberLastRefresh=Date.now();const fingerprint=query.toString()+JSON.stringify(result);
@@ -57,7 +60,8 @@ async function renderMember(automatic=false){
  const scroll=automatic?captureScrollState(currentView):null;
  memberRows=new Map((result.items||[]).map(x=>[x.id,x]));memberSelected=new Set([...memberSelected].filter(id=>memberRows.has(id)));
  let html='<div class="member-shell">';
- if(view==='pointConversions'){html+=memberConversionPanel(result);
+ if(view==='integrations'){html+=memberIntegrationPanel(result);
+ }else if(view==='pointConversions'){html+=memberConversionPanel(result);
  }else if(view==='shop'){html+=memberShopPanel(result);
  }else if(view==='rewards'){html+=memberRewardsPanel(result);
  }else if(view==='policies'){
@@ -67,8 +71,8 @@ async function renderMember(automatic=false){
   html+=`<div class="member-metrics">${stats.map(([label,value])=>`<article><span>${label}</span><strong>${Number(value||0).toLocaleString('ko-KR')}</strong></article>`).join('')}</div><section class="member-panel"><h3>많이 본 피드</h3><div class="member-popular">${result.topContent.map(x=>`<div><span>${esc(x.title||x.id)}</span><strong>${Number(x.count).toLocaleString('ko-KR')}</strong></div>`).join('')||'<p class="member-empty">아직 조회 기록이 없습니다.</p>'}</div></section>`;
  }else{
   const filters=memberFilters(view);
-   html+=`<section class="member-panel"><form id="member-search-form" class="member-filter"><input id="member-search" type="search" placeholder="이름·내용·@아이디 검색" value="${esc(memberQuery)}" aria-label="콘텐츠 검색"><button type="submit">검색</button>${filters.length?`<select id="member-filter" aria-label="상태 필터">${[['','모든 상태'],...filters].map(([value,label])=>`<option value="${value}" ${memberFilter===value?'selected':''}>${label}</option>`).join('')}</select>`:''}${view==='posts'?`<select id="member-sort" aria-label="정렬"><option value="recent" ${memberSort==='recent'?'selected':''}>최신순</option><option value="views" ${memberSort==='views'?'selected':''}>조회순</option></select>`:''}${memberButton('reset','','초기화')}</form>`;
-  let add='';if(view==='products')add=memberButton('product.new','','게임 등록');if(view==='news')add=memberButton('news.new','','소식 작성');
+   html+=`<section class="member-panel"><form id="member-search-form" class="member-filter"><input id="member-search" type="search" placeholder="이름·내용·@아이디 검색" value="${esc(memberQuery)}" aria-label="콘텐츠 검색"><button type="submit">검색</button>${filters.length?`<select id="member-filter" aria-label="상태 필터">${[['','모든 상태'],...filters].map(([value,label])=>`<option value="${value}" ${memberFilter===value?'selected':''}>${label}</option>`).join('')}</select>`:''}${view==='oauthAccounts'?memberProviderFilterField():''}${view==='posts'?`<select id="member-sort" aria-label="정렬"><option value="recent" ${memberSort==='recent'?'selected':''}>최신순</option><option value="views" ${memberSort==='views'?'selected':''}>조회순</option></select>`:''}${memberButton('reset','','초기화')}</form>`;
+  let add='';if(view==='walletGrants')add=memberButton('wallet.new','','회원 잔액 지급')+memberGrantRecovery();if(view==='products')add=memberButton('product.new','','게임 등록');if(view==='news')add=memberButton('news.new','','소식 작성');
   html+=`<div class="member-toolbar">${add}<span>총 ${result.total||0}개</span>`;
   if(memberEditable(view))html+=`<span id="member-selected-count">선택 ${memberSelected.size}개</span>${memberButton('bulk.delete','','선택 삭제',true)}${memberButton('bulk.restore','','선택 복원')}`;
   html+='</div>';
@@ -106,7 +110,7 @@ async function renderMemberLookup(automatic=false){
  const fingerprint=JSON.stringify([handle,section,offset,result]);memberLastRefresh=Date.now();if(automatic&&memberLookupFingerprint===fingerprint)return;memberLookupFingerprint=fingerprint;
  const position=automatic?captureScrollState(currentView):null;memberRows=new Map([[result.profile.id,result.profile],...(result.items||[]).map(row=>[row.id,row])]);
  const p=result.profile;let html='<div class="member-shell member-dossier">'+memberButton('lookup.back','','회원 목록')+`<section class="member-panel"><div class="member-dossier-heading">${p.avatar?`<img src="${esc(p.avatar)}" alt="프로필 사진">`:''}<div><h2>@${esc(p.handle)}</h2><p>${esc(p.nickname)}</p></div><strong>${memberMoney(p.balance)}</strong></div>`;
- html+='<div class="actions">'+memberButton('profile.edit',p.id,'프로필 수정')+memberButton('lookup.qr','','QR 인증 · 충전 관리')+'</div>';
+ html+='<div class="actions">'+memberButton('wallet.grant',p.id,'잔액 지급')+memberButton('oauth.detail',p.id,'카카오·Google 계정')+memberButton('profile.edit',p.id,'프로필 수정')+memberButton('lookup.qr','','QR 인증 · 충전 관리')+'</div>';
  html+='<div class="member-lookup-tabs">'+memberButton('lookup.section','','등록 정보')+Object.entries(memberRecordNames).map(([key,label])=>memberButton('lookup.section',key,label+(result.counts?.[key]!==undefined?' '+result.counts[key]:''))).join('')+'</div></section>';
  if(section){
   html+=`<section class="member-panel"><h3>${esc(memberRecordNames[section])} · ${result.total}개</h3>`;
@@ -123,6 +127,7 @@ async function renderMemberLookup(automatic=false){
   html+='<div class="member-pagination">'+(offset?memberButton('lookup.prev','','이전'):'')+(result.nextOffset!==null?memberButton('lookup.next','','다음'):'')+'</div></section>';
  }else{
   html+=`<section class="member-panel"><h3>회원 정보</h3>${memberFacts([['가입',fmtTime(p.createdAt)],['소개',p.bio],['아이디 변경',p.handleEditable?'최초 1회 변경 가능':'변경 완료'],['닉네임 변경',p.nicknameChangeAt>Date.now()?fmtTime(p.nicknameChangeAt)+'부터 가능':'변경 가능'],['이용 상태',p.blocked?'이용 제한':'정상']])}</section>`;
+  html+=memberOauthFacts(p.identity||{});
   html+=memberDecorationFacts(p);
   for(const d of result.devices)html+=memberDeviceCard(d);
   html+='<section class="member-panel"><h3>출입증 QR 인증</h3>'+((result.qr||[]).map(memberQrRecord).join('')||'<p class="member-empty">등록된 인증 요청이 없습니다.</p>')+'</section>';
@@ -133,7 +138,7 @@ async function renderMemberLookup(automatic=false){
 
 function memberRecordFacts(row){
  const rows=[['이름',row.title||row.nickname||row.id]];
- const text={handle:'아이디',body:'내용',reason:'사유',memo:'메모',resolution:'처리 내용',reference:'연결된 거래',paymentId:'결제',productId:'게임',postId:'게시물',refundedBy:'환불 처리자',approvedBy:'승인자',rejectedBy:'반려 처리자',refundReason:'환불 사유'};
+ const text={actor:'처리자',requestId:'요청 번호',handle:'아이디',body:'내용',reason:'사유',memo:'메모',resolution:'처리 내용',reference:'연결된 거래',paymentId:'결제',productId:'게임',postId:'게시물',refundedBy:'환불 처리자',approvedBy:'승인자',rejectedBy:'반려 처리자',refundReason:'환불 사유'};
  for(const [key,label]of Object.entries(text))if(row[key])rows.push([label,key==='handle'?'@'+row[key]:row[key]]);
  if(row.status)rows.push(['상태',memberStatus[row.status]||row.status]);if(row.kind)rows.push(['거래 구분',memberStatus[row.kind]||row.kind]);
  for(const [key,label]of [['amount','금액'],['balance','거래 후 잔액']])if(row[key]!==undefined)rows.push([label,memberMoney(row[key])]);

@@ -1,0 +1,91 @@
+MoaPlay FIX72: OAuth grant checks and external unlink handling
+
+Server configuration
+Set the values listed in oauth.env.example using your hosting secret settings.
+MEMBER_OAUTH_TOKEN_KEY must be a separate randomly generated 32-byte key. Generate:
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+Never commit the output, include it in an APK, or expose it through the administrator
+configuration page. Keep the same key on all HA nodes; retain the key securely for
+restoring encrypted database backups. A missing/changed key suspends validation.
+Do not replace it casually: existing token envelopes cannot be decrypted with a
+new key. A deliberate rotation currently requires reconnecting each account.
+
+Google
+Register exactly MEMBER_OAUTH_PUBLIC_URL/member/oauth/callback/google as the Web
+OAuth client's authorized redirect URI. OAuth requests openid/profile, offline
+access and fresh consent so the server receives a refresh token. The server stores
+access/refresh tokens encrypted with AES-256-GCM and binds each envelope to its
+provider identity, member ID and installation ownership. ID tokens are verified
+with the provider's RSA keys, issuer, audience, nonce and lifetime and discarded.
+
+Kakao
+Enable Kakao Login and OpenID Connect, configure profile_nickname consent, use the
+REST API client ID/client secret and register the /member/oauth/callback/kakao
+redirect URI. For faster external unlink hints, register this exact GET or POST
+webhook URL in Kakao Login settings:
+MEMBER_OAUTH_PUBLIC_URL/member/oauth/kakao/unlink
+Set KAKAO_APP_ID to the numeric application ID and KAKAO_UNLINK_ADMIN_KEY to the
+PRIMARY admin key. POST uses application/x-www-form-urlencoded. The endpoint
+checks Authorization: KakaoAK <primary admin key> and exact app_id. Configure your
+proxy to preserve Authorization; never log this header. Valid callbacks return
+200 before any outbound provider request; unknown users also return 200.
+
+The legacy Kakao webhook provides no signed timestamp or event ID. Consequently,
+it is treated as a validation hint: the server validates the CURRENT encrypted
+grant before terminating access. A replay after reconnect cannot revoke a new,
+valid grant. A delayed provider response is discarded if the link generation has
+changed. Kakao's separate signed account-status SET webhook is not implemented.
+
+Detection and failures
+Active accounts are checked on a 5-second background worker, with at most four
+provider checks running and one per account. Default check interval is 30 seconds;
+configuration is clamped to 30 seconds through 15 minutes. Administrator/webhook
+force checks are deduplicated and throttled to one per five seconds per account.
+Google checks refresh the grant and confirm the returned access token's subject at
+userinfo. Kakao validates access_token_info and refreshes expired/invalid access
+tokens, retaining an unchanged refresh token when Kakao omits its replacement.
+
+A Google invalid_grant or Kakao KOE322 invalid refresh grant requires reconnecting.
+Those errors can mean expiration or policy reauthentication as well as unlinking;
+the UI therefore describes reauthentication rather than claiming a deliberate
+unlink. Transport errors, timeouts, malformed responses, 429/5xx, invalid_client,
+Kakao temporary -1 and setup errors never delete the link or stored credentials.
+Healthy access-token checks use an encrypted runtime cache; they do not write the
+full member database every 30 seconds. Refresh-token rotation and status transitions
+are persisted. After server restart, connected members wait for the first successful
+provider check. Recently verified grants retain access through a 15-minute transient
+grace period.
+After that, member access and PC Build leases stop with IDENTITY_PROVIDER_UNAVAILABLE while
+identity.linked stays true and credentials remain available for retry. Once a
+provider check succeeds, access can resume without account replacement.
+
+Confirmed unusable grants clear encrypted credentials and volatile member access,
+biometric challenges, active Build sessions and pending Build grants. A signed
+HUB_IDENTITY event informs connected APKs; offline APKs learn status on reconnect.
+Profiles, wallet balances, points, orders, fixed device pairing and QR licenses
+survive. The provider ownership mapping stays reserved: reconnect the SAME provider
+account to retain the original member ID and balances. Another installation cannot
+claim that account, and an existing member cannot silently switch provider IDs.
+
+Older installations only saved a provider identity hash, without tokens. Such links
+now report reauth_required and need one browser reconnect; the original member
+record and balances remain intact. Administrator reset is LOCAL reauthentication,
+not deletion of the member and not a provider-side revoke API call.
+
+Google does not provide instantaneous external-revocation delivery through this
+polling flow. Latency includes the configured interval, request timeout/queue and
+provider propagation. Google Cross-Account Protection/RISC push events would
+require separate subscription and signed Security Event Token integration; that
+integration is not part of FIX72. No live provider credentials are included here.
+
+Official implementation references
+https://developers.google.com/identity/protocols/oauth2/web-server
+https://developers.google.com/identity/openid-connect/reference
+https://developers.google.com/identity/protocols/risc
+https://developers.kakao.com/docs/en/kakaologin/rest-api
+https://developers.kakao.com/docs/en/kakaologin/callback
+https://developers.kakao.com/docs/en/kakaologin/trouble-shooting
+
+Offline checks (mock provider responses, no production credentials)
+node scripts/test-fix71-oauth-identity.js
+node scripts/test-fix72-oauth-revocation.js

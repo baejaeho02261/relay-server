@@ -38,7 +38,8 @@
     "test:fix24": "node scripts/run-regressions.js",
     "test:feed": "node scripts/test-feed-gallery.js",
     "check:native": "node scripts/check-native-source.js",
-    "test:fix71": "node scripts/run-fix71.js"
+    "test:fix71": "node scripts/run-fix71.js",
+    "test:fix72": "node scripts/run-fix72.js"
   },
   "engines": {
     "node": ">=22.13"

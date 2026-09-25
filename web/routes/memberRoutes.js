@@ -7,8 +7,9 @@ async function Handle({method,pathname,url,body,res,session}){
  try{
   if(method==='GET'&&pathname==='/api/member'){Json(res,200,{ok:true,...member.AdminRead(Object.fromEntries(url.searchParams))});return true;}
   if(method==='POST'&&pathname==='/api/member/action'){
-   const result=member.AdminWrite(body.action,body,String(session.role||'ADMIN')+':'+String(session.id||''));
-   require('../../storage/audit').LogEvent('MEMBER_ADMIN_ACTION',String(body.action)+' '+String(result?.id||''));
+   const actor=String(session.role||'ADMIN')+':'+String(session.id||'');
+   const result=await member.AdminWrite(body.action,body,actor);
+   require('../../storage/audit').LogEvent('MEMBER_ADMIN_ACTION',JSON.stringify({action:body.action,id:result?.id||'',accountId:result?.accountId||body.accountId||'',actor,...(body.action==='wallet.grant'?{amount:result.amount,requestId:result.requestId,reason:result.reason}:{}),...(body.action==='oauth.reauth'?{reason:body.reason}:{})}));
    Json(res,200,{ok:true,result});return true;
   }
   ApiError(res,405,'METHOD_NOT_ALLOWED');

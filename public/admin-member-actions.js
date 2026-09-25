@@ -1,10 +1,11 @@
 'use strict';
 async function handleMemberAction(event){
  const b=event.target.closest('[data-member-action]');if(!b)return false;const action=b.dataset.memberAction;let row=memberRows.get(b.dataset.id)||{};
+ if(await handleMemberAccountsAction(action,b,row))return true;
  if(action==='shop.edit'){await editMemberShop();return true;}
  if(action==='points.reverse'){if(b.disabled)return true;b.disabled=true;try{await reverseMemberPoints(row);}finally{if(b.isConnected)b.disabled=false;}return true;}
  if(action==='rewards.edit'){await editMemberRewards();return true;}
- if(action==='profile.lookup'){memberLookupHandle=row.handle||b.dataset.id;memberLookupSection='';memberLookupOffset=0;await renderMemberLookup();return true;}
+ if(action==='profile.lookup'){if(memberView!=='profiles')switchView('member-profiles');memberLookupHandle=row.handle||b.dataset.id;memberLookupSection='';memberLookupOffset=0;await renderMemberLookup();return true;}
  if(action==='lookup.support'){supportSelectedClient=b.dataset.id;memberLookupHandle='';currentView='support';document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view==='support'));await renderCurrent();return true;}
  if(action==='lookup.qr'){qrMemberQuery='@'+memberLookupHandle.replace(/^@/,'');switchView('qrauth');await renderQrAuth();return true;}
  if(action==='lookup.manage'){const [section,id]=b.dataset.id.split('|');const view={orders:'orders',payments:'ledger',posts:'posts',comments:'comments',reports:'reports',followers:'profiles',following:'profiles'}[section];if(view){memberLookupHandle='';switchView('member-'+view);memberQuery=id;memberFilter='';memberOffset=0;await renderMember();}return true;}
@@ -13,7 +14,7 @@ async function handleMemberAction(event){
  if(action==='lookup.prev'||action==='lookup.next'){memberLookupOffset=Math.max(0,memberLookupOffset+(action==='lookup.next'?30:-30));await renderMemberLookup();return true;}
  if(action==='prev'||action==='next'){memberOffset=Math.max(0,memberOffset+(action==='next'?30:-30));await renderMember();return true;}
  if(action==='refresh'){await renderMember();return true;}
- if(action==='reset'){memberQuery='';memberFilter='';memberSort='recent';memberOffset=0;memberSelected.clear();await renderMember();return true;}
+ if(action==='reset'){memberProviderFilter='';memberQuery='';memberFilter='';memberSort='recent';memberOffset=0;memberSelected.clear();await renderMember();return true;}
  let values,body;
  if(['product.edit','news.edit','post.edit'].includes(action)){const view=action==='product.edit'?'products':action==='post.edit'?'posts':'news';const data=await api('/api/member?view='+view+'&id='+encodeURIComponent(row.id));row=data.items?.[0]||row;}
  if(action==='policy.edit'){
@@ -55,8 +56,8 @@ content.addEventListener('change',event=>{
  const element=event.target;
  if(element.matches('.member-check')){element.checked?memberSelected.add(element.dataset.id):memberSelected.delete(element.dataset.id);updateMemberSelection();}
  if(element.id==='member-check-all'){content.querySelectorAll('.member-check').forEach(box=>{box.checked=element.checked;element.checked?memberSelected.add(box.dataset.id):memberSelected.delete(box.dataset.id);});updateMemberSelection();}
- if(element.id==='member-filter'||element.id==='member-sort'){
-  memberFilter=content.querySelector('#member-filter')?.value||'';memberSort=content.querySelector('#member-sort')?.value||'recent';memberOffset=0;memberSelected.clear();renderMember().catch(e=>toast(e.message,true));
+ if(element.id==='member-filter'||element.id==='member-sort'||element.id==='member-provider-filter'){
+  memberProviderFilter=content.querySelector('#member-provider-filter')?.value||'';memberFilter=content.querySelector('#member-filter')?.value||'';memberSort=content.querySelector('#member-sort')?.value||'recent';memberOffset=0;memberSelected.clear();renderMember().catch(e=>toast(e.message,true));
  }
 });
 content.addEventListener('submit',event=>{
