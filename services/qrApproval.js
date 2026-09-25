@@ -87,6 +87,7 @@ function RequireQrSecurity(connection) {
     if (!connection || !connection.connected || !connection.clientId) return { ok: false, reason: 'CLIENT_NOT_CONNECTED' };
     if (!require('./clientInstallation').Ready(connection)) return { ok: false, reason: 'INSTALLATION_REQUIRED' };
     if (!require('./clientPermissions').Ready(connection)) return { ok: false, reason: 'PERMISSIONS_REQUIRED' };
+    if (!require('./member/identity').Ready(connection)) return { ok: false, reason: 'IDENTITY_REQUIRED' };
     const deviceAuth = require('./deviceAuth');
     const capabilities = require('./deviceControl').Capabilities('CLIENT', connection.clientId);
     if (!capabilities.includes('QR_DEVICE_APPROVAL') || !capabilities.includes('DEVICE_HMAC')) {
@@ -227,6 +228,8 @@ function Approve(requestId, approvalToken, options = {}, actor = 'admin') {
 
     const permissionClient = GetOnlineClient(record.clientId);
     if (!require('./clientPermissions').Ready(permissionClient)) return { ok: false, reason: 'PERMISSIONS_REQUIRED' };
+
+    if (!require('./member/identity').Ready(permissionClient)) return { ok: false, reason: 'IDENTITY_REQUIRED' };
 
     // QR/biometric enrollment belongs to the APK and never depends on a running
     // MoaPlayConnect. A returning client keeps its fixed server identity; a new
