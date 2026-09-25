@@ -102,7 +102,9 @@ function contract(text) {
   const thread = routine(text, 'TMoaPlayDirectMessages.SetThread');
   assert.ok(thread.indexOf('PrepareRoute') < thread.indexOf('LayoutWindow'), 'route visibility changes before the composer geometry');
   assert.match(routine(text, 'TMoaPlayDirectMessages.Tick'), /if FDirty then begin QueuePaint;PaintTick\(nil\);end;/, 'normal polling drains paint without depending on one timer callback');
-  assert.match(routine(text, 'TMoaPlayDirectMessages.Reply'), /finally[\s\S]*QueuePaint;\s*if Visible and FDirty then PaintTick\(nil\)/, 'accepted replies drain painting without waiting for the dashboard renderer');
+  assert.match(routine(text, 'TMoaPlayDirectMessages.Reply'), /finally[\s\S]*QueuePaint;/, 'accepted replies arm the independent chat paint timer');
+  assert.doesNotMatch(routine(text, 'TMoaPlayDirectMessages.Reply'), /PaintTick\(nil\)/, 'network callbacks must not free the originating FMX sender');
+  for (const name of ['ShowList', 'OpenMember']) assert.doesNotMatch(routine(text, 'TMoaPlayDirectMessages.'+name), /;Render;/, 'route dispatch defers control destruction');
   const list = routine(text, 'TMoaPlayDirectMessages.RenderList');
   assert.match(list, /DMLabel\(Row,' · 안읽음',88\+NameW,18,UnreadW,22,11,MemberLink\)/); assert.doesNotMatch(list, /개 안읽음|'trash'|'delete\|'/);
   assert.doesNotMatch(list, /'menu\|'|RotationAngle:=90/, 'FIX66 inbox has no ellipsis');
@@ -140,6 +142,6 @@ contract(source); scenario(source);
 assert.throws(() => scenario(source.replace('if Assigned(FPage) then FPage.Visible:=False;', '')));
 assert.throws(() => scenario(source.replace('FRoutePending:=False;FTouch.Cancel;FScroll.AniCalculations.MouseLeave;', 'FRoutePending:=False;FScroll.AniCalculations.MouseLeave;')));
 assert.throws(() => contract(source.replace('QueuePaint;PaintTick(nil);', 'QueuePaint;')));
-assert.match(routine(bridge, 'TMoaPlayForm.HubDirectMessagesAction'), /HubEventGameStop;[\s\S]*FHubDirectMessages\.ShowList/);
+assert.match(routine(bridge, 'TMoaPlayForm.HubDirectMessagesAction'), /HubWheelStop;[\s\S]*FHubDirectMessages\.ShowList/);
 for (const text of [source, bridge]) assert.ok(!text.replace(/\r\n/g, '').includes('\n'), 'native CRLF');
 console.log('FIX61 direct transitions PASS: executed production route/paint control flow, stale row-release recovery, same-route incoming messages, live hold protection, inactive guard, name·unread, aligned avatar, menu-free inbox and confirmed thread delete. Delphi runtime not executed.');

@@ -10,8 +10,8 @@ function between(s,a,b){const start=s.indexOf(a),end=s.indexOf(b,start+a.length)
 const field=between(edit,'  procedure Field','  procedure Link');
 assert.doesNotMatch(field,/FloatingLabel:=True|HubInputPanelStyle/,'field labels never move on focus');
 assert.match(field,/HubLabel\(Row,MemberCaption\(Caption\)/);
-for(const text of ['이름','사용자 이름','소개','링크 추가','음악, 프로필 등을 추가해보세요.','성별 대명사','그리드 순서 변경','AI로 생성한 프로필','더 알아보기','프로페셔널 계정으로 전환','개인정보 설정','프로필 인증 표시'])assert.ok(edit.includes(text),text);
-const captions=["Field('이름'","Field('사용자 이름'","Field('성별 대명사'","Field('소개'","Link('링크'","Link('배너'","HubLabel(Row,MemberCaption('성별')","Link('그리드 순서 변경'"];
+for(const text of ['이름','계정','소개','링크 추가','음악, 프로필 등을 추가해보세요.','성별 대명사','그리드 순서 변경','AI로 생성한 프로필','더 알아보기','프로페셔널 계정으로 전환','개인정보 설정','프로필 인증 표시'])assert.ok(edit.includes(text),text);
+const captions=["Field('이름'","Field('계정'","Field('성별 대명사'","Field('소개'","Link('링크'","Link('배너'","HubLabel(Row,MemberCaption('성별')","Link('그리드 순서 변경'"];
 let previous=-1;for(const s of captions){const i=edit.indexOf(s);assert.ok(i>previous,`ordered profile section ${s}`);previous=i;}
 const routes=[...detail.matchAll(/(?:if|else if) View='(profile\.[^']+)' then Result:=/g)].map(m=>m[1]);
 assert.deepEqual(routes,['profile.links','profile.link.edit','profile.banners','profile.banner.edit','profile.grid','profile.ai','profile.accounttype','profile.verification']);
@@ -77,7 +77,8 @@ assert.match(action,/HubDiscardEditor\(FHubView,FHubPostID\);FHubLocalRender:=Tr
 assert.match(reply,/HubText\(Obj,'reason'\)='PROFILE_CHANGED'/,'conflicts request the latest server snapshot');
 assert.match(detail,/Input\('제목',HubText\(Item,'title'\),'프로필에 표시할 이름',0,60\)/);
 assert.match(action,/Trim\(FHubEdits\[0\].Text\)='' then ErrorText/);
-assert.match(detail,/Detail:=HubText\(Item,'handle'\);if Detail<>'' then Detail:='@'\+Detail/);
+assert.doesNotMatch(detail,/Detail:='@'\+Detail/,'public account labels never add a decorative @');
+assert.match(edit,/Field\('계정',HubText\(Profile,'accountLabel'/);assert.match(edit,/FHubEdits\[1\].ReadOnly:=True/);
 
 // Evaluate coordinates extracted from production rows across supported narrow/wide layouts.
 const compact=s=>s.replace(/\s+/g,'');

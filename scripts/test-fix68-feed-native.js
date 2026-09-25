@@ -8,7 +8,7 @@ const feed=read('MoaPlayApp.Member.Feed.inc'),social=read('MoaPlayApp.Member.Soc
 const card=routine(feed,'TMoaPlayForm.HubPostCard'),photo=routine(social,'TMoaPlayForm.HubPostPhoto'),fill=routine(feed,'TMoaPlayForm.HubFillPostCard'),render=routine(compose,'TMoaPlayForm.HubRenderCompose');
 assert.doesNotMatch(feed,/MemberFrostedCard\(/,'post photographs cannot alter the surrounding transparent card');
 assert.match(card,/Fill.Kind:=TBrushKind.None/);assert.match(card,/XRadius:=12;C.YRadius:=12/);assert.match(card,/Stroke.Kind:=TBrushKind.Solid/);
-assert.match(fill,/HubBool\(Post,'own'\)[\s\S]*AudienceText:=Text/,'audience disclosure is only populated for the owner');
+assert.doesNotMatch(fill,/AudienceText|전체 공개/,'preview audience labels are removed while privacy stays in the owner menu');
 assert.match(fill,/'post.menu','more\|post\|'/);assert.doesNotMatch(fill,/'more','more\|post\|'/);
 for(const icon of ['heart','bubble','repost','paperplane'])assert.ok(fill.includes("HubReaction(C,'"+icon+"'"));
 assert.match(fill,/HubVisibleCount\(Post,'shares'\)/);

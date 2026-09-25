@@ -9,7 +9,7 @@ function client(n){
  const id=String(n).padStart(16,'0'),key='FIX59-DM-DEVICE-'+n,lines=[];
  const c={type:'client',clientId:id,connected:true,permissionsGranted:true,deviceAuthVerified:true,licenseAuthorized:true,biometricVerified:true,installationDeviceKey:key,deviceAuthChallengeId:'AUTH-'+id,lines,socket:{destroyed:false,write(line){lines.push(line);return true;}}};
  state.clients.set(id,c);state.clientIdentities.set(key,{id,serverId:'',createdAt:Date.now()});state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,crypto.randomBytes(32).toString('hex'));
- const lm=require('../license/licenseManager');c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;return c;
+ const lm=require('../license/licenseManager');c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;require('./helpers/member-identity-fixture')(c);return c;
 }
 function unchanged(fn,error){const before=snapshot();assert.throws(fn,error);assert.equal(snapshot(),before,'rejected request cannot change messages, cursor, pair or operation receipt');}
 function failedSave(fn){const save=database.SaveDatabase;try{database.SaveDatabase=()=>false;unchanged(fn,/STORAGE_SAVE_FAILED/);}finally{database.SaveDatabase=save;}}

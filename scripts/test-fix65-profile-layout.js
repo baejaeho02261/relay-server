@@ -33,19 +33,19 @@ function layout(source){
   const vars={Width,Profile,HubTextWidth:textWidth,HubCount:count,MemberCaption:s=>s,HubNumber:(p,k)=>p[k]};
   for(const [,name,expr]of assignment){const code=expr.replace(/\bMax\b/g,'Math.max').replace(/\bMin\b/g,'Math.min');vars[name]=Function(...Object.keys(vars),`return (${code})`)(...Object.values(vars));}
   const {X:StatX,PostW,FollowerW,FollowingW,Gap}=vars;let last=98;
-  assert.ok(Math.abs(StatX+PostW+FollowerW+FollowingW+2*Gap-(Width-4))<0.001,'entire measured group must reach the right edge');
-  assert.ok(Math.abs(StatX-112)<0.001,'the identity group stays beside the avatar instead of drifting right into a huge gutter');
-  for(const c of calls){const scope={StatX,PostW,FollowerW,FollowingW,Gap},x=evaluate(c[3],scope),w=evaluate(c[4],scope);assert.equal(c[5],'True');assert.ok(x>=last-0.001);assert.ok(x+w<=Width-4+0.001);assert.ok(w>0);last=x+w;}
+  assert.ok(Math.abs(StatX+PostW+FollowerW+FollowingW+2*Gap-(Width-16))<0.001,'entire measured group must reach the right edge');
+  assert.ok(StatX>=110-0.001,'compact stats must remain clear of the avatar');assert.equal(Gap,4);assert.ok(vars.Scale<=1,'stats may shrink but cannot stretch beyond their measured content');
+  for(const c of calls){const scope={StatX,PostW,FollowerW,FollowingW,Gap},x=evaluate(c[3],scope),w=evaluate(c[4],scope);assert.equal(c[5],'True');assert.ok(x>=last-0.001);assert.ok(x+w<=Width-16+0.001);assert.ok(w>0);last=x+w;}
   const ButtonW=evaluate(buttonSize,{W:Width});last=0;
-  for(const t of targets){const x=evaluate(t[2],{W:Width,ButtonW}),w=evaluate(t[3],{W:Width,ButtonW});assert.ok(x>=last);assert.ok(x+w<=Width-4);assert.ok(w>=38);last=x+w;}
-  assert.equal(last,Width-4,'people finder aligns with the stats trailing edge');
+  for(const t of targets){const x=evaluate(t[2],{W:Width,ButtonW}),w=evaluate(t[3],{W:Width,ButtonW});assert.ok(x>=last);assert.ok(x+w<=Width-16);assert.ok(w>=38);last=x+w;}
+  assert.equal(last,Width-16,'people finder aligns with the stats trailing edge');
  }
- const nicknameCalls=[...source.matchAll(/nickname[^\n]+,(StatX\+3),18,(Max\(1,C.Width-StatX-10\)),17,11/g)];
+ const nicknameCalls=[...source.matchAll(/nickname[^\n]+,(StatX\+3),18,(Max\(1,C.Width-StatX-19\)),17,11/g)];
  assert.equal(nicknameCalls.length,2,'own and peer nicknames span the full group above the three columns');
  for(const Width of [240,280,320,360,390,412,480]){
   const StatX=112,nameX=evaluate(nicknameCalls[0][1],{Width,StatX}),nameW=evaluate(nicknameCalls[0][2],{Width,StatX});
-  assert.ok(nameW>=118,'a normal Korean nickname must not get a 36 px single-column label');
-  assert.ok(nameX+nameW<=Width-4,'nickname remains inside the profile header');
+  assert.ok(nameW>=104,'a normal Korean nickname must not get a 36 px single-column label');
+  assert.ok(nameX+nameW<=Width-16,'nickname remains inside the profile header');
   assert.ok(nameW>=textWidth('회원 모아플레이',11),'ordinary nickname fits without early ellipsis');
  }
  const tabs=part(source,'procedure TMoaPlayForm.HubProfileTabs','procedure HubProfileStatsMetrics');
@@ -58,7 +58,7 @@ function layout(source){
  assert.equal((identity.match(/Pill.Fill.Kind:=TBrushKind.None;Pill.Stroke.Kind:=TBrushKind.Solid/g)||[]).length,2,'both compact pills retain transparent outlined backgrounds');
  assert.match(actions,/'user.add.solid'/);
  assert.doesNotMatch(source,/HubProfileNoteBubble|profile\.note|메모 남기기/,'profile notes are completely removed');
- const member=part(source,'procedure TMoaPlayForm.HubRenderMember','procedure TMoaPlayForm.HubRenderHistory');
+ const member=part(source,'procedure TMoaPlayForm.HubRenderMember','procedure TMoaPlayForm.HubRenderInfo');
  assert.doesNotMatch(member,/activity.dashboard/,'visitors cannot see an owner dashboard');
  assert.match(own,/if \(Kind='CREATOR'\) or \(Kind='BUSINESS'\) then begin/);
  const identityAt=own.indexOf('HubProfileIdentityRow'),dashboardAt=own.indexOf("'activity.dashboard'"),buttonsAt=own.indexOf('HubProfileButtons');
@@ -68,11 +68,11 @@ function layout(source){
 layout(page);
 assert.throws(()=>layout(page.replace('HubCount(Value),18,MemberText,TTextAlign.Leading','HubCount(Value),18,MemberText,TTextAlign.Trailing')),'count reverting to right must fail');
 assert.throws(()=>layout(page.replace('22+ButtonW,Y,ButtonW','16,Y,ButtonW')),'profile action overlap must fail');
-assert.throws(()=>layout(page.replace('Scale:=Available/(PostW+FollowerW+FollowingW);','Scale:=Min(1,Available/(PostW+FollowerW+FollowingW));')),'the screenshot gutter regression must fail');
-assert.throws(()=>layout(page.replaceAll('Max(1,C.Width-StatX-10),17,11','Max(1,PostW-6),17,11')),'nickname clipping to the first statistic must fail');
+assert.throws(()=>layout(page.replace('Scale:=Min(1,Available/(PostW+FollowerW+FollowingW));','Scale:=Available/(PostW+FollowerW+FollowingW);')),'expanding all profile columns must fail');
+assert.throws(()=>layout(page.replaceAll('Max(1,C.Width-StatX-19),17,11','Max(1,PostW-6),17,11')),'nickname clipping to the first statistic must fail');
 assert.throws(()=>layout(page.replace(/,True\);\n  HubProfileStat/,',False);\n  HubProfileStat')),'stat press feedback is required');
 function publicBoundary(source){
- const member=part(source,'procedure TMoaPlayForm.HubRenderMember','procedure TMoaPlayForm.HubRenderHistory');
+ const member=part(source,'procedure TMoaPlayForm.HubRenderMember','procedure TMoaPlayForm.HubRenderInfo');
  assert.match(member,/if HubBool\(Data,'profilePostsHidden'\) then HubEmpty/);
  assert.match(member,/HubProfileButtons\(C,Profile,Own,HubBool\(Data,'isFollowing'\),Y\)/);
  assert.doesNotMatch(source,/'member.badges\|'/,'peer badges moved to the global header');
@@ -84,34 +84,29 @@ function publicBoundary(source){
  assert.match(details,/'web\|'/);assert.match(details,/'member\|'/);
 }
 publicBoundary(page);assert.throws(()=>publicBoundary(page.replace("if HubBool(Data,'profilePostsHidden') then HubEmpty","if False then HubEmpty")));
-function grid(source){
- const width=source.match(/W:=(Max\(1,\(FHubPage.Width-4\)\/3\));H:=([^;]+);/);assert.ok(width);
- assert.match(source,/C.ClipChildren:=True/);assert.match(source,/HubTextAction\(FHubPage,'','comments\|\'\+ID/);
- assert.match(source,/if Kind='reposts'/);assert.match(source,/Kind='tagged'/);assert.match(source,/HubPaging\(Data\)/);
- assert.match(source,/Encoded:=HubText\(Item,'imageThumb'\)/);assert.match(source,/not HubBool\(Quote,'unavailable'\)/);
- assert.match(source,/PreviewPosition:=HubText\(Item,'previewPosition','center'\)/);
- assert.match(source,/PreviewPosition='top' then CropY:=0/);assert.match(source,/PreviewPosition='bottom' then CropY:=H-Frame.Fill.Bitmap.Bitmap.Height\*Scale/);
- assert.match(source,/HubBool\(Item,'pinned'\) then Icon:='pin'/);
- assert.match(source,/Scale:=Max\(W\/Frame.Fill.Bitmap.Bitmap.Width,H\/Frame.Fill.Bitmap.Bitmap.Height\)/);
- assert.doesNotMatch(source,/\.Resize\(|Resample|FMember.Request|HubFetch|HubPostPhoto\(/,'gallery cannot resample original pixels, fetch on render or open a lightbox');
- for(const Width of [240,280,320,390,432,600,1024])for(const count of [1,2,3,4,12,20,30]){
-  const W=evaluate(width[1],{Width}),H=evaluate(width[2],{W});let previous=null;
-  for(let i=0;i<count;i++){
-   const x=(i%3)*(W+2),y=Math.floor(i/3)*(H+2);assert.ok(x>=0&&x+W<=Width+0.00001);assert.ok(H>W);
-   if(previous&&previous.y===y)assert.ok(x>=previous.x+W+1.999);previous={x,y};
-   for(const [sw,sh] of [[160,90],[90,160],[400,400],[1080,1920],[4096,800]]){
-    const scale=Math.max(W/sw,H/sh),iw=sw*scale,ih=sh*scale,ix=(W-iw)/2,iy=(H-ih)/2;
-    for(const position of ['top','center','bottom']){const cropY=position==='top'?0:position==='bottom'?H-ih:(H-ih)/2;assert.ok(cropY<=0.001&&cropY+ih>=H-0.001,'saved crop position always fills tile');}
-    assert.ok(iw>=W-0.001&&ih>=H-0.001);assert.ok(ix<=0.001&&iy<=0.001);assert.ok(ix+iw>=W-0.001&&iy+ih>=H-0.001,'cover leaves no unfilled tile');assert.ok(Math.abs(iw/ih-sw/sh)<1e-8,'cover cannot stretch source aspect ratio');
-   }
-  }
+function cards(source){
+ assert.match(source,/HubPostCard\(Item,True\)/,'all three post tabs must reuse full real cards');
+ assert.match(source,/FHubY:=FHubY\+16/,'first post has a vertical gap after tabs');
+ assert.match(source,/HubPaging\(Data\)/);assert.match(source,/if Kind='reposts'/);assert.match(source,/Kind='tagged'/);
+ assert.doesNotMatch(source,/Count mod 3|TBitmap.Create|MemberLoadBitmap|FMember.Request|HubFetch|Item.Free/,'renderer does not create tiles, issue requests or take cache ownership');
+ const widgets=read('MoaPlayApp.Member.Widgets.inc'),feed=read('MoaPlayApp.Member.Feed.inc'),flow=read('MoaPlayApp.Member.Flow.inc');
+ assert.match(widgets,/Result.SetBounds\(20,FHubY,FHubPage.Width-40,Height\)/,'post cards keep balanced horizontal margins');
+ assert.match(widgets,/FHubY:=FHubY\+Height\+16/,'cards retain vertical spacing');
+ assert.match(flow,/Body.AddPair\('postCards',TJSONBool.Create\(True\)\)/,'full card data comes from the authorized server projection');
+ assert.match(feed,/HubFillPostCard\(C,Post,ShowActions,0,True\)/);
+ assert.match(page,/HubFillCommentCard\(C,Item,True\)/,'profile comments use the same actual comment renderer');
+ assert.match(feed,/HubFillCommentCard\(C,Item,False\)/,'thread comments share the renderer');
+ assert.match(feed,/if ShowPostLink then ReplyAction:='comment.thread\|'\+ID\+'\|'\+HubText\(Item,'postId'\)/,'profile replies route to the correct thread');
+ for(const width of [240,280,320,390,480,1024])for(const heights of [[90,140],[800,60,500],[30,44,48,110]]){
+  const x=20,w=width-40;assert.equal(x,width-(x+w));let y=16,previousEnd=0;
+  for(const h of heights){assert.ok(y-previousEnd>=16);previousEnd=y+h;y+=h+16;}
  }
 }
-grid(gallery);assert.throws(()=>grid(gallery.replace('C.ClipChildren:=True','C.ClipChildren:=False')),'unclipped oversized photos must fail');
+cards(gallery);assert.throws(()=>cards(gallery.replace('HubPostCard(Item,True)','HubPostCard(Item,False)')),'read-only or truncated profile cards must fail');
 for(const name of ['MoaPlayApp.Member.MyPage.inc','MoaPlayApp.Member.ProfileGallery.inc']){
  const bytes=fs.readFileSync(path.join(root,name));assert.deepEqual([...bytes.subarray(0,3)],[239,187,191]);assert.equal(bytes.toString().replace(/\r\n/g,'').includes('\n'),false);
 }
-console.log('FIX65 profile contracts PASS on FIX70: adjacent responsive stats, full-group nickname, professional dashboard, four icon tabs, safe profile details, cover grid, full-post routes and privacy.');
+console.log('FIX71 profile contracts PASS: compact right-aligned stats, balanced margins, professional dashboard, four full-card activity tabs, shared comments and privacy.');
 // The discovery prompt is an illustration and a real route, including empty
 // suggestion payloads. No synthetic member IDs or remote image work on render.
 const people=read('MoaPlayApp.Member.People.inc'),navigation=read('MoaPlayApp.Member.Navigation.inc');
@@ -125,14 +120,14 @@ assert.match(suggestions,/if Assigned\(Items\) then for V in Items do/);
 assert.match(suggestions,/if Count>=12 then Break/,'native profile cannot construct an unbounded strip');
 assert.match(suggestions,/C.TagString:='profile.people';C.OnClick:=HubActionClick/);
 assert.match(suggestions,/HubButton\(C,MemberCaption\('모두 보기'\),'profile.people'/);
-assert.match(suggestions,/HubPeopleIllustration\(C,5,5,142,101\)/);
+assert.match(suggestions,/HubPeopleIllustration\(C,6,4,120,84\)/);
 assert.match(people,/Action='profile.people' then begin FHubSearchText:='';HubNavigate\('people'\)/);
 assert.match(navigation,/MemberSurface,24/);assert.match(navigation,/MemberSurface,20/);
 assert.equal((navigation.match(/Panel.Fill.Kind:=TBrushKind.Solid;Panel.Opacity:=1/g)||[]).length,2,'account sheets use opaque theme surfaces, not transparent dock glass');
 assert.doesNotMatch(navigation,/MemberDockGlass/);
 assert.doesNotMatch(page,/Caption:='@'\+HubText\(Profile,'handle'/);
 assert.doesNotMatch(people,/HubLabel\(C,'@'\+HubText|이름 또는 @아이디 검색/);
-assert.match(navigation,/Panel.Stroke.Color:=MemberBorder;Panel.Stroke.Thickness:=MemberBorderWidth/);
+assert.equal((navigation.match(/Panel.Stroke.Kind:=TBrushKind.None/g)||[]).length,2,'opaque account sheets have no outline');assert.doesNotMatch(navigation,/Panel.Stroke.Kind:=TBrushKind.Solid/);
 assert.match(navigation,/TMoaPlayTapRectangle\(Row\).TouchScope:=nil/,'sheet taps remain detached from feed scroll scope');
 assert.doesNotMatch(navigation,/MakeScreenshot|TTimer.Create|FMember.Request/,'dropdown cannot add per-frame or network work');
 const art=part(people,'Art.Svg.Source:=','function TMoaPlayForm.HubProfileSuggestions');

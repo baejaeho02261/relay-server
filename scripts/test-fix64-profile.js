@@ -8,7 +8,7 @@ const read=name=>fs.readFileSync(path.join(root,name),'utf8').replace(/^\uFEFF/,
 const profile=read('MoaPlayApp.Member.MyPage.inc'),people=read('MoaPlayApp.Member.People.inc'),share=read('MoaPlayMemberShare.pas');
 function section(source,from,to){const start=source.indexOf(from),end=source.indexOf(to,start+from.length);assert.ok(start>=0&&end>start);return source.slice(start,end);}
 function authSurface(source){
- const member=section(source,'procedure TMoaPlayForm.HubRenderMember','procedure TMoaPlayForm.HubRenderHistory');
+ const member=section(source,'procedure TMoaPlayForm.HubRenderMember','procedure TMoaPlayForm.HubRenderInfo');
  assert.match(member,/if HubBool\(Data,'profilePostsHidden'\) then HubEmpty/);
  assert.match(member,/HubProfileButtons\(C,Profile,Own,HubBool\(Data,'isFollowing'\),Y\)/);
  assert.doesNotMatch(source,/'member.badges\|'/,'peer badge action moved from card to header');
