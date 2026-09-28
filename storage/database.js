@@ -324,6 +324,8 @@ function ImportDatabaseObject(data) {
                 accessType: require('../services/accessType').NormalizeAccessType(raw.accessType),
                 enrolledAt: Math.max(0, Number(raw.enrolledAt) || 0),
                 verifiedAt: Math.max(0, Number(raw.verifiedAt) || 0),
+                ...(raw.resume && /^[0-9A-F]{64}$/.test(raw.resume.binding) && Number.isSafeInteger(raw.resume.expiresAt)
+                    ? { resume: { binding: raw.resume.binding, expiresAt: raw.resume.expiresAt } } : {}),
                 verificationCount: Math.max(0, Number(raw.verificationCount) || 0),
                 resetAt: Math.max(0, Number(raw.resetAt) || 0),
                 resetBy: String(raw.resetBy || '').replace(/[\r\n|]/g, '').slice(0, 64)

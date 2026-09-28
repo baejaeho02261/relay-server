@@ -4,7 +4,6 @@ const state = require('../core/state');
 const { Now, SendLine } = require('../core/utils');
 const identity = require('../identity/identityManager');
 const installation = require('./clientInstallation');
-const knowledge = require('./supportKnowledge');
 const Save = () => require('../storage/database').SaveDatabase();
 const encode = value => Buffer.from(JSON.stringify(value), 'utf8').toString('base64');
 const hash = value => crypto.createHash('sha256').update(value).digest('hex').toUpperCase();
@@ -34,7 +33,7 @@ function Binding(deviceKey, saved, c) {
 function NewThread(id, binding, clientId) {
     return { clientId: id, currentClientId: clientId, aliases: [clientId], ...binding,
         tokenHashes: [binding.tokenHash], revision: 1, epoch: crypto.randomUUID(), status: 'OPEN',
-        nextSeq: 1, updatedAt: Now(), unreadAdmin: 0, messages: [], device: {} };
+        mode: 'HUMAN', nextSeq: 1, updatedAt: Now(), unreadAdmin: 0, messages: [], device: {} };
 }
 // A CLIENT row is a routing address. This persisted room owns a separate ID,
 // installation credential hashes and device metadata, even after CLIENT deletion.
@@ -66,7 +65,7 @@ function Resolve(c, create = true) {
         const canonical = candidates.slice().sort((a, b) => a.createdAt - b.createdAt || a.clientId.localeCompare(b.clientId))[0];
         if (t && t !== canonical) {
             for (const m of t.messages) if (!canonical.messages.some(x => x.id === m.id && x.role === m.role))
-                canonical.messages.push({ ...m, seq: canonical.nextSeq++ });
+                canonical.messages.push({ ...m, seq: canonical.nextSeq++, epoch: canonical.epoch });
             canonical.unreadAdmin += t.unreadAdmin;
             canonical.aliases = [...new Set([...canonical.aliases, ...t.aliases])];
             Object.assign(canonical.device, t.device);
@@ -108,7 +107,7 @@ function Availability(session, mode) {
     return { ok: true, settings: Info() };
 }
 function Info(t) {
-    return { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map(k=>[k,state.supportSettings[k]||DEFAULT_SETTINGS[k]])), mode:t?.mode||'HUMAN', adminOnline: state.supportSettings.adminOnline === true,
+    return { ...DEFAULT_SETTINGS, ...Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map(k=>[k,state.supportSettings[k]||DEFAULT_SETTINGS[k]])), mode: 'HUMAN', adminOnline: state.supportSettings.adminOnline === true,
         baseSeq: t && t.messages.length ? t.messages[0].seq - 1 : 0, roomId: t && t.clientId || '', status: t && t.status || 'OPEN', epoch: t && t.epoch || '', revision: t && t.revision || 1 };
 }
 function Settings(value) {
@@ -117,6 +116,7 @@ function Settings(value) {
     const old = state.supportSettings;
     state.supportSettings = { ...old, ...Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map(k => [k, value[k].trim()])) };
     if (!Save()) { state.supportSettings = old; return { ok: false, reason: 'STORAGE_SAVE_FAILED' }; }
+    for (const t of state.supportThreads.values()) for (const c of Live(t)) PushInfo(c, t);
     return { ok: true, settings: Info() };
 }
 function Append(t, role, id, text, revision) {
@@ -125,41 +125,26 @@ function Append(t, role, id, text, revision) {
     if ((revision != null && Number(revision) !== t.revision) || (t.revision > 1 && revision == null)) return { ok: false, reason: 'HISTORY_CHANGED' };
     if (role === 'ADMIN' && t.status !== 'OPEN') return { ok: false, reason: 'SUPPORT_CLOSED' };
     const duplicate = t.messages.find(m => m.id === id && m.role === role);
-    if (duplicate) return duplicate.text === text.trim() ? { ok: true, message: duplicate, replies:t.messages.filter(m=>m.replyTo===id), duplicate: true } : { ok: false, reason: 'MESSAGE_ID_CONFLICT' };
+    if (duplicate) return duplicate.text === text.trim() ? { ok: true, message: { ...duplicate, epoch: t.epoch }, duplicate: true } : { ok: false, reason: 'MESSAGE_ID_CONFLICT' };
     const old = structuredClone(t);
-    if(role==='CLIENT'&&t.status!=='OPEN'&&t.botStarted)t.mode='BOT';
+    t.mode = 'HUMAN';
     const message = { seq: t.nextSeq++, id, role, text: text.trim(), at: Now(), epoch: t.epoch };
     t.messages = [...t.messages, message]; // Never silently discard old conversations.
     t.updatedAt = message.at; t.status = 'OPEN';
-    const replies=[];
-    if (role === 'ADMIN') t.mode='HUMAN';
-    if (role === 'CLIENT' && t.mode==='BOT') {
-        const answer=knowledge.Answer(text,Info(t));
-        const reply={seq:t.nextSeq++,id:'BOT_'+hash(id).slice(0,40),role:'BOT',text:answer.text,at:Now(),epoch:t.epoch,replyTo:id};
-        t.messages.push(reply);replies.push(reply);
-        if(answer.handoff){t.mode='HUMAN';t.unreadAdmin++;}
-    } else if (role === 'CLIENT') t.unreadAdmin++;
+    if (role === 'CLIENT') t.unreadAdmin++;
     if (!Save()) { Object.assign(t, old); return { ok: false, reason: 'STORAGE_SAVE_FAILED' }; }
-    return { ok: true, message, replies };
-}
-function StartBot(t) {
-    if(t.botStarted && t.status==='OPEN')return {ok:true};
-    const old=structuredClone(t);t.botStarted=true;t.mode='BOT';t.status='OPEN';
-    const message={seq:t.nextSeq++,id:crypto.randomUUID(),role:'BOT',text:'안녕하세요. FAQ 안내 봇입니다. 충전, 게임 이용권, 프로필 등 궁금한 내용을 적어주세요. 확인이 필요한 문의는 상담원 연결로 이어갈 수 있습니다.',at:Now(),epoch:t.epoch};
-    t.messages=[...t.messages,message];t.updatedAt=message.at;
-    if(!Save()){Object.assign(t,old);return {ok:false,reason:'STORAGE_SAVE_FAILED'};}
-    return {ok:true};
+    return { ok: true, message };
 }
 function PushInfo(c, t) { SendLine(c.socket, `SUPPORT_INFO|${encode(Info(t))}`); }
 function Handle(c, line) {
     const error = reason => SendLine(c.socket, `SUPPORT_ERROR|${reason}`);
     if (!Allowed(c)) { error('AUTH_REQUIRED'); return; }
     const p = line.split('|');
-    if (['SUPPORT_OPEN', 'SUPPORT_SYNC', 'SUPPORT_STATUS', 'SUPPORT_HELP', 'SUPPORT_BOT_OPEN'].includes(p[0]) && p[1] !== c.clientId) { error('CLIENT_NOT_OWNER'); return; }
-    if (p[0]==='SUPPORT_HELP' && p.length===2) {
-        if(Now()-(c.supportHelpAt||0)<500)return;
-        c.supportHelpAt=Now();SendLine(c.socket,'SUPPORT_HELP_DATA|'+encode({...Info(),faq:knowledge.Public(),knowledgeRevision:knowledge.Admin().revision}));return;
-    }
+    // Validate the supported operation before resolving or creating a room.
+    const frameLengths = { SUPPORT_OPEN: 2, SUPPORT_STATUS: 2, SUPPORT_SYNC: 4,
+        SUPPORT_DEVICE: 2, SUPPORT_SEND: 3, SUPPORT_SEND_V2: 4 };
+    if (frameLengths[p[0]] !== p.length) { error('INVALID_MESSAGE'); return; }
+    if (['SUPPORT_OPEN', 'SUPPORT_SYNC', 'SUPPORT_STATUS'].includes(p[0]) && p[1] !== c.clientId) { error('CLIENT_NOT_OWNER'); return; }
     const oldRoom = c.supportRoomId && Room(c.supportRoomId);
     const currentBinding = Binding(identity.FindClientDeviceKey(c.clientId), identity.GetSavedClientByID(c.clientId), c);
     const needsResolve = !oldRoom || !oldRoom.tokenHashes.includes(currentBinding.tokenHash) || oldRoom.currentClientId !== c.clientId || (installation.WasAuthorized(identity.GetSavedClientByID(c.clientId)) && !c.supportApprovedResolved);
@@ -170,10 +155,6 @@ function Handle(c, line) {
     if (needsResolve && before !== JSON.stringify([...state.supportThreads]) && !Save()) {
         state.supportThreads.clear(); for (const [id, raw] of JSON.parse(before)) state.supportThreads.set(id, raw);
         error('STORAGE_SAVE_FAILED'); return;
-    }
-    if(p[0]==='SUPPORT_BOT_OPEN' && p.length===2){
-        const started=StartBot(t);if(!started.ok){error(started.reason);return;}
-        PushInfo(c,t);return;
     }
     if (p[0] === 'SUPPORT_STATUS' && p.length === 2) {
         if (Now() - (c.supportStatusAt || 0) < 5000) return;
@@ -217,17 +198,19 @@ function Handle(c, line) {
     if (!duplicate && Now() - (c.lastSupportSendAt || 0) < 1000) { error('RATE_LIMIT'); return; }
     const result = Append(t, 'CLIENT', p[1], text, v2 ? p[2] : c.supportLegacyRevision);
     if (!result.ok) { error(result.reason); return; }
-    c.lastSupportSendAt = Now(); SendLine(c.socket, `SUPPORT_MESSAGE|${encode(result.message)}`);
-    for(const message of result.replies||[])SendLine(c.socket,`SUPPORT_MESSAGE|${encode(message)}`);
+    c.lastSupportSendAt = Now();
+    // A newly approved installation may have just merged into its stable room.
+    // Establish that room/epoch before acknowledging its pending message.
     PushInfo(c, t);
-    if (!result.duplicate && t.mode!=='BOT') {
+    SendLine(c.socket, `SUPPORT_MESSAGE|${encode(result.message)}`);
+    if (!result.duplicate) {
         require('./notificationCenter').AddNotification({ severity: 'INFO', type: 'CUSTOMER_SUPPORT', title: '고객센터 새 문의', message: `상담 ${t.clientId}`, entityType: 'CLIENT', entityId: c.clientId });
         require('../storage/audit').LogEvent('CUSTOMER_SUPPORT_MESSAGE', t.clientId);
     }
 }
 function List() {
     return [...state.supportThreads.values()].filter(t => t.status !== 'DELETED').map(t => ({ clientId: t.clientId, currentClientId: t.currentClientId,
-        status: t.status, mode:t.mode||'HUMAN', device: t.device, updatedAt: t.updatedAt, unreadAdmin: t.unreadAdmin, online: Live(t).length > 0,
+        status: t.status, mode: 'HUMAN', device: t.device, updatedAt: t.updatedAt, unreadAdmin: t.unreadAdmin, online: Live(t).length > 0,
         lastMessage: t.messages.length ? t.messages.at(-1).text.slice(0, 100) : '' })).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 function Read(id, before = 0) {
@@ -284,9 +267,8 @@ function Change(id, action, revision) {
     return { ok: true, thread: Read(id) };
 }
 function ImportPersisted(data) {
-    const restoredKnowledge=knowledge.Import(data.supportSettings||{});
     state.supportThreads.clear();
-    state.supportSettings = { ...DEFAULT_SETTINGS, ...restoredKnowledge };
+    state.supportSettings = { ...DEFAULT_SETTINGS };
     state.supportSettings.adminOnline = data.supportSettings && data.supportSettings.adminOnline === true;
     for (const k of Object.keys(DEFAULT_SETTINGS)) if (data.supportSettings && typeof data.supportSettings[k] === 'string' && data.supportSettings[k].length <= 160)
         state.supportSettings[k] = data.supportSettings[k];
@@ -296,7 +278,7 @@ function ImportPersisted(data) {
         const epoch = validId(raw.epoch) ? raw.epoch : crypto.randomUUID();
         state.supportThreads.set(id, { clientId: id, currentClientId: raw.currentClientId || id, aliases: Array.isArray(raw.aliases) ? raw.aliases : [id],
             createdAt: Number(raw.createdAt) || Number(raw.updatedAt) || Now(), deviceKey: raw.deviceKey || '', tokenHashes: Array.isArray(raw.tokenHashes) ? raw.tokenHashes : [],
-            epoch, mode:raw.mode==='BOT'?'BOT':'HUMAN', botStarted:raw.botStarted===true, revision: Math.max(1, Number(raw.revision) || 1), status: ['CLOSED', 'DELETED'].includes(raw.status) ? raw.status : 'OPEN',
+            epoch, mode: 'HUMAN', revision: Math.max(1, Number(raw.revision) || 1), status: ['CLOSED', 'DELETED'].includes(raw.status) ? raw.status : 'OPEN',
             messages: raw.status === 'DELETED' ? [] : messages.map(m => ({ ...m, epoch })), nextSeq: messages.reduce((max, m) => Math.max(max, m.seq), 0) + 1,
             device: raw.device && typeof raw.device === 'object' ? raw.device : {}, updatedAt: Math.max(0, Number(raw.updatedAt) || 0),
             unreadAdmin: Math.min(messages.length, Math.max(0, Number(raw.unreadAdmin) || 0)) });
