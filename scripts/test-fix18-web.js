@@ -88,18 +88,11 @@ const click=async el=>{assert.ok(el);el.click();await wait();};
  const css=fs.readFileSync(root+'/public/admin-member.css','utf8');assert.equal(w.document.querySelector('.member-tabs'),null);assert.ok(css.includes('.sidebar #nav::-webkit-scrollbar-thumb'));assert.ok(css.includes('padding:24px'));
  // Retired coin routes are blocked over the real HTTP router as well as in the UI.
  for(const action of ['coin.save','topup.decide','settings.save']){const response=await w.fetch('/api/member/action',{method:'POST',body:JSON.stringify({action,id:'OLD'})});assert.equal(response.status,400);}
- // The administrator scans the actual member QR image and credits the non-expiring wallet.
- const charges=require('../services/member/charges'),profile=store.Account(c),issued=charges.Read(profile),charge=store.DB().chargeRequests[issued.request.id];
- const png=await require('qrcode').toBuffer('QRC1.'+charge.id+'.'+charge.token,{errorCorrectionLevel:'H',scale:6});
+ // The QR screen is now exclusively a device entry pass screen.
  await click(w.document.querySelector('[data-view="qrauth"]'));
- const chargeInput=w.document.querySelector('#qr-auth-file');Object.defineProperty(chargeInput,'files',{configurable:true,value:[new w.File([png],'charge.png',{type:'image/png'})]});
- chargeInput.dispatchEvent(new w.Event('change',{bubbles:true}));await wait();assert.equal(w.memberCanAutoRefresh(),false);assert.ok(w.document.querySelector('#qr-auth-preview').src.startsWith('data:image/png;base64,'));
- await w.renderQrAuth();assert.ok(w.document.querySelector('#qr-auth-preview').src.startsWith('data:image/png;base64,'));
- await click(w.document.querySelector('#qr-auth-scan-btn'));await click(w.document.querySelector('#qr-auth-approve-btn'));
- assert.ok(w.document.getElementById('modal').textContent.includes(profile.nickname));field('amount','20000');assert.equal(w.document.querySelector('[data-modal-field="days"]'),null);assert.equal(w.document.querySelector('[data-modal-field="accessType"]'),null);field('memo','입금 확인 후 등록');
- await click(w.document.getElementById('modal-confirm'));assert.equal(store.DB().chargeRequests[charge.id].status,'APPROVED');
- assert.equal(store.ProfileById(profile.id).balance,20000);assert.equal(Object.keys(store.DB().orders).length,0);
- assert.ok(w.document.getElementById('content').textContent.includes('잔액 충전'));assert.equal(w.document.querySelector('[data-member-action="charge.reject"]'),null);assert.ok(w.document.querySelector('#qr-auth-preview').classList.contains('hidden'));
+ assert.ok(w.document.getElementById('content').textContent.includes('출입증'));
+ assert.ok(!w.document.getElementById('content').textContent.includes('잔액 충전'));
+ for(const action of ['charge.scan','charge.approve','charge.reject']){const response=await w.fetch('/api/member/action',{method:'POST',body:JSON.stringify({action,id:'RETIRED'})});assert.equal(response.status,400);}
  await click(w.document.querySelector('[data-view="member-products"]'));await click(w.document.querySelector('[data-member-action="product.edit"]'));
  assert.deepEqual([...w.document.querySelectorAll('[data-plan-days]')].map(x=>Number(x.value)),[1,7,15,30]);assert.equal(w.document.querySelector('[data-modal-field="days"]'),null);assert.equal(w.document.querySelector('[data-modal-field=genre]').value,'레이싱');assert.ok(w.document.querySelector('[data-modal-image]'));await click(w.document.getElementById('modal-confirm'));assert.equal(store.DB().products[products[0].id].image,testPhoto);assert.deepEqual(store.DB().products[products[0].id].details,legacyDetails);
  // An interrupted browser pointer cannot suppress polling forever.

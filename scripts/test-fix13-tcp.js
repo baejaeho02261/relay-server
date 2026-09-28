@@ -65,15 +65,14 @@ async function reply(peer,c,id,action){
  apk.send(request(c,'TCPNEWS01','news'));result=await reply(apk,c,'TCPNEWS01','news');assert.equal(result.body.data.total,12);assert.equal(result.body.data.items[0].body.length,4500);assert.ok(result.chunks>1);
  const sqlite=require('../storage/sqliteDatabase');sqlite.Close();const persisted=sqlite.LoadSnapshot().data.memberHub;
  assert.equal(Object.values(persisted.profiles).find(p=>p.id===profile.id).balance,10000);assert.equal(Object.keys(persisted.orders).length,0);assert.equal(Object.keys(persisted.operations).length,1);
- const charges=require('../services/member/charges'),p=store.Account(c);const charge=charges.Read(p).request,row=store.DB().chargeRequests[charge.id];
- const scan=charges.Inspect('RCH1.'+row.id+'.'+row.token);const approved=hub.AdminWrite('charge.approve',{id:row.id,approvalToken:scan.approvalToken,mode:'WALLET',amount:5000,memo:''},'TEST');
+ const p=store.Account(c);hub.AdminWrite('wallet.grant',{accountId:p.id,confirmedAccountId:p.id,confirmed:true,amount:5000,reason:'TCP 테스트 잔액 지급',requestId:'TCP-GRANT-0001'},'TEST');
  const event=(await apk.wait('HUB_EVENT|'+store.DB().revision+'|')).split('|');assert.equal(event[2],mac(c,'HUB_EVENT',[event[1]]));
  apk.send(request(c,'TCPGAME01','purchase',{productId:item.id,days:30,price:5000,revision:item.revision}));result=await reply(apk,c,'TCPGAME01','purchase');assert.equal(result.body.ok,true);const order=result.body.data.order;assert.equal(result.body.data.profile.balance,10000);
  apk.send(request(c,'TCPGAME01','purchase',{productId:item.id,days:30,price:5000,revision:item.revision}));assert.equal((await reply(apk,c,'TCPGAME01','purchase')).body.data.order.id,order.id);
  const key=require('../license/licenseManager').CreateLicense(0,'출입증',['QR'],'QR').key;state.licenses.get(key).boundClient=id;c.licenseKey=key;
  apk.send(request(c,'TCPACT001','order.activate',{orderId:order.id}));result=await reply(apk,c,'TCPACT001','order.activate');assert.equal(result.body.ok,true);assert.equal(result.body.data.order.status,'ACTIVE');assert.equal(c.biometricVerified,false);assert.equal(c.buildCompleted,false);
  await apk.wait('QR_AUTH_OK|');await apk.wait('BIOMETRIC_CHALLENGE|');
- console.log('FIX13 TCP PASS: actual sockets, session HMAC requests and chunk responses, tampering/unsigned/stale rejection, existing balance, profile retry, QR wallet credit and idempotent game purchase, multi-chunk Korean news, SQLite reopen, pass activation and biometric reauthentication');
+ console.log('FIX13 TCP PASS: actual sockets, session HMAC requests and chunk responses, tampering/unsigned/stale rejection, existing balance, profile retry, administrator wallet grant and idempotent game purchase, multi-chunk Korean news, SQLite reopen, pass activation and biometric reauthentication');
 }finally{
  for(const socket of sockets)socket.destroy();
  await new Promise(resolve=>server.close(resolve));await Promise.all(acceptedClosed);

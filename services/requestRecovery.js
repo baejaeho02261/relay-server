@@ -61,6 +61,7 @@ function NumberFrom(input) {
 }
 
 function BuildSessionReady(clientId, serverId) {
+    if (!require('./member/entryPass').ForClient(GetOnlineClient(clientId))) return { ok: false, reason: 'GAME_PASS_REQUIRED' };
     const session = require('./buildGate').ActiveSessionForClient(clientId);
     if (!session) return { ok: false, reason: 'BUILD_REQUIRED' };
     if (NormalizeID(session.serverId) !== NormalizeID(serverId)) return { ok: false, reason: 'SERVER_BINDING_MISMATCH' };

@@ -63,13 +63,11 @@ try{
  // Defaults/same-value profile saves do not complete the edit mission.
  run(d,'profile.save',{nickname:account(d).nickname,bio:''});assert.equal(badge(d,'PROFILE_EDIT_1').earned,false);
  run(d,'profile.save',{nickname:account(d).nickname,bio:'반가워요'});run(d,'profile.save',{nickname:account(d).nickname,bio:''});assert.equal(badge(d,'PROFILE_EDIT_1').earned,true);assert.equal(badge(d,'BIO_1').earned,true);
- // Wallet and event achievements require their authoritative completed records.
- const charges=require('../services/member/charges'),rewards=require('../services/member/rewards');
- const pending=charges.Issue(account(d));assert.equal(badge(d,'QR_CHARGE_1').earned,false);
- const approval={id:pending.id,mode:'WALLET',amount:20000,memo:'실제 승인 검증',approvalToken:charges.Inspect('QRC1.'+pending.id+'.'+pending.token).approvalToken};
- const chargeBefore=JSON.stringify(s.DB());try{database.SaveDatabase=()=>false;assert.throws(()=>charges.Approve(approval,'FIX52-TEST'),/STORAGE_SAVE_FAILED/);}finally{database.SaveDatabase=save;}
- assert.equal(JSON.stringify(s.DB()),chargeBefore);charges.Approve(approval,'FIX52-TEST');assert.equal(badge(d,'QR_CHARGE_1').earned,true);
- const chargeAt=badge(d,'QR_CHARGE_1').earnedAt,chargeState=JSON.stringify(s.DB());charges.Approve(approval,'FIX52-TEST');assert.equal(JSON.stringify(s.DB()),chargeState);assert.equal(badge(d,'QR_CHARGE_1').earnedAt,chargeAt);
+ // Supported administrator grants fund purchases without awarding a retired charge mission.
+ const rewards=require('../services/member/rewards'),owner=account(d);
+ hub.AdminWrite('wallet.grant',{accountId:owner.id,confirmedAccountId:owner.id,confirmed:true,amount:20000,reason:'뱃지 검증용 잔액',requestId:'FIX52-ADMIN-GRANT'},'FIX52-TEST');
+ // Existing wheel turns survive the removal of charging; seed that historical state.
+ s.Atomic(()=>{account(d).eventSpins=2;});
  const spinBody={revision:rewards.Rules().revision};run(d,'event.spin',spinBody,'FIX52-FIRST-WHEEL');const spinProgress=JSON.stringify(progress(d));run(d,'event.spin',spinBody,'FIX52-FIRST-WHEEL');assert.equal(JSON.stringify(progress(d)),spinProgress);assert.equal(badge(d,'WHEEL_1').earned,true);assert.equal(progress(d).counts.wheel,1);
  const retiredBefore=JSON.stringify(s.DB());for(const action of ['arcade','arcade.play','casino.start'])assert.throws(()=>run(d,action,{game:'BACCARAT'}),/UNKNOWN_ACTION/);assert.equal(JSON.stringify(s.DB()),retiredBefore);
  const game=hub.AdminWrite('product.save',{gameKey:'PUBG',title:'배틀그라운드',description:'이용권',genre:'게임',accessType:'TYPE1',plans:[{days:1,price:100},{days:7,price:700}],published:true},'FIX52-TEST');
@@ -87,6 +85,6 @@ try{
  const projectionBefore=JSON.stringify(s.DB());for(let i=0;i<50;i++)badges.Public(account(a),{posts:0,followers:0});assert.equal(JSON.stringify(s.DB()),projectionBefore);
  const snapshot=database.BuildDatabaseObject(),awards=structuredClone(progress(a).awards);assert.equal(database.ImportDatabaseObject(snapshot),true);
  assert.deepEqual(progress(a).awards,awards);assert.equal(run(a,'me').profile.titleBadge.id,'REPORT_RECEIVED_1');assert.equal(badge(a,'POSTS_10').earnedAt,legacyAt);
- const all=run(a,'badges').items;for(const id of ['WHEEL_1','LIKES_1','COMMENTS_1','FOLLOWING_1','GAME_PURCHASE_1','REPORT_RECEIVED_1','REPORT_1','POSTS_1','PROFILE_VISIT_1','QR_CHARGE_1','POINT_EXCHANGE_1'])assert.ok(all.some(x=>x.id===id),id+' catalog entry');
+ const all=run(a,'badges').items;for(const id of ['WHEEL_1','LIKES_1','COMMENTS_1','FOLLOWING_1','GAME_PURCHASE_1','REPORT_RECEIVED_1','REPORT_1','POSTS_1','PROFILE_VISIT_1','POINT_EXCHANGE_1'])assert.ok(all.some(x=>x.id===id),id+' catalog entry');
  console.log('FIX52 BADGES PASS: durable legacy and new awards, deletion/unfollow/block permanence, unique successful actions, replay/failed-action/failed-save isolation, authenticated explicit visits, profile edits, report owner capture without private content, readonly inventory, and restart persistence.');
 }finally{Date.now=realNow;fs.rmSync(temp,{recursive:true,force:true});}

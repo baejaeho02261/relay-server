@@ -106,3 +106,7 @@ if (errors > 0) {
 }
 
 console.log(`MODULE CHECK OK: ${files.length} JavaScript files`);
+
+// Export probing imports production timers. This synchronous checker owns no
+// pending work after validation, so stop those handles on successful completion.
+process.exit(0);

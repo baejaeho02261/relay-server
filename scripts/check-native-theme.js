@@ -50,7 +50,20 @@ function Check(apk=path.resolve(__dirname,'../../MoaPlayApp_Android64')){
    }
    assert.ok(contrast(0xFFFEE500,0xFF191919)>=7,'Kakao branded text contrast');
    assert.ok(contrast(0xFFFFFFFF,0xFF1F1F1F)>=7,'Google branded text contrast');
-   const provider=code.slice(code.indexOf('procedure TMoaPlayForm.AuthProviderClick'),code.indexOf('procedure TMoaPlayForm.AuthContinueClick'));
+   // FIX74 photo captions use fixed white only with a loaded bitmap. A missing
+   // asset must fall back to the semantic theme and remove the dark scrim.
+   const photoInk=code.split('function MoaAuthPhotoInk')[1]?.split('procedure TMoaPlayForm.BuildAuthStepsUI')[0];
+   assert.ok(photoInk,'Auth photo caption helper exists');
+   assert.match(photoInk,/Result:=MemberText;/);
+   assert.match(photoInk,/if Assigned\(Photo\) and not Photo.Bitmap.IsEmpty then Result:=\$FFFFFFFF;/);
+   for(const caption of ['FAuthStepsTitle','FAuthHero'])assert.ok(code.includes(caption+'.TextSettings.FontColor:=MoaAuthPhotoInk(FAuthBackdrop)'),caption+' follows asset availability');
+   assert.match(code,/FAuthShade.Visible:=not FAuthBackdrop.Bitmap.IsEmpty;/);
+   for(const offset of ['0','0.42'])assert.ok(code.includes('Offset:='+offset+';Color:=$B3000000;'),'photo text area stays under a dark scrim');
+   assert.ok(contrast(0xFFFFFFFF,blend(0xB3000000,0xFFFFFFFF))>=7,'white auth captions on the brightest possible photo pixel');
+   const providerStart=code.indexOf('procedure TMoaPlayForm.AuthProviderClick');
+   assert.ok(providerStart>=0,'OAuth provider handler exists');
+   const providerTail=code.slice(providerStart),providerNext=providerTail.slice(1).search(/\n(?:procedure|function) TMoaPlayForm\./);
+   const provider=providerNext<0?providerTail:providerTail.slice(0,providerNext+1);
    assert.match(provider,/FIdentityPending or not FIdentityStatusKnown/);
    assert.match(provider,/not FIdentityKakaoConfigured/);assert.match(provider,/not FIdentityGoogleConfigured/);
    assert.match(provider,/HubIdentityRequest\('identity.start',Body.ToJSON\)/,'provider clicks start the server-owned OAuth flow');

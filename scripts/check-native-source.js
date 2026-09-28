@@ -33,7 +33,7 @@ const implemented=[...units.matchAll(/\b(?:procedure|function)\s+TMoaPlayForm\.(
 assert.equal(new Set(implemented).size,implemented.length,'Duplicate form methods');
 for(const name of declared)assert.ok(implemented.includes(name),'Missing '+name);
 for(const name of implemented)assert.ok(declared.includes(name),'Undeclared '+name);
-for(const [name,type] of [['MoaPlayMemberClient.pas','TMoaPlayMemberClient'],['MoaPlayMemberSwitch.pas','TMoaPlayMemberSwitch'],['MoaPlayMemberMemo.pas','TMoaPlayMemberMemo'],['MoaPlayRewardWheel.pas','TMoaPlayRewardWheel'],['MoaPlayIconPulse.pas','TMoaPlayIconPulse']])
+for(const [name,type] of [['MoaPlayMemberClient.pas','TMoaPlayMemberClient'],['MoaPlayMemberSwitch.pas','TMoaPlayMemberSwitch'],['MoaPlayMemberMemo.pas','TMoaPlayMemberMemo'],['MoaPlayRewardWheel.pas','TMoaPlayRewardWheel'],['MoaPlayIconPulse.pas','TMoaPlayIconPulse'],['MoaPlayFeedCard.pas','TMoaPlayFeedTap'],['MoaPlayCatalogCard.pas','TMoaPlayCatalogTap']])
  assert.deepEqual(require('./native-declarations').Check(read(name),type),[],name);
 // Cross-layer invariants for the lifecycle bugs: no editor exit saves a partially destroyed form.
 const flow=read('MoaPlayApp.Member.Flow.inc'),motion=read('MoaPlayApp.Member.Motion.inc'),compose=read('MoaPlayApp.Member.Compose.inc'),social=read('MoaPlayApp.Member.Social.inc');
@@ -53,7 +53,24 @@ assert.match(feed,/'bubble',HubCount\(HubNumber\(Item,'replies'\)\),ReplyAction/
 assert.match(feed,/ReplyAction:='reply\|'\+ID/);
 assert.match(feed,/if ShowPostLink then ReplyAction:='comment.thread\|'\+ID\+'\|'\+HubText\(Item,'postId'\)/);
 assert.match(social,/Action='comment.thread'[\s\S]*HubText\(Item,'postId'\)=Parts\[2\]/,'profile reply navigation validates its thread identity');
-assert.match(feed,/HubFillCommentCard\(C,Item,False\)/);assert.match(read('MoaPlayApp.Member.MyPage.inc'),/HubFillCommentCard\(C,Item,True\)/);
+assert.match(feed,/HubFillCommentCard\(C,Item,False\)/);
+// FIX74 removes personal activity tabs, while old/public comment links still
+// use the validated thread renderer. Do not require them in the owner hero.
+const profile=read('MoaPlayApp.Member.MyPage.inc');
+const me=profile.split('procedure TMoaPlayForm.HubRenderMe')[1].split('procedure TMoaPlayForm.HubRenderMember')[0];
+assert.doesNotMatch(me,/HubProfileStat\(|HubProfileTabs\(|HubRenderOwnComments\(|HubRenderProfileGallery\(|HubDiscoverPeople\(/);
+assert.match(me,/OrbitAction\('edit','profile'/);assert.match(me,/OrbitAction\('share','profile.share'/);
+assert.match(profile,/HubFillCommentCard\(C,Item,True\)/,'public comment history retains safe thread rendering');
+const postBody=feed.split('function TMoaPlayForm.HubFillPostCard')[1].split('function TMoaPlayForm.HubQuoteCard')[0];
+assert.doesNotMatch(postBody,/HubReaction\(|post\.menu|more\|post\|/,'retired feed toolbar and menu stay absent');
+assert.match(postBody,/chevron\.down/);assert.match(postBody,/feed\.expanded/);
+assert.doesNotMatch(feed,/feed\.channel|feed\.sort/);
+const hold=read('MoaPlayFeedCard.pas');
+assert.match(hold,/procedure TMoaPlayFeedTap.CancelTouch;[\s\S]*?FHoldTimer.Enabled:=False;inherited/,'scroll/page cancellation stops a hold timer');
+assert.match(hold,/if FWasHeld then Exit/,'hold release must not also expand a post');
+assert.match(hold,/FWasHeld:=True;FDown:=False;Handler:=FHold;CancelTouch/,'one hold cannot dispatch twice');
+assert.match(hold,/not TControl\(Node\).Visible then Exit/,'hidden pages cannot repost');
+assert.match(hold,/FHoldTimer.OnTimer:=nil/,'destroyed posts release timer callbacks');
 assert.match(social,/GifView\.LoadFrames\(GifData\)/);
 // FIX70: retired game classes and endpoints must not remain linked.
 for(const name of ['MoaPlayCasinoBoard.pas','MoaPlayCasinoAmount.pas','MoaPlayCasinoIndicators.pas','MoaPlaySkillGames.pas'])
