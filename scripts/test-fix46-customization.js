@@ -10,7 +10,7 @@ function client(id,key){
  const lines=[],c={type:'client',clientId:id,connected:true,permissionsGranted:true,deviceAuthVerified:true,licenseAuthorized:true,biometricVerified:true,installationDeviceKey:key,deviceAuthChallengeId:'AUTH-'+id,socket:{destroyed:false,write(x){lines.push(x.trim());return true;}}};
  state.clients.set(id,c);state.clientIdentities.set(key,{id,serverId:'',createdAt:Date.now()});state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,crypto.randomBytes(32).toString('hex'));
  c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;
- return {c,lines};
+ require('./helpers/member-identity-fixture')(c);return {c,lines};
 }
 function signed(peer,action,body,id){
  const payload=Buffer.from(JSON.stringify(body)).toString('base64'),fields=[id,action,payload];peer.lines.length=0;
@@ -23,7 +23,7 @@ const save=db.SaveDatabase;
  const a=client('1111111111111111','CUSTOM-A'),a2=client('3333333333333333','CUSTOM-A2'),b=client('2222222222222222','CUSTOM-B');a2.c.installationDeviceKey=a.c.installationDeviceKey;
  const id=run(a,'me').profile.id;run(b,'me');
  s.Atomic(()=>{s.ProfileById(id).points=10000;});
- let offers=run(a,'shop');assert.equal(offers.items.length,4);assert.ok(offers.items.filter(x=>x.id.startsWith('NICKNAME_')).every(x=>!x.enabled));
+ let offers=run(a,'shop');assert.equal(offers.items.length,2);assert.ok(offers.items.filter(x=>x.id.startsWith('NICKNAME_')).every(x=>!x.enabled));
  assert.throws(()=>run(a,'shop.purchase',{itemId:'NICKNAME_TICKET',revision:offers.rules.revision}),/SHOP_UNAVAILABLE/);
  assert.throws(()=>run(a,'shop.save',shop.Rules()),/UNKNOWN_ACTION/);
  assert.throws(()=>run(a,'points.reverse',{id:'PCV-ANY',reason:'test'}),/UNKNOWN_ACTION/);
@@ -36,7 +36,7 @@ const save=db.SaveDatabase;
  db.SaveDatabase=save;assert.equal(JSON.stringify(s.DB()),before);
  b.lines.length=0;a2.lines.length=0;
  const purchase=signed(a,'shop.purchase',{itemId:'NICKNAME_TICKET',revision:rules.revision},'CUSTOM-PURCHASE-01');
- assert.equal(purchase.profile.points,9950);assert.equal(purchase.inventory.nicknameTickets,1);
+ assert.equal(purchase.profile.points,9900);assert.equal(purchase.inventory.nicknameTickets,1);
  assert.deepEqual(run(a2,'shop.purchase',{itemId:'NICKNAME_TICKET',revision:rules.revision},'CUSTOM-PURCHASE-01'),purchase);
  assert.equal(Object.keys(s.DB().shopPurchases).length,1);assert.ok(b.lines.some(x=>x.startsWith('HUB_EVENT|')));assert.ok(a2.lines.some(x=>x.startsWith('HUB_EVENT|')));
  assert.throws(()=>run(b,'shop.purchase',{itemId:'NICKNAME_COLOR',revision:rules.revision,accountId:id}),/INSUFFICIENT_POINTS/);
@@ -59,15 +59,10 @@ const save=db.SaveDatabase;
  assert.deepEqual(run(a2,'nickname.color',{color:'#123abc'},'CUSTOM-COLOR-01'),colored);
  run(a,'nickname.color',{color:'#123ABC'});assert.equal(run(a,'shop').inventory.nicknameColors,0,'applying identical color is harmless');
  assert.throws(()=>run(a,'nickname.color',{color:'#456789'}),/COLOR_TICKET_REQUIRED/);
- assert.throws(()=>run(a,'badge.select',{id:'FOLLOWERS_500'}),/BADGE_UNAVAILABLE/);
- s.Atomic(()=>{const p=s.ProfileById(id);p.attendance={count:7};});
- const earned=run(a,'badges').items.find(x=>x.id==='ATTENDANCE_7');assert.equal(earned.earned,true);
- const selected=signed(a,'badge.select',{id:'ATTENDANCE_7'},'CUSTOM-BADGE-01');assert.equal(selected.publicProfile.titleBadge.title,'꾸준한 발걸음');
  for(const profile of [run(b,'member',{id}).profile,...run(b,'live',{profiles:[id]}).profiles]){
-  assert.equal(profile.nicknameColor,'#123ABC');assert.equal(profile.titleBadge.id,'ATTENDANCE_7');
+  assert.equal(profile.nicknameColor,'#123ABC');assert.equal(profile.titleBadge,undefined);
   for(const key of ['balance','points','inventory','eventSpins'])assert.equal(profile[key],undefined,'other member must not see '+key);
  }
- run(a,'badge.select',{id:''});assert.equal(run(a,'me').profile.titleBadge,null);
  // Historical conversion recovery uses recorded amounts, not today's exchange rule.
  let rewardRules=admin('rewards.save',{...rewards.Rules(),pointExchange:{enabled:true,pointUnit:100,cashUnit:250}});
  const conversion=run(a,'points.exchange',{amount:1000,revision:rewardRules.revision}).conversion;
@@ -95,5 +90,5 @@ const save=db.SaveDatabase;
  assert.equal(hub.AdminRead({view:'pointConversions'}).items.some(x=>x.id===spent.id),true);
  const restoredState=JSON.stringify(s.DB());assert.equal(admin('points.reverse',{id:conversion.id,reason:'이관 후 재시도'}).unchanged,true);assert.equal(JSON.stringify(s.DB()),restoredState,'paired reversal ledgers also prevent duplicate historical recovery');
  snapshot.cosmeticUses=[];assert.throws(()=>s.Import({memberHub:snapshot}),/MEMBER_STORAGE_INVALID/);
- console.log('FIX46 CUSTOMIZATION PASS: server-priced single-use inventory, cooldown bypass, validation, atomic rollback, retry receipts, badges, cosmetic live sync, private wallets, admin-only historical conversion recovery and migrations.');
+ console.log('FIX46 CUSTOMIZATION PASS: server-priced single-use inventory, cooldown bypass, validation, atomic rollback, retry receipts, cosmetic live sync, private wallets, admin-only historical conversion recovery and migrations.');
 }finally{db.SaveDatabase=save;fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

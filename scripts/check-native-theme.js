@@ -58,7 +58,7 @@ function Check(apk=path.resolve(__dirname,'../../MoaPlayApp_Android64')){
    assert.match(photoInk,/if Assigned\(Photo\) and not Photo.Bitmap.IsEmpty then Result:=\$FFFFFFFF;/);
    for(const caption of ['FAuthStepsTitle','FAuthHero'])assert.ok(code.includes(caption+'.TextSettings.FontColor:=MoaAuthPhotoInk(FAuthBackdrop)'),caption+' follows asset availability');
    assert.match(code,/FAuthShade.Visible:=not FAuthBackdrop.Bitmap.IsEmpty;/);
-   for(const offset of ['0','0.42'])assert.ok(code.includes('Offset:='+offset+';Color:=$B3000000;'),'photo text area stays under a dark scrim');
+   for(const offset of ['0','0.42'])assert.ok(code.includes('GradientPoint.Offset:='+offset+';GradientPoint.Color:=$B3000000;'),'photo text area stays under a dark scrim');
    assert.ok(contrast(0xFFFFFFFF,blend(0xB3000000,0xFFFFFFFF))>=7,'white auth captions on the brightest possible photo pixel');
    const providerStart=code.indexOf('procedure TMoaPlayForm.AuthProviderClick');
    assert.ok(providerStart>=0,'OAuth provider handler exists');

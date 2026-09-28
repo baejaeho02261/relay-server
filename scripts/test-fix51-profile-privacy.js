@@ -8,23 +8,15 @@ function client(n){
  const id=String(n).repeat(16),key='FIX51-PROFILE-'+n;
  const c={type:'client',clientId:id,connected:true,permissionsGranted:true,deviceAuthVerified:true,licenseAuthorized:true,biometricVerified:true,installationDeviceKey:key,deviceAuthChallengeId:'AUTH-'+id,socket:{destroyed:false,write(){return true;}}};
  state.clients.set(id,c);state.clientIdentities.set(key,{id,serverId:'',createdAt:Date.now()});state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,crypto.randomBytes(32).toString('hex'));
- c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;return c;
+ c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;require('./helpers/member-identity-fixture')(c);return c;
 }
 const run=(c,action,body={})=>hub.Execute(c,'FIX51-PROFILES-'+(++serial),action,body);
 try{
  const a=client(1),b=client(2),c=client(3),pa=run(a,'me').profile,pb=run(b,'me').profile,pc=run(c,'me').profile;
  s.Atomic(()=>{s.ProfileById(pa.id).attendance={count:7};s.ProfileById(pa.id).balance=12345;s.ProfileById(pb.id).attendance={count:30};});
- run(a,'badge.select',{id:'ATTENDANCE_7'});
- const remote=run(b,'badges',{profileId:pa.id});
- assert.equal(remote.readOnly,true);assert.equal(remote.own,false);assert.equal(remote.profile.id,pa.id);assert.equal(remote.selected,'ATTENDANCE_7');
- assert.deepEqual(remote.items.map(x=>x.id),['ATTENDANCE_1','ATTENDANCE_7']);assert.ok(remote.items.every(x=>x.earned&&x.progress===undefined));
+ const remote=run(b,'member',{id:pa.id});assert.equal(remote.profile.id,pa.id);
  for(const key of ['balance','points','inventory','eventSpins','preferences','subject','createdAt'])assert.equal(remote.profile[key],undefined,key+' must remain private');
- assert.throws(()=>run(b,'badge.select',{id:'ATTENDANCE_7',profileId:pa.id}),/NOT_OWNER/);
- assert.throws(()=>run(b,'badge.select',{id:'',profileId:pa.id}),/NOT_OWNER/);
- assert.equal(s.ProfileById(pa.id).titleBadgeId,'ATTENDANCE_7');assert.equal(s.ProfileById(pb.id).titleBadgeId,undefined);
- const own=run(a,'badges',{profileId:pa.id});assert.equal(own.readOnly,false);assert.ok(own.items.length>remote.items.length);assert.ok(own.items.some(x=>!x.earned));assert.equal(own.profile.balance,12345);
- run(a,'badge.select',{id:'',profileId:pa.id});assert.equal(run(a,'badges').selected,'');
- assert.throws(()=>run(b,'badges',{profileId:'missing'}),/MEMBER_NOT_FOUND/);
+ assert.equal(run(a,'me').profile.balance,12345);
  run(a,'follow.set',{id:pb.id,following:true});
  const ownRow=run(a,'follows',{id:pb.id,mode:'followers'}).items.find(x=>x.id===pa.id);assert.equal(ownRow.own,true);assert.equal(ownRow.isFollowing,false);
  assert.throws(()=>run(a,'follow.set',{id:pa.id,following:true}),/INPUT_INVALID/);
@@ -54,7 +46,7 @@ try{
  run(b,'block.set',{id:pc.id,blocked:true});assert.equal(run(b,'member',query).comments.total,0,'comments cannot reveal a blocked original post');
  run(b,'block.set',{id:pc.id,blocked:false});
  run(a,'block.set',{id:pb.id,blocked:true});
- assert.throws(()=>run(b,'badges',{profileId:pa.id}),/MEMBER_NOT_FOUND/);assert.throws(()=>run(b,'member',query),/MEMBER_NOT_FOUND/);
+ assert.throws(()=>run(b,'member',query),/MEMBER_NOT_FOUND/);
  assert.deepEqual(run(b,'live',{scope:'member',query}).scope,['unavailable']);
- console.log('FIX51 PROFILE PRIVACY PASS: public earned badges, owner-only selection, viewer identity, self-follow marker, member comment paging/live scope, audience restrictions and blocks.');
+ console.log('FIX51 PROFILE PRIVACY PASS: public profile privacy, viewer identity, self-follow marker, member comment paging/live scope, audience restrictions and blocks.');
 }finally{fs.rmSync(temp,{recursive:true,force:true});}

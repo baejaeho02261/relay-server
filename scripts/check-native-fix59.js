@@ -38,8 +38,12 @@ function Before(source, first, second, message) {
 function Check(apk) {
  const read = name => fs.readFileSync(path.join(apk, name), 'utf8');
  const dm = read('MoaPlayDirectMessages.pas');
+ const sharedChat = read('MoaPlayChatLayout.pas');
+ assert.deepEqual(declarations.Check(sharedChat, 'TMoaPlayChatText'), [], 'shared chat text');
+ assert.match(sharedChat,/protected\s+FLayout:TTextLayout;/,'layout is an actual accessible ancestor field');
+ assert.match(dm,/TDirectMessageText\s*=\s*class\(TMoaPlayChatText\)/);
  for (const name of ['TMoaPlayDirectMessages', 'TDirectMessageText'])
-  assert.deepEqual(declarations.Check(ClassProjection(dm, name), name), [], name);
+  assert.deepEqual(declarations.Check(ClassProjection(dm, name), name, name==='TDirectMessageText'?['FLayout']:[]), [], name);
  for (const [file, name] of [['MoaPlayPassWindow.pas', 'TMoaPlayPassWindow']])
   assert.deepEqual(declarations.Check(read(file), name), [], file);
 

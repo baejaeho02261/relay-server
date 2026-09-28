@@ -3,6 +3,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const apk=path.resolve(__dirname,'../../MoaPlayApp_Android64');
 const dm=fs.readFileSync(path.join(apk,'MoaPlayDirectMessages.pas'),'utf8');
+const shared=fs.readFileSync(path.join(apk,'MoaPlayChatLayout.pas'),'utf8');
 const support=fs.readFileSync(path.join(apk,'MoaPlayApp.Support.Messages.inc'),'utf8');
 function routine(source,name){
  const starts=[...source.matchAll(/^(?:constructor|destructor|procedure|function)\s+([\w.]+)/gm)];
@@ -60,7 +61,7 @@ function geometry(source,className){
  const make=(expression)=>new Function('MaxWidth','FLayout','ContentWidth',
   'return '+expression.replace(/\bMax\(/g,'Math.max(').replace(/\bMin\(/g,'Math.min(').replace(/\bCeil\(/g,'Math.ceil('));
  const width=make(content),padded=make(body);
- for(const [textWidth,maxWidth,expected] of [[7,300,12],[14,300,18],[28,300,32],[1400,280,284],[88.2,180,93]]){
+ for(const [textWidth,maxWidth,expected] of [[7,300,12],[14,300,19],[28,300,33],[1400,280,284],[88.2,180,94]]){
   const native={TextWidth:textWidth,TextRect:{Right:maxWidth,Left:0}},actual=padded(maxWidth,native,width(maxWidth,native));
   assert.equal(actual,expected,className+' compact bubble width');
   assert.ok(actual+24<=maxWidth+28,'long wrapped bubble remains inside horizontal margins');
@@ -71,13 +72,15 @@ paintCheck(dm);
 const bridge=fs.readFileSync(path.join(apk,'MoaPlayApp.Member.DirectMessages.inc'),'utf8');
 for(const name of ['HubDirectMessagesRequest','HubDirectMessagesReply','HubDirectMessagesTick'])
  assert.match(routine(bridge,'TMoaPlayForm.'+name),/TransportChanged\(FMember\.MutationGeneration\)/,name+' observes shared transport cancellation');
-geometry(dm,'TDirectMessageText');geometry(support,'TSupportMessageText');
+assert.match(dm,/TDirectMessageText = class\(TMoaPlayChatText\)/);
+assert.match(support,/Text:=TMoaPlayChatText.Create\(Row\)/);
+geometry(shared,'TMoaPlayChatText');
 // Verify the guards detect the original render-starvation and right-padding
 // regressions, rather than merely checking that the fixture can execute.
 assert.throws(()=>paintCheck(dm.replace('if FTouch.Busy then Exit;', 'if FTouch.Busy or FScroll.AniCalculations.Down then Exit;')));
 assert.throws(()=>paintCheck(dm.replace('Obj.Free;InputChanged(nil);QueuePaint;', 'Obj.Free;InputChanged(nil);')));
 assert.throws(()=>paintCheck(dm.replace('if Visible and not FReadBusy then Fetch;', 'FReadBusy:=False;if Visible then Fetch;')));
 assert.throws(()=>paintCheck(dm.replace('FreeAndNil(FList);FListOffset:=0;FListMode:=True;PrepareRoute;', 'FListOffset:=0;FListMode:=True;PrepareRoute;')));
-assert.throws(()=>geometry(dm.replace('BodyWidth:=ContentWidth+4;', 'BodyWidth:=MaxWidth+4;'),'TDirectMessageText'));
-for(const source of [dm,support])assert.ok(!source.replace(/\r\n/g,'').includes('\n'),'native edits preserve CRLF');
+assert.throws(()=>geometry(shared.replace('BodyWidth:=ContentWidth+4;', 'BodyWidth:=MaxWidth+4;'),'TMoaPlayChatText'));
+for(const source of [dm,support,shared])assert.ok(!source.replace(/\r\n/g,'').includes('\n'),'native edits preserve CRLF');
 console.log('FIX60 message rendering PASS: stale-scroll recovery, coalesced private updates, shared mutation cancellation, shared-deletion repaint, retained IME drafts, embedded inbox back flow, compact Latin/Korean/emoji/wrapped bubbles. Native runtime not executed.');

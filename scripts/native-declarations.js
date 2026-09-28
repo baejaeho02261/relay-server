@@ -23,12 +23,12 @@ function TopLevelComma(type) {
     return false;
 }
 
-function Check(source, className='TMoaPlayMemberClient') {
+function Check(source, className='TMoaPlayMemberClient', inheritedFields=[]) {
     if(!/^T\w+$/.test(className))throw Error('Invalid class name');
     const code = CodeOnly(source).replace(/\$[0-9a-f]+\b/gi, ' ').replace(/\buses\b[\s\S]*?;/gi, ' ');
     const match = new RegExp('\\b'+className+'\\s*=\\s*class\\b([\\s\\S]*?)^\\s*end\\s*;','mi').exec(code);
     if (!match) return [className+' declaration missing'];
-    const issues = [], fields = new Set();
+    const issues = [], fields = new Set(), inherited = new Set(inheritedFields.map(name=>name.toUpperCase()));
     for (const field of match[1].matchAll(/^\s*((?:F\w+\s*,\s*)*F\w+)\s*:\s*([^;]+);/gm)) {
         for (const name of field[1].split(',')) {
             const key=name.trim().toUpperCase();
@@ -38,7 +38,7 @@ function Check(source, className='TMoaPlayMemberClient') {
         if (TopLevelComma(field[2])) issues.push('Invalid field type list: ' + field[1].trim());
     }
     for (const name of new Set(code.match(/\bF[A-Z]\w*\b/g) || [])) {
-        if (!fields.has(name.toUpperCase())) issues.push('Undeclared member field: ' + name);
+        if (!fields.has(name.toUpperCase()) && !inherited.has(name.toUpperCase())) issues.push('Undeclared member field: ' + name);
     }
     const declared = [...match[1].matchAll(/\b(?:constructor|destructor|procedure|function)\s+(\w+)/gi)].map(m => m[1].toUpperCase());
     const implemented = [...code.matchAll(new RegExp('\\b(?:constructor|destructor|procedure|function)\\s+'+className+'\\.(\\w+)','gi'))].map(m => m[1].toUpperCase());
