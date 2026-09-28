@@ -39,14 +39,14 @@ try{
  assert.throws(()=>run({...ca,biometricVerified:false},'home'),/MEMBER_AUTH_REQUIRED/);
  const countBefore=snapshot();state.clients.set('duplicate',{...ca});assert.equal(home.OnlineCount(),3,'same member counted once');cb.socket.destroyed=true;assert.equal(home.OnlineCount(),2,'disconnected socket excluded');assert.equal(snapshot(),countBefore,'presence count creates no account');
  const native=path.resolve(__dirname,'../../MoaPlayApp_Android64'),ui=fs.readFileSync(path.join(native,'MoaPlayApp.Member.Home.inc'),'utf8');
- assert.ok(ui.includes("StartCard('인기 글'"));assert.ok(ui.includes('HubFillPostCard(PostCard,Item,False,0,True)'),'expanded popular item reuses complete interactive post renderer');assert.ok(ui.includes('HubFillGameCard(Button,Item,12)'),'game summaries reuse discovery renderer');assert.ok(ui.includes('function TMoaPlayForm.HubHomeAction'));assert.ok(ui.includes('FHubLocalRender:=True;HubRender'));
+ assert.ok(ui.includes("StartCard('인기 글'"));assert.ok(ui.includes('HubFillPostCard(PostCard,Item,False,0,True)'),'expanded popular item reuses complete interactive post renderer');assert.ok(ui.includes('HubFillGameCard(Card,Item,16)'),'game summaries reuse discovery renderer');assert.ok(ui.includes('function TMoaPlayForm.HubHomeAction'));assert.ok(ui.includes('FHubLocalRender:=True;HubRender'));
  assert.ok(!ui.includes('HubDate('),'home summaries have relative clocks');for(const count of ['online','todayPosts','todayComments'])assert.ok(ui.includes("HubNumber(Counts,'"+count+"')"));
  for(const removed of ["StartCard('내 계정'","StartCard('모아의 놀이터'","StartCard('이벤트'","StartCard('돌림판'","StartCard('최근 댓글'"])assert.ok(!ui.includes(removed));
  const news=fs.readFileSync(path.join(native,'MoaPlayApp.Member.NewsShop.inc'),'utf8'),fill=news.slice(news.indexOf('function TMoaPlayForm.HubFillNewsCard'),news.indexOf('function HubGameIconKey'));assert.ok(fill.includes('C.OnClick:=HubActionClick;C.OnDblClick:=nil'),'news single-click no double-trigger');
  const history=fs.readFileSync(path.join(native,'MoaPlayApp.Member.History.inc'),'utf8'),wheel=fs.readFileSync(path.join(native,'MoaPlayApp.Member.Rewards.inc'),'utf8');
  assert.ok(ui.includes("StartCard('MY'"));assert.ok(!ui.includes("'points.exchange.open'"));assert.ok(!ui.includes("'activity.subscriptions'"));assert.ok(!ui.includes("'charge'"));
- assert.ok(ui.includes("'home.toggle|wallet'"));assert.ok(ui.includes("HubTextAction(Card,'','points'"));assert.ok(ui.includes('HubHomeBannerArt(Card'));
- assert.ok(ui.indexOf("SummaryRow('wheel'")>ui.indexOf("StartCard('출석 체크'"));assert.ok(ui.indexOf("SummaryRow('wheel'")<ui.indexOf("StartCard('출석 랭킹'"));
+ assert.ok(ui.includes("'home.toggle|wallet'"));assert.ok(ui.includes("HubTextAction(WalletPanel,'','points'"));assert.ok(ui.includes('HubHomeBannerArt(Card'));
+ assert.ok(ui.includes("HubTextAction(WalletPanel,'','wheel'"));assert.ok(ui.indexOf("HubTextAction(WalletPanel,'','wheel'")<ui.indexOf("StartCard('출석 체크'"));
  assert.ok(!ui.includes('HubFillWheel(Card'));assert.ok(wheel.includes('function TMoaPlayForm.HubFillWheel'));assert.ok(wheel.includes("Hub.TagString:='event.spin'"));
  for(const removed of ["Entry('거래 번호'","Entry('이용권 번호'","Entry('안내'","Entry('#'","Entry('이용 기간'","Entry('이용 종료'"])assert.ok(!history.includes(removed),removed+' retired from receipt');
  assert.ok(history.includes("Entry('이용권',MemberCaption('1회 이용권'))"));assert.ok(history.includes('Y:=Y+H+6'),'receipt rows use compact equal spacing');

@@ -79,6 +79,14 @@ try {
     assert.equal(support.Read(id1).total,307,'provisional inquiry merged without losing older messages');
     assert.equal(support.Read(id1).currentClientId,id3);
     assert.equal(support.List().length,1);
+    const mergedRoom=state.supportThreads.get(id1);
+    assert.ok(mergedRoom.messages.every(message=>message.epoch===mergedRoom.epoch),'merged persisted messages use the canonical epoch');
+    c3.writes=[];
+    send(c3,`SUPPORT_SEND_V2|NEW_QUERY_01|${mergedRoom.revision}|${Buffer.from('새 설치의 문의').toString('base64')}`);
+    const mergedReceipt=frames(c3,'SUPPORT_MESSAGE').at(-1);
+    assert.equal(mergedReceipt.id,'NEW_QUERY_01');assert.equal(mergedReceipt.epoch,mergedRoom.epoch);
+    assert.equal(support.Read(id1).total,307,'a provisional-send retry acknowledges the merged message without duplication');
+    assert.ok(c3.writes[0].startsWith('SUPPORT_INFO|'),'canonical room information precedes its message receipt');
     // Phone metadata is admin display only, never an identity claim.
     send(c3,`SUPPORT_DEVICE|${Buffer.from(JSON.stringify({model:'SM-A245N',product:'a24',phone:'010-0000-0000',imeiStatus:'Android 접근 제한'})).toString('base64')}`);
     assert.equal(support.Read(id1).device.model,'SM-A245N');

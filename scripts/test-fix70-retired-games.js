@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moa-fix70-retirement-'));
 process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE='json';require('../core/utils').EnsureDirs();
-const state=require('../core/state'),s=require('../services/member/store'),service=require('../services/member/service'),rewards=require('../services/member/rewards'),badges=require('../services/member/badges');
+const state=require('../core/state'),s=require('../services/member/store'),service=require('../services/member/service'),rewards=require('../services/member/rewards');
 function client(){const id='0000000000007070',key='FIX70-RETIREMENT',c={type:'client',clientId:id,connected:true,permissionsGranted:true,deviceAuthVerified:true,licenseAuthorized:true,biometricVerified:true,installationDeviceKey:key,deviceAuthChallengeId:'AUTH-'+id,socket:{destroyed:false,write(){return true;}}};state.clients.set(id,c);state.clientIdentities.set(key,{id,serverId:'',createdAt:Date.now()});state.deviceAuthStatus.set('CLIENT:'+id,{verified:true,verifiedAt:Date.now()});state.deviceSecrets.set('CLIENT:'+id,crypto.randomBytes(32).toString('hex'));c.licenseKey=require('../license/licenseManager').CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;return c;}
 let serial=0;const run=(c,action,body={})=>service.Execute(c,'FIX70-RETIRE-'+(++serial),action,body);
 try{
@@ -13,7 +13,7 @@ try{
   p.skillEvents={games:{DINO:{played:2,bestScore:50}},sessions:[{id:'OLD-SESSION',status:'ACTIVE'}]};
   s.DB().ledger['OLD-LEDGER']={id:'OLD-LEDGER',accountId:p.id,kind:'ARCADE_WIN',amount:2000,at:1};
   s.DB().pointLedger['OLD-POINTS']={id:'OLD-POINTS',accountId:p.id,kind:'EVENT_DINO',amount:50,at:1};
-  badges.Capture(p);p.badgeProgress.awards.BACCARAT_1={at:1,rewardPaid:true,rewardPoints:50};
+  p.badgeProgress={version:1,counts:{},seen:{},awards:{BACCARAT_1:{at:1,rewardPaid:true,rewardPoints:50}}};
  });
  const before=JSON.stringify(s.DB());
  for(const action of ['arcade','arcade.play','casino','casino.play','casino.start','casino.action','event.start','event.finish','event.play']){
@@ -23,8 +23,7 @@ try{
  const wallet=require('../services/member/wallet').Read(p);assert.equal(wallet.balance,76543);assert.equal(wallet.points,1234);assert.equal(wallet.eventSpins,3);
  assert.equal(require('../services/member/withdraw-retirement').Ensure(p).released,0,'wallet with no pending reservation remains unchanged');
  assert.deepEqual(require('../services/member/wallet').Read(p),wallet,'normal wallet survives retired game and withdrawal UI deletion');
- const visible=badges.Read(p).items||badges.Read(p).badges||[];
- assert.ok(!JSON.stringify(visible).includes('BACCARAT_1'),'retired missions are not available for new earning or selection');
+ assert.throws(()=>run(c,'badges'),/UNKNOWN_ACTION/,'retired missions cannot be read');
  const services=require('../services/member/history').SERVICES;
  for(const key of ['events','playground','casino','original','baccarat','roulette','slots','blackjack','crash','dice','mines','plinko','limbo','hilo','tower','event.dino','event.flappy','event.whack','event.dodge','event.rhythm'])assert.ok(!Object.hasOwn(services,key),key+' is not a visitable service');
  assert.ok(Object.hasOwn(services,'wheel'),'reward wheel keeps its own route');

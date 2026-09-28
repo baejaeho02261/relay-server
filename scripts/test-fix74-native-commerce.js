@@ -14,8 +14,8 @@ assert.doesNotMatch(tap,/FHoldTimer|BuyNow|OnBuy/);
 assert.match(tap,/MouseUp[\s\S]*StopPending;inherited/);
 // Real game photos form a horizontal rounded carousel with a next-card preview.
 assert.match(catalog,/THorzScrollBox\.Create/);assert.match(catalog,/InfoW\*0\.84/);
-assert.match(catalog,/Picture\.Corners:=\[TCorner.TopLeft,TCorner.TopRight\]/);
-assert.match(catalog,/Footer\.Corners:=\[TCorner.BottomLeft,TCorner.BottomRight\]/);
+assert.match(catalog,/Picture:=UiRect\(Frame,Frame,MemberSoft,16\)/);
+assert.doesNotMatch(catalog,/Footer\.Corners|HubLabel\(Footer/);
 assert.match(catalog,/Canvas\.DrawBitmap\(Source,Crop/);
 // The Android public destination is random, with no original name, date or prefix.
 const name=store.match(/function OpaqueDownloadName:string;([\s\S]*?)constructor TMoaPlayGameDownloads/)[1];

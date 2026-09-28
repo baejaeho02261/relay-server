@@ -47,8 +47,8 @@ try{
  const base=path.resolve(__dirname,'../../MoaPlayApp_Android64'),read=n=>fs.readFileSync(path.join(base,n),'utf8').replace(/\r/g,'');
  const feed=read('MoaPlayApp.Member.Feed.inc'),compose=read('MoaPlayApp.Member.Compose.inc'),social=read('MoaPlayApp.Member.Social.inc'),touch=read('MoaPlayFeedCard.pas');
  const fill=feed.split('function TMoaPlayForm.HubFillPostCard')[1].split('function TMoaPlayForm.HubQuoteCard')[0];
- assert.doesNotMatch(fill,/HubReaction|post\.menu|more\|post\|/);assert.match(fill,/chevron\.down/);assert.match(fill,/if not Expanded then begin Result:=/);
- assert.match(feed,/C.OnOpen:=HubPostToggle;C.OnHold:=HubPostHold/);assert.match(feed,/HubSendSocial\('repost.set',Body\)/);assert.match(feed,/feed\.expanded/);
+ assert.doesNotMatch(fill,/HubReaction|post\.menu|more\|post\||chevron\.down|if not Expanded/);assert.match(fill,/Body:=TrimRight\(HubText\(Post,'body'\)\)/);
+ assert.match(feed,/C.OnOpen:=nil;C.OnHold:=HubPostHold/);assert.match(feed,/HubSendSocial\('repost.set',Body\)/);assert.doesNotMatch(feed,/feed\.expanded|HubPostToggle/);
  assert.doesNotMatch(feed,/feed\.channel|feed\.sort/);
  for(const file of ['Flow','Actions','Delta'])assert.doesNotMatch(read(`MoaPlayApp.Member.${file}.inc`),/FHubFeedChannel|FHubComposeChannel|feed\.channel|feed\.sort/,'retired channel filters cannot survive in fetch, cache or action paths');assert.doesNotMatch(compose,/FHubComposeChannel|FHubFeedChannel|Body.AddPair\('channel'/);
  assert.match(compose,/C.SetBounds\(12,C.Position.Y,Max\(1,FHubPage.Width-24\),C.Height\)/);assert.match(compose,/Box.SetBounds\(0,64,C.Width,284\)/);
@@ -56,5 +56,5 @@ try{
  assert.match(touch,/procedure TMoaPlayFeedTap.CancelTouch;[\s\S]*?FHoldTimer.Enabled:=False;inherited/);assert.match(touch,/FWasHeld:=True;FDown:=False/);assert.match(touch,/if FWasHeld then Exit/);
  for(const width of [320,360,390,412,480])assert.equal((width-(width-24))/2,12,'title/body edges share the same small outer margin');
  for(const file of ['Feed','Compose','Social']){const bytes=fs.readFileSync(path.join(base,`MoaPlayApp.Member.${file}.inc`));assert.equal(bytes.subarray(0,3).toString('hex'),'efbbbf');assert.doesNotMatch(bytes.toString('utf8'),/(?<!\r)\n/);}
- console.log('FIX74 FEED PASS: unified legacy/current posts and live scopes, direct peer/self hold repost, retry idempotence, repeated promotion, content preservation, authorization/privacy/sharing preference, rollback/reload, disclosure rendering and composer margins.');
+ console.log('FIX74 FEED PASS: unified legacy/current posts and live scopes, direct peer/self hold repost, retry idempotence, repeated promotion, content preservation, authorization/privacy/sharing preference, rollback/reload, always-visible post rendering and composer margins.');
 }finally{fs.rmSync(dir,{recursive:true,force:true});}
