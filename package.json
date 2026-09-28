@@ -25,7 +25,7 @@
     "test:fix10": "node scripts/test-fix10-support-installation.js",
     "test:permissions": "node scripts/test-client-permissions.js",
     "test:webdom": "node scripts/test-web-dom.js",
-    "test": "node scripts/run-regressions.js",
+    "test": "node scripts/run-fix74.js",
     "test:fix12": "node scripts/run-regressions.js --fix12",
     "test:fix13": "node scripts/run-regressions.js --fix13",
     "test:fix18": "node scripts/run-regressions.js --fix18",
@@ -39,7 +39,9 @@
     "test:feed": "node scripts/test-feed-gallery.js",
     "check:native": "node scripts/check-native-source.js",
     "test:fix71": "node scripts/run-fix71.js",
-    "test:fix72": "node scripts/run-fix72.js"
+    "test:fix72": "node scripts/run-fix72.js",
+    "test:fix74": "node scripts/run-fix74.js",
+    "test:legacy": "node scripts/run-regressions.js"
   },
   "engines": {
     "node": ">=22.13"

@@ -7,8 +7,8 @@ function memberProviderName(value){return {google:'Google',kakao:'카카오'}[va
 function memberProviderFilterField(){return `<select id="member-provider-filter" aria-label="계정 제공자"><option value="">모든 제공자</option>${[['google','Google'],['kakao','카카오']].map(([value,label])=>`<option value="${value}" ${memberProviderFilter===value?'selected':''}>${label}</option>`).join('')}</select>`;}
 function memberCredentialFacts(credentials){return memberFacts(Object.entries(credentials||{}).map(([key,value])=>[key,value?'설정됨 · 값 비공개':'미설정']));}
 function memberIntegrationPanel(result){
- const oauth=result.oauth||{},payment=result.payments||{};
- let html='<section class="member-panel"><h3>계정·결제 연결 설정</h3><p class="small-note">운영 서버의 환경 변수로 설정합니다. 값을 변경한 후 서버를 재시작하고 상태를 새로 확인하세요. 비밀 키는 이 화면에 입력하거나 표시하지 않습니다.</p>'+memberButton('refresh','','설정 상태 새로 확인')+'</section>';
+ const oauth=result.oauth||{};
+ let html='<section class="member-panel"><h3>계정 연결 설정</h3><p class="small-note">운영 서버의 환경 변수로 설정합니다. 값을 변경한 후 서버를 재시작하고 상태를 새로 확인하세요. 비밀 키는 이 화면에 입력하거나 표시하지 않습니다.</p>'+memberButton('refresh','','설정 상태 새로 확인')+'</section>';
  html+='<section class="member-panel"><h3>카카오·Google 계정 연결</h3><p class="small-note">'+esc(oauth.publicUrlField||'MEMBER_OAUTH_PUBLIC_URL')+'에 HTTPS 공개 주소를 지정하세요. 각 개발자 콘솔의 웹 OAuth 앱에 아래 콜백 주소를 정확히 등록하고 OpenID Connect를 사용하세요. 브라우저에서 계정을 확인한 뒤 앱에서 연결을 완료합니다.</p><p class="small-note">MEMBER_OAUTH_TOKEN_KEY는 서버에서 토큰을 암호화하는 키입니다. 운영 서버에서 <code>openssl rand -base64 32</code>로 생성하고 환경 변수에 저장하세요. 기존 키를 보관해야 저장된 계정 인증을 계속 확인할 수 있습니다.</p>';
  for(const provider of oauth.providers||[]){
   html+='<article class="member-record"><h4>'+esc(provider.name)+'</h4><span class="member-badge">'+(provider.configured?'설정 완료':'설정 필요')+'</span>'+memberCredentialFacts(provider.credentials)+memberFacts([['공개 주소',provider.origin||'HTTPS 주소 설정 필요'],['OAuth 콜백',provider.callbackUri||'공개 주소 설정 후 표시']]);
@@ -17,14 +17,7 @@ function memberIntegrationPanel(result){
   if(provider.id==='kakao')html+='<p class="small-note">카카오 로그인과 OpenID Connect를 활성화하고 REST API 키를 클라이언트 ID로 사용하세요.</p>'+memberFacts([['연결 해제 콜백',provider.unlinkCallback||'공개 주소 설정 후 표시'],['연결 해제 알림',provider.unlinkNotificationsConfigured?'설정됨':'미설정'],['알림 환경 변수',(provider.unlinkFields||[]).join(', ')]]);
   html+='</article>';
  }
- html+='</section><section class="member-panel"><h3>카카오페이·토스페이</h3>'+memberFacts([['결제 공개 주소',payment.origin||'HTTPS 주소 설정 필요'],['최근 설정 확인',fmtTime(payment.checkedAt)]]);
- for(const provider of payment.providers||[]){
-  html+='<article class="member-record"><h4>'+esc(provider.name)+'</h4><span class="member-badge">'+(provider.enabled?'결제 연결 가능':'설정 필요')+'</span>'+memberFacts([['상태',provider.message],['환경',provider.mode==='live'?'운영':provider.mode==='test'?'테스트':'미확인']])+memberCredentialFacts(provider.credentials);
-  if(provider.missing?.length)html+='<p>필요한 설정: '+esc(provider.missing.join(', '))+'</p>';
-  for(const issue of provider.issues||[])html+='<p class="small-note">'+esc(issue.message)+(issue.fields?.length?' ('+esc(issue.fields.join(', '))+')':'')+'</p>';
-  html+='</article>';
- }
- return html+'<p class="small-note">'+esc(payment.note||'설정 완료는 키 형식과 필수 설정 확인 결과입니다. 실제 운영 결제는 계약 및 제공자 승인 상태까지 확인해야 합니다.')+'</p></section>';
+ return html+'</section>';
 }
 function memberOauthFacts(identity){return '<section class="member-panel"><h3>계정 연결 상태</h3>'+memberFacts([['제공자',memberProviderName(identity.provider)],['연결 계정',identity.accountLabel],['상태',memberOauthState(identity.status)],['연결',identity.linkedAt?fmtTime(identity.linkedAt):''],['최종 인증',identity.verifiedAt?fmtTime(identity.verifiedAt):''],['최근 확인',identity.lastCheckedAt?fmtTime(identity.lastCheckedAt):''],['연결 해제',identity.revokedAt?fmtTime(identity.revokedAt):''],['상태 코드',identity.reason||identity.lastError]])+'</section>';}
 async function renderMemberOauth(automatic=false){

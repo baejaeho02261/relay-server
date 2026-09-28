@@ -47,21 +47,22 @@ async function handleAccessAction(event) {
     }
     if (event.target.id === 'qr-auth-approve-btn') {
       if (!qrScanResult || !qrScanResult.request || !qrScanResult.approvalToken) throw new Error('검증된 QR 요청이 없습니다.');
-      const scanned=qrScanResult,wallet=scanned.purpose==='WALLET';
+      const scanned=qrScanResult;
+      if(scanned.purpose!=='ENTRY')throw new Error('출입증 QR을 다시 확인해주세요.');
       const values=await openModal({
-        title:wallet?'QR 잔액 충전':'QR 출입증 승인',
-        message:wallet?`${scanned.request.memberName} · ${scanned.request.accountId}\n확인한 금액을 기간 없는 잔액에 적립합니다. 게임 이용 기간은 회원이 따로 구매합니다.`:`${scanned.request.clientId}\n기간과 게임 지정 없이 출입증을 승인합니다. 게임 이용권은 잔액 충전 후 앱에서 구매합니다.`,
-        fields:wallet?[{name:'amount',label:'확인한 충전 금액 (원)',type:'number',value:''},{name:'memo',label:'확인 메모',type:'textarea',value:''}]:[{name:'memo',label:'메모',value:''},{name:'tags',label:'태그',value:'QR'}],
-        confirmLabel:wallet?'잔액 충전':'출입증 승인'
+        title:'QR 출입증 승인',
+        message:`${scanned.request.clientId}\n기기의 출입증을 승인합니다. 이용권 구매와 사용은 앱에서 진행합니다.`,
+        fields:[{name:'memo',label:'메모',value:''},{name:'tags',label:'태그',value:'QR'}],
+        confirmLabel:'출입증 승인'
       });
       if(!values)return true;
       const result=await api('/api/qr-auth/approve',{method:'POST',body:{
-        purpose:wallet?'WALLET':'ENTRY',requestId:scanned.request.requestId,approvalToken:scanned.approvalToken,memo:values.memo,
-        ...(wallet?{mode:'WALLET',amount:Number(values.amount)}:{tags:String(values.tags||'').split(',').map(x=>x.trim()).filter(Boolean)})
+        purpose:'ENTRY',requestId:scanned.request.requestId,approvalToken:scanned.approvalToken,memo:values.memo,
+        tags:String(values.tags||'').split(',').map(x=>x.trim()).filter(Boolean)
       }});
       qrScanResult = null;
       clearQrSelectedFile();
-      toast(wallet?'잔액 충전 완료 · 앱에 자동 반영됩니다.':result.delivered?'출입증 승인 완료 · 모아플레이 인증을 계속합니다.':'출입증 승인 완료 · 모아플레이 연결 시 자동 인증됩니다.');
+      toast(result.delivered?'출입증 승인 완료 · 모아플레이 인증을 계속합니다.':'출입증 승인 완료 · 모아플레이 연결 시 자동 인증됩니다.');
       await updateQrAuthBadge();
       await renderQrAuth();
       return true;

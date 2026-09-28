@@ -5,7 +5,6 @@ function openModal(options) {
     modalTitle.textContent = options.title || '확인';
     const fields = options.fields || [];let active=true,pending=0;modalConfirm.disabled=false;
     modalBody.innerHTML = `${options.message ? `<p>${esc(options.message)}</p>` : ''}${options.html || ''}${fields.map(f => {
-      if (f.type === 'plans') return `<fieldset class="modal-plans" data-modal-plans="${esc(f.name)}"><legend>${esc(f.label)}</legend><p class="small-note">1~3650일, 최대 24개. 가격 0원은 판매 준비 중입니다.</p><div data-plan-rows>${(f.value||[]).map(memberPlanRow).join('')}</div><button type="button" data-plan-add>기간 추가</button><p role="alert" data-plan-error></p></fieldset>`;
       if (f.type === 'section') return `<h3 class="modal-section">${esc(f.label)}</h3>`;
       if (f.type === 'game-exe') return `<div class="modal-media"><label>${esc(f.label)}<input type="hidden" data-modal-field="${esc(f.name)}" value="${esc(f.value||'')}"><input type="file" accept=".exe,application/octet-stream" data-modal-game-exe="${esc(f.name)}" data-game-key="${esc(f.gameKey)}" aria-label="게임 실행 파일 선택"></label><p class="small-note" data-game-status="${esc(f.name)}">${esc(f.fileName||'이 게임에 제공할 실행 파일을 등록하세요. 미등록 상태에서는 다운로드할 수 없습니다.')}</p><button type="button" data-game-remove="${esc(f.name)}">파일 연결 해제</button></div>`;
       if (f.type === 'image') return `<div class="modal-media"><label>${esc(f.label)}<input type="hidden" data-modal-field="${esc(f.name)}" value="${esc(f.value||'')}"><input type="file" accept="image/png,image/jpeg" data-modal-image="${esc(f.name)}" aria-label="${esc(f.label)} 선택"></label><img data-modal-preview="${esc(f.name)}" ${f.value?`src="${esc(f.value)}"`:'hidden'} alt="사진 미리보기"><button type="button" data-modal-image-remove="${esc(f.name)}">사진 삭제</button><p class="small-note" data-modal-image-status="${esc(f.name)}">PNG·JPEG 사진을 선택하세요. 앱 표시 크기로 최적화합니다.</p></div>`;
@@ -33,8 +32,6 @@ function openModal(options) {
     modalEl.querySelectorAll('[data-modal-close]').forEach(x => x.onclick = () => close(null));
     modalBody.onclick = event => {
       const gameRemove=event.target.closest('[data-game-remove]');if(gameRemove){const name=CSS.escape(gameRemove.dataset.gameRemove);modalBody.querySelector(`[data-modal-field="${name}"]`).value='';modalBody.querySelector(`[data-game-status="${name}"]`).textContent='파일 연결을 해제합니다. 저장을 눌러 적용하세요.';return;}
-      const planAdd=event.target.closest('[data-plan-add]');if(planAdd){const rows=planAdd.closest('[data-modal-plans]').querySelector('[data-plan-rows]');if(rows.children.length<24)rows.insertAdjacentHTML('beforeend',memberPlanRow({days:'',price:0}));return;}
-      const planRemove=event.target.closest('[data-plan-remove]');if(planRemove){planRemove.closest('[data-plan-row]').remove();return;}
       const previewTap=event.target.closest('[data-modal-preview]');if(previewTap&&!previewTap.hidden){previewTap.classList.toggle('media-expanded');return;}
       const remove=event.target.closest('[data-modal-image-remove]');
       if(remove){const name=CSS.escape(remove.dataset.modalImageRemove);const file=modalBody.querySelector(`[data-modal-image="${name}"]`);file.dataset.sequence=String(Number(file.dataset.sequence||0)+1);file.value='';modalBody.querySelector(`[data-modal-field="${name}"]`).value='';const preview=modalBody.querySelector(`[data-modal-preview="${name}"]`);preview.removeAttribute('src');preview.hidden=true;modalBody.querySelector(`[data-modal-image-status="${name}"]`).textContent='사진을 삭제하도록 선택했습니다.';return;}
@@ -78,7 +75,6 @@ function openModal(options) {
       if(pending)return;
       const values = {};
       modalBody.querySelectorAll('[data-modal-field]').forEach(el => values[el.dataset.modalField] = el.value);
-      for(const group of modalBody.querySelectorAll('[data-modal-plans]')){const rows=[...group.querySelectorAll('[data-plan-row]')].map(row=>({days:Number(row.querySelector('[data-plan-days]').value),price:Number(row.querySelector('[data-plan-price]').value)}));const valid=rows.length>0&&rows.length<=24&&new Set(rows.map(x=>x.days)).size===rows.length&&rows.every(x=>Number.isSafeInteger(x.days)&&x.days>=1&&x.days<=3650&&Number.isSafeInteger(x.price)&&x.price>=0&&x.price<=10000000);if(!valid){group.querySelector('[data-plan-error]').textContent='중복 없이 기간(1~3650일)과 금액(0~1천만 원)을 입력해주세요.';return;}values[group.dataset.modalPlans]=JSON.stringify(rows);}
       close(values);
     };
     const first = modalBody.querySelector('input:not([type=hidden]):not([readonly]),textarea:not([readonly]),select');
@@ -100,4 +96,3 @@ async function normalizeMemberImage(file){
  }finally{picture.onload=null;picture.onerror=null;}
 }
 
-function memberPlanRow(row){return `<div data-plan-row><label>기간 (일)<input type="number" min="1" max="3650" step="1" data-plan-days value="${esc(row.days)}"></label><label>가격 (원)<input type="number" min="0" max="10000000" step="1" data-plan-price value="${esc(row.price)}"></label><button type="button" data-plan-remove aria-label="기간 삭제">삭제</button></div>`;}

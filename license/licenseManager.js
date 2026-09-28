@@ -71,7 +71,7 @@ function CompleteAuthorization(connection, licenseKey, license, source = 'LICENS
         SendLine(connection.socket, 'ERROR|PERMISSIONS_REQUIRED'); return false;
     }
     const eventSource = source === 'QR' || source === 'QR_RESUME' ? source : 'LICENSE';
-    const game = entryPass.ForClient(connection);
+    const game = entryPass.ForClient(connection,true);
     const accessType = entryPass.IsEntry(license) ? (game?.accessType || '') : require('../services/accessType').NormalizeAccessType(license.accessType);
     if (!entryPass.IsEntry(license)) license.accessType = accessType;
     if (!license.boundClient) {

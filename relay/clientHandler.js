@@ -297,7 +297,7 @@ function HandleClientBuild(connection, line) {
         return;
     }
 
-    if(!require('../services/member/entryPass').ForClient(connection)){SendLine(connection.socket,'ERROR|GAME_PASS_REQUIRED');return;}
+    if(!require('../services/member/entryPass').ForClient(connection,true)){SendLine(connection.socket,'ERROR|GAME_PASS_REQUIRED');return;}
     const saved = GetSavedClientByID(clientId);
     if (!saved) { SendLine(connection.socket, 'ERROR|CLIENT_NOT_FOUND'); return; }
     const buildGate = require('../services/buildGate');

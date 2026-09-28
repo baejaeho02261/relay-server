@@ -25,7 +25,7 @@ const qrAuthBadge = document.getElementById('qr-auth-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'fix72';
+const WEB_UI_REVISION = 'fix74';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -96,7 +96,7 @@ const titles = {
   'member-pointConversions': ['포인트 교환·회수', ''],
   'member-shop': ['회원 상점', ''],
   'member-rewards': ['이벤트·포인트', ''],
-  'member-integrations': ['계정·결제 연결 설정', ''],
+  'member-integrations': ['계정 연결 설정', ''],
   'member-oauthAccounts': ['카카오·Google 계정', ''],
   'member-walletGrants': ['관리자 잔액 지급', ''],
   'member-overview': ['운영 요약', ''],

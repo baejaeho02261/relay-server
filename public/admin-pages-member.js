@@ -3,8 +3,8 @@ let memberLookupHandle='',memberLookupSection='',memberLookupOffset=0,memberLook
 let memberView='overview',memberOffset=0,memberRows=new Map(),memberRenderSerial=0;
 let memberQuery='',memberFilter='',memberSort='recent',memberSelected=new Set();
 let memberPointerDown=false,memberPointerUntil=0,memberInteractionUntil=0,memberLastRefresh=0,memberFingerprint='';
-const memberTabs={overview:'운영 요약',integrations:'계정·결제 연결 설정',oauthAccounts:'카카오·Google 계정',walletGrants:'관리자 잔액 지급',rewards:'이벤트·포인트',pointConversions:'포인트 교환·회수',shop:'회원 상점',news:'소식',products:'게임',profiles:'회원',posts:'피드 글',comments:'댓글',reports:'신고',orders:'이용권 내역',ledger:'결제 원장',policies:'약관·개인정보'};
-const memberStatus={ADMIN_GRANT:'관리자 잔액 지급',PAID:'이용 대기',ACTIVE:'사용 중',REFUNDED:'환불 완료',QR_CHARGE:'이전 이용권 등록',QR_TOPUP:'잔액 충전',PAYMENT_TOPUP:'간편결제 충전',WITHDRAW_RETIREMENT_RELEASE:'예약 잔액 복원',POINT_RECHARGE:'포인트 충전',POINT_EXCHANGE:'포인트 교환',POINT_EXCHANGE_REVERSE:'포인트 교환 회수',SHOP_PURCHASE:'상점 구매',WITHDRAW_RESERVE:'출금 신청',WITHDRAW_RELEASE:'출금 반려 · 잔액 복원',ARCADE_BET:'가상머니 베팅',ARCADE_PAYOUT:'가상머니 정산',PENDING:'확인 대기',APPROVED:'충전 완료',REJECTED:'반려',EXPIRED:'기간 만료',TOPUP:'이전 잔액 반영',PURCHASE:'구매',REFUND:'환불',OPEN:'접수',RESOLVED:'처리 완료',NOTICE:'공지',EVENT:'이벤트',ALERT:'알림'};
+const memberTabs={overview:'운영 요약',integrations:'계정 연결 설정',oauthAccounts:'카카오·Google 계정',walletGrants:'관리자 잔액 지급',rewards:'이벤트·포인트',pointConversions:'포인트 교환·회수',shop:'회원 상점',news:'소식',products:'게임',profiles:'회원',posts:'피드 글',comments:'댓글',reports:'신고',orders:'이용권 내역',ledger:'결제 원장',policies:'약관·개인정보'};
+const memberStatus={ADMIN_GRANT:'관리자 잔액 지급',PAID:'미사용',ACTIVE:'사용 중',USED:'사용 완료',REFUNDED:'환불 완료',QR_CHARGE:'이전 이용권 등록',QR_TOPUP:'잔액 충전',PAYMENT_TOPUP:'간편결제 충전',WITHDRAW_RETIREMENT_RELEASE:'예약 잔액 복원',POINT_RECHARGE:'포인트 충전',POINT_EXCHANGE:'포인트 교환',POINT_EXCHANGE_REVERSE:'포인트 교환 회수',SHOP_PURCHASE:'상점 구매',WITHDRAW_RESERVE:'출금 신청',WITHDRAW_RELEASE:'출금 반려 · 잔액 복원',ARCADE_BET:'가상머니 베팅',ARCADE_PAYOUT:'가상머니 정산',PENDING:'확인 대기',APPROVED:'충전 완료',REJECTED:'반려',EXPIRED:'기간 만료',TOPUP:'이전 잔액 반영',PURCHASE:'구매',REFUND:'환불',OPEN:'접수',RESOLVED:'처리 완료',NOTICE:'공지',EVENT:'이벤트',ALERT:'알림'};
 const memberEditable=view=>['products','news','posts','comments'].includes(view);
 function memberMoney(n){return Number(n||0).toLocaleString('ko-KR')+'원';}
 function memberButton(action,id,label,danger=false){return `<button type="button" data-member-action="${action}" data-id="${esc(id||'')}" class="${danger?'danger':''}">${label}</button>`;}
@@ -23,7 +23,7 @@ function memberDescription(text){
 }
 function memberRow(row,view){
  let title=row.title||row.nickname||row.id,meta='',body='',actions='';
- if(view==='products'){meta=accessTypeName(row.accessType)+' · '+(row.plans||[]).map(x=>x.days+'일 '+(x.available?memberMoney(x.price):'판매 준비 중')).join(' / ');body=row.description;actions=memberButton('product.edit',row.id,'수정');}
+ if(view==='products'){meta=accessTypeName(row.accessType)+' · '+'1회용 · '+(row.price>0?memberMoney(row.price):'판매 준비 중');body=row.description;actions=memberButton('product.edit',row.id,'수정');}
  if(view==='news'){meta=row.pinned?'상단 고정':'';body=row.body;actions=memberButton('news.edit',row.id,'수정');}
  if(view==='orders'){meta=`${row.memberHandle||row.accountId} · ${row.days}일 · ${memberMoney(row.amount)}`;body=row.activatedAt?'사용 시작 '+fmtTime(row.activatedAt):'미사용';if(!row.activatedAt&&row.status==='PAID'&&row.source!=='QR_CHARGE')actions=memberButton('order.refund',row.id,'잔액 환불',true);}
  if(['ledger','walletGrants'].includes(view)){title=memberStatus[row.kind]||'거래';meta=`${row.memberHandle||row.accountId} · ${memberMoney(row.amount)} · ${row.kind==='QR_CHARGE'?'이용권 등록':'잔액 '+memberMoney(row.balance)}`;body=[row.reason,row.actor?'처리자 '+row.actor:'',row.reference].filter(Boolean).join(' · ');}
@@ -99,7 +99,7 @@ function memberCategoryIcon(value,view){
  const fallback='<path d="M8 7h8c3 0 5 8 4 11-1 2-4-2-5-3H9c-1 1-4 5-5 3-1-3 1-11 4-11Z"/><path d="M7 10v4m-2-2h4m7-1h.01m2 2h.01"/>';
  return `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${view==='news'?(news[memberNewsCategory(value)]||news.NOTICE):(Object.hasOwn(games,value)?games[value]:fallback)}</svg>`;
 }
-const memberRecordNames={orders:'이용권 내역',payments:'결제 내역',charges:'QR 충전',posts:'게시물',comments:'댓글',reports:'신고',followers:'팔로워',following:'팔로잉',devices:'등록 기기',qr:'출입증 QR',support:'상담 기록'};
+const memberRecordNames={orders:'이용권 내역',payments:'결제 내역',posts:'게시물',comments:'댓글',reports:'신고',followers:'팔로워',following:'팔로잉',devices:'등록 기기',qr:'출입증 QR',support:'상담 기록'};
 const memberInfoStatus={AVAILABLE:'수집 완료',UNAVAILABLE:'확인할 수 없음',NOT_AVAILABLE:'확인할 수 없음',PERMISSION_DENIED:'권한 없음',UNSUPPORTED:'지원하지 않음',UNKNOWN:'미확인',VERIFIED:'인증 완료',ENROLLING:'등록 중',CHALLENGE:'인증 대기',FAILED:'인증 실패',SUPERSEDED:'다른 요청으로 변경',CLOSED:'종료',DELETED:'삭제 보관',NONE:'미등록',VALID:'유효',ACTIVE:'유효',PENDING:'확인 대기',APPROVED:'승인 완료',REJECTED:'반려',EXPIRED:'만료',SUSPENDED:'정지'};
 function memberFacts(rows){return '<dl class="member-facts">'+rows.map(([label,value])=>`<div><dt>${esc(label)}</dt><dd>${esc(value===undefined||value===null||value===''?'등록된 정보 없음':(memberInfoStatus[String(value)]||String(value)))}</dd></div>`).join('')+'</dl>';}
 async function renderMemberLookup(automatic=false){
@@ -120,7 +120,6 @@ async function renderMemberLookup(automatic=false){
    html+='<article class="member-record">'+(row.imageThumb?`<img class="member-record-photo" src="${esc(row.imageThumb)}" alt="게시물 사진">`:'')+memberRecordFacts(row);
    if(section==='support')html+=memberButton('lookup.support',row.id,'상담 기록 / 답변');
    else if(['orders','payments','posts','comments','reports','followers','following'].includes(section))html+=memberButton('lookup.manage',section+'|'+row.id,'상세 / 관리');
-   else if(section==='charges')html+=memberButton('lookup.qr','','QR 인증 · 충전 관리');
    html+='</article>';
   }
   if(!result.items?.length)html+='<p class="member-empty">아직 기록이 없습니다.</p>';
