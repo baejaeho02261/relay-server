@@ -34,7 +34,7 @@ let done=false;process.once('exit',()=>{if(!done)process.exitCode=1;});
 (async()=>{try{
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const a=await login(),b=await login(),a2=await login();a2.c.installationDeviceKey=require('../identity/identityManager').FindClientDeviceKey(a.c.clientId);
- const pa=(await run(a,'me')).profile,pb=(await run(b,'me')).profile,hub=require('../services/member/service'),rewards=require('../services/member/rewards'),charges=require('../services/member/charges');
+ const pa=(await run(a,'me')).profile,pb=(await run(b,'me')).profile,hub=require('../services/member/service'),rewards=require('../services/member/rewards');
  const originalNow=Date.now;let clock=Date.parse('2026-09-01T03:00:00Z');Date.now=()=>clock;
  try{
   for(let d=0;d<7;d++){if(d)clock+=86400000;const x=await run(a,'attendance.check',{},'STAMP-0000000'+d);assert.equal(x.attendance.streak,d+1);assert.equal(x.wallet.points,d===6?350:50);}
@@ -51,16 +51,14 @@ let done=false;process.once('exit',()=>{if(!done)process.exitCode=1;});
  assert.throws(()=>hub.AdminWrite('rewards.save',{...rules,revision:1},'TEST'),/CONTENT_CHANGED/);
  const saved=db.SaveDatabase;try{db.SaveDatabase=()=>false;assert.throws(()=>hub.AdminWrite('rewards.save',{...rules,chargeUnit:2000},'TEST'),/STORAGE_SAVE_FAILED/);}finally{db.SaveDatabase=saved;}
  assert.equal(rewards.Rules().chargeUnit,1000);
- function approval(amount){const q=charges.Issue(store.ProfileById(pa.id)),scan=charges.Inspect('QRC1.'+q.id+'.'+q.token);return {id:q.id,mode:'WALLET',approvalToken:scan.approvalToken,amount,memo:'TEST'};}
- let ap=approval(600);hub.AdminWrite('charge.approve',ap,'TEST');assert.equal((await run(a,'rewards')).wallet.spins,0);
- ap=approval(1800);const approved=hub.AdminWrite('charge.approve',ap,'TEST');assert.equal(approved.eventSpinsGranted,2);
- hub.AdminWrite('charge.approve',ap,'TEST');assert.equal((await run(a2,'rewards')).wallet.spins,2);
- ap=approval(600);const saved2=db.SaveDatabase;try{db.SaveDatabase=()=>false;assert.throws(()=>hub.AdminWrite('charge.approve',ap,'TEST'),/STORAGE_SAVE_FAILED/);}finally{db.SaveDatabase=saved2;}
- assert.equal((await run(a,'rewards')).wallet.spins,2);hub.AdminWrite('charge.approve',ap,'TEST');assert.equal((await run(a,'rewards')).wallet.spins,3);
+ const owner=store.ProfileById(pa.id);
+ hub.AdminWrite('wallet.grant',{accountId:owner.id,confirmedAccountId:owner.id,confirmed:true,amount:3000,reason:'이벤트 검증용 잔액',requestId:'REWARD-ADMIN-GRANT'},'TEST');
+ // Imported historical wheel turns remain usable after charging is retired.
+ store.Atomic(()=>{store.ProfileById(pa.id).eventSpins=3;});
  assert.equal((await request(a,'event.spin',{revision:1})).reason,'CONTENT_CHANGED');assert.equal((await run(a,'rewards')).wallet.spins,3);
  const spin=await run(a,'event.spin',{revision:rules.revision,index:99,points:99999999},'SPIN-REPLAY-0001');
  assert.ok(spin.spin.index>=0&&spin.spin.index<6);assert.equal(spin.reward.amount,rules.prizes[spin.spin.index].points);
- assert.equal(spin.wallet.spins,2);assert.equal(spin.wallet.points,450+spin.reward.amount);
+ assert.equal(spin.wallet.spins,2);assert.equal(spin.wallet.points,400+spin.reward.amount);
  assert.deepEqual(await run(a2,'event.spin',{revision:rules.revision,index:99,points:99999999},'SPIN-REPLAY-0001'),spin);
  const save3=db.SaveDatabase;try{db.SaveDatabase=()=>false;assert.equal((await request(a,'event.spin',{revision:rules.revision})).reason,'STORAGE_SAVE_FAILED');}finally{db.SaveDatabase=save3;}
  assert.deepEqual((await run(a,'rewards')).wallet,spin.wallet);
@@ -82,9 +80,9 @@ let done=false;process.once('exit',()=>{if(!done)process.exitCode=1;});
  await run(a,'follow.set',{id:pb.id,following:true});assert.equal((await run(a,'popular')).items[0].following,true);
  for(const audience of ['PRIVATE','FOLLOWING','PUBLIC']){const out=await run(a,'preferences.save',{profilePostsVisibility:audience,profilePostsPrivate:audience!=='PUBLIC'});assert.equal(out.preferences.profilePostsVisibility,audience);}
  await run(a,'block.set',{id:pb.id,blocked:true});assert.equal((await run(a,'popular')).items.length,0);assert.equal((await run(a,'mycomments')).total,0);
- const snapshot=JSON.parse(JSON.stringify(store.DB()));store.Import({memberHub:snapshot});assert.equal((await run(a2,'rewards')).wallet.points,store.ProfileById(pa.id).points);assert.equal((await run(a,'rewards')).history.total,13);
+ const snapshot=JSON.parse(JSON.stringify(store.DB()));store.Import({memberHub:snapshot});assert.equal((await run(a2,'rewards')).wallet.points,store.ProfileById(pa.id).points);assert.equal((await run(a,'rewards')).history.total,12);
  const titleRows=Object.values(store.DB().pointLedger).filter(row=>row.accountId===pa.id&&row.kind==='BADGE_REWARD');
- assert.equal(titleRows.length,9);assert.deepEqual(titleRows.map(row=>row.reference).sort(),['ATTENDANCE_1','ATTENDANCE_7','ATTENDANCE_STREAK_7','COMMENTS_1','FOLLOWING_1','GAME_PURCHASE_1','LIKES_1','QR_CHARGE_1','WHEEL_1']);
+ assert.equal(titleRows.length,8);assert.deepEqual(titleRows.map(row=>row.reference).sort(),['ATTENDANCE_1','ATTENDANCE_7','ATTENDANCE_STREAK_7','COMMENTS_1','FOLLOWING_1','GAME_PURCHASE_1','LIKES_1','WHEEL_1']);
  const legacy=JSON.parse(JSON.stringify(store.DB()));delete legacy.pointLedger;delete legacy.eventSpins;store.Import({memberHub:legacy});assert.deepEqual(store.DB().pointLedger,{});assert.deepEqual(store.DB().eventSpins,{});
- console.log('FIX42 PASS: signed 3-device rewards/attendance, duplicate requests, approval carry, rollback, authoritative roulette, public rankings, merged purchase entitlement, own comments, compatible privacy payloads and schema migration.');done=true;
+ console.log('FIX42 PASS: signed 3-device rewards/attendance, duplicate requests, preserved historical wheel turns, rollback, authoritative roulette, public rankings, merged purchase entitlement, own comments, compatible privacy payloads and schema migration.');done=true;
 }finally{for(const p of peers)p.close();await Promise.all(closed);await new Promise(resolve=>server.close(resolve));fs.rmSync(temp,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

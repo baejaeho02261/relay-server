@@ -57,10 +57,10 @@ const settle=()=>new Promise(resolve=>setTimeout(resolve,30));
  menu.click();w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape'}));assert.equal(menu.getAttribute('aria-expanded'),'false');
  // FAQ editor persists changes through the real API without replacing the conversation draft.
  assert.ok(w.document.querySelector('.from-bot'));assert.match(w.document.querySelector('.from-bot').textContent,/FAQ 안내 봇/);
- const select=w.document.querySelector('#support-faq-select');assert.ok(select.options.length>=7);select.value='FAQ_CHARGE';select.dispatchEvent(new w.Event('change',{bubbles:true}));
+ const select=w.document.querySelector('#support-faq-select');assert.ok(select.options.length>=7);select.value='FAQ_BALANCE';select.dispatchEvent(new w.Event('change',{bubbles:true}));
  let form=w.document.querySelector('#support-faq-form');form.elements.answer.value='웹에서 수정한 안전한 안내 <script>실행 금지</script>';
  form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await settle();
- assert.equal(require('../services/supportKnowledge').Admin().items.find(x=>x.id==='FAQ_CHARGE').answer,'웹에서 수정한 안전한 안내 <script>실행 금지</script>');
+ assert.equal(require('../services/supportKnowledge').Admin().items.find(x=>x.id==='FAQ_BALANCE').answer,'웹에서 수정한 안전한 안내 <script>실행 금지</script>');
  assert.match(w.document.querySelector('#support-faq-status').textContent,/반영/);assert.equal(w.document.querySelector('#support-draft').value,'전송하지 않은 답변');
  assert.equal(w.document.querySelectorAll('#support-knowledge-editor script').length,0);
  // An unsaved FAQ edit remains intact across the automatic support refresh.

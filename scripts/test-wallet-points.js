@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moaplay-wallet-points-'));process.env.DATA_DIR=dir;process.env.STORAGE_ENGINE='json';
 require('../core/utils').EnsureDirs();
 const state=require('../core/state'),s=require('../services/member/store'),hub=require('../services/member/service'),rewards=require('../services/member/rewards');
-const charges=require('../services/member/charges'),db=require('../storage/database'),lm=require('../license/licenseManager'),protocol=require('../services/member/protocol');
+const db=require('../storage/database'),lm=require('../license/licenseManager'),protocol=require('../services/member/protocol');
 let sequence=0;
 const run=(c,action,body={},id)=>hub.Execute(c,id||'POINTREQ'+String(++sequence).padStart(8,'0'),action,body);
 const admin=(action,body)=>hub.AdminWrite(action,body,'POINT-TEST-ADMIN');
@@ -13,7 +13,7 @@ function client(id,key){
  c.licenseKey=lm.CreateLicense(900,'출입증',['QR'],'QR').key;state.licenses.get(c.licenseKey).boundClient=id;
  return {c,lines};
 }
-function deposit(c,amount){const row=charges.Issue(s.Account(c)),scan=charges.Inspect('QRC1.'+row.id+'.'+row.token);return admin('charge.approve',{id:row.id,approvalToken:scan.approvalToken,mode:'WALLET',amount,memo:'테스트'});}
+function deposit(c,amount){const p=s.Account(c);return admin('wallet.grant',{accountId:p.id,confirmedAccountId:p.id,confirmed:true,amount,reason:'잔액 테스트 준비',requestId:'POINT-GRANT-'+(++sequence)});}
 function signed(peer,action,body,id){
  const payload=Buffer.from(JSON.stringify(body)).toString('base64'),fields=[id,action,payload];
  peer.lines.length=0;hub.Handle(peer.c,['HUB',...fields,protocol.Sign(peer.c,'HUB',fields)].join('|'));
@@ -32,7 +32,7 @@ try{
  assert.throws(()=>run(a.c,'rewards.save',{...rules,pointExchange:{enabled:true,cashUnit:1,pointUnit:999}}),/UNKNOWN_ACTION/);
  assert.throws(()=>admin('rewards.save',{...rules,pointExchange:{enabled:true,cashUnit:0,pointUnit:3}}),/AMOUNT_INVALID/);
  rules=admin('rewards.save',{...rules,attendanceDays:1,attendancePoints:12,pointExchange:{enabled:true,cashUnit:200,pointUnit:3}});
- assert.equal(run(a.c,'attendance.check').wallet.points,112,'12 attendance points plus the first charge and attendance title rewards');
+ assert.equal(run(a.c,'attendance.check').wallet.points,62,'12 attendance points plus the attendance title reward');
  const before=JSON.stringify(s.DB());
  for(const amount of [0,-3,1.2,'3',Number.MAX_SAFE_INTEGER])assert.throws(()=>run(a.c,'points.exchange',{revision:rules.revision,amount}),/AMOUNT_INVALID/);
  assert.throws(()=>run(a.c,'points.exchange',{revision:rules.revision,amount:4}),/POINT_EXCHANGE_UNIT/);
@@ -47,7 +47,7 @@ try{
  const spinCount=run(a.c,'rewards').wallet.spins;
  a2.lines.length=0;b.lines.length=0;
  const converted=signed(a,'points.exchange',{revision:rules.revision,amount:6},'POINT-ROLLBACK-01');
- assert.equal(converted.profile.balance,10400);assert.equal(converted.wallet.points,156);assert.equal(converted.wallet.spins,spinCount);
+ assert.equal(converted.profile.balance,10400);assert.equal(converted.wallet.points,106);assert.equal(converted.wallet.spins,spinCount);
  assert.equal(converted.conversion.sourceAmount,6);assert.equal(converted.conversion.targetAmount,400);
  const point=converted.history.items.find(x=>x.id===converted.conversion.pointId);assert.equal(point.kind,'POINT_EXCHANGE');assert.equal(point.amount,-6);
  const payment=s.DB().ledger[converted.conversion.paymentId];assert.equal(payment.reference,converted.conversion.id);assert.equal(payment.amount,400);
@@ -56,11 +56,11 @@ try{
  const foreign=run(b.c,'rewards',{id:owner});assert.notEqual(foreign.profile.id,owner);assert.equal(foreign.wallet.points,0);assert.equal(foreign.profile.balance,0);assert.equal(foreign.history.total,0,'member identifiers cannot select another wallet');
  assert.equal(run(a2.c,'me').profile.balance,10400,'the second phone sees the authoritative exchanged wallet');
  assert.deepEqual(run(a2.c,'points.exchange',{revision:rules.revision,amount:6},'POINT-ROLLBACK-01'),converted,'same-account retry on a second phone exchanges once');
- assert.equal(run(a2.c,'rewards').history.total,5);
- assert.deepEqual(Object.values(s.DB().pointLedger).filter(row=>row.accountId===owner&&row.kind==='BADGE_REWARD').map(row=>[row.reference,row.amount]).sort(),[['ATTENDANCE_1',50],['POINT_EXCHANGE_1',50],['QR_CHARGE_1',50]],'charge, attendance and first exchange titles each pay once');
+ assert.equal(run(a2.c,'rewards').history.total,4);
+ assert.deepEqual(Object.values(s.DB().pointLedger).filter(row=>row.accountId===owner&&row.kind==='BADGE_REWARD').map(row=>[row.reference,row.amount]).sort(),[['ATTENDANCE_1',50],['POINT_EXCHANGE_1',50]],'attendance and first exchange titles each pay once');
  assert.throws(()=>run(a2.c,'points.exchange',{revision:rules.revision,amount:3},'POINT-ROLLBACK-01'),/REQUEST_REUSED/);
  const exchange=run(a.c,'points.exchange',{revision:rules.revision,amount:6},'POINT-EXCHANGE-01');
- assert.equal(exchange.profile.balance,10800);assert.equal(exchange.wallet.points,150);assert.equal(exchange.wallet.spins,spinCount);
+ assert.equal(exchange.profile.balance,10800);assert.equal(exchange.wallet.points,100);assert.equal(exchange.wallet.spins,spinCount);
  assert.equal(exchange.conversion.cashAmount,400);assert.equal(exchange.conversion.pointAmount,-6);
  assert.deepEqual(run(a2.c,'points.exchange',{revision:rules.revision,amount:6},'POINT-EXCHANGE-01'),exchange);
  // An exact-integer overflow must not consume points or write either ledger.
@@ -95,7 +95,7 @@ try{
  run(a.c,'news');run(a.c,'catalog');assert.equal(s.ViewCount('news',news.id),0);assert.equal(s.ViewCount('product',game.id),0);
  assert.equal(run(a.c,'article',{id:news.id}).article.views,1);assert.equal(run(a.c,'product',{id:game.id}).product.views,1);
  run(a.c,'article',{id:news.id});run(a.c,'product',{id:game.id});assert.equal(s.ViewCount('news',news.id),1);assert.equal(s.ViewCount('product',game.id),1);
- const snapshot=JSON.parse(JSON.stringify(s.DB()));s.Import({memberHub:snapshot});assert.equal(run(a2.c,'rewards').history.total,8);assert.equal(run(a2.c,'me').orders.items.find(x=>x.id===first.id).lastUsedAt,reused.order.lastUsedAt);
+ const snapshot=JSON.parse(JSON.stringify(s.DB()));s.Import({memberHub:snapshot});assert.equal(run(a2.c,'rewards').history.total,7);assert.equal(run(a2.c,'me').orders.items.find(x=>x.id===first.id).lastUsedAt,reused.order.lastUsedAt);
  delete snapshot.settings.rewards.pointExchange;s.Import({memberHub:snapshot});assert.deepEqual(rewards.Rules().pointExchange,{enabled:false,cashUnit:0,pointUnit:0},'older settings migrate without enabling conversions');
  console.log('WALLET / POINTS PASS: activated entitlement and preserved purchase receipts, paginated purchase activity, explicit detail views, one-way configured points exchange, removed recharge, matching ledgers, limits, persistence rollback, retry idempotency and signed multi-device updates.');
 }finally{Date.now=now;db.SaveDatabase=save;fs.rmSync(dir,{recursive:true,force:true});}
