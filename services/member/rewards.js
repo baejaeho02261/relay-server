@@ -1,6 +1,7 @@
 'use strict';
 const crypto=require('node:crypto'),s=require('./store');
 const Day=at=>new Date(at+9*3600000).toISOString().slice(0,10);
+const IsDay=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/u.test(value)&&Number.isFinite(Date.parse(value+'T00:00:00.000Z'))&&new Date(value+'T00:00:00.000Z').toISOString().slice(0,10)===value;
 const defaults={revision:1,enabled:true,attendanceDays:7,attendancePoints:100,
  prizes:[{points:10,weight:40},{points:20,weight:25},{points:30,weight:18},{points:50,weight:10},{points:100,weight:6},{points:300,weight:1}]};
 function Rules(){const rules=structuredClone(s.DB().settings.rewards||defaults);delete rules.chargeUnit;return {...rules,pointExchange:require('./points').Rules(rules.pointExchange)};}
@@ -14,14 +15,31 @@ function Credit(p,amount,kind,reference){
 function Attendance(p,now=Date.now()){
  const r=Rules(),a=p.attendance||{},day=Day(now),streak=[day,Day(now-86400000)].includes(a.day)?a.streak||0:0;
  const cycle=streak>0?((streak-1)%r.attendanceDays)+1:0;
+ // A stamp is proof of a recorded check-in, not a guess from the streak count.
+ // The current thirty-day book follows the streak, independently of rewards.
+ const checked=a.day===day,stampGoal=30;
+ let bookPosition=streak>0?((streak-1)%stampGoal)+1:0;
+ if(!checked&&bookPosition===stampGoal)bookPosition=0;
+ const confirmed=new Set((Array.isArray(a.days)?a.days:[]).filter(value=>IsDay(value)&&value<=day));
+ if(IsDay(a.day)&&a.day<=day)confirmed.add(a.day);
+ const todayAt=Date.parse(day+'T00:00:00.000Z');
+ const offset=bookPosition>0?bookPosition-(checked?1:0):0;
+ const stampDays=Array.from({length:stampGoal},(_,index)=>{
+  const stampDay=new Date(todayAt+(index-offset)*86400000).toISOString().slice(0,10);
+  return {number:index+1,day:stampDay,completed:confirmed.has(stampDay),today:stampDay===day};
+ });
  return {day,checked:a.day===day,count:a.count||0,streak,at:a.at||0,days:a.days||[],cycle,
+  stampDays,stampGoal,stampCompleted:stampDays.filter(row=>row.completed).length,
   goal:r.attendanceDays,rewardPoints:r.attendancePoints,rewardEvery:r.attendanceDays,points:p.points||0};
 }
 function Check(p){
  const now=Date.now(),day=Day(now),old=p.attendance||{},r=Rules();let reward=null;
  if(old.day!==day){
+  // Legacy accounts may only have their last confirmed day. Preserve that
+  // proof on the first new check-in without inventing other streak dates.
+  const days=[...new Set([...(Array.isArray(old.days)?old.days:[]),old.day,day].filter(value=>IsDay(value)&&value<=day))].sort().slice(-90);
   p.attendance={day,at:now,count:(old.count||0)+1,streak:old.day===Day(now-86400000)?(old.streak||0)+1:1,
-   days:[...(old.days||[]).filter(x=>x!==day),day].slice(-90)};
+   days};
   if(p.attendance.streak%r.attendanceDays===0)reward=Credit(p,r.attendancePoints,'ATTENDANCE',day);
  }
  return {...Read(p),reward};

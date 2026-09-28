@@ -31,7 +31,11 @@ function Read(p){
  const orders=latest(Object.values(db.orders).filter(x=>x.accountId===p.id&&!x.mergedInto));
  const payments=commerce.PurchasePayments(p,false),points=latest(Object.values(db.pointLedger).filter(x=>x.accountId===p.id));
  const recent=history.Read(p),today=rewards.Day(Date.now());
- const recentProducts=recent.recentProducts.filter(row=>productIds.has(row.id)).slice(0,LIMIT).map(row=>({...commerce.PublicGame(product(row.id)),viewedAt:row.at}));
+ // Recent rows are navigation summaries. Repeating original galleries here
+ // would duplicate the catalogue and can exceed the home response budget.
+ const recentProducts=recent.recentProducts.filter(row=>productIds.has(row.id)).slice(0,LIMIT).map(row=>({
+  id:row.id,title:row.title,genre:row.genre,gameKey:row.gameKey,icon:row.icon,viewedAt:row.at,
+ }));
  const recentServices=recent.recentServices.slice(0,LIMIT);
  const conversations=Object.values(db.directThreads).filter(row=>!row.deletedAt&&row.members.includes(p.id)&&row.members.every(id=>{const peer=s.ProfileById(id);return peer&&!peer.blocked&&!extra.Blocked(p.id,id);}));
  const messageCount=conversations.filter(row=>row.pendingTo!==p.id).length,requestCount=conversations.filter(row=>row.pendingTo===p.id).length;
@@ -44,7 +48,7 @@ function Read(p){
   wallet:require('./wallet').Read(p),attendance:rewards.Attendance(p),attendanceRanking,
   counts:{online:OnlineCount(),todayPosts:visiblePosts.filter(row=>rewards.Day(row.at)===today).length,todayComments:visibleComments.filter(row=>rewards.Day(row.at)===today).length,news:visibleNews.length,unreadNews:social.UnreadNewsCount(p),catalog:products.length,feed:visiblePosts.length,orders:orders.length,payments:payments.length,pointHistory:points.length,notifications:notifications.total,messages:messageCount,requests:requestCount,unreadMessages:unreadCount,...require('./follows').Counts(p.id)},
   news:visibleNews.slice(0,LIMIT).map(row=>({...social.PublicNews(row,true),views:s.ViewCount('news',row.id),unread:(p.readNews?.[row.id]||((p.readNewsAt||0)>=row.at?(row.revision||1):0))<(row.revision||1)})),
-  catalog:products.slice(0,LIMIT).map(row=>commerce.PublicGame(row)),
+  catalog:commerce.Catalog({summary:true},p).items,
   orders:orders.slice(0,LIMIT).map(orderReceipt),
   payments:payments.slice(0,LIMIT).map(row=>({id:row.id,productId:row.productId,title:short(row.title,70),days:0,singleUse:true,uses:1,amount:row.amount,at:row.at,refunded:row.refunded,orderId:row.orderId,reference:row.reference,kind:row.kind,paymentMethod:row.paymentMethod||'WALLET',refundedAt:row.order?.refundedAt||0,refundReason:row.order?.refundReason||'',...gameIdentity(row)})),
   pointHistory:points.slice(0,LIMIT).map(row=>({id:row.id,kind:row.kind,amount:row.amount,at:row.at})),

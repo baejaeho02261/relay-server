@@ -4,7 +4,7 @@ const media=require('./media');
 function Gallery(value,previous=[]){
  if(value===undefined)return previous;
  if(!Array.isArray(value)||value.length>6)s.Fail('CONTENT_IMAGE_INVALID');
- return value.filter(x=>x!=='').map(value=>{const image=media.Fields(value);return {image:image.image,thumb:image.imageThumb};});
+ return value.filter(x=>x!=='').map(value=>media.GalleryFields(value));
 }
 const GAMES=Object.freeze({PUBG:{title:'배틀그라운드',genre:'배틀로얄',accessType:'TYPE1'},VALORANT:{title:'발로란트',genre:'전술 슈팅',accessType:'TYPE2'}});
 function GameKey(value){
@@ -39,7 +39,7 @@ function PublicGame(p){return {id:p.id,gameKey:GameKey(p),icon:GameIcon(p),title
 function Catalog(body={},viewer){
  const page=s.Page(CatalogRows(),{...body,offset:0,limit:2});
  return {...page,q:'',items:page.items.map(p=>{
-  const item={...PublicGame(p),gallery:(p.gallery||[]).map(x=>({thumb:x.thumb||''})),unread:!!viewer&&(viewer.readProducts?.[p.id]||0)<(p.revision||1)};
+  const item={...PublicGame(p),gallery:(p.gallery||[]).map(x=>({image:media.GalleryDisplay(x),thumb:x.thumb||''})),unread:!!viewer&&(viewer.readProducts?.[p.id]||0)<(p.revision||1)};
   if(body.summary===true)item.description=String(p.description||'').replace(/\s+/g,' ').trim().slice(0,140);
   return item;
  })};

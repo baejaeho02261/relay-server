@@ -54,7 +54,7 @@ function Read(p,body={},admin=false){
   if(!sections[body.section])s.Fail('INPUT_INVALID');let rows=sections[body.section]();
   if(body.section==='support'&&body.threadId){
    const room=rooms.find(t=>t.clientId===body.threadId);if(!room)s.Fail('NOT_OWNER');
-   rows=room.messages.map(m=>({id:String(m.seq),title:m.role==='CLIENT'?'나':m.role==='ADMIN'?'상담원':m.role==='BOT'?'안내 봇':'상담 안내',body:m.text,at:m.at,role:m.role}));
+   rows=room.messages.map(m=>({id:String(m.seq),title:m.role==='CLIENT'?'나':m.role==='ADMIN'?'상담원':m.role==='BOT'?'이전 자동 안내':'상담 안내',body:m.text,at:m.at,role:m.role}));
   }
   return {profile:s.PublicProfile(p,true),section:body.section,...(body.threadId?{threadId:body.threadId}:{}),...(Array.isArray(rows)?s.Page(rows.sort((a,b)=>(b.at||b.issuedAt||0)-(a.at||a.issuedAt||0)),body,50):rows)};
  }

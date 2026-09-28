@@ -62,6 +62,32 @@ function PostFields(value,previous={}){
  const original=value.startsWith('data:image/jpeg;base64,')&&Buffer.from(value.split(',')[1],'base64').length<=420000?value:PostEncoded(image,1280,420000);
  return {image:original,imageFeed:PostEncoded(image,720,70000),imageFeedVersion:2,imageThumb:PostEncoded(image,160,12000)};
 }
+function GalleryFields(value){
+ if(typeof value!=='string')s.Fail('CONTENT_IMAGE_INVALID');
+ const image=Decode(value),bytes=Buffer.from(value.split(',')[1],'base64');
+ // Keep the validated full-resolution JPEG; PNG re-encoding retains its pixels
+ // and alpha while dropping ancillary metadata. Originals and displays have
+ // independent bounds, so generating a catalog image never replaces its source.
+ let original;
+ if(value.startsWith('data:image/jpeg;base64,')&&bytes.length<=420000)original=value;
+ else if(value.startsWith('data:image/png;base64,')){
+  const png=PNG.sync.write(image,{colorType:6,inputColorType:6,deflateLevel:6});
+  if(png.length<=420000)original='data:image/png;base64,'+png.toString('base64');
+ }
+ return {image:original||PostEncoded(image,1280,420000),display:PostEncoded(image,1024,180000),displayVersion:1,thumb:PostEncoded(image,160,12000)};
+}
+const galleryCache=new Map();
+function GalleryDisplay(entry){
+ if(entry.displayVersion===1&&entry.display)return entry.display;
+ const source=entry.image||entry.thumb||'';if(!source)return '';
+ if(galleryCache.has(source))return galleryCache.get(source);
+ let display='';try{display=PostEncoded(Decode(source),1024,180000);}catch(_){
+  if(entry.thumb&&entry.thumb!==source)try{display=PostEncoded(Decode(entry.thumb),1024,180000);}catch(_){}
+ }
+ // Old galleries gain a density-appropriate display only in this bounded read
+ // cache. Polling never migrates or re-encodes the stored original or thumbnail.
+ if(galleryCache.size>=16)galleryCache.delete(galleryCache.keys().next().value);galleryCache.set(source,display);return display;
+}
 const previewCache=new Map(),legacyCache=new Map();
 function LegacyFeedImage(post){
  const value=post.imageFeed||post.imageThumb||'';if(!value||value.length<=37360)return value;
@@ -84,4 +110,4 @@ function GameDetails(value,previous={}){
 
  return result;
 }
-module.exports={Fields,PostFields,PostPosition,GameDetails,FeedImage,LegacyFeedImage,Resize};
+module.exports={Fields,PostFields,PostPosition,GameDetails,FeedImage,LegacyFeedImage,GalleryFields,GalleryDisplay,Resize};

@@ -6,6 +6,62 @@ const { NormalizeID, Now, SendLine } = require('../core/utils');
 const { NormalizeAccessType } = require('./accessType');
 
 const CHALLENGE_TTL_MS = 2 * 60 * 1000;
+const RESUME_TTL_MS = 24 * 60 * 60 * 1000;
+
+// A lease belongs to the last genuine phone proof, not a client-supplied flag.
+// Fresh socket HMAC, installation, permissions, OAuth and license checks remain
+// mandatory. Relinking, secret rotation and a new game preparation change this
+// binding, so none can reuse an earlier proof.
+function ResumeBinding(connection) {
+    try {
+        const store = require('./member/store');
+        const subject = store.Subject(connection), account = store.DB().profiles[subject];
+        const link = require('./member/oauthLifecycle').Record(account);
+        const secret = state.deviceSecrets.get(`CLIENT:${connection.clientId}`);
+        const deviceKey = connection.installationDeviceKey || require('../identity/identityManager').FindClientDeviceKey(connection.clientId);
+        const order = store.DB().orders[account?.activeOrderId];
+        if (!link?.generation || !secret || !deviceKey || !connection.installationToken) return '';
+        return crypto.createHash('sha256').update(JSON.stringify([
+            connection.clientId, deviceKey, connection.installationToken, secret,
+            subject, account.id, link.generation, connection.licenseKey,
+            account.activeOrderId || '', order?.preparedAt || 0
+        ])).digest('hex').toUpperCase();
+    } catch (_) { return ''; }
+}
+
+function TryResume(connection) {
+    if (!connection || !connection.connected || !connection.licenseAuthorized ||
+        !connection.deviceAuthVerified || !connection.deviceAuthChallengeId ||
+        !/^[0-9A-F]{24,64}$/.test(connection.biometricResumeRequestId || '') ||
+        state.clients.get(connection.clientId) !== connection ||
+        !state.serviceEnabled || state.disabledClients.has(connection.clientId) ||
+        !require('./deviceAuth').Verified('CLIENT', connection.clientId) ||
+        !require('./clientPermissions').Ready(connection) || require('./clientPermissions').NeedsApproval(connection) ||
+        !require('./clientInstallation').Ready(connection) || !require('./member/identity').Ready(connection)) return false;
+    const profile = state.clientBiometricProfiles.get(connection.clientId), lease = profile?.resume;
+    const now = Now(), binding = ResumeBinding(connection);
+    const active = require('../license/licenseManager').GetUsableLicenseForConnection(connection);
+    if (!active || !lease || !binding || lease.binding !== binding ||
+        !Number.isSafeInteger(lease.expiresAt) || lease.expiresAt <= now ||
+        profile.verifiedAt > now || lease.expiresAt !== profile.verifiedAt + RESUME_TTL_MS) return false;
+    const game = require('./member/entryPass').ForClient(connection, true);
+    const accessType = game ? NormalizeAccessType(game.accessType) : '';
+    const groupGuid = require('./userDashboard').GroupGuid(accessType);
+    const fields = [connection.deviceAuthChallengeId, connection.biometricResumeRequestId, accessType, groupGuid, String(lease.expiresAt)];
+    const mac = HmacHex(state.deviceSecrets.get(`CLIENT:${connection.clientId}`),
+        `BIOMETRIC_RESUMED|${connection.clientId}|${fields.join('|')}`);
+    connection.biometricVerified = true;
+    connection.accessType = accessType;
+    state.clientBiometricChallenges.delete(connection.clientId);
+    SendLine(connection.socket, `BIOMETRIC_RESUMED|${fields.join('|')}|${mac}`);
+    connection.biometricResumeRequestId = '';
+    // This restores member entry only. A PC still needs its own current HMAC,
+    // matching order and Build lease; no Build grant is fabricated here.
+    require('../relay/notifications').NotifyServerAuthorized(connection.clientId,
+        connection.serverId, active.license.expiresAt, 'QR_BIOMETRIC_RESUME');
+    require('../storage/audit').LogEvent('CLIENT_BIOMETRIC_RESUMED', connection.clientId);
+    return true;
+}
 
 function HmacHex(key, data) {
     return crypto.createHmac('sha256', String(key || ''))
@@ -46,6 +102,17 @@ function Begin(connection, requestedType = '') {
         return { ok: false, reason: 'BIOMETRIC_CAPABILITY_REQUIRED' };
     }
     const profile = state.clientBiometricProfiles.get(clientId) || null;
+    // Once renewed proof is required, reconnect must not revive the old lease.
+    if (profile?.resume) {
+        connection.biometricVerified = false;
+        delete profile.resume;
+        let saved = false;
+        try { saved = require('../storage/database').SaveDatabase(); } catch (_) {}
+        if (!saved) {
+            SendLine(connection.socket, 'BIOMETRIC_ERROR|STORAGE_SAVE_FAILED');
+            return { ok: false, reason: 'STORAGE_SAVE_FAILED' };
+        }
+    }
     const accessType = NormalizeAccessType(requestedType ||
         (profile && profile.accessType) || connection.accessType);
     const now = Now();
@@ -169,7 +236,8 @@ function HandleProof(connection, parts) {
         verifiedAt: now,
         verificationCount: Math.max(0, Number(existing && existing.verificationCount) || 0) + 1,
         resetAt: Math.max(0, Number(existing && existing.resetAt) || 0),
-        resetBy: String(existing && existing.resetBy || '')
+        resetBy: String(existing && existing.resetBy || ''),
+        resume: { binding: ResumeBinding(connection), expiresAt: now + RESUME_TTL_MS }
     };
     return NotifyAuthorized(connection, challenge.accessType, profile);
 }
@@ -223,6 +291,8 @@ function Reset(clientId, actor = 'WEB_ADMIN') {
 
 module.exports = {
     CHALLENGE_TTL_MS,
+    RESUME_TTL_MS,
+    TryResume,
     Proof,
     Begin,
     HandleProof,

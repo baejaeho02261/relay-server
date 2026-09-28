@@ -20,10 +20,10 @@ function Rows(p){
   add('payment:'+row.id,row.at,headings[row.kind],detail,'receipt','payments');
  }
  for(const row of Object.values(db.pointLedger)){
-  if(row.accountId!==p.id||row.amount<=0||!['BADGE_REWARD','ATTENDANCE','ROULETTE','EVENT_CARD','EVENT_CHEST','EVENT_RPS','EVENT_DINO','EVENT_FLAPPY','EVENT_WHACK','EVENT_DODGE','EVENT_RHYTHM'].includes(row.kind))continue;
+  if(row.accountId!==p.id||row.amount<=0||!['ATTENDANCE','ROULETTE','EVENT_CARD','EVENT_CHEST','EVENT_RPS','EVENT_DINO','EVENT_FLAPPY','EVENT_WHACK','EVENT_DODGE','EVENT_RHYTHM'].includes(row.kind))continue;
   const eventTitles={EVENT_DINO:title('공룡 게임 포인트가 지급되었어요','Dino game points received'),EVENT_FLAPPY:title('플래피 버드 포인트가 지급되었어요','Flappy game points received'),EVENT_WHACK:title('두더지 게임 포인트가 지급되었어요','Whack-a-mole points received'),EVENT_DODGE:title('똥피하기 포인트가 지급되었어요','Dodge game points received'),EVENT_RHYTHM:title('리듬 게임 포인트가 지급되었어요','Rhythm game points received'),EVENT_CARD:title('행운 카드 보상 포인트가 지급되었어요','Lucky cards reward received'),EVENT_CHEST:title('보물상자 보상 포인트가 지급되었어요','Treasure chest reward received'),EVENT_RPS:title('가위바위보 보상 포인트가 지급되었어요','Rock paper scissors reward received')};
-  const badge=row.kind==='BADGE_REWARD',heading=eventTitles[row.kind]||(badge?title('칭호 보상 포인트가 지급되었어요','Title reward points received'):row.kind==='ATTENDANCE'?title('출석 보상 포인트가 지급되었어요','Attendance reward received'):title('돌림판 보상 포인트가 지급되었어요','Wheel reward received'));
-  add('points:'+row.id,row.at,heading,'+'+row.amount.toLocaleString(english?'en-US':'ko-KR')+'P',badge?'badge':'gift',badge?'badges':'points');
+  const heading=eventTitles[row.kind]||(row.kind==='ATTENDANCE'?title('출석 보상 포인트가 지급되었어요','Attendance reward received'):title('돌림판 보상 포인트가 지급되었어요','Wheel reward received'));
+  add('points:'+row.id,row.at,heading,'+'+row.amount.toLocaleString(english?'en-US':'ko-KR')+'P','gift','points');
  }
  if(prefs.notifyFollowers)for(const row of Object.values(db.follows)){
   if(row.following!==p.id||row.follower===p.id)continue;

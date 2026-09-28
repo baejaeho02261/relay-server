@@ -72,7 +72,7 @@ function Suggestions(p,followers){
  const seen=new globalThis.Set(followers.map(row=>row.profile.id)),dismissed=new globalThis.Set(p.dismissedPeople||[]),settings=require('./activity-settings');
  return Object.values(s.DB().profiles).filter(peer=>settings.Eligible(p,peer)&&!seen.has(peer.id)&&!dismissed.has(peer.id)&&!IsFollowing(p.id,peer.id)&&!settings.Has(p,'muted',peer.id)&&!settings.Has(p,'restricted',peer.id)).sort((a,b)=>s.Handle(a).localeCompare(s.Handle(b))||a.id.localeCompare(b.id)).slice(0,6);
 }
-function Stamp(p){return [p.id,s.Handle(p),p.nickname,p.avatarRevision||0,p.profileRevision||0,p.nicknameColor||'',p.titleBadgeId||'',p.titleStyles||null];}
+function Stamp(p){return [p.id,s.Handle(p),p.nickname,p.avatarRevision||0,p.profileRevision||0,p.nicknameColor||''];}
 function Snapshot(p,body){
  const query=Query(body),target=Target(p,body),own=target.id===p.id;
  const followers=Edges(p,target,'followers'),following=Edges(p,target,'following');
