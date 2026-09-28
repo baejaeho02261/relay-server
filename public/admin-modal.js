@@ -7,7 +7,7 @@ function openModal(options) {
     modalBody.innerHTML = `${options.message ? `<p>${esc(options.message)}</p>` : ''}${options.html || ''}${fields.map(f => {
       if (f.type === 'section') return `<h3 class="modal-section">${esc(f.label)}</h3>`;
       if (f.type === 'game-exe') return `<div class="modal-media"><label>${esc(f.label)}<input type="hidden" data-modal-field="${esc(f.name)}" value="${esc(f.value||'')}"><input type="file" accept=".exe,application/octet-stream" data-modal-game-exe="${esc(f.name)}" data-game-key="${esc(f.gameKey)}" aria-label="게임 실행 파일 선택"></label><p class="small-note" data-game-status="${esc(f.name)}">${esc(f.fileName||'이 게임에 제공할 실행 파일을 등록하세요. 미등록 상태에서는 다운로드할 수 없습니다.')}</p><button type="button" data-game-remove="${esc(f.name)}">파일 연결 해제</button></div>`;
-      if (f.type === 'image') return `<div class="modal-media"><label>${esc(f.label)}<input type="hidden" data-modal-field="${esc(f.name)}" value="${esc(f.value||'')}"><input type="file" accept="image/png,image/jpeg" data-modal-image="${esc(f.name)}" aria-label="${esc(f.label)} 선택"></label><img data-modal-preview="${esc(f.name)}" ${f.value?`src="${esc(f.value)}"`:'hidden'} alt="사진 미리보기"><button type="button" data-modal-image-remove="${esc(f.name)}">사진 삭제</button><p class="small-note" data-modal-image-status="${esc(f.name)}">PNG·JPEG 사진을 선택하세요. 앱 표시 크기로 최적화합니다.</p></div>`;
+      if (f.type === 'image') return `<div class="modal-media"><label>${esc(f.label)}<input type="hidden" data-modal-field="${esc(f.name)}" value="${esc(f.value||'')}"><input type="file" accept="image/png,image/jpeg" data-modal-image="${esc(f.name)}" data-image-quality="${f.imageQuality==='gallery'?'gallery':'standard'}" aria-label="${esc(f.label)} 선택"></label><img data-modal-preview="${esc(f.name)}" ${f.value?`src="${esc(f.value)}"`:'hidden'} alt="사진 미리보기"><button type="button" data-modal-image-remove="${esc(f.name)}">사진 삭제</button><p class="small-note" data-modal-image-status="${esc(f.name)}">PNG·JPEG 사진을 선택하세요. 앱 표시 크기로 최적화합니다.</p></div>`;
       if (f.type === 'textarea') return `<label>${esc(f.label)}<textarea ${f.readOnly?'readonly aria-readonly="true"':''} data-modal-field="${esc(f.name)}" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea></label>`;
       if (f.type === 'select') return `<label>${esc(f.label)}<select data-modal-field="${esc(f.name)}">${(f.options || []).map(o => `<option value="${esc(o.value ?? o)}" ${String(o.value ?? o)===String(f.value ?? '')?'selected':''}>${esc(o.label ?? o)}</option>`).join('')}</select></label>`;
       if (f.type === 'password') return `<label>${esc(f.label)}<div class="password-input-row"><input data-modal-field="${esc(f.name)}" type="password" value="${esc(f.value || '')}" placeholder="${esc(f.placeholder || '')}" inputmode="${esc(f.inputmode || 'numeric')}" autocomplete="new-password" maxlength="${Number(f.maxLength || 8)}"><button type="button" data-modal-reveal="${esc(f.name)}">보기</button></div></label>`;
@@ -66,7 +66,7 @@ function openModal(options) {
       const name=CSS.escape(input.dataset.modalImage),serial=Number(input.dataset.sequence||0)+1;input.dataset.sequence=String(serial);
       const status=modalBody.querySelector(`[data-modal-image-status="${name}"]`);pending++;modalConfirm.disabled=true;status.textContent='사진을 준비하고 있어요.';
       try{
-        const data=await normalizeMemberImage(file);if(!active||Number(input.dataset.sequence)!==serial)return;
+        const data=await normalizeMemberImage(file,input.dataset.imageQuality==='gallery');if(!active||Number(input.dataset.sequence)!==serial)return;
         modalBody.querySelector(`[data-modal-field="${name}"]`).value=data;const preview=modalBody.querySelector(`[data-modal-preview="${name}"]`);preview.src=data;preview.hidden=false;status.textContent='사진이 준비되었습니다. 저장을 눌러 적용하세요.';
       }catch(error){if(active&&Number(input.dataset.sequence)===serial)status.textContent=error.message||'사진을 다시 선택해주세요.';}
       finally{pending--;if(active)modalConfirm.disabled=pending>0;}
@@ -83,12 +83,13 @@ function openModal(options) {
 }
 
 
-async function normalizeMemberImage(file){
+async function normalizeMemberImage(file,preserveDetail=false){
  if(!(['image/jpeg','image/png'].includes(file.type)||(!file.type&&/\.(png|jpe?g)$/i.test(file.name)))||file.size>8*1024*1024)throw Error('8MB 이하의 PNG 또는 JPEG 사진을 선택해주세요.');
  const url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('사진 파일을 읽을 수 없습니다.'));reader.readAsDataURL(file);}),picture=new Image();
  try{
   await new Promise((resolve,reject)=>{picture.onload=resolve;picture.onerror=()=>reject(Error('사진을 읽지 못했습니다.'));picture.src=url;});
   if(!picture.naturalWidth||!picture.naturalHeight||picture.naturalWidth*picture.naturalHeight>40000000)throw Error('사진 크기가 너무 큽니다.');
+  if(preserveDetail)return normalizeGalleryPicture(picture,url);
   const ratio=Math.min(1,1024/Math.max(picture.naturalWidth,picture.naturalHeight)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(picture.naturalWidth*ratio));canvas.height=Math.max(1,Math.round(picture.naturalHeight*ratio));
   const context=canvas.getContext('2d');context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(picture,0,0,canvas.width,canvas.height);
   let result='';for(let pass=0;pass<6;pass++){for(const quality of [.86,.74,.62,.50,.38]){result=canvas.toDataURL('image/jpeg',quality);if(result.length<=280000)return result;}canvas.width=Math.max(1,Math.round(canvas.width*.8));canvas.height=Math.max(1,Math.round(canvas.height*.8));context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(picture,0,0,canvas.width,canvas.height);}
@@ -96,3 +97,23 @@ async function normalizeMemberImage(file){
  }finally{picture.onload=null;picture.onerror=null;}
 }
 
+
+function normalizeGalleryPicture(picture,url){
+ // Gallery uploads keep the server's 1280px original budget. A bounded source
+ // needs no second JPEG compression; EXIF-bearing JPEGs use the decoded canvas
+ // so camera orientation is applied before the server's metadata-free decoder.
+ const edge=Math.max(picture.naturalWidth,picture.naturalHeight),limit=560000;
+ const png=url.startsWith('data:image/png;base64,'),jpeg=url.startsWith('data:image/jpeg;base64,');
+ if(edge<=1280&&url.length<=limit&&(png||(jpeg&&!atob(url.split(',')[1]).includes('Exif\x00\x00'))))return url;
+ const canvas=document.createElement('canvas'),context=canvas.getContext('2d');
+ let alpha=false;
+ for(let pass=0;pass<8;pass++){
+  const ratio=Math.min(1,1280*Math.pow(.85,pass)/edge);
+  canvas.width=Math.max(1,Math.round(picture.naturalWidth*ratio));canvas.height=Math.max(1,Math.round(picture.naturalHeight*ratio));
+  context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';context.drawImage(picture,0,0,canvas.width,canvas.height);
+  const lossless=canvas.toDataURL('image/png');if(lossless.length<=limit)return lossless;
+  if(pass===0&&png){const pixels=context.getImageData(0,0,canvas.width,canvas.height).data;for(let i=3;i<pixels.length;i+=4)if(pixels[i]<255){alpha=true;break;}}
+  if(!alpha)for(const quality of [.96,.92,.88,.84]){const result=canvas.toDataURL('image/jpeg',quality);if(result.length<=limit)return result;}
+ }
+ throw Error('사진 용량을 줄여 다시 선택해주세요.');
+}

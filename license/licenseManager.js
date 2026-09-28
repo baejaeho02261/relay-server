@@ -104,7 +104,9 @@ function CompleteAuthorization(connection, licenseKey, license, source = 'LICENS
     if (eventSource === 'LICENSE') SendLine(connection.socket, `LICENSE_OK|${licenseKey}|${license.expiresAt}`);
     else SendLine(connection.socket, `QR_AUTH_OK|${requestId || 'RESUME'}|${license.expiresAt}|${accessType}`);
     NotifyServerUnauthorized(connection.clientId, 'BIOMETRIC_REQUIRED');
-    require('../services/clientBiometric').Begin(connection, accessType);
+    const biometric = require('../services/clientBiometric');
+    if (eventSource !== 'QR_RESUME' || !biometric.TryResume(connection))
+        biometric.Begin(connection, accessType);
 
     const remainingDays = Math.ceil((license.expiresAt - Now()) / 86400000);
     if (!entryPass.IsEntry(license) && remainingDays <= 7) SendLine(connection.socket, `LICENSE_WARNING|${remainingDays}|${license.expiresAt}`);

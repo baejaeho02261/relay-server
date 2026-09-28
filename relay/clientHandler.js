@@ -396,7 +396,10 @@ function HandleClientLine(connection, line) {
         const parts = line.split('|');
         const requestedClient = parts.length >= 2 ? NormalizeID(parts[1]) : '';
         if (requestedClient && requestedClient !== connection.clientId) { SendLine(connection.socket, 'QR_AUTH_ERROR|CLIENT_NOT_OWNER'); return; }
-        require('../services/qrApproval').Resume(connection);
+        if (parts.length > 3 || (parts.length === 3 && !/^[0-9A-F]{24,64}$/.test(parts[2]))) {
+            SendLine(connection.socket, 'QR_AUTH_ERROR|RESUME_REQUEST_INVALID'); return;
+        }
+        require('../services/qrApproval').Resume(connection, parts[2] || '');
         return;
     }
 

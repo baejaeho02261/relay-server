@@ -1,7 +1,7 @@
 'use strict';
 let memberShopRules=null;
-const memberShopNames={NICKNAME_TICKET:'닉네임 변경권',NICKNAME_COLOR:'닉네임 색상',TITLE_COLOR:'칭호 색상 세트',TITLE_NAME:'칭호 이름 변경권'};
-const memberShopDescriptions={NICKNAME_TICKET:'닉네임 변경 대기 없이 1회 변경',NICKNAME_COLOR:'선택한 닉네임 색상 1회 적용',TITLE_COLOR:'보유 칭호의 글자·아이콘 색상 함께 1회 적용',TITLE_NAME:'모든 기본 칭호 보유 시 구매 가능 · 칭호 이름 1회 변경'};
+const memberShopNames={NICKNAME_TICKET:'닉네임 변경권',NICKNAME_COLOR:'닉네임 색상'};
+const memberShopDescriptions={NICKNAME_TICKET:'닉네임 변경 대기 없이 1회 변경',NICKNAME_COLOR:'선택한 닉네임 색상 1회 적용'};
 function memberPageButtons(result){return result.total>30?`<div class="member-pagination">${memberOffset?memberButton('prev','','이전'):''}<span>${Math.floor(memberOffset/30)+1}페이지</span>${result.nextOffset!==null?memberButton('next','','다음'):''}</div>`:'';}
 function memberConversionPanel(result){
  const rows=result.items||[];
@@ -27,8 +27,7 @@ async function reverseMemberPoints(row){
 }
 function memberDecorationFacts(p){
  const rows=[];
- if(p.titleBadge)rows.push(['착용한 배지',p.titleBadge.name||p.titleBadge.title||p.titleBadge.label||p.titleBadge.id]);
  if(p.nicknameColor)rows.push(['닉네임 색상',p.nicknameColor]);
- if(p.inventory){rows.push(['닉네임 변경권',String(p.inventory.nicknameTickets??p.inventory.NICKNAME_TICKET??0)+'개']);rows.push(['닉네임 색상 변경권',String(p.inventory.nicknameColors??p.inventory.NICKNAME_COLOR??0)+'개']);rows.push(['칭호 색상 세트',String(p.inventory.titleColors||0)+'개']);rows.push(['칭호 이름 변경권',String(p.inventory.titleNames||0)+'개']);}
+ if(p.inventory){rows.push(['닉네임 변경권',String(p.inventory.nicknameTickets??p.inventory.NICKNAME_TICKET??0)+'개']);rows.push(['닉네임 색상 변경권',String(p.inventory.nicknameColors??p.inventory.NICKNAME_COLOR??0)+'개']);}
  return rows.length?`<section class="member-panel"><h3>회원 꾸미기</h3>${memberFacts(rows)}</section>`:'';
 }

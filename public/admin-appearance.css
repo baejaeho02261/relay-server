@@ -37,4 +37,3 @@
 #theme-toggle {min-width:90px;white-space:nowrap;}
 @media(prefers-reduced-motion:reduce) {* {scroll-behavior:auto!important;}}
 
-[data-theme="dark"] .support-message.from-bot {background:var(--panel-3);color:var(--text);border-color:var(--line);}

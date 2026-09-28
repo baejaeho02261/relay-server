@@ -159,6 +159,3 @@ tr:hover td { background:#f7f9fb; color:var(--text); }
 .member-tabs { flex-wrap:wrap; gap:8px; }
 .member-detail { white-space:pre-wrap; overflow-wrap:anywhere; max-width:640px; }
 
-.support-message.from-bot {align-self:flex-start;background:#f2f2f2;border:1px solid var(--line);color:var(--text);}
-#support-knowledge textarea {width:100%;resize:vertical;}
-#support-knowledge input[type="checkbox"] {width:auto;}

@@ -25,7 +25,7 @@ const qrAuthBadge = document.getElementById('qr-auth-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'fix74';
+const WEB_UI_REVISION = 'fix75';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -218,8 +218,6 @@ function toast(message, error = false) {
 }
 
 function readableApiError(code) {
-  if(code==='INVALID_SUPPORT_FAQ')return '질문·답변 길이, 검색어 8개 이하, FAQ 12개 이하인지 확인해주세요.';
-  if(code==='FAQ_NOT_FOUND')return '삭제되었거나 없는 질문입니다. 목록을 다시 확인해주세요.';
   if(code==='HISTORY_CHANGED')return '다른 곳에서 내용이 변경되었습니다. 최신 상태를 불러온 뒤 다시 시도해주세요.';
   if (code === 'PERMISSIONS_REQUIRED') return '기기의 필수 권한을 모두 허용한 뒤 다시 승인해주세요.';
   if (code === 'QR_REQUEST_SUPERSEDED') return '이전 QR이 해제되었습니다. 앱에 새로 표시된 QR을 사용해주세요.';
