@@ -16,8 +16,8 @@ function Rows(p){
   if(row.accountId!==p.id||!['QR_TOPUP','PURCHASE','REFUND'].includes(row.kind))continue;
   const order=db.orders[row.reference];
   const headings={QR_TOPUP:title('충전이 완료되었어요','Wallet top-up approved'),PURCHASE:title('게임 구매가 완료되었어요','Game purchase completed'),REFUND:title('환불이 완료되었어요','Refund completed')};
-  const detail=row.kind==='QR_TOPUP'?title('개인 지갑에서 충전 내역을 확인하세요.','Check the top-up in your wallet.'):order?.accountId===p.id?order.title||title('게임 이용권','Game pass'):title('결제 내역을 확인하세요.','Check your payment history.');
-  add('payment:'+row.id,row.at,headings[row.kind],detail,'receipt',row.kind==='QR_TOPUP'?'charge':'payments');
+  const detail=order?.accountId===p.id?order.title||title('게임 이용권','Game pass'):title('결제 내역을 확인하세요.','Check your payment history.');
+  add('payment:'+row.id,row.at,headings[row.kind],detail,'receipt','payments');
  }
  for(const row of Object.values(db.pointLedger)){
   if(row.accountId!==p.id||row.amount<=0||!['BADGE_REWARD','ATTENDANCE','ROULETTE','EVENT_CARD','EVENT_CHEST','EVENT_RPS','EVENT_DINO','EVENT_FLAPPY','EVENT_WHACK','EVENT_DODGE','EVENT_RHYTHM'].includes(row.kind))continue;

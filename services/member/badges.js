@@ -2,7 +2,7 @@
 const s=require('./store');
 // A completed mission is a durable fact, not a projection of today's post or
 // follower count. Each title grants its published point reward exactly once.
-const icons={posts:'create',comments:'bubble',replies:'reply-thread',likes:'like',likesReceived:'heart',following:'following',followers:'followers',profileVisits:'eye',profileEdits:'edit',avatar:'photo',bio:'user',photoPosts:'photo',gifPosts:'gif',pollsCreated:'poll',pollVotes:'poll',reposts:'repost',bookmarks:'bookmark',newsRead:'news',gamesRead:'shop',postsRead:'feed',attendance:'calendar',attendanceStreak:'calendar',wheel:'wheel',purchases:'ticket',gameStarts:'shop',charges:'wallet',exchanges:'refresh',shopPurchases:'store',nicknameColor:'user',reports:'report',reportsReceived:'bell'};
+const icons={posts:'create',comments:'bubble',replies:'reply-thread',likes:'like',likesReceived:'heart',following:'following',followers:'followers',profileVisits:'eye',profileEdits:'edit',avatar:'photo',bio:'user',photoPosts:'photo',gifPosts:'gif',pollsCreated:'poll',pollVotes:'poll',reposts:'repost',bookmarks:'bookmark',newsRead:'news',gamesRead:'shop',postsRead:'feed',attendance:'calendar',attendanceStreak:'calendar',wheel:'wheel',purchases:'ticket',gameStarts:'shop',exchanges:'refresh',shopPurchases:'store',nicknameColor:'user',reports:'report',reportsReceived:'bell'};
 const baseCatalog=[
  {id:'POSTS_1',title:'첫 이야기',description:'첫 공개 게시글을 작성했어요.',metric:'posts',target:1},
  {id:'POSTS_10',title:'이야기꾼',description:'공개 게시글을 누적 10개 작성했어요.',metric:'posts',target:10},
@@ -46,7 +46,6 @@ const baseCatalog=[
  {id:'GAME_PURCHASE_1',title:'첫 게임 이용권',description:'충전 잔액으로 게임 이용권을 처음 구매했어요.',metric:'purchases',target:1},
  {id:'GAME_PURCHASE_10',title:'계속되는 즐거움',description:'게임 이용권 구매를 누적 10회 완료했어요.',metric:'purchases',target:10},
  {id:'GAME_START_1',title:'이용 시작',description:'구매한 게임 이용권을 처음 사용했어요.',metric:'gameStarts',target:1},
- {id:'QR_CHARGE_1',title:'지갑의 첫 충전',description:'QR 충전 승인이 완료됐어요.',metric:'charges',target:1},
  {id:'POINT_EXCHANGE_1',title:'포인트의 새 쓰임',description:'포인트를 충전 잔액으로 처음 교환했어요.',metric:'exchanges',target:1},
  {id:'SHOP_PURCHASE_1',title:'나만의 꾸미기',description:'포인트 상점에서 첫 상품을 구매했어요.',metric:'shopPurchases',target:1},
  {id:'NICKNAME_COLOR_1',title:'나만의 색깔',description:'닉네임 색상을 처음 적용했어요.',metric:'nicknameColor',target:1},
@@ -60,7 +59,7 @@ const catalog=[...baseCatalog,{id:'ALL_TITLES',title:'모든 칭호 보유자',d
 const REWARD_KIND='BADGE_REWARD',POINT_CAP=100000000;
 // Compatibility payments only: these removed missions can never be awarded
 // again, but an existing durable unpaid award remains owed to its owner.
-const retiredRewards=Object.freeze({BACCARAT_1:50,ROULETTE_1:50,SLOTS_1:50,CRASH_1:50,DICE_1:50,MINES_1:50,PLINKO_1:50,LIMBO_1:50,HILO_1:50,TOWER_1:50,BLACKJACK_1:50,CASINO_10:100,CASINO_100:300});
+const retiredRewards=Object.freeze({QR_CHARGE_1:50,BACCARAT_1:50,ROULETTE_1:50,SLOTS_1:50,CRASH_1:50,DICE_1:50,MINES_1:50,PLINKO_1:50,LIMBO_1:50,HILO_1:50,TOWER_1:50,BLACKJACK_1:50,CASINO_10:100,CASINO_100:300});
 const PaymentRows=data=>[...catalog,...Object.keys(retiredRewards).filter(id=>!!data?.awards[id]).map(id=>({id,rewardPoints:retiredRewards[id]}))];
 const VERSION=1,MAX=Object.fromEntries(catalog.map(row=>[row.metric,Math.max(...catalog.filter(x=>x.metric===row.metric).map(x=>x.target))]));
 const LEGACY_SELECTED=new Set(['FOLLOWERS_500','POSTS_10','POSTS_50','ATTENDANCE_7','ATTENDANCE_30']);
@@ -155,7 +154,6 @@ function Seed(p){
  for(const row of Object.values(db.eventSpins))if(row.accountId===p.id)Unique(p,'wheel',row.id);
  for(const row of Object.values(db.ledger))if(row.accountId===p.id){
   if(row.kind==='PURCHASE'&&row.amount<0)Unique(p,'purchases',row.id);
-  if(row.kind==='QR_TOPUP'&&row.amount>0&&db.chargeRequests[row.reference]?.status==='APPROVED')Observe(p,'charges',1);
   if(row.kind==='POINT_EXCHANGE'&&row.amount>0&&Object.values(db.pointLedger).some(x=>x.accountId===p.id&&x.kind==='POINT_EXCHANGE'&&x.reference===row.reference&&x.amount<0))Observe(p,'exchanges',1);
  }
  for(const row of Object.values(db.orders))if(row.accountId===p.id&&row.activatedAt)Observe(p,'gameStarts',1);
@@ -210,7 +208,7 @@ function After(p,action,body={},result={},before={}){
  else if(action==='profile.save'&&before.profile!==ProfileFingerprint(p))Observe(p,'profileEdits',1);
  else if(action==='event.spin'){const row=db.eventSpins[result.spin?.id];if(row?.accountId===p.id)Unique(p,'wheel',row.id);}
  else if(action==='purchase'){for(const row of Object.values(db.ledger))if(row.accountId===p.id&&row.kind==='PURCHASE'&&row.amount<0)Unique(p,'purchases',row.id);}
- else if(action==='order.activate'){const row=db.orders[result.order?.id];if(row?.accountId===p.id&&row.activatedAt)Observe(p,'gameStarts',1);}
+ else if(action==='order.start'){const row=db.orders[result.order?.id];if(row?.accountId===p.id&&row.activatedAt)Observe(p,'gameStarts',1);}
  else if(action==='points.exchange'){const row=db.pointConversions[result.conversion?.id];if(row?.accountId===p.id&&row.status==='COMPLETED')Unique(p,'exchanges',row.id);}
  else if(action==='shop.purchase'){const row=db.shopPurchases[result.purchase?.id];if(row?.accountId===p.id)Unique(p,'shopPurchases',row.id);}
  else if(action==='report'){
@@ -237,15 +235,6 @@ function AfterRead(p,action,body={},data={}){
  else if(action==='product'&&data.product?.id){metric='gamesRead';id=data.product.id;}
  else if(action==='thread'&&data.post?.id&&data.post.own===false){metric='postsRead';id=data.post.id;}
  if(metric)Persist(p,draft=>Unique(draft,metric,id));
-}
-function ChargeApproved(p,row){
- // A charge badge requires a committed server payment ledger. Provider return
- // parameters alone never qualify; its order must be the persisted paid row.
- const payment=s.DB().ledger[row?.paymentId];
- const legacy=row?.status==='APPROVED'&&row.mode==='WALLET'&&payment?.kind==='QR_TOPUP';
- const provider=row?.status==='PAID'&&s.DB().settings.paymentOrders?.[row.id]===row&&payment?.kind==='PAYMENT_TOPUP';
- if(!row||row.accountId!==p.id||(!legacy&&!provider)||!payment||payment.accountId!==p.id||payment.reference!==row.id||payment.amount!==row.amount||payment.amount<=0)return;
- Capture(p);Unique(p,'charges',row.id);Award(p);PayRewards(p);
 }
 function Appearance(p,row){
  const style=p.titleStyles?.[row.id]||{};
@@ -281,4 +270,4 @@ function Select(p,body){
  if(p.titleBadgeId!==body.id){p.titleBadgeId=body.id;p.profileRevision=Math.max(p.profileRevision||0,p.avatarRevision||0)+1;}
  PayRewards(p);return {...Inventory(p,p),publicProfile:s.PublicProfile(p)};
 }
-module.exports={Public,Read,Select,Before,After,AfterRead,Capture,Settle,ChargeApproved,AllTitlesEarned,Owned,Cosmetics,Ensure};
+module.exports={Public,Read,Select,Before,After,AfterRead,Capture,Settle,AllTitlesEarned,Owned,Cosmetics,Ensure};

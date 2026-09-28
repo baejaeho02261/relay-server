@@ -39,7 +39,8 @@ async function Upload(req,key,name){
 }
 function Entitlement(accountId,orderId){
  const p=s.ProfileById(accountId),o=s.DB().orders[orderId];
- if(!p||p.blocked||!o||o.accountId!==accountId||o.mergedInto||!['PAID','ACTIVE'].includes(o.status)||(o.expiresAt>0&&o.expiresAt<=Date.now()))fail('GAME_DOWNLOAD_FORBIDDEN');
+ if(p)require('./commerce').NormalizeOrders(p);
+ if(!p||p.blocked||!o||o.accountId!==accountId||o.mergedInto||!['PAID','ACTIVE'].includes(o.status)||o.consumedAt&&!require('./commerce').SessionForOrder(o))fail('GAME_DOWNLOAD_FORBIDDEN');
  return {p,o};
 }
 function Sign(payload){return crypto.createHmac('sha256',releases.SigningSecret()).update('game-download-v1|'+payload).digest('base64url');}
@@ -47,16 +48,16 @@ function Issue(p,c,body){
  const {o}=Entitlement(p.id,String(body.orderId||''));const product=s.DB().products[o.productId],artifact=product&&PublicArtifact(product.artifactId,require('./commerce').GameKey(product));
  if(!artifact)fail('GAME_ARTIFACT_UNAVAILABLE');
  let origin;try{origin=new URL(config.UPDATE_BASE_URL);if(origin.protocol!=='https:'||origin.username||origin.password||origin.search||origin.hash)fail('GAME_DOWNLOAD_URL_INVALID');}catch(_){fail('GAME_DOWNLOAD_URL_INVALID');}
- const expiresAt=Date.now()+TTL,payload=Buffer.from(JSON.stringify({v:1,account:p.id,order:o.id,artifact:artifact.id,exp:expiresAt})).toString('base64url');
- return {download:{accountId:p.id,orderId:o.id,status:o.status,gameKey:artifact.gameKey,fileName:artifact.fileName,sha256:artifact.sha256,bytes:artifact.bytes,expiresAt,url:origin.origin+'/game-download/'+payload+'.'+Sign(payload)}};
+ const fileName=crypto.randomBytes(20).toString('hex')+'.exe',expiresAt=Date.now()+TTL,payload=Buffer.from(JSON.stringify({v:1,account:p.id,order:o.id,artifact:artifact.id,name:fileName,exp:expiresAt})).toString('base64url');
+ return {download:{accountId:p.id,orderId:o.id,status:o.status,gameKey:artifact.gameKey,fileName,sha256:artifact.sha256,bytes:artifact.bytes,expiresAt,url:origin.origin+'/game-download/'+payload+'.'+Sign(payload)}};
 }
 function Verify(token){
  const [payload,sig,...extra]=String(token||'').split('.');if(extra.length||!payload||payload.length>1200||!sig)fail('GAME_DOWNLOAD_FORBIDDEN');
  const expected=Buffer.from(Sign(payload)),actual=Buffer.from(sig);if(expected.length!==actual.length||!crypto.timingSafeEqual(expected,actual))fail('GAME_DOWNLOAD_FORBIDDEN');
- const value=JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));if(value.v!==1||!Number.isSafeInteger(value.exp)||value.exp<=Date.now()||value.exp>Date.now()+TTL)fail('GAME_DOWNLOAD_FORBIDDEN');
+ const value=JSON.parse(Buffer.from(payload,'base64url').toString('utf8'));if(value.v!==1||!/^([a-f0-9]{40})\.exe$/.test(value.name||'')||!Number.isSafeInteger(value.exp)||value.exp<=Date.now()||value.exp>Date.now()+TTL)fail('GAME_DOWNLOAD_FORBIDDEN');
  const {o}=Entitlement(value.account,value.order),product=s.DB().products[o.productId];
  if(!product||product.artifactId!==value.artifact)fail('GAME_ARTIFACT_UNAVAILABLE');
- const artifact=Artifact(value.artifact);if(!artifact||artifact.gameKey!==require('./commerce').GameKey(product))fail('GAME_ARTIFACT_UNAVAILABLE');return artifact;
+ const artifact=Artifact(value.artifact);if(!artifact||artifact.gameKey!==require('./commerce').GameKey(product))fail('GAME_ARTIFACT_UNAVAILABLE');return {...artifact,fileName:value.name};
 }
 async function VerifyBytes(a){
  const key=a.id+'|'+a.sha256+'|'+a.stat.size+'|'+a.stat.mtimeMs+'|'+a.stat.ctimeMs;

@@ -12,7 +12,7 @@ function Configuration(){
  return {providers,checkedAt:Date.now(),publicUrlField:'MEMBER_OAUTH_PUBLIC_URL'};
 }
 function Read(body={}){
- if(body.view==='integrations')return {oauth:Configuration(),payments:require('./payments').AdminStatus()};
+ if(body.view==='integrations')return {oauth:Configuration()};
  if(body.accountId){const p=s.ProfileById(body.accountId);if(!p)s.Fail('MEMBER_NOT_FOUND');return {profile:Profile(p)};}
  const query=String(body.q||'').trim().toLocaleLowerCase('ko-KR');
  let rows=Object.values(s.DB().profiles).map(Profile);

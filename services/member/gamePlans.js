@@ -1,13 +1,16 @@
 'use strict';
 const s=require('./store');
-const DAYS=[1,7,15,30]; // Initial suggestions only; persisted plans define purchasable durations.
-function Plans(product){
- const rows=Array.isArray(product?.plans)?product.plans:(product?.days?[{days:product.days,price:product.price}]:DAYS.map(days=>({days,price:0})));
- return rows.map(({days,price})=>({days,price,available:Number.isSafeInteger(days)&&days>=1&&days<=3650&&Number.isSafeInteger(price)&&price>0&&price<=10000000})).sort((a,b)=>a.days-b.days);
+// One purchase is one start. Legacy duration prices only seed the new single price.
+function Price(product){
+ if(product?.singleUse===true&&Number.isSafeInteger(product.price))return product.price;
+ const rows=Array.isArray(product?.plans)?product.plans:[];
+ const first=rows.filter(x=>Number.isSafeInteger(x.price)&&x.price>0).sort((a,b)=>(a.days||0)-(b.days||0))[0];
+ return first?.price||(Number.isSafeInteger(product?.price)?product.price:0);
 }
+function Plans(product){const price=Price(product);return [{uses:1,price,available:Number.isSafeInteger(price)&&price>0&&price<=10000000}];}
 function Validate(value,previous){
- if(value===undefined)return Plans(previous).map(({days,price})=>({days,price}));
- if(!Array.isArray(value)||!value.length||value.length>24)s.Fail('GAME_PLAN_INVALID');
- const seen=new Set();return value.map(x=>{if(!x||!Number.isSafeInteger(x.days)||x.days<1||x.days>3650||seen.has(x.days))s.Fail('GAME_PLAN_INVALID');seen.add(x.days);return {days:x.days,price:s.Money(x.price,0)};}).sort((a,b)=>a.days-b.days);
+ if(value===undefined)return Plans(previous).map(({uses,price})=>({uses,price}));
+ if(!Array.isArray(value)||value.length!==1||value[0]?.days!==undefined)s.Fail('GAME_PLAN_INVALID');
+ return [{uses:1,price:s.Money(value[0].price,0)}];
 }
-module.exports={DAYS,Plans,Validate};
+module.exports={Price,Plans,Validate};

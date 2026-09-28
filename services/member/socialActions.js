@@ -12,13 +12,13 @@ function Bookmark(p,body){const row=Target(p,body);if(typeof body.saved!=='boole
 function Bookmarks(p,body){const rows=Object.values(s.DB().bookmarks).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at).filter(x=>{try{Target(p,{kind:x.kind,id:x.targetId});return true;}catch(_){return false;}});const page=s.Page(rows,body,12);return {...page,items:page.items.map(x=>x.kind==='post'?{kind:'post',post:require('./social').PublicPost(Post(p,x.targetId),p,false,body._wire==='zlib')}:{kind:'comment',comment:PublicComment(Comment(p,x.targetId),p)})};}
 function Repost(p,body){
  const post=Post(p,body.postId);if(post.archived)s.Fail('POST_ARCHIVED');
- // Only the original author may publish a direct repost. Other members still
- // create their own quoted post through the composer and its visibility checks.
- if(post.accountId!==p.id)s.Fail('REPOST_COMPOSE_REQUIRED');
+ // A held post directly promotes its original for any permitted reader.
+ // The author's sharing preference still applies to other members.
+ if(body.value===true&&post.accountId!==p.id&&!require('./activity-settings').Values(s.ProfileById(post.accountId)).allowRepost)s.Fail('REPOST_UNAVAILABLE');
  if(typeof body.value!=='boolean')s.Fail('INPUT_INVALID');
  const db=s.DB(),key=p.id+':'+post.id;
  if(body.value){
-  // Each confirmed action may promote the same post again. Operation() replays
+  // Each held action may promote the same post again. Operation() replays
   // an existing request ID before reaching here, so a network retry never bumps
   // it twice. Retain one relationship and preserve the original post/content.
   if(db.reposts[key]&&!Object.values(db.repostEvents).some(row=>row.accountId===p.id&&row.postId===post.id)){const previous={...db.reposts[key],id:s.Id('RPE')};db.repostEvents[previous.id]=previous;}

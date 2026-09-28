@@ -4,7 +4,7 @@ const crypto=require('node:crypto'),state=require('../../core/state'),s=require(
 const TTL=5*60*1000,CLAIM_TTL=60*1000,MAX_PENDING=2000;
 const pending=new Map(),opens=new Map(),states=new Map(),jwks=new Map();
 const PROVIDERS=Object.freeze({
- google:{name:'Google',authorization:'https://accounts.google.com/o/oauth2/v2/auth',token:'https://oauth2.googleapis.com/token',jwks:'https://www.googleapis.com/oauth2/v3/certs',issuers:['https://accounts.google.com','accounts.google.com'],scope:'openid profile',prefix:'GOOGLE'},
+ google:{name:'Google',authorization:'https://accounts.google.com/o/oauth2/v2/auth',token:'https://oauth2.googleapis.com/token',jwks:'https://www.googleapis.com/oauth2/v3/certs',issuers:['https://accounts.google.com','accounts.google.com'],scope:'openid profile email',prefix:'GOOGLE'},
  kakao:{name:'카카오',authorization:'https://kauth.kakao.com/oauth/authorize',token:'https://kauth.kakao.com/oauth/token',jwks:'https://kauth.kakao.com/.well-known/jwks.json',issuers:['https://kauth.kakao.com'],scope:'openid profile_nickname',prefix:'KAKAO'}
 });
 const hash=x=>crypto.createHash('sha256').update(String(x)).digest('hex');
@@ -17,13 +17,28 @@ function Configuration(provider){
  const raw=String(process.env.MEMBER_OAUTH_PUBLIC_URL||require('../../config/config').UPDATE_BASE_URL||'').trim();
  let origin='';try{const u=new URL(raw);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash&&u.pathname==='/')origin=u.origin;}catch(_){}
  const missing=[];if(!clientId)missing.push(p.prefix+'_OAUTH_CLIENT_ID');if(!secret)missing.push(p.prefix+'_OAUTH_CLIENT_SECRET');if(!origin)missing.push('MEMBER_OAUTH_PUBLIC_URL');if(!vault.Key())missing.push('MEMBER_OAUTH_TOKEN_KEY');
- return {...p,provider,clientId,secret,origin,redirectUri:origin+'/member/oauth/callback/'+provider,unlinkCallback:provider==='kakao'?origin+'/member/oauth/kakao/unlink':'',configured:missing.length===0,missing};
+ const emailScope=provider==='kakao'&&process.env.KAKAO_OAUTH_EMAIL_SCOPE==='true';
+ return {...p,scope:p.scope+(emailScope?' account_email':''),emailScope,provider,clientId,secret,origin,redirectUri:origin+'/member/oauth/callback/'+provider,unlinkCallback:provider==='kakao'?origin+'/member/oauth/kakao/unlink':'',configured:missing.length===0,missing};
 }
 function PreAllowed(c){return !!c&&state.serviceEnabled&&require('../haCoordinator').CanAcceptTraffic()&&c.connected&&!c.disconnected&&!c.superseded&&!c.socket?.destroyed&&!!c.deviceAuthChallengeId&&require('../deviceAuth').Verified('CLIENT',c.clientId)&&require('../clientPermissions').Ready(c)&&require('../clientInstallation').Ready(c);}
 function RequirePre(c){if(!PreAllowed(c))s.Fail(state.serviceEnabled?'IDENTITY_DEVICE_REQUIRED':'SERVICE_DISABLED');}
 function Existing(c){try{return s.DB().profiles[s.Subject(c)]||null;}catch(_){return null;}}
 function BindingKey(provider,subject){return hash(provider+'\0'+subject);}
 function Public(p){const i=p?.providerIdentity,linked=lifecycle.Live(p);return i?{accountLabel:i.label||PROVIDERS[i.provider]?.name+' 계정',accountProvider:i.provider,accountVerified:linked,accountLinked:linked}:{accountLabel:p?s.Handle(p):'',accountProvider:'',accountVerified:false,accountLinked:false};}
+// Email is profile display data, never an account key or part of public authors.
+function Email(value){return typeof value==='string'&&value.length<=254&&!/[\s<>\u0000-\u001f\u007f]/.test(value)&&/^[^@]+@[^@]+\.[^@]+$/.test(value)?value:'';}
+function Own(p){return {accountEmail:lifecycle.Live(p)?Email(p?.providerIdentity?.email):''};}
+async function KakaoEmail(verified,credentials,cfg,scope){
+ // Kakao's ID token email does not carry the verification flag. Read the
+ // consented user-info claim and require the same immutable provider subject.
+ if(!cfg.emailScope&&!verified.emailClaimPresent&&!String(scope||'').split(/\s+/).includes('account_email'))return '';
+ try{
+  const value=await FetchJSON('https://kapi.kakao.com/v2/user/me',{headers:{Authorization:'Bearer '+credentials.accessToken}});
+  const account=value.kakao_account;
+  if(String(value.id)!==verified.sub||account?.email_needs_agreement!==false||account.is_email_valid!==true||account.is_email_verified!==true)return '';
+  return Email(account.email);
+ }catch(_){return '';}// Optional profile details never block a successful login.
+}
 function Ready(c){
  if(TestLegacy())return true;
  if(!PreAllowed(c))return false;
@@ -70,7 +85,7 @@ function Link(c,claims){
   const old=db.oauthAccounts[key];if(old&&(old.accountId!==p.id||old.installationSubject!==subject))s.Fail('IDENTITY_LINKED_ELSEWHERE');
   if(p.providerIdentity&&p.providerIdentity.key!==key)s.Fail('IDENTITY_ACCOUNT_CHANGED');
   const label=String(claims.label||PROVIDERS[claims.provider].name+' 계정').replace(/[\u0000-\u001f\u007f<>]/g,'').trim().slice(0,60)||PROVIDERS[claims.provider].name+' 계정';
-  p.providerIdentity={provider:claims.provider,key,label,linkedAt:p.providerIdentity?.linkedAt||Date.now()};
+  p.providerIdentity={provider:claims.provider,key,label,email:Email(claims.accountEmail),linkedAt:p.providerIdentity?.linkedAt||Date.now()};
   db.oauthAccounts[key]=lifecycle.Fresh(p,claims.credentials,old);
   p.profileRevision=(p.profileRevision||0)+1;
   return Public(p);
@@ -102,7 +117,7 @@ async function VerifyToken(token,provider,nonce){
  if(!valid)s.Fail('IDENTITY_TOKEN_INVALID');
  const cfg=Configuration(provider),now=Math.floor(Date.now()/1000),aud=Array.isArray(p.aud)?p.aud:[p.aud];
  if(!cfg.issuers.includes(p.iss)||!aud.includes(cfg.clientId)||(aud.length>1||p.azp)&&p.azp!==cfg.clientId||!Number.isFinite(p.exp)||p.exp<=now||!Number.isFinite(p.iat)||p.iat>now+60||p.iat<now-600||!equal(p.nonce,nonce)||typeof p.sub!=='string'||!p.sub||p.sub.length>255)s.Fail('IDENTITY_TOKEN_INVALID');
- return {provider,sub:p.sub,label:String(provider==='kakao'?p.nickname||'카카오 계정':p.name||'Google 계정')};
+ return {provider,sub:p.sub,label:String(provider==='kakao'?p.nickname||'카카오 계정':p.name||'Google 계정'),accountEmail:provider==='google'&&p.email_verified===true?Email(p.email):'',emailClaimPresent:typeof p.email==='string'&&!!p.email};
 }
 function HTML(res,status,text){
  const nonce=crypto.randomBytes(18).toString('base64');
@@ -134,6 +149,9 @@ async function HandleHttp(req,res,url){
   try{const cfg=Configuration(f.provider),result=await FetchJSON(cfg.token,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',client_id:cfg.clientId,client_secret:cfg.secret,redirect_uri:cfg.redirectUri,code,code_verifier:f.verifier}).toString()});
    const verified=await VerifyToken(result.id_token,f.provider,f.nonce);if(!Bound(f.connection,f))s.Fail('IDENTITY_FLOW_EXPIRED');
    try{verified.credentials=vault.Normalize(result);}catch(e){s.Fail(e.message);}
+   if(f.provider==='kakao')verified.accountEmail=await KakaoEmail(verified,verified.credentials,cfg,result.scope);
+   if(!Bound(f.connection,f))s.Fail('IDENTITY_FLOW_EXPIRED');
+   delete verified.emailClaimPresent;
    f.verified=verified;f.verifiedAt=Date.now();f.status='verified';delete f.verifier;delete f.nonce;
    HTML(res,200,'계정 확인이 완료되었습니다. 앱에서 연결을 마무리합니다.');
   }catch(e){f.status='failed';f.reason=e.memberError?e.message:'IDENTITY_PROVIDER_UNAVAILABLE';delete f.verifier;delete f.nonce;HTML(res,400,'계정 연결을 완료하지 못했습니다. 앱에서 다시 시도해주세요.');}
@@ -166,4 +184,4 @@ async function HandleUnlink(req,res,url){
  if(p&&p.subject===link.installationSubject&&p.providerIdentity?.key===BindingKey('kakao',user))lifecycle.CheckAccount(p.id,{force:true,callback:true}).catch(()=>{});
  return true;
 }
-module.exports={Ready,Public,Execute,HandleHttp,Configuration,PreAllowed,VerifyToken,AccessReason,InvalidateFlows,AdminStatus:lifecycle.AdminStatus,CheckAccount:lifecycle.CheckAccount,CheckClient:lifecycle.CheckClient,RevokeAccount:lifecycle.RevokeAccount,StartMonitor:lifecycle.StartMonitor,StopMonitor:lifecycle.StopMonitor};
+module.exports={Ready,Public,Own,Execute,HandleHttp,Configuration,PreAllowed,VerifyToken,AccessReason,InvalidateFlows,AdminStatus:lifecycle.AdminStatus,CheckAccount:lifecycle.CheckAccount,CheckClient:lifecycle.CheckClient,RevokeAccount:lifecycle.RevokeAccount,StartMonitor:lifecycle.StartMonitor,StopMonitor:lifecycle.StopMonitor};

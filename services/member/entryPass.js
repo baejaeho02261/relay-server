@@ -15,7 +15,7 @@ function Migrate(){
  }
  return changed;
 }
-function ForClient(c){
+function ForClient(c,allowPreparation=false){
  if(!c||c.licenseAuthorized!==true)return null;
  const license=state.licenses.get(c.licenseKey)||require('../../license/licenseManager').GetBoundLicenseEntry(c.clientId)?.license;
  if(!license||license.boundClient!==c.clientId||license.suspended||Expired(license))return null;
@@ -23,7 +23,14 @@ function ForClient(c){
  let p;try{p=s.DB().profiles[s.Subject(c)];}catch(_){return null;}
  if(!p||p.blocked)return null;
  const order=s.DB().orders[p.activeOrderId];
- if(!order||order.accountId!==p.id||order.status!=='ACTIVE'||order.expiresAt<=Date.now())return null;
- return {accessType:order.accessType,expiresAt:order.expiresAt,orderId:order.id};
+ if(!order||order.accountId!==p.id||order.mergedInto)return null;
+ if(order.singleUse){
+  if(order.preparedClientId!==c.clientId)return null;
+  if(order.consumedAt){const session=require('../buildGate').ActiveSessionForClient(c.clientId);if(!session||session.orderId!==order.id||session.sessionId!==order.sessionId)return null;return {accessType:order.accessType,expiresAt:session.expiresAt,orderId:order.id};}
+  if(!allowPreparation||order.status!=='PAID')return null;
+  return {accessType:order.accessType,expiresAt:Date.now()+86400000,orderId:order.id,preparation:true};
+ }
+ // An old timed entitlement must be migrated before it can authorize a new session.
+ return null;
 }
 module.exports={IsEntry,Expired,Convert,Migrate,ForClient};

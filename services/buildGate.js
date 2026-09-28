@@ -65,6 +65,7 @@ function PublicSession(session) {
         clientId: NormalizeID(session.clientId),
         serverId: NormalizeID(session.serverId),
         accessType: NormalizeAccessType(session.accessType),
+        orderId: String(session.orderId || ''),
         status: String(session.status || 'FAILED').toUpperCase(),
         createdAt: Number(session.createdAt) || 0,
         dispatchedAt: Number(session.dispatchedAt) || 0,
@@ -126,7 +127,7 @@ function Queue(connection, requestId) {
     if (serverOwner && serverOwner.clientId !== clientId)
         return { ok: false, reason: 'SERVER_ALREADY_PAIRED' };
 
-    const gameAccess=require('./member/entryPass').ForClient(connection);
+    const gameAccess=require('./member/entryPass').ForClient(connection,true);
     if(!gameAccess)return {ok:false,reason:'GAME_PASS_REQUIRED'};
     const now = Now();
     const sessionId = SessionId();
@@ -137,6 +138,7 @@ function Queue(connection, requestId) {
         clientId,
         serverId,
         accessType,
+        orderId: gameAccess.orderId || '',
         createdAt: now,
         expiresAt: now + config.BUILD_WAIT_TTL_MS,
         sessionExpiresAt: 0,
@@ -147,7 +149,7 @@ function Queue(connection, requestId) {
     };
     state.pendingBuildGrants.set(clientId, grant);
     state.buildSessions.set(sessionId, {
-        sessionId, requestId, clientId, serverId, accessType,
+        sessionId, requestId, clientId, serverId, accessType, orderId:gameAccess.orderId || '',
         status: 'PENDING', createdAt: now, dispatchedAt: 0,
         authorizedAt: 0, expiresAt: 0, endedAt: 0,
         reason: 'WAITING_FOR_SERVER', actor: 'APK', dispatchCount: 0
@@ -208,8 +210,8 @@ function TryDispatchClient(clientId) {
     if (!client.biometricVerified) return { delivered: false, waiting: true, reason: 'BIOMETRIC_AUTH_REQUIRED' };
     const active = require('../license/licenseManager').GetUsableLicenseForConnection(client);
     if (!active) return { delivered: false, waiting: true, reason: 'LICENSE_REQUIRED' };
-    const gameAccess=require('./member/entryPass').ForClient(client);
-    if(!gameAccess){MarkFailed(clientId,grant,'GAME_PASS_REQUIRED');Save();return {delivered:false,waiting:false,reason:'GAME_PASS_REQUIRED'};}
+    const gameAccess=require('./member/entryPass').ForClient(client,true);
+    if(!gameAccess||String(gameAccess.orderId||'')!==String(grant.orderId||'')){MarkFailed(clientId,grant,'GAME_PASS_REQUIRED');Save();return {delivered:false,waiting:false,reason:'GAME_PASS_REQUIRED'};}
 
     const saved = SavedClient(clientId);
     const serverId = saved ? NormalizeID(saved.serverId) : '';
@@ -302,6 +304,8 @@ function Complete(clientId, requestId) {
     clientId = NormalizeID(clientId);
     const grant = state.pendingBuildGrants.get(clientId);
     if (!grant || grant.requestId !== String(requestId || '').trim()) return { ok: false, reason: 'BUILD_GRANT_NOT_FOUND' };
+    const client=OnlineClient(clientId),access=client&&require('./member/entryPass').ForClient(client,true);
+    if(!client?.biometricVerified||!access||String(access.orderId||'')!==String(grant.orderId||'')){MarkFailed(clientId,grant,'GAME_PASS_REQUIRED');Save();return {ok:false,reason:'GAME_PASS_REQUIRED'};}
     const serverOwner = BindingForServer(grant.serverId);
     if (serverOwner && serverOwner.clientId !== clientId) {
         MarkFailed(clientId, grant, 'SERVER_ALREADY_PAIRED');
@@ -381,6 +385,9 @@ function EndSession(session, status, reason, actor = 'SYSTEM') {
     session.reason = reason;
     session.actor = SafeField(actor || 'SYSTEM').slice(0, 64);
     session.endedAt = Now();
+    // Revocation must reach the PC even if the audit/status save is unavailable.
+    // consumedAt was committed at Start; projection remains fail-closed without this status write.
+    try { require('./member/commerce').SessionEnded(session,reason); } catch (_) { Log('GAME_SESSION_SAVE_FAILED', session.sessionId); }
 
     const client = OnlineClient(session.clientId);
     if (client) {
@@ -557,7 +564,7 @@ function Cleanup() {
     }
     for (const session of state.buildSessions.values()) {
         const client=OnlineClient(session.clientId);
-        if(session.status==='AUTHORIZED'&&client&&!require('./member/entryPass').ForClient(client)){if(EndSession(session,'EXPIRED','GAME_PASS_EXPIRED','SYSTEM'))changed=true;}
+        if(session.status==='AUTHORIZED'&&client&&!require('./member/entryPass').ForClient(client,true)){if(EndSession(session,'EXPIRED','GAME_PASS_EXPIRED','SYSTEM'))changed=true;}
         if (session.status === 'AUTHORIZED' && Number(session.expiresAt) > 0 && Number(session.expiresAt) <= now) {
             if (EndSession(session, 'EXPIRED', 'LEASE_EXPIRED', 'SYSTEM')) changed = true;
         }
@@ -614,6 +621,7 @@ function ImportPersisted(data) {
                 clientId,
                 serverId,
                 accessType: NormalizeAccessType(raw.accessType),
+                orderId: String(raw.orderId || ''),
                 status,
                 createdAt: Number(raw.createdAt) || Now(),
                 dispatchedAt: Number(raw.dispatchedAt) || 0,
@@ -638,6 +646,7 @@ function ImportPersisted(data) {
             const grant = {
                 requestId, sessionId, clientId, serverId: NormalizeID(raw.serverId),
                 accessType: NormalizeAccessType(raw.accessType),
+                orderId: String(raw.orderId || ''),
                 createdAt: Number(raw.createdAt) || now, expiresAt,
                 sessionExpiresAt: 0, status: 'PENDING',
                 dispatchCount: Math.max(0, Number(raw.dispatchCount) || 0),
@@ -649,7 +658,7 @@ function ImportPersisted(data) {
             if (!session) {
                 session = {
                     sessionId, requestId, clientId, serverId: grant.serverId,
-                    accessType: grant.accessType, status: 'PENDING',
+                    accessType: grant.accessType, orderId:grant.orderId || '', status: 'PENDING',
                     createdAt: grant.createdAt, dispatchedAt: 0,
                     authorizedAt: 0, expiresAt: 0, endedAt: 0,
                     reason: 'RELAY_RESTART', actor: 'APK',

@@ -91,7 +91,7 @@ function NotifyAuthorized(connection, accessType, profile) {
         // No authorized frame or Build dispatch may escape before persistence succeeds.
         state.clientBiometricProfiles.set(connection.clientId, profile);
         connection.biometricVerified = true;
-        const game = require('./member/entryPass').ForClient(connection);
+        const game = require('./member/entryPass').ForClient(connection,true);
         connection.accessType = game ? NormalizeAccessType(game.accessType) : '';
         if (!installation.MarkAuthorized(connection)) { failure = 'INSTALLATION_REQUIRED'; throw Error(failure); }
         groupGuid = require('./userDashboard').GroupGuid(connection.accessType);
