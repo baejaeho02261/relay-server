@@ -159,7 +159,12 @@ async function RequestHandler(req, res) {
     }
 
     if (await require('../services/member/oauthIdentity').HandleHttp(req, res, url)) return;
-    if (await require('../services/member/payment-http').Handle(req, res, url)) return;
+    // Former checkout and callback URLs are retired. They must not settle an
+    // old order, redirect to a provider, or fall through to the admin shell.
+    if (pathname === '/pay' || pathname.startsWith('/pay/')) {
+        Json(res, 410, {ok:false,code:'TOPUP_UNAVAILABLE'});
+        return;
+    }
     if (await require('../services/member/game-downloads').Serve(req, res, pathname, url)) return;
 
     if (pathname === '/api/login' && method === 'POST') {
