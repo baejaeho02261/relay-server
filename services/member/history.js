@@ -13,7 +13,7 @@ const SERVICES=Object.freeze({
  'settings.language':['언어 설정','Language','settings'],'settings.currency':['잔액 표시 통화','Display currency','settings'],
  notifications:['알림','Notifications','news'],
  'settings.account':['계정 설정','Account','user'],about:['앱 정보','About','help'],policies:['약관 및 정책','Terms and policies','help'],
- points:['포인트','Points','gift'],attendance:['출석 체크','Attendance','calendar'],wheel:['돌림판','Wheel','gift'],
+ points:['포인트','Points','gift'],attendance:['출석 체크','Attendance','calendar'],
  popular:['인기 피드 Top 10','Popular feed Top 10','heart'],activity:['실시간 게임 구매','Live game purchases','receipt'],
  'top.games':['자주 많이 산 게임','Most purchased games','shop'],
  'nickname.color':['닉네임 색상','Nickname color','user']

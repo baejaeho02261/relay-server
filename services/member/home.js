@@ -42,7 +42,7 @@ function Read(p){
  const unreadCount=conversations.reduce((sum,row)=>sum+Math.max(0,(row.received?.[p.id]||0)-(row.readReceived?.[p.id]||0)),0);
  const purchases=latest(Object.values(db.orders).filter(row=>{const owner=s.ProfileById(row.accountId);return row.source!=='QR_CHARGE'&&row.status!=='REFUNDED'&&!row.mergedInto&&row.amount>0&&productIds.has(row.productId)&&owner&&!owner.blocked&&!extra.Blocked(p.id,owner.id)&&prefs.Read(owner).purchaseActivityVisible;}));
  const visibleComments=latest(Object.values(db.comments).filter(row=>!row.deleted&&!row.hidden&&visiblePostIds.has(row.postId)&&!extra.Blocked(p.id,row.accountId)&&!s.ProfileById(row.accountId)?.blocked&&require('./activity-settings').CommentVisible(p,row)));
- const attendanceRanking=Object.values(db.profiles).filter(row=>!row.blocked&&!extra.Blocked(p.id,row.id)).map(row=>({nickname:short(row.nickname,24),streak:rewards.Attendance(row).streak,at:row.attendance?.at||0,id:row.id})).filter(row=>row.streak>0).sort((a,b)=>b.streak-a.streak||a.at-b.at||a.id.localeCompare(b.id)).slice(0,RANKING_LIMIT).map((row,index)=>({rank:index+1,nickname:row.nickname,streak:row.streak}));
+ const attendanceRanking=Object.values(db.profiles).filter(row=>!row.blocked&&!extra.Blocked(p.id,row.id)).map(row=>({nickname:short(row.nickname,24),streak:rewards.Attendance(row).streak,at:row.attendance?.at||0,id:row.id})).filter(row=>row.streak>0).sort((a,b)=>b.streak-a.streak||a.at-b.at||a.id.localeCompare(b.id)).slice(0,RANKING_LIMIT).map((row,index)=>{const provider=require('./oauthIdentity').Public(s.ProfileById(row.id));return {rank:index+1,nickname:row.nickname,streak:row.streak,accountProvider:provider.accountProvider,accountLinked:provider.accountLinked,accountVerified:provider.accountVerified};});
  const notifications=require('./notifications').Read(p,{limit:1}),activeGames=commerce.ActiveGames(p);
  return {
   wallet:require('./wallet').Read(p),attendance:rewards.Attendance(p),attendanceRanking,
@@ -59,7 +59,6 @@ function Read(p){
   purchases:purchases.slice(0,LIMIT).map(row=>({id:row.id,title:short(row.title||product(row.productId)?.title,70),member:s.PublicProfile(s.ProfileById(row.accountId),false,p),at:row.at,productId:row.productId,...gameIdentity(row)})),
   topGames:require('./topGames').RankedPurchases().filter(row=>productIds.has(row.id)).slice(0,LIMIT).map((row,index)=>({id:row.id,title:short(row.title,70),rank:index+1,...gameIdentity(row)})),
   activeGame:commerce.ActiveGame(p),activeGames,runningGames:activeGames.slice(0,12),
-  events:{spins:p.eventSpins||0,wheelEnabled:rewards.Rules().enabled,rules:rewards.Rules()},
  };
 }
 module.exports={Read,LIMIT,POPULAR_LIMIT,RANKING_LIMIT,OnlineCount};

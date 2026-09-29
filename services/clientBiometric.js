@@ -281,7 +281,7 @@ function Reset(clientId, actor = 'WEB_ADMIN') {
         SendLine(connection.socket, 'BIOMETRIC_RESET|ADMIN');
         require('../relay/notifications').NotifyServerUnauthorized(clientId,
             'BIOMETRIC_RESET');
-        Begin(connection, connection.accessType);
+        if (!require('./memberEntry').Supports(connection)) Begin(connection, connection.accessType);
     }
     require('../storage/database').SaveDatabase();
     require('../storage/audit').LogEvent('CLIENT_BIOMETRIC_RESET',

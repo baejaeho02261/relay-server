@@ -1,11 +1,16 @@
 'use strict';
-const crypto=require('node:crypto'),s=require('./store');
+const s=require('./store');
 const Day=at=>new Date(at+9*3600000).toISOString().slice(0,10);
 const IsDay=value=>typeof value==='string'&&/^\d{4}-\d{2}-\d{2}$/u.test(value)&&Number.isFinite(Date.parse(value+'T00:00:00.000Z'))&&new Date(value+'T00:00:00.000Z').toISOString().slice(0,10)===value;
-const defaults={revision:1,enabled:true,attendanceDays:7,attendancePoints:100,
- prizes:[{points:10,weight:40},{points:20,weight:25},{points:30,weight:18},{points:50,weight:10},{points:100,weight:6},{points:300,weight:1}]};
-function Rules(){const rules=structuredClone(s.DB().settings.rewards||defaults);delete rules.chargeUnit;return {...rules,pointExchange:require('./points').Rules(rules.pointExchange)};}
-function Wallet(p){return {points:p.points||0,spins:p.eventSpins||0};}
+const defaults={revision:1,attendanceDays:7,attendancePoints:100};
+function Rules(){
+ const raw=s.DB().settings.rewards||defaults;
+ // Only active attendance/exchange settings are projected. Legacy wheel
+ // settings remain untouched until an administrator saves the active form.
+ return {revision:raw.revision||1,attendanceDays:raw.attendanceDays||7,attendancePoints:raw.attendancePoints||100,
+  pointExchange:require('./points').Rules(raw.pointExchange),...(raw.updatedAt?{updatedAt:raw.updatedAt,updatedBy:raw.updatedBy}: {})};
+}
+function Wallet(p){return {points:p.points||0};}
 function Credit(p,amount,kind,reference){
  const key=p.id+':'+kind+':'+reference,old=s.DB().pointLedger[key];if(old)return old;
  const balance=(p.points||0)+amount;if(!Number.isSafeInteger(balance)||balance<0||balance>100000000)s.Fail('POINT_BALANCE_INVALID');
@@ -48,27 +53,15 @@ function History(p,body={}){
  return s.Page(Object.values(s.DB().pointLedger).filter(x=>x.accountId===p.id).sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id)),body,20);
 }
 function Read(p,body={}){return {rules:Rules(),wallet:Wallet(p),attendance:Attendance(p),history:History(p,body),profile:s.PublicProfile(p,true)};}
-function Spin(p,body){
- const rules=Rules();if(!rules.enabled)s.Fail('EVENT_CLOSED');if(body.revision!==rules.revision)s.Fail('CONTENT_CHANGED');
- if((p.eventSpins||0)<1)s.Fail('EVENT_NO_TURNS');
- const total=rules.prizes.reduce((sum,x)=>sum+x.weight,0);let draw=crypto.randomInt(total),index=0;
- for(;index<rules.prizes.length-1;index++){if(draw<rules.prizes[index].weight)break;draw-=rules.prizes[index].weight;}
- const id=s.Id('SPIN');p.eventSpins--;
- const reward=Credit(p,rules.prizes[index].points,'ROULETTE',id);
- const spin={id,accountId:p.id,index,points:reward.amount,at:reward.at,revision:rules.revision};s.DB().eventSpins[id]=spin;
- return {...Read(p),spin,reward};
-}
 function SaveRules(body,actor){
  const previous=Rules();if(body.revision!==previous.revision)s.Fail('CONTENT_CHANGED');
- if(typeof body.enabled!=='boolean')s.Fail('INPUT_INVALID');
+ if(Object.keys(body).some(key=>!['action','revision','attendanceDays','attendancePoints','pointExchange'].includes(key)))s.Fail('INPUT_INVALID');
  const attendanceDays=s.Money(body.attendanceDays,1,31),attendancePoints=s.Money(body.attendancePoints,1,100000);
- if(!Array.isArray(body.prizes)||body.prizes.length!==6)s.Fail('INPUT_INVALID');
- const prizes=body.prizes.map(x=>({points:s.Money(x.points,1,100000),weight:s.Money(x.weight,1,10000)}));
  const pointExchange=require('./points').Validate(body.pointExchange,previous.pointExchange);
- return s.Atomic(()=>{s.DB().settings.rewards={enabled:body.enabled,attendanceDays,attendancePoints,prizes,pointExchange,revision:previous.revision+1,updatedAt:Date.now(),updatedBy:actor};return Rules();});
+ return s.Atomic(()=>{s.DB().settings.rewards={attendanceDays,attendancePoints,pointExchange,revision:previous.revision+1,updatedAt:Date.now(),updatedBy:actor};return Rules();});
 }
 function Admin(body={}){
  const rows=Object.values(s.DB().pointLedger).sort((a,b)=>b.at-a.at||b.id.localeCompare(a.id));
  return {rules:Rules(),...s.Page(rows.map(x=>({...x,member:s.ProfileById(x.accountId)?s.PublicProfile(s.ProfileById(x.accountId)):{id:'',nickname:'탈퇴 회원'}})),body,30)};
 }
-module.exports={Day,Rules,Wallet,Credit,Attendance,Check,History,Read,Spin,SaveRules,Admin};
+module.exports={Day,Rules,Wallet,Credit,Attendance,Check,History,Read,SaveRules,Admin};

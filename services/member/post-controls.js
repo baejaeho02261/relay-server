@@ -52,6 +52,7 @@ function Recipients(p,body={}){
 function Share(p,body={}){
  const post=Shareable(p,body.id),target=s.Resolve(body.memberId);if(!MayShare(p,post,target))s.Fail('POST_SHARE_UNAVAILABLE');
  const dm=require('./direct-messages'),opened=dm.Open(p,{memberId:target.id}),receipt=dm.Send(p,{id:opened.id,text:'게시글을 공유했습니다.'}),row=s.DB().directThreads[opened.id].messages.at(-1);
+ require('./social-entitlements').Consume(p,'SHARE',post.id,receipt.sentMessageId);
  row.sharedPostId=post.id;row.text='게시글을 공유했습니다.';row.mentions=[];
  s.DB().postShares[receipt.sentMessageId]={id:receipt.sentMessageId,postId:post.id,accountId:p.id,at:row.at};
  // Receipts contain no recipient, title, body, image or conversation snapshot.

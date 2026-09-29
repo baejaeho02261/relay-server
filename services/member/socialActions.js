@@ -23,6 +23,7 @@ function Repost(p,body){
   // it twice. Retain one relationship and preserve the original post/content.
   if(db.reposts[key]&&!Object.values(db.repostEvents).some(row=>row.accountId===p.id&&row.postId===post.id)){const previous={...db.reposts[key],id:s.Id('RPE')};db.repostEvents[previous.id]=previous;}
   const at=require('./reposts').NextDirectAt(p);
+  require('./social-entitlements').Consume(p,'REPOST',post.id,String(at));
   if(db.reposts[key])db.reposts[key].at=at;
   else db.reposts[key]={id:s.Id('RPS'),accountId:p.id,postId:post.id,at};
   const event={id:s.Id('RPE'),accountId:p.id,postId:post.id,at};db.repostEvents[event.id]=event;

@@ -48,6 +48,7 @@ function Disconnect(connection, reason = 'REINSTALL_NOT_ALLOWED') {
     connection.reinstallBlocked = true;
     connection.connected = false;
     connection.deviceAuthVerified = false;
+    connection.memberEntryGrant = null;
     connection.biometricVerified = false;
     connection.licenseAuthorized = false;
     connection.licenseKey = '';

@@ -22,7 +22,8 @@ function SuspendStale(p){
  Remember(p.id,{...(Observation(p)||{}),generation:link.generation,baselineCredentials:Record(p).credentials,staleSuspended:true});
  for(const id of require('./identity').ClientIds(p)){state.clientBiometricChallenges.delete(id);require('../buildGate').RevokeForClient(id,'IDENTITY_PROVIDER_UNAVAILABLE');}
 }
-function Ready(p){if(!Live(p))return false;const cached=Observation(p);if(!cached||Date.now()-(cached.verifiedAt||0)>MAX_STALE){SuspendStale(p);return false;}return true;}
+function Verified(p){const cached=Observation(p);return Live(p)&&!!cached&&Date.now()-(cached.verifiedAt||0)<=MAX_STALE;}
+function Ready(p){if(!Live(p))return false;if(!Verified(p)){SuspendStale(p);return false;}return true;}
 function AdminStatus(p){
  const link=View(p),runtime=Denial(p),linked=Live(p),legacy=!!link&&!link.credentials&&link.status!=='revoked';
  const checkPending=!!p&&inFlight.has(p.id),status=runtime?'revoked':!link?'unlinked':link.status==='revoked'?'revoked':legacy?'reauth_required':checkPending&&!Observation(p)?.verifiedAt?'checking':link.lastError||!Ready(p)?'degraded':'active';
@@ -37,7 +38,7 @@ function Notify(p,reason){
  for(const c of state.clients.values()){
   let own=false;try{own=s.Subject(c)===p.subject;}catch(_){}if(!own)continue;
   ids.add(c.clientId);
-  c.biometricVerified=false;c.hubUpload=null;require('./testAccess').Revoke(c);
+  c.memberEntryGrant=null;c.memberEntryRequestId='';c.biometricVerified=false;c.hubUpload=null;require('./testAccess').Revoke(c);
   // Clear only volatile member access, retaining the registered device and QR license.
   const fields=[String(s.DB().revision),reason],mac=require('./protocol').Sign(c,'HUB_IDENTITY',fields);
   if(mac&&c.connected&&!c.disconnected&&!c.socket?.destroyed)require('../../core/utils').SendLine(c.socket,'HUB_IDENTITY|'+fields.join('|')+'|'+mac);
@@ -155,4 +156,4 @@ function Fresh(p,tokens,old={}){
  Event(link,'linked','', 'MEMBER');Remember(p.id,{generation:link.generation,baselineCredentials:link.credentials,credentials:link.credentials,verifiedAt:now,lastCheckedAt:now,nextCheckAt:now+Interval(),lastError:'',reason:'',status:'active'});attempts.delete(p.id);return link;
 }
 function AcceptLink(accountId){denied.delete(accountId);}
-module.exports={Record,Live,Ready,AdminStatus,RevokeAccount,CheckAccount,CheckClient,StartMonitor,StopMonitor,Fresh,AcceptLink,Request};
+module.exports={Record,Live,Verified,Ready,AdminStatus,RevokeAccount,CheckAccount,CheckClient,StartMonitor,StopMonitor,Fresh,AcceptLink,Request};

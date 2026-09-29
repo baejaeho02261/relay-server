@@ -24,7 +24,7 @@ function PreAllowed(c){return !!c&&state.serviceEnabled&&require('../haCoordinat
 function RequirePre(c){if(!PreAllowed(c))s.Fail(state.serviceEnabled?'IDENTITY_DEVICE_REQUIRED':'SERVICE_DISABLED');}
 function Existing(c){try{return s.DB().profiles[s.Subject(c)]||null;}catch(_){return null;}}
 function BindingKey(provider,subject){return hash(provider+'\0'+subject);}
-function Public(p){const i=p?.providerIdentity,linked=lifecycle.Live(p);return i?{accountLabel:i.label||PROVIDERS[i.provider]?.name+' 계정',accountProvider:i.provider,accountVerified:linked,accountLinked:linked}:{accountLabel:p?s.Handle(p):'',accountProvider:'',accountVerified:false,accountLinked:false};}
+function Public(p){const i=p?.providerIdentity,linked=!!PROVIDERS[i?.provider]&&lifecycle.Live(p),verified=linked&&lifecycle.Verified(p);return i&&PROVIDERS[i.provider]?{accountLabel:i.label||PROVIDERS[i.provider].name+' 계정',accountProvider:i.provider,accountVerified:verified,accountLinked:linked}:{accountLabel:p?s.Handle(p):'',accountProvider:'',accountVerified:false,accountLinked:false};}
 // Email is profile display data, never an account key or part of public authors.
 function Email(value){return typeof value==='string'&&value.length<=254&&!/[\s<>\u0000-\u001f\u007f]/.test(value)&&/^[^@]+@[^@]+\.[^@]+$/.test(value)?value:'';}
 function Own(p){return {accountEmail:lifecycle.Live(p)?Email(p?.providerIdentity?.email):''};}
