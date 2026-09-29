@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'windows-connect-2';
+const WEB_UI_REVISION = 'windows-connect-3';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -196,7 +196,8 @@ async function api(url, options = {}) {
   if (!response.ok || (data && data.ok === false)) {
     const detail = data && data.detail ? ` [${data.detail}]` : '';
     const error=new Error(`${readableApiError(data && data.error || `HTTP_${response.status}`)}${detail}`);
-    error.code=data?.error||`HTTP_${response.status}`;error.status=response.status;throw error;
+    error.code=data?.error||`HTTP_${response.status}`;error.status=response.status;
+    error.connection=data?.connection;error.serverMessage=data?.message;throw error;
   }
   if (!data || typeof data !== 'object') throw new Error(`EMPTY_API_RESPONSE [${method} ${url}]`);
   if (!['GET', 'HEAD'].includes(method)) dirtyViews.delete(currentView);

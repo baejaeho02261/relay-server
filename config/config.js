@@ -3,13 +3,16 @@
 const path = require('path');
 
 const HOST = '0.0.0.0';
-const PORT = Number(process.env.PORT || 3000);
+// Explicit TCP port keeps Railway's HTTP healthcheck PORT independent.
+// PORT remains a legacy TCP alias only when CONNECT_TCP_PORT is absent.
+const CONNECT_TCP_PORT = Number(process.env.CONNECT_TCP_PORT || process.env.RAILWAY_TCP_APPLICATION_PORT || process.env.PORT || 3000);
+const PORT = CONNECT_TCP_PORT;
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 0);
 const WEB_ADMIN_PORT = Number(process.env.WEB_ADMIN_PORT || 8080);
 const WEB_ADMIN_SESSION_MS = Number(process.env.WEB_ADMIN_SESSION_MS || 30 * 60 * 1000);
 const ENABLE_LEGACY_TCP_ADMIN = String(process.env.ENABLE_LEGACY_TCP_ADMIN || '') === '1';
 const WEB_ADMIN_VERSION = '5.0.1';
-const WEB_UI_REVISION = 'windows-connect-2';
+const WEB_UI_REVISION = 'windows-connect-3';
 const UPDATE_BASE_URL = String(process.env.UPDATE_BASE_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')).replace(/\/+$/, '');
 
 const DATA_DIR = process.env.DATA_DIR
@@ -108,7 +111,7 @@ const DANGEROUS_PREFIXES = [
 ];
 
 module.exports = {
-    HOST, PORT, HEALTH_PORT, WEB_ADMIN_PORT, WEB_ADMIN_SESSION_MS, ENABLE_LEGACY_TCP_ADMIN, WEB_ADMIN_VERSION, WEB_UI_REVISION, UPDATE_BASE_URL,
+    HOST, PORT, CONNECT_TCP_PORT, HEALTH_PORT, WEB_ADMIN_PORT, WEB_ADMIN_SESSION_MS, ENABLE_LEGACY_TCP_ADMIN, WEB_ADMIN_VERSION, WEB_UI_REVISION, UPDATE_BASE_URL,
     DATA_DIR, DB_FILE, DB_BAK_FILE, SQLITE_FILE, STORAGE_ENGINE, LICENSE_SNAPSHOT_FILE, LICENSE_SNAPSHOT_BAK_FILE, BACKUP_DIR, AUDIT_DIR,
     CURRENT_PROTOCOL_VERSION,
     DEFAULT_MIN_PROTOCOL_VERSION, DEFAULT_MIN_SERVER_VERSION, DEFAULT_MIN_CLIENT_VERSION,

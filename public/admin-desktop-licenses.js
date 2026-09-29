@@ -82,6 +82,11 @@ async function desktopConnectProfileData(value) {
   return {version:1,protocol:'MOAPLAY-CONNECT-1',host:value.host,port:value.port,
     serverKeyId:value.serverKeyId,serverPublicKey:value.serverPublicKey};
 }
+function desktopConnectDiagnostics(info) {
+  if (!info || typeof info !== 'object') return '<p class="small-note">실행 중인 서버의 설정 진단 정보가 없습니다. 서버 수정본 배포가 완료되었는지 확인해주세요.</p>';
+  const value = text => esc(String(text ?? '').slice(0, 300) || '비어 있음');
+  return `<div class="kv"><div>현재 실행 버전</div><div class="code">${value(info.revision)}</div><div>설정 출처</div><div>${info.source==='railway'?'Railway 자동 감지':'직접 지정한 환경 변수'}</div><div>${value(info.hostVariable)}</div><div class="code desktop-wrap">${value(info.host)}</div><div>${value(info.portVariable)}</div><div class="code">${value(info.port)}</div><div>내부 TCP / 관리자 HTTP</div><div>${value(info.tcpPort)} / ${value(info.httpPort)}</div><div>배포 검사 PORT</div><div>${value(info.probePort)}</div></div>${info.probePortMatches===false?'<p class="small-note">Railway의 PORT는 관리자 HTTP 포트와 같아야 합니다. TCP 포트는 CONNECT_TCP_PORT로 별도 지정하고 두 변경을 함께 배포하세요.</p>':''}`;
+}
 async function showDesktopConnectProfile() {
   if (!roleIsAdmin() || !session) throw Error('관리자만 연결 설정을 확인할 수 있습니다.');
   const owner=session.csrf;
@@ -90,12 +95,12 @@ async function showDesktopConnectProfile() {
   catch (error) {
     if (error.code !== 'CONNECT_PUBLIC_ENDPOINT_REQUIRED') throw error;
     if (!session || session.csrf !== owner) return;
-    await openModal({title:'Connect 연결 주소 설정',message:'서버 환경 변수에 외부에서 접근할 TCP 호스트와 포트를 설정한 뒤 다시 열어주세요.',html:'<div class="kv"><div>외부 TCP 호스트</div><div class="code">DESKTOP_PUBLIC_HOST</div><div>외부 TCP 포트</div><div class="code">DESKTOP_PUBLIC_PORT</div></div><p class="small-note">TCP 프록시를 사용한다면 외부에 공개된 주소와 포트를 입력하세요. 웹 관리자 주소를 입력하는 항목이 아닙니다.</p>',confirmLabel:'닫기'});
+    await openModal({title:'Connect 연결 주소 확인',message:error.serverMessage||'현재 실행 중인 서버에서 TCP 접속 정보를 읽지 못했습니다.',html:desktopConnectDiagnostics(error.connection)+'<p class="small-note">아래 값이 비어 있다면 변수를 입력한 서비스·환경과 실제 활성 배포가 같은지 확인하세요. 배포 대기 중에는 이전 서버의 설정이 보일 수 있습니다.</p><div class="kv"><div>직접 지정할 호스트</div><div class="code">DESKTOP_PUBLIC_HOST</div><div>직접 지정할 외부 포트</div><div class="code">DESKTOP_PUBLIC_PORT</div></div><p class="small-note">두 값을 모두 비우면 Railway의 TCP 프록시 주소를 자동으로 읽습니다. TCP Proxy가 활성화되어 있어야 합니다.</p>',confirmLabel:'닫기'});
     return;
   }
   const profile=await desktopConnectProfileData(data.profile);
   if (!session || session.csrf !== owner) return;
-  const promise=openModal({title:'Connect 연결 설정',message:'다운로드한 설정 파일을 MoaPlayConnect.exe와 같은 폴더에 넣어주세요.',html:`<div class="kv"><div>TCP 호스트</div><div class="code desktop-wrap">${esc(profile.host)}</div><div>TCP 포트</div><div class="code">${profile.port}</div><div>통신 방식</div><div class="code">${esc(profile.protocol)}</div><div>서버 키 지문<br><small>SHA-256</small></div><div class="code desktop-wrap">${esc(profile.serverKeyId.match(/.{2}/g).join(':'))}</div></div><p class="small-note">서버 주소와 공개키만 포함합니다. 라이선스 키나 비밀키는 포함하지 않습니다.</p><button type="button" id="desktop-connect-download" class="primary wide">MoaPlayConnect.server.json 다운로드</button>`,confirmLabel:'닫기'});
+  const promise=openModal({title:'Connect 연결 설정',message:'다운로드한 설정 파일을 MoaPlayConnect.exe와 같은 폴더에 넣어주세요.',html:`<div class="kv"><div>TCP 호스트</div><div class="code desktop-wrap">${esc(profile.host)}</div><div>TCP 포트</div><div class="code">${profile.port}</div><div>통신 방식</div><div class="code">${esc(profile.protocol)}</div><div>서버 키 지문<br><small>SHA-256</small></div><div class="code desktop-wrap">${esc(profile.serverKeyId.match(/.{2}/g).join(':'))}</div></div><p class="small-note">서버 주소와 공개키만 포함합니다. 라이선스 키나 비밀키는 포함하지 않습니다.</p><button type="button" id="desktop-connect-download" class="primary wide">MoaPlayConnect.server.json 다운로드</button>${desktopConnectDiagnostics(data.connection)}`,confirmLabel:'닫기'});
   const download=document.getElementById('desktop-connect-download');
   download.addEventListener('click',()=>{
     if (!session || session.csrf !== owner || !roleIsAdmin()) return;
