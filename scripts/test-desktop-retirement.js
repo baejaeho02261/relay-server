@@ -71,9 +71,11 @@ async function request(base, url, method = 'GET', body, auth) {
         }
         assert.ok(ready, output);
         await new Promise((resolve, reject) => {
-            const socket = net.connect(relayPort, '127.0.0.1');
-            socket.once('connect', () => { socket.destroy(); reject(Error('Legacy TCP listener must not start')); });
-            socket.once('error', error => error.code === 'ECONNREFUSED' ? resolve() : reject(error));
+            const socket = net.connect(relayPort, '127.0.0.1');let reply='';
+            socket.setTimeout(3000,()=>{socket.destroy();reject(Error('Legacy plaintext must be rejected'));});
+            socket.once('connect', () => socket.write('HELLO|CLIENT|old-apk\n'));
+            socket.on('data',data=>{reply+=data.toString();});socket.once('error',error=>{if(error.code!=='ECONNRESET')reject(error);});
+            socket.once('close',()=>{try{assert.equal(reply,'','The new encrypted listener never authorizes a legacy frame');resolve();}catch(error){reject(error);}});
         });
 
         const retired = [

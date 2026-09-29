@@ -1,7 +1,7 @@
 {
   "name": "moaplay-relay",
   "version": "7.0.1",
-  "description": "MoaPlay Windows 64-bit single-use license authorization and administrator console",
+  "description": "MoaPlayConnect Windows64 encrypted TCP license service and administrator console",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -14,7 +14,10 @@
     "check:ui": "node scripts/check-web-ui.js",
     "ui:manifest": "node scripts/check-web-ui.js --write",
     "test:http": "node scripts/test-desktop-http.js",
-    "test:licenses:sqlite": "node scripts/test-desktop-licenses.js --sqlite"
+    "test:licenses:sqlite": "node scripts/test-desktop-licenses.js --sqlite",
+    "test:connect": "node scripts/test-desktop-connect.js",
+    "test:connect:sqlite": "node scripts/test-desktop-connect.js --sqlite",
+    "check:native": "node scripts/check-connect-project.js"
   },
   "engines": {
     "node": ">=22.13"

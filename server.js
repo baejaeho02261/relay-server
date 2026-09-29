@@ -41,7 +41,8 @@ require('./services/haCoordinator').Start();
 console.log('MoaPlay Windows License Service');
 console.log('Web Admin:', WEB_ADMIN_VERSION, 'HTTP Port:', WEB_ADMIN_PORT);
 console.log('Storage:', config.STORAGE_ENGINE.toUpperCase(), DATA_DIR);
-console.log('APK / legacy relay TCP: retired');
+console.log('APK / legacy relay protocol: retired');
+require('./services/desktopConnect').Start();
 
 StartWebAdmin();
 
