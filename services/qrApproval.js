@@ -159,6 +159,7 @@ function Resume(connection, resumeRequestId = '') {
     // Only clients speaking the nonce-bound resume contract can receive it.
     // Older APKs keep their existing fresh biometric challenge flow.
     connection.biometricResumeRequestId = /^[0-9A-F]{24,64}$/.test(resumeRequestId) ? resumeRequestId : '';
+    connection.memberEntryRequestId = connection.biometricResumeRequestId;
     const bound = GetBoundLicenseEntry(connection.clientId);
     if(bound && !entryPass.IsEntry(bound.license)){entryPass.Convert(bound.license);require('../storage/database').SaveDatabase();}
     if (!require('./clientPermissions').NeedsApproval(connection) && bound && !bound.license.suspended && !entryPass.Expired(bound.license)) {

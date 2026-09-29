@@ -29,11 +29,16 @@ for(const file of fs.readdirSync(apk).filter(n=>/\.(pas|inc)$/.test(n)))
   assert.ok(iconNames.has(m[1]),file+' missing SVG '+m[1]);
 const declared=[...read('MoaPlayApp.Methods.inc').matchAll(/\b(?:procedure|function)\s+(\w+)/gi)].map(x=>x[1].toLowerCase());
 const units=fs.readdirSync(apk).filter(x=>/\.(pas|inc)$/.test(x)).map(read).join('\n');
+// Deleted form fields must not leave a callback reference that only DCC would find.
+const formUnits=fs.readdirSync(apk).filter(x=>/^MoaPlayApp\..*\.inc$/.test(x)).map(read).join('\n');
+const declaredFields=new Set(fieldNames);
+for(const m of formUnits.matchAll(/\bF(?:Hub|Support|Auth|MemberEntry|Biometric)\w*/g))
+ assert.ok(declaredFields.has(m[0].toLowerCase()),'Undeclared form field '+m[0]);
 const implemented=[...units.matchAll(/\b(?:procedure|function)\s+TMoaPlayForm\.(\w+)/gi)].map(x=>x[1].toLowerCase());
 assert.equal(new Set(implemented).size,implemented.length,'Duplicate form methods');
 for(const name of declared)assert.ok(implemented.includes(name),'Missing '+name);
 for(const name of implemented)assert.ok(declared.includes(name),'Undeclared '+name);
-for(const [name,type] of [['MoaPlayMemberClient.pas','TMoaPlayMemberClient'],['MoaPlayMemberSwitch.pas','TMoaPlayMemberSwitch'],['MoaPlayMemberMemo.pas','TMoaPlayMemberMemo'],['MoaPlayRewardWheel.pas','TMoaPlayRewardWheel'],['MoaPlayIconPulse.pas','TMoaPlayIconPulse'],['MoaPlayFeedCard.pas','TMoaPlayFeedTap'],['MoaPlayCatalogCard.pas','TMoaPlayCatalogTap']])
+for(const [name,type] of [['MoaPlayMemberClient.pas','TMoaPlayMemberClient'],['MoaPlayMemberSwitch.pas','TMoaPlayMemberSwitch'],['MoaPlayMemberMemo.pas','TMoaPlayMemberMemo'],['MoaPlayIconPulse.pas','TMoaPlayIconPulse'],['MoaPlayFeedCard.pas','TMoaPlayFeedTap'],['MoaPlayCatalogCard.pas','TMoaPlayCatalogTap']])
  assert.deepEqual(require('./native-declarations').Check(read(name),type),[],name);
 // Cross-layer invariants for the lifecycle bugs: no editor exit saves a partially destroyed form.
 const flow=read('MoaPlayApp.Member.Flow.inc'),motion=read('MoaPlayApp.Member.Motion.inc'),compose=read('MoaPlayApp.Member.Compose.inc'),social=read('MoaPlayApp.Member.Social.inc');
@@ -54,12 +59,13 @@ assert.match(feed,/ReplyAction:='reply\|'\+ID/);
 assert.match(feed,/if ShowPostLink then ReplyAction:='comment.thread\|'\+ID\+'\|'\+HubText\(Item,'postId'\)/);
 assert.match(social,/Action='comment.thread'[\s\S]*HubText\(Item,'postId'\)=Parts\[2\]/,'profile reply navigation validates its thread identity');
 assert.match(feed,/HubFillCommentCard\(C,Item,False\)/);
-// FIX74 removes personal activity tabs, while old/public comment links still
-// use the validated thread renderer. Do not require them in the owner hero.
+// Restored owner activity uses the same validated post/comment renderers as public profiles.
 const profile=read('MoaPlayApp.Member.MyPage.inc');
 const me=profile.split('procedure TMoaPlayForm.HubRenderMe')[1].split('procedure TMoaPlayForm.HubRenderMember')[0];
-assert.doesNotMatch(me,/HubProfileStat\(|HubProfileTabs\(|HubRenderOwnComments\(|HubRenderProfileGallery\(|HubDiscoverPeople\(/);
-assert.match(me,/ProfileAction\('edit','profile'/);assert.match(me,/ProfileAction\('share','profile.share'/);
+assert.match(me,/HubProfileStat\(/);assert.match(me,/HubProfileTabs\(/);
+assert.match(me,/HubRenderOwnComments\(/);assert.match(me,/HubRenderProfileGallery\(/);
+assert.match(me,/HubProfileButtons\(C,Profile,True,False,Y\)/);
+assert.match(profile,/Captions:array\[0\.\.3\] of string=\('게시글','댓글','리포스트함','태그한 게시글'\)/);
 assert.match(profile,/HubFillCommentCard\(C,Item,True\)/,'public comment history retains safe thread rendering');
 const postBody=feed.split('function TMoaPlayForm.HubFillPostCard')[1].split('function TMoaPlayForm.HubQuoteCard')[0];
 assert.doesNotMatch(postBody,/HubReaction\(|post\.menu|more\|post\|/,'retired feed toolbar and menu stay absent');
@@ -76,10 +82,11 @@ assert.match(social,/GifView\.LoadFrames\(GifData\)/);
 for(const name of ['MoaPlayCasinoBoard.pas','MoaPlayCasinoAmount.pas','MoaPlayCasinoIndicators.pas','MoaPlaySkillGames.pas'])
  assert.ok(!fs.existsSync(path.join(apk,name)),name+' is retired');
 assert.doesNotMatch(read('MoaPlayApp.pas'),/MoaPlayCasino|MoaPlaySkillGames/);
-assert.match(read('MoaPlayApp.Member.Rewards.inc'),/procedure TMoaPlayForm.HubWheelStop/);
+assert.ok(!fs.existsSync(path.join(apk,'MoaPlayRewardWheel.pas')));
+assert.doesNotMatch(read('MoaPlayApp.Member.Rewards.inc'),/HubWheel|HubRenderWheel|HubFillWheel/);
 require('./check-native-theme').Check(apk);
 require('./check-native-touch-glass').Check(apk);
-require('./check-native-fix59').Check(apk);
-require('./test-fix60-native-updates').Check();
+require('./check-native-messaging').Check(apk);
+require('./test-native-updates').Check();
 assert.match(flow,/if not FHubPageChanged and FHubTouch\.Busy then Exit;/,'local updates keep held cards alive');
 console.log('Native source checks passed (encoding, includes, declarations and lifecycle invariants; Delphi compilation not run).');
