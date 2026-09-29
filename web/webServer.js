@@ -33,7 +33,7 @@ function SecurityHeaders(req, res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
 }
 
@@ -87,6 +87,7 @@ function ServeUpdateArtifact(req, res, pathname, url) {
         return true;
     }
     const release = releaseManager.FindArtifact(artifactId);
+    if (release?.type === 'CLIENT') { require('../services/desktopMode').Reject(res); return true; }
     const file = releaseManager.ArtifactPath(release);
     if (!release || !file || !fs.existsSync(file)) {
         res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -143,6 +144,11 @@ async function RequestHandler(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const pathname = url.pathname;
     const method = String(req.method || 'GET').toUpperCase();
+    const desktopMode = require('../services/desktopMode');
+    if (desktopMode.RetiredPath(pathname)) { desktopMode.Reject(res); return; }
+    // Desktop HMAC challenge/execute have their own authentication, rate limits
+    // and replay checks. Never route them through an administrator cookie.
+    if (await require('./desktopApi').Handle(req, res, url)) return;
 
     if (pathname.startsWith('/internal/ha/')) {
         if (await require('../services/haCoordinator').HandleInternal(req, res, pathname)) return;
@@ -157,15 +163,6 @@ async function RequestHandler(req, res) {
     if ((method === 'GET' || method === 'HEAD') && pathname.startsWith('/updates/')) {
         if (ServeUpdateArtifact(req, res, pathname, url)) return;
     }
-
-    if (await require('../services/member/oauthIdentity').HandleHttp(req, res, url)) return;
-    // Former checkout and callback URLs are retired. They must not settle an
-    // old order, redirect to a provider, or fall through to the admin shell.
-    if (pathname === '/pay' || pathname.startsWith('/pay/')) {
-        Json(res, 410, {ok:false,code:'TOPUP_UNAVAILABLE'});
-        return;
-    }
-    if (await require('../services/member/game-downloads').Serve(req, res, pathname, url)) return;
 
     if (pathname === '/api/login' && method === 'POST') {
         let body;
@@ -227,20 +224,8 @@ async function RequestHandler(req, res) {
             return;
         }
 
-        if (pathname === '/api/games/upload' && method === 'POST') {
-            if (!ValidateCsrf(req, session)) { ApiError(res, 403, 'CSRF_FAILED'); return; }
-            if (session.role !== 'admin') { ApiError(res, 403, 'FORBIDDEN'); return; }
-            if (!require('../services/haCoordinator').CanAcceptTraffic()) { ApiError(res, 409, 'RELAY_STANDBY_READ_ONLY'); return; }
-            try {
-                const artifact = await require('../services/member/game-downloads').Upload(req,
-                    url.searchParams.get('gameKey'), url.searchParams.get('fileName'));
-                RecordAdminActivity(session.role, session.ip, method, pathname, 200, 'GAME_ARTIFACT_UPLOAD');
-                Json(res, 200, { ok: true, artifact });
-            } catch (error) { ApiError(res, 400, error.message || 'GAME_UPLOAD_FAILED'); }
-            return;
-        }
-
         if (pathname === '/api/releases/upload' && method === 'POST') {
+            if (desktopMode.RetiredTarget(pathname, {}, url.searchParams)) { desktopMode.Reject(res); return; }
             if (!ValidateCsrf(req, session)) { ApiError(res, 403, 'CSRF_FAILED'); return; }
             if (session.role !== 'admin') { ApiError(res, 403, 'FORBIDDEN'); return; }
             if (!require('../services/haCoordinator').CanAcceptTraffic()) { ApiError(res, 409, 'RELAY_STANDBY_READ_ONLY'); return; }

@@ -22,71 +22,26 @@ process.on('unhandledRejection', reason => {
 const http = require('http');
 
 const config = require('./config/config');
-const state = require('./core/state');
 const { EnsureDirs } = require('./core/utils');
-const { LoadRecentAudit, LogEvent } = require('./storage/audit');
+const { LoadRecentAudit } = require('./storage/audit');
 const { LoadDatabase, SaveDatabase } = require('./storage/database');
 const { CreateBackup } = require('./storage/backup');
-const { CreateConnection } = require('./core/connection');
-const { CleanupRequestHistory, ProcessPendingRequests } = require('./relay/ackManager');
-const { CleanupTransient, Shutdown } = require('./core/lifecycle');
+const { Shutdown } = require('./core/lifecycle');
+const desktopMode = require('./services/desktopMode');
 const { ApplyMaintenanceSchedule } = require('./services/maintenance');
-const { ValidateClientLicense } = require('./license/licenseManager');
-const { SendPing } = require('./relay/heartbeat');
 const { HealthSnapshot } = require('./services/dashboard');
-const { GetOnlineServer, GetOnlineClient } = require('./identity/identityManager');
 const { StartWebAdmin } = require('./web/webServer');
-const { CleanupReconnectHistory } = require('./services/reconnectMonitor');
-const { ScanLicenseExpiryAlerts } = require('./services/licenseMonitor');
-const { CheckDrainReadiness } = require('./services/drainMonitor');
-const { Evaluate: EvaluateEmergencyFailover } = require('./services/emergencyFailover');
-const { ProcessOfflineQueue } = require('./services/requestRecovery');
 
-const {
-    HOST, PORT, HEALTH_PORT, WEB_ADMIN_PORT, WEB_ADMIN_VERSION, ENABLE_LEGACY_TCP_ADMIN,
-    DATA_DIR, CURRENT_PROTOCOL_VERSION,
-    MAX_CLIENTS_PER_SERVER,
-    ACK_RETRY_MS, ACK_TIMEOUT_MS,
-    AUTO_BACKUP_INTERVAL_MS
-} = config;
-
-const { servers, clients } = state;
+const { HOST, HEALTH_PORT, WEB_ADMIN_PORT, WEB_ADMIN_VERSION, DATA_DIR, AUTO_BACKUP_INTERVAL_MS } = config;
 
 EnsureDirs();
 LoadDatabase();
-require('./services/member/withdraw-retirement').Ensure();
-require('./services/member/retirement').Ensure();
-require('./services/member/commerce').EnsureCatalog();
 LoadRecentAudit();
-if (require('./services/userDashboard').EnsureGroupGuids()) SaveDatabase();
 require('./services/haCoordinator').Start();
-ScanLicenseExpiryAlerts();
-
-const relayServer = require('./services/transportSecurity').CreateRelayServer(CreateConnection);
-
-relayServer.on('error', error =>
-    console.error('SERVER ERROR:', error.message)
-);
-
-relayServer.listen(PORT, HOST, () => {
-    console.log('================================');
-    console.log('       PURE TCP RELAY vNext');
-    console.log('================================');
-    console.log('TCP Port:', PORT);
-    console.log('DATA_DIR:', DATA_DIR);
-    console.log('Protocol current/min:', CURRENT_PROTOCOL_VERSION, '/', state.minProtocolVersion);
-    console.log('Min Server:', state.minServerVersion, 'Min Client:', state.minClientVersion);
-    console.log('Max clients/server:', MAX_CLIENTS_PER_SERVER);
-    console.log('ACK retry/timeout:', ACK_RETRY_MS, '/', ACK_TIMEOUT_MS);
-    console.log('Service:', state.serviceEnabled ? 'ONLINE' : 'OFFLINE', 'Maintenance:', state.maintenanceMode ? 'ON' : 'OFF');
-    console.log('Web Admin:', `v${WEB_ADMIN_VERSION}`, 'Port:', WEB_ADMIN_PORT);
-    console.log('Legacy TCP Admin:', ENABLE_LEGACY_TCP_ADMIN ? 'ENABLED' : 'DISABLED');
-    console.log('Storage:', config.STORAGE_ENGINE.toUpperCase(), config.STORAGE_ENGINE === 'sqlite' ? config.SQLITE_FILE : config.DB_FILE);
-    console.log('HA:', require('./services/haCoordinator').Status().role, config.HA_INSTANCE_ID);
-    console.log('Device Extensions:', 'ENABLED (CAPABILITIES / DEVICE_INFO / HMAC / CONFIG / SEQUENCE)');
-    console.log('Relay Transport:', require('./services/transportSecurity').Status().actualMode);
-    console.log('================================');
-});
+console.log('MoaPlay Windows License Service');
+console.log('Web Admin:', WEB_ADMIN_VERSION, 'HTTP Port:', WEB_ADMIN_PORT);
+console.log('Storage:', config.STORAGE_ENGINE.toUpperCase(), DATA_DIR);
+console.log('APK / legacy relay TCP: retired');
 
 StartWebAdmin();
 
@@ -111,42 +66,17 @@ if (HEALTH_PORT > 0 && HEALTH_PORT !== WEB_ADMIN_PORT) {
     );
 }
 
+// No APK QR, biometric, pairing, member OAuth or relay work is scheduled.
 setInterval(() => {
-    CleanupRequestHistory();
-    CleanupTransient();
-    ProcessPendingRequests();
+    desktopMode.Cleanup();
     ApplyMaintenanceSchedule();
-    CleanupReconnectHistory();
-    CheckDrainReadiness();
-    EvaluateEmergencyFailover();
-    ProcessOfflineQueue();
     require('./services/dailyHealth').EnsureCurrent();
-    require('./services/qrApproval').Cleanup();
-    require('./services/buildGate').Cleanup();
-    require('./services/pairingApproval').CleanupClaims();
     require('./services/passkeyAuth').Cleanup();
-    require('./services/productionCenter').EvaluateAnomalies();
 }, 1000);
 
 setInterval(() => require('./services/productionCenter').RetentionApply('SCHEDULED'), 24 * 60 * 60 * 1000).unref();
 
-setInterval(() => {
-    const now=Date.now(), hb=Math.max(1000,Number(state.desiredRuntimeConfig.heartbeatMs)||10000);
-    for (const c of Array.from(servers.values())) {
-        if (!c.socket || c.socket.destroyed) continue;
-        if (now - c.lastSeen > Math.max(30000,hb*3)) { c.socket.destroy(); continue; }
-        if(!c.nextPingAt||now>=c.nextPingAt){SendPing(c);c.nextPingAt=now+hb;}
-    }
-    for (const c of Array.from(clients.values())) {
-        if (!c.socket || c.socket.destroyed) continue;
-        if (now - c.lastSeen > Math.max(30000,hb*3)) { c.socket.destroy(); continue; }
-        ValidateClientLicense(c);
-        if(!c.nextPingAt||now>=c.nextPingAt){SendPing(c);c.nextPingAt=now+hb;}
-    }
-}, 1000);
-
 setInterval(() => SaveDatabase(), 30000);
-setInterval(() => ScanLicenseExpiryAlerts(), 60000);
 setInterval(() => CreateBackup('auto'), AUTO_BACKUP_INTERVAL_MS);
 
 process.on('SIGINT', Shutdown);

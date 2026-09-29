@@ -27,8 +27,8 @@ function testBundle() {
     assert.notEqual(originalAdmin, corruptedAdmin, 'Corruption fixture must alter the released revision');
     fs.writeFileSync(path.join(temp, 'admin.js'), corruptedAdmin);
     assert.deepEqual(bundle.Check(temp).issues, ['public/admin.js']);
-    fs.unlinkSync(path.join(temp, 'admin-pages-support.js'));
-    assert.deepEqual(bundle.Check(temp).issues, ['public/admin.js', 'public/admin-pages-support.js']);
+    fs.unlinkSync(path.join(temp, 'admin-desktop-licenses.js'));
+    assert.deepEqual(bundle.Check(temp).issues, ['public/admin.js', 'public/admin-desktop-licenses.js']);
     // Corrupt manifests must fail closed, without touching the release files.
     for (const text of ['null', 'true', '[]', '{', '{}']) {
       const mod = { exports: {} };

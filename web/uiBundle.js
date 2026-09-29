@@ -22,15 +22,11 @@ const FILES = [
   "admin-pages-traffic.js",
   "admin-pages-danger.js",
   "admin-pages-access.js",
-  "admin-pages-sessions.js",
   "admin-pages-reports.js",
   "admin-pages-devices.js",
-  "admin-pages-qr.js",
-  "admin-pages-licenses.js",
   "admin-pages-deployment.js",
   "admin-pages-security.js",
   "admin-pages-operations.js",
-  "admin-pages-support.js",
   "admin-actions-access.js",
   "admin-actions-operations.js",
   "admin-actions-traffic.js",
@@ -39,16 +35,11 @@ const FILES = [
   "admin-actions-system.js",
   "admin-modal.js",
   "admin-device-actions.js",
-  "admin-license-actions.js",
   "admin-actions.js",
-  "admin-pages-member.js",
-  "admin-member-actions.js",
-  "admin-member-accounts.js",
-  "admin-member-rewards.js",
-  "admin-member-customization.js",
   "icons/moaplay.svg",
-  "admin-member.css",
   "admin-palette.js",
+  "admin-desktop-licenses.js",
+  "admin-desktop.css",
   "admin-pages-production.js",
   "service-worker.js",
   "ui-refresh.html",
@@ -86,7 +77,7 @@ function Check(directory = PUBLIC_DIR) {
 }
 function Unavailable(res, isHead = false) {
   // This fallback is independent of public/index.html and its obsolete JS.
-  const html = '<!doctype html><html lang="ko"><meta charset="utf-8"><title>웹 화면 업데이트 확인</title><h1>웹 화면 파일을 확인해주세요.</h1><p>서버와 웹 화면 파일의 버전이 일치하지 않습니다. 현재 배포본의 public 폴더 전체를 교체하고 재배포해주세요.</p><p>APK 및 기존 데이터는 교체할 필요가 없습니다.</p><a href="/ui-refresh">웹 화면 새로 불러오기</a></html>';
+  const html = '<!doctype html><html lang="ko"><meta charset="utf-8"><title>웹 화면 업데이트 확인</title><h1>웹 화면 파일을 확인해주세요.</h1><p>서버와 웹 화면 파일의 버전이 일치하지 않습니다. 현재 배포본의 public 폴더 전체를 교체하고 재배포해주세요.</p><p>기존 운영 데이터는 삭제하지 마세요.</p><a href="/ui-refresh">웹 화면 새로 불러오기</a></html>';
   res.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Retry-After': '30' });
   res.end(isHead ? undefined : html);
 }

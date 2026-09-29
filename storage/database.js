@@ -21,7 +21,8 @@ function BuildDatabaseObject() {
     return {
         version: 145,
         clientInstallations: Object.fromEntries(state.clientInstallations),
-        memberHub: require('../services/member/store').DB(),
+        memberHub: state.memberHub || null, // Archived APK member data; no active migration.
+        desktopLicenses: require('../services/desktopLicenses').DB(),
         supportThreads: Object.fromEntries(state.supportThreads),
         supportSettings: state.supportSettings,
         serviceEnabled: state.serviceEnabled,
@@ -333,11 +334,12 @@ function ImportDatabaseObject(data) {
         }
     }
     require('../services/clientInstallation').ImportPersisted(data);
-    require('../services/member/store').Import(data);
+    state.memberHub = data.memberHub && typeof data.memberHub === 'object' ? structuredClone(data.memberHub) : null;
+    require('../services/desktopLicenses').Import(data.desktopLicenses);
     require('../services/supportCenter').ImportPersisted(data);
     require('../services/clientInstallation').Backfill();
     state.licenseRevision=Math.max(0,Number(data.licenseRevision)||0);
-    if(require('../services/member/entryPass').Migrate())state.licenseRevision++;
+    // Archived APK license records are never migrated by the Windows service.
 
     if (typeof data.serviceEnabled === 'boolean') state.serviceEnabled = data.serviceEnabled;
     if (typeof data.maintenanceMode === 'boolean') state.maintenanceMode = data.maintenanceMode;
@@ -377,6 +379,9 @@ function TryLoadJson(file) {
 
 function LoadDatabase() {
     EnsureDirs();
+    // Validate the authoritative desktop journal before any mirror fallback or
+    // listener starts. Corruption must never silently initialize a new store.
+    require('../services/desktopLicenses').DB();
     if (config.STORAGE_ENGINE === 'sqlite') {
         try {
             const stored = require('./sqliteDatabase').LoadSnapshot();
@@ -387,6 +392,7 @@ function LoadDatabase() {
                 return;
             }
         } catch (error) {
+            if (/^DESKTOP_(JOURNAL|STORAGE)_/.test(String(error.message || ''))) throw error;
             console.error('SQLITE LOAD ERROR:', error.message);
             LogEvent('SQLITE_LOAD_ERROR', error.message);
         }

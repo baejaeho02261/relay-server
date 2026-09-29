@@ -76,7 +76,9 @@ async function Handle({ method, pathname, url, body, req, res, session }) {
         if (!RequireAdmin(res, session)) return true;
         const protocol = Number(body.protocol);
         const serverVersion = NormalizeVersion(body.serverVersion);
-        const clientVersion = NormalizeVersion(body.clientVersion);
+        // The Windows administrator no longer presents an APK version field.
+        // Preserve the archived mobile policy when it is omitted.
+        const clientVersion = body.clientVersion === undefined ? state.minClientVersion : NormalizeVersion(body.clientVersion);
         if (!Number.isInteger(protocol) || protocol < 1 || protocol > CURRENT_PROTOCOL_VERSION || !serverVersion || !clientVersion) {
             ApiError(res, 400, 'INVALID_VERSION');
             return true;

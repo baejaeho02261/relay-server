@@ -1,26 +1,23 @@
 'use strict';
 // Request parsing and authorization gates precede every feature route.
-const { config, buildQrRoutes, productionRoutes, deviceRegistry, historyCleanup, Json, ApiError, RequireAdmin, RequireOperation, ReadJsonBody, BuildDashboard, BuildServers } = require('./apiContext');
+const { productionRoutes, historyCleanup, Json, ApiError, RequireAdmin, RequireOperation, ReadJsonBody, BuildDashboard, BuildServers } = require('./apiContext');
 
 async function HandleApiRequest(req, res, session) {
     const url = new URL(req.url, 'http://localhost');
     let pathname = url.pathname;
     const method = String(req.method || 'GET').toUpperCase();
     let body = {};
+    const desktopMode = require('../services/desktopMode');
+    if (desktopMode.RetiredPath(pathname)) { desktopMode.Reject(res); return; }
 
     if (!['GET', 'HEAD'].includes(method)) {
-        const maxBodyBytes = pathname === '/api/qr-auth/scan'
-            ? Math.ceil(config.QR_AUTH_MAX_IMAGE_BYTES * 1.4) + 64 * 1024
-            : pathname === '/api/member/action' ? 4 * 1024 * 1024 : 128 * 1024;
+        const maxBodyBytes = 128 * 1024;
         try { body = await ReadJsonBody(req, maxBodyBytes); }
         catch (error) { ApiError(res, error.message === 'BODY_TOO_LARGE' ? 413 : 400, error.message); return; }
     }
 
-    try {
-        if(require('./routes/memberAliases').NeedsResolution(pathname,body)&&!RequireAdmin(res,session))return;
-        const resolved=require('./routes/memberAliases').Resolve(pathname,body,url);
-        if(resolved){if(!RequireAdmin(res,session))return;pathname=resolved.pathname;body=resolved.body;url.pathname=pathname;}
-    } catch(e){ApiError(res,400,e.memberError?e.message:'INPUT_INVALID');return;}
+    if (!body || typeof body !== 'object' || Array.isArray(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
+    if (desktopMode.RetiredTarget(pathname, body, url.searchParams)) { desktopMode.Reject(res); return; }
 
     if (!['GET', 'HEAD'].includes(method) && pathname !== '/api/logout' && !require('../services/haCoordinator').CanAcceptTraffic()) {
         ApiError(res, 409, 'RELAY_STANDBY_READ_ONLY');
@@ -51,13 +48,6 @@ async function HandleApiRequest(req, res, session) {
         return;
     }
 
-    if (method === 'POST' && pathname === '/api/pairing/repair') {
-        if (!RequireAdmin(res, session)) return;
-        const repair = deviceRegistry.RepairPairing();
-        Json(res, 200, { ok: true, repair });
-        return;
-    }
-
     if (method === 'POST' && pathname === '/api/history/clean') {
         if (!RequireAdmin(res, session)) return;
         const result = historyCleanup.Clean(body.scope, `WEB_${String(session.role || 'ADMIN').toUpperCase()}`);
@@ -66,24 +56,15 @@ async function HandleApiRequest(req, res, session) {
         return;
     }
 
-    if (await require('./routes/supportInstallationRoutes').Handle({
-        method, pathname, url, body, res, session, RequireAdmin, Json, ApiError
-    })) return;
-
-    if (await buildQrRoutes.Handle({
-        method, pathname, body, res, session,
-        BuildServers, RequireAdmin, Json, ApiError
-    })) return;
+    const context = { method, pathname, url, body, req, res, session };
+    if (await require('./routes/desktopLicenseRoutes').Handle(context)) return;
 
     if (await productionRoutes.Handle({
         method, pathname, body, req, res, session,
         RequireAdmin, Json, ApiError
     })) return;
 
-    const context = { method, pathname, url, body, req, res, session };
-    if (await require('./routes/memberRoutes').Handle(context)) return;
     if (await require('./routes/deviceRoutes').Handle(context)) return;
-    if (await require('./routes/licenseRoutes').Handle(context)) return;
     if (await require('./routes/trafficRoutes').Handle(context)) return;
     if (await require('./routes/historyRoutes').Handle(context)) return;
     if (await require('./routes/reportRoutes').Handle(context)) return;
