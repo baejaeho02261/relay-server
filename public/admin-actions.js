@@ -4,7 +4,7 @@
 
 content.addEventListener('click', async event => {
   try {
-    for (const handle of [handleMemberAction, handleAccessAction, handleOperationsAction, handleTrafficAction, handleDevicesAction, handlePolicyAction, handleSystemAction]) if (await handle(event)) return;
+    for (const handle of [handleDesktopLicenseAction, handleAccessAction, handleOperationsAction, handleTrafficAction, handleDevicesAction, handlePolicyAction, handleSystemAction]) if (await handle(event)) return;
   } catch (error) { toast(readableApiError(error.message), true); }
 });
 
@@ -50,10 +50,9 @@ async function backupAction(action, file) {
 async function applyVersion() {
   const protocol = Number(document.getElementById('version-protocol').value);
   const serverVersion = document.getElementById('version-server').value.trim();
-  const clientVersion = document.getElementById('version-client').value.trim();
-  const v = await openModal({ title: "버전 정책 적용", message: `프로토콜 >= ${protocol} // 서버 >= ${serverVersion} // 앱 기기 >= ${clientVersion}. 기준 미달 연결이 종료될 수 있습니다.`, danger: true, confirmLabel: '적용' });
+  const v = await openModal({ title: "버전 정책 적용", message: `프로토콜 >= ${protocol} // 서버 >= ${serverVersion}. 기준 미달 연결이 종료될 수 있습니다.`, danger: true, confirmLabel: '적용' });
   if (!v) return;
-  await api('/api/system/version', { method: 'POST', body: { protocol, serverVersion, clientVersion } });
+  await api('/api/system/version', { method: 'POST', body: { protocol, serverVersion } });
   toast("버전 정책 적용 완료"); renderSystem();
 }
 
@@ -67,7 +66,7 @@ async function createSchedule() {
     { name: 'message', label: '공지 메시지', value: 'Scheduled maintenance' },
     { name: 'autoDrain', label: "자동 연결 정리", type: 'select', options: [{value:'1',label:"켜짐 - 예약 전 연결 정리 시작"},{value:'0',label:"꺼짐"}] },
     { name: 'drainLeadMinutes', label: "연결 정리 시작 전 시간(분)", type: 'number', value: '15' },
-    { name: 'forceStart', label: "앱 기기 남아도 예약 시각에 점검 시작", type: 'select', options: [{value:'0',label:"꺼짐 - 연결이 모두 종료될 때까지 대기"},{value:'1',label:"켜짐 - 예약 시각 강제 시작"}] }
+    { name: 'forceStart', label: "기존 연결이 남아도 예약 시각에 점검 시작", type: 'select', options: [{value:'0',label:"꺼짐 - 연결이 모두 종료될 때까지 대기"},{value:'1',label:"켜짐 - 예약 시각 강제 시작"}] }
   ], confirmLabel: '예약' });
   if (!v) return;
   await api('/api/system/maintenance/schedule', { method: 'POST', body: { startAt: new Date(v.start).getTime(), endAt: new Date(v.end).getTime(), message: v.message, autoDrain: v.autoDrain === '1', drainLeadMinutes: Number(v.drainLeadMinutes)||0, forceStart: v.forceStart === '1' } });

@@ -21,11 +21,10 @@ const modalBody = document.getElementById('modal-body');
 const modalCancel = document.getElementById('modal-cancel');
 const modalConfirm = document.getElementById('modal-confirm');
 const notificationBadge = document.getElementById('notification-badge');
-const qrAuthBadge = document.getElementById('qr-auth-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'fix76';
+const WEB_UI_REVISION = 'windows-license-1';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -46,17 +45,13 @@ app.addEventListener('click', event => {
 });
 
 let session = null;
-let currentView = 'dashboard';
+let currentView = 'desktop-licenses';
 let eventSource = null;
 let rendering = false;
 let toastTimer = null;
-let licenseQuery = '';
-let licenseStatus = 'ALL';
-let licenseExpiry = 'ALL';
 let auditQuery = '';
 let auditType = 'ALL';
 let activityQuery = '';
-let selectedLicenses = new Set();
 let liveConsoleEvents = [];
 let consoleHistoryLoaded = false;
 let consolePaused = false;
@@ -71,68 +66,23 @@ let terminalLines = [];
 let terminalHistory = [];
 let terminalHistoryIndex = -1;
 let deferredInstallPrompt = null;
-let qrScanResult = null;
-let qrSelectedFile = null;
-let qrPhotoSerial = 0;
-let qrSelectedPreviewDataUrl = '';
-let buildSessionServers = [];
-
-async function setQrSelectedFile(file) {
-  const serial=++qrPhotoSerial;qrSelectedFile=null;qrSelectedPreviewDataUrl='';
-  if(!file)return;
-  if(!['image/png','image/jpeg'].includes(file.type)||file.size>8*1024*1024)throw Error('8MB 이하의 PNG 또는 JPEG 사진을 선택해주세요.');
-  qrSelectedFile=file;
-  try{const preview=await fileAsDataUrl(file);if(serial===qrPhotoSerial)qrSelectedPreviewDataUrl=preview;}
-  catch(e){if(serial!==qrPhotoSerial)return;qrSelectedFile=null;throw e;}
-}
-
-function clearQrSelectedFile() {
-  qrPhotoSerial++;
-  qrSelectedFile = null;
-  qrSelectedPreviewDataUrl = '';
-}
-
 const titles = {
-  'member-pointConversions': ['포인트 교환·회수', ''],
-  'member-shop': ['회원 상점', ''],
-  'member-rewards': ['출석·포인트', '출석 보상과 회원의 포인트 내역을 관리하세요.'],
-  'member-integrations': ['계정 연결 설정', ''],
-  'member-oauthAccounts': ['카카오·Google 계정', ''],
-  'member-walletGrants': ['관리자 잔액 지급', ''],
-  'member-overview': ['운영 요약', ''],
-  'member-policies': ['약관·개인정보', ''],
-  'member-news': ['소식', ''],
-  'member-products': ['게임', ''],
-  'member-profiles': ['회원', ''],
-  'member-posts': ['피드', ''],
-  'member-comments': ['댓글', ''],
-  'member-reports': ['신고', ''],
-  'member-orders': ['이용권 내역', ''],
-  'member-ledger': ['결제 원장', ''],
-  support: ['고객센터', '모아플레이 사용자와 대화합니다. 미접속 기기에는 다음 고객센터 연결 시 답변이 전달됩니다.'],
-  reinstallblocks: ['재설치 차단', "앱 기기 삭제·바인딩 변경과 관계없이 유지되는 재설치 차단을 관리합니다."],
+  'desktop-licenses': ['Windows 라이선스', '발급부터 최초 활성화, 인증 종료까지 한곳에서 관리합니다.'],
   dashboard: ['대시보드', "중계 서버 전체 상태와 최근 이벤트를 확인합니다."],
   console: ['실시간 이벤트', "중계 서버 이벤트가 실시간으로 스트리밍됩니다."],
   trace: ['요청 추적', "요청 식별자 기준으로 전달/다시 시도/처리 응답 처리 과정을 추적합니다."],
-  monitor: ['연결 상태', "서버 / 앱 기기 왕복 지연와 연결 상태를 3초 단위로 감시합니다."],
+  monitor: ['연결 상태', "서버 왕복 지연과 연결 상태를 실시간으로 감시합니다."],
   terminal: ['관리 명령', "허용된 중계 서버 관리 명령만 실행합니다. OS Shell은 연결되지 않습니다."],
-  distribution: ['기기 배정', "서버별 실시간 연결 / 배정 앱 기기 분포와 연결 정리 진행률을 확인합니다."],
-  failover: ['장애 전환', "기존 기본 바인딩을 보존한 채 개별 허용 앱 기기만 장애 시 임시 서버로 재배치합니다."],
   recovery: ['요청 복구', "오프라인 대기열, 요청 재전송, 전송 실패 보관함를 관리합니다."],
   notifications: ['알림', '중요 운영 경고와 시스템 이벤트를 확인합니다.'],
   processors: ['처리 정책', "숫자 허용 범위·차단값 정책과 처리기 처리 통계를 관리합니다."],
   reports: ['푸시 · 보고서', "웹 앱 푸시 알림 구독과 날짜별 중계 서버 상태 리포트를 관리합니다."],
-  production: ['운영 설정', '1:1 승인, 배포 무결성, 패스키, 감사 체인과 운영 복원력을 통합 관리합니다.'],
+  production: ['운영 설정', '배포 무결성, 패스키, 감사 체인과 운영 복원력을 통합 관리합니다.'],
   servers: ['서버 기기', 'MoaPlayConnect 연결과 상태를 관리합니다.'],
-  clients: ['앱 기기', "모아플레이 앱 기기 연결, 라이선스와 배정을 확인합니다."],
-  clientbiometrics: ['생체인증 관리', '모아플레이의 Android 시스템 생체인증 상태와 재등록을 관리합니다.'],
-  buildsessions: ["실행 세션", "실행 이용 권한, 모아플레이↔서버 고정 바인딩, 즉시 해제를 관리합니다."],
-  licenses: ['라이선스', '라이선스 생성, 연장, 이전 및 상태를 관리합니다.'],
-  qrauth: ['QR 인증', '모아플레이의 QR 사진을 서버에서 검증하고 해당 기기를 승인합니다.'],
-  releases: ['앱 배포', "자동 업데이트, 배포 채널, 단계별 배포을 관리합니다."],
-  features: ['기능 설정', "전역 기능과 서버 / 앱 기기별 개별 설정를 관리합니다."],
+  releases: ['Windows 배포', "자동 업데이트, 배포 채널, 단계별 배포을 관리합니다."],
+  features: ['기능 설정', "전역 기능과 서버별 개별 설정를 관리합니다."],
   confighistory: ['설정 이력', "실행 설정와 Feature 기능 변경 이력 및 되돌리기을 관리합니다."],
-  enrollment: ['기기 등록', "새 서버 / 앱 기기의 최초 등록 승인 정책을 관리합니다."],
+  enrollment: ['서버 등록', "새 서버의 최초 등록 승인 정책을 관리합니다."],
   protocol: ['프로토콜', "프로토콜 v3 준비도, 기기 HMAC, 이벤트 이벤트 순서 상태를 확인합니다."],
   security: ['보안 상태', "HMAC 검증, 기기 등록, 기기 인증키 수명과 인증 이상을 한 화면에서 확인합니다."],
   audit: ['감사 기록', '최근 서버 이벤트와 관리 작업 기록입니다.'],
@@ -140,7 +90,6 @@ const titles = {
   sessions: ['로그인 세션', "현재 웹 관리자 로그인 세션을 확인하고 종료합니다."],
   backups: ['백업 · 복원', "중계 서버 데이터베이스 백업과 복원을 관리합니다."],
   health: ['시스템 상태', "실행 환경 / 데이터베이스 / 백업 / 감사 기록 / 중계 서버 상태를 진단합니다."],
-  loadlab: ['부하 테스트', "별도 프로세스에서 중계 서버 연결/프로토콜 부하 테스트 명령을 생성합니다."],
   ha: ['이중화 관리', "중계 서버 A/B 활성/대기, 상태 복제 및 승격 상태를 확인합니다."],
   storage: ['저장소', '실제 SQLite 기본 저장소, JSON 자동 이관 및 복구 미러 상태를 확인합니다.'],
   system: ['System', '서비스, 유지보수 및 최소 버전 정책을 관리합니다.'],
@@ -220,7 +169,6 @@ function toast(message, error = false) {
 function readableApiError(code) {
   if(code==='HISTORY_CHANGED')return '다른 곳에서 내용이 변경되었습니다. 최신 상태를 불러온 뒤 다시 시도해주세요.';
   if (code === 'PERMISSIONS_REQUIRED') return '기기의 필수 권한을 모두 허용한 뒤 다시 승인해주세요.';
-  if (code === 'QR_REQUEST_SUPERSEDED') return '이전 QR이 해제되었습니다. 앱에 새로 표시된 QR을 사용해주세요.';
   return uiError(code);
 }
 async function api(url, options = {}) {
@@ -256,10 +204,9 @@ async function api(url, options = {}) {
 }
 
 function showLogin() {
-  if (typeof resetSupportUiState === 'function') resetSupportUiState();
+  if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();
   session = null;
-  qrScanResult = null;
-  clearQrSelectedFile();
+  if (typeof desktopPendingIssue !== 'undefined') desktopPendingIssue = null;
   if (eventSource) { eventSource.close(); eventSource = null; }
   app.classList.add('hidden');
   loginScreen.classList.remove('hidden');
@@ -275,7 +222,7 @@ function showApp() {
   switchView(currentView);
   startEvents();
   updateNotificationBadge();
-  updateQrAuthBadge();
+
   updateWebVersion();
   renderCurrent();
 }
@@ -330,11 +277,10 @@ function startEvents() {
   });
   eventSource.addEventListener('tick', () => {
     if (document.hidden || rendering) return;
-    const liveViews = ['support', 'reinstallblocks', 'dashboard', 'monitor', 'distribution', 'failover', 'recovery', 'servers', 'clients', 'clientbiometrics', 'buildsessions', 'qrauth', 'notifications', 'processors', 'reports', 'sessions', 'health', 'system', 'features', 'confighistory', 'enrollment', 'releases', 'security', 'protocol', 'loadlab', 'storage', 'danger'];
-    const qrEditInProgress = currentView === 'qrauth' && (qrSelectedFile || qrScanResult);
-    if (liveViews.includes(currentView) && !qrEditInProgress) renderCurrent(true);
+    const liveViews = ['desktop-licenses', 'dashboard', 'monitor', 'recovery', 'servers', 'notifications', 'processors', 'reports', 'sessions', 'health', 'system', 'features', 'confighistory', 'enrollment', 'releases', 'security', 'protocol', 'storage', 'danger'];
+    if (liveViews.includes(currentView)) renderCurrent(true);
     updateNotificationBadge();
-    updateQrAuthBadge();
+  
   });
   eventSource.addEventListener('session', () => showLogin());
   eventSource.onerror = () => {
@@ -460,27 +406,18 @@ async function renderCurrent(silent = false) {
   if (typeof updateNavigationWorkspace === 'function') updateNavigationWorkspace();
   if (!silent) content.innerHTML = '<div class="empty">불러오는 중...</div>';
   try {
-    if (isMemberPage()) await renderMember();
+    if (currentView === 'desktop-licenses') await renderDesktopLicenses();
     else if (currentView === 'dashboard') await renderDashboard();
     else if (currentView === 'console') await renderConsole();
     else if (currentView === 'trace') await renderTrace();
     else if (currentView === 'monitor') await renderMonitor();
     else if (currentView === 'terminal') await renderTerminal();
-    else if (currentView === 'distribution') await renderDistribution();
-    else if (currentView === 'failover') await renderFailover();
     else if (currentView === 'recovery') await renderRecovery();
     else if (currentView === 'notifications') await renderNotifications();
     else if (currentView === 'processors') await renderProcessors();
     else if (currentView === 'reports') await renderReports();
     else if (currentView === 'production') await renderProductionHardening();
     else if (currentView === 'servers') await renderServers();
-    else if (currentView === 'clients') await renderClients();
-    else if (currentView === 'support') await renderSupportCenter();
-    else if (currentView === 'reinstallblocks') await renderReinstallBlocks();
-    else if (currentView === 'clientbiometrics') await renderClientBiometrics();
-    else if (currentView === 'buildsessions') await renderBuildSessions();
-    else if (currentView === 'qrauth') await renderQrAuth();
-    else if (currentView === 'licenses') await renderLicenses();
     else if (currentView === 'releases') await renderReleases();
     else if (currentView === 'features') await renderFeatureFlags();
     else if (currentView === 'confighistory') await renderConfigHistory();
@@ -493,7 +430,6 @@ async function renderCurrent(silent = false) {
     else if (currentView === 'backups') await renderBackups();
     else if (currentView === 'health') await renderSystemHealth();
     else if (currentView === 'ha') await renderHA();
-    else if (currentView === 'loadlab') await renderLoadSimulator();
     else if (currentView === 'storage') await renderStorageMigration();
     else if (currentView === 'system') await renderSystem();
     else if (currentView === 'danger') await renderDangerZone();
@@ -512,10 +448,10 @@ async function renderCurrent(silent = false) {
 }
 
 
-function isMemberPage(view=currentView) { return view.startsWith('member-') && Object.hasOwn(memberTabs,view.slice(7)); }
 function switchView(view) {
-  if(view==='member')view='member-overview';
-  if(isMemberPage(view)&&currentView!==view){memberView=view.slice(7);memberOauthDetail='';memberProviderFilter='';memberOffset=0;memberFilter='';memberQuery='';memberSort='recent';memberSelected.clear();memberFingerprint='';memberRenderSerial++;}
+  if (!Object.hasOwn(titles, view)) view = 'dashboard';
+  const target = nav.querySelector(`button[data-view="${CSS.escape(view)}"]`);
+  if (!target || target.hasAttribute('data-admin-only') && !roleIsAdmin()) view = 'dashboard';
   if (currentView !== view) { dirtyViews.delete(currentView); content.scrollTop = 0; content.scrollLeft = 0; }
   currentView = view;
   nav.querySelectorAll('button[data-view]').forEach(x => x.classList.toggle('active', x.dataset.view === view));

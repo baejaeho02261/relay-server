@@ -18,6 +18,12 @@ function SafeIP(...args) { return require('./utils').SafeIP(...args); }
 function SendLine(...args) { return require('./utils').SendLine(...args); }
 
 function CreateConnection(socket) {
+    // Defense in depth if an old launcher imports this module directly.
+    if (!require('../services/desktopMode').LegacyTcpEnabled()) {
+        socket.end('ERROR|APK_FEATURE_RETIRED\n');
+        socket.destroySoon?.();
+        return;
+    }
     const ha = require('../services/haCoordinator');
     if (!ha.CanAcceptTraffic()) {
         SendLine(socket, `ERROR|RELAY_STANDBY|${config.HA_INSTANCE_ID}`);

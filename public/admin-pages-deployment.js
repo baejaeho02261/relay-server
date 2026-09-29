@@ -9,20 +9,20 @@ function flagSelect(name, value) {
 async function renderReleases() {
   const { releases:r } = await api('/api/releases');
   const relMap = new Map((r.releases || []).map(x => [`${x.type}:${x.channel}`, x]));
-  const releaseRows = ['SERVER','CLIENT'].flatMap(type => ['STABLE','BETA','TEST'].map(channel => {
+  const releaseRows = ['SERVER'].flatMap(type => ['STABLE','BETA','TEST'].map(channel => {
     const x=relMap.get(`${type}:${channel}`);
     return `<tr><td>${uiText(type)}</td><td>${uiText(channel)}</td><td>${x?esc(x.version):'-'}</td><td>${x?fmtBytes(x.size):'-'}</td><td>${x?`${x.rolloutPercent}%`:'-'}</td><td>${x?badge(x.enabled?'ONLINE':'OFFLINE'):'-'}</td><td>${x?`<code>${esc(String(x.sha256||'').slice(0,16))}...</code>`:'-'}</td><td>${x?`<div class="actions"><button data-release-rollout data-type="${type}" data-channel="${channel}">배포 비율</button><button data-release-toggle data-type="${type}" data-channel="${channel}" data-enabled="${x.enabled?'0':'1'}">${x.enabled?"일시 중지":"활성화"}</button><button data-release-push data-type="${type}" data-channel="${channel}">푸시 알림</button></div>`:'-'}</td></tr>`;
   })).join('');
-  const assignments=(r.assignments||[]).map(d=>`<tr><td>${esc(uiText(d.type))}</td><td><code>${esc(d.id)}</code></td><td>${d.online?badge('ONLINE'):badge('OFFLINE')}</td><td>${esc(d.currentVersion||'-')}</td><td><select data-release-channel-select data-type="${d.type}" data-id="${d.id}">${['STABLE','BETA','TEST'].map(ch=>`<option value="${ch}" ${ch===d.channel?'selected':''}>${uiText(ch)}</option>`).join('')}</select></td><td>${d.bucket}</td><td>${d.update&&d.update.available?badge('UPDATE'):esc(d.update&&d.update.reason||'-')}<div class="small-note code">${d.updateStatus?esc(`${d.updateStatus.version||''} ${d.updateStatus.status||''}`):''}</div></td><td><button data-release-device-push data-type="${d.type}" data-id="${d.id}">업데이트 확인·알림</button></td></tr>`).join('');
+  const assignments=(r.assignments||[]).filter(d=>d.type==='SERVER').map(d=>`<tr><td>${esc(uiText(d.type))}</td><td><code>${esc(d.id)}</code></td><td>${d.online?badge('ONLINE'):badge('OFFLINE')}</td><td>${esc(d.currentVersion||'-')}</td><td><select data-release-channel-select data-type="${d.type}" data-id="${d.id}">${['STABLE','BETA','TEST'].map(ch=>`<option value="${ch}" ${ch===d.channel?'selected':''}>${uiText(ch)}</option>`).join('')}</select></td><td>${d.bucket}</td><td>${d.update&&d.update.available?badge('UPDATE'):esc(d.update&&d.update.reason||'-')}<div class="small-note code">${d.updateStatus?esc(`${d.updateStatus.version||''} ${d.updateStatus.status||''}`):''}</div></td><td><button data-release-device-push data-type="${d.type}" data-id="${d.id}">업데이트 확인·알림</button></td></tr>`).join('');
   content.innerHTML=`
     <div class="section-card"><div class="section-head"><h3>새 버전 배포</h3><span class="small-note">관리자 파일 등록 · 해시 검증 · 서명된 다운로드 주소</span></div><div class="section-body">
       <div class="form-grid release-upload-grid">
-        <label>대상<select id="release-type"><option value="SERVER">서버</option><option value="CLIENT">앱 기기</option></select></label>
+        <label>대상<select id="release-type"><option value="SERVER">서버</option></select></label>
         <label>채널<select id="release-channel"><option value="STABLE">안정</option><option value="BETA">베타</option><option value="TEST">테스트</option></select></label>
         <label>버전<input id="release-version" value="2.2.0" placeholder="2.2.0"></label>
         <label>배포 비율 %<input id="release-rollout" type="number" min="0" max="100" value="100"></label>
         <label>필수 적용<select id="release-mandatory"><option value="0">아니요</option><option value="1">예</option></select></label>
-        <label>배포 파일<input id="release-file" type="file" accept=".zip,.exe,.apk"></label>
+        <label>배포 파일<input id="release-file" type="file" accept=".zip,.exe"></label>
       </div>
       <label>변경 사항<input id="release-notes" placeholder="변경사항 / 주의사항"></label>
       <div class="actions"><button id="release-upload-btn" class="primary">파일 등록·배포</button><span id="release-upload-status" class="muted"></span></div>
@@ -48,10 +48,10 @@ async function renderFeatureFlags() {
   const [{ defaults, global, serverOverrides, clientOverrides }, { devices }] = await Promise.all([api('/api/control/features'), api('/api/control/devices')]);
   const names = Object.keys(defaults || {});
   const globalRows = names.map(name => `<tr><td class="code">${esc(name)}</td><td>${badge(defaults[name] ? 'ON' : 'OFF')}</td><td><select data-global-flag="${esc(name)}"><option value="ON" ${global[name]?'selected':''}>켜짐</option><option value="OFF" ${!global[name]?'selected':''}>꺼짐</option></select></td></tr>`).join('');
-  const deviceOptions = (devices || []).map(d => `<option value="${esc(d.type)}|${esc(d.id)}">${esc(uiText(d.type))} // ${esc(d.id)}${d.info && d.info.name ? ` // ${esc(d.info.name)}` : ''}${d.online ? " // 온라인" : " // 오프라인"}</option>`).join('');
+  const deviceOptions = (devices || []).filter(d=>d.type==='SERVER').map(d => `<option value="${esc(d.type)}|${esc(d.id)}">${esc(uiText(d.type))} // ${esc(d.id)}${d.info && d.info.name ? ` // ${esc(d.info.name)}` : ''}${d.online ? " // 온라인" : " // 오프라인"}</option>`).join('');
   content.innerHTML = `<div class="panel-grid">
     <div class="section-card"><div class="section-head"><h3>전체 기능 설정</h3><span class="small-note">설정 동기화 // 전체 기본값</span></div><div class="section-body"><div class="table-wrap"><table><thead><tr><th>기능</th><th>기본값</th><th>전체</th></tr></thead><tbody>${globalRows}</tbody></table></div><div class="toolbar"><button id="feature-global-save" class="primary">저장 전체 기능 설정</button></div></div></div>
-    <div class="section-card"><div class="section-head"><h3>기기 개별 설정</h3><span class="small-note">전체 설정 사용 = 전체</span></div><div class="section-body"><label>기기<select id="feature-device-select"><option value="">선택 기기</option>${deviceOptions}</select></label><div id="feature-device-editor" class="empty">서버 / 앱 기기를 선택하세요.</div></div></div>
+    <div class="section-card"><div class="section-head"><h3>기기 개별 설정</h3><span class="small-note">전체 설정 사용 = 전체</span></div><div class="section-body"><label>기기<select id="feature-device-select"><option value="">선택 기기</option>${deviceOptions}</select></label><div id="feature-device-editor" class="empty">서버를 선택하세요.</div></div></div>
   </div><div class="section-card"><div class="section-head"><h3>기능별 적용 상태</h3></div><div class="section-body"><div class="kv">${names.map(name=>`<div class="code">${esc(name)}</div><div>${badge(global[name]?'ON':'OFF')}</div>`).join('')}</div><p class="small-note">실행 설정 저장과 기능 설정 저장은 독립적입니다. 기기 개별 설정는 해당 장비에만 적용되고 나머지는 전체 값을 상속합니다.</p></div></div>`;
   const select = document.getElementById('feature-device-select');
   if (select) select.onchange = () => renderFeatureDeviceEditor(names, serverOverrides || {}, clientOverrides || {});
@@ -60,7 +60,7 @@ async function renderFeatureFlags() {
 function renderFeatureDeviceEditor(names, serverOverrides, clientOverrides) {
   const select = document.getElementById('feature-device-select');
   const editor = document.getElementById('feature-device-editor');
-  if (!select || !editor || !select.value) { if (editor) editor.innerHTML="<div class=\"empty\">서버 / 앱 기기를 선택하세요.</div>"; return; }
+  if (!select || !editor || !select.value) { if (editor) editor.innerHTML="<div class=\"empty\">서버를 선택하세요.</div>"; return; }
   const [type,id] = select.value.split('|');
   const source = type === 'SERVER' ? serverOverrides : clientOverrides;
   const override = source[id] || {};

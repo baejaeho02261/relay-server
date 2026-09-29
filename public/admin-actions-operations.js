@@ -49,7 +49,7 @@ async function handleOperationsAction(event) {
     if (event.target.id === 'terminal-help-btn') { await executeTerminalCommand('help'); await renderTerminal(); return true; }
     if (event.target.id === 'terminal-clear-btn') { terminalLines = []; await renderTerminal(); return true; }
     if (event.target.id === 'danger-service-stop') {
-      const v=await openModal({title:"서비스 종료",message:'서버·앱 등록 목록, QR 라이선스, 생체인증, 실행 세션, 기기 배정, 대화와 대기 요청을 정리하고 서비스를 종료합니다. 관리자 로그인·재시작 버튼, 운영 설정·배포 파일, 재설치 차단 기록은 유지됩니다.',danger:true,confirmLabel:"서비스 종료"});
+      const v=await openModal({title:"서비스 종료",message:'서비스를 중지하고 활성 인증과 연결을 종료합니다. 관리자 로그인과 재시작, 라이선스 발급·사용 기록은 유지됩니다.',danger:true,confirmLabel:"서비스 종료"});
       if(!v)return true; await api('/api/system/service/stop',{method:'POST',body:{}}); toast('서비스가 종료되었습니다.'); resetServiceUi(); switchView('system'); await renderCurrent(); return true;
     }
     if (event.target.id === 'danger-backup-restore') {
@@ -62,14 +62,9 @@ async function handleOperationsAction(event) {
       await api(`/api/backups/${encodeURIComponent(file)}/delete`,{method:'POST',body:{}}); toast("백업 삭제 완료"); await renderDangerZone(); return true;
     }
     if (event.target.id === 'danger-version-apply') {
-      const protocol=Number(document.getElementById('danger-version-protocol').value), serverVersion=document.getElementById('danger-version-server').value.trim(), clientVersion=document.getElementById('danger-version-client').value.trim();
-      const v=await openModal({title:"버전 정책",message:`프로토콜 >= ${protocol} // 서버 >= ${serverVersion} // 앱 기기 >= ${clientVersion} 로 적용합니다. 기준 미달 연결이 종료될 수 있습니다.`,danger:true,confirmLabel:"적용"}); if(!v)return true;
-      await api('/api/system/version',{method:'POST',body:{protocol,serverVersion,clientVersion}}); toast("버전 정책 적용 완료"); await renderDangerZone(); return true;
-    }
-    if (event.target.id === 'danger-license-delete') {
-      const keys=document.getElementById('danger-license-keys').value.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean).slice(0,500); if(!keys.length) throw new Error('NO_KEYS');
-      const v=await openModal({title:"일괄 라이선스 삭제",message:`${keys.length}개 라이선스를 삭제합니다.`,danger:true,confirmLabel:"삭제"}); if(!v)return true;
-      const r=await api('/api/licenses/bulk',{method:'POST',body:{action:'delete',keys}}); toast(`${r.success}/${r.total} 라이선스 삭제`); await renderDangerZone(); return true;
+      const protocol=Number(document.getElementById('danger-version-protocol').value), serverVersion=document.getElementById('danger-version-server').value.trim();
+      const v=await openModal({title:"버전 정책",message:`프로토콜 >= ${protocol} // 서버 >= ${serverVersion} 로 적용합니다. 기준 미달 연결이 종료될 수 있습니다.`,danger:true,confirmLabel:"적용"}); if(!v)return true;
+      await api('/api/system/version',{method:'POST',body:{protocol,serverVersion}}); toast("버전 정책 적용 완료"); await renderDangerZone(); return true;
     }
     if (event.target.id && event.target.id.startsWith('load-preset-')) {
       const name=event.target.id.replace('load-preset-','').toLowerCase(); const presets={smoke:[2,10,1],medium:[10,100,1],heavy:[100,1000,1]}; const v=presets[name]; if(v){document.getElementById('load-servers').value=v[0];document.getElementById('load-clients').value=v[1];document.getElementById('load-requests').value=v[2];} return true;

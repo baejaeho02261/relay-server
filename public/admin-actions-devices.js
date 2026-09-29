@@ -2,25 +2,12 @@
 async function handleDevicesAction(event) {
     const serverBtn = event.target.closest('[data-server-action]');
     if (serverBtn) { await serverAction(serverBtn.dataset.serverAction, serverBtn.dataset.id); return true; }
-    const clientBtn = event.target.closest('[data-client-action]');
-    if (clientBtn) { await clientAction(clientBtn.dataset.clientAction, clientBtn.dataset.id); return true; }
-    const licBtn = event.target.closest('[data-license-action]');
-    if (licBtn) { await licenseAction(licBtn.dataset.licenseAction, licBtn.dataset.key); return true; }
     const backupBtn = event.target.closest('[data-backup-action]');
     if (backupBtn) { await backupAction(backupBtn.dataset.backupAction, backupBtn.dataset.file); return true; }
     const statsBtn = event.target.closest('[data-stats-range]');
     if (statsBtn) { statsRange = statsBtn.dataset.statsRange || '1H'; await renderDashboard(); return true; }
     if (event.target.id === 'integrity-run-btn') { await renderSystemHealth(); toast("데이터베이스 무결성 검사 완료"); return true; }
 
-    const expiryBtn = event.target.closest('[data-license-expiry]');
-    if (expiryBtn) {
-      licenseExpiry = expiryBtn.dataset.licenseExpiry || 'ALL';
-      licenseStatus = licenseExpiry === 'EXPIRED' ? 'EXPIRED' : 'ALL';
-      currentView = 'licenses';
-      nav.querySelectorAll('button[data-view]').forEach(x => x.classList.toggle('active', x.dataset.view === 'licenses'));
-      renderCurrent();
-      return true;
-    }
     const notificationReadBtn = event.target.closest('[data-notification-read]');
     if (notificationReadBtn) {
       await api(`/api/notifications/${encodeURIComponent(notificationReadBtn.dataset.notificationRead)}/read`, { method: 'POST', body: { read: true } });

@@ -6,7 +6,7 @@ function ensurePalette() {
   root = document.createElement('div');
   root.id = 'command-palette';
   root.className = 'command-palette hidden';
-  root.innerHTML = `<div class="palette-backdrop" data-palette-close></div><div class="palette-card"><div class="palette-head"><span>&gt;_ 전체 검색</span><kbd>ESC</kbd></div><input id="palette-input" class="palette-input" placeholder="서버 / 앱 기기 / 라이선스 / 요청 검색"><div id="palette-results" class="palette-results"><div class="palette-hint">Ctrl+K · 기능과 기기를 검색하세요</div></div></div>`;
+  root.innerHTML = `<div class="palette-backdrop" data-palette-close></div><div class="palette-card"><div class="palette-head"><span>&gt;_ 전체 검색</span><kbd>ESC</kbd></div><input id="palette-input" class="palette-input" placeholder="서버 / Windows 라이선스 / 요청 검색"><div id="palette-results" class="palette-results"><div class="palette-hint">Ctrl+K · 기능과 기기를 검색하세요</div></div></div>`;
   document.body.appendChild(root);
   root.addEventListener('click', async event => {
     if (event.target.closest('[data-palette-close]')) { closePalette(); return; }
@@ -17,8 +17,7 @@ function ensurePalette() {
     closePalette();
     try {
       if (kind === 'SERVER') { switchView('servers'); await renderCurrent(); await serverAction('detail', id); }
-      else if (kind === 'CLIENT') { switchView('clients'); await renderCurrent(); await clientAction('detail', id); }
-      else if (kind === 'LICENSE') { licenseQuery = id; licenseStatus = 'ALL'; licenseExpiry = 'ALL'; switchView('licenses'); await renderCurrent(); }
+      else if (kind === 'DESKTOP_LICENSE') { desktopLicenseQuery = id; desktopLicenseStatus = 'ALL'; desktopLicensePage = 0; switchView('desktop-licenses'); await renderCurrent(); }
       else if (kind === 'REQUEST') { traceQuery = row.dataset.paletteLabel || id; switchView('trace'); await renderCurrent(); }
     } catch (error) { toast(error.message, true); }
   });
@@ -35,7 +34,7 @@ function openPalette() {
   root.classList.remove('hidden');
   const input = root.querySelector('#palette-input');
   input.value = '';
-  root.querySelector('#palette-results').innerHTML = "<div class=\"palette-hint\">서버 식별자 / 별칭 / 앱 기기 / 라이선스 태그 / 요청 식별자</div>";
+  root.querySelector('#palette-results').innerHTML = "<div class=\"palette-hint\">서버 식별자 / 별칭 / Windows 라이선스 / 요청 식별자</div>";
   setTimeout(() => input.focus(), 10);
 }
 
@@ -48,9 +47,11 @@ async function runPaletteSearch(query) {
   const resultsEl = document.getElementById('palette-results');
   if (!resultsEl) return;
   query = String(query || '').trim();
-  if (!query) { resultsEl.innerHTML = "<div class=\"palette-hint\">서버 식별자 / 별칭 / 앱 기기 / 라이선스 태그 / 요청 식별자</div>"; return; }
+  if (!query) { resultsEl.innerHTML = "<div class=\"palette-hint\">서버 식별자 / 별칭 / Windows 라이선스 / 요청 식별자</div>"; return; }
   try {
-    const { results } = await api(`/api/search?q=${encodeURIComponent(query)}`);
+    const [found,desktop]=await Promise.all([api(`/api/search?q=${encodeURIComponent(query)}`),roleIsAdmin()?api('/api/desktop/licenses?'+new URLSearchParams({q:query})):Promise.resolve({items:[]})]);
+    const results=[...found.results.filter(x=>['SERVER','REQUEST'].includes(x.kind)),...(desktop.items||[]).slice(0,20).map(x=>({kind:'DESKTOP_LICENSE',id:x.id,label:x.label||x.id,detail:x.id,status:x.status}))];
+    if (document.getElementById('palette-input')?.value.trim() !== query) return;
     resultsEl.innerHTML = results.map(r => `<button class="palette-row" data-palette-kind="${esc(r.kind)}" data-palette-id="${esc(r.id)}" data-palette-label="${esc(r.label)}"><span class="palette-kind">${esc(r.kind)}</span><span class="palette-main"><strong>${esc(r.label)}</strong><small>${esc(r.detail)}</small></span>${r.status ? badge(r.status) : ''}</button>`).join('') || "<div class=\"palette-hint\">검색 결과 없음</div>";
   } catch (error) { resultsEl.innerHTML = `<div class="palette-hint error-text">${esc(error.message)}</div>`; }
 }

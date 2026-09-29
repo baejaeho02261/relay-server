@@ -3,8 +3,8 @@
 async function renderEnrollment() {
   if (!roleIsAdmin()) throw new Error('FORBIDDEN');
   const { enrollment:e } = await api('/api/enrollment');
-  const rows=(e.records||[]).map(r=>`<tr><td>${badge(r.type)}</td><td class="code">${esc(r.deviceKey)}</td><td>${badge(r.status)}</td><td class="code">${esc(r.requestId)}</td><td>${esc(r.appVersion||'-')}</td><td>${r.protocolVersion||'-'}</td><td class="code">${esc(r.ip||'-')}</td><td>${esc(fmtTime(r.lastSeenAt))}</td><td class="code">${esc(r.assignedId||'-')}</td><td><div class="actions">${r.status==='PENDING'?`<button class="primary" data-enroll-decision="APPROVED" data-request-id="${esc(r.requestId)}">승인</button><button class="danger" data-enroll-decision="REJECTED" data-request-id="${esc(r.requestId)}">거절</button>`:''}<button data-enroll-reset="${esc(r.requestId)}">초기화</button></div></td></tr>`).join('');
-  content.innerHTML=`<div class="cards"><div class="card"><div class="stat-label">정책</div><div class="stat-value">${e.policy.enabled?"켜짐":"꺼짐"}</div><div class="stat-sub">기존 등록 기기는 정책 변경 후에도 재접속할 수 있습니다.</div></div><div class="card"><div class="stat-label">대기 중</div><div class="stat-value">${e.pending}</div></div><div class="card"><div class="stat-label">승인됨</div><div class="stat-value">${e.approved}</div></div><div class="card"><div class="stat-label">거절됨</div><div class="stat-value">${e.rejected}</div></div></div><div class="section-card"><div class="section-head"><h3>새 기기 승인</h3><div class="actions"><button id="enrollment-policy-btn" class="${e.policy.enabled?'warning':'primary'}">${e.policy.enabled?"비활성화 정책":"활성화 정책"}</button></div></div><div class="section-body"><p class="muted">정책 켜짐 이후 처음 보는 기기 키만 대기 중 처리됩니다. 이미 등록된 서버 / 앱 기기는 재접속에 영향 없습니다.</p><div class="table-wrap"><table><thead><tr><th>유형</th><th>기기 키</th><th>상태</th><th>요청</th><th>앱</th><th>프로토콜</th><th>IP</th><th>마지막 확인</th><th>배정됨 식별자</th><th>작업</th></tr></thead><tbody>${rows||"<tr><td colspan=\"10\" class=\"empty\">기기 등록 기록 없음</td></tr>"}</tbody></table></div></div></div>`;
+  const rows=(e.records||[]).filter(r=>r.type==='SERVER').map(r=>`<tr><td>${badge(r.type)}</td><td class="code">${esc(r.deviceKey)}</td><td>${badge(r.status)}</td><td class="code">${esc(r.requestId)}</td><td>${esc(r.appVersion||'-')}</td><td>${r.protocolVersion||'-'}</td><td class="code">${esc(r.ip||'-')}</td><td>${esc(fmtTime(r.lastSeenAt))}</td><td class="code">${esc(r.assignedId||'-')}</td><td><div class="actions">${r.status==='PENDING'?`<button class="primary" data-enroll-decision="APPROVED" data-request-id="${esc(r.requestId)}">승인</button><button class="danger" data-enroll-decision="REJECTED" data-request-id="${esc(r.requestId)}">거절</button>`:''}<button data-enroll-reset="${esc(r.requestId)}">초기화</button></div></td></tr>`).join('');
+  content.innerHTML=`<div class="cards"><div class="card"><div class="stat-label">정책</div><div class="stat-value">${e.policy.enabled?"켜짐":"꺼짐"}</div><div class="stat-sub">기존 등록 기기는 정책 변경 후에도 재접속할 수 있습니다.</div></div><div class="card"><div class="stat-label">대기 중</div><div class="stat-value">${e.pending}</div></div><div class="card"><div class="stat-label">승인됨</div><div class="stat-value">${e.approved}</div></div><div class="card"><div class="stat-label">거절됨</div><div class="stat-value">${e.rejected}</div></div></div><div class="section-card"><div class="section-head"><h3>새 기기 승인</h3><div class="actions"><button id="enrollment-policy-btn" class="${e.policy.enabled?'warning':'primary'}">${e.policy.enabled?"비활성화 정책":"활성화 정책"}</button></div></div><div class="section-body"><p class="muted">정책 켜짐 이후 처음 보는 기기 키만 대기 중 처리됩니다. 이미 등록된 서버는 재접속에 영향 없습니다.</p><div class="table-wrap"><table><thead><tr><th>유형</th><th>기기 키</th><th>상태</th><th>요청</th><th>앱</th><th>프로토콜</th><th>IP</th><th>마지막 확인</th><th>배정됨 식별자</th><th>작업</th></tr></thead><tbody>${rows||"<tr><td colspan=\"10\" class=\"empty\">기기 등록 기록 없음</td></tr>"}</tbody></table></div></div></div>`;
 }
 
 async function renderSecurityCenter() {
@@ -15,13 +15,13 @@ async function renderSecurityCenter() {
   const network = networkResult.summary || { total:0, changed:0, critical:0, warning:0, info:0 };
   const geo = networkResult.geo || {};
   const alerts=(s.alerts||[]).map(a=>`<div class="integrity-row">${badge(a.severity)}<span class="code">${esc(a.code)}</span><span>개수 ${a.count}</span><span>${esc(a.message||'')}</span></div>`).join('');
-  const rows=(s.devices||[]).map(d=>{
+  const rows=(s.devices||[]).filter(d=>d.type==='SERVER').map(d=>{
     const age=d.hasSecret?(d.secretAgeUnknown?'UNKNOWN':`${d.secretAgeDays}d`):'-';
     const hmac=!d.capable?badge('LEGACY'):(d.verified?badge('VERIFIED'):badge(d.online?'UNVERIFIED':'OFFLINE'));
     const secret=!d.hasSecret?badge('NONE'):(d.secretStale?badge('STALE'):badge('OK'));
     return `<tr><td>${badge(d.type)}</td><td class="code">${esc(d.id)}</td><td>${d.online?badge('ONLINE'):badge('OFFLINE')}</td><td>${hmac}</td><td>${d.enforced?badge('ENFORCED'):badge('OPTIONAL')}</td><td>${secret}</td><td>${esc(age)}</td><td>${esc(d.authStatus||'-')}</td><td>${d.verifiedAt?esc(fmtTime(d.verifiedAt)):'-'}</td><td>${d.rotationStatus?badge(d.rotationStatus):'-'}</td></tr>`;
   }).join('');
-  const networkRows=(networkResult.devices||[]).map(n=>{
+  const networkRows=(networkResult.devices||[]).filter(n=>n.type==='SERVER').map(n=>{
     const current=n.current||{}, trusted=n.trusted||{};
     const location=[current.country,current.region,current.city].filter(Boolean).join(' / ')||'-';
     const trustedLocation=[trusted.country,trusted.region,trusted.city].filter(Boolean).join(' / ')||'-';
@@ -48,7 +48,7 @@ async function renderProtocolSecurity() {
   const secMap = new Map((security || []).map(x => [`${x.type}:${x.id}`, x]));
   const seqMap = new Map((sequences || []).map(x => [`${x.type}:${x.id}`, x]));
   const rotationMap = new Map((rotations || []).map(x => [`${x.type}:${x.id}`, x]));
-  const rows = (readiness.devices || []).map(r => {
+  const rows = (readiness.devices || []).filter(d=>d.type==='SERVER').map(r => {
     const key = `${r.type}:${r.id}`;
     const sec = secMap.get(key) || {};
     const seq = seqMap.get(key) || {};
