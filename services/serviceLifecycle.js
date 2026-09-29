@@ -97,6 +97,16 @@ function Gate(connection, line) {
   return true;
 }
 function Stop(actor = 'ADMIN') {
+  // Windows licensing stops access without erasing used-key tombstones or
+  // existing administrator history. One-time activation can never be reset.
+  if (require('./desktopMode').Enabled()) {
+    const before = state.serviceEnabled;
+    state.serviceEnabled = false;
+    if (!save()) { state.serviceEnabled = before; return {ok:false,reason:'DATABASE_SAVE_FAILED'}; }
+    require('../storage/audit').LogEvent('SERVICE_STOP', String(actor)+' WINDOWS_LICENSE');
+    require('../web/webEvents').BroadcastServiceState({enabled:false});
+    return {ok:true,cleared:{},preserved:true};
+  }
   state.serviceEnabled = false;
   state.maintenanceMode = false;
   state.maintenanceSchedule = null;
