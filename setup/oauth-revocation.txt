@@ -87,5 +87,5 @@ https://developers.kakao.com/docs/en/kakaologin/callback
 https://developers.kakao.com/docs/en/kakaologin/trouble-shooting
 
 Offline checks (mock provider responses, no production credentials)
-node scripts/test-fix71-oauth-identity.js
-node scripts/test-fix72-oauth-revocation.js
+node scripts/test-oauth-identity.js
+node scripts/test-oauth-revocation.js

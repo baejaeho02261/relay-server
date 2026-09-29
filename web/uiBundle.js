@@ -11,6 +11,7 @@ const FILES = [
   "admin-appearance.css",
   "admin-appearance.js",
   "admin-controls.css",
+  "admin-workspace.css",
   "admin-controls.js",
   "admin-navigation.css",
   "admin-i18n.js",

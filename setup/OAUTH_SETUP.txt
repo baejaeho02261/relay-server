@@ -92,8 +92,8 @@ ID 토큰은 검증 후 폐기하며 토큰과 암호문 모두 앱/관리자 �
 운영 플래그만 1로 바꾸어도 인증을 건너뛸 수 없습니다.
 
 검증
-node scripts/test-fix71-oauth-identity.js
-node scripts/test-fix72-oauth-revocation.js
+node scripts/test-oauth-identity.js
+node scripts/test-oauth-revocation.js
 node scripts/test-member-test-access.js
 실제 RSA 키로 서명/오류/재전송/다른 기기 연결/롤백/영구 저장을 검사합니다.
 네트워크 제공자는 테스트에서 모의 응답합니다. 실제 운영 키로의 최종 로그인 검증은 별도입니다.
