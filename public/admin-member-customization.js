@@ -1,7 +1,7 @@
 'use strict';
 let memberShopRules=null;
-const memberShopNames={NICKNAME_TICKET:'닉네임 변경권',NICKNAME_COLOR:'닉네임 색상'};
-const memberShopDescriptions={NICKNAME_TICKET:'닉네임 변경 대기 없이 1회 변경',NICKNAME_COLOR:'선택한 닉네임 색상 1회 적용'};
+const memberShopNames={NICKNAME_TICKET:'닉네임 변경권',NICKNAME_COLOR:'닉네임 색상',COMMENT_TICKET:'댓글 이용권',REPOST_TICKET:'리포스트 이용권',SHARE_TICKET:'공유 이용권'};
+const memberShopDescriptions={NICKNAME_TICKET:'닉네임 변경 대기 없이 1회 변경',NICKNAME_COLOR:'선택한 닉네임 색상 1회 적용',COMMENT_TICKET:'내 글 또는 다른 회원의 글에 댓글 1회',REPOST_TICKET:'내 글 또는 다른 회원의 글을 리포스트 1회',SHARE_TICKET:'내 글 또는 다른 회원의 글을 대화에 공유 1회'};
 function memberPageButtons(result){return result.total>30?`<div class="member-pagination">${memberOffset?memberButton('prev','','이전'):''}<span>${Math.floor(memberOffset/30)+1}페이지</span>${result.nextOffset!==null?memberButton('next','','다음'):''}</div>`:'';}
 function memberConversionPanel(result){
  const rows=result.items||[];
@@ -28,6 +28,6 @@ async function reverseMemberPoints(row){
 function memberDecorationFacts(p){
  const rows=[];
  if(p.nicknameColor)rows.push(['닉네임 색상',p.nicknameColor]);
- if(p.inventory){rows.push(['닉네임 변경권',String(p.inventory.nicknameTickets??p.inventory.NICKNAME_TICKET??0)+'개']);rows.push(['닉네임 색상 변경권',String(p.inventory.nicknameColors??p.inventory.NICKNAME_COLOR??0)+'개']);}
- return rows.length?`<section class="member-panel"><h3>회원 꾸미기</h3>${memberFacts(rows)}</section>`:'';
+ if(p.inventory){rows.push(['닉네임 변경권',String(p.inventory.nicknameTickets??p.inventory.NICKNAME_TICKET??0)+'개']);rows.push(['닉네임 색상 변경권',String(p.inventory.nicknameColors??p.inventory.NICKNAME_COLOR??0)+'개']);for(const [key,title] of [['commentTickets','댓글 이용권'],['repostTickets','리포스트 이용권'],['shareTickets','공유 이용권']])rows.push([title,String(p.inventory[key]||0)+'개']);}
+ return rows.length?`<section class="member-panel"><h3>회원 보유 아이템</h3>${memberFacts(rows)}</section>`:'';
 }

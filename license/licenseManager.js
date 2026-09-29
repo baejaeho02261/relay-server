@@ -99,13 +99,23 @@ function CompleteAuthorization(connection, licenseKey, license, source = 'LICENS
     connection.biometricVerified = false;
     connection.accessType = accessType;
     connection.lastServerAuthState = '';
-    SaveDatabase();
+    if (!SaveDatabase()) {
+        connection.licenseAuthorized = false;
+        connection.memberEntryGrant = null;
+        SendLine(connection.socket, 'QR_AUTH_ERROR||STORAGE_SAVE_FAILED');
+        return false;
+    }
 
     if (eventSource === 'LICENSE') SendLine(connection.socket, `LICENSE_OK|${licenseKey}|${license.expiresAt}`);
     else SendLine(connection.socket, `QR_AUTH_OK|${requestId || 'RESUME'}|${license.expiresAt}|${accessType}`);
     NotifyServerUnauthorized(connection.clientId, 'BIOMETRIC_REQUIRED');
     const biometric = require('../services/clientBiometric');
-    if (eventSource !== 'QR_RESUME' || !biometric.TryResume(connection))
+    const memberEntry = require('../services/memberEntry');
+    if (memberEntry.Supports(connection)) {
+        if (!(requestId === 'PURCHASE' && memberEntry.Ready(connection)) && !memberEntry.Grant(connection)) return false;
+        // Only an explicitly prepared PC game requires phone proof.
+        if (requestId === 'PURCHASE') biometric.Begin(connection, accessType);
+    } else if (eventSource !== 'QR_RESUME' || !biometric.TryResume(connection))
         biometric.Begin(connection, accessType);
 
     const remainingDays = Math.ceil((license.expiresAt - Now()) / 86400000);

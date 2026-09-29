@@ -74,6 +74,7 @@ function AttachClient(connection, saved) {
     connection.licenseAuthorized = false;
     connection.licenseKey = '';
     connection.licenseExpiresAt = 0;
+    connection.memberEntryGrant = null;
     connection.biometricVerified = false;
     connection.accessType = '';
     connection.buildCompleted = false;

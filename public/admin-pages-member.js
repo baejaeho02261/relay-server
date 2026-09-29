@@ -3,7 +3,7 @@ let memberLookupHandle='',memberLookupSection='',memberLookupOffset=0,memberLook
 let memberView='overview',memberOffset=0,memberRows=new Map(),memberRenderSerial=0;
 let memberQuery='',memberFilter='',memberSort='recent',memberSelected=new Set();
 let memberPointerDown=false,memberPointerUntil=0,memberInteractionUntil=0,memberLastRefresh=0,memberFingerprint='';
-const memberTabs={overview:'운영 요약',integrations:'계정 연결 설정',oauthAccounts:'카카오·Google 계정',walletGrants:'관리자 잔액 지급',rewards:'이벤트·포인트',pointConversions:'포인트 교환·회수',shop:'회원 상점',news:'소식',products:'게임',profiles:'회원',posts:'피드 글',comments:'댓글',reports:'신고',orders:'이용권 내역',ledger:'결제 원장',policies:'약관·개인정보'};
+const memberTabs={overview:'운영 요약',integrations:'계정 연결 설정',oauthAccounts:'카카오·Google 계정',walletGrants:'관리자 잔액 지급',rewards:'출석·포인트',pointConversions:'포인트 교환·회수',shop:'회원 상점',news:'소식',products:'게임',profiles:'회원',posts:'피드 글',comments:'댓글',reports:'신고',orders:'이용권 내역',ledger:'결제 원장',policies:'약관·개인정보'};
 const memberStatus={ADMIN_GRANT:'관리자 잔액 지급',PAID:'미사용',ACTIVE:'사용 중',USED:'사용 완료',REFUNDED:'환불 완료',QR_CHARGE:'이전 이용권 등록',QR_TOPUP:'잔액 충전',PAYMENT_TOPUP:'간편결제 충전',WITHDRAW_RETIREMENT_RELEASE:'예약 잔액 복원',POINT_RECHARGE:'포인트 충전',POINT_EXCHANGE:'포인트 교환',POINT_EXCHANGE_REVERSE:'포인트 교환 회수',SHOP_PURCHASE:'상점 구매',WITHDRAW_RESERVE:'출금 신청',WITHDRAW_RELEASE:'출금 반려 · 잔액 복원',ARCADE_BET:'가상머니 베팅',ARCADE_PAYOUT:'가상머니 정산',PENDING:'확인 대기',APPROVED:'충전 완료',REJECTED:'반려',EXPIRED:'기간 만료',TOPUP:'이전 잔액 반영',PURCHASE:'구매',REFUND:'환불',OPEN:'접수',RESOLVED:'처리 완료',NOTICE:'공지',EVENT:'이벤트',ALERT:'알림'};
 const memberEditable=view=>['products','news','posts','comments'].includes(view);
 function memberMoney(n){return Number(n||0).toLocaleString('ko-KR')+'원';}

@@ -25,7 +25,7 @@ const qrAuthBadge = document.getElementById('qr-auth-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'fix75';
+const WEB_UI_REVISION = 'fix76';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -95,7 +95,7 @@ function clearQrSelectedFile() {
 const titles = {
   'member-pointConversions': ['포인트 교환·회수', ''],
   'member-shop': ['회원 상점', ''],
-  'member-rewards': ['이벤트·포인트', ''],
+  'member-rewards': ['출석·포인트', '출석 보상과 회원의 포인트 내역을 관리하세요.'],
   'member-integrations': ['계정 연결 설정', ''],
   'member-oauthAccounts': ['카카오·Google 계정', ''],
   'member-walletGrants': ['관리자 잔액 지급', ''],
@@ -412,6 +412,8 @@ function captureScrollState(view) {
     documentTop: scrolling ? scrolling.scrollTop : 0,
     documentLeft: scrolling ? scrolling.scrollLeft : 0,
     navTop: nav ? nav.scrollTop : 0,
+    contentTop: content.scrollTop,
+    contentLeft: content.scrollLeft,
     nodes: Array.from(content.querySelectorAll(PRESERVED_SCROLL_SELECTOR)).map((element, index) => ({
       element,
       index,
@@ -430,6 +432,8 @@ function restoreScrollState(snapshot) {
     scrolling.scrollLeft = snapshot.documentLeft;
   }
   if (nav) nav.scrollTop = snapshot.navTop;
+  content.scrollTop = snapshot.contentTop || 0;
+  content.scrollLeft = snapshot.contentLeft || 0;
   const nodes = Array.from(content.querySelectorAll(PRESERVED_SCROLL_SELECTOR));
   for (const saved of snapshot.nodes) {
     let element = nodes[saved.index];
@@ -453,6 +457,7 @@ async function renderCurrent(silent = false) {
   const meta = titles[currentView] || titles.dashboard;
   pageTitle.textContent = meta[0];
   pageSubtitle.textContent = meta[1];
+  if (typeof updateNavigationWorkspace === 'function') updateNavigationWorkspace();
   if (!silent) content.innerHTML = '<div class="empty">불러오는 중...</div>';
   try {
     if (isMemberPage()) await renderMember();
@@ -511,7 +516,7 @@ function isMemberPage(view=currentView) { return view.startsWith('member-') && O
 function switchView(view) {
   if(view==='member')view='member-overview';
   if(isMemberPage(view)&&currentView!==view){memberView=view.slice(7);memberOauthDetail='';memberProviderFilter='';memberOffset=0;memberFilter='';memberQuery='';memberSort='recent';memberSelected.clear();memberFingerprint='';memberRenderSerial++;}
-  if (currentView !== view) dirtyViews.delete(currentView);
+  if (currentView !== view) { dirtyViews.delete(currentView); content.scrollTop = 0; content.scrollLeft = 0; }
   currentView = view;
   nav.querySelectorAll('button[data-view]').forEach(x => x.classList.toggle('active', x.dataset.view === view));
 }
