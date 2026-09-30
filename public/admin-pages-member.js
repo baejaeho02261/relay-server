@@ -65,7 +65,7 @@ async function renderMember(automatic=false){
  }else if(view==='shop'){html+=memberShopPanel(result);
  }else if(view==='rewards'){html+=memberRewardsPanel(result);
  }else if(view==='policies'){
-  html+='<section class="member-panel"><h3>앱 약관과 개인정보 처리방침</h3><p class="small-note">게시한 문서는 모아플레이 설정에 표시됩니다. 실제 운영 내용을 작성해 주세요.</p>'+(result.items||[]).map(x=>`<article class="member-policy"><h4>${esc(x.title)}</h4><span class="member-badge">${x.published?'게시 중':'미게시'}</span><p class="small-note">${x.updatedAt?esc(fmtTime(x.updatedAt)):'등록된 문서 없음'}</p>${memberButton('policy.edit',x.kind,'문서 수정')}</article>`).join('')+'</section>';
+  html+='<section class="member-panel"><h3>앱 약관과 개인정보 처리방침</h3><p class="small-note">게시한 문서는 Game 설정에 표시됩니다. 실제 운영 내용을 작성해 주세요.</p>'+(result.items||[]).map(x=>`<article class="member-policy"><h4>${esc(x.title)}</h4><span class="member-badge">${x.published?'게시 중':'미게시'}</span><p class="small-note">${x.updatedAt?esc(fmtTime(x.updatedAt)):'등록된 문서 없음'}</p>${memberButton('policy.edit',x.kind,'문서 수정')}</article>`).join('')+'</section>';
  }else if(view==='overview'){
   const stats=[['회원',result.members],['등록 게임',result.products],['이용권',result.orders],['피드 조회수',result.postViews],['미처리 신고',result.openReports]];
   html+=`<div class="member-metrics">${stats.map(([label,value])=>`<article><span>${label}</span><strong>${Number(value||0).toLocaleString('ko-KR')}</strong></article>`).join('')}</div><section class="member-panel"><h3>많이 본 피드</h3><div class="member-popular">${result.topContent.map(x=>`<div><span>${esc(x.title||x.id)}</span><strong>${Number(x.count).toLocaleString('ko-KR')}</strong></div>`).join('')||'<p class="member-empty">아직 조회 기록이 없습니다.</p>'}</div></section>`;

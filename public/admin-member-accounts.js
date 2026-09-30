@@ -1,6 +1,6 @@
 'use strict';
 let memberOauthDetail='',memberProviderFilter='',memberGrantBusy=false;
-const memberGrantDraftKey='moaplay.admin.walletGrant.pending.v1';
+const memberGrantDraftKey='game.admin.walletGrant.pending.v1';
 const memberOauthStates={checking:'연결 확인 중',active:'연결 정상',degraded:'확인 지연',revoked:'연결 해제됨',reauth_required:'재인증 필요',unlinked:'미연결'};
 function memberOauthState(value){return memberOauthStates[value]||'미확인';}
 function memberProviderName(value){return {google:'Google',kakao:'카카오'}[value]||'미연결';}

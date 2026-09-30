@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'windows-console-81';
+const WEB_UI_REVISION = 'game-console-83';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -79,7 +79,7 @@ const titles = {
   processors: ['처리 정책', "숫자 허용 범위·차단값 정책과 처리기 처리 통계를 관리합니다."],
   reports: ['푸시 · 보고서', "웹 앱 푸시 알림 구독과 날짜별 중계 서버 상태 리포트를 관리합니다."],
   production: ['운영 설정', '배포 무결성, 패스키, 감사 체인과 운영 복원력을 통합 관리합니다.'],
-  servers: ['서버 기기', 'MoaPlayConnect 연결과 상태를 관리합니다.'],
+  servers: ['서버 기기', 'GameConnect 연결과 상태를 관리합니다.'],
   releases: ['Windows 배포', "자동 업데이트, 배포 채널, 단계별 배포을 관리합니다."],
   features: ['기능 설정', "전역 기능과 서버별 개별 설정를 관리합니다."],
   confighistory: ['설정 이력', "실행 설정와 Feature 기능 변경 이력 및 되돌리기을 관리합니다."],
