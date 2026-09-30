@@ -1,6 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'moa-connect-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';
+for(const name of ['DESKTOP_PUBLIC_HOST','DESKTOP_PUBLIC_PORT','RAILWAY_TCP_PROXY_DOMAIN','RAILWAY_TCP_PROXY_PORT'])delete process.env[name];
 require('../core/utils').EnsureDirs();
 const desktop=require('../services/desktopLicenses'),transport=require('../services/desktopConnect'),keys=require('../services/connectTransportKey'),state=require('../core/state');
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');

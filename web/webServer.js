@@ -154,6 +154,14 @@ async function RequestHandler(req, res) {
         if (await require('../services/haCoordinator').HandleInternal(req, res, pathname)) return;
     }
 
+    // Deployment readiness is independent of an administrator disabling
+    // licensed operations: the admin web must still be deployable in that state.
+    if (pathname === '/readyz' && (method === 'GET' || method === 'HEAD')) {
+        const ready = require('../services/desktopConnect').IsListening() && uiBundle.Check().ready;
+        Json(res, ready ? 200 : 503, { ok: ready, revision: config.WEB_UI_REVISION });
+        return;
+    }
+
     if ((pathname === '/health' || pathname === '/healthz') && method === 'GET') {
         const body = HealthSnapshot();
         Json(res, body.ok ? 200 : 503, body);

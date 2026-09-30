@@ -6,6 +6,7 @@ const publicKey=crypto.generateKeyPairSync('rsa',{modulusLength:2048}).publicKey
 header.writeUInt32LE(0x31415352,0);header.writeUInt32LE(2048,4);header.writeUInt32LE(exponent.length,8);header.writeUInt32LE(modulus.length,12);
 const publicBlob=Buffer.concat([header,exponent,modulus]);
 const connectProfile={version:1,protocol:'MOAPLAY-CONNECT-1',host:'relay.example.test',port:17959,serverKeyId:crypto.createHash('sha256').update(publicBlob).digest('hex'),serverPublicKey:publicBlob.toString('base64')};
+const connectionInfo={revision:'windows-connect-3',source:'railway',ready:true,host:connectProfile.host,port:'17959',hostVariable:'RAILWAY_TCP_PROXY_DOMAIN',portVariable:'RAILWAY_TCP_PROXY_PORT',tcpPort:3000,httpPort:8080,probePort:8080,probePortMatches:true};
 const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
 const errors=[],requests=[],now=Date.now(),key='MOA-TEST-ONLY-NOT-A-LIVE-KEY';
 const rows=Array.from({length:28},(_,i)=>({id:'DL_'+String(i).padStart(3,'0'),label:i===0?'<img src=x onerror=bad()>':'고객 PC '+i,status:i===0?'ACTIVE':'AVAILABLE',issuedAt:now-10000,activatedAt:i===0?now-5000:0,expiresAt:0,lastVerifiedAt:0,deviceName:i===0?'Office <script>bad()</script>':'',deviceId:i===0?'SHA256_DEVICE_FINGERPRINT_0123456789':'',consumed:i===0,appVersion:'1.0.0'}));
@@ -25,7 +26,7 @@ w.fetch=async(url,options={})=>{
  if(url==='/api/session')data={ok:true,role:'admin',csrf:'DOM_CSRF',expiresAt:now+600000};
  else if(url==='/api/system')data={ok:true,system:{webAdminVersion:'5.0.1'}};
  else if(url.startsWith('/api/notifications?'))data={ok:true,summary:{unread:0,critical:0}};
- else if(url==='/api/desktop/connect-profile'){assert.equal(method,'GET');if(connectMissing)return {ok:false,status:503,text:async()=>JSON.stringify({ok:false,error:'CONNECT_PUBLIC_ENDPOINT_REQUIRED'})};data={ok:true,profile:{...connectProfile,privateKey:'MUST_NOT_EXPORT',token:'MUST_NOT_EXPORT',licenseKey:'MUST_NOT_EXPORT'}};}
+ else if(url==='/api/desktop/connect-profile'){assert.equal(method,'GET');if(connectMissing)return {ok:false,status:503,text:async()=>JSON.stringify({ok:false,error:'CONNECT_PUBLIC_ENDPOINT_REQUIRED',message:'호스트 이름만 입력하세요.',connection:{...connectionInfo,source:'manual',ready:false,host:'<img src=x onerror=bad()>',hostVariable:'DESKTOP_PUBLIC_HOST',portVariable:'DESKTOP_PUBLIC_PORT',probePort:3000,probePortMatches:false}})};data={ok:true,profile:{...connectProfile,privateKey:'MUST_NOT_EXPORT',token:'MUST_NOT_EXPORT',licenseKey:'MUST_NOT_EXPORT'},connection:connectionInfo};}
  else if(url.startsWith('/api/search?'))data={ok:true,results:[]};
  else if(url.startsWith('/api/desktop/licenses?')){const params=new URL(url,'https://fixture.invalid').searchParams,q=params.get('q')||'',status=params.get('status');assert.ok(status===null||['AVAILABLE','ACTIVE','REVOKED','EXPIRED','RELEASED'].includes(status),'The API does not accept the UI-only ALL filter');data={ok:true,items:rows.filter(x=>(!status||x.status===status)&&[x.id,x.label,x.deviceName].join(' ').includes(q)),revision:1,serverTime:now};}
  else if(url==='/api/desktop/licenses'&&method==='POST'){
@@ -60,6 +61,8 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  w.document.querySelector('#desktop-connect-profile').click();await waitFor(()=>shown('#desktop-connect-download'),'verified Connect profile dialog');
  assert.match(w.document.querySelector('#modal-body').textContent,/relay\.example\.test/);
  assert.match(w.document.querySelector('#modal-body').textContent,/17959/);
+ assert.match(w.document.querySelector('#modal-body').textContent,/Railway 자동 감지/);
+ assert.match(w.document.querySelector('#modal-body').textContent,/windows-connect-3/);
  assert.ok(w.document.querySelector('#modal-body').textContent.includes(connectProfile.serverKeyId.match(/.{2}/g).join(':')));
  w.document.querySelector('#desktop-connect-download').click();await waitFor(()=>downloadedBlob&&downloadedName,'Connect settings download');
  assert.equal(downloadedName,'MoaPlayConnect.server.json');assert.deepEqual(JSON.parse(await downloadedBlob.text()),connectProfile);
@@ -67,6 +70,9 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  await closeModal();assert.equal(w.document.querySelector('#desktop-connect-download'),null);
  connectMissing=true;w.document.querySelector('#desktop-connect-profile').click();await waitFor(()=>w.document.querySelector('#modal-body').textContent.includes('DESKTOP_PUBLIC_HOST'),'missing public endpoint instructions');
  assert.match(w.document.querySelector('#modal-body').textContent,/DESKTOP_PUBLIC_HOST/);assert.match(w.document.querySelector('#modal-body').textContent,/DESKTOP_PUBLIC_PORT/);
+ assert.match(w.document.querySelector('#modal-body').textContent,/<img src=x onerror=bad\(\)>/);
+ assert.equal(w.document.querySelector('#modal-body img'),null);
+ assert.match(w.document.querySelector('#modal-body').textContent,/CONNECT_TCP_PORT/);
  assert.equal(w.document.querySelector('#desktop-connect-download'),null);await closeModal();connectMissing=false;
  await assert.rejects(()=>w.desktopConnectProfileData({...connectProfile,serverKeyId:'0'.repeat(64)}),/지문/);
  assert.equal(w.document.querySelectorAll('#nav [data-view^="member-"]').length,0);

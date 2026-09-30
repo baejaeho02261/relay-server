@@ -43,6 +43,7 @@ console.log('Web Admin:', WEB_ADMIN_VERSION, 'HTTP Port:', WEB_ADMIN_PORT);
 console.log('Storage:', config.STORAGE_ENGINE.toUpperCase(), DATA_DIR);
 console.log('APK / legacy relay protocol: retired');
 require('./services/desktopConnect').Start();
+require('./services/connectEndpoint').LogConfiguration();
 
 StartWebAdmin();
 
