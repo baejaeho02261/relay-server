@@ -1,7 +1,7 @@
 'use strict';
 // The administrator distributes this server's public pin. Clients never learn
 // or replace a trusted key from an unauthenticated connection (no TOFU).
-const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),net=require('node:net');
+const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
 const config=require('../config/config');
 const KEY_FILE=path.join(config.DATA_DIR,'connect-transport-key.pem'),ID_FILE=path.join(config.DATA_DIR,'connect-transport-key.id');
 let cached;
@@ -33,9 +33,8 @@ function Load(){
  cached={privateKey,publicKey,keyId,serverPublicKey:blob.toString('base64')};return cached;
 }
 function Profile(){
- const host=String(process.env.DESKTOP_PUBLIC_HOST||'').trim(),port=Number(process.env.DESKTOP_PUBLIC_PORT||config.PORT);
- const dns=/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(host);
- if(!host||!dns&&net.isIP(host)!==4||!Number.isInteger(port)||port<1||port>65535)require('./desktopLicenses').Fail('CONNECT_PUBLIC_ENDPOINT_REQUIRED',503);
+ const {host,port,ready}=require('./connectEndpoint').Resolve();
+ if(!ready)require('./desktopLicenses').Fail('CONNECT_PUBLIC_ENDPOINT_REQUIRED',503);
  const identity=Load();return {version:1,protocol:'MOAPLAY-CONNECT-1',host,port,serverKeyId:identity.keyId,serverPublicKey:identity.serverPublicKey};
 }
 module.exports={Load,Profile,PublicBlob,KEY_FILE,ID_FILE};

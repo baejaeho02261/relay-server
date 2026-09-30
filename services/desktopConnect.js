@@ -4,7 +4,7 @@ const desktop=require('./desktopLicenses'),identity=require('./connectTransportK
 const PROTOCOL='MOAPLAY-CONNECT-1',MAX_FRAME=24576,MAX_CLEAR=12288,DEADLINE_MS=10000;
 const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),rates=new Map(),activeByIp=new Map();
 const decoder=new TextDecoder('utf-8',{fatal:true});
-let active=0,lastPrune=0;
+let active=0,lastPrune=0,listener=null;
 function Aad(direction,requestId,keyId){return Buffer.from(PROTOCOL+'\n'+direction+'\n'+requestId+'\n'+keyId,'utf8');}
 function Plain(value){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype;}
 function Prune(){const at=Date.now();if(at-lastPrune<1000)return;lastPrune=at;for(const [id,until]of seen)if(until<=at)seen.delete(id);for(const [id,row]of rates)if(row.until<=at)rates.delete(id);}
@@ -59,9 +59,10 @@ function Accept(socket){
 }
 function CreateServer(){identity.Load();return net.createServer(Accept);}
 function Start(){
- const config=require('../config/config'),port=config.PORT;
+ const config=require('../config/config'),port=config.CONNECT_TCP_PORT;
  if(!Number.isInteger(port)||port<1||port>65535||port===config.WEB_ADMIN_PORT||port===config.HEALTH_PORT)throw Error('CONNECT_PORT_INVALID');
  const server=CreateServer();server.on('error',error=>{console.error('CONNECT_TCP_START_FAILED:',error.code||error.message);throw error;});
- server.listen(port,config.HOST,()=>console.log('MoaPlayConnect encrypted TCP:',port));return server;
+ listener=server;server.listen(port,config.HOST,()=>console.log('MoaPlayConnect encrypted TCP:',port));return server;
 }
-module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,DEADLINE_MS,Aad,CreateServer,Start};
+function IsListening(){return !!(listener&&listener.listening);}
+module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,DEADLINE_MS,Aad,CreateServer,Start,IsListening};
