@@ -1,7 +1,7 @@
 'use strict';
-const net=require('node:net'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
+const tls=require('node:tls'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require('./desktopLicenses'),identity=require('./connectTransportKey');
-const PROTOCOL='GAME-CONNECT-1',MAX_FRAME=24576,MAX_CLEAR=12288,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
+const PROTOCOL='GAME-CONNECT-2',MAX_FRAME=24576,MAX_CLEAR=12288,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
 const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),rates=new Map(),activeByIp=new Map();
 const decoder=new TextDecoder('utf-8',{fatal:true});
 let active=0,lastPrune=0,listener=null;
@@ -40,13 +40,9 @@ function Dispatch(opened){
  }catch(error){const code=error.desktopError?error.message:error.message==='CONNECT_RATE_LIMIT'?'DESKTOP_RATE_LIMIT':'INPUT_INVALID';return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}
 }
 function Accept(socket){
- Prune();const ip=String(socket.remoteAddress||'UNKNOWN');
- try{Rate('ALL',1800);Rate('IP:'+ip,300);if(active>=512||(activeByIp.get(ip)||0)>=32)throw Error('CONNECT_CAPACITY');}catch(_){socket.destroy();return;}
- active++;activeByIp.set(ip,(activeByIp.get(ip)||0)+1);let buffer=Buffer.alloc(0),complete=false;
- socket.setNoDelay(true);socket.setTimeout(DEADLINE_MS,()=>socket.destroy());
- // An absolute deadline prevents a peer keeping a partial frame alive forever.
- const deadline=setTimeout(()=>socket.destroy(),DEADLINE_MS);deadline.unref();
- socket.on('error',()=>{});socket.once('close',()=>{clearTimeout(deadline);active--;const count=(activeByIp.get(ip)||1)-1;if(count)activeByIp.set(ip,count);else activeByIp.delete(ip);buffer.fill(0);});
+ let buffer=Buffer.alloc(0),complete=false;
+ socket.setNoDelay(true);socket.disableRenegotiation();
+ socket.on('error',()=>{});socket.once('close',()=>buffer.fill(0));
  socket.on('data',chunk=>{
   if(complete)return socket.destroy();if(buffer.length+chunk.length>MAX_FRAME)return socket.destroy();buffer=Buffer.concat([buffer,chunk]);const end=buffer.indexOf(10);if(end<0)return;
   complete=true;socket.pause();
@@ -57,12 +53,31 @@ function Accept(socket){
   catch(_){opened?.key.fill(0);socket.destroy();}
  });
 }
-function CreateServer(){identity.Load();require('./desktopBootstrap').Initialize();return net.createServer(Accept);}
+function CreateServer(){
+ identity.Load();require('./desktopBootstrap').Initialize();
+ const tlsIdentity=require('./connectTls').Load();
+ const server=tls.createServer({...tlsIdentity.options,handshakeTimeout:DEADLINE_MS},socket=>{
+  // Cached certificate validity is rechecked for every accepted TLS connection.
+  try{require('./connectTls').Load();}catch(_){socket.destroy();return;}
+  Accept(socket);
+ });
+ // Count and expire raw sockets before TLS authentication, including peers that
+ // never send ClientHello. The same absolute budget covers handshake + request.
+ server.on('connection',socket=>{
+  Prune();const ip=String(socket.remoteAddress||'UNKNOWN');
+  try{Rate('ALL',1800);Rate('IP:'+ip,300);if(active>=512||(activeByIp.get(ip)||0)>=32)throw Error('CONNECT_CAPACITY');}catch(_){socket.destroy();return;}
+  active++;activeByIp.set(ip,(activeByIp.get(ip)||0)+1);socket.on('error',()=>{});
+  const deadline=setTimeout(()=>socket.destroy(),DEADLINE_MS);deadline.unref();
+  socket.once('close',()=>{clearTimeout(deadline);active--;const count=(activeByIp.get(ip)||1)-1;if(count)activeByIp.set(ip,count);else activeByIp.delete(ip);});
+ });
+ server.on('tlsClientError',(_error,socket)=>socket.destroy());
+ return server;
+}
 function Start(){
  const config=require('../config/config'),port=config.CONNECT_TCP_PORT;
  if(!Number.isInteger(port)||port<1||port>65535||port===config.WEB_ADMIN_PORT||port===config.HEALTH_PORT)throw Error('CONNECT_PORT_INVALID');
  const server=CreateServer();server.on('error',error=>{console.error('CONNECT_TCP_START_FAILED:',error.code||error.message);throw error;});
- listener=server;server.listen(port,config.HOST,()=>console.log('GameConnect encrypted TCP:',port));return server;
+ listener=server;server.listen(port,config.HOST,()=>console.log('GameConnect pinned TLS TCP:',port));return server;
 }
-function IsListening(){return !!(listener&&listener.listening);}
+function IsListening(){if(!listener||!listener.listening)return false;try{require('./connectTls').Load();return true;}catch(_){return false;}}
 module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,MAX_RESPONSE_CLEAR,MAX_RESPONSE_FRAME,DEADLINE_MS,Aad,CreateServer,Start,IsListening};

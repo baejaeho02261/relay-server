@@ -33,7 +33,7 @@ function Diagnostics(env = process.env) {
     return { revision: config.WEB_UI_REVISION, source: endpoint.source, ready: endpoint.ready,
         host: endpoint.host.slice(0, 253), port: endpoint.portText.slice(0, 32),
         hostVariable: endpoint.hostVariable, portVariable: endpoint.portVariable,
-        problems: endpoint.problems, tcpPort: config.CONNECT_TCP_PORT,
+        problems: endpoint.problems, tls: require('./connectTls').Status(), tcpPort: config.CONNECT_TCP_PORT,
         httpPort: config.WEB_ADMIN_PORT, probePort: Number.isInteger(probePort) ? probePort : null,
         probePortMatches: probePort === config.WEB_ADMIN_PORT };
 }

@@ -1,13 +1,13 @@
 'use strict';
 // Desktop authorization is separate from archived CLIENT/QR/biometric records.
-const crypto=require('node:crypto'),state=require('../core/state');
+const crypto=require('node:crypto'),state=require('../core/state'),machinePolicy=require('./desktopMachinePolicy');
 const CHALLENGE_MS=120000,LEASE_MS=120000;
 const challenges=new Map(),seen=new Map(),verifyReceipts=new Map();
 let authorityLoaded=false;
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const now=()=>Date.now();
 const messages={DESKTOP_SINGLE_USE_ONLY:'라이선스는 기간제 없이 1회용으로만 발급할 수 있습니다.',INPUT_INVALID:'입력 내용을 확인해 주세요.',HTTPS_REQUIRED:'HTTPS 서버 주소를 사용해 주세요.',DESKTOP_BROWSER_FORBIDDEN:'Windows 앱에서 다시 요청해 주세요.',DESKTOP_KEY_INVALID:'라이선스 키를 확인해 주세요.',DESKTOP_KEY_USED:'이미 사용한 라이선스 키입니다.',DESKTOP_REVOKED:'관리자가 이 라이선스를 해지했습니다.',DESKTOP_RELEASED:'연결 해제된 라이선스입니다. 새 키가 필요합니다.',DESKTOP_EXPIRED:'라이선스가 만료되었습니다.',DESKTOP_DEVICE_MISMATCH:'라이선스가 연결된 Windows 기기에서 실행해 주세요.',DESKTOP_ACTIVATION_INVALID:'인증 정보를 확인할 수 없습니다. 라이선스를 다시 확인해 주세요.',DESKTOP_PROOF_INVALID:'기기 서명을 확인하지 못했습니다.',DESKTOP_CHALLENGE_EXPIRED:'인증 요청이 만료되었습니다. 다시 시도해 주세요.',DESKTOP_REQUEST_REUSED:'요청 번호가 다른 작업에 사용되었습니다.',DESKTOP_RATE_LIMIT:'요청이 많습니다. 잠시 후 다시 시도해 주세요.',DESKTOP_CAPACITY:'인증 요청이 많습니다. 잠시 후 다시 시도해 주세요.',SERVICE_DISABLED:'서비스가 일시 중지되었습니다.',STORAGE_SAVE_FAILED:'저장하지 못했습니다. 같은 요청으로 다시 시도해 주세요.'};
-Object.assign(messages,require('./desktopBootstrap').messages);
+Object.assign(messages,require('./desktopBootstrap').messages,{DESKTOP_MACHINE_INVALID:'PC 식별 정보를 확인하지 못했습니다.',DESKTOP_MACHINE_BLOCKED:'관리자가 이 PC의 사용을 차단했습니다.',DESKTOP_MACHINE_SESSION_REVOKED:'PC 정책 변경으로 이전 연결이 종료되었습니다. 새 프로그램으로 시작해 주세요.',DESKTOP_BINARY_INVALID:'등록된 실행 파일과 일치하지 않습니다.'});
 function Fail(code,status=400){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
 function Empty(){return {schema:1,revision:0,signingSecret:'',licenses:{},receipts:{}};}
 function DB(){if(!authorityLoaded)Import(undefined);return state.desktopLicenses||(state.desktopLicenses=Empty());}
@@ -21,6 +21,7 @@ function Import(value){
  for(const [id,row]of Object.entries(value.licenses)){
   if(!/^(?:DL-)?[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['AVAILABLE','ACTIVE','USED','REVOKED','RELEASED'].includes(row.status)||!/^[a-f0-9]{64}$/.test(row.keyHash)||typeof row.consumed!=='boolean'||!Number.isSafeInteger(row.expiresAt)||row.expiresAt<0)throw Error('DESKTOP_STORAGE_INVALID');
   if(row.keyVersion!==undefined&&row.keyVersion!==2||row.activationVersion!==undefined&&row.activationVersion!==2||row.status==='USED'&&!row.consumed||row.status==='AVAILABLE'&&row.consumed||!/^[a-f0-9]{48}$/.test(row.issuanceNonce))throw Error('DESKTOP_STORAGE_INVALID');
+  if(row.machineId!==undefined&&(!/^[A-F0-9]{64}$/.test(row.machineId)||!/^[a-f0-9]{64}$/.test(row.binarySha256||'')||!/^[A-F0-9]{16}$/.test(row.binaryCrc64||'')||!Number.isSafeInteger(row.machinePolicyGeneration)||row.machinePolicyGeneration<0))throw Error('DESKTOP_STORAGE_INVALID');
   if(row.bootstrapSessionId!==undefined&&!/^(?:DS-)?[A-F0-9]{24}$/.test(row.bootstrapSessionId))throw Error('DESKTOP_STORAGE_INVALID');
   if(row.consumed&&(!/^[A-F0-9]{64}$/.test(row.deviceId)||!row.publicKey||!/^[a-f0-9]{64}$/.test(row.tokenHash)||!/^[a-f0-9]{48}$/.test(row.activationNonce)))throw Error('DESKTOP_STORAGE_INVALID');
  }
@@ -38,7 +39,7 @@ function Atomic(fn){
  catch(error){if(!committed)state.desktopLicenses=previous;if(error.desktopError)throw error;Fail('STORAGE_SAVE_FAILED',503);}
 }
 function Status(row){if(row.status==='REVOKED')return row.status;if(row.expiresAt&&row.expiresAt<=now())return 'EXPIRED';return row.consumed?'USED':'AVAILABLE';}
-function Public(row){const current=seen.get(row.id),durable=require('./desktopBootstrap').LicenseActivity(row.id),active=Status(row)==='USED'&&!row.releasedAt&&row.status!=='RELEASED';return {id:row.id,displayId:row.id.replace(/^DL-/,''),label:row.label,status:Status(row),issuedAt:row.issuedAt,activatedAt:row.activatedAt||0,expiresAt:row.expiresAt,consumed:row.consumed,deviceId:row.deviceId||'',deviceName:row.deviceName||'',appVersion:current?.appVersion||durable?.appVersion||row.appVersion||'',lastVerifiedAt:Math.max(current?.at||0,durable?.lastVerifiedAt||0,row.activatedAt||0),leaseExpiresAt:active?Math.max(current?.leaseExpiresAt||0,durable?.leaseExpiresAt||0):0,bootstrapSessionId:row.bootstrapSessionId||durable?.sessionId||'',revokedAt:row.revokedAt||0,releasedAt:row.releasedAt||0,reason:row.reason||''};}
+function Public(row){const current=seen.get(row.id),durable=require('./desktopBootstrap').LicenseActivity(row.id),machine=row.machineId?machinePolicy.Public(row.machineId):null,machineSessionRevoked=!!machine&&(machine.blocked||row.machinePolicyGeneration!==machine.generation),active=Status(row)==='USED'&&!row.releasedAt&&row.status!=='RELEASED'&&!machineSessionRevoked;return {id:row.id,displayId:row.id.replace(/^DL-/,''),label:row.label,status:Status(row),issuedAt:row.issuedAt,activatedAt:row.activatedAt||0,expiresAt:row.expiresAt,consumed:row.consumed,deviceId:row.deviceId||'',deviceName:row.deviceName||'',machineId:row.machineId||'',machineBlocked:!!machine?.blocked,machinePolicy:machine,machineSessionRevoked,binarySha256:row.binarySha256||'',binaryCrc64:row.binaryCrc64||'',appVersion:current?.appVersion||durable?.appVersion||row.appVersion||'',lastVerifiedAt:Math.max(current?.at||0,durable?.lastVerifiedAt||0,row.activatedAt||0),leaseExpiresAt:active?Math.max(current?.leaseExpiresAt||0,durable?.leaseExpiresAt||0):0,bootstrapSessionId:row.bootstrapSessionId||durable?.sessionId||'',revokedAt:row.revokedAt||0,releasedAt:row.releasedAt||0,reason:row.reason||''};}
 function Text(value,max,required=false){if(typeof value!=='string'||value.length>max||/[\u0000-\u001f\u007f]/.test(value)||required&&!value.trim())Fail('INPUT_INVALID');return value.trim();}
 function Expiry(body){
  // Purchase duration is not an authorization lease. FIX81 issues only a single
@@ -106,7 +107,8 @@ function Challenge(body){
 }
 function Payload(body){
  const raw=body.payloadJSON??body.payloadJson;if(typeof raw!=='string'||Buffer.byteLength(raw,'utf8')>4096)Fail('INPUT_INVALID');let p;try{p=JSON.parse(raw);}catch(_){Fail('INPUT_INVALID');}
- if(!Plain(p))Fail('INPUT_INVALID');const fields=body.action==='redeem'?['licenseKey','deviceName','appVersion','bootstrapSessionId','bootstrapSessionToken']:['activationToken','appVersion','bootstrapSessionId','bootstrapSessionToken'];if(Object.keys(p).some(k=>!fields.includes(k)))Fail('INPUT_INVALID');
+ if(!Plain(p))Fail('INPUT_INVALID');const fields=body.action==='redeem'?['licenseKey','deviceName','appVersion','bootstrapSessionId','bootstrapSessionToken','machineId','binarySha256','binaryCrc64']:['activationToken','appVersion','bootstrapSessionId','bootstrapSessionToken','machineId','binarySha256','binaryCrc64'];if(Object.keys(p).some(k=>!fields.includes(k)))Fail('INPUT_INVALID');
+ machinePolicy.Validate(p.machineId);if(!/^[a-f0-9]{64}$/.test(p.binarySha256||'')||!/^[A-F0-9]{16}$/.test(p.binaryCrc64||''))Fail('DESKTOP_BINARY_INVALID',403);
  if(p.appVersion!==undefined)Text(p.appVersion,40);if(body.action==='redeem'){NormalizeKey(p.licenseKey);if(p.deviceName!==undefined)Text(p.deviceName,120);}else if(typeof p.activationToken!=='string'||!/^(?:[a-f0-9]{64}|DLA-[A-Za-z0-9_-]{43})$/.test(p.activationToken))Fail('DESKTOP_ACTIVATION_INVALID',401);
  return {payload:p,payloadHash:hash(Buffer.from(raw,'utf8'))};
 }
@@ -125,7 +127,7 @@ function Execute(body){
  if(typeof body.signature!=='string'||body.signature.length!==344||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('DESKTOP_PROOF_INVALID',401);
  const signature=Buffer.from(body.signature,'base64');if(signature.length!==256||signature.toString('base64')!==body.signature||!crypto.verify('sha256',Buffer.from(Canonical(c),'utf8'),{key:parsed.key,padding:crypto.constants.RSA_PKCS1_PADDING},signature))Fail('DESKTOP_PROOF_INVALID',401);
  const receiptKey=body.deviceId+':'+body.requestId,receipt=DB().receipts[receiptKey]||verifyReceipts.get(receiptKey),fingerprint=hash(body.action+'|'+payloadHash);
- const bootstrap=require('./desktopBootstrap').Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release'});
+ const bootstrap=require('./desktopBootstrap').Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release',machineId:payload.machineId,binarySha256:payload.binarySha256,binaryCrc64:payload.binaryCrc64});
  if(receipt){
   if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
   const row=DB().licenses[receipt.licenseId];if(!row||row.deviceId!==body.deviceId)Fail('DESKTOP_ACTIVATION_INVALID',401);SessionBinding(row,bootstrap);
@@ -140,7 +142,7 @@ function Execute(body){
    const digests=KeyHashes(payload.licenseKey),row=Object.values(DB().licenses).find(x=>digests.includes(x.keyHash));if(!row)Fail('DESKTOP_KEY_INVALID',404);
    if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
    if(Status(row)==='REVOKED')Fail('DESKTOP_REVOKED',403);if(Status(row)==='EXPIRED')Fail('DESKTOP_EXPIRED',403);if(row.consumed)Fail('DESKTOP_KEY_USED',409);
-   Object.assign(row,{status:'USED',consumed:true,activationVersion:2,bootstrapSessionId:bootstrap.sessionId,deviceId:parsed.deviceId,publicKey:parsed.publicKey,deviceName:payload.deviceName||'',appVersion:payload.appVersion||'',activatedAt:now(),activationNonce:crypto.randomBytes(24).toString('hex')});row.tokenHash=hash(Token(row));
+   Object.assign(row,{status:'USED',consumed:true,activationVersion:2,bootstrapSessionId:bootstrap.sessionId,machineId:payload.machineId,machinePolicyGeneration:bootstrap.machinePolicyGeneration,binarySha256:payload.binarySha256,binaryCrc64:payload.binaryCrc64,deviceId:parsed.deviceId,publicKey:parsed.publicKey,deviceName:payload.deviceName||'',appVersion:payload.appVersion||'',activatedAt:now(),activationNonce:crypto.randomBytes(24).toString('hex')});row.tokenHash=hash(Token(row));
    const leaseExpiresAt=Math.min(now()+LEASE_MS,row.expiresAt||Number.MAX_SAFE_INTEGER);DB().receipts[receiptKey]={fingerprint,licenseId:row.id,action:body.action,leaseExpiresAt,at:now()};
    return {...Result(row,leaseExpiresAt),activationToken:Token(row)};
   });
