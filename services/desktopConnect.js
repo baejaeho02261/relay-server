@@ -1,7 +1,7 @@
 'use strict';
 const net=require('node:net'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require('./desktopLicenses'),identity=require('./connectTransportKey');
-const PROTOCOL='MOAPLAY-CONNECT-1',MAX_FRAME=24576,MAX_CLEAR=12288,DEADLINE_MS=10000;
+const PROTOCOL='MOAPLAY-CONNECT-1',MAX_FRAME=24576,MAX_CLEAR=12288,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
 const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),rates=new Map(),activeByIp=new Map();
 const decoder=new TextDecoder('utf-8',{fatal:true});
 let active=0,lastPrune=0,listener=null;
@@ -29,14 +29,14 @@ function Open(frame){
 function Seal(opened,result){
  let nonce;do{nonce=crypto.randomBytes(12);}while(nonce.equals(opened.nonce));
  const cipher=crypto.createCipheriv('aes-256-gcm',opened.key,nonce,{authTagLength:16});cipher.setAAD(Aad('RESPONSE',opened.requestId,opened.keyId));
- const clear=Buffer.from(JSON.stringify(result),'utf8');try{const ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);return {v:1,requestId:opened.requestId,nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};}finally{clear.fill(0);opened.key.fill(0);}
+ const clear=Buffer.from(JSON.stringify(result),'utf8');try{if(clear.length>MAX_RESPONSE_CLEAR)throw Error('CONNECT_RESPONSE_TOO_LARGE');const ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);return {v:1,requestId:opened.requestId,nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};}finally{clear.fill(0);opened.key.fill(0);}
 }
 function Dispatch(opened){
  const payload=opened.payload;
  try{
-  if(!Plain(payload)||Object.keys(payload).sort().join(',')!=='body,operation'||!Plain(payload.body)||!['challenge','execute'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
+  if(!Plain(payload)||Object.keys(payload).sort().join(',')!=='body,operation'||!Plain(payload.body)||!['challenge','execute','bootstrap'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
   if(typeof payload.body.deviceId==='string')Rate('DEVICE:'+payload.body.deviceId.slice(0,100),40);
-  const data=payload.operation==='challenge'?desktop.Challenge(payload.body):desktop.Execute(payload.body);return {ok:true,data};
+  const data=payload.operation==='bootstrap'?require('./desktopBootstrap').Execute(payload.body):payload.operation==='challenge'?desktop.Challenge(payload.body):desktop.Execute(payload.body);return {ok:true,data};
  }catch(error){const code=error.desktopError?error.message:error.message==='CONNECT_RATE_LIMIT'?'DESKTOP_RATE_LIMIT':'INPUT_INVALID';return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}
 }
 function Accept(socket){
@@ -53,11 +53,11 @@ function Accept(socket){
   // One LF-delimited JSON request is accepted. CRLF from ReadLn clients is
   // supported; a second frame or trailing bytes are never pipelined.
   if(end!==buffer.length-1)return socket.destroy();
-  let opened;try{const raw=buffer.subarray(0,end);opened=Open(JSON.parse(decoder.decode(raw)));const response=Seal(opened,Dispatch(opened));socket.end(JSON.stringify(response)+'\n');}
+  let opened;try{const raw=buffer.subarray(0,end);opened=Open(JSON.parse(decoder.decode(raw)));const response=Seal(opened,Dispatch(opened)),wire=JSON.stringify(response)+'\n';if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');socket.end(wire);}
   catch(_){opened?.key.fill(0);socket.destroy();}
  });
 }
-function CreateServer(){identity.Load();return net.createServer(Accept);}
+function CreateServer(){identity.Load();require('./desktopBootstrap').Initialize();return net.createServer(Accept);}
 function Start(){
  const config=require('../config/config'),port=config.CONNECT_TCP_PORT;
  if(!Number.isInteger(port)||port<1||port>65535||port===config.WEB_ADMIN_PORT||port===config.HEALTH_PORT)throw Error('CONNECT_PORT_INVALID');
@@ -65,4 +65,4 @@ function Start(){
  listener=server;server.listen(port,config.HOST,()=>console.log('MoaPlayConnect encrypted TCP:',port));return server;
 }
 function IsListening(){return !!(listener&&listener.listening);}
-module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,DEADLINE_MS,Aad,CreateServer,Start,IsListening};
+module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,MAX_RESPONSE_CLEAR,MAX_RESPONSE_FRAME,DEADLINE_MS,Aad,CreateServer,Start,IsListening};
