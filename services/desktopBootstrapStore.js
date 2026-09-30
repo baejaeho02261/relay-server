@@ -25,18 +25,28 @@ function Load(){
   for(const [id,row]of Object.entries(value.artifacts))if(!/^DA-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
   for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component)Invalid();
   for(const [id,row]of Object.entries(value.launchers)){
-   if(!/^LA-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED'].includes(row.status)||!Digest(row.sha256)||!Nonce(row.ticketNonce)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||!Plain(row.profile)||row.profile.protocol!=='MOAPLAY-CONNECT-1'||row.profile.version!==1||typeof row.label!=='string'||row.label.length>120||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce))Invalid();
-   if(row.status!=='AVAILABLE'&&(!value.flows[row.flowId]||value.flows[row.flowId].launcherId!==id))Invalid();
+   if(!/^LA-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!Digest(row.sha256)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
+   if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();
+   if(row.retiredAt!==undefined){if(!Time(row.retiredAt)||row.status==='AVAILABLE'||row.ticketNonce!==undefined||row.profile!==undefined)Invalid();}
+   else if(!Nonce(row.ticketNonce)||!Plain(row.profile)||row.profile.protocol!=='MOAPLAY-CONNECT-1'||row.profile.version!==1||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce))Invalid();
+   if(['CONSUMED','REVOKED'].includes(row.status)&&(!value.flows[row.flowId]||value.flows[row.flowId].launcherId!==id))Invalid();
   }
   const sessionIds=new Set();
   for(const [id,row]of Object.entries(value.flows)){
-   if(!/^BF-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED'].includes(row.status)||!/^DS-[A-F0-9]{24}$/.test(row.sessionId)||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!Digest(row.launcherSha256)||!Nonce(row.downloadNonce)||!Nonce(row.finishNonce)||row.downloadHash!==TokenHash(value.secret,'DOWNLOAD',id,row.downloadNonce)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
+   if(!/^BF-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED','EXPIRED'].includes(row.status)||!/^DS-[A-F0-9]{24}$/.test(row.sessionId)||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!Digest(row.launcherSha256)||!Digest(row.downloadHash)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
    sessionIds.add(row.sessionId);
    if(!Array.isArray(row.chunkOffsets)||row.chunkOffsets.length>256||new Set(row.chunkOffsets).size!==row.chunkOffsets.length||row.chunkOffsets.some(offset=>!Number.isSafeInteger(offset)||offset<0||offset>=value.artifacts[row.releaseId].size||offset%262144))Invalid();
-   if(row.handoffNonce!==undefined){if(!Nonce(row.handoffNonce)||!Nonce(row.claimNonce)||!Time(row.handoffExpiresAt)||row.handoffHash!==TokenHash(value.secret,'HANDOFF',id,row.handoffNonce))Invalid();}
-   else if(['DOWNLOADED','CLAIMED'].includes(row.status))Invalid();
-   if(row.sessionNonce!==undefined){if(!Nonce(row.sessionNonce)||!Time(row.claimedAt)||!Time(row.sessionExpiresAt)||row.sessionHash!==TokenHash(value.secret,'SESSION',row.sessionId,row.sessionNonce))Invalid();}
-   else if(row.status==='CLAIMED')Invalid();
+   if(row.retiredAt!==undefined){
+    if(!Time(row.retiredAt)||!['CLOSED','REVOKED','EXPIRED'].includes(row.status)||['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'].some(key=>row[key]!==undefined))Invalid();
+    if(row.handoffHash!==undefined&&(!Digest(row.handoffHash)||!Time(row.handoffExpiresAt)))Invalid();
+    if(row.sessionHash!==undefined&&(!Digest(row.sessionHash)||!Time(row.claimedAt)||!Time(row.sessionExpiresAt)))Invalid();
+   }else{
+    if(!Nonce(row.downloadNonce)||!Nonce(row.finishNonce)||row.downloadHash!==TokenHash(value.secret,'DOWNLOAD',id,row.downloadNonce))Invalid();
+    if(row.handoffNonce!==undefined){if(!Nonce(row.handoffNonce)||!Nonce(row.claimNonce)||!Time(row.handoffExpiresAt)||row.handoffHash!==TokenHash(value.secret,'HANDOFF',id,row.handoffNonce))Invalid();}
+    else if(['DOWNLOADED','CLAIMED'].includes(row.status))Invalid();
+    if(row.sessionNonce!==undefined){if(!Nonce(row.sessionNonce)||!Time(row.claimedAt)||!Time(row.sessionExpiresAt)||row.sessionHash!==TokenHash(value.secret,'SESSION',row.sessionId,row.sessionNonce))Invalid();}
+    else if(row.status==='CLAIMED')Invalid();
+   }
    if(typeof row.licenseId!=='string'||row.licenseId&&!/^DL-[A-F0-9]{24}$/.test(row.licenseId)||!Number.isSafeInteger(row.lastVerifiedAt)||row.lastVerifiedAt<0)Invalid();
   }
   for(const receipt of Object.values(value.issueReceipts))if(!Plain(receipt)||!Digest(receipt.fingerprint)||!value.launchers[receipt.launcherId])Invalid();
