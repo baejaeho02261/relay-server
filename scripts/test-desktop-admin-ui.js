@@ -17,6 +17,7 @@ let downloadedBlob=null,downloadedName='';w.Blob=Blob;
 w.HTMLAnchorElement.prototype.click=function(){downloadedName=this.download;};
 w.URL.createObjectURL=blob=>{downloadedBlob=blob;return 'blob:fixture';};w.URL.revokeObjectURL=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
 let copied='',issueFail=false,launcherFail=false,uploadFail=false;
+const launcherName='a1b2c3d4'.repeat(4)+'.exe';let downloadHeaderName=launcherName;
 const artifacts={A:null,B:null},bootstrapSessions=[{id:'DS_test',flowId:'FLOW_test',launcherId:'DA_test',status:'CLAIMED',deviceId:'PC_fingerprint',version:'1.0.0',createdAt:now-4000,expiresAt:now+300000,licenseId:'DL_000',licenseStatus:'ACTIVE',licenseLastVerifiedAt:now-1000}],launchers=[];
 Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async text=>{copied=text;}}});
 w.fetch=async(url,options={})=>{
@@ -32,9 +33,9 @@ w.fetch=async(url,options={})=>{
    const artifact={id:'ART_'+component,component,version:params.get('version'),sha256:(component==='A'?'a':'b').repeat(64),size:body.size,createdAt:now};artifacts[component]=artifact;data={ok:true,artifact};
  }else if(url==='/api/desktop/bootstrap/launchers'){
    assert.equal(method,'POST');assert.match(body.requestId,/^[\w-]{16,}$/);if(launcherFail){launcherFail=false;throw new TypeError('launcher response interrupted');}
-   const launcherId='DA_issued';launchers.push({id:launcherId,label:body.label,issuedAt:now,expiresAt:now+86400000,status:'AVAILABLE'});data={ok:true,launcherId,expiresAt:now+86400000,downloadUrl:'/api/desktop/bootstrap/launchers/'+launcherId+'/download'};
+   const launcherId='DA_issued';launchers.push({id:launcherId,label:body.label,issuedAt:now,expiresAt:now+86400000,status:'AVAILABLE',downloadName:launcherName});data={ok:true,launcherId,downloadName:launcherName,expiresAt:now+86400000,downloadUrl:'/api/desktop/bootstrap/launchers/'+launcherId+'/download'};
  }else if(url==='/api/desktop/bootstrap/launchers/DA_issued/download'){
-   assert.equal(method,'GET');assert.equal(options.credentials,'same-origin');return {ok:true,status:200,blob:async()=>new Blob(['MZ_PROVISIONED_A_FIXTURE'])};
+   assert.equal(method,'GET');assert.equal(options.credentials,'same-origin');return {ok:true,status:200,headers:{get:name=>name==='Content-Disposition'?'attachment; filename=\"'+downloadHeaderName+'\"':null},blob:async()=>new Blob(['MZ_PROVISIONED_A_FIXTURE'])};
  }else if(url==='/api/desktop/bootstrap/sessions/DS_test/revoke'){
    assert.equal(method,'POST');assert.ok(body.reason.length>=3);bootstrapSessions[0].status='REVOKED';data={ok:true};
  }
@@ -42,9 +43,9 @@ w.fetch=async(url,options={})=>{
  else if(url.startsWith('/api/desktop/licenses?')){const params=new URL(url,'https://fixture.invalid').searchParams,q=params.get('q')||'',status=params.get('status');assert.ok(status===null||['AVAILABLE','ACTIVE','REVOKED','EXPIRED','RELEASED'].includes(status),'The API does not accept the UI-only ALL filter');data={ok:true,items:rows.filter(x=>(!status||x.status===status)&&[x.id,x.label,x.deviceName].join(' ').includes(q)),counts:Object.fromEntries(['AVAILABLE','ACTIVE','REVOKED','EXPIRED','RELEASED'].map(status=>[status,rows.filter(row=>row.status===status).length])),totalCount:rows.length,revision:1,serverTime:now};}
  else if(url==='/api/desktop/licenses'&&method==='POST'){
    if(issueFail){issueFail=false;throw new TypeError('network interrupted');}
-   assert.equal(body.expiresAt,0);assert.match(body.requestId,/^[\w-]{16,}$/);data={ok:true,license:{id:'NEW_ID',label:body.label},licenseKey:key};
+   assert.equal('expiresAt' in body,false);assert.equal('validDays' in body,false);assert.match(body.requestId,/^[\w-]{16,}$/);data={ok:true,license:{id:'NEW_ID',label:body.label},licenseKey:key};
  }else if(url.endsWith('/revoke')&&method==='POST'){assert.ok(body.reason.length>=3);data={ok:true,license:{id:'DL_000',status:'REVOKED'}};}
- else if(url.endsWith('/reissue')&&method==='POST'){assert.ok(body.reason.length>=3);assert.match(body.requestId,/^[\w-]{16,}$/);data={ok:true,license:{id:'REPLACEMENT_ID'},licenseKey:key};}
+ else if(url.endsWith('/reissue')&&method==='POST'){assert.equal('expiresAt' in body,false);assert.equal('validDays' in body,false);assert.ok(body.reason.length>=3);assert.match(body.requestId,/^[\w-]{16,}$/);data={ok:true,license:{id:'REPLACEMENT_ID'},licenseKey:key};}
  else throw Error('Unexpected endpoint: '+method+' '+url);
  return {ok:true,status:200,text:async()=>JSON.stringify(data)};
 };
@@ -90,7 +91,7 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  const failedLauncher=requests.filter(r=>r.url==='/api/desktop/bootstrap/launchers').at(-1);
  w.document.querySelector('#desktop-launcher-create').click();await waitFor(()=>!modalClosed()&&w.document.querySelector('#modal-title').textContent.includes('이전 A'),'A retry confirmation');w.document.querySelector('#modal-confirm').click();await waitFor(()=>shown('#desktop-launcher-download'),'A receipt');
  const retriedLauncher=requests.filter(r=>r.url==='/api/desktop/bootstrap/launchers').at(-1);assert.equal(retriedLauncher.body.requestId,failedLauncher.body.requestId);
- w.document.querySelector('#desktop-launcher-download').click();await waitFor(()=>downloadedBlob&&downloadedName,'provisioned A download');assert.equal(downloadedName,'A.exe');assert.equal(await downloadedBlob.text(),'MZ_PROVISIONED_A_FIXTURE');await closeModal();
+ w.document.querySelector('#desktop-launcher-download').click();await waitFor(()=>downloadedBlob&&downloadedName,'random-name provisioned A download with strict name/header checks');assert.equal(downloadedName,launcherName);assert.match(downloadedName,/^[a-f0-9]{32}\.exe$/);assert.equal(await downloadedBlob.text(),'MZ_PROVISIONED_A_FIXTURE');await closeModal();
  assert.match(w.document.querySelector('#desktop-bootstrap-launchers').textContent,/<고객 A>/);assert.equal(w.document.querySelector('#desktop-bootstrap-launchers 고객'),null);
  w.document.querySelector('[data-desktop-action="session-revoke"]').click();await waitFor(()=>shown('[data-modal-field="reason"]')&&!modalClosed(),'flow revoke form');field('reason','관리자 실행 종료');await closeModal();assert.match(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/폐기됨/);
  assert.equal(w.document.querySelectorAll('#nav [data-view^="member-"]').length,0);
@@ -119,8 +120,8 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  const beforeActivation=requests.length;source.listeners.get('relay-event')({data:JSON.stringify({type:'desktop_license_activated',time:now,detail:'safe fixture'})});await waitFor(()=>requests.length>beforeActivation&&actionIdle(),'activation event refresh');
  w.document.querySelector('#desktop-license-clear').click();await waitFor(()=>w.document.querySelectorAll('#desktop-license-records tbody tr').length===25&&actionIdle(),'clear license filter');
  w.document.querySelector('[data-desktop-action="detail"]').click();await waitFor(()=>!modalClosed()&&w.document.querySelector('#modal-body').textContent.includes('SHA256_DEVICE'),'license detail dialog');assert.match(w.document.querySelector('#modal-body').textContent,/SHA256_DEVICE/);await closeModal();
- // Default issuance has no forced expiry; key is displayed only in its receipt.
- w.document.querySelector('#desktop-license-create').click();await waitFor(()=>shown('[data-modal-field="term"]')&&!modalClosed(),'issue form');assert.equal(field('term','unlimited').value,'unlimited');field('label','실제 고객');w.document.querySelector('#modal-confirm').click();await waitFor(()=>shown('#desktop-issued-key'),'new license receipt');
+ // Pure one-use issuance has no duration/expiry controls or request fields.
+ w.document.querySelector('#desktop-license-create').click();await waitFor(()=>shown('[data-modal-field="label"]')&&!modalClosed(),'issue form');assert.equal(shown('[data-modal-field="term"],[data-modal-field="days"],[data-modal-field="expiresAt"],[data-modal-field="validDays"]'),false);assert.equal(w.document.querySelectorAll('[data-modal-field]').length,1);field('label','실제 고객');w.document.querySelector('#modal-confirm').click();await waitFor(()=>shown('#desktop-issued-key'),'new license receipt');
  assert.equal(w.document.querySelector('#desktop-issued-key').value,key);assert.ok(!Object.keys(w.localStorage).some(name=>String(w.localStorage.getItem(name)).includes(key)));
  w.document.querySelector('#desktop-key-copy').click();await waitFor(()=>copied===key,'clipboard write');assert.equal(copied,key);
  await closeModal();assert.equal(w.document.querySelector('#desktop-issued-key'),null);assert.ok(!w.document.body.textContent.includes(key));
@@ -131,10 +132,13 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  const retried=requests.filter(r=>r.method==='POST'&&r.url==='/api/desktop/licenses').at(-1);assert.equal(retried.body.requestId,failed.body.requestId);await closeModal();
  w.document.querySelector('[data-desktop-action="revoke"]').click();await waitFor(()=>shown('[data-modal-field="reason"]')&&!modalClosed(),'revoke form');field('reason','사용자 요청');await closeModal();
  assert.ok(requests.some(r=>r.url.endsWith('/revoke')&&r.csrf==='DOM_CSRF'));
- w.document.querySelector('[data-desktop-action="reissue"]').click();await waitFor(()=>shown('[data-modal-field="reason"]')&&!modalClosed(),'reissue form');field('reason','장비 교체');w.document.querySelector('#modal-confirm').click();await waitFor(()=>shown('#desktop-issued-key'),'replacement receipt');assert.equal(w.document.querySelector('#desktop-issued-key').value,key);await closeModal();
+ w.document.querySelector('[data-desktop-action="reissue"]').click();await waitFor(()=>shown('[data-modal-field="reason"]')&&!modalClosed(),'reissue form');assert.equal(w.document.querySelectorAll('[data-modal-field]').length,2);assert.equal(shown('[data-modal-field="term"],[data-modal-field="days"]'),false);field('reason','장비 교체');w.document.querySelector('#modal-confirm').click();await waitFor(()=>shown('#desktop-issued-key'),'replacement receipt');assert.equal(w.document.querySelector('#desktop-issued-key').value,key);await closeModal();
  assert.ok(requests.filter(r=>r.method==='POST').every(r=>r.csrf==='DOM_CSRF'));
  assert.ok(!requests.some(r=>/^\/api\/(clients|qr-auth|licenses|member|support)/.test(r.url)));
+ const issuedDownload={launcherId:'DA_issued',downloadName:launcherName,downloadUrl:'/api/desktop/bootstrap/launchers/DA_issued/download'};
+ const beforeInvalidName=requests.length;await assert.rejects(()=>w.downloadDesktopLauncher({...issuedDownload,downloadName:'A.exe'},'DOM_CSRF'),/파일 이름/);assert.equal(requests.length,beforeInvalidName);
+ downloadHeaderName='f'.repeat(32)+'.exe';await assert.rejects(()=>w.downloadDesktopLauncher(issuedDownload,'DOM_CSRF'),/일치하지/);downloadHeaderName=launcherName;
  vm.runInContext("session={role:'viewer',csrf:'VIEWER'}",dom.getInternalVMContext());const beforeForbidden=requests.length;await assert.rejects(()=>w.downloadDesktopLauncher({launcherId:'DA_issued',downloadUrl:'/api/desktop/bootstrap/launchers/DA_issued/download'},'DOM_CSRF'),/관리자/);assert.equal(requests.length,beforeForbidden);
  assert.equal(errors.length,0,errors.join('\n'));
- console.log('DESKTOP ADMIN UI PASS: actual script shell, retired navigation, retained operations, escaped rows, paging/filters, detailed state, no expiry issuance, one-time receipt scrub, stable request retry, revoke/reissue, CSRF, A/B binary File uploads with retry preservation, provisioned A download, launcher idempotency, linked license state, session revoke, global counts under filters, preserved drafts, focused-select refresh, SSE polling recovery.');
+ console.log('DESKTOP ADMIN UI PASS: actual script shell, retired navigation, retained operations, escaped rows, paging/filters, detailed state, pure one-use issuance without expiry request fields, one-time receipt scrub, stable request retry, revoke/reissue, CSRF, A/B binary File uploads with retry preservation, random-name provisioned A download with strict name/header checks, launcher idempotency, linked license state, session revoke, global counts under filters, preserved drafts, focused-select refresh, SSE polling recovery.');
  }finally{w.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

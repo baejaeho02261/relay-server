@@ -12,10 +12,10 @@ function PE(component,marker='fixture'){
  bytes.writeUInt16LE(0x20b,opt);bytes.writeUInt32LE(512,opt+4);bytes.writeUInt32LE(0x1000,opt+16);bytes.writeUInt32LE(0x1000,opt+20);
  bytes.writeBigUInt64LE(0x140000000n,opt+24);bytes.writeUInt32LE(0x1000,opt+32);bytes.writeUInt32LE(0x200,opt+36);
  bytes.writeUInt16LE(6,opt+40);bytes.writeUInt16LE(6,opt+48);bytes.writeUInt32LE(0x2000,opt+56);bytes.writeUInt32LE(512,opt+60);
- bytes.writeUInt16LE(component==='A'?2:3,opt+68);bytes.writeUInt16LE(0x8160,opt+70);bytes.writeBigUInt64LE(0x100000n,opt+72);
+ bytes.writeUInt16LE(2,opt+68);bytes.writeUInt16LE(0x8160,opt+70);bytes.writeBigUInt64LE(0x100000n,opt+72);
  bytes.writeBigUInt64LE(0x1000n,opt+80);bytes.writeBigUInt64LE(0x100000n,opt+88);bytes.writeBigUInt64LE(0x1000n,opt+96);bytes.writeUInt32LE(16,opt+108);
  bytes.write('.text',section);bytes.writeUInt32LE(512,section+8);bytes.writeUInt32LE(0x1000,section+12);bytes.writeUInt32LE(512,section+16);bytes.writeUInt32LE(512,section+20);bytes.writeUInt32LE(0x60000020,section+36);
- bytes[512]=0xc3;bytes.write(String(marker).slice(0,400),528,'utf8');return bytes;
+ bytes[512]=0xc3;bytes.write((component+':'+String(marker)).slice(0,400),528,'utf8');return bytes;
 }
 function Device(){
  const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),bytes=require('../services/connectTransportKey').PublicBlob(publicKey);
@@ -45,6 +45,8 @@ function Download(begin){
 function Finish(device,begin){return require('../services/desktopBootstrap').Execute({action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,signature:Sign(device,begin.finishCanonical)});}
 function Claim(device,begin,finish){return require('../services/desktopBootstrap').Execute({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(device,finish.claimCanonical),binarySha256:begin.release.sha256});}
 function Session(device,credential=''){
+ // Activation proof stays on the exact A/B session that consumed its key.
+ if(credential.startsWith('DLA-')){const row=Object.values(require('../services/desktopLicenses').DB().licenses).find(item=>item.tokenHash===sha256(credential)&&item.deviceId===device.deviceId);if(row?.bootstrapSessionId){const prior=[...cache.entries()].find(([name,value])=>name.startsWith(device.deviceId+':')&&value.sessionId===row.bootstrapSessionId);assert.ok(prior,'The fixture must retain the original activation session');return prior[1];}}
  const key=device.deviceId+':'+sha256(credential);let session=cache.get(key);if(session&&session.expiresAt>Date.now()+1000){try{require('../services/desktopBootstrap').Gate(session.sessionId,session.sessionToken,device.deviceId);return session;}catch(_) {}}
  const {begin}=Begin(device);Download(begin);session=Claim(device,begin,Finish(device,begin));cache.set(key,session);return session;
 }

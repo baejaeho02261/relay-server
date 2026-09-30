@@ -82,7 +82,7 @@ async function upload(component, bytes, auth, csrf = true) {
 async function bootstrapDevice(device, auth) {
     const issue = await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID(), label: device.name }, auth); assert.equal(issue.status, 200);
     const response = await fetch(base + issue.json.downloadUrl, { headers: { Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
-    assert.match(response.headers.get('content-type'), /application\/octet-stream/); assert.match(response.headers.get('cache-control'), /no-store/);
+    assert.match(issue.json.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(response.headers.get('content-disposition'),'attachment; filename="'+issue.json.downloadName+'"');assert.match(response.headers.get('content-type'), /application\/octet-stream/); assert.match(response.headers.get('cache-control'), /no-store/);
     const launcher = Buffer.from(await response.arrayBuffer()); assert.equal(bootstrapFixture.Config(launcher).launcherId, issue.json.launcherId);
     device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher);
 }
@@ -112,7 +112,8 @@ async function bootstrapDevice(device, auth) {
         assert.equal(update.json.clientVersion, savedClientVersion);
         assert.equal((await call('/api/system', undefined, auth)).json.system.minClientVersion, savedClientVersion);
 
-        const created = await call('/api/desktop/licenses', { label: 'HTTP 동시 등록 검사', validDays: 7, requestId: 'HTTP-ADMIN-CREATE-01' }, auth);
+        const period = await call('/api/desktop/licenses', {label:'Period rejected',validDays:7},auth);assert.equal(period.status,400);assert.equal(period.json.error,'DESKTOP_SINGLE_USE_ONLY');
+        const created = await call('/api/desktop/licenses', { label: 'HTTP 동시 등록 검사', requestId: 'HTTP-ADMIN-CREATE-01' }, auth);
         assert.equal(created.status, 200);
         const id = created.json.license.id, key = created.json.licenseKey;
         const devices = [device('Windows A'), device('Windows B')];

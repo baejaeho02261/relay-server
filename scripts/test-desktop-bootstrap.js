@@ -20,15 +20,15 @@ function Restart(input){
 let publishedA,publishedB,issued,launcher,config,beginBody,begin,finish,claimBody,session;
 Check('Publisher requires structurally bounded AMD64 executables and correct component subsystem',()=>{
  const mutate=fn=>{const value=PE('A');fn(value);return value;};
- const invalid=[Buffer.from('MZ'),mutate(v=>v.writeUInt32LE(v.length-8,0x3c)),mutate(v=>v.writeUInt16LE(0x14c,0x84)),mutate(v=>v.writeUInt16LE(0x2022,0x96)),mutate(v=>v.writeUInt16LE(0x10b,0x98)),mutate(v=>v.writeUInt32LE(0,0xa8)),mutate(v=>v.writeUInt32LE(0xfffffff0,0x19c)),PE('B')];
+ const invalid=[Buffer.from('MZ'),mutate(v=>v.writeUInt32LE(v.length-8,0x3c)),mutate(v=>v.writeUInt16LE(0x14c,0x84)),mutate(v=>v.writeUInt16LE(0x2022,0x96)),mutate(v=>v.writeUInt16LE(0x10b,0x98)),mutate(v=>v.writeUInt32LE(0,0xa8)),mutate(v=>v.writeUInt32LE(0xfffffff0,0x19c)),mutate(v=>v.writeUInt16LE(3,0xdc))];
  for(const bytes of invalid)Reject(()=>bootstrap.Publish('A','80.0.0',bytes));
- Reject(()=>bootstrap.Publish('B','80.0.0',PE('A')));Reject(()=>bootstrap.Publish('CLIENT','80.0.0',PE('A')));
+ Reject(()=>bootstrap.Publish('B','80.0.0',mutate(v=>v.writeUInt16LE(3,0xdc))));Reject(()=>bootstrap.Publish('CLIENT','80.0.0',PE('A')));
  Reject(()=>bootstrap.Publish('A','80.0.0',Buffer.alloc(64*1024*1024+1)));
  publishedA=bootstrap.Publish('A','80.0.0',PE('A'));publishedB=bootstrap.Publish('B','80.0.0',PE('B'));
  assert.equal(publishedA.sha256,sha256(PE('A')));assert.equal(publishedB.sha256,sha256(PE('B')));assert.equal(publishedB.size,1024);
 });
 Check('Issued launcher includes pinned profile and one deterministic download for retry',()=>{
- const body={requestId:crypto.randomUUID(),label:'단일 PC 설치'};issued=bootstrap.IssueLauncher(body,'ADMIN:test');assert.ok(issued.launcherId);assert.ok(issued.expiresAt>Date.now());
+ const body={requestId:crypto.randomUUID(),label:'단일 PC 설치'};issued=bootstrap.IssueLauncher(body,'ADMIN:test');assert.ok(issued.launcherId);assert.ok(issued.expiresAt>Date.now());assert.match(issued.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(bootstrap.IssueLauncher(body,'ADMIN:test').downloadName,issued.downloadName);assert.equal(bootstrap.LauncherName(bootstrap.Initialize().launchers[issued.launcherId]),issued.downloadName);assert.notEqual(bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'ADMIN:test').downloadName,issued.downloadName);
  assert.equal(bootstrap.IssueLauncher(body,'ADMIN:test').launcherId,issued.launcherId);Reject(()=>bootstrap.IssueLauncher({...body,label:'다른 설치'},'ADMIN:test'));
  launcher=bootstrap.LauncherBytes(issued.launcherId);assert.deepEqual(bootstrap.LauncherBytes(issued.launcherId),launcher);config=Config(launcher);assert.equal(config.launcherId,issued.launcherId);assert.ok(config.launcherTicket);
  const overview=JSON.stringify(bootstrap.Overview());assert.ok(!overview.includes(config.launcherTicket));assert.ok(!overview.includes('BEGIN PRIVATE KEY'));
@@ -85,12 +85,29 @@ Check('License consumption requires signed, current, same-device B session',()=>
  const activated=licenses.Execute(LicenseProof(a,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken}));assert.equal(activated.status,'ACTIVE');assert.equal(activated.deviceId,a.deviceId);
  const proof=LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken});assert.equal(licenses.Execute(proof).status,'ACTIVE');
  const different=licenses.Create({label:'Must remain unused'},'TEST');Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{licenseKey:different.licenseKey,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);assert.equal(licenses.DB().licenses[different.license.id].consumed,false);
+ const alternate=fixture.Session(a,'attempt-activation-reuse');Reject(()=>licenses.Execute(LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:alternate.sessionId,bootstrapSessionToken:alternate.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);
  const oldSnapshot=database.BuildDatabaseObject();bootstrap.Execute({action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken});Reject(()=>bootstrap.Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>licenses.Execute(proof));
  database.ImportDatabaseObject(oldSnapshot);Reject(()=>bootstrap.Gate(session.sessionId,session.sessionToken,a.deviceId),/^BOOTSTRAP_SESSION_CLOSED$/);const retry=Restart(claimBody);assert.equal(retry.ok,false);assert.equal(retry.error,'BOOTSTRAP_SESSION_CLOSED');
 });
 Check('Service pause denies bootstrap and expired sessions cannot authorize licenses',()=>{
  state.serviceEnabled=false;try{Reject(()=>bootstrap.Execute(beginBody),/^(BOOTSTRAP_|SERVICE_DISABLED)/);}finally{state.serviceEnabled=true;}
- const next=fixture.Session(b),real=Date.now;Date.now=()=>next.expiresAt+1;try{Reject(()=>bootstrap.Gate(next.sessionId,next.sessionToken,b.deviceId));}finally{Date.now=real;}
+ const next=fixture.Session(b),real=Date.now;Date.now=()=>next.expiresAt+1;try{Reject(()=>bootstrap.Gate(next.sessionId,next.sessionToken,b.deviceId));}finally{Date.now=real;}Reject(()=>bootstrap.Gate(next.sessionId,next.sessionToken,b.deviceId),/^BOOTSTRAP_EXPIRED$/);const row=Object.values(bootstrap.Initialize().flows).find(item=>item.sessionId===next.sessionId);assert.equal(row.sessionNonce,undefined);assert.equal(row.downloadNonce,undefined);
+});
+Check('Abort invalidates unfinished and claimed flow without reviving capabilities',()=>{
+ for(const claimed of [false,true]){
+  const pending=fixture.Begin(a);let running;
+  if(claimed){fixture.Download(pending.begin);running=fixture.Claim(a,pending.begin,fixture.Finish(a,pending.begin));}
+  const body={action:'abort',flowId:pending.begin.flowId,downloadTicket:pending.begin.downloadTicket};
+  Reject(()=>bootstrap.Execute({...body,downloadTicket:'invalid'}));state.serviceEnabled=false;try{assert.equal(bootstrap.Execute(body).status,'CLOSED');}finally{state.serviceEnabled=true;}assert.equal(bootstrap.Execute(body).status,'CLOSED');
+  Reject(()=>bootstrap.Execute(pending.body),/^BOOTSTRAP_SESSION_CLOSED$/);Reject(()=>fixture.Download(pending.begin),/^BOOTSTRAP_SESSION_CLOSED$/);
+  if(running)Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,a.deviceId),/^BOOTSTRAP_SESSION_CLOSED$/);
+  const stored=bootstrap.Initialize().flows[pending.begin.flowId];for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])assert.equal(stored[key],undefined);
+  const retry=Restart(body);assert.equal(retry.ok,true,JSON.stringify(retry));assert.equal(retry.data.status,'CLOSED');
+ }
+});
+Check('Expired unused launchers lose derivation secrets and cannot revive after clock rollback',()=>{
+ const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),real=Date.now;Date.now=()=>issue.expiresAt+1;try{Reject(()=>bootstrap.LauncherBytes(issue.launcherId),/^BOOTSTRAP_EXPIRED$/);}finally{Date.now=real;}
+ const stored=bootstrap.Initialize().launchers[issue.launcherId];assert.equal(stored.status,'EXPIRED');assert.equal(stored.ticketNonce,undefined);assert.equal(stored.profile,undefined);Reject(()=>bootstrap.LauncherBytes(issue.launcherId));
 });
 Check('Corrupt bootstrap authority stops startup instead of reviving consumed tickets',()=>{
  const copy=fs.mkdtempSync(path.join(os.tmpdir(),'moa-bootstrap-corrupt-'));fs.cpSync(temp,copy,{recursive:true});fs.writeFileSync(path.join(copy,'desktop-bootstrap','authority.json'),'{"schema":1,"broken":');

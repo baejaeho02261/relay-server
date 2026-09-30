@@ -71,7 +71,7 @@ async function login() {
         assert.equal(legacy.status, 0); assert.equal(legacy.stdout.trim(), '31001 31002');
         let httpPort = await port(), tcpPort = await port(); while (tcpPort === httpPort) tcpPort = await port();
         await start(httpPort, tcpPort);
-        assert.equal((await request('/readyz')).body.revision, 'windows-console-80');
+        assert.equal((await request('/readyz')).body.revision, 'windows-console-81');
         const head = await fetch(base + '/readyz', {method: 'HEAD', signal: AbortSignal.timeout(3000)});
         assert.equal(head.status, 200); assert.equal(await head.text(), '');
         assert.equal((await request('/api/desktop/connect-profile')).status, 401);
