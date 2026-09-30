@@ -7,6 +7,9 @@ let desktopLicensePage = 0;
 let desktopLicenseRows = new Map();
 let desktopLicenseActionPending = false;
 let desktopPendingIssue = null;
+let desktopPendingLauncher = null;
+let desktopBootstrap = null;
+let desktopBootstrapSessions = new Map();
 const desktopStatusLabels = {AVAILABLE:'사용 전',ACTIVE:'사용 중',RELEASED:'사용 종료',REVOKED:'폐기됨',EXPIRED:'만료됨'};
 function desktopStatus(status) {
   return `<span class="desktop-status desktop-status-${esc(String(status).toLowerCase())}"><i aria-hidden="true"></i>${esc(desktopStatusLabels[status] || status)}</span>`;
@@ -17,26 +20,43 @@ function desktopLicenseDevice(row) {
   const id = String(row.deviceId || '').trim();
   return device || id ? `<strong>${esc(device || '등록된 PC')}</strong><span class="code muted" title="${esc(id)}">${esc(id ? id.slice(0,18)+(id.length>18?'…':'') : '—')}</span>` : '<span class="muted">아직 연결되지 않음</span>';
 }
-async function renderDesktopLicenses() {
+async function renderDesktopLicenses(silent = false) {
   if (!roleIsAdmin()) { content.innerHTML='<div class="empty">관리자만 라이선스를 관리할 수 있습니다.</div>'; return; }
   const query = new URLSearchParams({q:desktopLicenseQuery});
   if (desktopLicenseStatus !== 'ALL') query.set('status', desktopLicenseStatus);
-  const data = await api('/api/desktop/licenses?'+query);
-  if (currentView !== 'desktop-licenses') return;
+  const owner = session?.csrf;
+  const [data, bootstrapData] = await Promise.all([api('/api/desktop/licenses?'+query), api('/api/desktop/bootstrap')]);
+  if (currentView !== 'desktop-licenses' || !session || session.csrf !== owner) return;
+  if(silent&&(desktopLicenseActionPending||!modalEl.classList.contains('hidden')))return;
+  desktopBootstrap = bootstrapData.bootstrap || {};
+  desktopBootstrapSessions = new Map((desktopBootstrap.sessions || []).map(row=>[String(row.id),row]));
   const rows = Array.isArray(data.items) ? data.items : [];
   desktopLicenseRows = new Map(rows.map(row=>[String(row.id),row]));
   const pageSize=25,pages=Math.max(1,Math.ceil(rows.length/pageSize));
   desktopLicensePage=Math.min(Math.max(0,desktopLicensePage),pages-1);
   const page=rows.slice(desktopLicensePage*pageSize,(desktopLicensePage+1)*pageSize);
-  const counts=Object.fromEntries(Object.keys(desktopStatusLabels).map(status=>[status,rows.filter(row=>row.status===status).length]));
-  content.innerHTML=`<div class="desktop-workspace">
-    <section class="desktop-hero"><div class="desktop-platform" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M4 8h32v21H4zM13 35h14M20 29v6M9 13h8v5H9zM21 13h10v5H21zM9 21h8v4H9zM21 21h10v4H21z"/></svg></div><div><span class="desktop-eyebrow">WINDOWS 64-BIT</span><h3>하나의 키, 하나의 PC</h3><p>최초 활성화에 한 번 사용되는 라이선스입니다. 활성화한 PC의 인증 상태를 여기서 관리하세요.</p></div><button type="button" id="desktop-license-create" class="primary">+ 라이선스 발급</button></section>
-    <div class="desktop-stats">${[['AVAILABLE','사용 전'],['ACTIVE','사용 중'],['RELEASED','사용 종료'],['REVOKED','폐기됨'],['EXPIRED','만료됨']].map(([status,label])=>`<button type="button" class="desktop-stat${desktopLicenseStatus===status?' selected':''}" data-desktop-status="${status}"><span>${label}</span><strong>${counts[status].toLocaleString()}</strong></button>`).join('')}</div>
-    <section class="section-card desktop-license-list"><div class="section-head"><div><h3>Windows 라이선스</h3><p class="small-note">${rows.length.toLocaleString()}개${desktopLicenseQuery||desktopLicenseStatus!=='ALL'?' · 검색 결과 기준':''}</p></div><div class="actions"><button type="button" id="desktop-connect-profile" class="ghost">Connect 연결 설정</button><span class="small-note">자동 갱신 · ${desktopDate(data.serverTime)}</span></div></div>
-    <form id="desktop-license-search-form" class="desktop-license-toolbar"><label class="desktop-search"><span class="sr-only">라이선스 검색</span><input id="desktop-license-search" type="search" maxlength="120" autocomplete="off" placeholder="라이선스 ID, 이름, PC 검색" value="${esc(desktopLicenseQuery)}"></label><label><span class="sr-only">상태</span><select id="desktop-license-filter"><option value="ALL">전체 상태</option>${Object.entries(desktopStatusLabels).map(([value,label])=>`<option value="${value}" ${value===desktopLicenseStatus?'selected':''}>${label}</option>`).join('')}</select></label><button type="submit">검색</button>${desktopLicenseQuery||desktopLicenseStatus!=='ALL'?'<button type="button" id="desktop-license-clear" class="ghost">초기화</button>':''}</form>
-    <div class="table-wrap"><table class="desktop-license-table"><thead><tr><th>라이선스</th><th>상태</th><th>연결된 PC</th><th>활성화 · 만료</th><th>최근 인증</th><th>관리</th></tr></thead><tbody>${page.map(row=>`<tr><td><div class="desktop-cell"><strong>${esc(row.label||'이름 없는 라이선스')}</strong><span class="code muted">${esc(row.id)}</span><small>${row.consumed?'최초 사용 완료 · 재사용 불가':'최초 사용 대기'} · ${desktopDate(row.issuedAt)}</small></div></td><td>${desktopStatus(row.status)}</td><td><div class="desktop-cell">${desktopLicenseDevice(row)}${row.appVersion?`<small>v${esc(row.appVersion)}</small>`:''}</div></td><td><div class="desktop-cell"><span>${desktopDate(row.activatedAt)}</span><small>${row.expiresAt?'만료 '+desktopDate(row.expiresAt):'만료일 없음'}</small></div></td><td>${desktopDate(row.lastVerifiedAt)}</td><td><div class="actions"><button type="button" data-desktop-action="detail" data-id="${esc(row.id)}">상세</button>${row.status!=='REVOKED'?`<button type="button" class="danger" data-desktop-action="revoke" data-id="${esc(row.id)}">폐기</button>`:''}<button type="button" data-desktop-action="reissue" data-id="${esc(row.id)}">새 키 발급</button></div></td></tr>`).join('')||'<tr><td colspan="6"><div class="desktop-empty"><span aria-hidden="true">◇</span><strong>라이선스가 없습니다.</strong><p>검색 조건을 바꾸거나 새 라이선스를 발급하세요.</p></div></td></tr>'}</tbody></table></div>
+  const counts=data.counts || {};
+  const countLabel=status=>Number.isSafeInteger(counts[status])?counts[status].toLocaleString():'—';
+  const totalLabel=Number.isSafeInteger(data.totalCount)?data.totalCount.toLocaleString():'—';
+  const filtered=!!desktopLicenseQuery || desktopLicenseStatus!=='ALL';
+  const html=`<div class="desktop-workspace">
+    <section class="desktop-hero"><div class="desktop-platform" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M4 8h32v21H4zM13 35h14M20 29v6M9 13h8v5H9zM21 13h10v5H21zM9 21h8v4H9zM21 21h10v4H21z"/></svg></div><div><span class="desktop-eyebrow">WINDOWS 64-BIT</span><h3>A로 시작하고, B 콘솔로 연결</h3><p>일회용 A가 서버에서 B를 받아 조용히 실행한 뒤 정리됩니다. 배포와 라이선스 인증 상태는 서버에서 관리합니다.</p></div><button type="button" id="desktop-license-create" class="primary">+ 라이선스 발급</button></section>
+    <div class="desktop-stats" aria-label="필터와 무관한 전체 라이선스 상태">${[['AVAILABLE','사용 전'],['ACTIVE','사용 중'],['RELEASED','사용 종료'],['REVOKED','폐기됨'],['EXPIRED','만료됨']].map(([status,label])=>`<button type="button" class="desktop-stat${desktopLicenseStatus===status?' selected':''}" data-desktop-status="${status}"><span>${label}</span><strong>${countLabel(status)}</strong></button>`).join('')}</div>
+    ${desktopBootstrapMarkup(desktopBootstrap)}
+    <section class="section-card desktop-license-list"><div class="section-head"><div><h3>Windows 라이선스</h3><p class="small-note" id="desktop-license-result-summary">전체 ${totalLabel}개 · 현재 ${rows.length.toLocaleString()}개${filtered?` · 필터 적용: ${esc(desktopStatusLabels[desktopLicenseStatus]||'전체 상태')}${desktopLicenseQuery?' · 검색어 '+esc(desktopLicenseQuery):''}`:' · 전체 보기'} · 위 상태 수치는 전체 기준</p></div><div class="actions"><span class="small-note" id="desktop-license-updated">자동 갱신 · ${desktopDate(data.serverTime)}</span></div></div>
+    <form id="desktop-license-search-form" class="desktop-license-toolbar"><label class="desktop-search"><span class="sr-only">라이선스 검색</span><input id="desktop-license-search" type="search" maxlength="120" autocomplete="off" placeholder="라이선스 ID, 이름, PC 검색" value="${esc(desktopLicenseQuery)}"></label><label><span class="sr-only">상태</span><select id="desktop-license-filter"><option value="ALL">전체 상태</option>${Object.entries(desktopStatusLabels).map(([value,label])=>`<option value="${value}" ${value===desktopLicenseStatus?'selected':''}>${label}</option>`).join('')}</select></label><button type="submit">검색</button>${desktopLicenseQuery||desktopLicenseStatus!=='ALL'?'<button type="button" id="desktop-license-clear" class="ghost">전체 보기</button>':''}</form>
+    <div class="table-wrap"><table id="desktop-license-records" class="desktop-license-table"><thead><tr><th>라이선스</th><th>상태</th><th>연결된 PC</th><th>활성화 · 만료</th><th>최근 인증</th><th>관리</th></tr></thead><tbody>${page.map(row=>`<tr><td><div class="desktop-cell"><strong>${esc(row.label||'이름 없는 라이선스')}</strong><span class="code muted">${esc(row.id)}</span><small>${row.consumed?'최초 사용 완료 · 재사용 불가':'최초 사용 대기'} · ${desktopDate(row.issuedAt)}</small></div></td><td>${desktopStatus(row.status)}</td><td><div class="desktop-cell">${desktopLicenseDevice(row)}${row.appVersion?`<small>v${esc(row.appVersion)}</small>`:''}</div></td><td><div class="desktop-cell"><span>${desktopDate(row.activatedAt)}</span><small>${row.expiresAt?'만료 '+desktopDate(row.expiresAt):'만료일 없음'}</small></div></td><td>${desktopDate(row.lastVerifiedAt)}</td><td><div class="actions"><button type="button" data-desktop-action="detail" data-id="${esc(row.id)}">상세</button>${row.status!=='REVOKED'?`<button type="button" class="danger" data-desktop-action="revoke" data-id="${esc(row.id)}">폐기</button>`:''}<button type="button" data-desktop-action="reissue" data-id="${esc(row.id)}">새 키 발급</button></div></td></tr>`).join('')||'<tr><td colspan="6"><div class="desktop-empty"><span aria-hidden="true">◇</span><strong>라이선스가 없습니다.</strong><p>검색 조건을 바꾸거나 새 라이선스를 발급하세요.</p></div></td></tr>'}</tbody></table></div>
     <div class="desktop-pagination"><span>${rows.length?desktopLicensePage*pageSize+1:0}–${Math.min(rows.length,(desktopLicensePage+1)*pageSize)} / ${rows.length}</span><div class="actions"><button type="button" data-desktop-page="-1" ${desktopLicensePage===0?'disabled':''}>이전</button><span>${desktopLicensePage+1} / ${pages}</span><button type="button" data-desktop-page="1" ${desktopLicensePage+1>=pages?'disabled':''}>다음</button></div></div></section>
   </div>`;
+  if (silent && content.querySelector('.desktop-workspace')) {
+    // Leave all form controls in place, including a focused status selector or
+    // an unsent search draft. Only server-owned result fragments are replaced.
+    const template=document.createElement('template');template.innerHTML=html;
+    for(const selector of ['#desktop-bootstrap-panel','.desktop-stats','#desktop-license-result-summary','#desktop-license-updated','#desktop-license-records tbody','.desktop-pagination']) {
+      const previous=content.querySelector(selector),next=template.content.querySelector(selector);
+      if(previous&&next)previous.replaceWith(next);
+    }
+  } else content.innerHTML=html;
 }
 function desktopIssueFields(label='',replacement=false) {
   return [{name:'label',label:'라이선스 이름 (선택, 최대 120자)',value:label},
@@ -57,71 +77,109 @@ function desktopReason(value) {
 async function showDesktopLicenseReceipt(data) {
   if(typeof data.licenseKey!=='string'||!data.licenseKey)throw Error('발급 응답에 라이선스 키가 없습니다. 관리자 기록을 확인해주세요.');
   const id=String(data.license?.id||'license');
-  const promise=openModal({title:'라이선스 발급 완료',message:'이 키는 지금 한 번만 표시됩니다. 복사하거나 파일로 저장한 뒤 대상 PC에서 입력하세요.',html:`<div class="desktop-key-receipt"><label for="desktop-issued-key">새 라이선스 키</label><textarea id="desktop-issued-key" class="code" readonly spellcheck="false" autocomplete="off">${esc(data.licenseKey)}</textarea><div class="actions"><button type="button" id="desktop-key-copy">키 복사</button><button type="button" id="desktop-key-download">텍스트 저장</button></div><p class="small-note">최초 사용 후 다른 PC나 새 설치에 재사용할 수 없습니다. 키가 필요한 경우 기존 키를 폐기하고 새 키를 발급하세요.</p></div>`,confirmLabel:'저장했어요'});
+  const promise=openModal({title:'라이선스 발급 완료',message:'이 키는 지금 한 번만 표시됩니다. 복사하거나 저장한 뒤, 대상 PC에서 발급한 A.exe를 실행하고 열린 B 콘솔에 입력해 활성화하세요.',html:`<div class="desktop-key-receipt"><label for="desktop-issued-key">새 라이선스 키</label><textarea id="desktop-issued-key" class="code" readonly spellcheck="false" autocomplete="off">${esc(data.licenseKey)}</textarea><div class="actions"><button type="button" id="desktop-key-copy">키 복사</button><button type="button" id="desktop-key-download">텍스트 저장</button></div><p class="small-note">최초 사용 후 다른 PC나 새 설치에 재사용할 수 없습니다. 키가 필요한 경우 기존 키를 폐기하고 새 키를 발급하세요.</p></div>`,confirmLabel:'저장했어요'});
   const input=document.getElementById('desktop-issued-key');
   const copy=document.getElementById('desktop-key-copy'),download=document.getElementById('desktop-key-download');
   copy.addEventListener('click',async()=>{try{if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(input.value);else{input.focus();input.select();if(!document.execCommand('copy'))throw Error('복사할 키를 직접 선택해주세요.');}toast('라이선스 키를 복사했습니다.');}catch(error){toast(error.message||'복사하지 못했습니다.',true);}});
   download.addEventListener('click',()=>{const blob=new Blob([`MoaPlay Windows64\n라이선스 ID: ${id}\n${input.value}\n`],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='MoaPlay-License-'+id.replace(/[^a-zA-Z0-9_-]/g,'')+'.txt';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);});
   try{await promise;}finally{input.value='';modalBody.replaceChildren();}
 }
-async function desktopConnectProfileData(value) {
-  if (!value || value.version !== 1 || value.protocol !== 'MOAPLAY-CONNECT-1' ||
-      typeof value.host !== 'string' || !value.host || value.host.length > 253 || /[\s\x00-\x1f\x7f\/\\?#@]/.test(value.host) ||
-      !Number.isInteger(value.port) || value.port < 1 || value.port > 65535 ||
-      typeof value.serverKeyId !== 'string' || !/^[a-f0-9]{64}$/.test(value.serverKeyId) ||
-      typeof value.serverPublicKey !== 'string' || value.serverPublicKey.length > 16384 ||
-      !/^[A-Za-z0-9+/]+={0,2}$/.test(value.serverPublicKey)) throw Error('서버 연결 설정 응답을 확인하지 못했습니다.');
-  const raw = Uint8Array.from(atob(value.serverPublicKey), c => c.charCodeAt(0));
-  if (raw.length < 24 || String.fromCharCode(...raw.slice(0,4)) !== 'RSA1') throw Error('서버 공개키 형식이 올바르지 않습니다.');
-  if (!crypto.subtle) throw Error('HTTPS 또는 localhost로 관리자 웹을 열어 연결 설정을 확인해주세요.');
-  const digest = await crypto.subtle.digest('SHA-256', raw);
-  const fingerprint = Array.from(new Uint8Array(digest), x=>x.toString(16).padStart(2,'0')).join('');
-  if (fingerprint !== value.serverKeyId) throw Error('서버 공개키 지문이 일치하지 않습니다. 설정을 다시 확인해주세요.');
-  // Strict public-field projection: future server response additions cannot
-  // accidentally export credentials, license keys, tokens, or private keys.
-  return {version:1,protocol:'MOAPLAY-CONNECT-1',host:value.host,port:value.port,
-    serverKeyId:value.serverKeyId,serverPublicKey:value.serverPublicKey};
+function desktopBootstrapStatus(status) {
+  const labels={AVAILABLE:'발급 완료 · 실행 대기',CONSUMED:'다운로드 시작 · 사용됨',STARTED:'A 연결됨',DOWNLOADED:'B 다운로드 완료',CLAIMED:'B 인증 중',EXPIRED:'만료됨',CLOSED:'연결 종료',REVOKED:'폐기됨'};
+  return esc(labels[status]||status||'—');
 }
-function desktopConnectDiagnostics(info) {
-  if (!info || typeof info !== 'object') return '<p class="small-note">실행 중인 서버의 설정 진단 정보가 없습니다. 서버 수정본 배포가 완료되었는지 확인해주세요.</p>';
-  const value = text => esc(String(text ?? '').slice(0, 300) || '비어 있음');
-  return `<div class="kv"><div>현재 실행 버전</div><div class="code">${value(info.revision)}</div><div>설정 출처</div><div>${info.source==='railway'?'Railway 자동 감지':'직접 지정한 환경 변수'}</div><div>${value(info.hostVariable)}</div><div class="code desktop-wrap">${value(info.host)}</div><div>${value(info.portVariable)}</div><div class="code">${value(info.port)}</div><div>내부 TCP / 관리자 HTTP</div><div>${value(info.tcpPort)} / ${value(info.httpPort)}</div><div>배포 검사 PORT</div><div>${value(info.probePort)}</div></div>${info.probePortMatches===false?'<p class="small-note">Railway의 PORT는 관리자 HTTP 포트와 같아야 합니다. TCP 포트는 CONNECT_TCP_PORT로 별도 지정하고 두 변경을 함께 배포하세요.</p>':''}`;
+function desktopBootstrapMarkup(data) {
+  const artifacts=data.artifacts||{},sessions=Array.isArray(data.sessions)?data.sessions:[],launchers=Array.isArray(data.launchers)?data.launchers:[];
+  const ready=!!artifacts.A&&!!artifacts.B;
+  return `<section id="desktop-bootstrap-panel" class="section-card desktop-license-list">
+    <div class="section-head"><div><h3>A / B 실행 파일 배포</h3><p class="small-note">A 템플릿과 B 콘솔을 등록한 뒤, 고객 PC에서 한 번 실행할 A를 발급하세요.</p></div><button type="button" id="desktop-launcher-create" class="primary" ${ready?'':'disabled'}>+ 일회용 A 발급</button></div>
+    <div class="table-wrap"><table id="desktop-bootstrap-artifacts" class="desktop-license-table"><thead><tr><th>구성 요소</th><th>게시 상태 · 버전</th><th>SHA-256</th><th>등록 시각 · 크기</th><th>관리</th></tr></thead><tbody>${['A','B'].map(component=>{
+      const artifact=artifacts[component];
+      return `<tr><td><div class="desktop-cell"><strong>${component==='A'?'A · 일회용 실행기 템플릿':'B · Windows 콘솔'}</strong><small>${component==='A'?'서버 연결 정보가 포함된 A.exe 발급':'A가 서버에서 받아 실행하는 콘솔'}</small></div></td><td><div class="desktop-cell"><strong>${artifact?'게시됨':'미등록'}</strong><span>${artifact?'v'+esc(artifact.version):'등록이 필요합니다'}</span></div></td><td><span class="code desktop-wrap">${esc(artifact?.sha256||'—')}</span></td><td><div class="desktop-cell"><span>${desktopDate(artifact?.createdAt)}</span><small>${artifact?Number(artifact.size||0).toLocaleString()+' bytes':'—'}</small></div></td><td><button type="button" data-desktop-action="artifact-upload" data-component="${component}">${component} 파일 등록</button></td></tr>`;
+    }).join('')}</tbody></table></div>
+    <div class="section-head"><div><h3>발급한 A</h3><p class="small-note">${ready?'실행할 PC에 A.exe 한 파일만 전달하세요. B 다운로드를 시작하면 A는 사용 처리됩니다. 종료된 A를 다시 실행하려면 새 A를 발급하세요.':'A와 B를 모두 등록하면 일회용 A를 발급할 수 있습니다.'}</p></div></div>
+    <div class="table-wrap"><table id="desktop-bootstrap-launchers" class="desktop-license-table"><thead><tr><th>이름 · A 발급 ID</th><th>상태</th><th>발급 · 만료</th><th>흐름 ID</th></tr></thead><tbody>${launchers.map(row=>`<tr><td><div class="desktop-cell"><strong>${esc(row.label||'이름 없는 A')}</strong><span class="code">${esc(row.id)}</span></div></td><td>${desktopBootstrapStatus(row.status)}</td><td><div class="desktop-cell"><span>${desktopDate(row.issuedAt)}</span><small>만료 ${desktopDate(row.expiresAt)}</small></div></td><td class="code desktop-wrap">${esc(row.flowId||'실행 대기')}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">발급한 A가 없습니다.</td></tr>'}</tbody></table></div>
+    <div class="section-head"><div><h3>A → B 실행 · 서버 인증</h3><p class="small-note">다운로드, B 실행과 연결된 라이선스의 인증 상태를 확인합니다.</p></div></div>
+    <div class="table-wrap"><table id="desktop-bootstrap-sessions" class="desktop-license-table"><thead><tr><th>흐름 · PC</th><th>실행 상태 · B 버전</th><th>연결된 라이선스</th><th>최근 인증</th><th>관리</th></tr></thead><tbody>${sessions.map(row=>`<tr><td><div class="desktop-cell"><strong class="code">${esc(row.flowId||row.id)}</strong><span class="code">${esc(row.deviceId||'PC 연결 대기')}</span><small>A ${esc(row.launcherId||'—')} · ${desktopDate(row.createdAt)}</small></div></td><td><div class="desktop-cell"><strong>${desktopBootstrapStatus(row.status)}</strong><small>${row.version?'B v'+esc(row.version):'B 연결 대기'}</small></div></td><td><div class="desktop-cell"><span class="code">${esc(row.licenseId||'연결 전')}</span>${row.licenseStatus?desktopStatus(row.licenseStatus):'<span class="muted">라이선스 연결 대기</span>'}</div></td><td><div class="desktop-cell"><span>${desktopDate(row.licenseLastVerifiedAt||row.lastVerifiedAt)}</span><small>세션 만료 ${desktopDate(row.expiresAt)}</small></div></td><td>${['REVOKED','CLOSED','EXPIRED'].includes(row.status)?'—':`<button type="button" class="danger" data-desktop-action="session-revoke" data-id="${esc(row.id)}">실행 폐기</button>`}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">아직 실행 기록이 없습니다.</td></tr>'}</tbody></table></div>
+  </section>`;
 }
-async function showDesktopConnectProfile() {
-  if (!roleIsAdmin() || !session) throw Error('관리자만 연결 설정을 확인할 수 있습니다.');
-  const owner=session.csrf;
-  let data;
-  try { data=await api('/api/desktop/connect-profile'); }
-  catch (error) {
-    if (error.code !== 'CONNECT_PUBLIC_ENDPOINT_REQUIRED') throw error;
-    if (!session || session.csrf !== owner) return;
-    await openModal({title:'Connect 연결 주소 확인',message:error.serverMessage||'현재 실행 중인 서버에서 TCP 접속 정보를 읽지 못했습니다.',html:desktopConnectDiagnostics(error.connection)+'<p class="small-note">아래 값이 비어 있다면 변수를 입력한 서비스·환경과 실제 활성 배포가 같은지 확인하세요. 배포 대기 중에는 이전 서버의 설정이 보일 수 있습니다.</p><div class="kv"><div>직접 지정할 호스트</div><div class="code">DESKTOP_PUBLIC_HOST</div><div>직접 지정할 외부 포트</div><div class="code">DESKTOP_PUBLIC_PORT</div></div><p class="small-note">두 값을 모두 비우면 Railway의 TCP 프록시 주소를 자동으로 읽습니다. TCP Proxy가 활성화되어 있어야 합니다.</p>',confirmLabel:'닫기'});
-    return;
+async function showDesktopArtifactUpload(component) {
+  if(!roleIsAdmin()||!session)throw Error('관리자만 실행 파일을 등록할 수 있습니다.');
+  if(!['A','B'].includes(component))throw Error('등록할 구성 요소를 확인해주세요.');
+  const owner=session.csrf,maxBytes=desktopBootstrap?.limits?.maxArtifactBytes||67108864;
+  const promise=openModal({title:component+' 실행 파일 등록',message:component==='A'?'일회용 A 발급에 사용할 Windows64 실행기 템플릿을 등록합니다.':'A가 서버에서 다운로드할 Windows64 B 콘솔을 게시합니다.',html:`<label>실행 파일 (.exe)<input id="desktop-artifact-file" type="file" accept=".exe,application/octet-stream"></label><p class="small-note">최대 ${Math.floor(maxBytes/1048576)}MB</p><p id="desktop-artifact-status" role="status" aria-live="polite"></p>`,fields:[{name:'version',label:'버전',value:desktopBootstrap?.artifacts?.[component]?.version||'1.0.0'}],confirmLabel:'등록 · 게시'});
+  const fileInput=document.getElementById('desktop-artifact-file'),versionInput=modalBody.querySelector('[data-modal-field="version"]'),status=document.getElementById('desktop-artifact-status'),finish=modalConfirm.onclick;
+  let uploaded=false,busy=false;
+  modalConfirm.onclick=async()=>{
+    if(busy||!session||session.csrf!==owner)return;
+    try {
+      const file=fileInput.files?.[0],version=versionInput.value.trim();
+      if(!file||!file.size||!/\.exe$/i.test(file.name))throw Error('비어 있지 않은 .exe 실행 파일을 선택해주세요.');
+      if(file.size>maxBytes)throw Error('실행 파일이 서버의 업로드 크기 제한을 초과합니다.');
+      if(!/^\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?$/.test(version))throw Error('버전을 1.0.0 형식으로 입력해주세요.');
+      busy=true;modalConfirm.disabled=true;fileInput.disabled=true;versionInput.disabled=true;
+      status.textContent='실행 파일을 업로드하고 서버에서 검증하고 있습니다.';
+      const query=new URLSearchParams({component,version,fileName:file.name});
+      await api('/api/desktop/bootstrap/artifacts?'+query,{method:'POST',rawBody:file});
+      uploaded=true;
+      if(session?.csrf===owner&&document.getElementById('desktop-artifact-file')===fileInput&&!modalEl.classList.contains('hidden')){toast(component+' 실행 파일을 게시했습니다.');finish();}
+    } catch(error) { if(document.getElementById('desktop-artifact-file')===fileInput)status.textContent=error.message||'업로드하지 못했습니다. 같은 파일로 다시 시도해주세요.'; }
+    finally {busy=false;if(document.getElementById('desktop-artifact-file')===fileInput){modalConfirm.disabled=false;fileInput.disabled=false;versionInput.disabled=false;}}
+  };
+  try {await promise;} finally {if(document.getElementById('desktop-artifact-file')===fileInput)modalBody.replaceChildren();}
+  if(uploaded&&session?.csrf===owner)await renderCurrent();
+}
+async function downloadDesktopLauncher(data,owner) {
+  if(!roleIsAdmin()||!session||session.csrf!==owner)throw Error('관리자 로그인을 확인해주세요.');
+  const id=String(data.launcherId||''),path='/api/desktop/bootstrap/launchers/'+encodeURIComponent(id)+'/download';
+  if(!id||data.downloadUrl!==path)throw Error('A 다운로드 경로를 확인하지 못했습니다.');
+  const response=await fetch(path,{method:'GET',credentials:'same-origin',headers:{Accept:'application/octet-stream'}});
+  if(response.status===401){showLogin();throw Error('로그인이 만료되었습니다.');}
+  if(!response.ok){let error;try{error=await response.json();}catch(_){}throw Error(error?.message||readableApiError(error?.error||'HTTP_'+response.status));}
+  const blob=await response.blob();
+  if(!session||session.csrf!==owner)return;
+  const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='A.exe';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function showDesktopLauncherReceipt(data,owner) {
+  const promise=openModal({title:'일회용 A 발급 완료',message:'A.exe를 저장해 실행할 PC에 전달하세요. 연결 정보가 실행 파일에 포함되어 있습니다.',html:`<div class="kv"><div>A 발급 ID</div><div class="code desktop-wrap">${esc(data.launcherId)}</div><div>실행 가능 기한</div><div>${desktopDate(data.expiresAt)}</div></div><button type="button" id="desktop-launcher-download" class="primary wide">A.exe 다운로드</button><p id="desktop-launcher-download-status" role="status" aria-live="polite"></p>`,confirmLabel:'닫기'});
+  const button=document.getElementById('desktop-launcher-download'),status=document.getElementById('desktop-launcher-download-status');
+  button.onclick=async()=>{button.disabled=true;status.textContent='A 실행 파일을 준비하고 있습니다.';try{await downloadDesktopLauncher(data,owner);if(session?.csrf===owner){status.textContent='다운로드를 시작했습니다. 실행할 PC에 A.exe를 전달하세요.';button.textContent='다시 다운로드';}}catch(error){status.textContent=error.message||'다운로드하지 못했습니다. 다시 시도해주세요.';}finally{button.disabled=false;}};
+  try{await promise;}finally{if(document.getElementById('desktop-launcher-download')===button)modalBody.replaceChildren();}
+}
+async function createDesktopLauncher() {
+  if(!roleIsAdmin()||!session)throw Error('관리자만 A를 발급할 수 있습니다.');
+  if(desktopPendingLauncher&&desktopPendingLauncher.owner!==session.csrf)desktopPendingLauncher=null;
+  if(desktopPendingLauncher){
+    const confirm=await openModal({title:'이전 A 발급 결과 확인',message:'응답을 받지 못한 요청을 동일한 발급 ID로 다시 확인합니다.',confirmLabel:'결과 다시 확인'});if(!confirm)return;
+  } else {
+    const values=await openModal({title:'일회용 A 발급',message:'현재 게시된 A 템플릿으로 고객용 실행 파일을 발급합니다. A 실행 시 서버에서 B를 받아 연결합니다.',fields:[{name:'label',label:'발급 이름 (선택, 최대 120자)',value:''}],confirmLabel:'A 발급'});if(!values)return;
+    const label=String(values.label||'').trim();if(label.length>120)throw Error('발급 이름은 120자 이하로 입력해주세요.');
+    desktopPendingLauncher={owner:session.csrf,body:{requestId:crypto.randomUUID(),label}};
   }
-  const profile=await desktopConnectProfileData(data.profile);
-  if (!session || session.csrf !== owner) return;
-  const promise=openModal({title:'Connect 연결 설정',message:'다운로드한 설정 파일을 MoaPlayConnect.exe와 같은 폴더에 넣어주세요.',html:`<div class="kv"><div>TCP 호스트</div><div class="code desktop-wrap">${esc(profile.host)}</div><div>TCP 포트</div><div class="code">${profile.port}</div><div>통신 방식</div><div class="code">${esc(profile.protocol)}</div><div>서버 키 지문<br><small>SHA-256</small></div><div class="code desktop-wrap">${esc(profile.serverKeyId.match(/.{2}/g).join(':'))}</div></div><p class="small-note">서버 주소와 공개키만 포함합니다. 라이선스 키나 비밀키는 포함하지 않습니다.</p><button type="button" id="desktop-connect-download" class="primary wide">MoaPlayConnect.server.json 다운로드</button>${desktopConnectDiagnostics(data.connection)}`,confirmLabel:'닫기'});
-  const download=document.getElementById('desktop-connect-download');
-  download.addEventListener('click',()=>{
-    if (!session || session.csrf !== owner || !roleIsAdmin()) return;
-    const blob=new Blob([JSON.stringify(profile,null,2)+'\n'],{type:'application/json;charset=utf-8'});
-    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='MoaPlayConnect.server.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-  });
-  try { await promise; } finally { modalBody.replaceChildren(); }
+  const pending=desktopPendingLauncher;if(!pending||session?.csrf!==pending.owner)return;
+  let data;try{data=await api('/api/desktop/bootstrap/launchers',{method:'POST',body:pending.body});}catch(error){if(error.status&&error.status<500)desktopPendingLauncher=null;throw error;}
+  desktopPendingLauncher=null;if(session?.csrf!==pending.owner)return;
+  await showDesktopLauncherReceipt(data,pending.owner);await renderCurrent();
 }
 async function handleDesktopLicenseAction(event) {
   const target=event.target.closest('button');if(!target)return false;
   if(target.dataset.desktopStatus){desktopLicenseStatus=target.dataset.desktopStatus;desktopLicensePage=0;await renderCurrent();return true;}
   if(target.dataset.desktopPage){desktopLicensePage+=Number(target.dataset.desktopPage);await renderCurrent();return true;}
   if(target.id==='desktop-license-clear'){desktopLicenseQuery='';desktopLicenseStatus='ALL';desktopLicensePage=0;await renderCurrent();return true;}
-  const action=target.id==='desktop-license-create'?'create':target.id==='desktop-connect-profile'?'connect-profile':target.dataset.desktopAction;
+  const action=target.id==='desktop-license-create'?'create':target.id==='desktop-launcher-create'?'launcher-create':target.dataset.desktopAction;
   if(!action)return false;if(!roleIsAdmin())throw Error('관리자만 사용할 수 있습니다.');
   if(desktopLicenseActionPending)return true;
-  const row=desktopLicenseRows.get(target.dataset.id);
-  if(!['create','connect-profile'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
+  const row=action==='session-revoke'?desktopBootstrapSessions.get(target.dataset.id):desktopLicenseRows.get(target.dataset.id);
+  if(!['create','artifact-upload','launcher-create'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
   desktopLicenseActionPending=true;target.disabled=true;
   try{
-    if(action==='connect-profile'){await showDesktopConnectProfile();return true;}
+    if(action==='artifact-upload'){await showDesktopArtifactUpload(target.dataset.component);return true;}
+    if(action==='launcher-create'){await createDesktopLauncher();return true;}
+    if(action==='session-revoke'){
+      const values=await openModal({title:'A → B 실행 폐기',message:`${row.flowId||row.id}\n이 실행의 서버 인증을 종료합니다. 기록은 유지됩니다.`,fields:[{name:'reason',label:'폐기 사유 (3~300자)',type:'textarea',value:''}],danger:true,confirmLabel:'실행 폐기'});
+      if(!values)return true;
+      await api('/api/desktop/bootstrap/sessions/'+encodeURIComponent(row.id)+'/revoke',{method:'POST',body:{reason:desktopReason(values.reason)}});toast('실행 인증을 폐기했습니다.');await renderCurrent();return true;
+    }
     if(action==='detail'){
       await openModal({title:row.label||'라이선스 상세',html:`<div class="kv"><div>라이선스 ID</div><div class="code">${esc(row.id)}</div><div>상태</div><div>${desktopStatus(row.status)}</div><div>발급</div><div>${desktopDate(row.issuedAt)}</div><div>최초 활성화</div><div>${desktopDate(row.activatedAt)}</div><div>만료</div><div>${row.expiresAt?desktopDate(row.expiresAt):'만료일 없음'}</div><div>최초 사용</div><div>${row.consumed?'완료 · 다시 사용 불가':'대기 중'}</div><div>PC</div><div>${esc(row.deviceName||'—')}</div><div>기기 식별자</div><div class="code desktop-wrap">${esc(row.deviceId||'—')}</div><div>버전</div><div>${esc(row.appVersion||'—')}</div><div>최근 인증</div><div>${desktopDate(row.lastVerifiedAt)}</div><div>인증 유효 시각</div><div>${desktopDate(row.leaseExpiresAt)}</div><div>폐기</div><div>${desktopDate(row.revokedAt)}</div><div>사유</div><div class="desktop-wrap">${esc(row.reason||'—')}</div></div>`,confirmLabel:'닫기'});return true;
     }

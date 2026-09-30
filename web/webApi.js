@@ -9,6 +9,7 @@ async function HandleApiRequest(req, res, session) {
     let body = {};
     const desktopMode = require('../services/desktopMode');
     if (desktopMode.RetiredPath(pathname)) { desktopMode.Reject(res); return; }
+    if (await require('./routes/desktopBootstrapRoutes').HandleUpload({method,pathname,url,req,res,session})) return;
 
     if (!['GET', 'HEAD'].includes(method)) {
         const maxBodyBytes = 128 * 1024;
@@ -57,6 +58,7 @@ async function HandleApiRequest(req, res, session) {
     }
 
     const context = { method, pathname, url, body, req, res, session };
+    if (await require('./routes/desktopBootstrapRoutes').Handle(context)) return;
     if (await require('./routes/desktopLicenseRoutes').Handle(context)) return;
 
     if (await productionRoutes.Handle({

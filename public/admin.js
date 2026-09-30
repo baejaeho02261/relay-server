@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'windows-connect-3';
+const WEB_UI_REVISION = 'windows-console-80';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -47,6 +47,7 @@ app.addEventListener('click', event => {
 let session = null;
 let currentView = 'desktop-licenses';
 let eventSource = null;
+let eventPollTimer = null;
 let rendering = false;
 let toastTimer = null;
 let auditQuery = '';
@@ -67,7 +68,7 @@ let terminalHistory = [];
 let terminalHistoryIndex = -1;
 let deferredInstallPrompt = null;
 const titles = {
-  'desktop-licenses': ['Windows 라이선스', '발급부터 최초 활성화, 인증 종료까지 한곳에서 관리합니다.'],
+  'desktop-licenses': ['Windows 라이선스', 'A 실행 파일 발급, B 콘솔 배포와 서버 인증 상태를 관리합니다.'],
   dashboard: ['대시보드', "중계 서버 전체 상태와 최근 이벤트를 확인합니다."],
   console: ['실시간 이벤트', "중계 서버 이벤트가 실시간으로 스트리밍됩니다."],
   trace: ['요청 추적', "요청 식별자 기준으로 전달/다시 시도/처리 응답 처리 과정을 추적합니다."],
@@ -176,7 +177,10 @@ async function api(url, options = {}) {
   const headers = { Accept: 'application/json', ...(options.headers || {}) };
   if (session && !['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = session.csrf;
   const request = { method, headers, credentials: 'same-origin' };
-  if (options.body !== undefined) {
+  if (options.rawBody !== undefined) {
+    headers['Content-Type'] = 'application/octet-stream';
+    request.body = options.rawBody;
+  } else if (options.body !== undefined) {
     headers['Content-Type'] = 'application/json';
     request.body = JSON.stringify(options.body);
   }
@@ -208,6 +212,8 @@ function showLogin() {
   if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();
   session = null;
   if (typeof desktopPendingIssue !== 'undefined') desktopPendingIssue = null;
+  if (typeof desktopPendingLauncher !== 'undefined') desktopPendingLauncher = null;
+  if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
   if (eventSource) { eventSource.close(); eventSource = null; }
   app.classList.add('hidden');
   loginScreen.classList.remove('hidden');
@@ -257,13 +263,31 @@ function pushLiveEvent(event) {
 
 function startEvents() {
   if (eventSource) eventSource.close();
-  eventSource = new EventSource('/api/events');
+  if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
+  const poll = () => {
+    if (!session || document.hidden || rendering) return;
+    if (currentView === 'desktop-licenses') renderCurrent(true);
+  };
+  const disconnected = () => {
+    liveState.textContent = '재연결 중 · 15초마다 갱신';
+    liveState.classList.add('off');
+    if (!eventPollTimer) eventPollTimer = setInterval(poll, 15000);
+    poll();
+  };
+  if (typeof EventSource !== 'function') { disconnected(); return; }
+  try { eventSource = new EventSource('/api/events'); } catch (_) { disconnected(); return; }
   eventSource.addEventListener('ready', () => {
+    if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
+    poll();
     liveState.textContent = "실시간 연결";
     liveState.classList.remove('off');
   });
   eventSource.addEventListener('relay-event', event => {
-    try { pushLiveEvent(JSON.parse(event.data)); } catch (_) {}
+    try {
+      const item = JSON.parse(event.data);
+      pushLiveEvent(item);
+      if (/^DESKTOP_|^desktop[.:-]/i.test(String(item.type || ''))) poll();
+    } catch (_) {}
   });
   eventSource.addEventListener('notification', event => {
     try {
@@ -284,10 +308,7 @@ function startEvents() {
   
   });
   eventSource.addEventListener('session', () => showLogin());
-  eventSource.onerror = () => {
-    liveState.textContent = "재연결 중";
-    liveState.classList.add('off');
-  };
+  eventSource.onerror = disconnected;
 }
 
 async function restoreSession() {
@@ -396,7 +417,10 @@ function restoreScrollState(snapshot) {
 
 async function renderCurrent(silent = false) {
   if (!session || rendering) return;
-  if (silent && (dirtyViews.has(currentView) || content.contains(document.activeElement) && document.activeElement.matches('input,textarea,select'))) return;
+  if (silent && !modalEl.classList.contains('hidden')) return;
+  if (silent && currentView === 'desktop-licenses' && typeof desktopLicenseActionPending !== 'undefined' && desktopLicenseActionPending) return;
+  // Desktop refreshes only result fragments, preserving search drafts and focus.
+  if (silent && currentView !== 'desktop-licenses' && (dirtyViews.has(currentView) || content.contains(document.activeElement) && document.activeElement.matches('input,textarea'))) return;
   if (!silent) dirtyViews.delete(currentView);
   const view = currentView;
   const scrollState = silent ? captureScrollState(view) : null;
@@ -407,7 +431,7 @@ async function renderCurrent(silent = false) {
   if (typeof updateNavigationWorkspace === 'function') updateNavigationWorkspace();
   if (!silent) content.innerHTML = '<div class="empty">불러오는 중...</div>';
   try {
-    if (currentView === 'desktop-licenses') await renderDesktopLicenses();
+    if (currentView === 'desktop-licenses') await renderDesktopLicenses(silent);
     else if (currentView === 'dashboard') await renderDashboard();
     else if (currentView === 'console') await renderConsole();
     else if (currentView === 'trace') await renderTrace();
@@ -439,7 +463,7 @@ async function renderCurrent(silent = false) {
       content.innerHTML = `<div class="api-error"><strong>요청을 처리하지 못했습니다.</strong><span>${esc(error.message)}</span><small>새로고침 후에도 반복되면 서버 로그의 참조 번호를 확인하세요.</small></div>`;
       toast(error.message, true);
     } else {
-      console.warn(`[WEB AUTO REFRESH] ${view}:`, error.message);
+      console.warn(`[WEB AUTO REFRESH] ${view}: refresh failed`);
     }
   } finally {
     if (scrollState) restoreScrollState(scrollState);

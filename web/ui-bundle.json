@@ -1,8 +1,8 @@
 {
   "webAdminVersion": "5.0.1",
-  "uiRevision": "windows-connect-3",
+  "uiRevision": "windows-console-80",
   "files": {
-    "index.html": "5093474a6b4d37f1eff4e3eaa43145415527f3db152f1537842a62fa84295114",
+    "index.html": "4fbc0e7b79f2d6100630404c93d5b6902e6b7da698ef8dc541457ee7cfbcacac",
     "admin.css": "155d685b90472fae0909c42d58031fbfde1f3cc9d29c3b5429f05b582ae0f1a2",
     "admin-theme.css": "ab981b94df03c3130ef2515c5b0846f82381bd61a3a0086760396dfbcc1e4fc7",
     "admin-appearance.css": "1fd249b49ff85a27c79ba5fc6cb358c165ec0e0d38c16927795ef25195d4f1d3",
@@ -12,7 +12,7 @@
     "admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "admin-navigation.css": "b4dfe7add02b3459ccafe03bf048b6f705c2cdd97e15a2fa57c30135e5ade104",
     "admin-i18n.js": "241828ff4f1da3ce57b9c1e8d9261f12878a80ee79e73c3c3ea079a05955cb63",
-    "admin.js": "1d14eef9fbad5e087224db1513999933e1db17dd428a1690d81086d4a7d002c5",
+    "admin.js": "19612c57ceddb4dcab99b412632997d3ff9f4de5423a4b83be4f620bd58692d4",
     "admin-navigation.js": "4b5470a7895ad167aa9e98ac80aeaf9c408f0289ada61202d3ad618abe2c8807",
     "admin-pages-monitoring.js": "3ac8faeaad9bc37d5b5ddcc82330f8e3b8a951090633294794a7e0dbc0e60c60",
     "admin-terminal.js": "7ebfcbe23fed621000c1412d3ef60c517908fb312c0a8113a820cc07f058fe84",
@@ -35,10 +35,10 @@
     "admin-actions.js": "1aa996e0652b6f079e641f8785f1c3c369148df26ba3540efdf1912217d493a8",
     "icons/moaplay.svg": "3100594e711ff9988a6ead51036390785048fb2357ac8e96ee8e89ccf857f63c",
     "admin-palette.js": "244f0e1d402c816d7f09be67c43d76a62d87d1da588ed51a8ad99f03e10697ce",
-    "admin-desktop-licenses.js": "7301b47a3dd140f0b80beee95fef10975fe795c7e1c37fd36db549ee5e70ebc2",
+    "admin-desktop-licenses.js": "27204d6b9d133647b8752d1c470ac93f6bc90e9df93730b281ee438b32b1b77b",
     "admin-desktop.css": "90aa88642920a5b59b4798264fff4eed05385dae786882499117d331ce8865fc",
     "admin-pages-production.js": "eb94938a68cbe964cd1d6b30f1694059c2b870851da29bce615d40fe94061ef8",
-    "service-worker.js": "e73f6c36534e0168925f25e886f232262b7dde864d4ed414971ab9da824c6dcb",
+    "service-worker.js": "a18e2c0ed9e52850ac82c4f990d660e118a29864716e51744a8f694abd87dd74",
     "ui-refresh.html": "f187ed39e3847c0cab81785762e67f014dd8a480677d31e3bbccdd4301ae21e9",
     "ui-refresh.js": "18c00a09bdc6409509b42ce6a7d4e5480d6edd1e7feabcd575aafa6922e42dac"
   }
