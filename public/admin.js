@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'windows-console-80';
+const WEB_UI_REVISION = 'windows-console-81';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -68,7 +68,7 @@ let terminalHistory = [];
 let terminalHistoryIndex = -1;
 let deferredInstallPrompt = null;
 const titles = {
-  'desktop-licenses': ['Windows 라이선스', 'A 실행 파일 발급, B 콘솔 배포와 서버 인증 상태를 관리합니다.'],
+  'desktop-licenses': ['Windows 라이선스', '일회용 실행 파일 발급, 라이선스 배포와 서버 인증 상태를 관리합니다.'],
   dashboard: ['대시보드', "중계 서버 전체 상태와 최근 이벤트를 확인합니다."],
   console: ['실시간 이벤트', "중계 서버 이벤트가 실시간으로 스트리밍됩니다."],
   trace: ['요청 추적', "요청 식별자 기준으로 전달/다시 시도/처리 응답 처리 과정을 추적합니다."],
