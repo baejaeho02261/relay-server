@@ -38,7 +38,7 @@ EnsureDirs();
 LoadDatabase();
 LoadRecentAudit();
 require('./services/haCoordinator').Start();
-console.log('MoaPlay Windows License Service');
+console.log('Game Windows License Service');
 console.log('Web Admin:', WEB_ADMIN_VERSION, 'HTTP Port:', WEB_ADMIN_PORT);
 console.log('Storage:', config.STORAGE_ENGINE.toUpperCase(), DATA_DIR);
 console.log('APK / legacy relay protocol: retired');

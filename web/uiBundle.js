@@ -36,7 +36,7 @@ const FILES = [
   "admin-modal.js",
   "admin-device-actions.js",
   "admin-actions.js",
-  "icons/moaplay.svg",
+  "icons/game.svg",
   "admin-palette.js",
   "admin-desktop-licenses.js",
   "admin-desktop.css",

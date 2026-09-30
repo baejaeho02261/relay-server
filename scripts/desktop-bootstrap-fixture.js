@@ -23,7 +23,7 @@ function Device(){
 }
 function Sign(device,canonical){return crypto.sign('sha256',Buffer.from(canonical,'utf8'),{key:device.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64');}
 function Config(bytes){
- const magic=Buffer.from('MOAPLAYA80CONFIG!','ascii'),footerLength=magic.length+4;
+ const magic=Buffer.from('GAMEA80CONFIG!','ascii'),footerLength=magic.length+4;
  assert.deepEqual(bytes.subarray(-magic.length),magic);const length=bytes.readUInt32LE(bytes.length-footerLength);
  assert.ok(length>0&&length<bytes.length-footerLength);return JSON.parse(bytes.subarray(bytes.length-footerLength-length,bytes.length-footerLength).toString('utf8'));
 }
@@ -46,7 +46,7 @@ function Finish(device,begin){return require('../services/desktopBootstrap').Exe
 function Claim(device,begin,finish){return require('../services/desktopBootstrap').Execute({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(device,finish.claimCanonical),binarySha256:begin.release.sha256});}
 function Session(device,credential=''){
  // Activation proof stays on the exact A/B session that consumed its key.
- if(credential.startsWith('DLA-')){const row=Object.values(require('../services/desktopLicenses').DB().licenses).find(item=>item.tokenHash===sha256(credential)&&item.deviceId===device.deviceId);if(row?.bootstrapSessionId){const prior=[...cache.entries()].find(([name,value])=>name.startsWith(device.deviceId+':')&&value.sessionId===row.bootstrapSessionId);assert.ok(prior,'The fixture must retain the original activation session');return prior[1];}}
+ if(credential){const row=Object.values(require('../services/desktopLicenses').DB().licenses).find(item=>item.tokenHash===sha256(credential)&&item.deviceId===device.deviceId);if(row?.bootstrapSessionId){const prior=[...cache.entries()].find(([name,value])=>name.startsWith(device.deviceId+':')&&value.sessionId===row.bootstrapSessionId);assert.ok(prior,'The fixture must retain the original activation session');return prior[1];}}
  const key=device.deviceId+':'+sha256(credential);let session=cache.get(key);if(session&&session.expiresAt>Date.now()+1000){try{require('../services/desktopBootstrap').Gate(session.sessionId,session.sessionToken,device.deviceId);return session;}catch(_) {}}
  const {begin}=Begin(device);Download(begin);session=Claim(device,begin,Finish(device,begin));cache.set(key,session);return session;
 }
@@ -56,7 +56,7 @@ function LicensePayload(device,payload,requestId){
  if(key)requests.set(key,session);return {...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken};
 }
 async function TcpBootstrap(profile,body){
- const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID(),aad=direction=>Buffer.from(['MOAPLAY-CONNECT-1',direction,requestId,profile.serverKeyId].join('\n'));
+ const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID(),aad=direction=>Buffer.from(['GAME-CONNECT-1',direction,requestId,profile.serverKeyId].join('\n'));
  const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(aad('REQUEST'));const clear=Buffer.from(JSON.stringify({operation:'bootstrap',body})),ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);
  const frame={v:1,keyId:profile.serverKeyId,requestId,wrappedKey:crypto.publicEncrypt({key:require('../services/desktopLicenses').ParseKey(profile.serverPublicKey).key,oaepHash:'sha256',padding:crypto.constants.RSA_PKCS1_OAEP_PADDING},key).toString('base64'),nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};
  const raw=await new Promise((resolve,reject)=>{const socket=require('node:net').connect(profile.port,profile.host);let reply='';socket.setTimeout(5000,()=>{socket.destroy();reject(Error('BOOTSTRAP_TEST_TIMEOUT'));});socket.once('connect',()=>socket.write(JSON.stringify(frame)+'\n'));socket.on('data',data=>{reply+=data.toString();if(reply.length>1024*1024){socket.destroy();reject(Error('BOOTSTRAP_TEST_RESPONSE_LIMIT'));}});socket.once('error',reject);socket.once('close',()=>resolve(reply));});

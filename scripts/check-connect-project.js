@@ -4,9 +4,9 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const root = path.resolve(__dirname, '../../MoaPlayConnect_Win64');
+const root = path.resolve(__dirname, '../../GameConnect_Win64');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
-for (const [name, role] of [['MoaPlayConnect', 'client'], ['MoaPlayLauncher', 'launcher']]) {
+for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launcher']]) {
   const project = read(name + '.dproj');
   const entries = [...project.matchAll(/<DelphiCompile\s+Include="([^"]+)"\s*>([\s\S]*?)<\/DelphiCompile>/g)];
   assert.equal(entries.length, 1, 'Exactly one primary Delphi compile item');
@@ -43,9 +43,9 @@ for (const [name, role] of [['MoaPlayConnect', 'client'], ['MoaPlayLauncher', 'l
     assert.ok(types.includes(24), 'Missing application manifest: ' + res);
   }
 }
-assert.ok(!fs.existsSync(path.join(root, 'MoaPlayConnect.ico')));
-const consoleSource = read('MoaPlay.Console.pas');
-const entry = consoleSource.slice(consoleSource.indexOf('function RunMoaPlayConsole: Integer;', consoleSource.indexOf('implementation')));
+assert.ok(!fs.existsSync(path.join(root, 'GameConnect.ico')));
+const consoleSource = read('Game.Console.pas');
+const entry = consoleSource.slice(consoleSource.indexOf('function RunGameConsole: Integer;', consoleSource.indexOf('implementation')));
 assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup;') < entry.indexOf('if not AllocConsole'), 'Console must be created only after authenticated handoff and cleanup');
 assert.ok(entry.includes('if not AllocConsole'));
 assert.ok(!/\b(?:WriteLn|ShowMessage|MessageBox)\s*\(/i.test(consoleSource), 'User diagnostics must remain silent');
@@ -65,7 +65,7 @@ for (const name of fs.readdirSync(root)) {
     }
   }
 }
-for (const retired of ['MoaPlay.dproj', 'MoaPlay.Main.pas', 'MoaPlay.UI.pas']) {
+for (const retired of ['Game.dproj', 'Game.Main.pas', 'Game.UI.pas']) {
   assert.ok(!fs.existsSync(path.join(root, retired)), 'Retired GUI source: ' + retired);
 }
 console.log('A/B PROJECT SOURCE CHECK PASS (actual Delphi compilation still required)');

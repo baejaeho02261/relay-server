@@ -12,7 +12,7 @@ const WEB_ADMIN_PORT = Number(process.env.WEB_ADMIN_PORT || 8080);
 const WEB_ADMIN_SESSION_MS = Number(process.env.WEB_ADMIN_SESSION_MS || 30 * 60 * 1000);
 const ENABLE_LEGACY_TCP_ADMIN = String(process.env.ENABLE_LEGACY_TCP_ADMIN || '') === '1';
 const WEB_ADMIN_VERSION = '5.0.1';
-const WEB_UI_REVISION = 'windows-console-81';
+const WEB_UI_REVISION = 'game-console-83';
 const UPDATE_BASE_URL = String(process.env.UPDATE_BASE_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')).replace(/\/+$/, '');
 
 const DATA_DIR = process.env.DATA_DIR
@@ -46,7 +46,7 @@ const SERVER_KICK_BLOCK_MS = 60 * 1000;
 const CLIENT_KICK_BLOCK_MS = 60 * 1000;
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 30);
-// Product invariant: one APK is paired with exactly one MoaPlayConnect.
+// Product invariant: one APK is paired with exactly one GameConnect.
 // This is intentionally not environment-overridable; increasing it would
 // silently reconnect several waiting APKs to the first PC that comes online.
 const MAX_CLIENTS_PER_SERVER = 1;

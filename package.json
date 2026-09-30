@@ -1,13 +1,15 @@
 {
-  "name": "moaplay-relay",
+  "name": "game-relay",
   "version": "7.0.1",
-  "description": "MoaPlayConnect Windows64 encrypted TCP license service and administrator console",
+  "description": "GameConnect Windows64 encrypted TCP license service and administrator console",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "check": "node scripts/check-modules.js",
     "test": "node scripts/regression.js",
     "test:licenses": "node scripts/test-desktop-licenses.js",
+    "test:migration": "node scripts/test-desktop-license-migration.js",
+    "test:migration:sqlite": "node scripts/test-desktop-license-migration.js --sqlite",
     "test:retirement": "node scripts/test-desktop-retirement.js",
     "test:admin": "node scripts/test-desktop-admin-ui.js",
     "test:uicache": "node scripts/test-web-ui-cache.js",

@@ -4,7 +4,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const net = require('node:net'), crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moaplay-desktop-http-'));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-desktop-http-'));
 const adminPassword = 'desktop-http-regression-admin-secret';
 const viewerPassword = 'desktop-http-regression-viewer-secret';
 const bootstrapFixture = require('./desktop-bootstrap-fixture');
@@ -66,7 +66,7 @@ async function signed(device, action, payload) {
     const body = { action, requestId, deviceId: device.deviceId, publicKey: device.publicKey, payloadHash };
     const response = await call('/api/desktop/challenge', body); assert.equal(response.status, 200);
     const challenge = response.json.data;
-    const canonical = ['MOAPLAY-DESKTOP-V1', action, challenge.challengeId, challenge.nonce, requestId,
+    const canonical = ['GAME-DESKTOP-V1', action, challenge.challengeId, challenge.nonce, requestId,
         device.deviceId, payloadHash, String(challenge.expiresAt)].join('\n');
     assert.equal(challenge.canonical, canonical, 'The actual native wire canonical must match the client construction');
     const signature = crypto.sign('sha256', Buffer.from(canonical), { key: device.privateKey, padding: crypto.constants.RSA_PKCS1_PADDING }).toString('base64');
@@ -76,7 +76,7 @@ async function execute(device, action, payload) { return call('/api/desktop/exec
 async function upload(component, bytes, auth, csrf = true) {
     const headers = { 'Content-Type': 'application/octet-stream' };
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
-    const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=MoaPlay' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
+    const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=Game' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
 async function bootstrapDevice(device, auth) {
@@ -116,6 +116,10 @@ async function bootstrapDevice(device, auth) {
         const created = await call('/api/desktop/licenses', { label: 'HTTP 동시 등록 검사', requestId: 'HTTP-ADMIN-CREATE-01' }, auth);
         assert.equal(created.status, 200);
         const id = created.json.license.id, key = created.json.licenseKey;
+        assert.match(id,/^[A-F0-9]{24}$/);assert.match(key,/^[A-F0-9]{64}$/);
+        assert.equal((await call('/api/desktop/licenses/'+id)).status,401);
+        assert.equal((await call('/api/desktop/licenses/'+id,undefined,viewer)).status,403);
+        assert.equal((await call('/api/desktop/licenses/'+id,undefined,auth)).json.licenseKey,key);
         const devices = [device('Windows A'), device('Windows B')];
         await Promise.all(devices.map(item => bootstrapDevice(item, auth)));
         const packets = await Promise.all(devices.map(item => signed(item, 'redeem', { licenseKey: key, deviceName: item.name, appVersion: '1.0.0' })));
@@ -128,11 +132,12 @@ async function bootstrapDevice(device, auth) {
         assert.equal(replay.status, 200); assert.equal(replay.json.data.activationToken, token, 'Exact wire retry returns the same committed result');
         let list = await call('/api/desktop/licenses', undefined, auth); assert.equal(list.status, 200); assert.equal(list.json.items.length, 1);
         assert.equal(list.json.items[0].deviceId, winner.deviceId);
-        const active = await call('/api/desktop/licenses?status=ACTIVE', undefined, auth); assert.equal(active.status, 200); assert.equal(active.json.items.length, 1);
+        const detail=await call('/api/desktop/licenses/'+id,undefined,auth);assert.equal(detail.status,200);assert.equal(detail.json.licenseKey,key);assert.equal(detail.json.license.status,'USED');
+        const active = await call('/api/desktop/licenses?status=USED', undefined, auth); assert.equal(active.status, 200); assert.equal(active.json.items.length, 1);
         const unused = await call('/api/desktop/licenses', { label: 'Global status count', requestId: crypto.randomUUID() }, auth); assert.equal(unused.status, 200);
-        const filtered = await call('/api/desktop/licenses?status=ACTIVE', undefined, auth); assert.equal(filtered.json.items.length, 1); assert.equal(filtered.json.counts.AVAILABLE, 1); assert.equal(filtered.json.counts.ACTIVE, 1);
+        const filtered = await call('/api/desktop/licenses?status=USED', undefined, auth); assert.equal(filtered.json.items.length, 1); assert.equal(filtered.json.counts.AVAILABLE, 1); assert.equal(filtered.json.counts.USED, 1);
         const overview = await call('/api/desktop/bootstrap', undefined, auth); assert.equal(overview.status, 200); assert.ok(overview.json.bootstrap.artifacts.A && overview.json.bootstrap.artifacts.B);
-        const linked = overview.json.bootstrap.sessions.find(row => row.id === winner.bootstrap.sessionId); assert.equal(linked.licenseId, id); assert.equal(linked.licenseStatus, 'ACTIVE'); assert.equal(linked.deviceId, winner.deviceId);
+        const linked = overview.json.bootstrap.sessions.find(row => row.id === winner.bootstrap.sessionId); assert.equal(linked.licenseId, id); assert.equal(linked.licenseStatus, 'USED'); assert.equal(linked.deviceId, winner.deviceId);
         assert.ok(!JSON.stringify(overview.json).includes(winner.bootstrap.sessionToken));
         assert.ok(!JSON.stringify(list.json).includes(key), 'List must not expose the issued key');
         assert.ok(!JSON.stringify(list.json).includes(token), 'List must not expose the activation token');
@@ -151,7 +156,9 @@ async function bootstrapDevice(device, auth) {
         await stop(); await start(); auth = await login();
         list = await call('/api/desktop/licenses', undefined, auth);
         assert.equal(list.status, 200); assert.equal(list.json.items.length, 2); assert.equal(list.json.items.find(item => item.id === id).status, 'REVOKED');
-        assert.equal((await call('/api/desktop/licenses?status=ACTIVE', undefined, auth)).json.items.length, 0);
+        assert.equal((await call('/api/desktop/licenses?status=USED', undefined, auth)).json.items.length, 0);
+        assert.equal((await call('/api/desktop/licenses/'+id,undefined,auth)).json.licenseKey,key);
+        assert.ok(!output.includes(key)&&!output.includes(token),'Issued key and session credentials must not appear in server logs');
         const restartDenied = await execute(winner, 'verify', { activationToken: token });
         assert.equal(restartDenied.status, 403); assert.equal(restartDenied.json.error, 'DESKTOP_REVOKED');
         const retryKey = await execute(devices[loserIndex], 'redeem', { licenseKey: key });

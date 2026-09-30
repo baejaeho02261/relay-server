@@ -4,7 +4,7 @@ const fs = require('node:fs'), os = require('node:os'), path = require('node:pat
 const {spawn, spawnSync} = require('node:child_process');
 const endpoint = require('../services/connectEndpoint');
 const root = path.resolve(__dirname, '..');
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moaplay-connect-deploy-'));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-connect-deploy-'));
 const adminSecret = 'isolated-deployment-test-admin';
 let child, output = '', base, cookie, csrf;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -71,7 +71,7 @@ async function login() {
         assert.equal(legacy.status, 0); assert.equal(legacy.stdout.trim(), '31001 31002');
         let httpPort = await port(), tcpPort = await port(); while (tcpPort === httpPort) tcpPort = await port();
         await start(httpPort, tcpPort);
-        assert.equal((await request('/readyz')).body.revision, 'windows-console-81');
+        assert.equal((await request('/readyz')).body.revision, 'game-console-83');
         const head = await fetch(base + '/readyz', {method: 'HEAD', signal: AbortSignal.timeout(3000)});
         assert.equal(head.status, 200); assert.equal(await head.text(), '');
         assert.equal((await request('/api/desktop/connect-profile')).status, 401);

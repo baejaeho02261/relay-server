@@ -3,8 +3,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {JSDOM,VirtualConsole}=require('jsdom');
 const crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..'),html=fs.readFileSync(path.join(root,'public/index.html'),'utf8');
-const errors=[],requests=[],now=Date.now(),key='MOA-TEST-ONLY-NOT-A-LIVE-KEY';
-const rows=Array.from({length:28},(_,i)=>({id:'DL_'+String(i).padStart(3,'0'),label:i===0?'<img src=x onerror=bad()>':'고객 PC '+i,status:i===0?'ACTIVE':'AVAILABLE',issuedAt:now-10000,activatedAt:i===0?now-5000:0,expiresAt:0,lastVerifiedAt:0,deviceName:i===0?'Office <script>bad()</script>':'',deviceId:i===0?'SHA256_DEVICE_FINGERPRINT_0123456789':'',consumed:i===0,appVersion:'1.0.0'}));
+const errors=[],requests=[],now=Date.now(),key='A1B2C3D4'.repeat(8),issuedId='A1B2C3D4'.repeat(3),launcherId='B2C3D4E5'.repeat(3);
+const rows=Array.from({length:28},(_,i)=>({id:'DL_'+String(i).padStart(3,'0'),label:i===0?'<img src=x onerror=bad()>':'고객 PC '+i,status:i===0?'USED':'AVAILABLE',issuedAt:now-10000,activatedAt:i===0?now-5000:0,expiresAt:0,lastVerifiedAt:0,deviceName:i===0?'Office <script>bad()</script>':'',deviceId:i===0?'SHA256_DEVICE_FINGERPRINT_0123456789':'',consumed:i===0,appVersion:'1.0.0'}));
 const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(html.replace(/<script[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link[^>]*>/g,''),{url:'https://fixture.invalid/',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true});
 const eventSources=[],intervals=new Map();
@@ -18,7 +18,7 @@ w.HTMLAnchorElement.prototype.click=function(){downloadedName=this.download;};
 w.URL.createObjectURL=blob=>{downloadedBlob=blob;return 'blob:fixture';};w.URL.revokeObjectURL=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};
 let copied='',issueFail=false,launcherFail=false,uploadFail=false;
 const launcherName='a1b2c3d4'.repeat(4)+'.exe';let downloadHeaderName=launcherName;
-const artifacts={A:null,B:null},bootstrapSessions=[{id:'DS_test',flowId:'FLOW_test',launcherId:'DA_test',status:'CLAIMED',deviceId:'PC_fingerprint',version:'1.0.0',createdAt:now-4000,expiresAt:now+300000,licenseId:'DL_000',licenseStatus:'ACTIVE',licenseLastVerifiedAt:now-1000}],launchers=[];
+const artifacts={A:null,B:null},bootstrapSessions=[{id:'DS_test',flowId:'FLOW_test',launcherId:'DA_test',status:'CLAIMED',deviceId:'PC_fingerprint',version:'1.0.0',createdAt:now-4000,expiresAt:now+300000,licenseId:'DL_000',licenseStatus:'USED',licenseLastVerifiedAt:now-1000}],launchers=[];
 Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async text=>{copied=text;}}});
 w.fetch=async(url,options={})=>{
  const method=options.method||'GET',body=typeof options.body==='string'?JSON.parse(options.body):options.body||null;requests.push({url,method,body,headers:options.headers,credentials:options.credentials,csrf:options.headers?.['X-CSRF-Token']});let data;
@@ -33,17 +33,19 @@ w.fetch=async(url,options={})=>{
    const artifact={id:'ART_'+component,component,version:params.get('version'),sha256:(component==='A'?'a':'b').repeat(64),size:body.size,createdAt:now};artifacts[component]=artifact;data={ok:true,artifact};
  }else if(url==='/api/desktop/bootstrap/launchers'){
    assert.equal(method,'POST');assert.match(body.requestId,/^[\w-]{16,}$/);if(launcherFail){launcherFail=false;throw new TypeError('launcher response interrupted');}
-   const launcherId='DA_issued';launchers.push({id:launcherId,label:body.label,issuedAt:now,expiresAt:now+86400000,status:'AVAILABLE',downloadName:launcherName});data={ok:true,launcherId,downloadName:launcherName,expiresAt:now+86400000,downloadUrl:'/api/desktop/bootstrap/launchers/'+launcherId+'/download'};
- }else if(url==='/api/desktop/bootstrap/launchers/DA_issued/download'){
+   launchers.push({id:launcherId,label:body.label,issuedAt:now,expiresAt:now+86400000,status:'AVAILABLE',downloadName:launcherName});data={ok:true,launcherId,downloadName:launcherName,expiresAt:now+86400000,downloadUrl:'/api/desktop/bootstrap/launchers/'+launcherId+'/download'};
+ }else if(url==='/api/desktop/bootstrap/launchers/'+launcherId+'/download'){
    assert.equal(method,'GET');assert.equal(options.credentials,'same-origin');return {ok:true,status:200,headers:{get:name=>name==='Content-Disposition'?'attachment; filename=\"'+downloadHeaderName+'\"':null},blob:async()=>new Blob(['MZ_PROVISIONED_A_FIXTURE'])};
  }else if(url==='/api/desktop/bootstrap/sessions/DS_test/revoke'){
    assert.equal(method,'POST');assert.ok(body.reason.length>=3);bootstrapSessions[0].status='REVOKED';data={ok:true};
  }
  else if(url.startsWith('/api/search?'))data={ok:true,results:[]};
- else if(url.startsWith('/api/desktop/licenses?')){const params=new URL(url,'https://fixture.invalid').searchParams,q=params.get('q')||'',status=params.get('status');assert.ok(status===null||['AVAILABLE','ACTIVE','REVOKED','EXPIRED','RELEASED'].includes(status),'The API does not accept the UI-only ALL filter');data={ok:true,items:rows.filter(x=>(!status||x.status===status)&&[x.id,x.label,x.deviceName].join(' ').includes(q)),counts:Object.fromEntries(['AVAILABLE','ACTIVE','REVOKED','EXPIRED','RELEASED'].map(status=>[status,rows.filter(row=>row.status===status).length])),totalCount:rows.length,revision:1,serverTime:now};}
+ else if(url.startsWith('/api/desktop/licenses?')){const params=new URL(url,'https://fixture.invalid').searchParams,q=params.get('q')||'',status=params.get('status');assert.ok(status===null||['AVAILABLE','USED','REVOKED','EXPIRED'].includes(status),'The API does not accept the UI-only ALL filter');data={ok:true,items:rows.filter(x=>(!status||x.status===status)&&[x.id,x.label,x.deviceName].join(' ').includes(q)),counts:Object.fromEntries(['AVAILABLE','USED','REVOKED','EXPIRED'].map(status=>[status,rows.filter(row=>row.status===status).length])),totalCount:rows.length,revision:1,serverTime:now};}
  else if(url==='/api/desktop/licenses'&&method==='POST'){
    if(issueFail){issueFail=false;throw new TypeError('network interrupted');}
-   assert.equal('expiresAt' in body,false);assert.equal('validDays' in body,false);assert.match(body.requestId,/^[\w-]{16,}$/);data={ok:true,license:{id:'NEW_ID',label:body.label},licenseKey:key};
+   assert.equal('expiresAt' in body,false);assert.equal('validDays' in body,false);assert.match(body.requestId,/^[\w-]{16,}$/);if(!rows.some(row=>row.id===issuedId))rows.push({id:issuedId,label:body.label,status:'AVAILABLE',issuedAt:now,expiresAt:0,consumed:false});data={ok:true,license:{id:issuedId,label:body.label},licenseKey:key};
+ }else if(method==='GET'&&/^\/api\/desktop\/licenses\/[^/]+$/.test(url)){
+   const id=decodeURIComponent(url.split('/').at(-1)),row=rows.find(row=>row.id===id);assert.ok(row,'detail must use an existing raw ID');data={ok:true,license:{...row},licenseKey:key};
  }else if(url.endsWith('/revoke')&&method==='POST'){assert.ok(body.reason.length>=3);data={ok:true,license:{id:'DL_000',status:'REVOKED'}};}
  else if(url.endsWith('/reissue')&&method==='POST'){assert.equal('expiresAt' in body,false);assert.equal('validDays' in body,false);assert.ok(body.reason.length>=3);assert.match(body.requestId,/^[\w-]{16,}$/);data={ok:true,license:{id:'REPLACEMENT_ID'},licenseKey:key};}
  else throw Error('Unexpected endpoint: '+method+' '+url);
@@ -71,19 +73,19 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  // A/B deployment replaces the end-user sidecar download path.
  assert.equal(w.document.querySelector('#desktop-connect-profile'),null);
  assert.equal(w.document.querySelector('#desktop-launcher-create').disabled,true);
- assert.match(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/DL_000/);
- assert.match(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/사용 중/);
+ assert.match(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/000/);assert.doesNotMatch(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/DL_|FLOW_|DA_/);
+ assert.match(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/사용됨/);
  assert.ok(!requests.some(r=>r.url==='/api/desktop/connect-profile'));
  for(const component of ['A','B']){
    w.document.querySelector(`[data-desktop-action="artifact-upload"][data-component="${component}"]`).click();await waitFor(()=>shown('#desktop-artifact-file')&&!modalClosed(),component+' upload form');
-   const fileInput=w.document.querySelector('#desktop-artifact-file'),file=new w.File(['MZ_'+component],component+'.exe',{type:'application/octet-stream'});Object.defineProperty(fileInput,'files',{value:[file]});field('version','1.0.80');
+   const fileInput=w.document.querySelector('#desktop-artifact-file'),file=new w.File(['MZ_'+component],component+'.exe',{type:'application/octet-stream'});Object.defineProperty(fileInput,'files',{value:[file]});field('version','1.0.83');
    if(component==='A'){
      uploadFail=true;w.document.querySelector('#modal-confirm').click();await waitFor(()=>w.document.querySelector('#desktop-artifact-status').textContent.includes('interrupted'),'upload retry retains form');
-     assert.equal(w.document.querySelector('#desktop-artifact-file'),fileInput);assert.equal(fileInput.files[0],file);assert.equal(field('version','1.0.80').value,'1.0.80');
+     assert.equal(w.document.querySelector('#desktop-artifact-file'),fileInput);assert.equal(fileInput.files[0],file);assert.equal(field('version','1.0.83').value,'1.0.83');
      const beforeRefresh=requests.length;await w.renderCurrent(true);assert.equal(requests.length,beforeRefresh);assert.equal(w.document.querySelector('#desktop-artifact-file'),fileInput);
    }
    w.document.querySelector('#modal-confirm').click();await waitFor(()=>modalClosed()&&actionIdle(),component+' upload complete');
-   assert.match(w.document.querySelector('#desktop-bootstrap-artifacts').textContent,/1\.0\.80/);
+   assert.match(w.document.querySelector('#desktop-bootstrap-artifacts').textContent,/1\.0\.83/);
  }
  assert.equal(w.document.querySelector('#desktop-launcher-create').disabled,false);
  assert.match(w.document.querySelector('#desktop-bootstrap-artifacts').textContent,/a{64}/);assert.match(w.document.querySelector('#desktop-bootstrap-artifacts').textContent,/b{64}/);
@@ -102,16 +104,16 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  assert.match(w.document.querySelector('#desktop-license-records').textContent,/<img src=x onerror=bad\(\)>/);
  assert.ok(!w.document.querySelector('[data-desktop-action="reset"],[data-desktop-action="unbind"]'));
  w.document.querySelector('[data-desktop-page="1"]').click();await waitFor(()=>w.document.querySelectorAll('#desktop-license-records tbody tr').length===3&&actionIdle(),'second license page');assert.equal(w.document.querySelectorAll('#desktop-license-records tbody tr').length,3);
- w.document.querySelector('[data-desktop-status="ACTIVE"]').click();await waitFor(()=>w.document.querySelectorAll('#desktop-license-records tbody tr').length===1&&actionIdle(),'active status filter');assert.equal(w.document.querySelectorAll('#desktop-license-records tbody tr').length,1);
+ w.document.querySelector('[data-desktop-status="USED"]').click();await waitFor(()=>w.document.querySelectorAll('#desktop-license-records tbody tr').length===1&&actionIdle(),'used status filter');assert.equal(w.document.querySelectorAll('#desktop-license-records tbody tr').length,1);
  // Status cards always use global server counts, including under a status filter.
  assert.equal(w.document.querySelector('[data-desktop-status="AVAILABLE"] strong').textContent,'27');
  w.document.querySelector('[data-desktop-status="AVAILABLE"]').click();await waitFor(()=>w.document.querySelector('#desktop-license-filter')?.value==='AVAILABLE'&&actionIdle(),'available filter');
- assert.equal(w.document.querySelector('[data-desktop-status="ACTIVE"] strong').textContent,'1');assert.match(w.document.querySelector('#desktop-license-result-summary').textContent,/필터 적용: 사용 전/);assert.equal(w.document.querySelector('#desktop-license-clear').textContent,'전체 보기');
+ assert.equal(w.document.querySelector('[data-desktop-status="USED"] strong').textContent,'1');assert.match(w.document.querySelector('#desktop-license-result-summary').textContent,/필터 적용: 사용 전/);assert.equal(w.document.querySelector('#desktop-license-clear').textContent,'전체 보기');
  // Polling can update data while a selector remains focused. Typed search text
  // remains in its original DOM node until explicitly submitted.
  const filter=w.document.querySelector('#desktop-license-filter');filter.focus();const beforeFocused=requests.length;await w.renderCurrent(true);assert.ok(requests.length>beforeFocused);assert.equal(w.document.querySelector('#desktop-license-filter'),filter);assert.equal(w.document.activeElement,filter);
- const search=w.document.querySelector('#desktop-license-search');search.value='아직 검색하지 않은 입력';search.focus();rows[1].status='ACTIVE';await w.renderCurrent(true);
- assert.equal(w.document.querySelector('#desktop-license-search'),search);assert.equal(search.value,'아직 검색하지 않은 입력');assert.equal(w.document.activeElement,search);assert.equal(w.document.querySelector('[data-desktop-status="ACTIVE"] strong').textContent,'2');assert.equal(w.document.querySelector('[data-desktop-status="AVAILABLE"] strong').textContent,'26');
+ const search=w.document.querySelector('#desktop-license-search');search.value='아직 검색하지 않은 입력';search.focus();rows[1].status='USED';await w.renderCurrent(true);
+ assert.equal(w.document.querySelector('#desktop-license-search'),search);assert.equal(search.value,'아직 검색하지 않은 입력');assert.equal(w.document.activeElement,search);assert.equal(w.document.querySelector('[data-desktop-status="USED"] strong').textContent,'2');assert.equal(w.document.querySelector('[data-desktop-status="AVAILABLE"] strong').textContent,'26');
  rows[1].status='AVAILABLE';await w.renderCurrent(true);
  // An SSE outage starts a bounded polling fallback; reconnect clears it.
  const source=eventSources.at(-1),beforeDisconnect=requests.length;source.onerror();await waitFor(()=>requests.length>beforeDisconnect&&actionIdle(),'SSE fallback initial refresh');
@@ -119,12 +121,26 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  source.listeners.get('ready')();await waitFor(actionIdle,'SSE reconnect refresh');assert.equal([...intervals.values()].filter(timer=>timer.delay===15000).length,0);
  const beforeActivation=requests.length;source.listeners.get('relay-event')({data:JSON.stringify({type:'desktop_license_activated',time:now,detail:'safe fixture'})});await waitFor(()=>requests.length>beforeActivation&&actionIdle(),'activation event refresh');
  w.document.querySelector('#desktop-license-clear').click();await waitFor(()=>w.document.querySelectorAll('#desktop-license-records tbody tr').length===25&&actionIdle(),'clear license filter');
- w.document.querySelector('[data-desktop-action="detail"]').click();await waitFor(()=>!modalClosed()&&w.document.querySelector('#modal-body').textContent.includes('SHA256_DEVICE'),'license detail dialog');assert.match(w.document.querySelector('#modal-body').textContent,/SHA256_DEVICE/);await closeModal();
+ // Keys are not fetched by list, SSE, focus refresh or polling. Detail uses
+ // the original raw legacy ID while its presentation is prefix-free.
+ const detailRequests=()=>requests.filter(r=>r.method==='GET'&&/^\/api\/desktop\/licenses\/[^/]+$/.test(r.url));
+ assert.equal(detailRequests().length,0);assert.ok(!w.document.body.textContent.includes(key));
+ w.document.querySelector('[data-desktop-action="detail"]').click();await waitFor(()=>!modalClosed()&&shown('#desktop-detail-key'),'license detail dialog');
+ const originalKeyInput=w.document.querySelector('#desktop-detail-key');assert.equal(originalKeyInput.value,key);assert.equal(originalKeyInput.readOnly,true);
+ assert.equal(detailRequests().at(-1).url,'/api/desktop/licenses/DL_000');assert.match(w.document.querySelector('#modal-body').textContent,/SHA256_DEVICE/);assert.doesNotMatch(w.document.querySelector('#modal-body').textContent,/DL_000|사용 중/);assert.match(w.document.querySelector('#modal-body').textContent,/사용됨/);
+ w.document.querySelector('#desktop-detail-key-copy').click();await waitFor(()=>copied===key,'used key detail copy');await closeModal();assert.equal(originalKeyInput.value,'');assert.equal(shown('#desktop-detail-key'),false);
+ w.document.querySelector('[data-desktop-action="detail"]').click();await waitFor(()=>!modalClosed()&&shown('#desktop-detail-key'),'reopened used detail');assert.equal(w.document.querySelector('#desktop-detail-key').value,key);assert.equal(detailRequests().length,2);await closeModal();
+ assert.ok(!w.document.body.textContent.includes(key));assert.ok(!Object.keys(w.localStorage).some(name=>String(w.localStorage.getItem(name)).includes(key)));
  // Pure one-use issuance has no duration/expiry controls or request fields.
  w.document.querySelector('#desktop-license-create').click();await waitFor(()=>shown('[data-modal-field="label"]')&&!modalClosed(),'issue form');assert.equal(shown('[data-modal-field="term"],[data-modal-field="days"],[data-modal-field="expiresAt"],[data-modal-field="validDays"]'),false);assert.equal(w.document.querySelectorAll('[data-modal-field]').length,1);field('label','실제 고객');w.document.querySelector('#modal-confirm').click();await waitFor(()=>shown('#desktop-issued-key'),'new license receipt');
  assert.equal(w.document.querySelector('#desktop-issued-key').value,key);assert.ok(!Object.keys(w.localStorage).some(name=>String(w.localStorage.getItem(name)).includes(key)));
  w.document.querySelector('#desktop-key-copy').click();await waitFor(()=>copied===key,'clipboard write');assert.equal(copied,key);
+ assert.doesNotMatch(w.document.querySelector('#modal-body').textContent,/한 번만 표시|KEY:/);assert.match(key,/^[A-F0-9]{64}$/);
  await closeModal();assert.equal(w.document.querySelector('#desktop-issued-key'),null);assert.ok(!w.document.body.textContent.includes(key));
+ // Newly issued key can be reopened from its detail, not only the initial receipt.
+ const detailSearch=w.document.querySelector('#desktop-license-search');detailSearch.value=issuedId;w.document.querySelector('#desktop-license-search-form').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));await waitFor(()=>w.document.querySelectorAll('#desktop-license-records tbody tr').length===1&&actionIdle(),'issued row search');
+ w.document.querySelector('[data-desktop-action="detail"]').click();await waitFor(()=>shown('#desktop-detail-key')&&!modalClosed(),'issued key detail');assert.equal(w.document.querySelector('#desktop-detail-key').value,key);assert.equal(detailRequests().at(-1).url,'/api/desktop/licenses/'+issuedId);await closeModal();
+ w.document.querySelector('#desktop-license-clear').click();await waitFor(()=>w.document.querySelectorAll('#desktop-license-records tbody tr').length===25&&actionIdle(),'clear after issued key detail');
  // A lost response retries the same request identifier, never a fresh issuance.
  issueFail=true;w.document.querySelector('#desktop-license-create').click();await waitFor(()=>shown('[data-modal-field="label"]')&&!modalClosed(),'retry fixture issue form');field('label','재시도');w.document.querySelector('#modal-confirm').click();await waitFor(()=>modalClosed()&&actionIdle()&&!issueFail,'failed issuance response');
  const failed=requests.filter(r=>r.method==='POST'&&r.url==='/api/desktop/licenses').at(-1);
@@ -135,10 +151,18 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  w.document.querySelector('[data-desktop-action="reissue"]').click();await waitFor(()=>shown('[data-modal-field="reason"]')&&!modalClosed(),'reissue form');assert.equal(w.document.querySelectorAll('[data-modal-field]').length,2);assert.equal(shown('[data-modal-field="term"],[data-modal-field="days"]'),false);field('reason','장비 교체');w.document.querySelector('#modal-confirm').click();await waitFor(()=>shown('#desktop-issued-key'),'replacement receipt');assert.equal(w.document.querySelector('#desktop-issued-key').value,key);await closeModal();
  assert.ok(requests.filter(r=>r.method==='POST').every(r=>r.csrf==='DOM_CSRF'));
  assert.ok(!requests.some(r=>/^\/api\/(clients|qr-auth|licenses|member|support)/.test(r.url)));
- const issuedDownload={launcherId:'DA_issued',downloadName:launcherName,downloadUrl:'/api/desktop/bootstrap/launchers/DA_issued/download'};
+ const issuedDownload={launcherId,downloadName:launcherName,downloadUrl:'/api/desktop/bootstrap/launchers/'+launcherId+'/download'};
  const beforeInvalidName=requests.length;await assert.rejects(()=>w.downloadDesktopLauncher({...issuedDownload,downloadName:'A.exe'},'DOM_CSRF'),/파일 이름/);assert.equal(requests.length,beforeInvalidName);
  downloadHeaderName='f'.repeat(32)+'.exe';await assert.rejects(()=>w.downloadDesktopLauncher(issuedDownload,'DOM_CSRF'),/일치하지/);downloadHeaderName=launcherName;
- vm.runInContext("session={role:'viewer',csrf:'VIEWER'}",dom.getInternalVMContext());const beforeForbidden=requests.length;await assert.rejects(()=>w.downloadDesktopLauncher({launcherId:'DA_issued',downloadUrl:'/api/desktop/bootstrap/launchers/DA_issued/download'},'DOM_CSRF'),/관리자/);assert.equal(requests.length,beforeForbidden);
+ // A detail response arriving after logout/session replacement must not reveal
+ // the key in a new session, even though the original request was authorized.
+ const normalFetch=w.fetch;let finishDetail=null;
+ w.fetch=(url,options)=>url==='/api/desktop/licenses/'+issuedId?new Promise(resolve=>{finishDetail=resolve;}):normalFetch(url,options);
+ const abandonedDetail=w.showDesktopLicenseDetail(issuedId);await waitFor(()=>finishDetail!==null,'pending detail request');
+ vm.runInContext("session={role:'viewer',csrf:'VIEWER'}",dom.getInternalVMContext());finishDetail({ok:true,status:200,text:async()=>JSON.stringify({ok:true,license:{id:issuedId,status:'AVAILABLE'},licenseKey:key})});await abandonedDetail;w.fetch=normalFetch;
+ assert.equal(shown('#desktop-detail-key'),false);assert.ok(!w.document.body.textContent.includes(key));
+ const beforeForbidden=requests.length;await assert.rejects(()=>w.downloadDesktopLauncher({launcherId,downloadUrl:'/api/desktop/bootstrap/launchers/'+launcherId+'/download'},'DOM_CSRF'),/관리자/);assert.equal(requests.length,beforeForbidden);
+ await assert.rejects(()=>w.showDesktopLicenseDetail(issuedId),/관리자/);assert.equal(requests.length,beforeForbidden);assert.equal(shown('#desktop-detail-key'),false);
  assert.equal(errors.length,0,errors.join('\n'));
- console.log('DESKTOP ADMIN UI PASS: actual script shell, retired navigation, retained operations, escaped rows, paging/filters, detailed state, pure one-use issuance without expiry request fields, one-time receipt scrub, stable request retry, revoke/reissue, CSRF, A/B binary File uploads with retry preservation, random-name provisioned A download with strict name/header checks, launcher idempotency, linked license state, session revoke, global counts under filters, preserved drafts, focused-select refresh, SSE polling recovery.');
+ console.log('DESKTOP ADMIN UI PASS: actual script shell, retired navigation, retained operations, escaped rows, paging/filters, USED status/counts, on-demand admin-only detailed key reopening/copy/close scrub, raw legacy IDs preserved in API paths with prefix-free display, pure one-use issuance without expiry request fields, receipt scrub, stable request retry, revoke/reissue, CSRF, A/B binary File uploads with retry preservation, random-name provisioned A download with strict name/header checks, launcher idempotency, linked license state, session revoke, global counts under filters, preserved drafts, focused-select refresh, SSE polling recovery.');
  }finally{w.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -37,11 +37,11 @@ async function Handle({method,pathname,url,body,req,res,session}){
  try{
   if(pathname==='/api/desktop/bootstrap'&&method==='GET'){Json(res,200,{ok:true,bootstrap:bootstrap.Overview()});return true;}
   if(pathname==='/api/desktop/bootstrap/launchers'&&method==='POST'){Json(res,200,{ok:true,...bootstrap.IssueLauncher(body,actor)});return true;}
-  const download=/^\/api\/desktop\/bootstrap\/launchers\/(LA-[A-F0-9]{24})\/download$/.exec(pathname);
+  const download=/^\/api\/desktop\/bootstrap\/launchers\/((?:LA-)?[A-F0-9]{24})\/download$/.exec(pathname);
   if(download&&['GET','HEAD'].includes(method)){
    const bytes=bootstrap.LauncherBytes(download[1]);res.writeHead(200,{'Content-Type':'application/octet-stream','Content-Length':bytes.length,'Content-Disposition':'attachment; filename="'+bootstrap.LauncherName(bootstrap.Initialize().launchers[download[1]])+'"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'});res.end(method==='HEAD'?undefined:bytes);return true;
   }
-  const revoke=/^\/api\/desktop\/bootstrap\/sessions\/(DS-[A-F0-9]{24})\/revoke$/.exec(pathname);
+  const revoke=/^\/api\/desktop\/bootstrap\/sessions\/((?:DS-)?[A-F0-9]{24})\/revoke$/.exec(pathname);
   if(revoke&&method==='POST'){Json(res,200,{ok:true,session:bootstrap.Revoke(revoke[1],body,actor)});return true;}
   ApiError(res,404,'NOT_FOUND');
  }catch(error){ErrorResponse(res,error);}

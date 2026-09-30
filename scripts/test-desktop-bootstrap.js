@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),child=require('node:child_process');
-const temp=fs.mkdtempSync(path.join(os.tmpdir(),'moa-bootstrap-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT='29131';
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT='29131';
 require('../core/utils').EnsureDirs();
 const bootstrap=require('../services/desktopBootstrap'),licenses=require('../services/desktopLicenses'),state=require('../core/state'),database=require('../storage/database'),fixture=require('./desktop-bootstrap-fixture');
 const {PE,Device,Sign,Config,sha256}=fixture,a=Device(),b=Device();let checks=0;
@@ -11,7 +11,7 @@ function LicenseProof(device,action,payload,requestId=crypto.randomUUID()){
  return {...base,challengeId:challenge.challengeId,payloadJSON,signature:Sign(device,challenge.canonical)};
 }
 function Restart(input){
- database.SaveDatabase();const copy=fs.mkdtempSync(path.join(os.tmpdir(),'moa-bootstrap-restart-'));fs.cpSync(temp,copy,{recursive:true});
+ database.SaveDatabase();const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-restart-'));fs.cpSync(temp,copy,{recursive:true});
  const script="require(process.cwd()+'/storage/database').LoadDatabase();const b=require(process.cwd()+'/services/desktopBootstrap'),p=JSON.parse(require('node:fs').readFileSync(0,'utf8'));try{process.stdout.write('RESULT:'+JSON.stringify({ok:true,data:b.Execute(p)}));}catch(e){process.stdout.write('RESULT:'+JSON.stringify({ok:false,error:e.message}));}";
  const result=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:copy},input:JSON.stringify(input),encoding:'utf8'});
  assert.equal(result.status,0,result.stderr);const marker=result.stdout.lastIndexOf('RESULT:');assert.ok(marker>=0,result.stdout);return JSON.parse(result.stdout.slice(marker+7));
@@ -25,10 +25,11 @@ Check('Publisher requires structurally bounded AMD64 executables and correct com
  Reject(()=>bootstrap.Publish('B','80.0.0',mutate(v=>v.writeUInt16LE(3,0xdc))));Reject(()=>bootstrap.Publish('CLIENT','80.0.0',PE('A')));
  Reject(()=>bootstrap.Publish('A','80.0.0',Buffer.alloc(64*1024*1024+1)));
  publishedA=bootstrap.Publish('A','80.0.0',PE('A'));publishedB=bootstrap.Publish('B','80.0.0',PE('B'));
+ assert.match(publishedA.id,/^[A-F0-9]{24}$/);assert.match(publishedB.id,/^[A-F0-9]{24}$/);
  assert.equal(publishedA.sha256,sha256(PE('A')));assert.equal(publishedB.sha256,sha256(PE('B')));assert.equal(publishedB.size,1024);
 });
 Check('Issued launcher includes pinned profile and one deterministic download for retry',()=>{
- const body={requestId:crypto.randomUUID(),label:'단일 PC 설치'};issued=bootstrap.IssueLauncher(body,'ADMIN:test');assert.ok(issued.launcherId);assert.ok(issued.expiresAt>Date.now());assert.match(issued.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(bootstrap.IssueLauncher(body,'ADMIN:test').downloadName,issued.downloadName);assert.equal(bootstrap.LauncherName(bootstrap.Initialize().launchers[issued.launcherId]),issued.downloadName);assert.notEqual(bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'ADMIN:test').downloadName,issued.downloadName);
+ const body={requestId:crypto.randomUUID(),label:'단일 PC 설치'};issued=bootstrap.IssueLauncher(body,'ADMIN:test');assert.match(issued.launcherId,/^[A-F0-9]{24}$/);assert.ok(issued.expiresAt>Date.now());assert.match(issued.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(bootstrap.IssueLauncher(body,'ADMIN:test').downloadName,issued.downloadName);assert.equal(bootstrap.LauncherName(bootstrap.Initialize().launchers[issued.launcherId]),issued.downloadName);assert.notEqual(bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'ADMIN:test').downloadName,issued.downloadName);
  assert.equal(bootstrap.IssueLauncher(body,'ADMIN:test').launcherId,issued.launcherId);Reject(()=>bootstrap.IssueLauncher({...body,label:'다른 설치'},'ADMIN:test'));
  launcher=bootstrap.LauncherBytes(issued.launcherId);assert.deepEqual(bootstrap.LauncherBytes(issued.launcherId),launcher);config=Config(launcher);assert.equal(config.launcherId,issued.launcherId);assert.ok(config.launcherTicket);
  const overview=JSON.stringify(bootstrap.Overview());assert.ok(!overview.includes(config.launcherTicket));assert.ok(!overview.includes('BEGIN PRIVATE KEY'));
@@ -36,7 +37,7 @@ Check('Issued launcher includes pinned profile and one deterministic download fo
 Check('Claim admission checks launcher hash, ticket and proof key binding',()=>{
  beginBody={action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha256:sha256(launcher),publicKey:a.publicKey,deviceId:a.deviceId};
  Reject(()=>bootstrap.Execute({...beginBody,launcherSha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...beginBody,launcherTicket:'invalid'}));Reject(()=>bootstrap.Execute({...beginBody,deviceId:b.deviceId}),/^(BOOTSTRAP_|DESKTOP_)/);
- begin=bootstrap.Execute(beginBody);assert.equal(begin.release.sha256,publishedB.sha256);assert.equal(begin.release.size,publishedB.size);assert.ok(begin.flowId&&begin.downloadTicket&&begin.finishCanonical);
+ begin=bootstrap.Execute(beginBody);assert.equal(begin.release.sha256,publishedB.sha256);assert.equal(begin.release.size,publishedB.size);assert.match(begin.flowId,/^[A-F0-9]{24}$/);assert.ok(begin.downloadTicket&&begin.finishCanonical);
  assert.equal(bootstrap.Execute(beginBody).flowId,begin.flowId);Reject(()=>bootstrap.Execute({...beginBody,requestId:crypto.randomUUID(),deviceId:b.deviceId,publicKey:b.publicKey}));
  assert.deepEqual(Object.keys(begin.release).sort(),['id','sha256','size','version']);
 });
@@ -54,7 +55,7 @@ Check('Finish requires published digest and device signature before returning ha
 Check('B claim requires exact executable digest and bound handoff signature',()=>{
  claimBody={action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(a,finish.claimCanonical),binarySha256:begin.release.sha256};
  Reject(()=>bootstrap.Execute({...claimBody,handoffToken:'invalid'}));Reject(()=>bootstrap.Execute({...claimBody,binarySha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...claimBody,signature:Sign(b,finish.claimCanonical)}));
- session=bootstrap.Execute(claimBody);assert.ok(session.sessionId&&session.sessionToken&&session.expiresAt>Date.now());assert.equal(bootstrap.Execute(claimBody).sessionToken,session.sessionToken);
+ session=bootstrap.Execute(claimBody);assert.match(session.sessionId,/^[A-F0-9]{24}$/);assert.ok(session.sessionToken&&session.expiresAt>Date.now());assert.equal(bootstrap.Execute(claimBody).sessionToken,session.sessionToken);
  assert.ok(bootstrap.Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>bootstrap.Gate(session.sessionId,session.sessionToken,b.deviceId));Reject(()=>bootstrap.Gate(session.sessionId,'invalid',a.deviceId));
 });
 Check('Launcher device consumption and lost-claim response recovery survive restart',()=>{
@@ -73,8 +74,8 @@ Check('Storage failure and tampered published artifact never consume an unused l
 Check('License journal commit survives bootstrap linkage failure and exact proof repairs it',()=>{
  const running=fixture.Session(a,'two-store-failure'),key=licenses.Create({label:'Durable cross-store recovery'},'TEST'),payload={licenseKey:key.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken},proof=LicenseProof(a,'redeem',payload),store=require('../services/desktopBootstrapStore'),atomic=store.Atomic;
  store.Atomic=()=>{throw Error('TEST_BOOTSTRAP_LINKAGE_WRITE_FAILURE');};try{Reject(()=>licenses.Execute(proof),/^STORAGE_SAVE_FAILED$/);}finally{store.Atomic=atomic;}
- const committed=licenses.DB().licenses[key.license.id];assert.equal(committed.consumed,true);assert.equal(committed.status,'ACTIVE');assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,'');
- const recovered=licenses.Execute(proof);assert.equal(recovered.status,'ACTIVE');assert.equal(sha256(recovered.activationToken),committed.tokenHash);assert.equal(licenses.Execute(proof).activationToken,recovered.activationToken);assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,key.license.id);
+ const committed=licenses.DB().licenses[key.license.id];assert.equal(committed.consumed,true);assert.equal(committed.status,'USED');assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,'');
+ const recovered=licenses.Execute(proof);assert.equal(recovered.status,'USED');assert.equal(sha256(recovered.activationToken),committed.tokenHash);assert.equal(licenses.Execute(proof).activationToken,recovered.activationToken);assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,key.license.id);
  Reject(()=>licenses.Execute(LicenseProof(a,'redeem',payload)),/^DESKTOP_KEY_USED$/);
 });
 Check('License consumption requires signed, current, same-device B session',()=>{
@@ -82,8 +83,8 @@ Check('License consumption requires signed, current, same-device B session',()=>
  Reject(()=>licenses.Execute(LicenseProof(a,'redeem',payload)));assert.equal(licenses.DB().licenses[key.license.id].consumed,false);
  Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:'invalid'})));assert.equal(licenses.DB().licenses[key.license.id].consumed,false);
  Reject(()=>licenses.Execute(LicenseProof(b,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})));assert.equal(licenses.DB().licenses[key.license.id].consumed,false);
- const activated=licenses.Execute(LicenseProof(a,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken}));assert.equal(activated.status,'ACTIVE');assert.equal(activated.deviceId,a.deviceId);
- const proof=LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken});assert.equal(licenses.Execute(proof).status,'ACTIVE');
+ const activated=licenses.Execute(LicenseProof(a,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken}));assert.equal(activated.status,'USED');assert.equal(activated.deviceId,a.deviceId);
+ const proof=LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken});assert.equal(licenses.Execute(proof).status,'USED');
  const different=licenses.Create({label:'Must remain unused'},'TEST');Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{licenseKey:different.licenseKey,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);assert.equal(licenses.DB().licenses[different.license.id].consumed,false);
  const alternate=fixture.Session(a,'attempt-activation-reuse');Reject(()=>licenses.Execute(LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:alternate.sessionId,bootstrapSessionToken:alternate.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);
  const oldSnapshot=database.BuildDatabaseObject();bootstrap.Execute({action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken});Reject(()=>bootstrap.Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>licenses.Execute(proof));
@@ -110,8 +111,35 @@ Check('Expired unused launchers lose derivation secrets and cannot revive after 
  const stored=bootstrap.Initialize().launchers[issue.launcherId];assert.equal(stored.status,'EXPIRED');assert.equal(stored.ticketNonce,undefined);assert.equal(stored.profile,undefined);Reject(()=>bootstrap.LauncherBytes(issue.launcherId));
 });
 Check('Corrupt bootstrap authority stops startup instead of reviving consumed tickets',()=>{
- const copy=fs.mkdtempSync(path.join(os.tmpdir(),'moa-bootstrap-corrupt-'));fs.cpSync(temp,copy,{recursive:true});fs.writeFileSync(path.join(copy,'desktop-bootstrap','authority.json'),'{"schema":1,"broken":');
+ const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-corrupt-'));fs.cpSync(temp,copy,{recursive:true});fs.writeFileSync(path.join(copy,'desktop-bootstrap','authority.json'),'{"schema":1,"broken":');
  const result=child.spawnSync(process.execPath,['-e',"require(process.cwd()+'/storage/database').LoadDatabase();require(process.cwd()+'/services/desktopBootstrap').Initialize();process.stdout.write('UNSAFE_STARTED');"],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:copy},encoding:'utf8'});
  assert.notEqual(result.status,0);assert.ok(!result.stdout.includes('UNSAFE_STARTED'));assert.match(result.stderr,/BOOTSTRAP_STORAGE_INVALID/);
+});
+
+Check('Historical native templates and personalized overlays are rejected on reupload',()=>{
+ for(const hex of ['4d4f41504c41592d434f4e4e4543542d31','4d4f41504c4159413830434f4e46494721']){
+  const text=Buffer.from(hex,'hex').toString('ascii');
+  for(const encoding of ['ascii','utf16le'])for(const component of ['A','B']){
+   const bytes=PE(component);Buffer.from(text,encoding).copy(bytes,600);Reject(()=>bootstrap.Publish(component,'82.0.0',bytes),/^BOOTSTRAP_PE_INVALID$/);
+  }
+ }
+});
+Check('Historical authority migrates once, keeps tombstones and artifacts, and retires every old capability',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-migrate-')),authorityDir=path.join(dir,'desktop-bootstrap'),file=path.join(authorityDir,'authority.json');fs.mkdirSync(authorityDir);
+ const stamp=Date.now(),secret=crypto.randomBytes(32).toString('hex'),legacyDomain=Buffer.from('4d4f41504c41592d413830','hex').toString('ascii'),legacyProtocol=Buffer.from('4d4f41504c41592d434f4e4e4543542d31','hex').toString('ascii');
+ const ids={A:'DA-'+ '1'.repeat(24),B:'DA-'+ '2'.repeat(24),unused:'LA-'+ '3'.repeat(24),used:'LA-'+ '4'.repeat(24),flow:'BF-'+ '5'.repeat(24),session:'DS-'+ '6'.repeat(24)},nonce='a'.repeat(48);
+ const token=(domain,id)=>crypto.createHmac('sha256',Buffer.from(secret,'hex')).update([legacyDomain,domain,id,nonce].join('|')).digest('base64url');
+ const artifacts={},launchers={},flows={};
+ for(const component of ['A','B']){const bytes=PE(component);artifacts[ids[component]]={id:ids[component],component,version:'82.0.0',sha256:sha256(bytes),size:bytes.length,createdAt:stamp};fs.writeFileSync(path.join(authorityDir,ids[component]+'.exe'),bytes);}
+ for(const name of ['unused','used']){const id=ids[name];launchers[id]={id,label:'Historical launcher',artifactId:ids.A,sha256:sha256(id),ticketHash:sha256(token('LAUNCHER',id)),issuedAt:stamp,expiresAt:stamp+86400000,status:name==='unused'?'AVAILABLE':'CONSUMED',flowId:name==='used'?ids.flow:''};if(name==='unused'){launchers[id].ticketNonce=nonce;launchers[id].profile={version:1,protocol:legacyProtocol};}else launchers[id].retiredAt=stamp;}
+ flows[ids.flow]={id:ids.flow,sessionId:ids.session,launcherId:ids.used,launcherSha256:launchers[ids.used].sha256,releaseId:ids.B,deviceId:a.deviceId,publicKey:a.publicKey,beginFingerprint:sha256('begin'),status:'CLAIMED',createdAt:stamp,expiresAt:stamp+900000,downloadNonce:nonce,finishNonce:nonce,downloadHash:sha256(token('DOWNLOAD',ids.flow)),chunkOffsets:[0],licenseId:'',lastVerifiedAt:0,handoffNonce:nonce,claimNonce:nonce,handoffHash:sha256(token('HANDOFF',ids.flow)),handoffExpiresAt:stamp+120000,sessionNonce:nonce,sessionHash:sha256(token('SESSION',ids.session)),claimedAt:stamp,sessionExpiresAt:stamp+300000};
+ const original={schema:1,revision:7,secret,artifacts,active:{A:ids.A,B:ids.B},launchers,flows,issueReceipts:{historical:{fingerprint:sha256('issued'),launcherId:ids.unused}}};fs.writeFileSync(file,JSON.stringify(original));
+ const script="const b=require(process.cwd()+'/services/desktopBootstrap'),p=JSON.parse(require('node:fs').readFileSync(0,'utf8'));b.Initialize();const codes={};for(const [name,fn]of Object.entries({issue:()=>b.IssueLauncher({requestId:'upgrade-attempt'}),download:()=>b.LauncherBytes(p.unused),session:()=>b.Gate(p.session,p.token,p.deviceId)}))try{fn();codes[name]='UNSAFE';}catch(e){codes[name]=e.message;}console.log('RESULT:'+JSON.stringify(codes));";
+ for(let run=0;run<2;run++){
+  const result=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:dir},input:JSON.stringify({...ids,token:token('SESSION',ids.session),deviceId:a.deviceId}),encoding:'utf8'});assert.equal(result.status,0,result.stderr);const out=JSON.parse(result.stdout.slice(result.stdout.lastIndexOf('RESULT:')+7));assert.deepEqual(out,{issue:'BOOTSTRAP_NOT_READY',download:'BOOTSTRAP_EXPIRED',session:'BOOTSTRAP_REVOKED'});
+  const stored=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(stored.schema,2);assert.equal(stored.revision,8);assert.equal(stored.secret,secret);assert.deepEqual(stored.active,{});assert.deepEqual(stored.artifacts,artifacts);assert.deepEqual(stored.issueReceipts,original.issueReceipts);assert.equal(stored.launchers[ids.used].status,'CONSUMED');assert.equal(stored.launchers[ids.unused].status,'EXPIRED');assert.equal(stored.flows[ids.flow].status,'REVOKED');assert.equal(stored.flows[ids.flow].sessionHash,original.flows[ids.flow].sessionHash);
+  for(const row of Object.values(stored.launchers)){assert.equal(row.ticketNonce,undefined);assert.equal(row.profile,undefined);}for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])assert.equal(stored.flows[ids.flow][key],undefined);
+  for(const component of ['A','B'])assert.deepEqual(fs.readFileSync(path.join(authorityDir,ids[component]+'.exe')),PE(component));
+ }
 });
 console.log(`Desktop bootstrap checks: ${checks} passed (${process.env.STORAGE_ENGINE})`);

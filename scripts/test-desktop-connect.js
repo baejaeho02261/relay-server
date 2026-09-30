@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net');
-const temp=fs.mkdtempSync(path.join(os.tmpdir(),'moa-connect-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';
 for(const name of ['DESKTOP_PUBLIC_HOST','DESKTOP_PUBLIC_PORT','RAILWAY_TCP_PROXY_DOMAIN','RAILWAY_TCP_PROXY_PORT'])delete process.env[name];
 require('../core/utils').EnsureDirs();
 const desktop=require('../services/desktopLicenses'),transport=require('../services/desktopConnect'),keys=require('../services/connectTransportKey'),state=require('../core/state');
@@ -26,7 +26,7 @@ async function Round(operation,body){const envelope=Envelope({operation,body});r
 async function Proof(device,action,payload,requestId=crypto.randomUUID()){
  payload=bootstrapFixture.LicensePayload(device,payload,requestId);
  const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:digest(payloadJSON)},challenge=await Round('challenge',base);assert.equal(challenge.ok,true,JSON.stringify(challenge));
- const c=challenge.data,canonical=['MOAPLAY-DESKTOP-V1',action,c.challengeId,c.nonce,requestId,device.deviceId,base.payloadHash,c.expiresAt].join('\n');assert.equal(c.canonical,canonical);
+ const c=challenge.data,canonical=['GAME-DESKTOP-V1',action,c.challengeId,c.nonce,requestId,device.deviceId,base.payloadHash,c.expiresAt].join('\n');assert.equal(c.canonical,canonical);
  return {...base,challengeId:c.challengeId,payloadJSON,signature:crypto.sign('sha256',Buffer.from(canonical),{key:device.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64')};
 }
 async function Call(device,action,payload,requestId){return Round('execute',await Proof(device,action,payload,requestId));}
@@ -39,14 +39,14 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    assert.equal((await AdminProfile({role:'viewer'})).status,403);
    assert.equal((await AdminProfile({role:'admin',id:'TEST'})).value.error,'CONNECT_PUBLIC_ENDPOINT_REQUIRED');
    process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT=String(port);
-   const out=await AdminProfile({role:'admin',id:'TEST'});assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','version']);assert.equal(profile.protocol,'MOAPLAY-CONNECT-1');
+   const out=await AdminProfile({role:'admin',id:'TEST'});assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','version']);assert.equal(profile.protocol,'GAME-CONNECT-1');
    process.env.DESKTOP_PUBLIC_HOST='https://bad.example';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='::1';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
   });
   await Check('Persisted server key is stable, private, and never silently replaced',async()=>{
    if(process.platform!=='win32')assert.equal(fs.statSync(keys.KEY_FILE).mode&0o777,0o600);
    const child=require('node:child_process'),root=path.resolve(__dirname,'..'),script="const root=process.cwd();console.log(require(root+'/services/connectTransportKey').Load().keyId);";
    assert.equal(child.execFileSync(process.execPath,['-e',script],{cwd:root,env:process.env,encoding:'utf8'}).trim(),profile.serverKeyId);
-   for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'moa-connect-key-'));fs.cpSync(temp,copy,{recursive:true});if(kind==='missing')fs.unlinkSync(path.join(copy,path.basename(keys.KEY_FILE)));else fs.writeFileSync(path.join(copy,path.basename(keys.ID_FILE)),'0'.repeat(64)+'\n');const result=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(result.status,0);assert.match(result.stderr,/CONNECT_SERVER_KEY_(MISSING|CHANGED)/);}
+   for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-key-'));fs.cpSync(temp,copy,{recursive:true});if(kind==='missing')fs.unlinkSync(path.join(copy,path.basename(keys.KEY_FILE)));else fs.writeFileSync(path.join(copy,path.basename(keys.ID_FILE)),'0'.repeat(64)+'\n');const result=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(result.status,0);assert.match(result.stderr,/CONNECT_SERVER_KEY_(MISSING|CHANGED)/);}
   });
   await Check('Plaintext, wrong pin and wrong RSA recipient never receive success',async()=>{
    assert.equal(await Wire('HELLO|CLIENT|old\n'),'');assert.equal(await Wire('{"ok":true}\n'),'');
@@ -75,7 +75,7 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   });
   let first,proof,token;
   await Check('One-time registration and lost-response retry over fresh encrypted channels',async()=>{
-   first=desktop.Create({label:'첫 Windows'},'TEST');proof=await Proof(a,'redeem',{licenseKey:first.licenseKey,deviceName:'한글 Windows PC',appVersion:'1.0'});const result=await Round('execute',proof);assert.equal(result.ok,true);token=result.data.activationToken;assert.equal(result.data.deviceId,a.deviceId);assert.equal(result.data.status,'ACTIVE');assert.ok(result.data.leaseExpiresAt>Date.now());
+   first=desktop.Create({label:'첫 Windows'},'TEST');proof=await Proof(a,'redeem',{licenseKey:first.licenseKey,deviceName:'한글 Windows PC',appVersion:'1.0'});const result=await Round('execute',proof);assert.equal(result.ok,true);token=result.data.activationToken;assert.equal(result.data.deviceId,a.deviceId);assert.equal(result.data.status,'USED');assert.ok(result.data.leaseExpiresAt>Date.now());
    const retry=await Round('execute',proof);assert.equal(retry.data.activationToken,token);const repeated=await Call(a,'redeem',JSON.parse(proof.payloadJSON),proof.requestId);assert.equal(repeated.data.activationToken,token);
    assert.equal((await Call(b,'redeem',{licenseKey:first.licenseKey})).error,'DESKTOP_KEY_USED');
   });
@@ -91,6 +91,6 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await Check('Absolute deadline closes incomplete frames even during trickle traffic',async()=>{
    const started=Date.now();await new Promise((resolve,reject)=>{const socket=net.connect(port,'127.0.0.1');let timer,reply='';const deadline=setTimeout(()=>{socket.destroy();reject(Error('Absolute TCP deadline missing'));},transport.DEADLINE_MS+3000);socket.on('connect',()=>{socket.write(' ');timer=setInterval(()=>socket.write(' '),500);});socket.on('data',data=>{reply+=data.toString();});socket.on('error',()=>{});socket.on('close',()=>{clearTimeout(deadline);clearInterval(timer);try{assert.equal(reply,'');resolve();}catch(error){reject(error);}});});assert.ok(Date.now()-started>=transport.DEADLINE_MS-500);
   });
-  console.log(`MoaPlayConnect TCP: ${checks} checks passed (${process.env.STORAGE_ENGINE})`);
+  console.log(`GameConnect TCP: ${checks} checks passed (${process.env.STORAGE_ENGINE})`);
  }finally{await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

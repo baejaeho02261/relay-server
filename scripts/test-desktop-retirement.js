@@ -10,7 +10,7 @@ const crypto = require('node:crypto');
 const { spawn } = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'moaplay-desktop-retirement-'));
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'game-desktop-retirement-'));
 process.env.DATA_DIR = temp;
 process.env.STORAGE_ENGINE = 'json';
 process.env.HA_ENABLED = '0';
