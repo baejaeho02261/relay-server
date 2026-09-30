@@ -236,8 +236,8 @@ function Approve(requestId, approvalToken, options = {}, actor = 'admin') {
     if (!require('./member/identity').Ready(permissionClient)) return { ok: false, reason: 'IDENTITY_REQUIRED' };
 
     // QR/biometric enrollment belongs to the APK and never depends on a running
-    // MoaPlayConnect. A returning client keeps its fixed server identity; a new
-    // client remains unassigned until an authenticated MoaPlayConnect claims
+    // GameConnect. A returning client keeps its fixed server identity; a new
+    // client remains unassigned until an authenticated GameConnect claims
     // its pending Build request.
     const existingSaved = require('../identity/identityManager').GetSavedClientByID(record.clientId);
     record.serverId = existingSaved ? NormalizeID(existingSaved.serverId) : '';
