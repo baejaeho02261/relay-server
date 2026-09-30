@@ -10,7 +10,7 @@ const PROVIDERS=Object.freeze({
 const hash=x=>crypto.createHash('sha256').update(String(x)).digest('hex');
 const random=()=>crypto.randomBytes(32).toString('base64url');
 function equal(a,b){const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length>0&&x.length===y.length&&crypto.timingSafeEqual(x,y);}
-function TestLegacy(){return process.env.NODE_ENV==='test'&&process.env.MOAPLAY_ALLOW_LEGACY_TEST_IDENTITY==='1';}
+function TestLegacy(){return process.env.NODE_ENV==='test'&&process.env.GAME_ALLOW_LEGACY_TEST_IDENTITY==='1';}
 function Configuration(provider){
  const p=PROVIDERS[provider];if(!p)s.Fail('IDENTITY_PROVIDER_INVALID');
  const clientId=String(process.env[p.prefix+'_OAUTH_CLIENT_ID']||'').trim(),secret=String(process.env[p.prefix+'_OAUTH_CLIENT_SECRET']||'').trim();
@@ -122,8 +122,8 @@ async function VerifyToken(token,provider,nonce){
 function HTML(res,status,text){
  const nonce=crypto.randomBytes(18).toString('base64');
  res.writeHead(status,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Referrer-Policy':'no-referrer','Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-"+nonce+"'; frame-ancestors 'none'"});
- const launch=status===200?'<script nonce="'+nonce+'">setTimeout(function(){location.href="moaplay://auth/complete";},400);</script>':'';
- res.end('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MoaPlay 계정 연결</title><body style="margin:0;background:#000;color:#fff;font-family:system-ui;min-height:100vh;display:grid;place-items:center"><main style="max-width:400px;padding:32px"><h1>MoaPlay</h1><p style="line-height:1.7">'+text+'</p><p style="color:#aaa">MoaPlay 앱으로 돌아가주세요.</p><a href="moaplay://auth/complete" style="display:block;padding:16px;background:#fff;color:#000;text-decoration:none;border-radius:12px;text-align:center">MoaPlay로 돌아가기</a></main>'+launch+'</body></html>');
+ const launch=status===200?'<script nonce="'+nonce+'">setTimeout(function(){location.href="game://auth/complete";},400);</script>':'';
+ res.end('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Game 계정 연결</title><body style="margin:0;background:#000;color:#fff;font-family:system-ui;min-height:100vh;display:grid;place-items:center"><main style="max-width:400px;padding:32px"><h1>Game</h1><p style="line-height:1.7">'+text+'</p><p style="color:#aaa">Game 앱으로 돌아가주세요.</p><a href="game://auth/complete" style="display:block;padding:16px;background:#fff;color:#000;text-decoration:none;border-radius:12px;text-align:center">Game로 돌아가기</a></main>'+launch+'</body></html>');
 }
 function Cookie(req,name){for(const part of String(req.headers.cookie||'').split(';')){const i=part.indexOf('=');if(part.slice(0,i).trim()===name)return part.slice(i+1).trim();}return '';}
 async function HandleHttp(req,res,url){
@@ -137,12 +137,12 @@ async function HandleHttp(req,res,url){
   const browser=random();f.browserHash=hash(browser);f.openedAt=Date.now();opens.delete(f.openHash);
   const auth=new URL(cfg.authorization);auth.search=new URLSearchParams({response_type:'code',client_id:cfg.clientId,redirect_uri:cfg.redirectUri,scope:cfg.scope,state:f.state,nonce:f.nonce,code_challenge:crypto.createHash('sha256').update(f.verifier).digest('base64url'),code_challenge_method:'S256',prompt:'select_account'}).toString();
   if(f.provider==='google'){auth.searchParams.set('access_type','offline');auth.searchParams.set('prompt','consent select_account');}
-  res.writeHead(302,{'Location':auth.href,'Set-Cookie':'__Host-moa_oauth='+browser+'; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=300','Cache-Control':'no-store','Referrer-Policy':'no-referrer'});res.end();return true;
+  res.writeHead(302,{'Location':auth.href,'Set-Cookie':'__Host-game_oauth='+browser+'; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=300','Cache-Control':'no-store','Referrer-Policy':'no-referrer'});res.end();return true;
  }
  if(callback){
   const stateValue=url.searchParams.get('state')||'',f=pending.get(states.get(hash(stateValue)));
-  if(!f||f.provider!==callback[1]||!f.openedAt||!Bound(f.connection,f)||!equal(f.browserHash,hash(Cookie(req,'__Host-moa_oauth')))){HTML(res,400,'연결 요청을 확인할 수 없습니다. 앱에서 다시 시작해주세요.');return true;}
-  states.delete(f.stateHash);res.setHeader('Set-Cookie','__Host-moa_oauth=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0');
+  if(!f||f.provider!==callback[1]||!f.openedAt||!Bound(f.connection,f)||!equal(f.browserHash,hash(Cookie(req,'__Host-game_oauth')))){HTML(res,400,'연결 요청을 확인할 수 없습니다. 앱에서 다시 시작해주세요.');return true;}
+  states.delete(f.stateHash);res.setHeader('Set-Cookie','__Host-game_oauth=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0');
   if(url.searchParams.has('error')){f.status='failed';f.reason='IDENTITY_CANCELLED';HTML(res,400,'계정 연결이 취소되었습니다.');return true;}
   const code=url.searchParams.get('code')||'';if(!code||code.length>4096){f.status='failed';f.reason='IDENTITY_TOKEN_INVALID';HTML(res,400,'계정 연결 응답을 확인할 수 없습니다.');return true;}
   f.status='processing';

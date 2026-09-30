@@ -35,6 +35,6 @@ function Load(){
 function Profile(){
  const {host,port,ready}=require('./connectEndpoint').Resolve();
  if(!ready)require('./desktopLicenses').Fail('CONNECT_PUBLIC_ENDPOINT_REQUIRED',503);
- const identity=Load();return {version:1,protocol:'MOAPLAY-CONNECT-1',host,port,serverKeyId:identity.keyId,serverPublicKey:identity.serverPublicKey};
+ const identity=Load();return {version:1,protocol:'GAME-CONNECT-1',host,port,serverKeyId:identity.keyId,serverPublicKey:identity.serverPublicKey};
 }
 module.exports={Load,Profile,PublicBlob,KEY_FILE,ID_FILE};

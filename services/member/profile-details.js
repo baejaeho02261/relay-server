@@ -60,9 +60,9 @@ function Verification(p){
    if(member&&!member.blocked&&manager.GetLicenseStatus(license)==='BOUND')verificationCache.set(member.id,true);
   }
  }
- // Device approval is MoaPlay access, never personal-identity or Meta verification.
+ // Device approval is Game access, never personal-identity or Meta verification.
  const approved=!p.blocked&&verificationCache.has(p.id);
- return {status:approved?'DEVICE_AUTHENTICATED':'UNVERIFIED',label:approved?'MoaPlay 기기 승인':'기기 승인 내역 없음',verified:false,deviceApproved:approved};
+ return {status:approved?'DEVICE_AUTHENTICATED':'UNVERIFIED',label:approved?'Game 기기 승인':'기기 승인 내역 없음',verified:false,deviceApproved:approved};
 }
 function Public(p,own=false){
  return {links:(p.links||[]).map(({title,url})=>({title,url})),banners:(p.banners||[]).filter(row=>row.kind!=='profile'||!!s.ProfileById(row.memberId)&&!s.ProfileById(row.memberId).blocked&&!require('./socialActions').Blocked(p.id,row.memberId)).map(row=>row.kind==='profile'?{...row,handle:s.Handle(s.ProfileById(row.memberId)),accountLabel:require('./identity').PublicAccount(s.ProfileById(row.memberId)).accountLabel}:{...row}),aiProfile:p.aiProfile===true,accountType:['CREATOR','BUSINESS'].includes(p.accountType)?p.accountType:'PERSONAL',showVerification:p.showVerification===true,verification:Verification(p),...(own?{gridOrder:(p.gridOrder||[]).filter(id=>{const row=s.DB().posts[id];return row?.accountId===p.id&&!row.deleted&&!row.hidden;})}:{})};

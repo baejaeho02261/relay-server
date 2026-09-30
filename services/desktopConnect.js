@@ -1,7 +1,7 @@
 'use strict';
 const net=require('node:net'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require('./desktopLicenses'),identity=require('./connectTransportKey');
-const PROTOCOL='MOAPLAY-CONNECT-1',MAX_FRAME=24576,MAX_CLEAR=12288,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
+const PROTOCOL='GAME-CONNECT-1',MAX_FRAME=24576,MAX_CLEAR=12288,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
 const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),rates=new Map(),activeByIp=new Map();
 const decoder=new TextDecoder('utf-8',{fatal:true});
 let active=0,lastPrune=0,listener=null;
@@ -62,7 +62,7 @@ function Start(){
  const config=require('../config/config'),port=config.CONNECT_TCP_PORT;
  if(!Number.isInteger(port)||port<1||port>65535||port===config.WEB_ADMIN_PORT||port===config.HEALTH_PORT)throw Error('CONNECT_PORT_INVALID');
  const server=CreateServer();server.on('error',error=>{console.error('CONNECT_TCP_START_FAILED:',error.code||error.message);throw error;});
- listener=server;server.listen(port,config.HOST,()=>console.log('MoaPlayConnect encrypted TCP:',port));return server;
+ listener=server;server.listen(port,config.HOST,()=>console.log('GameConnect encrypted TCP:',port));return server;
 }
 function IsListening(){return !!(listener&&listener.listening);}
 module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,MAX_RESPONSE_CLEAR,MAX_RESPONSE_FRAME,DEADLINE_MS,Aad,CreateServer,Start,IsListening};

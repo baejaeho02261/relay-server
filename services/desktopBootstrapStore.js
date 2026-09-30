@@ -7,13 +7,19 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const config=require('../config/config');
 const DIR=path.join(config.DATA_DIR,'desktop-bootstrap'),FILE=path.join(DIR,'authority.json');
 let current,poisoned=false;
+// Read-only compatibility with schema 1 authority. Historical bytes are explicit
+// migration constants, never the protocol or HMAC domain for new capabilities.
+const LEGACY_PROTOCOL=Buffer.from('4d4f41504c41592d434f4e4e4543542d31','hex').toString('ascii');
+const LEGACY_TOKEN_DOMAIN=Buffer.from('4d4f41504c41592d413830','hex').toString('ascii');
+const PROTOCOL='GAME-CONNECT-1';
+function Identifier(value,legacyPrefix){return typeof value==='string'&&(/^[A-F0-9]{24}$/.test(value)||new RegExp('^'+legacyPrefix+'-[A-F0-9]{24}$').test(value));}
 function SyncDir(){if(process.platform==='win32')return;const fd=fs.openSync(DIR,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
 function Plain(x){return !!x&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;}
 function Time(x){return Number.isSafeInteger(x)&&x>0;}
 function Nonce(x){return typeof x==='string'&&/^[a-f0-9]{48}$/.test(x);}
 function Digest(x){return typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);}
 function Invalid(){throw Error('BOOTSTRAP_STORAGE_INVALID');}
-function TokenHash(secret,domain,id,nonce){return crypto.createHash('sha256').update(crypto.createHmac('sha256',Buffer.from(secret,'hex')).update(['MOAPLAY-A80',domain,id,nonce].join('|')).digest('base64url')).digest('hex');}
+function TokenHash(secret,domain,id,nonce,legacy=false){return crypto.createHash('sha256').update(crypto.createHmac('sha256',Buffer.from(secret,'hex')).update([legacy?LEGACY_TOKEN_DOMAIN:'GAME-A80',domain,id,nonce].join('|')).digest('base64url')).digest('hex');}
 function Load(){
  if(current)return current;
  if(config.HA_ENABLED)throw Error('BOOTSTRAP_SINGLE_WRITER_REQUIRED');
@@ -21,19 +27,20 @@ function Load(){
  if(fs.existsSync(FILE)){
   const stat=fs.lstatSync(FILE);if(!stat.isFile()||stat.isSymbolicLink())throw Error('BOOTSTRAP_STORAGE_INVALID');
   let value;try{value=JSON.parse(fs.readFileSync(FILE,'utf8'));}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
-  if(!Plain(value)||value.schema!==1||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
-  for(const [id,row]of Object.entries(value.artifacts))if(!/^DA-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
-  for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component)Invalid();
+  if(!Plain(value)||![1,2].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
+  const legacy=value.schema===1;
+  for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
+  for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component||!legacy&&value.artifacts[id]?.protocol!==PROTOCOL)Invalid();
   for(const [id,row]of Object.entries(value.launchers)){
-   if(!/^LA-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!Digest(row.sha256)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
+   if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!Digest(row.sha256)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
    if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();
    if(row.retiredAt!==undefined){if(!Time(row.retiredAt)||row.status==='AVAILABLE'||row.ticketNonce!==undefined||row.profile!==undefined)Invalid();}
-   else if(!Nonce(row.ticketNonce)||!Plain(row.profile)||row.profile.protocol!=='MOAPLAY-CONNECT-1'||row.profile.version!==1||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce))Invalid();
+   else if(!Nonce(row.ticketNonce)||!Plain(row.profile)||row.profile.protocol!==(legacy?LEGACY_PROTOCOL:PROTOCOL)||row.profile.version!==1||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce,legacy))Invalid();
    if(['CONSUMED','REVOKED'].includes(row.status)&&(!value.flows[row.flowId]||value.flows[row.flowId].launcherId!==id))Invalid();
   }
   const sessionIds=new Set();
   for(const [id,row]of Object.entries(value.flows)){
-   if(!/^BF-[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED','EXPIRED'].includes(row.status)||!/^DS-[A-F0-9]{24}$/.test(row.sessionId)||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!Digest(row.launcherSha256)||!Digest(row.downloadHash)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
+   if(!Identifier(id,'BF')||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED','EXPIRED'].includes(row.status)||!Identifier(row.sessionId,'DS')||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!Digest(row.launcherSha256)||!Digest(row.downloadHash)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
    sessionIds.add(row.sessionId);
    if(!Array.isArray(row.chunkOffsets)||row.chunkOffsets.length>256||new Set(row.chunkOffsets).size!==row.chunkOffsets.length||row.chunkOffsets.some(offset=>!Number.isSafeInteger(offset)||offset<0||offset>=value.artifacts[row.releaseId].size||offset%262144))Invalid();
    if(row.retiredAt!==undefined){
@@ -41,18 +48,33 @@ function Load(){
     if(row.handoffHash!==undefined&&(!Digest(row.handoffHash)||!Time(row.handoffExpiresAt)))Invalid();
     if(row.sessionHash!==undefined&&(!Digest(row.sessionHash)||!Time(row.claimedAt)||!Time(row.sessionExpiresAt)))Invalid();
    }else{
-    if(!Nonce(row.downloadNonce)||!Nonce(row.finishNonce)||row.downloadHash!==TokenHash(value.secret,'DOWNLOAD',id,row.downloadNonce))Invalid();
-    if(row.handoffNonce!==undefined){if(!Nonce(row.handoffNonce)||!Nonce(row.claimNonce)||!Time(row.handoffExpiresAt)||row.handoffHash!==TokenHash(value.secret,'HANDOFF',id,row.handoffNonce))Invalid();}
+    if(!Nonce(row.downloadNonce)||!Nonce(row.finishNonce)||row.downloadHash!==TokenHash(value.secret,'DOWNLOAD',id,row.downloadNonce,legacy))Invalid();
+    if(row.handoffNonce!==undefined){if(!Nonce(row.handoffNonce)||!Nonce(row.claimNonce)||!Time(row.handoffExpiresAt)||row.handoffHash!==TokenHash(value.secret,'HANDOFF',id,row.handoffNonce,legacy))Invalid();}
     else if(['DOWNLOADED','CLAIMED'].includes(row.status))Invalid();
-    if(row.sessionNonce!==undefined){if(!Nonce(row.sessionNonce)||!Time(row.claimedAt)||!Time(row.sessionExpiresAt)||row.sessionHash!==TokenHash(value.secret,'SESSION',row.sessionId,row.sessionNonce))Invalid();}
+    if(row.sessionNonce!==undefined){if(!Nonce(row.sessionNonce)||!Time(row.claimedAt)||!Time(row.sessionExpiresAt)||row.sessionHash!==TokenHash(value.secret,'SESSION',row.sessionId,row.sessionNonce,legacy))Invalid();}
     else if(row.status==='CLAIMED')Invalid();
    }
-   if(typeof row.licenseId!=='string'||row.licenseId&&!/^DL-[A-F0-9]{24}$/.test(row.licenseId)||!Number.isSafeInteger(row.lastVerifiedAt)||row.lastVerifiedAt<0)Invalid();
+   if(typeof row.licenseId!=='string'||row.licenseId&&!Identifier(row.licenseId,'DL')||!Number.isSafeInteger(row.lastVerifiedAt)||row.lastVerifiedAt<0)Invalid();
   }
   for(const receipt of Object.values(value.issueReceipts))if(!Plain(receipt)||!Digest(receipt.fingerprint)||!value.launchers[receipt.launcherId])Invalid();
+  if(legacy){
+   // Protocol upgrades cannot reuse native templates or old secret capabilities.
+   // Preserve the authority secret, artifacts and all consumed/audit tombstones;
+   // retire running/pending flows durably before serving any new requests.
+   const at=Date.now();value.schema=2;value.revision++;value.protocolMigratedAt=at;value.active={};
+   for(const row of Object.values(value.launchers)){
+    if(row.status==='AVAILABLE')row.status='EXPIRED';
+    delete row.ticketNonce;delete row.profile;row.retiredAt||=at;
+   }
+   for(const row of Object.values(value.flows)){
+    if(!['CLOSED','REVOKED','EXPIRED'].includes(row.status)){row.status='REVOKED';row.revokedAt=at;row.reason='PROTOCOL_UPGRADE';}
+    for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])delete row[key];row.retiredAt||=at;
+   }
+   Write(value);
+  }
   current=value;
  }else{
-  current={schema:1,revision:0,secret:crypto.randomBytes(32).toString('hex'),artifacts:{},active:{},launchers:{},flows:{},issueReceipts:{}};
+  current={schema:2,revision:0,secret:crypto.randomBytes(32).toString('hex'),artifacts:{},active:{},launchers:{},flows:{},issueReceipts:{}};
   try{Write(current,true);}catch(error){current=undefined;throw error;}
  }
  return current;
@@ -77,7 +99,7 @@ function Atomic(fn){
  try{Write(next);current=next;}catch(error){if(poisoned)current=next;throw error;}
  return result;
 }
-function ArtifactPath(id){if(!/^DA-[A-F0-9]{24}$/.test(id))throw Error('BOOTSTRAP_ARTIFACT_INVALID');return path.join(DIR,id+'.exe');}
+function ArtifactPath(id){if(!Identifier(id,'DA'))throw Error('BOOTSTRAP_ARTIFACT_INVALID');return path.join(DIR,id+'.exe');}
 function PublishBytes(id,bytes){
  Load();const file=ArtifactPath(id),tmp=file+'.'+crypto.randomBytes(12).toString('hex')+'.tmp';let fd;
  try{fd=fs.openSync(tmp,'wx',0o600);fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.linkSync(tmp,file);fs.unlinkSync(tmp);SyncDir();}

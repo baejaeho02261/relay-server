@@ -6,7 +6,7 @@
 const crypto=require('node:crypto'),fs=require('node:fs');
 const store=require('./desktopBootstrapStore'),config=require('../config/config'),state=require('../core/state');
 const MAX_ARTIFACT_BYTES=64*1024*1024,CHUNK_SIZE=262144,LAUNCHER_MS=86400000,FLOW_MS=900000,HANDOFF_MS=120000,SESSION_MS=300000;
-const FOOTER=Buffer.from('MOAPLAYA80CONFIG!','ascii');
+const FOOTER=Buffer.from('GAMEA80CONFIG!','ascii');
 let activityRevision=-1,activityIndex=new Map(),retirementTimer;
 const messages={BOOTSTRAP_REQUIRED:'관리자가 발급한 실행 파일 A로 다시 시작해 주세요.',BOOTSTRAP_INPUT_INVALID:'실행 요청을 확인해 주세요.',BOOTSTRAP_PE_INVALID:'올바른 Windows 64비트 실행 파일을 선택해 주세요.',BOOTSTRAP_ARTIFACT_TOO_LARGE:'실행 파일은 64MiB 이하여야 합니다.',BOOTSTRAP_TEMPLATE_PERSONALIZED:'개인화하지 않은 A 템플릿을 업로드해 주세요.',BOOTSTRAP_NOT_READY:'관리자가 A와 B 실행 파일을 먼저 등록해야 합니다.',BOOTSTRAP_LAUNCHER_INVALID:'실행 파일 A를 확인해 주세요.',BOOTSTRAP_LAUNCHER_USED:'이미 사용한 실행 파일입니다. 새 실행 파일을 발급받아 주세요.',BOOTSTRAP_EXPIRED:'실행 인증이 만료되었습니다. 새 실행 파일로 시작해 주세요.',BOOTSTRAP_REQUEST_REUSED:'요청 번호가 다른 실행에 사용되었습니다.',BOOTSTRAP_PROOF_INVALID:'실행 파일의 기기 서명을 확인하지 못했습니다.',BOOTSTRAP_FLOW_INVALID:'실행 요청을 확인할 수 없습니다.',BOOTSTRAP_HASH_MISMATCH:'실행 파일 검증에 실패했습니다.',BOOTSTRAP_DOWNLOAD_INCOMPLETE:'실행 파일 다운로드를 완료해 주세요.',BOOTSTRAP_SESSION_INVALID:'실행 세션을 확인할 수 없습니다.',BOOTSTRAP_SESSION_CLOSED:'종료된 실행 세션입니다. 새 실행 파일로 시작해 주세요.',BOOTSTRAP_REVOKED:'관리자가 이 실행 세션을 종료했습니다.',BOOTSTRAP_LICENSE_MISMATCH:'다른 라이선스가 연결된 실행 세션입니다.',BOOTSTRAP_SINGLE_WRITER_REQUIRED:'이 서비스는 단일 인스턴스와 영구 저장소가 필요합니다.',BOOTSTRAP_STORAGE_INVALID:'실행 인증 저장소를 확인할 수 없습니다.',BOOTSTRAP_STORAGE_RESTART_REQUIRED:'저장 결과를 확인하려면 서버를 다시 시작해야 합니다.',BOOTSTRAP_ARTIFACT_INVALID:'등록된 실행 파일을 읽거나 검증하지 못했습니다.'};
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
@@ -14,12 +14,12 @@ const now=()=>Date.now();
 function Fail(code,status=400){const error=Error(code);error.desktopError=true;error.bootstrapError=true;error.status=status;throw error;}
 function Plain(x){return !!x&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;}
 function Fields(value,names){if(!Plain(value)||Object.keys(value).some(key=>!['action',...names].includes(key)))Fail('BOOTSTRAP_INPUT_INVALID');}
-function Id(prefix){return prefix+'-'+crypto.randomBytes(12).toString('hex').toUpperCase();}
+function Id(){return crypto.randomBytes(12).toString('hex').toUpperCase();}
 function Nonce(){return crypto.randomBytes(24).toString('hex');}
 function DB(){try{return store.Load();}catch(error){Fail(messages[error.message]?error.message:'BOOTSTRAP_STORAGE_INVALID',503);}}
 function Atomic(fn){try{return store.Atomic(fn);}catch(error){if(error.desktopError)throw error;Fail(messages[error.message]?error.message:'STORAGE_SAVE_FAILED',503);}}
 function Available(){if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);if(!state.serviceEnabled||state.maintenanceMode||!require('./haCoordinator').CanAcceptTraffic())Fail('SERVICE_DISABLED',503);DB();Prune();}
-function Token(domain,id,nonce){return crypto.createHmac('sha256',Buffer.from(DB().secret,'hex')).update(['MOAPLAY-A80',domain,id,nonce].join('|')).digest('base64url');}
+function Token(domain,id,nonce){return crypto.createHmac('sha256',Buffer.from(DB().secret,'hex')).update(['GAME-A80',domain,id,nonce].join('|')).digest('base64url');}
 function EqualHash(value,digest){if(typeof value!=='string'||value.length>200||typeof digest!=='string')return false;const a=Buffer.from(hash(value)),b=Buffer.from(digest);return a.length===b.length&&crypto.timingSafeEqual(a,b);}
 function Sha(value){if(typeof value!=='string'||!/^[a-f0-9]{64}$/i.test(value))Fail('BOOTSTRAP_INPUT_INVALID');return value.toLowerCase();}
 function RequestId(value){if(typeof value!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(value))Fail('BOOTSTRAP_INPUT_INVALID');return value;}
@@ -45,11 +45,16 @@ function Pe(bytes,component){
  // The parser's marker literal may occur inside a valid template. Only a
  // terminal marker means the file already carries an individualized overlay.
  if(component==='A'&&bytes.subarray(-FOOTER.length).equals(FOOTER))Fail('BOOTSTRAP_TEMPLATE_PERSONALIZED');
+ // Explicit historical wire bytes: old native builds cannot understand the new
+ // overlay/profile. Reject them instead of silently distributing a broken pair.
+ for(const encoded of ['4d4f41504c41592d434f4e4e4543542d31','4d4f41504c4159413830434f4e46494721']){
+  const marker=Buffer.from(encoded,'hex');if(bytes.includes(marker)||bytes.includes(Buffer.from(marker.toString('ascii'),'utf16le')))Fail('BOOTSTRAP_PE_INVALID');
+ }
 }
 function Publish(component,version,bytes){
  if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);
  if(!['A','B'].includes(component)||typeof version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(version)||version.length>40)Fail('BOOTSTRAP_INPUT_INVALID');
- DB();Pe(bytes,component);const row={id:Id('DA'),component,version,sha256:hash(bytes),size:bytes.length,createdAt:now()};
+ DB();Pe(bytes,component);const row={id:Id(),component,protocol:'GAME-CONNECT-1',version,sha256:hash(bytes),size:bytes.length,createdAt:now()};
  try{store.PublishBytes(row.id,bytes);}catch(_){Fail('STORAGE_SAVE_FAILED',503);}
  Atomic(db=>{db.artifacts[row.id]=row;db.active[component]=row.id;});
  Audit('DESKTOP_BOOTSTRAP_PUBLISHED',Artifact(row));return Artifact(row);
@@ -68,23 +73,23 @@ function MakeLauncher(row){
  if(overlay.length>8192)Fail('BOOTSTRAP_INPUT_INVALID');const length=Buffer.alloc(4);length.writeUInt32LE(overlay.length);
  return Buffer.concat([Bytes(template),overlay,length,FOOTER]);
 }
-function LauncherName(row){return row.downloadName||crypto.createHmac('sha256',Buffer.from(DB().secret,'hex')).update('MOAPLAY-LAUNCHER-NAME-V1|'+row.id).digest('hex').slice(0,32)+'.exe';}
+function LauncherName(row){return row.downloadName||crypto.createHmac('sha256',Buffer.from(DB().secret,'hex')).update('GAME-LAUNCHER-NAME-V1|'+row.id).digest('hex').slice(0,32)+'.exe';}
 function LauncherResult(row){return {launcherId:row.id,downloadName:LauncherName(row),expiresAt:row.expiresAt,downloadUrl:'/api/desktop/bootstrap/launchers/'+row.id+'/download'};}
 function IssueLauncher(body={},actor='ADMIN'){
  Prune();Fields(body,['requestId','label']);RequestId(body.requestId);if(body.label!==undefined&&(typeof body.label!=='string'||body.label.length>120||/[\x00-\x1f\x7f]/.test(body.label)))Fail('BOOTSTRAP_INPUT_INVALID');
  const db=DB(),receiptKey=hash(String(actor))+'|'+body.requestId,fingerprint=hash(JSON.stringify({label:body.label||''})),old=db.issueReceipts[receiptKey];
  if(old){if(old.fingerprint!==fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);const row=db.launchers[old.launcherId];if(!row)Fail('BOOTSTRAP_STORAGE_INVALID',503);if(row.status==='EXPIRED')Fail('BOOTSTRAP_EXPIRED',410);if(row.status!=='AVAILABLE')Fail('BOOTSTRAP_LAUNCHER_USED',409);return LauncherResult(row);}
- if(!db.artifacts[db.active.A]||!db.artifacts[db.active.B])Fail('BOOTSTRAP_NOT_READY',409);
+ if(!db.artifacts[db.active.A]||!db.artifacts[db.active.B]||db.artifacts[db.active.A].protocol!=='GAME-CONNECT-1'||db.artifacts[db.active.B].protocol!=='GAME-CONNECT-1')Fail('BOOTSTRAP_NOT_READY',409);
  Pe(Bytes(db.artifacts[db.active.A]),'A');Pe(Bytes(db.artifacts[db.active.B]),'B');
  const raw=require('./connectTransportKey').Profile(),profile={version:raw.version,protocol:raw.protocol,host:raw.host,port:raw.port,serverKeyId:raw.serverKeyId,serverPublicKey:raw.serverPublicKey};
- const row={id:Id('LA'),downloadName:crypto.randomBytes(16).toString('hex')+'.exe',label:(body.label||'').trim(),artifactId:db.active.A,profile,ticketNonce:Nonce(),status:'AVAILABLE',issuedAt:now(),expiresAt:now()+LAUNCHER_MS,issuedBy:String(actor).slice(0,160),flowId:''};
+ const row={id:Id(),downloadName:crypto.randomBytes(16).toString('hex')+'.exe',label:(body.label||'').trim(),artifactId:db.active.A,profile,ticketNonce:Nonce(),status:'AVAILABLE',issuedAt:now(),expiresAt:now()+LAUNCHER_MS,issuedBy:String(actor).slice(0,160),flowId:''};
  row.ticketHash=hash(LauncherTicket(row));row.sha256=hash(MakeLauncher(row));
  Atomic(next=>{next.launchers[row.id]=row;next.issueReceipts[receiptKey]={fingerprint,launcherId:row.id};});
  Audit('DESKTOP_BOOTSTRAP_ISSUED',{launcherId:row.id,label:row.label,expiresAt:row.expiresAt});return LauncherResult(row);
 }
 function LauncherBytes(id){Prune();const row=DB().launchers[id];if(!row)Fail('BOOTSTRAP_LAUNCHER_INVALID',404);if(row.status==='EXPIRED'||row.expiresAt<=now())Fail('BOOTSTRAP_EXPIRED',410);if(row.status!=='AVAILABLE')Fail('BOOTSTRAP_LAUNCHER_USED',409);const bytes=MakeLauncher(row);if(hash(bytes)!==row.sha256)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return bytes;}
-function FinishCanonical(row){const release=DB().artifacts[row.releaseId];return ['MOAPLAY-A80-FINISH-V1',row.id,row.launcherId,row.launcherSha256,row.deviceId,release.id,release.sha256,String(release.size),row.downloadHash,row.finishNonce,String(row.expiresAt)].join('\n');}
-function ClaimCanonical(row){const release=DB().artifacts[row.releaseId];return ['MOAPLAY-B80-CLAIM-V1',row.id,row.launcherId,row.launcherSha256,row.deviceId,release.id,release.sha256,String(release.size),row.handoffHash,row.claimNonce,String(row.handoffExpiresAt)].join('\n');}
+function FinishCanonical(row){const release=DB().artifacts[row.releaseId];return ['GAME-A80-FINISH-V1',row.id,row.launcherId,row.launcherSha256,row.deviceId,release.id,release.sha256,String(release.size),row.downloadHash,row.finishNonce,String(row.expiresAt)].join('\n');}
+function ClaimCanonical(row){const release=DB().artifacts[row.releaseId];return ['GAME-B80-CLAIM-V1',row.id,row.launcherId,row.launcherSha256,row.deviceId,release.id,release.sha256,String(release.size),row.handoffHash,row.claimNonce,String(row.handoffExpiresAt)].join('\n');}
 function Verify(row,canonical,signature){
  if(typeof signature!=='string'||signature.length!==344||!/^[A-Za-z0-9+/]{342}==$/.test(signature))Fail('BOOTSTRAP_PROOF_INVALID',401);
  const bytes=Buffer.from(signature,'base64');if(bytes.length!==256||bytes.toString('base64')!==signature)Fail('BOOTSTRAP_PROOF_INVALID',401);
@@ -104,7 +109,7 @@ function Begin(body){
  }
  if(launcher.status==='REVOKED')Fail('BOOTSTRAP_REVOKED',403);if(launcher.status==='EXPIRED')Fail('BOOTSTRAP_EXPIRED',403);if(launcher.expiresAt<=now())Fail('BOOTSTRAP_EXPIRED',403);
  const release=db.artifacts[db.active.B];if(!release)Fail('BOOTSTRAP_NOT_READY',409);Pe(Bytes(release),'B');
- const row={id:Id('BF'),sessionId:Id('DS'),launcherId:launcher.id,launcherSha256:digest,releaseId:release.id,deviceId:parsed.deviceId,publicKey:parsed.publicKey,beginFingerprint:fingerprint,status:'STARTED',createdAt:now(),expiresAt:now()+FLOW_MS,downloadNonce:Nonce(),finishNonce:Nonce(),chunkOffsets:[],licenseId:'',lastVerifiedAt:0};row.downloadHash=hash(DownloadTicket(row));
+ const row={id:Id(),sessionId:Id(),launcherId:launcher.id,launcherSha256:digest,releaseId:release.id,deviceId:parsed.deviceId,publicKey:parsed.publicKey,beginFingerprint:fingerprint,status:'STARTED',createdAt:now(),expiresAt:now()+FLOW_MS,downloadNonce:Nonce(),finishNonce:Nonce(),chunkOffsets:[],licenseId:'',lastVerifiedAt:0};row.downloadHash=hash(DownloadTicket(row));
  Atomic(next=>{if(next.launchers[launcher.id].status!=='AVAILABLE')Fail('BOOTSTRAP_LAUNCHER_USED',409);next.launchers[launcher.id].status='CONSUMED';next.launchers[launcher.id].flowId=row.id;RetireLauncher(next.launchers[launcher.id]);next.flows[row.id]=row;});
  Audit('DESKTOP_BOOTSTRAP_BEGAN',{flowId:row.id,launcherId:row.launcherId,deviceId:row.deviceId,releaseId:row.releaseId});return BeginResult(row);
 }

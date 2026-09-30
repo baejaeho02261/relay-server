@@ -18,7 +18,7 @@ function Normalize(raw){
 }
 function Load(){
  try{
-  const file=process.env.MOAPLAY_CURRENCY_REFERENCE_PATH||path.join(__dirname,'currency-reference.json');
+  const file=process.env.GAME_CURRENCY_REFERENCE_PATH||path.join(__dirname,'currency-reference.json');
   if(fs.statSync(file).size>32768)return null;
   return Normalize(JSON.parse(fs.readFileSync(file,'utf8')));
  }catch(_){return null;}
