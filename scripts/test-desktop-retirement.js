@@ -105,22 +105,12 @@ async function request(base, url, method = 'GET', body, auth) {
             assert.equal((await request(base, url, 'POST', { type: 'CLIENT', id: '1234567890123456' }, auth)).status, 410, url);
         }
         assert.equal((await request(base, '/api/releases/upload?type=CLIENT&fileName=old.apk', 'POST', {}, auth)).status, 410);
-        // A correctly-shaped challenge plus an administrator cookie still
-        // needs proof from the Windows device's private RSA key.
-        const pair = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
-        const jwk = pair.publicKey.export({ format: 'jwk' });
-        const exponent = Buffer.from(jwk.e, 'base64url'), modulus = Buffer.from(jwk.n, 'base64url');
-        const header = Buffer.alloc(24); [0x31415352, 2048, exponent.length, modulus.length, 0, 0].forEach((value, i) => header.writeUInt32LE(value, i * 4));
-        const blob = Buffer.concat([header, exponent, modulus]);
-        const payloadJSON = JSON.stringify({ activationToken: 'DLA-' + 'a'.repeat(43) });
-        const proof = { action: 'verify', requestId: 'retirement-proof-check', deviceId: crypto.createHash('sha256').update(blob).digest('hex').toUpperCase(), publicKey: blob.toString('base64'), payloadHash: crypto.createHash('sha256').update(payloadJSON).digest('hex') };
-        const challengeResponse = await request(base, '/api/desktop/challenge', 'POST', proof, auth);
-        assert.equal(challengeResponse.status, 200, 'Native challenge is separate from admin-cookie authentication');
-        const challenge = (await challengeResponse.json()).data;
-        const forged = await request(base, '/api/desktop/execute', 'POST', { ...proof, challengeId: challenge.challengeId, payloadJSON, signature: Buffer.alloc(256).toString('base64') }, auth);
-        assert.equal(forged.status, 401);
-        assert.equal((await forged.json()).error, 'DESKTOP_PROOF_INVALID', 'Administrator cookie cannot replace Windows private-key proof');
-
+        // Admin cookies cannot reopen the retired native HTTP transport.
+        for (const route of ['/api/desktop/challenge', '/api/desktop/execute']) {
+            const result=await request(base,route,'POST',{},auth);
+            assert.equal(result.status,410);
+            assert.equal((await result.json()).error,'DESKTOP_TLS_TRANSPORT_REQUIRED');
+        }
 
         // Give the scheduler an opportunity to run: no old QR, pairing or member
         // migration may edit the archived APK data on startup or maintenance ticks.

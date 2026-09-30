@@ -36,6 +36,7 @@ const { HOST, HEALTH_PORT, WEB_ADMIN_PORT, WEB_ADMIN_VERSION, DATA_DIR, AUTO_BAC
 
 EnsureDirs();
 LoadDatabase();
+require('./services/desktopMachinePolicy').Load();
 LoadRecentAudit();
 require('./services/haCoordinator').Start();
 console.log('Game Windows License Service');

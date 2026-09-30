@@ -4,7 +4,7 @@ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-desktop-licenses-'));proce
 require('../core/utils').EnsureDirs();const d=require('../services/desktopLicenses'),state=require('../core/state'),database=require('../storage/database'),journal=require('../services/desktopJournal');
 const bootstrapFixture=require('./desktop-bootstrap-fixture');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
-function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),jwk=publicKey.export({format:'jwk'}),e=Buffer.from(jwk.e,'base64url'),n=Buffer.from(jwk.n,'base64url'),head=Buffer.alloc(24);[0x31415352,2048,e.length,n.length,0,0].forEach((v,i)=>head.writeUInt32LE(v,i*4));const blob=Buffer.concat([head,e,n]);return {privateKey,publicKey:blob.toString('base64'),deviceId:hash(blob).toUpperCase()};}
+function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),jwk=publicKey.export({format:'jwk'}),e=Buffer.from(jwk.e,'base64url'),n=Buffer.from(jwk.n,'base64url'),head=Buffer.alloc(24);[0x31415352,2048,e.length,n.length,0,0].forEach((v,i)=>head.writeUInt32LE(v,i*4));const blob=Buffer.concat([head,e,n]);return {privateKey,publicKey:blob.toString('base64'),deviceId:hash(blob).toUpperCase(),machineId:crypto.randomBytes(32).toString('hex').toUpperCase()};}
 const a=Device(),b=Device();
 function Proof(device,action,payload,requestId=crypto.randomUUID()){
  payload=bootstrapFixture.LicensePayload(device,payload,requestId);
@@ -54,15 +54,11 @@ async function ApiTests(){
  const api=require('../web/desktopApi'),server=http.createServer((req,res)=>api.Handle(req,res,new URL(req.url,'http://localhost')));await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url='http://127.0.0.1:'+server.address().port;
  const post=(route,body,headers={})=>fetch(url+route,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
  try{
-  delete process.env.DESKTOP_ALLOW_HTTP_LOOPBACK;delete process.env.DESKTOP_TRUST_PROXY;delete process.env.RAILWAY_PROJECT_ID;
-  assert.equal((await post('/api/desktop/challenge',{}, {'x-forwarded-proto':'https'})).status,403);
-  process.env.DESKTOP_ALLOW_HTTP_LOOPBACK='1';assert.equal((await post('/api/desktop/challenge',{}, {Origin:'https://evil.example'})).status,403);
-  const key=d.Create({label:'HTTP'},'ADMIN:test'),payloadJSON=JSON.stringify(bootstrapFixture.LicensePayload(a,{licenseKey:key.licenseKey,deviceName:'한글 PC',appVersion:'1.0'})),requestId=crypto.randomUUID(),base={action:'redeem',requestId,deviceId:a.deviceId,publicKey:a.publicKey,payloadHash:hash(payloadJSON)};
-  const response=await post('/api/desktop/challenge',base),challenge=(await response.json()).data;assert.equal(response.status,200);
-  const proof={...base,challengeId:challenge.challengeId,payloadJSON,signature:crypto.sign('sha256',Buffer.from(challenge.canonical),{key:a.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64')};
-  const activated=await post('/api/desktop/execute',proof);assert.equal(activated.status,200);assert.equal((await activated.json()).data.status,'USED');
-  assert.equal((await post('/api/desktop/execute',{...proof,payloadJSON:'A'.repeat(14000)})).status,413);
-  assertions++;console.log('PASS Actual HTTP HTTPS/proxy/origin/body limits and signed Unicode registration');
+  for(const headers of [{},{'x-forwarded-proto':'https'},{Origin:'https://evil.example'}]){
+   process.env.DESKTOP_ALLOW_HTTP_LOOPBACK='1';process.env.DESKTOP_TRUST_PROXY='1';
+   for(const route of ['/api/desktop/challenge','/api/desktop/execute'])assert.equal((await post(route,{},headers)).status,410);
+  }
+  assertions++;console.log('PASS Legacy HTTP native authorization is retired: TLS TCP is mandatory, including loopback/proxy headers');
  }finally{await new Promise(resolve=>server.close(resolve));}
  console.log(`Desktop license checks: ${assertions} passed (${process.env.STORAGE_ENGINE})`);
 }

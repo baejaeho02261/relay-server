@@ -71,7 +71,7 @@ async function login() {
         assert.equal(legacy.status, 0); assert.equal(legacy.stdout.trim(), '31001 31002');
         let httpPort = await port(), tcpPort = await port(); while (tcpPort === httpPort) tcpPort = await port();
         await start(httpPort, tcpPort);
-        assert.equal((await request('/readyz')).body.revision, 'game-console-83');
+        assert.equal((await request('/readyz')).body.revision, require('../config/config').WEB_UI_REVISION);
         const head = await fetch(base + '/readyz', {method: 'HEAD', signal: AbortSignal.timeout(3000)});
         assert.equal(head.status, 200); assert.equal(await head.text(), '');
         assert.equal((await request('/api/desktop/connect-profile')).status, 401);
@@ -81,8 +81,8 @@ async function login() {
         assert.equal(response.body.profile.host, 'proxy.example.test'); assert.equal(response.body.profile.port, 17959);
         assert.equal(response.body.connection.source, 'railway'); assert.equal(response.body.connection.probePortMatches, true);
         assert.equal(response.body.connection.tcpPort, tcpPort); assert.equal(response.body.connection.httpPort, httpPort);
-        assert.deepEqual(Object.keys(response.body.profile).sort(), ['host','port','protocol','serverKeyId','serverPublicKey','version']);
-        assert.ok(!JSON.stringify(response.body).includes(adminSecret));
+        assert.deepEqual(Object.keys(response.body.profile).sort(), ['host','port','protocol','serverKeyId','serverPublicKey','tlsCertificateSha256','tlsServerName','version']);
+        assert.ok(!JSON.stringify(response.body).includes(adminSecret));assert.equal(response.body.connection.tls.ready,true);
         assert.match(output, /Connect public endpoint: proxy\.example\.test:17959 \(railway\)/);
         assert.ok(!output.includes('RAILWAY_HEALTHCHECK_PORT_MISMATCH'));
         console.log('PASS actual separate TCP/HTTP listeners, Railway PORT readiness, authenticated automatic profile export');

@@ -21,7 +21,9 @@
     "test:connect:sqlite": "node scripts/test-desktop-connect.js --sqlite",
     "check:native": "node scripts/check-connect-project.js",
     "test:bootstrap": "node scripts/test-desktop-bootstrap.js",
-    "test:bootstrap:sqlite": "node scripts/test-desktop-bootstrap.js --sqlite"
+    "test:bootstrap:sqlite": "node scripts/test-desktop-bootstrap.js --sqlite",
+    "test:machine": "node scripts/test-desktop-machine-policy.js",
+    "test:machine:sqlite": "node scripts/test-desktop-machine-policy.js --sqlite"
   },
   "engines": {
     "node": ">=22.13"

@@ -1,12 +1,12 @@
 'use strict';
-const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net');
+const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net'),tls=require('node:tls');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';
 for(const name of ['DESKTOP_PUBLIC_HOST','DESKTOP_PUBLIC_PORT','RAILWAY_TCP_PROXY_DOMAIN','RAILWAY_TCP_PROXY_PORT'])delete process.env[name];
 require('../core/utils').EnsureDirs();
 const desktop=require('../services/desktopLicenses'),transport=require('../services/desktopConnect'),keys=require('../services/connectTransportKey'),state=require('../core/state');
 const bootstrapFixture=require('./desktop-bootstrap-fixture');
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
-function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),blob=keys.PublicBlob(publicKey);return {privateKey,publicKey:blob.toString('base64'),deviceId:digest(blob).toUpperCase()};}
+function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),blob=keys.PublicBlob(publicKey);return {privateKey,publicKey:blob.toString('base64'),deviceId:digest(blob).toUpperCase(),machineId:crypto.randomBytes(32).toString('hex').toUpperCase()};}
 const a=Device(),b=Device(),server=transport.CreateServer();let profile,port,checks=0;
 function Envelope(payload,overrides={}){
  const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=overrides.requestId||crypto.randomUUID(),keyId=overrides.keyId||profile.serverKeyId;
@@ -16,7 +16,17 @@ function Envelope(payload,overrides={}){
  const frame={v:1,keyId,requestId,wrappedKey:crypto.publicEncrypt({key:publicKey,oaepHash:'sha256',padding:crypto.constants.RSA_PKCS1_OAEP_PADDING},key).toString('base64'),nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};
  return {key,nonce,frame,wire:JSON.stringify(frame)+'\n'};
 }
-function Wire(raw,timeout=4000){return new Promise((resolve,reject)=>{const socket=net.connect(port,'127.0.0.1');let reply='';socket.setTimeout(timeout,()=>{socket.destroy();reject(Error('TEST_TIMEOUT'));});socket.on('connect',()=>socket.write(raw));socket.on('data',chunk=>{reply+=chunk.toString();});socket.on('error',error=>{if(error.code!=='ECONNRESET')reject(error);});socket.on('close',()=>resolve(reply));});}
+function Wire(raw,timeout=4000,options={}){return new Promise((resolve,reject)=>{
+ const socket=tls.connect({host:'127.0.0.1',port,servername:profile.tlsServerName,rejectUnauthorized:false,minVersion:'TLSv1.2',...options});let reply='',failure;
+ socket.setTimeout(timeout,()=>{failure=Error('TEST_TIMEOUT');socket.destroy();});
+ socket.on('secureConnect',()=>{
+  const cert=socket.getPeerCertificate(),pin=digest(cert.raw);
+  if(pin!==(options.pin||profile.tlsCertificateSha256)||tls.checkServerIdentity(profile.tlsServerName,cert)||Date.now()<Date.parse(cert.valid_from)||Date.now()>=Date.parse(cert.valid_to)){failure=Error('TEST_TLS_PIN_INVALID');socket.destroy();return;}
+  assert.ok(['TLSv1.2','TLSv1.3'].includes(socket.getProtocol()));assert.match(socket.getCipher().name,/GCM/);socket.write(raw);
+ });
+ socket.on('data',chunk=>{reply+=chunk.toString();});socket.on('error',error=>{if(error.code!=='ECONNRESET')failure=error;});socket.on('close',()=>failure?reject(failure):resolve(reply));
+});}
+function PlainWire(raw){return new Promise((resolve,reject)=>{const socket=net.connect(port,'127.0.0.1');let reply=Buffer.alloc(0);socket.setTimeout(4000,()=>{socket.destroy();reject(Error('TEST_TIMEOUT'));});socket.on('connect',()=>socket.write(raw));socket.on('data',chunk=>{reply=Buffer.concat([reply,chunk]);});socket.on('error',()=>{});socket.on('close',()=>resolve(reply));});}
 function Decode(envelope,raw){
  const frame=JSON.parse(raw);assert.equal(frame.v,1);assert.equal(frame.requestId,envelope.frame.requestId);assert.notEqual(frame.nonce,envelope.frame.nonce);
  const decipher=crypto.createDecipheriv('aes-256-gcm',envelope.key,Buffer.from(frame.nonce,'base64'),{authTagLength:16});decipher.setAAD(transport.Aad('RESPONSE',frame.requestId,envelope.frame.keyId));decipher.setAuthTag(Buffer.from(frame.tag,'base64'));
@@ -39,7 +49,7 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    assert.equal((await AdminProfile({role:'viewer'})).status,403);
    assert.equal((await AdminProfile({role:'admin',id:'TEST'})).value.error,'CONNECT_PUBLIC_ENDPOINT_REQUIRED');
    process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT=String(port);
-   const out=await AdminProfile({role:'admin',id:'TEST'});assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','version']);assert.equal(profile.protocol,'GAME-CONNECT-1');
+   const out=await AdminProfile({role:'admin',id:'TEST'});assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','tlsCertificateSha256','tlsServerName','version']);assert.equal(profile.protocol,'GAME-CONNECT-2');assert.equal(profile.version,2);assert.match(profile.tlsCertificateSha256,/^[a-f0-9]{64}$/);assert.equal(profile.tlsServerName,'game-connect.internal');
    process.env.DESKTOP_PUBLIC_HOST='https://bad.example';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='::1';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
   });
   await Check('Persisted server key is stable, private, and never silently replaced',async()=>{
@@ -48,7 +58,21 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    assert.equal(child.execFileSync(process.execPath,['-e',script],{cwd:root,env:process.env,encoding:'utf8'}).trim(),profile.serverKeyId);
    for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-key-'));fs.cpSync(temp,copy,{recursive:true});if(kind==='missing')fs.unlinkSync(path.join(copy,path.basename(keys.KEY_FILE)));else fs.writeFileSync(path.join(copy,path.basename(keys.ID_FILE)),'0'.repeat(64)+'\n');const result=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(result.status,0);assert.match(result.stderr,/CONNECT_SERVER_KEY_(MISSING|CHANGED)/);}
   });
+  await Check('TLS pin, TLS versions and AEAD-only cipher negotiation fail closed',async()=>{
+   await assert.rejects(Wire('anything',4000,{pin:'0'.repeat(64)}),/TEST_TLS_PIN_INVALID/);
+   await assert.rejects(Wire('anything',4000,{minVersion:'TLSv1',maxVersion:'TLSv1.1',ciphers:'ALL:@SECLEVEL=0'}));
+   await assert.rejects(Wire('anything',4000,{minVersion:'TLSv1.2',maxVersion:'TLSv1.2',ciphers:'AES128-GCM-SHA256'}));
+   const envelope=Envelope({operation:'challenge',body:{}});assert.equal(Decode(envelope,await Wire(envelope.wire,4000,{maxVersion:'TLSv1.2'})).error,'INPUT_INVALID');
+  });
+  await Check('TLS certificate identity persists and missing or changed identity never regenerates',async()=>{
+   const identity=require('../services/connectTls').Load(),child=require('node:child_process'),root=path.resolve(__dirname,'..');
+   assert.equal(identity.fingerprint,profile.tlsCertificateSha256);if(process.platform!=='win32')assert.equal(fs.statSync(identity.keyFile).mode&0o777,0o600);
+   const script="console.log(require(require('node:path').resolve('services/connectTls')).Load().fingerprint)";assert.equal(child.execFileSync(process.execPath,['-e',script],{cwd:root,env:process.env,encoding:'utf8'}).trim(),profile.tlsCertificateSha256);
+   for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-tls-'));try{fs.cpSync(temp,copy,{recursive:true});if(kind==='missing')fs.rmSync(path.join(copy,'connect-tls'),{recursive:true});else fs.writeFileSync(path.join(copy,'connect-tls.sha256'),'0'.repeat(64)+'\n');const out=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(out.status,0);assert.match(out.stderr,/CONNECT_TLS_IDENTITY_(MISSING|CHANGED)/);}finally{fs.rmSync(copy,{recursive:true,force:true});}}
+  });
   await Check('Plaintext, wrong pin and wrong RSA recipient never receive success',async()=>{
+   for(const raw of ['HELLO|CLIENT|old\n',JSON.stringify(Envelope({operation:'challenge',body:{}}).frame)+'\n']){const reply=await PlainWire(raw);assert.ok(!reply.toString().includes('ciphertext'));assert.ok(!reply.toString().includes('ok'));}
+
    assert.equal(await Wire('HELLO|CLIENT|old\n'),'');assert.equal(await Wire('{"ok":true}\n'),'');
    const wrong=Envelope({operation:'challenge',body:{}},{keyId:'0'.repeat(64)});assert.equal(await Wire(wrong.wire),'');
    const recipient=Envelope({operation:'challenge',body:{}},{publicKey:crypto.createPublicKey(b.privateKey)});assert.equal(await Wire(recipient.wire),'');
@@ -64,11 +88,11 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await Check('Real A to B bootstrap and multi-chunk artifact delivery use encrypted TCP',async()=>{
    const bootstrap=bootstrapFixture.Publish(),artifact=Buffer.concat([bootstrapFixture.PE('B'),Buffer.alloc(300000,0x5a)]);bootstrap.Publish('B','80.0.1',artifact);
    const issued=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Encrypted bootstrap'},'TEST'),launcher=bootstrap.LauncherBytes(issued.launcherId),config=bootstrapFixture.Config(launcher);
-   const start=await Round('bootstrap',{action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha256:digest(launcher),deviceId:a.deviceId,publicKey:a.publicKey});assert.equal(start.ok,true,JSON.stringify(start));const begin=start.data,chunks=[];
+   const start=await Round('bootstrap',{action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha256:digest(launcher),launcherCrc64:bootstrapFixture.Crc64(launcher),machineId:a.machineId,deviceId:a.deviceId,publicKey:a.publicKey});assert.equal(start.ok,true,JSON.stringify(start));const begin=start.data,chunks=[];
    for(let offset=0;offset<begin.release.size;){const out=await Round('bootstrap',{action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset});assert.equal(out.ok,true,JSON.stringify(out));const bytes=Buffer.from(out.data.data,'base64');assert.equal(out.data.offset,offset);assert.ok(bytes.length>0&&bytes.length<=begin.chunkSize);chunks.push(bytes);offset+=bytes.length;}
    assert.ok(chunks.length>1);assert.deepEqual(Buffer.concat(chunks),artifact);assert.equal(digest(artifact),begin.release.sha256);
-   const finished=await Round('bootstrap',{action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,signature:bootstrapFixture.Sign(a,begin.finishCanonical)});assert.equal(finished.ok,true,JSON.stringify(finished));
-   const claimed=await Round('bootstrap',{action:'claim',flowId:begin.flowId,handoffToken:finished.data.handoffToken,signature:bootstrapFixture.Sign(a,finished.data.claimCanonical),binarySha256:begin.release.sha256});assert.equal(claimed.ok,true,JSON.stringify(claimed));
+   const finished=await Round('bootstrap',{action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,crc64:begin.release.crc64,signature:bootstrapFixture.Sign(a,begin.finishCanonical)});assert.equal(finished.ok,true,JSON.stringify(finished));
+   const claimed=await Round('bootstrap',{action:'claim',flowId:begin.flowId,handoffToken:finished.data.handoffToken,signature:bootstrapFixture.Sign(a,finished.data.claimCanonical),binarySha256:begin.release.sha256,crc64:begin.release.crc64});assert.equal(claimed.ok,true,JSON.stringify(claimed));
    const session=claimed.data,status=await Round('bootstrap',{action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken});assert.equal(status.ok,true);assert.equal(status.data.status,'CLAIMED');assert.ok(!Object.hasOwn(status.data,'sessionToken'));
    const denied=Envelope({operation:'bootstrap',body:{action:'status',sessionId:session.sessionId,sessionToken:'invalid'}}),wire=await Wire(denied.wire);assert.equal(Decode(denied,wire).error,'BOOTSTRAP_SESSION_INVALID');assert.ok(!wire.includes('BOOTSTRAP_SESSION_INVALID'));
    assert.equal((await Round('bootstrap',{action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken})).data.status,'CLOSED');bootstrap.Publish('B','80.0.2',bootstrapFixture.PE('B'));
@@ -89,8 +113,16 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    desktop.Revoke(first.license.id,{reason:'TCP 검증 해지'},'TEST');assert.equal((await Call(a,'verify',{activationToken:token})).error,'DESKTOP_REVOKED');assert.equal((await Round('execute',proof)).error,'DESKTOP_REVOKED');
   });
   await Check('Absolute deadline closes incomplete frames even during trickle traffic',async()=>{
-   const started=Date.now();await new Promise((resolve,reject)=>{const socket=net.connect(port,'127.0.0.1');let timer,reply='';const deadline=setTimeout(()=>{socket.destroy();reject(Error('Absolute TCP deadline missing'));},transport.DEADLINE_MS+3000);socket.on('connect',()=>{socket.write(' ');timer=setInterval(()=>socket.write(' '),500);});socket.on('data',data=>{reply+=data.toString();});socket.on('error',()=>{});socket.on('close',()=>{clearTimeout(deadline);clearInterval(timer);try{assert.equal(reply,'');resolve();}catch(error){reject(error);}});});assert.ok(Date.now()-started>=transport.DEADLINE_MS-500);
+   const started=Date.now();await new Promise((resolve,reject)=>{const socket=tls.connect({host:'127.0.0.1',port,servername:profile.tlsServerName,rejectUnauthorized:false,minVersion:'TLSv1.2'});let timer,reply='';const deadline=setTimeout(()=>{socket.destroy();reject(Error('Absolute TCP deadline missing'));},transport.DEADLINE_MS+3000);socket.on('secureConnect',()=>{socket.write(' ');timer=setInterval(()=>socket.write(' '),500);});socket.on('data',data=>{reply+=data.toString();});socket.on('error',()=>{});socket.on('close',()=>{clearTimeout(deadline);clearInterval(timer);try{assert.equal(reply,'');resolve();}catch(error){reject(error);}});});assert.ok(Date.now()-started>=transport.DEADLINE_MS-500);
   });
-  console.log(`GameConnect TCP: ${checks} checks passed (${process.env.STORAGE_ENGINE})`);
+  await Check('Pre-authentication TLS peers count towards per-IP socket capacity',async()=>{
+   const held=[];try{for(let i=0;i<32;i++){const socket=net.connect(port,'127.0.0.1');socket.on('error',()=>{});held.push(socket);await new Promise(resolve=>socket.once('connect',resolve));}
+    await new Promise((resolve,reject)=>{const overflow=net.connect(port,'127.0.0.1'),timer=setTimeout(()=>{overflow.destroy();reject(Error('TLS pre-auth capacity missing'));},2000);overflow.on('error',()=>{});overflow.once('close',()=>{clearTimeout(timer);resolve();});});
+   }finally{await Promise.all(held.map(socket=>new Promise(resolve=>{if(socket.destroyed)return resolve();socket.once('close',resolve);socket.destroy();})));}
+  });
+  await Check('Absolute deadline also expires unauthenticated silent TLS peers',async()=>{
+   const started=Date.now();await new Promise((resolve,reject)=>{const socket=net.connect(port,'127.0.0.1'),timer=setTimeout(()=>{socket.destroy();reject(Error('TLS pre-auth deadline missing'));},transport.DEADLINE_MS+3000);socket.on('error',()=>{});socket.on('close',()=>{clearTimeout(timer);resolve();});});assert.ok(Date.now()-started>=transport.DEADLINE_MS-500);
+  });
+  console.log(`GameConnect pinned TLS TCP: ${checks} checks passed (${process.env.STORAGE_ENGINE})`);
  }finally{await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,0 +1,191 @@
+{
+  "schema": 2,
+  "revision": 16,
+  "secret": "4078a55725031e9fb3dd073f2f644d8788bebef8570c8a627d24a6cf618c2964",
+  "artifacts": {
+    "EC8CDD975D2EC30DD29DAEB6": {
+      "id": "EC8CDD975D2EC30DD29DAEB6",
+      "component": "A",
+      "protocol": "GAME-CONNECT-1",
+      "version": "80.0.0",
+      "sha256": "ae44255daeb700310b5492731273e759128ef22da722070eb94ba7d04711a182",
+      "size": 1024,
+      "createdAt": 1790789740833
+    },
+    "1E2E404C2485768F1036573A": {
+      "id": "1E2E404C2485768F1036573A",
+      "component": "B",
+      "protocol": "GAME-CONNECT-1",
+      "version": "80.0.0",
+      "sha256": "1f6f124cf3df574ef336cbcdfa1b0f6c1722c8f4ad2b9211610a50b0bc47e356",
+      "size": 1024,
+      "createdAt": 1790789740837
+    }
+  },
+  "active": {
+    "A": "EC8CDD975D2EC30DD29DAEB6",
+    "B": "1E2E404C2485768F1036573A"
+  },
+  "launchers": {
+    "6CD0E24335167BB1D09D276B": {
+      "id": "6CD0E24335167BB1D09D276B",
+      "downloadName": "27209cd77361e5afd5e4de189d890277.exe",
+      "label": "History available",
+      "artifactId": "EC8CDD975D2EC30DD29DAEB6",
+      "profile": {
+        "version": 1,
+        "protocol": "GAME-CONNECT-1",
+        "host": "127.0.0.1",
+        "port": 29131,
+        "serverKeyId": "da655e415b30dcf57b3980aa06280570b421b3614ec1ac421f2c0adb6a96740b",
+        "serverPublicKey": "UlNBMQAIAAADAAAAAAEAAAAAAAAAAAAAAQABvrTh4r7LD5oFxEENb8fYukR7fFgCKC8wRxXQ4OMhj7LSdWAgT6nL70Unr007qI20HDOMwSljP3EwHCfN88wTpuqmuKjRqb+Kx3F+8tgDtc6isGd7iIvDqHAXIpi412vim/nKkS+ybm+eoE8MsNg5EK9v0eaZnXiwuhmRw/8c+wDJpz21f+Pg88c31eOhShUBW784J/4jm9cs2EpjQiPIrlY3RgN/DOq0M3zTeH3fB0wRrD5oohosXa++QKAlSun3YydXH3XOhtbRTqy484zj3Mmnh3l8erhnlcr5owRhqn/GGN4n9Sxupg64YXd7TG4W/plVtQde+hlB7jfHJVkDTw=="
+      },
+      "ticketNonce": "813cbce974fd388ed11db85f89f95b628446e536b2b2a1d3",
+      "status": "AVAILABLE",
+      "issuedAt": 1790789740877,
+      "expiresAt": 1790876140877,
+      "issuedBy": "TEST",
+      "flowId": "",
+      "ticketHash": "1283671ce0fed767e4b6a4d8a0c608dbee0a07b8ede1bf0aa63a79f28f09bc33",
+      "sha256": "2be01e9b1f73b8b87bc4eb583b6e20c1ff96a4856e0400db01738b301ec706a9"
+    },
+    "CA1FBC7E8D66AFCFABA505B7": {
+      "id": "CA1FBC7E8D66AFCFABA505B7",
+      "downloadName": "dc12bcfbaaa1015b629b122b36b30930.exe",
+      "label": "Bootstrap test",
+      "artifactId": "EC8CDD975D2EC30DD29DAEB6",
+      "status": "CONSUMED",
+      "issuedAt": 1790789740879,
+      "expiresAt": 1790876140879,
+      "issuedBy": "TEST",
+      "flowId": "0C58EEC97D69CE0F5C445C92",
+      "ticketHash": "7c7cb81d79dc7a97ddbecb4e05ab9384b933783dc01799429b4ec5396953c4e1",
+      "sha256": "b22f14afb2f29cdeb2fbda3b1f54325a8d5d70c301f03622f7b0c3a752b72870",
+      "retiredAt": 1790789740883
+    },
+    "3CBBE4489951F92841B7EE00": {
+      "id": "3CBBE4489951F92841B7EE00",
+      "downloadName": "18f500f061579e26249af918356b291f.exe",
+      "label": "Bootstrap test",
+      "artifactId": "EC8CDD975D2EC30DD29DAEB6",
+      "status": "CONSUMED",
+      "issuedAt": 1790789740884,
+      "expiresAt": 1790876140884,
+      "issuedBy": "TEST",
+      "flowId": "329AF0BA8A78DE00DABFB9E4",
+      "ticketHash": "5ca6f042eaed08a882e3583ee982e0469d2c36cf6ee9e070b5c4dd0c7bc03f1f",
+      "sha256": "6e05f493a4c63e67e8e67efaf32254f6108992a50f76263baa11c3afb95a9e6c",
+      "retiredAt": 1790789740889
+    },
+    "4731F4CDEDE15A715ABD61A0": {
+      "id": "4731F4CDEDE15A715ABD61A0",
+      "downloadName": "de777ae5adfcb1b068e6c8d4f8531c78.exe",
+      "label": "Bootstrap test",
+      "artifactId": "EC8CDD975D2EC30DD29DAEB6",
+      "status": "CONSUMED",
+      "issuedAt": 1790789740894,
+      "expiresAt": 1790876140894,
+      "issuedBy": "TEST",
+      "flowId": "8870F3E5B1C9B5A1EBB13DE2",
+      "ticketHash": "8e1bf772a40c6178ef5986797f1df124d02f67dad8e17fb4e45700e2259848ef",
+      "sha256": "17c0cb1da1f6063d86fe1cfe0416f47df70d0a2e6e1ff909d193c1e9b3e7a4f6",
+      "retiredAt": 1790789740895
+    }
+  },
+  "flows": {
+    "0C58EEC97D69CE0F5C445C92": {
+      "id": "0C58EEC97D69CE0F5C445C92",
+      "sessionId": "C525847A3941EE39ABD6D0BE",
+      "launcherId": "CA1FBC7E8D66AFCFABA505B7",
+      "launcherSha256": "b22f14afb2f29cdeb2fbda3b1f54325a8d5d70c301f03622f7b0c3a752b72870",
+      "releaseId": "1E2E404C2485768F1036573A",
+      "deviceId": "3C5246C35E78BD40F51DF9224D621351D53C24726C5E84D64A11D7738EDBCEE8",
+      "publicKey": "UlNBMQAIAAADAAAAAAEAAAAAAAAAAAAAAQABo7y1VzVgq7QjGtSUWOADo7jVpWgI51W5MHEbXrJv1kFihCt/fhyA2d4uE/MadgMcIfWF5ZUkOu72KPqzq5w8LV7RHV8h1LIwqrSlQfw9699HJ/3gxUIyd1TJQphD91XSmuvrzd+aOsrolsiuWeVkmpaDhjwO6DDrpLeRXrl4lymqqERvho1d8uGhCybv9f3r3Pmstztf2Ej4Hr9/a4lu4laaSNZ9bghk0kJ7VGhVcnb0X0BBPrW20rIIduADNp2BQEKnDVPmRjcISLDre4kPMU46iWmJ2kT7Y+VcHUd7ukQJBHpGVKneNHVgD+CY3a3kz+ZkhlFWFcLZjnziZMFQIw==",
+      "beginFingerprint": "70285b986cefe908baf27240ea6b2961ce5e5a42339380a7f0cc12d35abf3702",
+      "status": "STARTED",
+      "createdAt": 1790789740883,
+      "expiresAt": 1790790640883,
+      "downloadNonce": "d25af7b4c5bbed37450eddf3d1fa34b5c4a687a31fddb888",
+      "finishNonce": "8c5ab98aeb5e38bc5014e4fe9266aa15eedf1a9b8927f600",
+      "chunkOffsets": [],
+      "licenseId": "",
+      "lastVerifiedAt": 0,
+      "downloadHash": "5f748d71a5cc30df4d17e82c6cac64cb8c6ad57b2e258624e9b7a9de6b8c3290"
+    },
+    "329AF0BA8A78DE00DABFB9E4": {
+      "id": "329AF0BA8A78DE00DABFB9E4",
+      "sessionId": "4968FAA2EE583333251D0310",
+      "launcherId": "3CBBE4489951F92841B7EE00",
+      "launcherSha256": "6e05f493a4c63e67e8e67efaf32254f6108992a50f76263baa11c3afb95a9e6c",
+      "releaseId": "1E2E404C2485768F1036573A",
+      "deviceId": "3C5246C35E78BD40F51DF9224D621351D53C24726C5E84D64A11D7738EDBCEE8",
+      "publicKey": "UlNBMQAIAAADAAAAAAEAAAAAAAAAAAAAAQABo7y1VzVgq7QjGtSUWOADo7jVpWgI51W5MHEbXrJv1kFihCt/fhyA2d4uE/MadgMcIfWF5ZUkOu72KPqzq5w8LV7RHV8h1LIwqrSlQfw9699HJ/3gxUIyd1TJQphD91XSmuvrzd+aOsrolsiuWeVkmpaDhjwO6DDrpLeRXrl4lymqqERvho1d8uGhCybv9f3r3Pmstztf2Ej4Hr9/a4lu4laaSNZ9bghk0kJ7VGhVcnb0X0BBPrW20rIIduADNp2BQEKnDVPmRjcISLDre4kPMU46iWmJ2kT7Y+VcHUd7ukQJBHpGVKneNHVgD+CY3a3kz+ZkhlFWFcLZjnziZMFQIw==",
+      "beginFingerprint": "2f4943ec44464cdc3e791e934adde878e5265e1fcd62048643f1ac1d22803867",
+      "status": "CLAIMED",
+      "createdAt": 1790789740889,
+      "expiresAt": 1790790640889,
+      "downloadNonce": "abae30a57d069daca2473aed5575264ced3c697c3089fc71",
+      "finishNonce": "51d041a086b6867f8df548d354994090fde9f374f896638d",
+      "chunkOffsets": [
+        0
+      ],
+      "licenseId": "",
+      "lastVerifiedAt": 0,
+      "downloadHash": "fde61aad5a27acb13bee88ad93e430d67634c55f5b9657f06310fa7086d929d7",
+      "downloadedAt": 1790789740891,
+      "handoffNonce": "c6a532aef948aba669dd83676b2801accdabadba4bad1a35",
+      "claimNonce": "68e353c6668abe765c37fe9ef5ba409b2efbf08383a07233",
+      "handoffExpiresAt": 1790789860891,
+      "handoffHash": "1466957db9af166b0e47f68e90d84ed7da202840e154af823370fcb6eb0eac18",
+      "claimedAt": 1790789740893,
+      "sessionNonce": "92294d37cdba3d9835f1c1fad2d368ed317f8eb996b3fe49",
+      "sessionHash": "f58383a878a58f9114c53c965a38db0152dfef312df8d75ae108567895c5155e",
+      "sessionExpiresAt": 1790790040893
+    },
+    "8870F3E5B1C9B5A1EBB13DE2": {
+      "id": "8870F3E5B1C9B5A1EBB13DE2",
+      "sessionId": "C261A0564D6D7CF2D4FC9A1E",
+      "launcherId": "4731F4CDEDE15A715ABD61A0",
+      "launcherSha256": "17c0cb1da1f6063d86fe1cfe0416f47df70d0a2e6e1ff909d193c1e9b3e7a4f6",
+      "releaseId": "1E2E404C2485768F1036573A",
+      "deviceId": "3C5246C35E78BD40F51DF9224D621351D53C24726C5E84D64A11D7738EDBCEE8",
+      "publicKey": "UlNBMQAIAAADAAAAAAEAAAAAAAAAAAAAAQABo7y1VzVgq7QjGtSUWOADo7jVpWgI51W5MHEbXrJv1kFihCt/fhyA2d4uE/MadgMcIfWF5ZUkOu72KPqzq5w8LV7RHV8h1LIwqrSlQfw9699HJ/3gxUIyd1TJQphD91XSmuvrzd+aOsrolsiuWeVkmpaDhjwO6DDrpLeRXrl4lymqqERvho1d8uGhCybv9f3r3Pmstztf2Ej4Hr9/a4lu4laaSNZ9bghk0kJ7VGhVcnb0X0BBPrW20rIIduADNp2BQEKnDVPmRjcISLDre4kPMU46iWmJ2kT7Y+VcHUd7ukQJBHpGVKneNHVgD+CY3a3kz+ZkhlFWFcLZjnziZMFQIw==",
+      "beginFingerprint": "3c6a1828c50da4d5d66e64dc8bb9f00d0fc7b07681558f323c7b58d5afe21222",
+      "status": "CLOSED",
+      "createdAt": 1790789740895,
+      "expiresAt": 1790790640895,
+      "chunkOffsets": [
+        0
+      ],
+      "licenseId": "",
+      "lastVerifiedAt": 0,
+      "downloadHash": "06510c68a2fa62ecb27397b29e479bc0aeb5bcf2de10915a1ad5b4bd2bfab7ad",
+      "downloadedAt": 1790789740897,
+      "handoffExpiresAt": 1790789860897,
+      "handoffHash": "bd9d6ddbe8a5b5e4e50206eba7d62a06bd2b2231d455a489dbcd5ccc8532e7ac",
+      "claimedAt": 1790789740898,
+      "sessionHash": "db71268949b3f9ff5813a0d085760e8c38ea19c1386957de13c70c9a2386492a",
+      "sessionExpiresAt": 1790790040898,
+      "closedAt": 1790789740898,
+      "retiredAt": 1790789740899
+    }
+  },
+  "issueReceipts": {
+    "94ee059335e587e501cc4bf90613e0814f00a7b08bc7c648fd865a2af6a22cc2|historical-available": {
+      "fingerprint": "d3d1545c682ddaa0b50eeac7fb5046fc90c515d799ee7e031e9eecab732f3e65",
+      "launcherId": "6CD0E24335167BB1D09D276B"
+    },
+    "94ee059335e587e501cc4bf90613e0814f00a7b08bc7c648fd865a2af6a22cc2|c8ca46af-e2e7-4692-89f4-e3725c402643": {
+      "fingerprint": "8b32a52059a353824515836ebdc2ff09ff91352a3defb88d296d25f999e4d29d",
+      "launcherId": "CA1FBC7E8D66AFCFABA505B7"
+    },
+    "94ee059335e587e501cc4bf90613e0814f00a7b08bc7c648fd865a2af6a22cc2|4e4eea89-6c77-426c-9910-c1b04ebdc93e": {
+      "fingerprint": "8b32a52059a353824515836ebdc2ff09ff91352a3defb88d296d25f999e4d29d",
+      "launcherId": "3CBBE4489951F92841B7EE00"
+    },
+    "94ee059335e587e501cc4bf90613e0814f00a7b08bc7c648fd865a2af6a22cc2|56039f31-6863-4009-b0a7-eda41caef5da": {
+      "fingerprint": "8b32a52059a353824515836ebdc2ff09ff91352a3defb88d296d25f999e4d29d",
+      "launcherId": "4731F4CDEDE15A715ABD61A0"
+    }
+  }
+}

@@ -44,9 +44,16 @@ for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launche
   }
 }
 assert.ok(!fs.existsSync(path.join(root, 'GameConnect.ico')));
+const tls=read('Game.Tls.pas'), transport=read('GameConnectTransport.pas');
+assert.ok(transport.includes('.ConnectTLS('),'Every native request must use TLS');
+assert.ok(tls.includes('CertVerifyTimeValidity') && tls.includes('CryptHashCertificate2'));
+assert.ok(tls.indexOf('if not VerifyCertificate(CertificateSha256) then Exit;') < tls.indexOf('FAuthenticated := True;'));
+assert.ok(read('Game.Api.pas').includes('FImageIntegrity.VerifyNow'));
+for(const name of ['GameConnect','GameLauncher'])assert.ok(read(name+'.dproj').includes('Game.Integrity.pas')&&read(name+'.dproj').includes('Game.Tls.pas'));
+
 const consoleSource = read('Game.Console.pas');
 const entry = consoleSource.slice(consoleSource.indexOf('function RunGameConsole: Integer;', consoleSource.indexOf('implementation')));
-assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup;') < entry.indexOf('if not AllocConsole'), 'Console must be created only after authenticated handoff and cleanup');
+assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('if not AllocConsole'), 'Console must be created only after authenticated handoff and cleanup');
 assert.ok(entry.includes('if not AllocConsole'));
 assert.ok(!/\b(?:WriteLn|ShowMessage|MessageBox)\s*\(/i.test(consoleSource), 'User diagnostics must remain silent');
 for (const name of fs.readdirSync(root)) {

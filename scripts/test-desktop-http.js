@@ -8,7 +8,7 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-desktop-http-'));
 const adminPassword = 'desktop-http-regression-admin-secret';
 const viewerPassword = 'desktop-http-regression-viewer-secret';
 const bootstrapFixture = require('./desktop-bootstrap-fixture');
-let child, base, output = '', sequence = 0;
+let child, base, nativeProfile, output = '', sequence = 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
 
@@ -22,6 +22,11 @@ async function stop() {
     const timer = setTimeout(() => child.kill('SIGKILL'), 5000); await exited; clearTimeout(timer);
 }
 async function call(url, body, auth, options = {}) {
+    // Admin calls use real HTTP. Native authorization uses pinned TLS only.
+    if (['/api/desktop/challenge','/api/desktop/execute'].includes(url)) {
+        const json=await require('./tls-request-fixture').Request(nativeProfile,url.endsWith('challenge')?'challenge':'execute',body);
+        return {status:json.ok?200:0,json};
+    }
     const headers = { ...(options.headers || {}) };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (auth) { headers.Cookie = auth.cookie; if (options.csrf !== false) headers['X-CSRF-Token'] = auth.csrf; }
@@ -57,10 +62,10 @@ function device(name) {
     const header = Buffer.alloc(24);
     [0x31415352, 2048, exponent.length, modulus.length, 0, 0].forEach((value, index) => header.writeUInt32LE(value, index * 4));
     const blob = Buffer.concat([header, exponent, modulus]);
-    return { name, privateKey: pair.privateKey, publicKey: blob.toString('base64'), deviceId: digest(blob).toUpperCase() };
+    return { name, privateKey: pair.privateKey, publicKey: blob.toString('base64'), deviceId: digest(blob).toUpperCase(), machineId:crypto.randomBytes(32).toString('hex').toUpperCase() };
 }
 async function signed(device, action, payload) {
-    if (device.bootstrap) payload = { ...payload, bootstrapSessionId: device.bootstrap.sessionId, bootstrapSessionToken: device.bootstrap.sessionToken };
+    if (device.bootstrap) payload = { ...payload, ...bootstrapFixture.Evidence(device,device.bootstrap), bootstrapSessionId: device.bootstrap.sessionId, bootstrapSessionToken: device.bootstrap.sessionToken };
     const payloadJSON = JSON.stringify(payload), payloadHash = digest(Buffer.from(payloadJSON));
     const requestId = 'HTTP-REQUEST-' + (++sequence);
     const body = { action, requestId, deviceId: device.deviceId, publicKey: device.publicKey, payloadHash };
@@ -92,7 +97,12 @@ async function bootstrapDevice(device, auth) {
         await start();
         assert.equal((await call('/api/desktop/licenses')).status, 401);
         assert.equal((await call('/api/desktop/licenses', { label: '미인증 요청' })).status, 401);
+        for(const route of ['/api/desktop/challenge','/api/desktop/execute']) {
+            const retired=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+            assert.equal(retired.status,410);
+        }
         let auth = await login();
+        nativeProfile=(await call('/api/desktop/connect-profile',undefined,auth)).json.profile;
         const viewer = await login('viewer');
         for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
             assert.equal((await call(route)).status, 401); assert.equal((await call(route, undefined, viewer)).status, 403);
@@ -126,7 +136,7 @@ async function bootstrapDevice(device, auth) {
         const race = await Promise.all(packets.map(packet => call('/api/desktop/execute', packet)));
         assert.equal(race.filter(result => result.status === 200).length, 1, 'Only one Windows device can consume one registration key');
         const winnerIndex = race.findIndex(result => result.status === 200), loserIndex = 1 - winnerIndex;
-        assert.equal(race[loserIndex].status, 409); assert.equal(race[loserIndex].json.error, 'DESKTOP_KEY_USED');
+        assert.equal(race[loserIndex].json.ok, false); assert.equal(race[loserIndex].json.error, 'DESKTOP_KEY_USED');
         const winner = devices[winnerIndex], token = race[winnerIndex].json.data.activationToken;
         const replay = await call('/api/desktop/execute', packets[winnerIndex]);
         assert.equal(replay.status, 200); assert.equal(replay.json.data.activationToken, token, 'Exact wire retry returns the same committed result');
@@ -144,25 +154,42 @@ async function bootstrapDevice(device, auth) {
         const verify = await execute(winner, 'verify', { activationToken: token, appVersion: '1.0.0' });
         assert.equal(verify.status, 200); assert.ok(verify.json.data.leaseExpiresAt > verify.json.data.serverTime);
         const stolen = await execute(devices[loserIndex], 'verify', { activationToken: token });
-        assert.equal(stolen.status, 403); assert.equal(stolen.json.error, 'DESKTOP_DEVICE_MISMATCH');
+        assert.equal(stolen.json.ok, false); assert.equal(stolen.json.error, 'DESKTOP_DEVICE_MISMATCH');
         assert.equal((await call('/api/desktop/licenses/' + id + '/revoke', { reason: 'HTTP 검사 해지' }, auth, { csrf: false })).status, 403);
         const revoked = await call('/api/desktop/licenses/' + id + '/revoke', { reason: 'HTTP 검사 해지' }, auth);
         assert.equal(revoked.status, 200); assert.equal(revoked.json.license.status, 'REVOKED');
         const denied = await execute(winner, 'verify', { activationToken: token });
-        assert.equal(denied.status, 403); assert.equal(denied.json.error, 'DESKTOP_REVOKED');
+        assert.equal(denied.json.ok, false); assert.equal(denied.json.error, 'DESKTOP_REVOKED');
         const revokedReplay = await call('/api/desktop/execute', packets[winnerIndex]);
-        assert.equal(revokedReplay.status, 403); assert.equal(revokedReplay.json.error, 'DESKTOP_REVOKED');
+        assert.equal(revokedReplay.json.ok, false); assert.equal(revokedReplay.json.error, 'DESKTOP_REVOKED');
+
+        // PC policy is admin-only and cannot be changed without CSRF.
+        const policyKey=(await call('/api/desktop/licenses',{label:'PC policy'},auth)).json.licenseKey;
+        const policyDevice=device('Policy Windows');await bootstrapDevice(policyDevice,auth);
+        const registered=await execute(policyDevice,'redeem',{licenseKey:policyKey});assert.equal(registered.json.ok,true);
+        const policyRoute='/api/desktop/machines/'+policyDevice.machineId;
+        const policyBody={requestId:crypto.randomUUID(),reason:'Integration policy check'};
+        assert.equal((await call('/api/desktop/machines')).status,401);
+        assert.equal((await call('/api/desktop/machines',undefined,viewer)).status,403);
+        assert.equal((await call(policyRoute+'/block',policyBody)).status,401);
+        assert.equal((await call(policyRoute+'/block',policyBody,viewer)).status,403);
+        assert.equal((await call(policyRoute+'/block',policyBody,auth,{csrf:false})).status,403);
+        assert.equal((await call(policyRoute+'/block',policyBody,auth)).json.machine.blocked,true);
+        assert.equal((await execute(policyDevice,'verify',{activationToken:registered.json.data.activationToken})).json.error,'DESKTOP_MACHINE_BLOCKED');
+        assert.equal((await call(policyRoute+'/unblock',{...policyBody,requestId:crypto.randomUUID()},auth)).json.machine.blocked,false);
+        assert.equal((await execute(policyDevice,'verify',{activationToken:registered.json.data.activationToken})).json.error,'DESKTOP_MACHINE_SESSION_REVOKED');
 
         await stop(); await start(); auth = await login();
+        nativeProfile=(await call('/api/desktop/connect-profile',undefined,auth)).json.profile;
         list = await call('/api/desktop/licenses', undefined, auth);
-        assert.equal(list.status, 200); assert.equal(list.json.items.length, 2); assert.equal(list.json.items.find(item => item.id === id).status, 'REVOKED');
-        assert.equal((await call('/api/desktop/licenses?status=USED', undefined, auth)).json.items.length, 0);
+        assert.equal(list.status, 200); assert.equal(list.json.items.length, 3); assert.equal(list.json.items.find(item => item.id === id).status, 'REVOKED');
+        assert.equal((await call('/api/desktop/licenses?status=USED', undefined, auth)).json.items.length, 1);
         assert.equal((await call('/api/desktop/licenses/'+id,undefined,auth)).json.licenseKey,key);
         assert.ok(!output.includes(key)&&!output.includes(token),'Issued key and session credentials must not appear in server logs');
         const restartDenied = await execute(winner, 'verify', { activationToken: token });
-        assert.equal(restartDenied.status, 403); assert.equal(restartDenied.json.error, 'DESKTOP_REVOKED');
+        assert.equal(restartDenied.json.ok, false); assert.equal(restartDenied.json.error, 'DESKTOP_REVOKED');
         const retryKey = await execute(devices[loserIndex], 'redeem', { licenseKey: key });
-        assert.equal(retryKey.status, 403); assert.equal(retryKey.json.error, 'DESKTOP_REVOKED');
-        console.log('DESKTOP HTTP PASS: executable provisioning admin/viewer auth + CSRF, PE validation and pinned launcher download, real encrypted bootstrap, global status totals, session/license linkage, native RSA canonical, redemption race, token binding, replay, revocation and restart durability.');
+        assert.equal(retryKey.json.ok, false); assert.equal(retryKey.json.error, 'DESKTOP_REVOKED');
+        console.log('DESKTOP ADMIN HTTP + NATIVE TLS PASS: executable provisioning admin/viewer auth + CSRF, PE validation and pinned launcher download, real encrypted bootstrap, global status totals, session/license linkage, native RSA canonical, redemption race, token binding, replay, revocation and restart durability.');
     } finally { await stop(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 })().catch(error => { console.error(error); if (output) console.error(output.slice(-5000)); process.exitCode = 1; });

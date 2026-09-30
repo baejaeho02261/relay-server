@@ -3,6 +3,7 @@
 // bootstrap protocol. They are test data, never native runtime bypasses.
 const assert=require('node:assert/strict'),crypto=require('node:crypto');
 const sha256=value=>crypto.createHash('sha256').update(value).digest('hex');
+const {Crc64}=require('../services/desktopIntegrity');
 const cache=new Map(),requests=new Map();
 
 function PE(component,marker='fixture'){
@@ -19,7 +20,7 @@ function PE(component,marker='fixture'){
 }
 function Device(){
  const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),bytes=require('../services/connectTransportKey').PublicBlob(publicKey);
- return {privateKey,publicKey:bytes.toString('base64'),deviceId:sha256(bytes).toUpperCase()};
+ return {privateKey,publicKey:bytes.toString('base64'),deviceId:sha256(bytes).toUpperCase(),machineId:crypto.randomBytes(32).toString('hex').toUpperCase()};
 }
 function Sign(device,canonical){return crypto.sign('sha256',Buffer.from(canonical,'utf8'),{key:device.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64');}
 function Config(bytes){
@@ -34,40 +35,41 @@ function Publish(){
 }
 function Begin(device,options={}){
  const bootstrap=Publish(),issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Bootstrap test'},'TEST'),bytes=bootstrap.LauncherBytes(issue.launcherId),config=Config(bytes);
- const body={action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:config.launcherTicket,launcherSha256:sha256(bytes),publicKey:device.publicKey,deviceId:device.deviceId,...options};
+ const body={action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:config.launcherTicket,launcherSha256:sha256(bytes),launcherCrc64:Crc64(bytes),machineId:device.machineId,publicKey:device.publicKey,deviceId:device.deviceId,...options};
  return {issue,bytes,config,body,begin:bootstrap.Execute(body)};
 }
 function Download(begin){
  const bootstrap=require('../services/desktopBootstrap'),chunks=[];let offset=0;
  while(offset<begin.release.size){const out=bootstrap.Execute({action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset});assert.equal(out.offset,offset);const bytes=Buffer.from(out.data,'base64');assert.ok(bytes.length>0);assert.ok(bytes.length<=begin.chunkSize);chunks.push(bytes);offset+=bytes.length;}
- const bytes=Buffer.concat(chunks);assert.equal(bytes.length,begin.release.size);assert.equal(sha256(bytes),begin.release.sha256);return bytes;
+ const bytes=Buffer.concat(chunks);assert.equal(bytes.length,begin.release.size);assert.equal(sha256(bytes),begin.release.sha256);assert.equal(Crc64(bytes),begin.release.crc64);return bytes;
 }
-function Finish(device,begin){return require('../services/desktopBootstrap').Execute({action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,signature:Sign(device,begin.finishCanonical)});}
-function Claim(device,begin,finish){return require('../services/desktopBootstrap').Execute({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(device,finish.claimCanonical),binarySha256:begin.release.sha256});}
+function Finish(device,begin){return require('../services/desktopBootstrap').Execute({action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,crc64:begin.release.crc64,signature:Sign(device,begin.finishCanonical)});}
+function Claim(device,begin,finish){return require('../services/desktopBootstrap').Execute({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(device,finish.claimCanonical),binarySha256:begin.release.sha256,crc64:begin.release.crc64});}
 function Session(device,credential=''){
  // Activation proof stays on the exact A/B session that consumed its key.
  if(credential){const row=Object.values(require('../services/desktopLicenses').DB().licenses).find(item=>item.tokenHash===sha256(credential)&&item.deviceId===device.deviceId);if(row?.bootstrapSessionId){const prior=[...cache.entries()].find(([name,value])=>name.startsWith(device.deviceId+':')&&value.sessionId===row.bootstrapSessionId);assert.ok(prior,'The fixture must retain the original activation session');return prior[1];}}
- const key=device.deviceId+':'+sha256(credential);let session=cache.get(key);if(session&&session.expiresAt>Date.now()+1000){try{require('../services/desktopBootstrap').Gate(session.sessionId,session.sessionToken,device.deviceId);return session;}catch(_) {}}
+ const key=device.deviceId+':'+sha256(credential);let session=cache.get(key);if(session&&session.expiresAt>Date.now()+1000){try{require('../services/desktopBootstrap').Gate(session.sessionId,session.sessionToken,device.deviceId,Evidence(device,session));return session;}catch(_) {}}
  const {begin}=Begin(device);Download(begin);session=Claim(device,begin,Finish(device,begin));cache.set(key,session);return session;
 }
+function Evidence(device,session){return {machineId:device.machineId,binarySha256:session.release.sha256,binaryCrc64:session.release.crc64};}
 function LicensePayload(device,payload,requestId){
- if(payload.bootstrapSessionId&&payload.bootstrapSessionToken)return payload;
+ if(payload.bootstrapSessionId&&payload.bootstrapSessionToken){const row=Object.values(require('../services/desktopBootstrap').Initialize().flows).find(item=>item.sessionId===payload.bootstrapSessionId),artifact=require('../services/desktopBootstrap').Initialize().artifacts[row?.releaseId];return {machineId:device.machineId,binarySha256:artifact?.sha256||'0'.repeat(64),binaryCrc64:artifact?.crc64||'0'.repeat(16),...payload};}
  const key=requestId?device.deviceId+':'+requestId:'',session=key&&requests.get(key)||Session(device,payload.licenseKey||payload.activationToken||'');
- if(key)requests.set(key,session);return {...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken};
+ if(key)requests.set(key,session);return {...Evidence(device,session),...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken};
 }
 async function TcpBootstrap(profile,body){
- const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID(),aad=direction=>Buffer.from(['GAME-CONNECT-1',direction,requestId,profile.serverKeyId].join('\n'));
+ const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID(),aad=direction=>Buffer.from(['GAME-CONNECT-2',direction,requestId,profile.serverKeyId].join('\n'));
  const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(aad('REQUEST'));const clear=Buffer.from(JSON.stringify({operation:'bootstrap',body})),ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);
  const frame={v:1,keyId:profile.serverKeyId,requestId,wrappedKey:crypto.publicEncrypt({key:require('../services/desktopLicenses').ParseKey(profile.serverPublicKey).key,oaepHash:'sha256',padding:crypto.constants.RSA_PKCS1_OAEP_PADDING},key).toString('base64'),nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};
- const raw=await new Promise((resolve,reject)=>{const socket=require('node:net').connect(profile.port,profile.host);let reply='';socket.setTimeout(5000,()=>{socket.destroy();reject(Error('BOOTSTRAP_TEST_TIMEOUT'));});socket.once('connect',()=>socket.write(JSON.stringify(frame)+'\n'));socket.on('data',data=>{reply+=data.toString();if(reply.length>1024*1024){socket.destroy();reject(Error('BOOTSTRAP_TEST_RESPONSE_LIMIT'));}});socket.once('error',reject);socket.once('close',()=>resolve(reply));});
+ const raw=await new Promise((resolve,reject)=>{const tls=require('node:tls'),socket=tls.connect({port:profile.port,host:profile.host,servername:profile.tlsServerName,rejectUnauthorized:false,minVersion:'TLSv1.2'});let reply='';socket.setTimeout(5000,()=>{socket.destroy();reject(Error('BOOTSTRAP_TEST_TIMEOUT'));});socket.once('secureConnect',()=>{const cert=socket.getPeerCertificate(),at=Date.now();if(!cert.raw||sha256(cert.raw)!==profile.tlsCertificateSha256||tls.checkServerIdentity(profile.tlsServerName,cert)||at<Date.parse(cert.valid_from)||at>Date.parse(cert.valid_to)){socket.destroy();reject(Error('BOOTSTRAP_TEST_TLS_PIN'));return;}socket.write(JSON.stringify(frame)+'\n');});socket.on('data',data=>{reply+=data.toString();if(reply.length>1024*1024){socket.destroy();reject(Error('BOOTSTRAP_TEST_RESPONSE_LIMIT'));}});socket.once('error',reject);socket.once('close',()=>resolve(reply));});
  const response=JSON.parse(raw);assert.equal(response.v,1);assert.equal(response.requestId,requestId);assert.notEqual(response.nonce,frame.nonce);const decipher=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(response.nonce,'base64'));decipher.setAAD(aad('RESPONSE'));decipher.setAuthTag(Buffer.from(response.tag,'base64'));
  const result=JSON.parse(Buffer.concat([decipher.update(Buffer.from(response.ciphertext,'base64')),decipher.final()]).toString('utf8'));assert.equal(result.ok,true,JSON.stringify(result));return result.data;
 }
 async function RemoteSession(device,launcher){
- const settings=Config(launcher),call=body=>TcpBootstrap(settings.profile,body),begin=await call({action:'begin',requestId:crypto.randomUUID(),launcherId:settings.launcherId,launcherTicket:settings.launcherTicket,launcherSha256:sha256(launcher),publicKey:device.publicKey,deviceId:device.deviceId}),chunks=[];
+ const settings=Config(launcher),call=body=>TcpBootstrap(settings.profile,body),begin=await call({action:'begin',requestId:crypto.randomUUID(),launcherId:settings.launcherId,launcherTicket:settings.launcherTicket,launcherSha256:sha256(launcher),launcherCrc64:Crc64(launcher),machineId:device.machineId,publicKey:device.publicKey,deviceId:device.deviceId}),chunks=[];
  for(let offset=0;offset<begin.release.size;){const chunk=await call({action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset}),bytes=Buffer.from(chunk.data,'base64');assert.equal(chunk.offset,offset);assert.ok(bytes.length>0&&bytes.length<=begin.chunkSize);chunks.push(bytes);offset+=bytes.length;}
  const binary=Buffer.concat(chunks);assert.equal(binary.length,begin.release.size);assert.equal(sha256(binary),begin.release.sha256);
- const finish=await call({action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,signature:Sign(device,begin.finishCanonical)});
- return call({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(device,finish.claimCanonical),binarySha256:begin.release.sha256});
+ const finish=await call({action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,crc64:begin.release.crc64,signature:Sign(device,begin.finishCanonical)});
+ return call({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(device,finish.claimCanonical),binarySha256:begin.release.sha256,crc64:begin.release.crc64});
 }
-module.exports={PE,Device,Sign,Config,Publish,Begin,Download,Finish,Claim,Session,LicensePayload,TcpBootstrap,RemoteSession,sha256};
+module.exports={PE,Device,Sign,Config,Publish,Begin,Download,Finish,Claim,Session,LicensePayload,TcpBootstrap,RemoteSession,sha256,Crc64,Evidence};

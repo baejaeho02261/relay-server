@@ -3,6 +3,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const checks = [
   ['check-modules.js'], ['check-web-ui.js'], ['check-connect-project.js'],
+  ['test-desktop-machine-policy.js'], ['test-desktop-machine-policy.js','--sqlite'],
   ['test-desktop-licenses.js'], ['test-desktop-licenses.js', '--sqlite'],
   ['test-desktop-license-migration.js'], ['test-desktop-license-migration.js', '--sqlite'],
   ['test-desktop-bootstrap.js'], ['test-desktop-bootstrap.js', '--sqlite'],
