@@ -6,6 +6,8 @@ const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'moaplay-desktop-http-'));
 const adminPassword = 'desktop-http-regression-admin-secret';
+const viewerPassword = 'desktop-http-regression-viewer-secret';
+const bootstrapFixture = require('./desktop-bootstrap-fixture');
 let child, base, output = '', sequence = 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -34,6 +36,7 @@ async function start() {
     child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, DATA_DIR: dataDir,
         STORAGE_ENGINE: 'json', PORT: String(tcpPort), CONNECT_TCP_PORT: String(tcpPort), WEB_ADMIN_PORT: String(port), HEALTH_PORT: '0', HA_ENABLED: '0',
         ADMIN_SECRET: adminPassword, DESKTOP_ALLOW_HTTP_LOOPBACK: '1', DESKTOP_TRUST_PROXY: '0',
+        VIEWER_SECRET: viewerPassword, DESKTOP_PUBLIC_HOST: '127.0.0.1', DESKTOP_PUBLIC_PORT: String(tcpPort),
         VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
     child.stdout.on('data', data => { output += data; }); child.stderr.on('data', data => { output += data; });
     for (let attempt = 0; attempt < 70; attempt++) {
@@ -43,8 +46,8 @@ async function start() {
     }
     throw Error('HTTP server did not start: ' + output);
 }
-async function login() {
-    const response = await call('/api/login', { role: 'admin', password: adminPassword });
+async function login(role = 'admin') {
+    const response = await call('/api/login', { role, password: role === 'admin' ? adminPassword : viewerPassword });
     assert.equal(response.status, 200); return { cookie: response.cookie.split(';')[0], csrf: response.json.csrf };
 }
 function device(name) {
@@ -57,6 +60,7 @@ function device(name) {
     return { name, privateKey: pair.privateKey, publicKey: blob.toString('base64'), deviceId: digest(blob).toUpperCase() };
 }
 async function signed(device, action, payload) {
+    if (device.bootstrap) payload = { ...payload, bootstrapSessionId: device.bootstrap.sessionId, bootstrapSessionToken: device.bootstrap.sessionToken };
     const payloadJSON = JSON.stringify(payload), payloadHash = digest(Buffer.from(payloadJSON));
     const requestId = 'HTTP-REQUEST-' + (++sequence);
     const body = { action, requestId, deviceId: device.deviceId, publicKey: device.publicKey, payloadHash };
@@ -69,6 +73,19 @@ async function signed(device, action, payload) {
     return { ...body, challengeId: challenge.challengeId, payloadJSON, signature };
 }
 async function execute(device, action, payload) { return call('/api/desktop/execute', await signed(device, action, payload)); }
+async function upload(component, bytes, auth, csrf = true) {
+    const headers = { 'Content-Type': 'application/octet-stream' };
+    if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
+    const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=MoaPlay' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
+    return { status: response.status, json: await response.json() };
+}
+async function bootstrapDevice(device, auth) {
+    const issue = await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID(), label: device.name }, auth); assert.equal(issue.status, 200);
+    const response = await fetch(base + issue.json.downloadUrl, { headers: { Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type'), /application\/octet-stream/); assert.match(response.headers.get('cache-control'), /no-store/);
+    const launcher = Buffer.from(await response.arrayBuffer()); assert.equal(bootstrapFixture.Config(launcher).launcherId, issue.json.launcherId);
+    device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher);
+}
 
 (async () => {
     try {
@@ -76,6 +93,16 @@ async function execute(device, action, payload) { return call('/api/desktop/exec
         assert.equal((await call('/api/desktop/licenses')).status, 401);
         assert.equal((await call('/api/desktop/licenses', { label: '미인증 요청' })).status, 401);
         let auth = await login();
+        const viewer = await login('viewer');
+        for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
+            assert.equal((await call(route)).status, 401); assert.equal((await call(route, undefined, viewer)).status, 403);
+        }
+        assert.equal((await upload('A', bootstrapFixture.PE('A'))).status, 401);
+        assert.equal((await upload('A', bootstrapFixture.PE('A'), viewer)).status, 403);
+        assert.equal((await upload('A', bootstrapFixture.PE('A'), auth, false)).status, 403);
+        const invalidPE = await upload('A', Buffer.from('MZ not an executable'), auth); assert.equal(invalidPE.status, 400); assert.equal(invalidPE.json.error, 'BOOTSTRAP_PE_INVALID');
+        for (const component of ['A', 'B']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200); assert.equal(published.json.artifact.sha256, digest(bytes)); }
+        assert.equal((await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID() }, auth, { csrf: false })).status, 403);
         assert.equal((await call('/api/desktop/licenses', { label: 'CSRF 없는 요청' }, auth, { csrf: false })).status, 403);
         const empty = await call('/api/desktop/licenses', undefined, auth); assert.equal(empty.status, 200); assert.equal(empty.json.items.length, 0);
         const system = await call('/api/system', undefined, auth); assert.equal(system.status, 200);
@@ -89,6 +116,7 @@ async function execute(device, action, payload) { return call('/api/desktop/exec
         assert.equal(created.status, 200);
         const id = created.json.license.id, key = created.json.licenseKey;
         const devices = [device('Windows A'), device('Windows B')];
+        await Promise.all(devices.map(item => bootstrapDevice(item, auth)));
         const packets = await Promise.all(devices.map(item => signed(item, 'redeem', { licenseKey: key, deviceName: item.name, appVersion: '1.0.0' })));
         const race = await Promise.all(packets.map(packet => call('/api/desktop/execute', packet)));
         assert.equal(race.filter(result => result.status === 200).length, 1, 'Only one Windows device can consume one registration key');
@@ -100,6 +128,11 @@ async function execute(device, action, payload) { return call('/api/desktop/exec
         let list = await call('/api/desktop/licenses', undefined, auth); assert.equal(list.status, 200); assert.equal(list.json.items.length, 1);
         assert.equal(list.json.items[0].deviceId, winner.deviceId);
         const active = await call('/api/desktop/licenses?status=ACTIVE', undefined, auth); assert.equal(active.status, 200); assert.equal(active.json.items.length, 1);
+        const unused = await call('/api/desktop/licenses', { label: 'Global status count', requestId: crypto.randomUUID() }, auth); assert.equal(unused.status, 200);
+        const filtered = await call('/api/desktop/licenses?status=ACTIVE', undefined, auth); assert.equal(filtered.json.items.length, 1); assert.equal(filtered.json.counts.AVAILABLE, 1); assert.equal(filtered.json.counts.ACTIVE, 1);
+        const overview = await call('/api/desktop/bootstrap', undefined, auth); assert.equal(overview.status, 200); assert.ok(overview.json.bootstrap.artifacts.A && overview.json.bootstrap.artifacts.B);
+        const linked = overview.json.bootstrap.sessions.find(row => row.id === winner.bootstrap.sessionId); assert.equal(linked.licenseId, id); assert.equal(linked.licenseStatus, 'ACTIVE'); assert.equal(linked.deviceId, winner.deviceId);
+        assert.ok(!JSON.stringify(overview.json).includes(winner.bootstrap.sessionToken));
         assert.ok(!JSON.stringify(list.json).includes(key), 'List must not expose the issued key');
         assert.ok(!JSON.stringify(list.json).includes(token), 'List must not expose the activation token');
         const verify = await execute(winner, 'verify', { activationToken: token, appVersion: '1.0.0' });
@@ -116,12 +149,12 @@ async function execute(device, action, payload) { return call('/api/desktop/exec
 
         await stop(); await start(); auth = await login();
         list = await call('/api/desktop/licenses', undefined, auth);
-        assert.equal(list.status, 200); assert.equal(list.json.items.length, 1); assert.equal(list.json.items[0].status, 'REVOKED');
+        assert.equal(list.status, 200); assert.equal(list.json.items.length, 2); assert.equal(list.json.items.find(item => item.id === id).status, 'REVOKED');
         assert.equal((await call('/api/desktop/licenses?status=ACTIVE', undefined, auth)).json.items.length, 0);
         const restartDenied = await execute(winner, 'verify', { activationToken: token });
         assert.equal(restartDenied.status, 403); assert.equal(restartDenied.json.error, 'DESKTOP_REVOKED');
         const retryKey = await execute(devices[loserIndex], 'redeem', { licenseKey: key });
         assert.equal(retryKey.status, 403); assert.equal(retryKey.json.error, 'DESKTOP_REVOKED');
-        console.log('DESKTOP HTTP PASS: admin auth + CSRF, omitted APK policy field, native RSA canonical, two-device redemption race, token binding, replay, revocation and restart durability.');
+        console.log('DESKTOP HTTP PASS: executable provisioning admin/viewer auth + CSRF, PE validation and pinned launcher download, real encrypted bootstrap, global status totals, session/license linkage, native RSA canonical, redemption race, token binding, replay, revocation and restart durability.');
     } finally { await stop(); fs.rmSync(dataDir, { recursive: true, force: true }); }
 })().catch(error => { console.error(error); if (output) console.error(output.slice(-5000)); process.exitCode = 1; });

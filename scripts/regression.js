@@ -4,6 +4,7 @@ const path = require('node:path');
 const checks = [
   ['check-modules.js'], ['check-web-ui.js'], ['check-connect-project.js'],
   ['test-desktop-licenses.js'], ['test-desktop-licenses.js', '--sqlite'],
+  ['test-desktop-bootstrap.js'], ['test-desktop-bootstrap.js', '--sqlite'],
   ['test-desktop-retirement.js'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
   ['test-desktop-connect.js'], ['test-desktop-connect.js', '--sqlite'],
   ['test-desktop-admin-ui.js'], ['test-web-ui-cache.js']

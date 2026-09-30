@@ -4,6 +4,7 @@ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'moa-connect-'));process.env.DAT
 for(const name of ['DESKTOP_PUBLIC_HOST','DESKTOP_PUBLIC_PORT','RAILWAY_TCP_PROXY_DOMAIN','RAILWAY_TCP_PROXY_PORT'])delete process.env[name];
 require('../core/utils').EnsureDirs();
 const desktop=require('../services/desktopLicenses'),transport=require('../services/desktopConnect'),keys=require('../services/connectTransportKey'),state=require('../core/state');
+const bootstrapFixture=require('./desktop-bootstrap-fixture');
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
 function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),blob=keys.PublicBlob(publicKey);return {privateKey,publicKey:blob.toString('base64'),deviceId:digest(blob).toUpperCase()};}
 const a=Device(),b=Device(),server=transport.CreateServer();let profile,port,checks=0;
@@ -23,6 +24,7 @@ function Decode(envelope,raw){
 }
 async function Round(operation,body){const envelope=Envelope({operation,body});return Decode(envelope,await Wire(envelope.wire));}
 async function Proof(device,action,payload,requestId=crypto.randomUUID()){
+ payload=bootstrapFixture.LicensePayload(device,payload,requestId);
  const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:digest(payloadJSON)},challenge=await Round('challenge',base);assert.equal(challenge.ok,true,JSON.stringify(challenge));
  const c=challenge.data,canonical=['MOAPLAY-DESKTOP-V1',action,c.challengeId,c.nonce,requestId,device.deviceId,base.payloadHash,c.expiresAt].join('\n');assert.equal(c.canonical,canonical);
  return {...base,challengeId:c.challengeId,payloadJSON,signature:crypto.sign('sha256',Buffer.from(canonical),{key:device.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64')};
@@ -58,6 +60,18 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await Check('Authenticated validation errors remain encrypted and outer replay is rejected',async()=>{
    const envelope=Envelope({operation:'challenge',body:{}}),raw=await Wire(envelope.wire),result=Decode(envelope,raw);assert.equal(result.ok,false);assert.equal(result.error,'INPUT_INVALID');assert.ok(!raw.includes('INPUT_INVALID'));assert.equal(await Wire(envelope.wire),'');
    assert.equal(await Wire(envelope.wire+envelope.wire),'');assert.equal(await Wire(' '.repeat(transport.MAX_FRAME+1)),'');
+  });
+  await Check('Real A to B bootstrap and multi-chunk artifact delivery use encrypted TCP',async()=>{
+   const bootstrap=bootstrapFixture.Publish(),artifact=Buffer.concat([bootstrapFixture.PE('B'),Buffer.alloc(300000,0x5a)]);bootstrap.Publish('B','80.0.1',artifact);
+   const issued=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Encrypted bootstrap'},'TEST'),launcher=bootstrap.LauncherBytes(issued.launcherId),config=bootstrapFixture.Config(launcher);
+   const start=await Round('bootstrap',{action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha256:digest(launcher),deviceId:a.deviceId,publicKey:a.publicKey});assert.equal(start.ok,true,JSON.stringify(start));const begin=start.data,chunks=[];
+   for(let offset=0;offset<begin.release.size;){const out=await Round('bootstrap',{action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset});assert.equal(out.ok,true,JSON.stringify(out));const bytes=Buffer.from(out.data.data,'base64');assert.equal(out.data.offset,offset);assert.ok(bytes.length>0&&bytes.length<=begin.chunkSize);chunks.push(bytes);offset+=bytes.length;}
+   assert.ok(chunks.length>1);assert.deepEqual(Buffer.concat(chunks),artifact);assert.equal(digest(artifact),begin.release.sha256);
+   const finished=await Round('bootstrap',{action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,signature:bootstrapFixture.Sign(a,begin.finishCanonical)});assert.equal(finished.ok,true,JSON.stringify(finished));
+   const claimed=await Round('bootstrap',{action:'claim',flowId:begin.flowId,handoffToken:finished.data.handoffToken,signature:bootstrapFixture.Sign(a,finished.data.claimCanonical),binarySha256:begin.release.sha256});assert.equal(claimed.ok,true,JSON.stringify(claimed));
+   const session=claimed.data,status=await Round('bootstrap',{action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken});assert.equal(status.ok,true);assert.equal(status.data.status,'CLAIMED');assert.ok(!Object.hasOwn(status.data,'sessionToken'));
+   const denied=Envelope({operation:'bootstrap',body:{action:'status',sessionId:session.sessionId,sessionToken:'invalid'}}),wire=await Wire(denied.wire);assert.equal(Decode(denied,wire).error,'BOOTSTRAP_SESSION_INVALID');assert.ok(!wire.includes('BOOTSTRAP_SESSION_INVALID'));
+   assert.equal((await Round('bootstrap',{action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken})).data.status,'CLOSED');bootstrap.Publish('B','80.0.2',bootstrapFixture.PE('B'));
   });
   let first,proof,token;
   await Check('One-time registration and lost-response retry over fresh encrypted channels',async()=>{
