@@ -8,7 +8,7 @@ process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sq
 fs.writeFileSync(path.join(temp,'desktop-license-journal.jsonl'),fixture.journal,{mode:0o600});
 require('../core/utils').EnsureDirs();
 const d=require('../services/desktopLicenses'),f=require('./desktop-bootstrap-fixture');
-const sha=value=>crypto.createHash('sha256').update(value).digest('hex'),device=f.Device();
+const sha=value=>crypto.createHash('sha256').update(value).digest('hex');let device=f.Device();
 function call(action,payload){
  const requestId=crypto.randomUUID();payload=f.LicensePayload(device,payload,requestId);
  const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha(payloadJSON)},c=d.Challenge(base);
@@ -17,18 +17,18 @@ function call(action,payload){
 try{
  d.Import(undefined);const original=structuredClone(d.DB());
  for(const item of fixture.rows){
-  const detail=d.Detail(item.id);assert.equal(detail.licenseKey,item.key,'Original issuance HMAC must survive the rename');
-  assert.match(detail.licenseKey,/^[A-F0-9]{64}$/);assert.equal(detail.license.displayId,item.id.slice(3));
+  device=f.Device();const detail=d.Detail(item.id);assert.equal(detail.licenseKey,undefined,'Details must never reveal historical keys');
+  assert.equal(detail.license.displayId,item.id.slice(3));
   assert.equal(d.DB().licenses[item.id].keyHash,original.licenses[item.id].keyHash);
-  assert.ok(!JSON.stringify(d.List()).includes(item.key),'Only the authorized detail endpoint may reveal a key');
+  assert.ok(!JSON.stringify(d.List()).includes(item.key),'Lists and details never reveal keys');
   if(item.kind.startsWith('available-')){
    assert.equal(d.Create(item.body,item.actor).licenseKey,item.key,'An old admin retry returns the existing normalized key');
    const input=item.kind==='available-raw'?Buffer.from('4d4f41','hex').toString('ascii')+'-'+item.key.match(/.{8}/g).join('-'):item.key.toLowerCase();
    const result=call('redeem',{licenseKey:input});assert.equal(result.status,'USED');assert.match(result.activationToken,/^[a-f0-9]{64}$/);
    assert.equal(d.DB().licenses[item.id].status,'USED');assert.equal(d.DB().licenses[item.id].keyHash,original.licenses[item.id].keyHash);
    assert.equal(call('verify',{activationToken:result.activationToken}).status,'USED');
-   assert.equal(d.Detail(item.id).licenseKey,item.key);
-   assert.throws(()=>call('redeem',{licenseKey:item.key}),e=>e.message==='DESKTOP_KEY_USED');
+   assert.equal(d.Detail(item.id).licenseKey,undefined);
+   device=f.Device();assert.throws(()=>call('redeem',{licenseKey:item.key}),e=>e.message==='DESKTOP_KEY_USED');
   }else{
    const revoked=item.kind==='revoked';assert.equal(detail.license.status,revoked?'REVOKED':'USED');
    assert.throws(()=>call('redeem',{licenseKey:item.key}),e=>e.message===(revoked?'DESKTOP_REVOKED':'DESKTOP_KEY_USED'));
@@ -36,7 +36,7 @@ try{
   }
  }
  d.Import(original);
- for(const item of fixture.rows){assert.equal(d.Detail(item.id).licenseKey,item.key);assert.equal(d.Public(d.DB().licenses[item.id]).status,item.kind==='revoked'?'REVOKED':'USED');}
+ for(const item of fixture.rows){assert.equal(d.Detail(item.id).licenseKey,undefined);assert.equal(d.Public(d.DB().licenses[item.id]).status,item.kind==='revoked'?'REVOKED':'USED');}
  const latest=require('../services/desktopJournal').Load().state;
  for(const item of fixture.rows.filter(row=>row.kind.startsWith('available-')))assert.equal(latest.licenses[item.id].status,'USED');
  console.log('LEGACY LICENSE MIGRATION PASS: original journal HMACs and admin receipts, normalized/raw old-key input, consumed/released/revoked permanence, new session tokens, durable single-use status.');

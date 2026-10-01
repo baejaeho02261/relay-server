@@ -84,6 +84,12 @@ async function upload(component, bytes, auth, csrf = true) {
     const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=Game' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
+async function uploadBaseline(bytes, auth, csrf = true, fileName = 'ntdll.dll') {
+    const headers = { 'Content-Type': 'application/octet-stream' };
+    if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
+    const response = await fetch(base + '/api/desktop/bootstrap/module-baselines?fileName=' + encodeURIComponent(fileName) + '&label=HTTP-test', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
+    return { status: response.status, json: await response.json() };
+}
 async function bootstrapDevice(device, auth) {
     const issue = await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID(), label: device.name }, auth); assert.equal(issue.status, 200);
     const response = await fetch(base + issue.json.downloadUrl, { headers: { Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
@@ -104,7 +110,7 @@ async function bootstrapDevice(device, auth) {
         let auth = await login();
         nativeProfile=(await call('/api/desktop/connect-profile',undefined,auth)).json.profile;
         const viewer = await login('viewer');
-        for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
+        for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/integrity-reports', '/api/desktop/bootstrap/module-baselines', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
             assert.equal((await call(route)).status, 401); assert.equal((await call(route, undefined, viewer)).status, 403);
         }
         assert.equal((await upload('A', bootstrapFixture.PE('A'))).status, 401);
@@ -112,6 +118,16 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await upload('A', bootstrapFixture.PE('A'), auth, false)).status, 403);
         const invalidPE = await upload('A', Buffer.from('MZ not an executable'), auth); assert.equal(invalidPE.status, 400); assert.equal(invalidPE.json.error, 'BOOTSTRAP_PE_INVALID');
         for (const component of ['A', 'B']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200); assert.equal(published.json.artifact.sha256, digest(bytes)); }
+        const dll = bootstrapFixture.PE('B'), peOffset = dll.readUInt32LE(0x3c);
+        dll.writeUInt16LE(dll.readUInt16LE(peOffset + 22) | 0x2000, peOffset + 22);
+        assert.equal((await uploadBaseline(dll)).status,401);
+        assert.equal((await uploadBaseline(dll,viewer)).status,403);
+        assert.equal((await uploadBaseline(dll,auth,false)).status,403);
+        assert.equal((await uploadBaseline(bootstrapFixture.PE('B'),auth)).status,400,'EXE renamed DLL must not become trusted module baseline');
+        assert.equal((await uploadBaseline(dll,auth,true,'../ntdll.dll')).status,400);
+        const baseline=await uploadBaseline(dll,auth);assert.equal(baseline.status,200,JSON.stringify(baseline.json));assert.equal(baseline.json.baseline.fileSha256,digest(dll));
+        const baselineList=await call('/api/desktop/bootstrap/module-baselines',undefined,auth);assert.equal(baselineList.status,200);assert.equal(baselineList.json.items.length,1);
+        assert.equal((await call('/api/desktop/bootstrap/integrity-reports',undefined,auth)).status,200);
         assert.equal((await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID() }, auth, { csrf: false })).status, 403);
         assert.equal((await call('/api/desktop/licenses', { label: 'CSRF 없는 요청' }, auth, { csrf: false })).status, 403);
         const empty = await call('/api/desktop/licenses', undefined, auth); assert.equal(empty.status, 200); assert.equal(empty.json.items.length, 0);
@@ -129,7 +145,7 @@ async function bootstrapDevice(device, auth) {
         assert.match(id,/^[A-F0-9]{24}$/);assert.match(key,/^[A-F0-9]{64}$/);
         assert.equal((await call('/api/desktop/licenses/'+id)).status,401);
         assert.equal((await call('/api/desktop/licenses/'+id,undefined,viewer)).status,403);
-        assert.equal((await call('/api/desktop/licenses/'+id,undefined,auth)).json.licenseKey,key);
+        assert.equal((await call('/api/desktop/licenses/'+id,undefined,auth)).json.licenseKey,undefined);
         const devices = [device('Windows A'), device('Windows B')];
         await Promise.all(devices.map(item => bootstrapDevice(item, auth)));
         const packets = await Promise.all(devices.map(item => signed(item, 'redeem', { licenseKey: key, deviceName: item.name, appVersion: '1.0.0' })));
@@ -142,7 +158,7 @@ async function bootstrapDevice(device, auth) {
         assert.equal(replay.status, 200); assert.equal(replay.json.data.activationToken, token, 'Exact wire retry returns the same committed result');
         let list = await call('/api/desktop/licenses', undefined, auth); assert.equal(list.status, 200); assert.equal(list.json.items.length, 1);
         assert.equal(list.json.items[0].deviceId, winner.deviceId);
-        const detail=await call('/api/desktop/licenses/'+id,undefined,auth);assert.equal(detail.status,200);assert.equal(detail.json.licenseKey,key);assert.equal(detail.json.license.status,'USED');
+        const detail=await call('/api/desktop/licenses/'+id,undefined,auth);assert.equal(detail.status,200);assert.equal(detail.json.licenseKey,undefined);assert.equal(detail.json.license.status,'USED');
         const active = await call('/api/desktop/licenses?status=USED', undefined, auth); assert.equal(active.status, 200); assert.equal(active.json.items.length, 1);
         const unused = await call('/api/desktop/licenses', { label: 'Global status count', requestId: crypto.randomUUID() }, auth); assert.equal(unused.status, 200);
         const filtered = await call('/api/desktop/licenses?status=USED', undefined, auth); assert.equal(filtered.json.items.length, 1); assert.equal(filtered.json.counts.AVAILABLE, 1); assert.equal(filtered.json.counts.USED, 1);
@@ -174,8 +190,9 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await call(policyRoute+'/block',policyBody)).status,401);
         assert.equal((await call(policyRoute+'/block',policyBody,viewer)).status,403);
         assert.equal((await call(policyRoute+'/block',policyBody,auth,{csrf:false})).status,403);
-        assert.equal((await call(policyRoute+'/block',policyBody,auth)).json.machine.blocked,true);
-        assert.equal((await execute(policyDevice,'verify',{activationToken:registered.json.data.activationToken})).json.error,'DESKTOP_MACHINE_BLOCKED');
+        assert.equal((await call(policyRoute+'/block',policyBody,auth)).status,410);
+        assert.equal((await call('/api/desktop/machines',undefined,auth)).json.items.find(x=>x.machineId===policyDevice.machineId).source,'SINGLE_USE');
+        assert.equal((await execute(policyDevice,'verify',{activationToken:registered.json.data.activationToken})).json.ok,true,'Original one-use owner must remain authorized');
         assert.equal((await call(policyRoute+'/unblock',{...policyBody,requestId:crypto.randomUUID()},auth)).json.machine.blocked,false);
         assert.equal((await execute(policyDevice,'verify',{activationToken:registered.json.data.activationToken})).json.error,'DESKTOP_MACHINE_SESSION_REVOKED');
 
@@ -184,7 +201,7 @@ async function bootstrapDevice(device, auth) {
         list = await call('/api/desktop/licenses', undefined, auth);
         assert.equal(list.status, 200); assert.equal(list.json.items.length, 3); assert.equal(list.json.items.find(item => item.id === id).status, 'REVOKED');
         assert.equal((await call('/api/desktop/licenses?status=USED', undefined, auth)).json.items.length, 1);
-        assert.equal((await call('/api/desktop/licenses/'+id,undefined,auth)).json.licenseKey,key);
+        assert.equal((await call('/api/desktop/licenses/'+id,undefined,auth)).json.licenseKey,undefined);
         assert.ok(!output.includes(key)&&!output.includes(token),'Issued key and session credentials must not appear in server logs');
         const restartDenied = await execute(winner, 'verify', { activationToken: token });
         assert.equal(restartDenied.json.ok, false); assert.equal(restartDenied.json.error, 'DESKTOP_REVOKED');

@@ -1,4 +1,4 @@
-GameConnect TLS 적용 안내 (FIX84)
+GameConnect TLS 적용 안내 (FIX85)
 
 1. 서버는 제공된 Dockerfile로 배포합니다. Node 22, OpenSSL, 시스템 인증서가 포함되어 있습니다.
    Railway에서는 GameWeb 디렉터리를 Root Directory로 지정하고 Dockerfile을 사용합니다.
@@ -31,4 +31,4 @@ GameConnect TLS 적용 안내 (FIX84)
 
 6. 관리 웹은 기존 HTTPS 역방향 프록시(예: Railway HTTPS)를 사용합니다.
    TLS로 전환한 네이티브 TCP와 관리 웹 HTTP 포트를 서로 바꾸면 안 됩니다.
-   서버와 A/B는 같은 FIX84 버전으로 교체하고, A/B를 다시 등록한 다음 새 A를 발급하세요.
+   서버와 A/B는 같은 FIX85 버전으로 교체하고, A/B를 다시 등록한 다음 새 A를 발급하세요.

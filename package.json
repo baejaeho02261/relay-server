@@ -23,7 +23,11 @@
     "test:bootstrap": "node scripts/test-desktop-bootstrap.js",
     "test:bootstrap:sqlite": "node scripts/test-desktop-bootstrap.js --sqlite",
     "test:machine": "node scripts/test-desktop-machine-policy.js",
-    "test:machine:sqlite": "node scripts/test-desktop-machine-policy.js --sqlite"
+    "test:machine:sqlite": "node scripts/test-desktop-machine-policy.js --sqlite",
+    "test:code": "node scripts/test-desktop-code-integrity.js",
+    "test:reports": "node scripts/test-desktop-integrity-reports.js",
+    "test:reports:sqlite": "node scripts/test-desktop-integrity-reports.js --sqlite",
+    "check:code-contract": "node scripts/test-native-code-contract.js"
   },
   "engines": {
     "node": ">=22.13"

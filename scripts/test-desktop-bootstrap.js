@@ -3,12 +3,12 @@ const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=requ
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT='29131';
 require('../core/utils').EnsureDirs();
 const bootstrap=require('../services/desktopBootstrap'),licenses=require('../services/desktopLicenses'),state=require('../core/state'),database=require('../storage/database'),fixture=require('./desktop-bootstrap-fixture');
-const {PE,Device,Sign,Config,sha256,Crc64}=fixture,a=Device(),b=Device();let checks=0;
+const {PE,Device,Sign,Config,sha256,Crc64,CodeImage}=fixture,a=Device(),b=Device();let checks=0;
 function Check(label,fn){fn();checks++;console.log('PASS '+label);}
 function Reject(fn,pattern=/^BOOTSTRAP_/){assert.throws(fn,error=>pattern.test(error.message),String(pattern));}
-function Gate(id,token,deviceId){const row=Object.values(bootstrap.Initialize().flows).find(item=>item.sessionId===id),artifact=bootstrap.Initialize().artifacts[row?.releaseId],device=[a,b].find(item=>item.deviceId===deviceId);return bootstrap.Gate(id,token,deviceId,{machineId:device?.machineId,binarySha256:artifact?.sha256,binaryCrc64:artifact?.crc64});}
+function Gate(id,token,deviceId){const row=Object.values(bootstrap.Initialize().flows).find(item=>item.sessionId===id),artifact=bootstrap.Initialize().artifacts[row?.releaseId],device=[a,b].find(item=>item.deviceId===deviceId);return bootstrap.Gate(id,token,deviceId,{machineId:device?.machineId,binarySha256:artifact?.sha256,binaryCrc64:artifact?.crc64,codeSha256:artifact?.codeSha256,codeCrc64:artifact?.codeCrc64});}
 function LicenseProof(device,action,payload,requestId=crypto.randomUUID()){
- if(payload.bootstrapSessionId)payload=fixture.LicensePayload(device,payload);else {const release=bootstrap.Overview().artifacts.B;payload={...payload,machineId:device.machineId,binarySha256:release.sha256,binaryCrc64:release.crc64};}
+ if(payload.bootstrapSessionId)payload=fixture.LicensePayload(device,payload);else {const release=bootstrap.Overview().artifacts.B;payload={...payload,machineId:device.machineId,binarySha256:release.sha256,binaryCrc64:release.crc64,codeSha256:release.codeSha256,codeCrc64:release.codeCrc64};}
  const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha256(payloadJSON)},challenge=licenses.Challenge(base);
  return {...base,challengeId:challenge.challengeId,payloadJSON,signature:Sign(device,challenge.canonical)};
 }
@@ -39,11 +39,11 @@ Check('Issued launcher includes pinned profile and one deterministic download fo
  const overview=JSON.stringify(bootstrap.Overview());assert.ok(!overview.includes(config.launcherTicket));assert.ok(!overview.includes('BEGIN PRIVATE KEY'));
 });
 Check('Claim admission checks launcher hash, ticket and proof key binding',()=>{
- beginBody={action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha256:sha256(launcher),launcherCrc64:Crc64(launcher),machineId:a.machineId,publicKey:a.publicKey,deviceId:a.deviceId};
+ beginBody={action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha256:sha256(launcher),launcherCrc64:Crc64(launcher),aCodeSha256:CodeImage(launcher).sha256,aCodeCrc64:CodeImage(launcher).crc64,machineId:a.machineId,publicKey:a.publicKey,deviceId:a.deviceId};
  Reject(()=>bootstrap.Execute({...beginBody,launcherCrc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...beginBody,launcherSha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...beginBody,launcherTicket:'invalid'}));Reject(()=>bootstrap.Execute({...beginBody,deviceId:b.deviceId}),/^(BOOTSTRAP_|DESKTOP_)/);
  begin=bootstrap.Execute(beginBody);assert.equal(begin.release.sha256,publishedB.sha256);assert.equal(begin.release.size,publishedB.size);assert.match(begin.flowId,/^[A-F0-9]{24}$/);assert.ok(begin.downloadTicket&&begin.finishCanonical);
  assert.equal(bootstrap.Execute(beginBody).flowId,begin.flowId);Reject(()=>bootstrap.Execute({...beginBody,requestId:crypto.randomUUID(),deviceId:b.deviceId,publicKey:b.publicKey}));
- assert.deepEqual(Object.keys(begin.release).sort(),['crc64','id','sha256','size','version']);
+ assert.deepEqual(Object.keys(begin.release).sort(),['codeAlgorithm','codeCrc64','codeSha256','crc64','id','sha256','size','version']);
 });
 Check('Chunk retrieval checks credentials and integral in-range offsets',()=>{
  Reject(()=>fixture.Finish(a,begin),/^BOOTSTRAP_DOWNLOAD_INCOMPLETE$/);
@@ -52,12 +52,12 @@ Check('Chunk retrieval checks credentials and integral in-range offsets',()=>{
  assert.deepEqual(fixture.Download(begin),PE('B'));const chunk=bootstrap.Execute({action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset:0});assert.deepEqual(Buffer.from(chunk.data,'base64'),PE('B'));
 });
 Check('Finish requires published digest and device signature before returning handoff',()=>{
- const body={action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,crc64:begin.release.crc64,signature:Sign(a,begin.finishCanonical)};
+ const body={action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,crc64:begin.release.crc64,aCodeSha256:begin.finishCanonical.split('\n')[5],aCodeCrc64:begin.finishCanonical.split('\n')[6],signature:Sign(a,begin.finishCanonical)};
  Reject(()=>bootstrap.Execute({...body,crc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...body,sha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...body,signature:Sign(b,begin.finishCanonical)}));
  finish=bootstrap.Execute(body);assert.ok(finish.handoffToken&&finish.claimCanonical);assert.equal(bootstrap.Execute(body).handoffToken,finish.handoffToken);
 });
 Check('B claim requires exact executable digest and bound handoff signature',()=>{
- claimBody={action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(a,finish.claimCanonical),binarySha256:begin.release.sha256,crc64:begin.release.crc64};
+ claimBody={action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(a,finish.claimCanonical),binarySha256:begin.release.sha256,crc64:begin.release.crc64,bCodeSha256:begin.release.codeSha256,bCodeCrc64:begin.release.codeCrc64};
  Reject(()=>bootstrap.Execute({...claimBody,crc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...claimBody,handoffToken:'invalid'}));Reject(()=>bootstrap.Execute({...claimBody,binarySha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...claimBody,signature:Sign(b,finish.claimCanonical)}));
  session=bootstrap.Execute(claimBody);assert.match(session.sessionId,/^[A-F0-9]{24}$/);assert.ok(session.sessionToken&&session.expiresAt>Date.now());assert.equal(bootstrap.Execute(claimBody).sessionToken,session.sessionToken);
  assert.ok(Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>Gate(session.sessionId,session.sessionToken,b.deviceId));Reject(()=>Gate(session.sessionId,'invalid',a.deviceId));
@@ -67,7 +67,7 @@ Check('Launcher device consumption and lost-claim response recovery survive rest
  const other=Restart({...beginBody,requestId:crypto.randomUUID(),publicKey:b.publicKey,deviceId:b.deviceId});assert.equal(other.ok,false);assert.match(other.error,/^BOOTSTRAP_/);
 });
 Check('Storage failure and tampered published artifact never consume an unused launcher',()=>{
- const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Failure atomicity'},'TEST'),bytes=bootstrap.LauncherBytes(issue.launcherId),settings=Config(bytes),body={action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:settings.launcherTicket,launcherSha256:sha256(bytes),launcherCrc64:Crc64(bytes),machineId:a.machineId,publicKey:a.publicKey,deviceId:a.deviceId};
+ const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Failure atomicity'},'TEST'),bytes=bootstrap.LauncherBytes(issue.launcherId),settings=Config(bytes),body={action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:settings.launcherTicket,launcherSha256:sha256(bytes),launcherCrc64:Crc64(bytes),aCodeSha256:CodeImage(bytes).sha256,aCodeCrc64:CodeImage(bytes).crc64,machineId:a.machineId,publicKey:a.publicKey,deviceId:a.deviceId};
  const store=require('../services/desktopBootstrapStore'),file=store.ArtifactPath(publishedB.id),original=fs.readFileSync(file),tampered=Buffer.from(original);tampered[512]^=1;
  fs.writeFileSync(file,tampered);try{Reject(()=>bootstrap.Execute(body),/^BOOTSTRAP_ARTIFACT_INVALID$/);}finally{fs.writeFileSync(file,original);}
  assert.equal(bootstrap.Overview().launchers.find(row=>row.id===issue.launcherId).status,'AVAILABLE');
@@ -76,11 +76,11 @@ Check('Storage failure and tampered published artifact never consume an unused l
  assert.equal(bootstrap.Overview().launchers.find(row=>row.id===issue.launcherId).status,'AVAILABLE');const retry=bootstrap.Execute(body);assert.ok(retry.flowId);assert.equal(bootstrap.Execute(body).flowId,retry.flowId);
 });
 Check('License journal commit survives bootstrap linkage failure and exact proof repairs it',()=>{
- const running=fixture.Session(a,'two-store-failure'),key=licenses.Create({label:'Durable cross-store recovery'},'TEST'),payload={licenseKey:key.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken},proof=LicenseProof(a,'redeem',payload),store=require('../services/desktopBootstrapStore'),atomic=store.Atomic;
+ const isolated=Device(),running=fixture.Session(isolated,'two-store-failure'),key=licenses.Create({label:'Durable cross-store recovery'},'TEST'),payload={licenseKey:key.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken},proof=LicenseProof(isolated,'redeem',payload),store=require('../services/desktopBootstrapStore'),atomic=store.Atomic;
  store.Atomic=()=>{throw Error('TEST_BOOTSTRAP_LINKAGE_WRITE_FAILURE');};try{Reject(()=>licenses.Execute(proof),/^STORAGE_SAVE_FAILED$/);}finally{store.Atomic=atomic;}
  const committed=licenses.DB().licenses[key.license.id];assert.equal(committed.consumed,true);assert.equal(committed.status,'USED');assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,'');
  const recovered=licenses.Execute(proof);assert.equal(recovered.status,'USED');assert.equal(sha256(recovered.activationToken),committed.tokenHash);assert.equal(licenses.Execute(proof).activationToken,recovered.activationToken);assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,key.license.id);
- Reject(()=>licenses.Execute(LicenseProof(a,'redeem',payload)),/^DESKTOP_KEY_USED$/);
+ Reject(()=>licenses.Execute(LicenseProof(isolated,'redeem',payload)),/^DESKTOP_KEY_USED$/);
 });
 Check('License consumption requires signed, current, same-device B session',()=>{
  const key=licenses.Create({label:'B session gate'},'TEST'),payload={licenseKey:key.licenseKey,deviceName:'부트스트랩 테스트',appVersion:'80.0.0'};
@@ -90,7 +90,7 @@ Check('License consumption requires signed, current, same-device B session',()=>
  const activated=licenses.Execute(LicenseProof(a,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken}));assert.equal(activated.status,'USED');assert.equal(activated.deviceId,a.deviceId);
  const proof=LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken});assert.equal(licenses.Execute(proof).status,'USED');
  const different=licenses.Create({label:'Must remain unused'},'TEST');Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{licenseKey:different.licenseKey,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);assert.equal(licenses.DB().licenses[different.license.id].consumed,false);
- const alternate=fixture.Session(a,'attempt-activation-reuse');Reject(()=>licenses.Execute(LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:alternate.sessionId,bootstrapSessionToken:alternate.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);
+ Reject(()=>fixture.Session(a,'attempt-activation-reuse'),/^DESKTOP_MACHINE_BLOCKED$/);
  const oldSnapshot=database.BuildDatabaseObject();bootstrap.Execute({action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken});Reject(()=>Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>licenses.Execute(proof));
  database.ImportDatabaseObject(oldSnapshot);Reject(()=>Gate(session.sessionId,session.sessionToken,a.deviceId),/^BOOTSTRAP_SESSION_CLOSED$/);const retry=Restart(claimBody);assert.equal(retry.ok,false);assert.equal(retry.error,'BOOTSTRAP_SESSION_CLOSED');
 });
@@ -98,6 +98,7 @@ Check('Service pause denies bootstrap and expired sessions cannot authorize lice
  state.serviceEnabled=false;try{Reject(()=>bootstrap.Execute(beginBody),/^(BOOTSTRAP_|SERVICE_DISABLED)/);}finally{state.serviceEnabled=true;}
  const next=fixture.Session(b),real=Date.now;Date.now=()=>next.expiresAt+1;try{Reject(()=>Gate(next.sessionId,next.sessionToken,b.deviceId));}finally{Date.now=real;}Reject(()=>Gate(next.sessionId,next.sessionToken,b.deviceId),/^BOOTSTRAP_EXPIRED$/);const row=Object.values(bootstrap.Initialize().flows).find(item=>item.sessionId===next.sessionId);assert.equal(row.sessionNonce,undefined);assert.equal(row.downloadNonce,undefined);
 });
+require('../services/desktopMachinePolicy').Set(a.machineId,false,{reason:'Independent bootstrap test epoch',requestId:crypto.randomUUID()},'TEST');
 Check('Abort invalidates unfinished and claimed flow without reviving capabilities',()=>{
  for(const claimed of [false,true]){
   const pending=fixture.Begin(a);let running;
@@ -141,7 +142,7 @@ Check('Historical authority migrates once, keeps tombstones and artifacts, and r
  const script="const b=require(process.cwd()+'/services/desktopBootstrap'),p=JSON.parse(require('node:fs').readFileSync(0,'utf8'));b.Initialize();const codes={};for(const [name,fn]of Object.entries({issue:()=>b.IssueLauncher({requestId:'upgrade-attempt'}),download:()=>b.LauncherBytes(p.unused),session:()=>b.Gate(p.session,p.token,p.deviceId)}))try{fn();codes[name]='UNSAFE';}catch(e){codes[name]=e.message;}console.log('RESULT:'+JSON.stringify(codes));";
  for(let run=0;run<2;run++){
   const result=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:dir},input:JSON.stringify({...ids,token:token('SESSION',ids.session),deviceId:a.deviceId}),encoding:'utf8'});assert.equal(result.status,0,result.stderr);const out=JSON.parse(result.stdout.slice(result.stdout.lastIndexOf('RESULT:')+7));assert.deepEqual(out,{issue:'BOOTSTRAP_NOT_READY',download:'BOOTSTRAP_EXPIRED',session:'BOOTSTRAP_REVOKED'});
-  const stored=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(stored.schema,3);assert.equal(stored.revision,8);assert.equal(stored.secret,secret);assert.deepEqual(stored.active,{});assert.deepEqual(stored.artifacts,artifacts);assert.deepEqual(stored.issueReceipts,original.issueReceipts);assert.equal(stored.launchers[ids.used].status,'CONSUMED');assert.equal(stored.launchers[ids.unused].status,'EXPIRED');assert.equal(stored.flows[ids.flow].status,'REVOKED');assert.equal(stored.flows[ids.flow].sessionHash,original.flows[ids.flow].sessionHash);
+  const stored=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(stored.schema,4);assert.equal(stored.revision,8);assert.equal(stored.secret,secret);assert.deepEqual(stored.active,{});assert.deepEqual(stored.artifacts,artifacts);assert.deepEqual(stored.issueReceipts,original.issueReceipts);assert.equal(stored.launchers[ids.used].status,'CONSUMED');assert.equal(stored.launchers[ids.unused].status,'EXPIRED');assert.equal(stored.flows[ids.flow].status,'REVOKED');assert.equal(stored.flows[ids.flow].sessionHash,original.flows[ids.flow].sessionHash);
   for(const row of Object.values(stored.launchers)){assert.equal(row.ticketNonce,undefined);assert.equal(row.profile,undefined);}for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])assert.equal(stored.flows[ids.flow][key],undefined);
   for(const component of ['A','B'])assert.deepEqual(fs.readFileSync(path.join(authorityDir,ids[component]+'.exe')),PE(component));
  }
@@ -153,7 +154,18 @@ Check('Actual FIX83 authority upgrades TLS policy without recreating a ticket, s
  const script="const b=require(process.cwd()+'/services/desktopBootstrap');b.Initialize();console.log('RESULT:'+JSON.stringify(b.Overview()));";
  for(let run=0;run<2;run++){
   const result=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:dir},encoding:'utf8'});assert.equal(result.status,0,result.stderr);
-  const stored=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(stored.schema,3);assert.equal(stored.revision,original.revision+1);assert.equal(stored.secret,original.secret);assert.deepEqual(stored.active,{});assert.deepEqual(stored.artifacts,original.artifacts);assert.deepEqual(stored.issueReceipts,original.issueReceipts);
+  const stored=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(stored.schema,4);assert.equal(stored.revision,original.revision+1);assert.equal(stored.secret,original.secret);assert.deepEqual(stored.active,{});assert.deepEqual(stored.artifacts,original.artifacts);assert.deepEqual(stored.issueReceipts,original.issueReceipts);
+  for(const [id,row]of Object.entries(original.launchers)){assert.equal(stored.launchers[id].status,row.status==='AVAILABLE'?'EXPIRED':row.status);assert.equal(stored.launchers[id].sha256,row.sha256);assert.equal(stored.launchers[id].ticketHash,row.ticketHash);assert.equal(stored.launchers[id].ticketNonce,undefined);assert.equal(stored.launchers[id].profile,undefined);}
+  for(const [id,row]of Object.entries(original.flows)){assert.equal(stored.flows[id].status,['CLOSED','REVOKED','EXPIRED'].includes(row.status)?row.status:'REVOKED');assert.equal(stored.flows[id].sessionHash,row.sessionHash);assert.equal(stored.flows[id].sessionNonce,undefined);assert.equal(stored.flows[id].downloadNonce,undefined);}
+ }
+});
+Check('Actual FIX84 authority upgrades code-integrity policy without recreating a ticket, session, or release',()=>{
+ const original=JSON.parse(fs.readFileSync(path.join(__dirname,'fixtures','desktop-bootstrap-authority-v3.json'),'utf8')),dir=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-v3-')),authorityDir=path.join(dir,'desktop-bootstrap'),file=path.join(authorityDir,'authority.json');
+ fs.mkdirSync(authorityDir);fs.writeFileSync(file,JSON.stringify(original));for(const row of Object.values(original.artifacts))fs.writeFileSync(path.join(authorityDir,row.id+'.exe'),PE(row.component));
+ const script="const b=require(process.cwd()+'/services/desktopBootstrap');b.Initialize();console.log('RESULT:'+JSON.stringify(b.Overview()));";
+ for(let run=0;run<2;run++){
+  const result=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:dir},encoding:'utf8'});assert.equal(result.status,0,result.stderr);
+  const stored=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(stored.schema,4);assert.equal(stored.revision,original.revision+1);assert.equal(stored.secret,original.secret);assert.deepEqual(stored.active,{});assert.deepEqual(stored.artifacts,original.artifacts);assert.deepEqual(stored.issueReceipts,original.issueReceipts);
   for(const [id,row]of Object.entries(original.launchers)){assert.equal(stored.launchers[id].status,row.status==='AVAILABLE'?'EXPIRED':row.status);assert.equal(stored.launchers[id].sha256,row.sha256);assert.equal(stored.launchers[id].ticketHash,row.ticketHash);assert.equal(stored.launchers[id].ticketNonce,undefined);assert.equal(stored.launchers[id].profile,undefined);}
   for(const [id,row]of Object.entries(original.flows)){assert.equal(stored.flows[id].status,['CLOSED','REVOKED','EXPIRED'].includes(row.status)?row.status:'REVOKED');assert.equal(stored.flows[id].sessionHash,row.sessionHash);assert.equal(stored.flows[id].sessionNonce,undefined);assert.equal(stored.flows[id].downloadNonce,undefined);}
  }
@@ -169,15 +181,48 @@ Check('Server verifies its stored B bytes again before finish and claim',()=>{
 });
 Check('Machine blocks deny bootstrap and unblocking cannot revive prior sessions',()=>{
  const device=Device(),pending=fixture.Begin(device);fixture.Download(pending.begin);const completed=fixture.Finish(device,pending.begin),running=fixture.Claim(device,pending.begin,completed),policy=require('../services/desktopMachinePolicy'),evidence=fixture.Evidence(device,running);
- policy.Set(device.machineId,true,{reason:'Test machine block',requestId:crypto.randomUUID()},'TEST');
- assert.equal(bootstrap.Execute({action:'status',sessionId:running.sessionId,sessionToken:running.sessionToken}).status,'REVOKED');assert.equal(bootstrap.Overview().sessions.find(item=>item.id===running.sessionId).online,false);
- Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence),/^DESKTOP_MACHINE_BLOCKED$/);
- Reject(()=>fixture.Begin(device),/^DESKTOP_MACHINE_BLOCKED$/);Reject(()=>fixture.Claim(device,pending.begin,completed),/^DESKTOP_MACHINE_BLOCKED$/);
+ const license=licenses.Create({label:'Automatic one use lock'},'TEST');licenses.Execute(LicenseProof(device,'redeem',{licenseKey:license.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken}));
+ assert.equal(policy.Public(device.machineId).blocked,true);assert.equal(policy.Public(device.machineId).source,'SINGLE_USE');
+ assert.ok(bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence));
+ bootstrap.Execute({action:'close',sessionId:running.sessionId,sessionToken:running.sessionToken});
+ assert.equal(bootstrap.Execute({action:'status',sessionId:running.sessionId,sessionToken:running.sessionToken}).status,'CLOSED');assert.equal(bootstrap.Overview().sessions.find(item=>item.id===running.sessionId).online,false);
+ Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence),/^BOOTSTRAP_SESSION_CLOSED$/);
+ Reject(()=>fixture.Begin(device),/^DESKTOP_MACHINE_BLOCKED$/);Reject(()=>fixture.Claim(device,pending.begin,completed),/^BOOTSTRAP_SESSION_CLOSED$/);
  policy.Set(device.machineId,false,{reason:'Test machine unblock',requestId:crypto.randomUUID()},'TEST');
- assert.equal(bootstrap.Execute({action:'status',sessionId:running.sessionId,sessionToken:running.sessionToken}).status,'REVOKED');
+ assert.equal(bootstrap.Execute({action:'status',sessionId:running.sessionId,sessionToken:running.sessionToken}).status,'CLOSED');
  Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence),/^DESKTOP_MACHINE_SESSION_REVOKED$/);
  Reject(()=>fixture.Claim(device,pending.begin,completed),/^DESKTOP_MACHINE_SESSION_REVOKED$/);
  const fresh=fixture.Begin(device);fixture.Download(fresh.begin);assert.ok(fixture.Claim(device,fresh.begin,fixture.Finish(device,fresh.begin)).sessionId);
+});
+
+Check('Own executable reports compare to pristine upload and revoke modified-code flows',()=>{
+ const device=Device(),pending=fixture.Begin(device);fixture.Download(pending.begin);const completed=fixture.Finish(device,pending.begin);
+ const claim={action:'claim',flowId:pending.begin.flowId,handoffToken:completed.handoffToken,signature:Sign(device,completed.claimCanonical),binarySha256:pending.begin.release.sha256,crc64:pending.begin.release.crc64,bCodeSha256:'0'.repeat(64),bCodeCrc64:pending.begin.release.codeCrc64};
+ Reject(()=>bootstrap.Execute(claim),/^BOOTSTRAP_CODE_MISMATCH$/);assert.equal(bootstrap.Initialize().flows[pending.begin.flowId].status,'REVOKED');assert.equal(bootstrap.Initialize().flows[pending.begin.flowId].codeIntegrityStatus,'REJECTED');
+ Reject(()=>fixture.Claim(device,pending.begin,completed),/^BOOTSTRAP_REVOKED$/);
+ const fresh=fixture.Begin(device);fixture.Download(fresh.begin);const session=fixture.Claim(device,fresh.begin,fixture.Finish(device,fresh.begin)),evidence=fixture.Evidence(device,session);
+ Reject(()=>bootstrap.Gate(session.sessionId,session.sessionToken,device.deviceId,{...evidence,codeCrc64:'0'.repeat(16)}),/^BOOTSTRAP_CODE_MISMATCH$/);
+ assert.equal(bootstrap.Overview().sessions.find(s=>s.id===session.sessionId).reason,'CODE_DIGEST_MISMATCH');
+ const a=fixture.Begin(device);fixture.Download(a.begin);const finish={action:'finish',flowId:a.begin.flowId,downloadTicket:a.begin.downloadTicket,sha256:a.begin.release.sha256,crc64:a.begin.release.crc64,aCodeSha256:'0'.repeat(64),aCodeCrc64:a.begin.finishCanonical.split('\n')[6],signature:Sign(device,a.begin.finishCanonical)};
+ Reject(()=>bootstrap.Execute(finish),/^BOOTSTRAP_CODE_MISMATCH$/);assert.equal(bootstrap.Initialize().flows[a.begin.flowId].status,'REVOKED');
+ const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),bytes=bootstrap.LauncherBytes(issue.launcherId),cfg=Config(bytes);
+ Reject(()=>bootstrap.Execute({action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:cfg.launcherTicket,launcherSha256:sha256(bytes),launcherCrc64:Crc64(bytes),aCodeSha256:'0'.repeat(64),aCodeCrc64:CodeImage(bytes).crc64,machineId:device.machineId,publicKey:device.publicKey,deviceId:device.deviceId}),/^BOOTSTRAP_CODE_MISMATCH$/);
+ assert.equal(bootstrap.Initialize().launchers[issue.launcherId].status,'AVAILABLE');
+});
+
+Check('A diagnostics bind the personalized launcher and cannot cross into claimed B',()=>{
+ const device=Device(),pending=fixture.Begin(device),auth={stage:'A',sessionId:pending.begin.flowId,sessionToken:pending.begin.downloadTicket,machineId:device.machineId};
+ const row=bootstrap.AuthenticateIntegrityReport(auth);assert.equal(row.stage,'A');assert.equal(row.reportContextId,pending.begin.flowId);assert.equal(row.integrityArtifact.sha256,sha256(pending.bytes));assert.equal(row.integrityArtifact.crc64,Crc64(pending.bytes));assert.equal(row.integrityArtifact.codeSha256,CodeImage(pending.bytes).sha256);
+ Reject(()=>bootstrap.AuthenticateIntegrityReport({...auth,sessionToken:'wrong'}));Reject(()=>bootstrap.AuthenticateIntegrityReport({...auth,machineId:'F'.repeat(64)}));
+ fixture.Download(pending.begin);const finished=fixture.Finish(device,pending.begin);assert.equal(bootstrap.AuthenticateIntegrityReport(auth).stage,'A');
+ const real=Date.now;Date.now=()=>finished.expiresAt+1;try{Reject(()=>bootstrap.AuthenticateIntegrityReport(auth),/^BOOTSTRAP_EXPIRED$/);}finally{Date.now=real;}
+ fixture.Claim(device,pending.begin,finished);Reject(()=>bootstrap.AuthenticateIntegrityReport(auth),/^BOOTSTRAP_LAUNCHER_USED$/);
+});
+
+Check('Successful authoritative code checks refresh one bounded server observation',()=>{
+ const device=Device(),pending=fixture.Begin(device);fixture.Download(pending.begin);const running=fixture.Claim(device,pending.begin,fixture.Finish(device,pending.begin)),reports=require('../services/desktopIntegrityReports'),evidence=fixture.Evidence(device,running);
+ const find=()=>reports.List({sessionId:running.sessionId}).items.filter(r=>r.stage==='B'&&r.check==='OWN_CODE'&&r.status==='VERIFIED');const before=find();assert.equal(before.length,1);
+ const real=Date.now,advanced=real()+11000;Date.now=()=>advanced;try{bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence);const after=find();assert.equal(after.length,1);assert.ok(after[0].at>before[0].at);assert.equal(after[0].expectedSha256,evidence.codeSha256);bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence);assert.equal(find()[0].id,after[0].id);}finally{Date.now=real;}
 });
 
 console.log(`Desktop bootstrap checks: ${checks} passed (${process.env.STORAGE_ENGINE})`);

@@ -15,7 +15,8 @@ function ReadBytes(req){
 // web server has already authenticated the session; repeat CSRF/admin checks
 // here so this special path cannot accidentally bypass either gate.
 async function HandleUpload({method,pathname,url,req,res,session}){
- if(pathname!=='/api/desktop/bootstrap/artifacts')return false;
+ if(!['/api/desktop/bootstrap/artifacts','/api/desktop/bootstrap/module-baselines'].includes(pathname))return false;
+ if(pathname==='/api/desktop/bootstrap/module-baselines'&&method==='GET')return false;
  if(!RequireAdmin(res,session))return true;
  if(method!=='POST'){ApiError(res,405,'METHOD_NOT_ALLOWED');return true;}
  if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}
@@ -24,6 +25,10 @@ async function HandleUpload({method,pathname,url,req,res,session}){
  try{
   if(!/^application\/octet-stream(?:\s*;|$)/i.test(req.headers['content-type']||'')||req.headers['content-encoding']&&req.headers['content-encoding']!=='identity')bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
   const length=Number(req.headers['content-length']||0);if(!Number.isSafeInteger(length)||length<0)bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');if(length>bootstrap.MAX_ARTIFACT_BYTES)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
+  if(pathname==='/api/desktop/bootstrap/module-baselines'){
+   if(length>32*1024*1024)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);uploadPending=true;
+   const bytes=await ReadBytes(req),baseline=require('../../services/desktopIntegrityReports').RegisterBaseline(url.searchParams.get('fileName'),url.searchParams.get('label')||'',bytes,String(session.role||'ADMIN')+':'+String(session.id||''));Json(res,200,{ok:true,baseline});return true;
+  }
   const component=url.searchParams.get('component'),version=url.searchParams.get('version'),name=url.searchParams.get('fileName')||'';
   if(!['A','B'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
   uploadPending=true;const bytes=await ReadBytes(req),artifact=bootstrap.Publish(component,version,bytes);Json(res,200,{ok:true,artifact});
@@ -35,6 +40,8 @@ async function Handle({method,pathname,url,body,req,res,session}){
  if(!RequireAdmin(res,session))return true;
  const actor=String(session.role||'ADMIN')+':'+String(session.id||'');
  try{
+  if(pathname==='/api/desktop/bootstrap/integrity-reports'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopIntegrityReports').List(Object.fromEntries(url.searchParams))});return true;}
+  if(pathname==='/api/desktop/bootstrap/module-baselines'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopIntegrityReports').Baselines()});return true;}
   if(pathname==='/api/desktop/bootstrap'&&method==='GET'){Json(res,200,{ok:true,bootstrap:bootstrap.Overview()});return true;}
   if(pathname==='/api/desktop/bootstrap/launchers'&&method==='POST'){Json(res,200,{ok:true,...bootstrap.IssueLauncher(body,actor)});return true;}
   const download=/^\/api\/desktop\/bootstrap\/launchers\/((?:LA-)?[A-F0-9]{24})\/download$/.exec(pathname);
