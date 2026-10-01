@@ -65,7 +65,7 @@ function CreateServer(){
  // never send ClientHello. The same absolute budget covers handshake + request.
  server.on('connection',socket=>{
   Prune();const ip=String(socket.remoteAddress||'UNKNOWN');
-  try{Rate('ALL',1800);Rate('IP:'+ip,300);if(active>=512||(activeByIp.get(ip)||0)>=32)throw Error('CONNECT_CAPACITY');}catch(_){socket.destroy();return;}
+  try{Rate('ALL',1800);Rate('IP:'+ip,900);if(active>=512||(activeByIp.get(ip)||0)>=32)throw Error('CONNECT_CAPACITY');}catch(_){socket.destroy();return;}
   active++;activeByIp.set(ip,(activeByIp.get(ip)||0)+1);socket.on('error',()=>{});
   const deadline=setTimeout(()=>socket.destroy(),DEADLINE_MS);deadline.unref();
   socket.once('close',()=>{clearTimeout(deadline);active--;const count=(activeByIp.get(ip)||1)-1;if(count)activeByIp.set(ip,count);else activeByIp.delete(ip);});

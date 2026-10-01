@@ -132,6 +132,7 @@ function Chunk(body){
 }
 function Finish(body){
  Fields(body,['flowId','downloadTicket','sha256','crc64','aCodeSha256','aCodeCrc64','signature']);const row=DownloadFlow(body,true),artifact=DB().artifacts[row.releaseId];CheckFile(artifact,Sha(body.sha256),Crc(body.crc64),{stage:'B',row});Verify(row,FinishCanonical(row),body.signature);CheckCode(DB().artifacts[DB().launchers[row.launcherId].artifactId],Sha(body.aCodeSha256),Crc(body.aCodeCrc64),{stage:'A',row});Bytes(artifact);
+ require('./desktopIntegrityReports').RequireSnapshot(row,'A');
  if(row.status==='CLAIMED'||row.status==='DOWNLOADED'){if(row.handoffExpiresAt<=now())Fail('BOOTSTRAP_EXPIRED',403);return FinishResult(row);}
  if(row.chunkOffsets.length!==Math.ceil(artifact.size/CHUNK_SIZE))Fail('BOOTSTRAP_DOWNLOAD_INCOMPLETE',409);
  Atomic(db=>{const item=db.flows[row.id];item.status='DOWNLOADED';item.downloadedAt=now();item.handoffNonce=Nonce();item.claimNonce=Nonce();item.handoffExpiresAt=Math.min(item.expiresAt,now()+HANDOFF_MS);item.handoffHash=hash(HandoffToken(item));});
@@ -155,7 +156,7 @@ function Gate(id,token,deviceId,options={}){
  const released=options.allowReleased&&row.status==='CLOSED'&&row.closedByLicenseRelease;
  if(!released)FlowLive(row,true);
  const artifact=DB().artifacts[row.releaseId];if(MachinePolicy().Validate(options.machineId)!==row.machineId)Fail('BOOTSTRAP_HASH_MISMATCH',403);CheckFile(artifact,Sha(options.binarySha256),Crc(options.binaryCrc64),{stage:'B',row});MachinePolicy().AssertAllowed(row.machineId,row.machinePolicyGeneration,row.sessionId);
- if((row.status!=='CLAIMED'&&!released)||row.deviceId!==deviceId)Fail('BOOTSTRAP_SESSION_INVALID',403);CheckCode(artifact,Sha(options.codeSha256),Crc(options.codeCrc64),{stage:'B',row});return row;
+ if((row.status!=='CLAIMED'&&!released)||row.deviceId!==deviceId)Fail('BOOTSTRAP_SESSION_INVALID',403);CheckCode(artifact,Sha(options.codeSha256),Crc(options.codeCrc64),{stage:'B',row});if(!released)require('./desktopIntegrityReports').RequireSnapshot(row,'B');return row;
 }
 function RecordIntegritySuccess(info){
  const key=info.stage+':'+info.sessionId+':'+info.check,at=now();if(at-(integritySuccessTimes.get(key)||0)<10000)return;
