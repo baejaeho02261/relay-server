@@ -28,7 +28,10 @@ function MachinePolicy(){return require('./desktopMachinePolicy');}
 function RequestId(value){if(typeof value!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(value))Fail('BOOTSTRAP_INPUT_INVALID');return value;}
 function Audit(type,value){try{require('../storage/audit').LogEvent(type,JSON.stringify(value));}catch(error){console.error('BOOTSTRAP_AUDIT_FAILED:',type);}}
 function Artifact(row){return row?{id:row.id,component:row.component,version:row.version,sha256:row.sha256,crc64:row.crc64,xxh64:row.xxh64,blake3:row.blake3,codeSha256:row.codeSha256,codeCrc64:row.codeCrc64,codeXxh64:row.codeXxh64,codeBlake3:row.codeBlake3,codeAlgorithm:row.codeAlgorithm,size:row.size,createdAt:row.createdAt}:null;}
-function Release(row){if(!row)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return {id:row.id,version:row.version,sha256:row.sha256,crc64:row.crc64,xxh64:row.xxh64,blake3:row.blake3,codeSha256:row.codeSha256,codeCrc64:row.codeCrc64,codeXxh64:row.codeXxh64,codeBlake3:row.codeBlake3,codeAlgorithm:row.codeAlgorithm,size:row.size};}
+// GAME-CONNECT-3 clients validate exactly these eight release fields at Begin
+// and Claim. Extended hashes stay in persisted artifacts and authenticated
+// integrity reports; adding them here makes existing A/B clients reject startup.
+function Release(row){if(!row)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return {id:row.id,version:row.version,sha256:row.sha256,crc64:row.crc64,codeSha256:row.codeSha256,codeCrc64:row.codeCrc64,codeAlgorithm:row.codeAlgorithm,size:row.size};}
 function Pe(bytes,component){
  if(!Buffer.isBuffer(bytes)||bytes.length>MAX_ARTIFACT_BYTES)Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
  if(bytes.length<512||bytes.readUInt16LE(0)!==0x5a4d)Fail('BOOTSTRAP_PE_INVALID');
