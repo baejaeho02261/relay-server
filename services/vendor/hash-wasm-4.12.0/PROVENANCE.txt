@@ -1,0 +1,47 @@
+Vendored hashing binaries: hash-wasm 4.12.0
+
+Official maintainer repository: https://github.com/Daninet/hash-wasm
+Exact package: https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz
+Package SHA-512 integrity:
+sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==
+
+The .wasm files are the unchanged base64-decoded data fields of the respective
+name:"xxhash64" and name:"blake3" objects in this exact package's
+dist/xxhash64.umd.min.js and dist/blake3.umd.min.js. No crypto primitive was
+rewritten or compiled locally. manifest.json pins byte counts and SHA-256:
+
+xxhash64.wasm 2386 bytes
+de1f937a9c1d82dc347dd6abb38833f73ef77bebe68495b2ca3c51b584df79be
+blake3.wasm 11891 bytes
+984b12e3b76a670fe58f43aa965658cdfefe0867f88c4935a292f68bdf3c55e1
+
+Reproduce/verify after npm ci --ignore-scripts:
+node scripts/check-extended-hash-assets.js
+node scripts/check-extended-hash-assets.js --write
+The write option reproduces only the already-pinned bytes. An upstream version
+upgrade requires manual review of source, licenses, checksums and vectors.
+
+Upstream C sources in the npm archive:
+src/xxhash64.c, src/blake3.c, src/hash-wasm.h.
+Upstream JavaScript API/wrapper sources:
+lib/xxhash64.ts, lib/blake3.ts, lib/WASMInterface.ts.
+
+xxhash64.c is Stephan Brumme's XXHash64 implementation based on Yann Collet's
+algorithm description, modified for hash-wasm by Dani Biro. It is XXH64, not
+XXH3-64. blake3.c derives from the BLAKE3 team's reference C implementation
+(its embedded version string is 0.3.7), modified for hash-wasm by Dani Biro.
+See LICENSE.txt and UPSTREAM-LICENSES.txt. Both sources are in the pinned npm
+package; the JavaScript adapter is local project code, not upstream code.
+
+The local adapter replaces only asynchronous WebAssembly compile/instantiate
+with synchronous Module/Instance construction. Each input is copied in at most
+16-KiB chunks, matching upstream MAIN_BUFFER_SIZE/MAX_HEAP. XXH64's eight seed
+bytes are reset to zero before Hash_Init. BLAKE3 Hash_Init(0) selects unkeyed
+mode and Hash_Final(32) selects its first 32 output bytes. No keys, contexts,
+host imports, native addons, network access or build scripts are involved.
+
+The npm package is a pinned development-only dependency for byte-for-byte
+asset verification and comparisons against its public async and streaming API.
+Production runs from these checked-in WASM files with Node >=22.14 only.
+Independent expected results and 64-MiB verification are described in
+scripts/fixtures/extended-hash-vectors.PROVENANCE.txt.

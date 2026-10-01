@@ -1,0 +1,17 @@
+{
+  "package": "hash-wasm",
+  "version": "4.12.0",
+  "integrity": "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==",
+  "assets": {
+    "xxhash64": {
+      "file": "xxhash64.wasm",
+      "bytes": 2386,
+      "sha256": "de1f937a9c1d82dc347dd6abb38833f73ef77bebe68495b2ca3c51b584df79be"
+    },
+    "blake3": {
+      "file": "blake3.wasm",
+      "bytes": 11891,
+      "sha256": "984b12e3b76a670fe58f43aa965658cdfefe0867f88c4935a292f68bdf3c55e1"
+    }
+  }
+}

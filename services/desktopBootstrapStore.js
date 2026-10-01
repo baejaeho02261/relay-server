@@ -19,6 +19,7 @@ function Time(x){return Number.isSafeInteger(x)&&x>0;}
 function Nonce(x){return typeof x==='string'&&/^[a-f0-9]{48}$/.test(x);}
 function Digest(x){return typeof x==='string'&&/^[a-f0-9]{64}$/.test(x);}
 function Crc(x){return typeof x==='string'&&/^[A-F0-9]{16}$/.test(x);}
+function ExtendedFields(row){return ['xxh64','codeXxh64'].every(key=>row[key]===undefined||typeof row[key]==='string'&&/^[a-f0-9]{16}$/.test(row[key]))&&['blake3','codeBlake3'].every(key=>row[key]===undefined||Digest(row[key]));}
 function Machine(x){return typeof x==='string'&&/^[A-F0-9]{64}$/.test(x);}
 function Invalid(){throw Error('BOOTSTRAP_STORAGE_INVALID');}
 function TokenHash(secret,domain,id,nonce,legacy=false){return crypto.createHash('sha256').update(crypto.createHmac('sha256',Buffer.from(secret,'hex')).update([legacy?LEGACY_TOKEN_DOMAIN:'GAME-A80',domain,id,nonce].join('|')).digest('base64url')).digest('hex');}
@@ -31,11 +32,11 @@ function Load(){
   let value;try{value=JSON.parse(fs.readFileSync(FILE,'utf8'));}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
   if(!Plain(value)||![1,2,3,4].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
   const legacy=value.schema===1,upgrade=value.schema<4,previousProtocol=value.schema<=2?'GAME-CONNECT-1':'GAME-CONNECT-2',previousVersion=value.schema<=2?1:2;
-  for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&(!Crc(row.crc64)||!Digest(row.codeSha256)||!Crc(row.codeCrc64)||row.codeAlgorithm!=='PE64-CODE-V1'))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
+  for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||!ExtendedFields(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&(!Crc(row.crc64)||!Digest(row.codeSha256)||!Crc(row.codeCrc64)||row.codeAlgorithm!=='PE64-CODE-V1'))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
   for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component||!legacy&&value.artifacts[id]?.protocol!==(upgrade?previousProtocol:PROTOCOL))Invalid();
   for(const [id,row]of Object.entries(value.launchers)){
    if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!Digest(row.sha256)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
-   if(row.crc64!==undefined&&!Crc(row.crc64))Invalid();
+   if(row.crc64!==undefined&&!Crc(row.crc64)||!ExtendedFields(row))Invalid();
    if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();
    if(row.retiredAt!==undefined){if(!Time(row.retiredAt)||row.status==='AVAILABLE'||row.ticketNonce!==undefined||row.profile!==undefined)Invalid();}
    else if(!Nonce(row.ticketNonce)||!Plain(row.profile)||row.profile.protocol!==(legacy?LEGACY_PROTOCOL:upgrade?previousProtocol:PROTOCOL)||row.profile.version!==(upgrade?previousVersion:3)||(!upgrade&&(!Crc(row.crc64)||!Digest(row.profile.tlsCertificateSha256)||typeof row.profile.tlsServerName!=='string'||row.profile.tlsServerName.length<1||row.profile.tlsServerName.length>253))||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce,legacy))Invalid();

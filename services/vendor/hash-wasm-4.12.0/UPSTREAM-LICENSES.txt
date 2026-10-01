@@ -1,0 +1,33 @@
+xxHash64 source attribution
+Copyright (c) 2016 Stephan Brumme. All rights reserved.
+Original implementation based on Yann Collet's XXHash algorithm descriptions.
+Modified for hash-wasm by Dani Biro. Vendored binaries are unchanged from
+hash-wasm 4.12.0; the local synchronous adapter is a separate work.
+
+Source header points to https://create.stephan-brumme.com/disclaimer.html
+The following permissive source-code license was retrieved 2026-10-01:
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the author be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it
+freely, subject to the following restrictions:
+1. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software.
+2. If you use this software in a product, an acknowledgment in the product
+   documentation would be appreciated but is not required.
+3. Altered source versions must be plainly marked as such, and must not be
+   misrepresented as being the original software.
+
+BLAKE3 source attribution
+https://github.com/BLAKE3-team/BLAKE3
+The upstream src/blake3.c header states:
+This work is released into the public domain with CC0 1.0. Alternatively,
+it is licensed under the Apache License 2.0.
+Modified for hash-wasm by Dani Biro.
+
+These vendored bytes use the CC0 1.0 option for the original BLAKE3 source.
+CC0 legal code: https://creativecommons.org/publicdomain/zero/1.0/legalcode
+hash-wasm modifications and distribution: see the accompanying MIT LICENSE.txt.

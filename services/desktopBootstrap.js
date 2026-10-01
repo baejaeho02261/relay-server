@@ -27,8 +27,8 @@ function Crc(value){if(typeof value!=='string'||!/^[A-F0-9]{16}$/.test(value))Fa
 function MachinePolicy(){return require('./desktopMachinePolicy');}
 function RequestId(value){if(typeof value!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(value))Fail('BOOTSTRAP_INPUT_INVALID');return value;}
 function Audit(type,value){try{require('../storage/audit').LogEvent(type,JSON.stringify(value));}catch(error){console.error('BOOTSTRAP_AUDIT_FAILED:',type);}}
-function Artifact(row){return row?{id:row.id,component:row.component,version:row.version,sha256:row.sha256,crc64:row.crc64,codeSha256:row.codeSha256,codeCrc64:row.codeCrc64,codeAlgorithm:row.codeAlgorithm,size:row.size,createdAt:row.createdAt}:null;}
-function Release(row){if(!row)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return {id:row.id,version:row.version,sha256:row.sha256,crc64:row.crc64,codeSha256:row.codeSha256,codeCrc64:row.codeCrc64,codeAlgorithm:row.codeAlgorithm,size:row.size};}
+function Artifact(row){return row?{id:row.id,component:row.component,version:row.version,sha256:row.sha256,crc64:row.crc64,xxh64:row.xxh64,blake3:row.blake3,codeSha256:row.codeSha256,codeCrc64:row.codeCrc64,codeXxh64:row.codeXxh64,codeBlake3:row.codeBlake3,codeAlgorithm:row.codeAlgorithm,size:row.size,createdAt:row.createdAt}:null;}
+function Release(row){if(!row)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return {id:row.id,version:row.version,sha256:row.sha256,crc64:row.crc64,xxh64:row.xxh64,blake3:row.blake3,codeSha256:row.codeSha256,codeCrc64:row.codeCrc64,codeXxh64:row.codeXxh64,codeBlake3:row.codeBlake3,codeAlgorithm:row.codeAlgorithm,size:row.size};}
 function Pe(bytes,component){
  if(!Buffer.isBuffer(bytes)||bytes.length>MAX_ARTIFACT_BYTES)Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
  if(bytes.length<512||bytes.readUInt16LE(0)!==0x5a4d)Fail('BOOTSTRAP_PE_INVALID');
@@ -57,14 +57,14 @@ function Pe(bytes,component){
 function Publish(component,version,bytes){
  if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);
  if(!['A','B'].includes(component)||typeof version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(version)||version.length>40)Fail('BOOTSTRAP_INPUT_INVALID');
- DB();Pe(bytes,component);let code;try{code=integrity.CodeImage(bytes);}catch(_){Fail('BOOTSTRAP_PE_INVALID');}const row={id:Id(),component,protocol:'GAME-CONNECT-3',version,...integrity.Digests(bytes),codeSha256:code.sha256,codeCrc64:code.crc64,codeAlgorithm:code.algorithm,size:bytes.length,createdAt:now()};
+ DB();Pe(bytes,component);let code;try{code=integrity.CodeImage(bytes);}catch(_){Fail('BOOTSTRAP_PE_INVALID');}const row={id:Id(),component,protocol:'GAME-CONNECT-3',version,...integrity.Digests(bytes),codeSha256:code.sha256,codeCrc64:code.crc64,codeXxh64:code.xxh64,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,size:bytes.length,createdAt:now()};
  try{store.PublishBytes(row.id,bytes);}catch(_){Fail('STORAGE_SAVE_FAILED',503);}
  Atomic(db=>{db.artifacts[row.id]=row;db.active[component]=row.id;});
  Audit('DESKTOP_BOOTSTRAP_PUBLISHED',Artifact(row));return Artifact(row);
 }
 function Bytes(artifact){
  let fd;
- try{const file=store.ArtifactPath(artifact.id);fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==artifact.size)throw Error();const bytes=fs.readFileSync(fd),digests=integrity.Digests(bytes);if(digests.sha256!==artifact.sha256||digests.crc64!==artifact.crc64)throw Error();return bytes;}
+ try{const file=store.ArtifactPath(artifact.id);fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==artifact.size)throw Error();const bytes=fs.readFileSync(fd),digests=integrity.Digests(bytes);if(digests.sha256!==artifact.sha256||digests.crc64!==artifact.crc64||artifact.xxh64&&digests.xxh64!==artifact.xxh64||artifact.blake3&&digests.blake3!==artifact.blake3)throw Error();return bytes;}
  catch(_){Fail('BOOTSTRAP_ARTIFACT_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
 }
 function LauncherTicket(row){return Token('LAUNCHER',row.id,row.ticketNonce);}
@@ -191,7 +191,7 @@ function AuthenticateIntegrityReport(body){
   artifact=DB().artifacts[row.releaseId];
  }
  if(body.machineId!==undefined&&MachinePolicy().Validate(body.machineId)!==row.machineId)Fail('BOOTSTRAP_SESSION_INVALID',403);
- return {...row,stage,reportContextId:stage==='A'?row.id:row.sessionId,integrityArtifact:{id:artifact.id,sha256:stage==='A'?row.launcherSha256:artifact.sha256,crc64:stage==='A'?row.launcherCrc64:artifact.crc64,codeSha256:artifact.codeSha256,codeCrc64:artifact.codeCrc64}};
+ return {...row,stage,reportContextId:stage==='A'?row.id:row.sessionId,integrityArtifact:{id:artifact.id,sha256:stage==='A'?row.launcherSha256:artifact.sha256,crc64:stage==='A'?row.launcherCrc64:artifact.crc64,fileXxh64:stage==='A'?DB().launchers[row.launcherId].xxh64:artifact.xxh64,fileBlake3:stage==='A'?DB().launchers[row.launcherId].blake3:artifact.blake3,codeSha256:artifact.codeSha256,codeCrc64:artifact.codeCrc64,codeXxh64:artifact.codeXxh64,codeBlake3:artifact.codeBlake3}};
 }
 function LicenseState(row){
  if(!row.licenseId)return {licenseStatus:'',licenseLastVerifiedAt:0};
