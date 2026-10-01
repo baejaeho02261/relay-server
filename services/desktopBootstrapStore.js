@@ -11,7 +11,7 @@ let current,poisoned=false;
 // migration constants, never the protocol or HMAC domain for new capabilities.
 const LEGACY_PROTOCOL=Buffer.from('4d4f41504c41592d434f4e4e4543542d31','hex').toString('ascii');
 const LEGACY_TOKEN_DOMAIN=Buffer.from('4d4f41504c41592d413830','hex').toString('ascii');
-const PREVIOUS_PROTOCOL='GAME-CONNECT-1',PROTOCOL='GAME-CONNECT-2';
+const PROTOCOL='GAME-CONNECT-3';
 function Identifier(value,legacyPrefix){return typeof value==='string'&&(/^[A-F0-9]{24}$/.test(value)||new RegExp('^'+legacyPrefix+'-[A-F0-9]{24}$').test(value));}
 function SyncDir(){if(process.platform==='win32')return;const fd=fs.openSync(DIR,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
 function Plain(x){return !!x&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;}
@@ -29,16 +29,16 @@ function Load(){
  if(fs.existsSync(FILE)){
   const stat=fs.lstatSync(FILE);if(!stat.isFile()||stat.isSymbolicLink())throw Error('BOOTSTRAP_STORAGE_INVALID');
   let value;try{value=JSON.parse(fs.readFileSync(FILE,'utf8'));}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
-  if(!Plain(value)||![1,2,3].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
-  const legacy=value.schema===1,upgrade=value.schema<3;
-  for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&!Crc(row.crc64))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
-  for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component||!legacy&&value.artifacts[id]?.protocol!==(upgrade?PREVIOUS_PROTOCOL:PROTOCOL))Invalid();
+  if(!Plain(value)||![1,2,3,4].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
+  const legacy=value.schema===1,upgrade=value.schema<4,previousProtocol=value.schema<=2?'GAME-CONNECT-1':'GAME-CONNECT-2',previousVersion=value.schema<=2?1:2;
+  for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&(!Crc(row.crc64)||!Digest(row.codeSha256)||!Crc(row.codeCrc64)||row.codeAlgorithm!=='PE64-CODE-V1'))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
+  for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component||!legacy&&value.artifacts[id]?.protocol!==(upgrade?previousProtocol:PROTOCOL))Invalid();
   for(const [id,row]of Object.entries(value.launchers)){
    if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!Digest(row.sha256)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
    if(row.crc64!==undefined&&!Crc(row.crc64))Invalid();
    if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();
    if(row.retiredAt!==undefined){if(!Time(row.retiredAt)||row.status==='AVAILABLE'||row.ticketNonce!==undefined||row.profile!==undefined)Invalid();}
-   else if(!Nonce(row.ticketNonce)||!Plain(row.profile)||row.profile.protocol!==(legacy?LEGACY_PROTOCOL:upgrade?PREVIOUS_PROTOCOL:PROTOCOL)||row.profile.version!==(upgrade?1:2)||(!upgrade&&(!Crc(row.crc64)||!Digest(row.profile.tlsCertificateSha256)||typeof row.profile.tlsServerName!=='string'||row.profile.tlsServerName.length<1||row.profile.tlsServerName.length>253))||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce,legacy))Invalid();
+   else if(!Nonce(row.ticketNonce)||!Plain(row.profile)||row.profile.protocol!==(legacy?LEGACY_PROTOCOL:upgrade?previousProtocol:PROTOCOL)||row.profile.version!==(upgrade?previousVersion:3)||(!upgrade&&(!Crc(row.crc64)||!Digest(row.profile.tlsCertificateSha256)||typeof row.profile.tlsServerName!=='string'||row.profile.tlsServerName.length<1||row.profile.tlsServerName.length>253))||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce,legacy))Invalid();
    if(['CONSUMED','REVOKED'].includes(row.status)&&(!value.flows[row.flowId]||value.flows[row.flowId].launcherId!==id))Invalid();
   }
   const sessionIds=new Set();
@@ -46,7 +46,7 @@ function Load(){
    if(!Identifier(id,'BF')||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED','EXPIRED'].includes(row.status)||!Identifier(row.sessionId,'DS')||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!Digest(row.launcherSha256)||!Digest(row.downloadHash)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
    sessionIds.add(row.sessionId);
    if(row.machineId!==undefined&&(!Machine(row.machineId)||!Number.isSafeInteger(row.machinePolicyGeneration)||row.machinePolicyGeneration<0||!Crc(row.launcherCrc64)))Invalid();
-   if(!upgrade&&!['CLOSED','REVOKED','EXPIRED'].includes(row.status)&&(!Machine(row.machineId)||!Crc(row.launcherCrc64)||value.artifacts[row.releaseId]?.protocol!==PROTOCOL))Invalid();
+   if(!upgrade&&!['CLOSED','REVOKED','EXPIRED'].includes(row.status)&&(!Machine(row.machineId)||!Crc(row.launcherCrc64)||value.artifacts[row.releaseId]?.protocol!==PROTOCOL||!Digest(row.aCodeSha256)||!Crc(row.aCodeCrc64)))Invalid();
    if(!Array.isArray(row.chunkOffsets)||row.chunkOffsets.length>256||new Set(row.chunkOffsets).size!==row.chunkOffsets.length||row.chunkOffsets.some(offset=>!Number.isSafeInteger(offset)||offset<0||offset>=value.artifacts[row.releaseId].size||offset%262144))Invalid();
    if(row.retiredAt!==undefined){
     if(!Time(row.retiredAt)||!['CLOSED','REVOKED','EXPIRED'].includes(row.status)||['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'].some(key=>row[key]!==undefined))Invalid();
@@ -66,20 +66,20 @@ function Load(){
    // Protocol upgrades cannot reuse native templates or old secret capabilities.
    // Preserve the authority secret, artifacts and all consumed/audit tombstones;
    // retire running/pending flows durably before serving any new requests.
-   const at=Date.now();value.schema=3;value.revision++;value.protocolMigratedAt=at;value.active={};
+   const at=Date.now();value.schema=4;value.revision++;value.protocolMigratedAt=at;value.active={};
    for(const row of Object.values(value.launchers)){
     if(row.status==='AVAILABLE')row.status='EXPIRED';
     delete row.ticketNonce;delete row.profile;row.retiredAt||=at;
    }
    for(const row of Object.values(value.flows)){
-    if(!['CLOSED','REVOKED','EXPIRED'].includes(row.status)){row.status='REVOKED';row.revokedAt=at;row.reason='TLS_INTEGRITY_UPGRADE';}
+    if(!['CLOSED','REVOKED','EXPIRED'].includes(row.status)){row.status='REVOKED';row.revokedAt=at;row.reason='CODE_INTEGRITY_UPGRADE';}
     for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])delete row[key];row.retiredAt||=at;
    }
    Write(value);
   }
   current=value;
  }else{
-  current={schema:3,revision:0,secret:crypto.randomBytes(32).toString('hex'),artifacts:{},active:{},launchers:{},flows:{},issueReceipts:{}};
+  current={schema:4,revision:0,secret:crypto.randomBytes(32).toString('hex'),artifacts:{},active:{},launchers:{},flows:{},issueReceipts:{}};
   try{Write(current,true);}catch(error){current=undefined;throw error;}
  }
  return current;

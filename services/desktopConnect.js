@@ -1,7 +1,7 @@
 'use strict';
 const tls=require('node:tls'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require('./desktopLicenses'),identity=require('./connectTransportKey');
-const PROTOCOL='GAME-CONNECT-2',MAX_FRAME=24576,MAX_CLEAR=12288,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
+const PROTOCOL='GAME-CONNECT-3',MAX_FRAME=24576,MAX_CLEAR=12288,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
 const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),rates=new Map(),activeByIp=new Map();
 const decoder=new TextDecoder('utf-8',{fatal:true});
 let active=0,lastPrune=0,listener=null;
@@ -34,9 +34,9 @@ function Seal(opened,result){
 function Dispatch(opened){
  const payload=opened.payload;
  try{
-  if(!Plain(payload)||Object.keys(payload).sort().join(',')!=='body,operation'||!Plain(payload.body)||!['challenge','execute','bootstrap'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
+  if(!Plain(payload)||Object.keys(payload).sort().join(',')!=='body,operation'||!Plain(payload.body)||!['challenge','execute','bootstrap','report'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
   if(typeof payload.body.deviceId==='string')Rate('DEVICE:'+payload.body.deviceId.slice(0,100),40);
-  const data=payload.operation==='bootstrap'?require('./desktopBootstrap').Execute(payload.body):payload.operation==='challenge'?desktop.Challenge(payload.body):desktop.Execute(payload.body);return {ok:true,data};
+  const data=payload.operation==='report'?require('./desktopIntegrityReports').Execute(payload.body):payload.operation==='bootstrap'?require('./desktopBootstrap').Execute(payload.body):payload.operation==='challenge'?desktop.Challenge(payload.body):desktop.Execute(payload.body);return {ok:true,data};
  }catch(error){const code=error.desktopError?error.message:error.message==='CONNECT_RATE_LIMIT'?'DESKTOP_RATE_LIMIT':'INPUT_INVALID';return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}
 }
 function Accept(socket){
