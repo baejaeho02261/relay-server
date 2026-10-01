@@ -55,3 +55,39 @@ assert.equal(relocated(0n, 16n, 0n, 8), 0xfffffffffffffff0n);
 assert.equal(relocated(0xfffffff8n, 0n, 16n, 4), 8n);
 assert.equal(relocated(0n, 16n, 0n, 4), 0xfffffff0n);
 console.log('Native code contract vectors passed: ASLR positive/negative, modulo32/64, relocation operand tamper, code tamper');
+
+// Export metadata uses the original, retained on-disk range plan. A changed
+// live data-directory pointer must not choose a fresh (attacker supplied) range.
+const { Fixture: ExportFixture } = require('./test-desktop-pe-exports');
+const { ExportTable } = require('../services/desktopPeExports');
+function loadedExportMeasurement(original, mutate) {
+  const image = Buffer.alloc(0x3000);
+  original.copy(image, 0, 0, 512);
+  original.copy(image, 4096, 512, 1024);
+  original.copy(image, 8192, 1024, 1536);
+  if (mutate) mutate(image);
+  const directoryOffset = 264, exportRva = 8192, exportBytes = 256;
+  const offset = Buffer.alloc(4); offset.writeUInt32LE(directoryOffset);
+  const canonical = Buffer.concat([
+    Buffer.from('GAME-EXPORT-V1\0', 'ascii'), offset,
+    image.subarray(directoryOffset, directoryOffset + 8),
+    image.subarray(exportRva, exportRva + exportBytes)
+  ]);
+  return { sha256: crypto.createHash('sha256').update(canonical).digest('hex'), crc64: Crc64(canonical) };
+}
+const exportFile = ExportFixture(), exportBaseline = ExportTable(exportFile);
+const exportMemory = loadedExportMeasurement(exportFile);
+assert.equal(exportMemory.sha256, exportBaseline.sha256);
+assert.equal(exportMemory.crc64, exportBaseline.crc64);
+assert.equal(exportMemory.sha256, 'a762120d6a23876b16e0d3e8c99977a7debd9786421ac0ac093dda59d82c687d');
+assert.equal(exportMemory.crc64, '57560B63C1315D58');
+for (const change of [
+  image => image.writeUInt32LE(4100, 8192 + 40), // Direct API address table redirect.
+  image => { image[8192 + 104] ^= 1; },         // Forwarder DLL/API name changed.
+  image => image.writeUInt32LE(8192 + 72, 264), // Header export pointer redirected.
+  image => image.writeUInt16LE(1, 8192 + 56),   // Named export ordinal remapped.
+  image => { image[8192 + 80] ^= 1; }          // Name lookup string changed.
+]) {
+  assert.notEqual(loadedExportMeasurement(exportFile, change).sha256, exportBaseline.sha256);
+}
+console.log('Native export contract vectors passed: same pristine server digest, direct/forwarded/named API table and live header-pointer tamper');

@@ -31,7 +31,7 @@ try{
  fs.renameSync=(from,to)=>{if(to===reports.FILE)throw Error('TEST_REPORT_DISK_FULL');return rename(from,to);};try{assert.throws(()=>reports.Execute(badProof),/TEST_REPORT_DISK_FULL/);}finally{fs.renameSync=rename;}
  assert.equal(bootstrap.Overview().sessions.find(x=>x.id===diskFailure.session.sessionId).status,'REVOKED');
  // Authenticated inventory is bounded per context, with no token/paths persisted.
- const rate=context();for(let i=0;i<24;i++)reports.Execute({action:'challenge',...rate.auth});rejected('INTEGRITY_REPORT_RATE_LIMIT',()=>reports.Execute({action:'challenge',...rate.auth}));
+ const rate=context();for(let i=0;i<128;i++)reports.Execute({action:'challenge',...rate.auth});rejected('INTEGRITY_REPORT_RATE_LIMIT',()=>reports.Execute({action:'challenge',...rate.auth}));
  const storage=fs.readFileSync(reports.FILE);assert.ok(!storage.includes(Buffer.from(current.session.sessionToken)));assert.ok(!storage.includes(Buffer.from('C:\\Windows')));
  let loaded=restart("const r=require('../services/desktopIntegrityReports');if(r.Baselines().items.length!==1||!r.List().items.some(x=>x.status==='REJECTED'))throw Error('MISSING_REPORTS')");assert.equal(loaded.status,0,loaded.stderr);
  const envelope=JSON.parse(storage);envelope.data.baselines[0].codeSha256='0'.repeat(64);fs.writeFileSync(reports.FILE,JSON.stringify(envelope));loaded=restart("require('../services/desktopIntegrityReports').List()");assert.notEqual(loaded.status,0);assert.match(loaded.stderr,/INTEGRITY_REPORT_STORAGE_INVALID/);fs.writeFileSync(reports.FILE,storage);

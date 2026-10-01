@@ -1,8 +1,8 @@
 {
   "webAdminVersion": "5.0.1",
-  "uiRevision": "game-console-85",
+  "uiRevision": "game-console-86",
   "files": {
-    "index.html": "7d065d017d0688f93a740aab933d8119cc375983be603e38deb9bdfa88488ff6",
+    "index.html": "400a2e9e5cc1fa3eb4503da62af42a815e8f1a5491df2979705d353d8176d030",
     "admin.css": "418c8ffc7fe91376dfc75b04b4f2e8dc62caf436cfd931e8089738d331d23cd0",
     "admin-theme.css": "ab981b94df03c3130ef2515c5b0846f82381bd61a3a0086760396dfbcc1e4fc7",
     "admin-appearance.css": "1fd249b49ff85a27c79ba5fc6cb358c165ec0e0d38c16927795ef25195d4f1d3",
@@ -12,7 +12,7 @@
     "admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "admin-navigation.css": "b4dfe7add02b3459ccafe03bf048b6f705c2cdd97e15a2fa57c30135e5ade104",
     "admin-i18n.js": "241828ff4f1da3ce57b9c1e8d9261f12878a80ee79e73c3c3ea079a05955cb63",
-    "admin.js": "dd8aca1c2270dd7b470faae120c2c99ad8909eb64d260e2ba4d71c7cc417944c",
+    "admin.js": "8c29fe95e553a7d51de3990a17384fcff051b0011a56c3de99fbd3e393bb053d",
     "admin-navigation.js": "4b5470a7895ad167aa9e98ac80aeaf9c408f0289ada61202d3ad618abe2c8807",
     "admin-pages-monitoring.js": "3ac8faeaad9bc37d5b5ddcc82330f8e3b8a951090633294794a7e0dbc0e60c60",
     "admin-terminal.js": "7ebfcbe23fed621000c1412d3ef60c517908fb312c0a8113a820cc07f058fe84",
@@ -35,10 +35,10 @@
     "admin-actions.js": "1aa996e0652b6f079e641f8785f1c3c369148df26ba3540efdf1912217d493a8",
     "icons/game.svg": "d96ab892c3e4cc217ecf804e1bcdb8635ce17cb548acac07a1cb654c58136d8b",
     "admin-palette.js": "244f0e1d402c816d7f09be67c43d76a62d87d1da588ed51a8ad99f03e10697ce",
-    "admin-desktop-licenses.js": "bb5654891076a9b95030049cce91cb697de2614b1a69598840cb98a495339e97",
-    "admin-desktop.css": "52bcda965a5102dce55645c8552cde725be3905439c5f9b6c30705c21d5084e0",
+    "admin-desktop-licenses.js": "932328148f62672285cbfddd81f9218633e855a5dd81447783a022e176177166",
+    "admin-desktop.css": "302f20bf58eb1745b18dd07706b4c9dd4eaabeda7e5162d88089c02cd0d898e4",
     "admin-pages-production.js": "eb94938a68cbe964cd1d6b30f1694059c2b870851da29bce615d40fe94061ef8",
-    "service-worker.js": "a2cd8c67d93b97a5a09da2f81f5eb47b557b7f44d701e11c40982f92c36931be",
+    "service-worker.js": "77f2343968b1d339f0961b2a395e7ddc39b60a289d81b4311f9a90ea50c3cb67",
     "ui-refresh.html": "f187ed39e3847c0cab81785762e67f014dd8a480677d31e3bbccdd4301ae21e9",
     "ui-refresh.js": "18c00a09bdc6409509b42ce6a7d4e5480d6edd1e7feabcd575aafa6922e42dac"
   }

@@ -1,11 +1,13 @@
 'use strict';
 
-// Offline migration helper using the same Node built-in SQLite engine as Relay.
+// Offline migration helper using the same better-sqlite3 SQLite driver as Relay.
 
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const { DatabaseSync } = require('node:sqlite');
+// better-sqlite3 13 uses N-API 10; older runtimes can crash inside the addon.
+if (Number(process.versions.napi) < 10) throw new Error('SQLITE_REQUIRES_NODE_22_14_OR_NEWER_NAPI10');
+const Database = require('better-sqlite3');
 
 const bundlePath = process.argv[2];
 const outputPath = process.argv[3] || 'relay.db';
@@ -19,8 +21,9 @@ if (!bundle || bundle.format !== 'relay-sqlite-migration-bundle' || !bundle.data
 const schemaPath = path.join(path.dirname(bundlePath), 'schema.sql');
 const schema = fs.readFileSync(schemaPath, 'utf8');
 const data = bundle.data;
-const db = new DatabaseSync(outputPath);
+const db = new Database(outputPath, { timeout: 5000 });
 
+db.pragma('synchronous = FULL');
 db.exec(schema);
 db.exec('BEGIN IMMEDIATE');
 try {

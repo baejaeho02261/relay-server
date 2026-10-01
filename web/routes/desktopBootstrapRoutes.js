@@ -40,6 +40,8 @@ async function Handle({method,pathname,url,body,req,res,session}){
  if(!RequireAdmin(res,session))return true;
  const actor=String(session.role||'ADMIN')+':'+String(session.id||'');
  try{
+  if(pathname==='/api/desktop/bootstrap/integrity-policy'&&method==='GET'){Json(res,200,{ok:true,policy:require('../../services/desktopIntegrityReports').Policy()});return true;}
+  if(pathname==='/api/desktop/bootstrap/integrity-policy'&&method==='POST'){if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}if(!require('../../services/haCoordinator').CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}Json(res,200,{ok:true,policy:require('../../services/desktopIntegrityReports').SetPolicy(body,actor)});return true;}
   if(pathname==='/api/desktop/bootstrap/integrity-reports'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopIntegrityReports').List(Object.fromEntries(url.searchParams))});return true;}
   if(pathname==='/api/desktop/bootstrap/module-baselines'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopIntegrityReports').Baselines()});return true;}
   if(pathname==='/api/desktop/bootstrap'&&method==='GET'){Json(res,200,{ok:true,bootstrap:bootstrap.Overview()});return true;}

@@ -110,7 +110,7 @@ async function bootstrapDevice(device, auth) {
         let auth = await login();
         nativeProfile=(await call('/api/desktop/connect-profile',undefined,auth)).json.profile;
         const viewer = await login('viewer');
-        for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/integrity-reports', '/api/desktop/bootstrap/module-baselines', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
+        for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/integrity-policy', '/api/desktop/bootstrap/integrity-reports', '/api/desktop/bootstrap/module-baselines', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
             assert.equal((await call(route)).status, 401); assert.equal((await call(route, undefined, viewer)).status, 403);
         }
         assert.equal((await upload('A', bootstrapFixture.PE('A'))).status, 401);
@@ -128,6 +128,15 @@ async function bootstrapDevice(device, auth) {
         const baseline=await uploadBaseline(dll,auth);assert.equal(baseline.status,200,JSON.stringify(baseline.json));assert.equal(baseline.json.baseline.fileSha256,digest(dll));
         const baselineList=await call('/api/desktop/bootstrap/module-baselines',undefined,auth);assert.equal(baselineList.status,200);assert.equal(baselineList.json.items.length,1);
         assert.equal((await call('/api/desktop/bootstrap/integrity-reports',undefined,auth)).status,200);
+        const integrityPolicyRoute='/api/desktop/bootstrap/integrity-policy',integrityPolicyBody={enabled:false,requiredModules:['ntdll.dll','kernel32.dll','kernelbase.dll']};
+        const integrityPolicyRead=await call(integrityPolicyRoute,undefined,auth);assert.equal(integrityPolicyRead.status,200);assert.equal(integrityPolicyRead.json.policy.enabled,false);assert.equal(integrityPolicyRead.json.policy.freshnessMs.B,120000);
+        assert.equal((await call(integrityPolicyRoute,integrityPolicyBody)).status,401);
+        assert.equal((await call(integrityPolicyRoute,integrityPolicyBody,viewer)).status,403);
+        assert.equal((await call(integrityPolicyRoute,integrityPolicyBody,auth,{csrf:false})).status,403);
+        const notReady=await call(integrityPolicyRoute,{enabled:true,requiredModules:['ntdll.dll']},auth);assert.equal(notReady.status,409);assert.equal(notReady.json.error,'INTEGRITY_POLICY_BASELINE_MISSING','DLL without a measured export table cannot arm strict API integrity');
+        assert.equal((await call(integrityPolicyRoute,integrityPolicyBody,auth)).status,200);
+        assert.equal((await call(integrityPolicyRoute,{enabled:true,requiredModules:['../ntdll.dll']},auth)).status,400);
+
         assert.equal((await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID() }, auth, { csrf: false })).status, 403);
         assert.equal((await call('/api/desktop/licenses', { label: 'CSRF 없는 요청' }, auth, { csrf: false })).status, 403);
         const empty = await call('/api/desktop/licenses', undefined, auth); assert.equal(empty.status, 200); assert.equal(empty.json.items.length, 0);

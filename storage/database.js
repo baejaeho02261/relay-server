@@ -391,10 +391,14 @@ function LoadDatabase() {
                 try { state.runtimeStats.lastDatabaseSize = fs.statSync(config.SQLITE_FILE).size; } catch (_) {}
                 return;
             }
+            if (stored) throw new Error('SQLITE_SNAPSHOT_INVALID');
         } catch (error) {
             if (/^DESKTOP_(JOURNAL|STORAGE)_/.test(String(error.message || ''))) throw error;
             console.error('SQLITE LOAD ERROR:', error.message);
             LogEvent('SQLITE_LOAD_ERROR', error.message);
+            // Missing/corrupt SQLite or an unavailable native driver is fatal.
+            // JSON cutover is only allowed after a successful, empty SQLite read.
+            throw error;
         }
     }
     const candidates = [DB_FILE, DB_BAK_FILE, LatestBackupFile()].filter(Boolean);
