@@ -43,7 +43,8 @@ Check('Claim admission checks launcher hash, ticket and proof key binding',()=>{
  Reject(()=>bootstrap.Execute({...beginBody,launcherCrc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...beginBody,launcherSha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...beginBody,launcherTicket:'invalid'}));Reject(()=>bootstrap.Execute({...beginBody,deviceId:b.deviceId}),/^(BOOTSTRAP_|DESKTOP_)/);
  begin=bootstrap.Execute(beginBody);assert.equal(begin.release.sha256,publishedB.sha256);assert.equal(begin.release.size,publishedB.size);assert.match(begin.flowId,/^[A-F0-9]{24}$/);assert.ok(begin.downloadTicket&&begin.finishCanonical);
  assert.equal(bootstrap.Execute(beginBody).flowId,begin.flowId);Reject(()=>bootstrap.Execute({...beginBody,requestId:crypto.randomUUID(),deviceId:b.deviceId,publicKey:b.publicKey}));
- assert.deepEqual(Object.keys(begin.release).sort(),['codeAlgorithm','codeCrc64','codeSha256','crc64','id','sha256','size','version']);
+ assert.deepEqual(Object.keys(begin.release).sort(),['blake3','codeAlgorithm','codeBlake3','codeCrc64','codeSha256','codeXxh64','crc64','id','sha256','size','version','xxh64']);
+ for(const field of ['xxh64','blake3','codeXxh64','codeBlake3'])assert.equal(begin.release[field],publishedB[field]);
 });
 Check('Chunk retrieval checks credentials and integral in-range offsets',()=>{
  Reject(()=>fixture.Finish(a,begin),/^BOOTSTRAP_DOWNLOAD_INCOMPLETE$/);

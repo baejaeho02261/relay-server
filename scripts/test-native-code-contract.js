@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { Fixture } = require('./test-desktop-code-integrity');
 const { CodeImage, Crc64 } = require('../services/desktopIntegrity');
+const { Xxh64, Blake3 } = require('../services/extendedHashes');
 function relocated(value, preferred, actual, width) {
   return BigInt.asUintN(width * 8, value + actual - preferred);
 }
@@ -34,7 +35,7 @@ function loadedMeasurement(file, preferred, actual, mutate) {
     Buffer.from('0010000008020000', 'hex'), first,
     Buffer.from('0030000040000000', 'hex'), second
   ]);
-  return { sha256: crypto.createHash('sha256').update(data).digest('hex'), crc64: Crc64(data) };
+  return { sha256: crypto.createHash('sha256').update(data).digest('hex'), crc64: Crc64(data), xxh64: Xxh64(data), blake3: Blake3(data) };
 }
 const fixture = Fixture(), baseline = CodeImage(fixture);
 for (const [preferred, actual] of [
@@ -44,17 +45,20 @@ for (const [preferred, actual] of [
   const result = loadedMeasurement(fixture, preferred, actual);
   assert.equal(result.sha256, baseline.sha256);
   assert.equal(result.crc64, baseline.crc64);
+  assert.equal(result.xxh64, baseline.xxh64);
+  assert.equal(result.blake3, baseline.blake3);
   for (const at of [24, 31, 48, 51]) {
     assert.throws(() => loadedMeasurement(fixture, preferred, actual, b => { b[at] ^= 1; }),
       /^Error: RELOCATION_OPERAND_CHANGED$/);
   }
-  assert.notEqual(loadedMeasurement(fixture, preferred, actual, b => { b[40] ^= 1; }).sha256, baseline.sha256);
+  const changedCode = loadedMeasurement(fixture, preferred, actual, b => { b[40] ^= 1; });
+  for (const hash of ['sha256', 'crc64', 'xxh64', 'blake3']) assert.notEqual(changedCode[hash], baseline[hash]);
 }
 assert.equal(relocated(0xfffffffffffffff8n, 0n, 16n, 8), 8n);
 assert.equal(relocated(0n, 16n, 0n, 8), 0xfffffffffffffff0n);
 assert.equal(relocated(0xfffffff8n, 0n, 16n, 4), 8n);
 assert.equal(relocated(0n, 16n, 0n, 4), 0xfffffff0n);
-console.log('Native code contract vectors passed: ASLR positive/negative, modulo32/64, relocation operand tamper, code tamper');
+console.log('Native code contract vectors passed: four hashes on canonical ASLR positive/negative streams, modulo32/64, relocation operand tamper, code tamper');
 
 // Export metadata uses the original, retained on-disk range plan. A changed
 // live data-directory pointer must not choose a fresh (attacker supplied) range.
@@ -73,12 +77,14 @@ function loadedExportMeasurement(original, mutate) {
     image.subarray(directoryOffset, directoryOffset + 8),
     image.subarray(exportRva, exportRva + exportBytes)
   ]);
-  return { sha256: crypto.createHash('sha256').update(canonical).digest('hex'), crc64: Crc64(canonical) };
+  return { sha256: crypto.createHash('sha256').update(canonical).digest('hex'), crc64: Crc64(canonical), xxh64: Xxh64(canonical), blake3: Blake3(canonical) };
 }
 const exportFile = ExportFixture(), exportBaseline = ExportTable(exportFile);
 const exportMemory = loadedExportMeasurement(exportFile);
 assert.equal(exportMemory.sha256, exportBaseline.sha256);
 assert.equal(exportMemory.crc64, exportBaseline.crc64);
+assert.equal(exportMemory.xxh64, exportBaseline.xxh64);
+assert.equal(exportMemory.blake3, exportBaseline.blake3);
 assert.equal(exportMemory.sha256, 'a762120d6a23876b16e0d3e8c99977a7debd9786421ac0ac093dda59d82c687d');
 assert.equal(exportMemory.crc64, '57560B63C1315D58');
 for (const change of [
@@ -88,6 +94,7 @@ for (const change of [
   image => image.writeUInt16LE(1, 8192 + 56),   // Named export ordinal remapped.
   image => { image[8192 + 80] ^= 1; }          // Name lookup string changed.
 ]) {
-  assert.notEqual(loadedExportMeasurement(exportFile, change).sha256, exportBaseline.sha256);
+  const changedExport = loadedExportMeasurement(exportFile, change);
+  for (const hash of ['sha256', 'crc64', 'xxh64', 'blake3']) assert.notEqual(changedExport[hash], exportBaseline[hash]);
 }
-console.log('Native export contract vectors passed: same pristine server digest, direct/forwarded/named API table and live header-pointer tamper');
+console.log('Native export contract vectors passed: four pristine server digests, direct/forwarded/named API table and live header-pointer tamper');

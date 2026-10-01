@@ -33,7 +33,8 @@
     "tls:restore": "node tools/tls-rotate.js restore",
     "test:connect-tls": "node scripts/test-connect-tls.js",
     "deps:install": "npm ci --ignore-scripts",
-    "deps:production": "npm ci --omit=dev --ignore-scripts"
+    "deps:production": "npm ci --omit=dev --ignore-scripts",
+    "test:extended-hashes": "node scripts/test-extended-hashes.js"
   },
   "engines": {
     "node": ">=22.14"
@@ -50,6 +51,8 @@
     "geoip-lite": "^1.4.10"
   },
   "devDependencies": {
+    "@noble/hashes": "1.8.0",
+    "hash-wasm": "4.12.0",
     "jsdom": "^30.0.1"
   }
 }

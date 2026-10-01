@@ -1,4 +1,4 @@
-﻿GameConnect TLS 적용 안내 · FIX86
+﻿GameConnect TLS 적용 안내 · FIX87 (TLS 동작 유지)
 
 기본 운영
 제공 Dockerfile: Node 22.14 이상, OpenSSL, 시스템 인증서.

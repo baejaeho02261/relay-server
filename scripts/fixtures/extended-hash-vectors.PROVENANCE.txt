@@ -1,0 +1,35 @@
+Extended digest known-answer fixtures (retrieved/generated 2026-10-01)
+
+Canonical parameters:
+xxh64 = XXH64 with seed 0, exactly 16 lowercase hex digits, most-significant
+numeric digit first. This is the original 64-bit xxHash, not XXH3.
+blake3 = unkeyed BLAKE3, default 32-byte output, exactly 64 lowercase hex digits.
+
+Official BLAKE3 known-answer source:
+https://github.com/BLAKE3-team/BLAKE3/blob/master/test_vectors/test_vectors.json
+All 35 input lengths and the first 32 hash output bytes were transcribed from
+the official upstream file. Its input bytes repeat 0,1,...,250,0,1,... . The
+fixture retains the official-source attribution per row. These values were
+also independently checked against @noble/hashes 1.8.0, an implementation
+maintained at https://github.com/paulmillr/noble-hashes .
+
+Additional xxHash block, BLAKE3 chunk, 16-KiB transfer, 64-KiB, 1-MiB and
+64-MiB boundary cases use the same byte pattern. The abc and 123456789 cases
+use ASCII bytes. For these extra cases BLAKE3 expected values were computed
+with pinned @noble/hashes 1.8.0 (not the production hash-wasm implementation).
+
+All XXH64 expected values were computed independently through ctypes using
+the installed official native xxHash shared library (XXH_versionNumber=802,
+xxHash 0.8.2). The exact call is XXH64(input, byteLength, 0), rendered as
+format(result, '016x'). It is independent of the vendored Stephan Brumme /
+hash-wasm implementation. Official upstream: https://github.com/Cyan4973/xxHash
+
+No expected digest was generated with services/extendedHashes.js. Runtime
+tests compare these fixed answers with the vendored implementation and with
+hash-wasm 4.12.0's public async API; streaming checks use uneven segments.
+Every official BLAKE3 vector also runs against the independent pinned noble
+implementation. A 64-MiB case exercises many transfer chunks and BLAKE3 tree
+levels, reports elapsed time, and checks all four desktop integrity digests.
+
+Asset extraction and runtime provenance:
+services/vendor/hash-wasm-4.12.0/PROVENANCE.txt

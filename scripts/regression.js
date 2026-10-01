@@ -3,6 +3,8 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const checks = [
   ['check-modules.js'], ['check-web-ui.js'], ['check-connect-project.js'],
+  ['test-extended-hashes.js'],
+  ['test-desktop-extended-integrity.js'], ['test-desktop-extended-integrity.js', '--sqlite'],
   ['test-sqlite-driver.js'], ['test-connect-tls.js'], ['test-desktop-pe-exports.js'], ['test-native-report-budget.js'],
   ['test-desktop-integrity-policy.js'], ['test-desktop-integrity-policy.js', '--sqlite'],
   ['test-desktop-machine-policy.js'], ['test-desktop-machine-policy.js','--sqlite'],
