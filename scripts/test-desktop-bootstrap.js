@@ -6,6 +6,30 @@ const bootstrap=require('../services/desktopBootstrap'),licenses=require('../ser
 const {PE,Device,Sign,Config,sha256,Crc64,CodeImage}=fixture,a=Device(),b=Device();let checks=0;
 function Check(label,fn){fn();checks++;console.log('PASS '+label);}
 function Reject(fn,pattern=/^BOOTSTRAP_/){assert.throws(fn,error=>pattern.test(error.message),String(pattern));}
+// The native client intentionally rejects unknown or duplicate response fields.
+// Exercise that wire contract as well as the JavaScript fixture's loose reads.
+const releaseFields=['id','version','sha256','crc64','size','codeSha256','codeCrc64','codeAlgorithm'].sort();
+const nativeBootstrap=path.resolve(__dirname,'../../GameConnect_Win64/Game.Bootstrap.pas');
+if(fs.existsSync(nativeBootstrap)){
+ const source=fs.readFileSync(nativeBootstrap,'utf8'),parseRelease=source.match(/function ParseRelease\(Obj: TJSONObject\): TBootstrapRelease;([\s\S]*?)function RequiredObject/);
+ assert.ok(parseRelease,'Locate the native ParseRelease implementation');
+ const schema=parseRelease[1].match(/BootstrapValidateObject\(Obj,\s*'([^']+)',\s*(\d+)\)/);
+ assert.ok(schema,'Locate the native exact-field release validator');
+ assert.equal(Number(schema[2]),releaseFields.length,'Native release field count changed; review protocol compatibility');
+ assert.deepEqual(schema[1].split('|').filter(Boolean).sort(),releaseFields,'Native release allowlist changed; review protocol compatibility');
+}
+function AssertNativeRelease(release,operation){
+ // A serialized response is what Delphi receives; JSON omits undefined fields.
+ const wire=JSON.parse(JSON.stringify(release));
+ assert.equal(Object.keys(wire).length,releaseFields.length,operation+' release must satisfy the native exact 8-field parser');
+ assert.deepEqual(Object.keys(wire).sort(),releaseFields,operation+' release must not add unknown fields');
+}
+function AssertExtendedBaseline(actual,expected,label){
+ for(const [native,stored]of [['fileXxh64','xxh64'],['fileBlake3','blake3'],['codeXxh64','codeXxh64'],['codeBlake3','codeBlake3']]){
+  assert.match(expected[stored],stored.toLowerCase().includes('xxh')?/^[a-f0-9]{16}$/:/^[a-f0-9]{64}$/,label+' '+stored);
+  assert.equal(actual[native],expected[stored],label+' '+native);
+ }
+}
 function Gate(id,token,deviceId){const row=Object.values(bootstrap.Initialize().flows).find(item=>item.sessionId===id),artifact=bootstrap.Initialize().artifacts[row?.releaseId],device=[a,b].find(item=>item.deviceId===deviceId);return bootstrap.Gate(id,token,deviceId,{machineId:device?.machineId,binarySha256:artifact?.sha256,binaryCrc64:artifact?.crc64,codeSha256:artifact?.codeSha256,codeCrc64:artifact?.codeCrc64});}
 function LicenseProof(device,action,payload,requestId=crypto.randomUUID()){
  if(payload.bootstrapSessionId)payload=fixture.LicensePayload(device,payload);else {const release=bootstrap.Overview().artifacts.B;payload={...payload,machineId:device.machineId,binarySha256:release.sha256,binaryCrc64:release.crc64,codeSha256:release.codeSha256,codeCrc64:release.codeCrc64};}
@@ -43,8 +67,18 @@ Check('Claim admission checks launcher hash, ticket and proof key binding',()=>{
  Reject(()=>bootstrap.Execute({...beginBody,launcherCrc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...beginBody,launcherSha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...beginBody,launcherTicket:'invalid'}));Reject(()=>bootstrap.Execute({...beginBody,deviceId:b.deviceId}),/^(BOOTSTRAP_|DESKTOP_)/);
  begin=bootstrap.Execute(beginBody);assert.equal(begin.release.sha256,publishedB.sha256);assert.equal(begin.release.size,publishedB.size);assert.match(begin.flowId,/^[A-F0-9]{24}$/);assert.ok(begin.downloadTicket&&begin.finishCanonical);
  assert.equal(bootstrap.Execute(beginBody).flowId,begin.flowId);Reject(()=>bootstrap.Execute({...beginBody,requestId:crypto.randomUUID(),deviceId:b.deviceId,publicKey:b.publicKey}));
- assert.deepEqual(Object.keys(begin.release).sort(),['blake3','codeAlgorithm','codeBlake3','codeCrc64','codeSha256','codeXxh64','crc64','id','sha256','size','version','xxh64']);
- for(const field of ['xxh64','blake3','codeXxh64','codeBlake3'])assert.equal(begin.release[field],publishedB[field]);
+ AssertNativeRelease(begin.release,'begin');
+});
+Check('Extended hashes stay in server baselines and admin projections without changing the native wire schema',()=>{
+ const db=bootstrap.Initialize(),overview=bootstrap.Overview();
+ for(const artifact of [publishedA,publishedB])for(const field of ['xxh64','blake3','codeXxh64','codeBlake3']){
+  assert.equal(db.artifacts[artifact.id][field],artifact[field]);
+  assert.equal(overview.artifacts[artifact.component][field],artifact[field]);
+ }
+ const personalized=require('../services/desktopIntegrity').Digests(launcher),stored=db.launchers[issued.launcherId];
+ assert.equal(stored.xxh64,personalized.xxh64);assert.equal(stored.blake3,personalized.blake3);
+ const authenticated=bootstrap.AuthenticateIntegrityReport({stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:a.machineId});
+ AssertExtendedBaseline(authenticated.integrityArtifact,{...publishedA,xxh64:personalized.xxh64,blake3:personalized.blake3},'A personalized baseline');
 });
 Check('Chunk retrieval checks credentials and integral in-range offsets',()=>{
  Reject(()=>fixture.Finish(a,begin),/^BOOTSTRAP_DOWNLOAD_INCOMPLETE$/);
@@ -62,6 +96,10 @@ Check('B claim requires exact executable digest and bound handoff signature',()=
  Reject(()=>bootstrap.Execute({...claimBody,crc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...claimBody,handoffToken:'invalid'}));Reject(()=>bootstrap.Execute({...claimBody,binarySha256:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...claimBody,signature:Sign(b,finish.claimCanonical)}));
  session=bootstrap.Execute(claimBody);assert.match(session.sessionId,/^[A-F0-9]{24}$/);assert.ok(session.sessionToken&&session.expiresAt>Date.now());assert.equal(bootstrap.Execute(claimBody).sessionToken,session.sessionToken);
  assert.ok(Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>Gate(session.sessionId,session.sessionToken,b.deviceId));Reject(()=>Gate(session.sessionId,'invalid',a.deviceId));
+ AssertNativeRelease(session.release,'claim');
+ const status=bootstrap.Execute({action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken});AssertNativeRelease(status.release,'status');
+ const authenticated=bootstrap.AuthenticateIntegrityReport({stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:a.machineId});
+ AssertExtendedBaseline(authenticated.integrityArtifact,publishedB,'B published baseline');
 });
 Check('Launcher device consumption and lost-claim response recovery survive restart',()=>{
  const replay=Restart(claimBody);assert.equal(replay.ok,true,JSON.stringify(replay));assert.equal(replay.data.sessionToken,session.sessionToken);
