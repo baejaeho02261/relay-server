@@ -34,6 +34,7 @@ async function renderProductionHardening(){
   const passkeys=d.passkeys.map(x=>`<tr><td>${esc(x.name)}</td><td class="code">${esc(x.id)}</td><td>${esc(fmtTime(x.createdAt))}</td><td>${esc(fmtTime(x.lastUsedAt))}</td><td>${x.revokedAt?badge('REVOKED'):`<button class="danger" data-prod-passkey-revoke="${esc(x.id)}">해제</button>`}</td></tr>`).join('');
   const approvals=d.approvals.slice(0,20).map(x=>`<tr><td class="code">${esc(x.ticketId)}</td><td>${esc(x.method)} ${esc(x.pathname)}</td><td>${badge(x.status)}</td><td>${esc(x.requestedBy)}</td><td>${esc(x.approvedBy||'-')}</td><td>${x.status==='PENDING'?`<button data-prod-approval="${esc(x.ticketId)}">2차 승인</button>`:'-'}</td></tr>`).join('');
   const anomalies=d.anomalies.map(x=>`<tr><td>${esc(x.key)}</td><td>${badge(x.severity)}</td><td>${badge(x.status)}</td><td>${x.count}</td><td>${esc(fmtTime(x.lastAt))}</td></tr>`).join('');
+  guardAdminViewCommit('production');
   content.innerHTML=`
   <div class="cards production-summary">
     <div class="card"><div class="stat-label">호환됨</div><div class="stat-value">${c.summary.compatible}/${c.summary.online}</div><div class="stat-sub">접속 중인 기기 식별값</div></div>

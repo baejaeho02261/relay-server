@@ -3,6 +3,7 @@
 async function renderDangerZone() {
   if (!roleIsAdmin()) { content.innerHTML="<div class=\"empty\">접근 권한 없음</div>"; return; }
   const [{ system:s }, { backups }] = await Promise.all([api('/api/system'), api('/api/backups')]);
+  guardAdminViewCommit('danger');
   content.innerHTML = `<div class="danger-banner"><strong>!! 주의가 필요한 작업 !!</strong><span>위험 작업은 영향 범위를 확인한 뒤 웹 모달에서 한 번 더 승인합니다. 별도 확인 문구 입력은 사용하지 않습니다.</span></div><div class="danger-grid">
     <div class="section-card danger-card"><div class="section-head"><h3>서비스 종료</h3>${badge(s.serviceEnabled?'ONLINE':'OFFLINE')}</div><div class="section-body"><p class="muted">서비스를 중지하고 활성 인증을 종료합니다. 라이선스 발급·사용 기록은 유지됩니다.</p><button id="danger-service-stop" class="danger">서비스 종료</button></div></div>
     <div class="section-card danger-card"><div class="section-head"><h3>백업 복원 / 삭제</h3><span class="small-note">${backups.length} 파일</span></div><div class="section-body"><label>백업<select id="danger-backup-file">${backups.map(b=>`<option value="${esc(b.file)}">${esc(b.file)} // ${esc(fmtBytes(b.size))}</option>`).join('')}</select></label><div class="actions"><button id="danger-backup-restore" class="danger" ${backups.length?'':'disabled'}>복원 백업</button><button id="danger-backup-delete" class="danger" ${backups.length?'':'disabled'}>삭제 백업</button></div></div></div>

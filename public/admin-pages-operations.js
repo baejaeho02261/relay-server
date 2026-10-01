@@ -3,6 +3,7 @@
 async function renderAudit() {
   const { events } = await api(`/api/audit?query=${encodeURIComponent(auditQuery)}&type=${encodeURIComponent(auditType)}`);
   const types = [...new Set(events.map(x => x.type))].sort();
+  guardAdminViewCommit('audit');
   content.innerHTML = `<div class="toolbar"><input id="audit-search" placeholder="이벤트 검색" value="${esc(auditQuery)}"><select id="audit-type"><option value="ALL">전체</option>${types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('')}</select><button id="audit-search-btn">검색</button>${roleIsAdmin()?"<button class=\"danger\" data-history-clean=\"AUDIT\">이력 정리 감사 기록</button>":''}</div>
   <div class="table-wrap"><table><thead><tr><th>시각</th><th>유형</th><th>상세</th></tr></thead><tbody>${events.map(e => `<tr><td>${esc(fmtTime(e.time))}</td><td class="code">${esc(uiText(e.type))}</td><td>${esc(e.detail)}</td></tr>`).join('') || "<tr><td colspan=\"3\" class=\"empty\">감사 기록 없음</td></tr>"}</tbody></table></div>`;
   const typeEl = document.getElementById('audit-type');
@@ -11,12 +12,14 @@ async function renderAudit() {
 
 async function renderActivity() {
   const { activities } = await api(`/api/admin-activity?query=${encodeURIComponent(activityQuery)}&limit=500`);
+  guardAdminViewCommit('activity');
   content.innerHTML = `<div class="toolbar"><input id="activity-search" placeholder="역할 / IP / API / 상태 검색" value="${esc(activityQuery)}"><button id="activity-search-btn">검색</button><span class="small-note">비밀번호와 요청 본문은 기록하지 않습니다.</span></div>
   <div class="table-wrap"><table><thead><tr><th>시각</th><th>역할</th><th>IP</th><th>방식</th><th>API</th><th>상태</th><th>작업</th></tr></thead><tbody>${activities.map(a => `<tr><td>${esc(fmtTime(a.time))}</td><td>${badge(a.role)}</td><td class="code">${esc(a.ip || '-')}</td><td class="code">${esc(a.method)}</td><td class="code">${esc(a.path)}</td><td>${a.status >= 200 && a.status < 300 ? badge('OK') : badge('ERROR')} ${esc(uiText(a.status))}</td><td>${esc(a.action || '-')}</td></tr>`).join('') || "<tr><td colspan=\"7\" class=\"empty\">활동 없음</td></tr>"}</tbody></table></div>`;
 }
 
 async function renderSessions() {
   const { sessions } = await api('/api/sessions');
+  guardAdminViewCommit('sessions');
   content.innerHTML = `<div class="cards"><div class="card"><div class="stat-label">활성 세션</div><div class="stat-value">${sessions.length}</div><div class="stat-sub">현재 로그인 세션 포함</div></div><div class="card"><div class="stat-label">관리자</div><div class="stat-value">${sessions.filter(x => x.role === 'admin').length}</div><div class="stat-sub">관리 권한 세션</div></div><div class="card"><div class="stat-label">다른 역할</div><div class="stat-value">${sessions.filter(x => x.role !== 'admin').length}</div><div class="stat-sub">운영자 / 조회 전용</div></div></div>
   <div class="toolbar"><button id="session-revoke-others-btn" class="warning">현재 세션 제외 전부 종료</button><button id="session-revoke-all-btn" class="danger">전체 세션 종료</button><span class="small-note">세션 토큰 원문은 화면/로그에 노출하지 않습니다.</span></div>
   <div class="table-wrap"><table><thead><tr><th>세션 식별자</th><th>역할</th><th>IP</th><th>생성됨</th><th>마지막 활성</th><th>만료일</th><th>현재</th><th>작업</th></tr></thead><tbody>${sessions.map(s => `<tr><td class="code">${esc(s.id)}</td><td>${badge(s.role)}</td><td class="code">${esc(s.ip || '-')}</td><td>${esc(fmtTime(s.createdAt))}</td><td>${esc(fmtTime(s.lastSeenAt))}</td><td>${esc(fmtTime(s.expiresAt))}</td><td>${s.current ? badge('CURRENT') : '-'}</td><td>${s.current ? '<span class="muted">현재 세션</span>' : `<button class="danger" data-session-revoke="${esc(s.id)}">종료</button>`}</td></tr>`).join('') || "<tr><td colspan=\"8\" class=\"empty\">세션 없음</td></tr>"}</tbody></table></div>`;
@@ -31,6 +34,7 @@ async function renderSystemHealth() {
   const w = h.web;
   const n = h.node;
   const r = h.relay;
+  guardAdminViewCommit('health');
   content.innerHTML = `<div class="cards">
     <div class="card"><div class="stat-label">중계 서버</div><div class="stat-value">${o.serviceEnabled ? "온라인" : "오프라인"}</div><div class="stat-sub">가동 시간 ${esc(fmtDuration(o.uptimeMs))}</div></div>
     <div class="card"><div class="stat-label">데이터베이스</div><div class="stat-value">${db.exists && db.dataDirWritable && db.lastSaveOk ? 'OK' : "확인"}</div><div class="stat-sub">${esc(fmtBytes(db.size))} · ${esc(fmtTime(db.lastSaveAt))}</div></div>
@@ -48,6 +52,7 @@ async function renderSystemHealth() {
 
 async function renderBackups() {
   const { backups } = await api('/api/backups');
+  guardAdminViewCommit('backups');
   content.innerHTML = `<div class="toolbar">${roleIsAdmin() ? '<button id="backup-create-btn" class="primary">백업 생성</button>' : ''}<span class="small-note">복원는 현재 서버를 재접속시킵니다.</span></div>
   <div class="table-wrap"><table><thead><tr><th>파일</th><th>크기</th><th>생성됨</th><th>작업</th></tr></thead><tbody>${backups.map(b => `<tr><td class="code">${esc(b.file)}</td><td>${esc(fmtBytes(b.size))}</td><td>${esc(fmtTime(b.mtimeMs))}</td><td><div class="actions"><button data-backup-action="verify" data-file="${esc(b.file)}">검증</button>${roleIsAdmin() ? `<button data-open-view="danger" class="warning">주의가 필요한 작업</button>` : ''}</div></td></tr>`).join('') || "<tr><td colspan=\"4\" class=\"empty\">백업 없음</td></tr>"}</tbody></table></div>`;
 }
@@ -56,6 +61,7 @@ async function renderStorageMigration() {
   if (!roleIsAdmin()) throw new Error('FORBIDDEN');
   const { migration: m } = await api('/api/storage/migration/status');
   const s = m.sqlite || {};
+  guardAdminViewCommit('storage');
   content.innerHTML = `<div class="cards"><div class="card"><div class="stat-label">활성 저장소</div><div class="stat-value">${esc(m.activeProvider)}</div><div class="stat-sub">${m.switched ? 'AUTHORITATIVE' : "호환성"}</div></div><div class="card"><div class="stat-label">데이터 구조</div><div class="stat-value">v${m.schemaVersion}</div><div class="stat-sub">개정 번호 ${s.revision || 0}</div></div><div class="card"><div class="stat-label">무결성</div><div class="stat-value">${s.ok && m.ready ? "정상" : "확인"}</div><div class="stat-sub">${esc(s.file || '-')} · ${fmtBytes(s.size || 0)}</div></div><div class="card"><div class="stat-label">라이선스 개정</div><div class="stat-value">${m.licenseRevision}</div><div class="stat-sub">SQLite 스냅샷 기준</div></div></div>
     <div class="section-card"><div class="section-head"><h3>SQLite 기본 저장소</h3>${badge(s.ok && m.ready ? 'GOOD' : 'WARNING')}</div><div class="section-body"><div class="kv"><div>방식</div><div class="code">${esc(m.strategy)}</div><div>스냅샷 저장됨</div><div>${esc(fmtTime(s.savedAt))}</div><div>소스 인스턴스</div><div class="code">${esc(s.sourceInstance || '-')}</div><div>서버</div><div>${m.counts.servers}</div><div>라이선스</div><div>${m.counts.licenses}</div><div>기기 인증키</div><div>${m.counts.deviceSecrets}</div><div>데이터 경로</div><div class="code">${esc(m.dataDir)}</div></div>
     <p class="muted">SQLite가 실제 기본 저장소입니다. 기존 JSON은 최초 실행 시 자동 이관되며 이후에는 장애 복구용 미러로만 유지됩니다.</p>
@@ -66,6 +72,7 @@ async function renderStorageMigration() {
 async function renderHA() {
   const { ha } = await api('/api/ha/status');
   const peer = ha.peer || {};
+  guardAdminViewCommit('ha');
   content.innerHTML = `<div class="cards"><div class="card"><div class="stat-label">현재 서버 역할</div><div class="stat-value">${esc(uiText(ha.role))}</div><div class="stat-sub">${esc(ha.instanceId)} · 우선순위 ${ha.priority}</div></div><div class="card"><div class="stat-label">트래픽</div><div class="stat-value">${ha.acceptsTraffic ? "활성" : "차단됨"}</div><div class="stat-sub">대기 노드는 기기 접속과 변경 요청을 받지 않습니다.</div></div><div class="card"><div class="stat-label">상대 서버</div><div class="stat-value">${esc(peer.role || (ha.peerUrlConfigured ? 'WAITING' : 'NONE'))}</div><div class="stat-sub">${esc(peer.instanceId || '-')} · 우선순위 ${peer.priority || '-'}</div></div><div class="card"><div class="stat-label">동기화</div><div class="stat-value">R${ha.lastReplicationRevision || 0}</div><div class="stat-sub">${esc(fmtTime(ha.lastReplicationAt))}</div></div></div>
     <div class="section-card"><div class="section-head"><h3>주 서버·대기 서버 조정</h3>${badge(ha.role)}</div><div class="section-body"><div class="kv"><div>활성 / 설정됨</div><div>${badge(ha.enabled ? 'ONLINE' : 'DISABLED')} ${badge(ha.configured ? 'GOOD' : 'WARNING')}</div><div>결정</div><div class="code">${esc(uiText(ha.reason))}</div><div>상대 서버 마지막 확인</div><div>${esc(fmtTime(ha.lastPeerSeenAt))}</div><div>장애 전환 시간 초과</div><div>${ha.failoverTimeoutMs} ms</div><div>최근 동기화 오류</div><div class="code">${esc(ha.lastReplicationError || '-')}</div></div><div class="warning-box">두 중계 서버는 같은 <span class="code">HA_SHARED_SECRET</span>을 사용하고 서로의 웹 관리자 주소을 <span class="code">HA_PEER_URL</span>로 지정해야 합니다. 높은 우선순위가 활성이며 동률이면 인스턴스 식별자가 작은 노드가 활성입니다.</div></div></div>`;
 }
@@ -73,6 +80,7 @@ async function renderHA() {
 async function renderSystem() {
   const { system: s } = await api('/api/system');
   const schedule = s.maintenanceSchedule;
+  guardAdminViewCommit('system');
   content.innerHTML = `<div class="panel-grid">
     <div class="section-card"><div class="section-head"><h3>서비스</h3>${badge(s.serviceEnabled ? 'ONLINE' : 'OFFLINE')}</div><div class="section-body"><div class="kv"><div>점검</div><div>${badge(s.maintenanceMode ? 'ON' : 'OFF')}</div><div>웹 관리자</div><div>v${esc(s.webAdminVersion || '-')}</div><div>이전 방식 TCP 관리자</div><div>${badge(s.legacyTcpAdminEnabled ? 'ONLINE' : 'DISABLED')}</div><div>데이터 경로</div><div class="code">${esc(s.dataDir)}</div><div>속도 제한</div><div>${s.rateLimit}/초</div></div>${roleIsAdmin() ? `<div class="toolbar"><button id="service-start-btn">서비스 시작</button><button id="maint-on-btn" class="warning">점검 켜짐</button><button id="maint-off-btn">점검 꺼짐</button><button data-open-view="danger" class="danger">주의가 필요한 작업</button></div>` : ''}</div></div>
     <div class="section-card"><div class="section-head"><h3>버전 정책</h3></div><div class="section-body"><div class="form-grid"><label>프로토콜<input id="version-protocol" type="number" min="1" max="${s.currentProtocolVersion}" value="${s.minProtocolVersion}"></label><label>서버<input id="version-server" value="${esc(s.minServerVersion)}"></label><label>현재 프로토콜<input disabled value="${s.currentProtocolVersion}"></label></div>${roleIsAdmin() ? "<button data-open-view=\"danger\" class=\"warning\">주의가 필요한 작업에서 변경</button>" : ''}</div></div>

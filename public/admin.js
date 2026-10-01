@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'game-console-86';
+const WEB_UI_REVISION = 'game-console-87';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -49,6 +49,10 @@ let currentView = 'desktop-licenses';
 let eventSource = null;
 let eventPollTimer = null;
 let rendering = false;
+let desktopRefreshQueued = null;
+let deferredAutoRefreshView = null;
+let activeGenericRefresh = null;
+const ADMIN_REFRESH_DEFERRED = Symbol('admin-refresh-deferred');
 let toastTimer = null;
 let auditQuery = '';
 let auditType = 'ALL';
@@ -372,11 +376,29 @@ function roleIsAdmin() { return session && session.role === 'admin'; }
 function roleCanOperate() { return session && (session.role === 'admin' || session.role === 'operator'); }
 
 const PRESERVED_SCROLL_SELECTOR = '.table-wrap,.live-console,.event-list,.terminal-output,.command-terminal-output';
+function autoRefreshHasFocusedControl() { return content.contains(document.activeElement)&&document.activeElement.matches('input,textarea,select'); }
+// A control can receive focus after a background request starts. Retained page
+// renderers call this directly before their DOM commit, never from API handling.
+function guardAdminViewCommit(view) {
+  const refresh=activeGenericRefresh;
+  if(!refresh||refresh.view!==view)return;
+  if(currentView!==view||session?.csrf!==refresh.owner)throw ADMIN_REFRESH_DEFERRED;
+  if(autoRefreshHasFocusedControl()||dirtyViews.has(view)){
+    deferredAutoRefreshView=view;throw ADMIN_REFRESH_DEFERRED;
+  }
+}
+content.addEventListener('focusout',()=>{
+  queueMicrotask(()=>{
+    if(deferredAutoRefreshView!==currentView||autoRefreshHasFocusedControl()||dirtyViews.has(currentView))return;
+    deferredAutoRefreshView=null;renderCurrent(true);
+  });
+});
 
 function captureScrollState(view) {
   const scrolling = document.scrollingElement || document.documentElement;
+  const ancestors=[];for(let element=content.parentElement;element;element=element.parentElement)ancestors.push({element,top:element.scrollTop,left:element.scrollLeft});
   return {
-    view,
+    view,ancestors,
     documentTop: scrolling ? scrolling.scrollTop : 0,
     documentLeft: scrolling ? scrolling.scrollLeft : 0,
     navTop: nav ? nav.scrollTop : 0,
@@ -399,6 +421,7 @@ function restoreScrollState(snapshot) {
     scrolling.scrollTop = snapshot.documentTop;
     scrolling.scrollLeft = snapshot.documentLeft;
   }
+  for(const saved of snapshot.ancestors||[])if(saved.element.isConnected){saved.element.scrollTop=saved.top;saved.element.scrollLeft=saved.left;}
   if (nav) nav.scrollTop = snapshot.navTop;
   content.scrollTop = snapshot.contentTop || 0;
   content.scrollLeft = snapshot.contentLeft || 0;
@@ -416,20 +439,33 @@ function restoreScrollState(snapshot) {
 }
 
 async function renderCurrent(silent = false) {
-  if (!session || rendering) return;
+  if (!session) return;
+  if (rendering) {
+    // Coalesce desktop events while preserving a user filter/search change.
+    if(currentView==='desktop-licenses')desktopRefreshQueued=desktopRefreshQueued===false?false:silent;
+    return;
+  }
   if (silent && !modalEl.classList.contains('hidden')) return;
   if (silent && currentView === 'desktop-licenses' && typeof desktopLicenseActionPending !== 'undefined' && desktopLicenseActionPending) return;
-  // Desktop refreshes only result fragments, preserving search drafts and focus.
-  if (silent && currentView !== 'desktop-licenses' && (dirtyViews.has(currentView) || content.contains(document.activeElement) && document.activeElement.matches('input,textarea'))) return;
+  // Desktop patches mounted nodes; other views defer while a control is focused.
+  if (silent && currentView !== 'desktop-licenses') {
+    if(dirtyViews.has(currentView))return;
+    if(autoRefreshHasFocusedControl()){deferredAutoRefreshView=currentView;return;}
+  }
+  deferredAutoRefreshView=null;
   if (!silent) dirtyViews.delete(currentView);
   const view = currentView;
-  const scrollState = silent ? captureScrollState(view) : null;
+  const keepDesktop = view === 'desktop-licenses' && !!content.querySelector('.desktop-workspace');
+  let scrollState = silent && view !== 'desktop-licenses' ? captureScrollState(view) : null;
+  const trackScroll=()=>{if(scrollState&&view===currentView)scrollState=captureScrollState(view);};
+  if(scrollState)document.addEventListener('scroll',trackScroll,true);
   rendering = true;
+  activeGenericRefresh=silent&&view!=='desktop-licenses'?{view,owner:session.csrf}:null;
   const meta = titles[currentView] || titles.dashboard;
   pageTitle.textContent = meta[0];
   pageSubtitle.textContent = meta[1];
   if (typeof updateNavigationWorkspace === 'function') updateNavigationWorkspace();
-  if (!silent) content.innerHTML = '<div class="empty">불러오는 중...</div>';
+  if (!silent && !keepDesktop) content.innerHTML = '<div class="empty">불러오는 중...</div>';
   try {
     if (currentView === 'desktop-licenses') await renderDesktopLicenses(silent);
     else if (currentView === 'dashboard') await renderDashboard();
@@ -459,16 +495,19 @@ async function renderCurrent(silent = false) {
     else if (currentView === 'system') await renderSystem();
     else if (currentView === 'danger') await renderDangerZone();
   } catch (error) {
-    if (!silent) {
-      content.innerHTML = `<div class="api-error"><strong>요청을 처리하지 못했습니다.</strong><span>${esc(error.message)}</span><small>새로고침 후에도 반복되면 서버 로그의 참조 번호를 확인하세요.</small></div>`;
+    if(error===ADMIN_REFRESH_DEFERRED){ /* Retry after blur or the requested view change. */ }
+    else if (!silent) {
+      if(!keepDesktop)content.innerHTML = `<div class="api-error"><strong>요청을 처리하지 못했습니다.</strong><span>${esc(error.message)}</span><small>새로고침 후에도 반복되면 서버 로그의 참조 번호를 확인하세요.</small></div>`;
       toast(error.message, true);
     } else {
       console.warn(`[WEB AUTO REFRESH] ${view}: refresh failed`);
     }
   } finally {
-    if (scrollState) restoreScrollState(scrollState);
+    activeGenericRefresh=null;
+    if (scrollState) {document.removeEventListener('scroll',trackScroll,true);restoreScrollState(scrollState);}
     rendering = false;
-    if (view !== currentView) renderCurrent();
+    if (view !== currentView) {desktopRefreshQueued=null;renderCurrent();}
+    else if(currentView==='desktop-licenses'&&desktopRefreshQueued!==null){const queued=desktopRefreshQueued;desktopRefreshQueued=null;renderCurrent(queued);}
   }
 }
 

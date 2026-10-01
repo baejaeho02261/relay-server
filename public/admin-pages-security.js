@@ -4,6 +4,7 @@ async function renderEnrollment() {
   if (!roleIsAdmin()) throw new Error('FORBIDDEN');
   const { enrollment:e } = await api('/api/enrollment');
   const rows=(e.records||[]).filter(r=>r.type==='SERVER').map(r=>`<tr><td>${badge(r.type)}</td><td class="code">${esc(r.deviceKey)}</td><td>${badge(r.status)}</td><td class="code">${esc(r.requestId)}</td><td>${esc(r.appVersion||'-')}</td><td>${r.protocolVersion||'-'}</td><td class="code">${esc(r.ip||'-')}</td><td>${esc(fmtTime(r.lastSeenAt))}</td><td class="code">${esc(r.assignedId||'-')}</td><td><div class="actions">${r.status==='PENDING'?`<button class="primary" data-enroll-decision="APPROVED" data-request-id="${esc(r.requestId)}">승인</button><button class="danger" data-enroll-decision="REJECTED" data-request-id="${esc(r.requestId)}">거절</button>`:''}<button data-enroll-reset="${esc(r.requestId)}">초기화</button></div></td></tr>`).join('');
+  guardAdminViewCommit('enrollment');
   content.innerHTML=`<div class="cards"><div class="card"><div class="stat-label">정책</div><div class="stat-value">${e.policy.enabled?"켜짐":"꺼짐"}</div><div class="stat-sub">기존 등록 기기는 정책 변경 후에도 재접속할 수 있습니다.</div></div><div class="card"><div class="stat-label">대기 중</div><div class="stat-value">${e.pending}</div></div><div class="card"><div class="stat-label">승인됨</div><div class="stat-value">${e.approved}</div></div><div class="card"><div class="stat-label">거절됨</div><div class="stat-value">${e.rejected}</div></div></div><div class="section-card"><div class="section-head"><h3>새 기기 승인</h3><div class="actions"><button id="enrollment-policy-btn" class="${e.policy.enabled?'warning':'primary'}">${e.policy.enabled?"비활성화 정책":"활성화 정책"}</button></div></div><div class="section-body"><p class="muted">정책 켜짐 이후 처음 보는 기기 키만 대기 중 처리됩니다. 이미 등록된 서버는 재접속에 영향 없습니다.</p><div class="table-wrap"><table><thead><tr><th>유형</th><th>기기 키</th><th>상태</th><th>요청</th><th>앱</th><th>프로토콜</th><th>IP</th><th>마지막 확인</th><th>배정됨 식별자</th><th>작업</th></tr></thead><tbody>${rows||"<tr><td colspan=\"10\" class=\"empty\">기기 등록 기록 없음</td></tr>"}</tbody></table></div></div></div>`;
 }
 
@@ -28,6 +29,7 @@ async function renderSecurityCenter() {
     const action=roleIsAdmin()?`<button data-network-trust data-type="${esc(n.type)}" data-id="${esc(n.id)}" ${n.changed?'':'disabled'}>신뢰 현재</button>`:'-';
     return `<tr><td>${badge(n.type)}</td><td class="code">${esc(n.id)}</td><td>${badge(n.status||'TRUSTED')}</td><td>${n.severity?badge(n.severity):badge('OK')}</td><td class="code">${esc(current.ip||'-')}</td><td class="code">${esc(trusted.ip||'-')}</td><td>${esc(location)}</td><td>${esc(trustedLocation)}</td><td class="code">${esc(current.subnet||'-')}</td><td class="code">${esc(trusted.subnet||'-')}</td><td>${n.changeCount||0}</td><td>${esc(fmtTime(n.lastChangeAt))}</td><td>${action}</td></tr>`;
   }).join('');
+  guardAdminViewCommit('security');
   content.innerHTML=`<div class="cards">
     <div class="card"><div class="stat-label">보안 점수</div><div class="stat-value">${s.score}</div><div class="stat-sub">${esc(s.label)}</div></div>
     <div class="card"><div class="stat-label">HMAC 검증 완료</div><div class="stat-value">${s.verified} / ${s.onlineHmacCapable}</div><div class="stat-sub">온라인 HMAC 지원</div></div>
@@ -61,6 +63,7 @@ async function renderProtocolSecurity() {
   const enrolled = (security || []).filter(x => x.hasSecret).length;
   const missing = (sequences || []).reduce((a,x)=>a+Number(x.stats&&x.stats.rxMissing||0),0);
   const anomalies = (sequences || []).reduce((a,x)=>a+Number(x.stats&&x.stats.rxDuplicates||0)+Number(x.stats&&x.stats.rxOutOfOrder||0),0);
+  guardAdminViewCommit('protocol');
   content.innerHTML = `<div class="cards">
     <div class="card"><div class="stat-label">V3 준비됨</div><div class="stat-value">${readiness.ready} / ${readiness.total}</div><div class="stat-sub">후보 프로토콜 ${readiness.candidateProtocol}</div></div>
     <div class="card"><div class="stat-label">HMAC 검증 완료</div><div class="stat-value">${verified}</div><div class="stat-sub">등록됨 ${enrolled}</div></div>

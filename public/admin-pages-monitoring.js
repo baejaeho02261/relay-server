@@ -8,6 +8,7 @@ function renderStatsPanel(stats) {
 async function renderDashboard() {
   const [{ dashboard: d }, { statistics: stats }, licenses] = await Promise.all([api('/api/dashboard'), api(`/api/statistics?range=${encodeURIComponent(statsRange)}`),roleIsAdmin()?api('/api/desktop/licenses'):Promise.resolve(null)]);
   const rows=licenses?.items||[];
+  guardAdminViewCommit('dashboard');
   content.innerHTML = `<div class="cards">
     <div class="card"><div class="stat-label">서버 연결</div><div class="stat-value">${d.servers.online} / ${d.servers.total}</div><div class="stat-sub">비활성 ${d.servers.disabled} · 연결 정리 중 ${d.servers.draining}</div></div>
     ${licenses?`<div class="card"><div class="stat-label">Windows 라이선스</div><div class="stat-value">${rows.filter(x=>x.status==='ACTIVE').length}</div><div class="stat-sub">사용 중 · 전체 ${rows.length}</div></div>`:''}
@@ -27,6 +28,7 @@ async function renderConsole() {
     if (!liveConsoleEvents.length) liveConsoleEvents = events.slice(-300);
     consoleHistoryLoaded = true;
   }
+  guardAdminViewCommit('console');
   content.innerHTML = `<div class="terminal-panel"><div class="terminal-head"><span>실시간 이벤트 기록</span><div class="actions"><button id="console-pause-btn">${consolePaused ? "이용 재개" : "일시 중지"}</button><button id="console-clear-btn">지우기</button></div></div><div id="live-console-list" class="live-console">${liveConsoleEvents.slice(-300).map(e => `<div class="console-line"><span class="console-time">${esc(fmtTime(e.time))}</span><span class="console-type">${esc(uiText(e.type))}</span><span class="console-detail">${esc(e.detail)}</span></div>`).join('') || '<div class="empty">이벤트 없음</div>'}</div></div>`;
   const list = document.getElementById('live-console-list');
   if (list) list.scrollTop = list.scrollHeight;
@@ -35,11 +37,13 @@ async function renderConsole() {
 async function renderTrace() {
   const { traces } = await api(`/api/request-traces?query=${encodeURIComponent(traceQuery)}`);
   traceRows = new Map(traces.map(t => [t.key, t]));
+  guardAdminViewCommit('trace');
   content.innerHTML = `<div class="toolbar"><input id="trace-search" placeholder="요청 식별자 / 요청 기기 / 서버 / 입력값" value="${esc(traceQuery)}"><button id="trace-search-btn">요청 추적</button>${roleIsAdmin()?"<button class=\"danger\" data-history-clean=\"REQUEST_TRACES\">이력 정리</button>":''}<span class="small-note">처리 중·대기열 요청은 보존</span></div><div class="table-wrap"><table><thead><tr><th>요청 식별자</th><th>소스</th><th>요청 기기</th><th>서버</th><th>입력값</th><th>상태</th><th>다시 시도</th><th>기간</th><th>전달됨</th><th>작업</th></tr></thead><tbody>${traces.map(t => `<tr><td class="code">${esc(t.requestId)}</td><td>${esc(t.source||'CLIENT')}</td><td class="code">${esc(t.clientId)}</td><td class="code">${esc(t.serverId)}</td><td class="code">${esc(t.number)}</td><td>${badge(t.status)}</td><td>${t.retries}</td><td>${t.completedAt ? `${t.durationMs} ms` : '-'}</td><td>${esc(fmtTime(t.forwardedAt))}</td><td><div class="actions"><button data-trace-detail="${esc(t.key)}">상세</button>${roleIsAdmin()&&['ERROR','TIMEOUT','DLQ'].includes(String(t.status||'').toUpperCase())?`<button class="warning" data-trace-replay="${esc(t.key)}">재전송</button>`:''}</div></td></tr>`).join('') || "<tr><td colspan=\"10\" class=\"empty\">요청 추적 없음</td></tr>"}</tbody></table></div>`;
 }
 
 async function renderMonitor() {
   const { servers } = await api('/api/servers');
   const good=servers.filter(x=>x.health==='GOOD').length,online=servers.filter(x=>x.online).length;
+  guardAdminViewCommit('monitor');
   content.innerHTML=`<div class="cards"><div class="card"><div class="stat-label">서버 정상</div><div class="stat-value">${good}</div><div class="stat-sub">문제 ${servers.filter(x=>!['GOOD','OFFLINE'].includes(x.health)).length}</div></div><div class="card"><div class="stat-label">서버 온라인</div><div class="stat-value">${online}</div><div class="stat-sub">전체 ${servers.length}</div></div></div><div class="section-card"><div class="section-head"><h3>서버 연결 상태</h3><span class="small-note">실시간 갱신</span></div><div class="table-wrap"><table><thead><tr><th>별칭</th><th>서버 식별자</th><th>상태</th><th>건강 상태</th><th>왕복 지연</th><th>처리 응답</th><th>재연결</th><th>마지막 확인</th></tr></thead><tbody>${servers.map(x=>`<tr><td>${esc(x.alias||'—')}</td><td class="code">${esc(x.id)}</td><td>${badge(x.status)}</td><td>${badge(x.health)}</td><td>${x.rttMs>=0?x.rttMs+' ms':'—'}</td><td>${x.ack.successRate}%</td><td>${x.reconnectCount}</td><td>${esc(fmtTime(x.lastSeen))}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">연결된 서버가 없습니다.</td></tr>'}</tbody></table></div></div>`;
 }

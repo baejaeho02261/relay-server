@@ -94,6 +94,7 @@ async function executeTerminalCommand(rawLine) {
 
 async function renderTerminal() {
   if (!terminalLines.length) terminalWrite('ok', 'RELAY SAFE COMMAND TERMINAL // type help // OS SHELL DISABLED');
+  guardAdminViewCommit('terminal');
   content.innerHTML = `<div class="terminal-panel command-terminal"><div class="terminal-head"><span>중계 서버 관리 명령 · 허용 목록 적용</span><div class="actions"><button id="terminal-help-btn">도움말</button><button id="terminal-clear-btn">지우기</button></div></div><div id="command-terminal-output" class="command-terminal-output">${terminalLines.map(x=>`<div class="terminal-output-line ${esc(x.kind)}"><span>${esc(fmtTime(x.time))}</span><pre>${esc(x.text)}</pre></div>`).join('')}</div><form id="command-terminal-form" class="command-terminal-form"><span>중계 서버-관리자 &gt;</span><input id="command-terminal-input" autocomplete="off" spellcheck="false" placeholder="도움말"><button class="primary" type="submit">실행</button></form><div class="terminal-safety">허용된 관리 명령만 실행하며 관리자 권한 정책을 적용합니다.</div></div>`;
   const output=document.getElementById('command-terminal-output'); if(output) output.scrollTop=output.scrollHeight;
   const input=document.getElementById('command-terminal-input'); if(input) setTimeout(()=>input.focus(),10);

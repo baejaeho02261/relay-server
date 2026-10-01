@@ -3,6 +3,7 @@
 async function renderNotifications(silent = false) {
   const { summary, notifications } = await api('/api/notifications?limit=300');
   if (!silent) updateNotificationBadge();
+  guardAdminViewCommit('notifications');
   content.innerHTML = `<div class="cards"><div class="card"><div class="stat-label">읽지 않음</div><div class="stat-value">${summary.unread}</div><div class="stat-sub">전체 ${summary.total}</div></div><div class="card"><div class="stat-label">긴급</div><div class="stat-value">${summary.critical}</div><div class="stat-sub">즉시 확인 필요</div></div><div class="card"><div class="stat-label">주의</div><div class="stat-value">${summary.warning}</div><div class="stat-sub">운영 주의 사항</div></div></div>
   <div class="toolbar"><button id="notification-read-all-btn">모두 읽음</button>${roleIsAdmin() ? '<button id="notification-clear-btn" class="danger">전체 지우기</button>' : ''}<span class="small-note">응답 시간 초과 / 서버 오프라인 / 연결 반복 / 라이선스 이용 기간 / 데이터베이스 복구</span></div>
   <div class="notification-list">${notifications.map(n => `<div class="notification-item ${n.read ? 'read' : 'unread'} ${esc(n.severity.toLowerCase())}"><div class="notification-icon">${n.severity === 'CRITICAL' ? '!' : n.severity === 'WARNING' ? '▲' : '•'}</div><div class="notification-main"><div class="notification-title">${badge(n.severity)} <strong>${esc(uiText(n.title))}</strong> ${n.count > 1 ? `<span class="nav-count">×${n.count}</span>` : ''}</div><div class="notification-message">${esc(n.message)}</div><div class="small-note">${esc(uiText(n.type))} // ${esc(fmtTime(n.updatedAt || n.createdAt))}${n.entityId ? ` // ${esc(n.entityId)}` : ''}</div></div>${!n.read ? `<button data-notification-read="${esc(n.id)}">읽음</button>` : ''}</div>`).join('') || '<div class="empty">알림 없음</div>'}</div>`;
@@ -12,6 +13,7 @@ async function renderProcessors() {
   const { processors } = await api('/api/processors');
   const p = processors.policy;
   const controls = roleIsAdmin() ? `<div class="actions"><button id="processor-save-btn" class="primary">정책 저장 / 배포</button><button id="processor-push-btn">온라인 서버 재전송</button><button id="processor-reset-stats-btn" class="danger">통계 초기화</button></div>` : '';
+  guardAdminViewCommit('processors');
   content.innerHTML = `<div class="cards">
     <div class="card"><div class="stat-label">정책 개정 번호</div><div class="stat-value">${p.revision}</div><div class="stat-sub">${p.enabled ? "활성" : "통과"}</div></div>
     <div class="card"><div class="stat-label">처리기</div><div class="stat-value compact">${esc(p.processor)}</div><div class="stat-sub">서버에서 실행</div></div>
