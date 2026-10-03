@@ -8,3 +8,13 @@
 .desktop-export-table{margin-top:12px;padding-top:10px;border-top:1px solid var(--workspace-border)}.desktop-export-table strong{font-size:12px}.desktop-export-table .code{display:block;margin-top:5px}.desktop-export-table small{color:var(--workspace-muted)}
 
 .desktop-tabs{display:flex;gap:8px;position:sticky;top:0;z-index:4;padding:10px 0;background:var(--workspace-bg)}.desktop-tabs [role=tab]{padding:11px 17px;border-radius:10px;border:1px solid var(--workspace-border);background:var(--workspace-panel);color:var(--workspace-muted);font-weight:600}.desktop-tabs [aria-selected=true]{color:var(--workspace-active);background:var(--workspace-tint);border-color:var(--workspace-active)}.desktop-tabs [role=tab]:focus-visible{outline:2px solid var(--workspace-active);outline-offset:2px}.desktop-tab-panel{display:grid;gap:20px;min-width:0}.desktop-tab-panel[hidden]{display:none}.desktop-extended-hashes{margin-top:12px;padding-top:10px;border-top:1px solid var(--workspace-border)}.desktop-extended-hashes strong{display:block;font-size:12px}.desktop-extended-hashes .code{display:block;margin-top:6px}.desktop-extended-option{display:flex;gap:10px;align-items:center}.desktop-extended-option input{width:auto;margin:0;flex-shrink:0}.desktop-workspace .table-wrap,.desktop-integrity-list{overflow-anchor:none}@media(max-width:520px){.desktop-tabs [role=tab]{flex:1;padding:10px 8px;font-size:12px}}
+
+/* Server operations dialog only; existing pages are unchanged. */
+.desktop-security details { margin-block: 1rem; padding: .8rem; border: 1px solid var(--border, #7776); border-radius: .6rem; }
+.desktop-security summary { cursor: pointer; font-weight: 600; margin-block-end: .7rem; }
+.desktop-security label { display: block; margin-block: .6rem; }
+.desktop-security textarea, .desktop-security select, .desktop-security input:not([type="checkbox"]) { width: 100%; box-sizing: border-box; }
+.desktop-security-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: .8rem; }
+.desktop-security-result { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; font-size: .82rem; }
+.desktop-security-signer { margin-block: 1rem; overflow-wrap: anywhere; }
+.desktop-security #security-status { overflow-wrap: anywhere; }
