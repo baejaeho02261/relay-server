@@ -39,6 +39,7 @@ const FILES = [
   "icons/game.svg",
   "admin-palette.js",
   "admin-desktop-licenses.js",
+  "admin-desktop-security.js",
   "admin-desktop.css",
   "admin-pages-production.js",
   "service-worker.js",

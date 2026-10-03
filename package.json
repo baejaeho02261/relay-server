@@ -37,7 +37,11 @@
     "test:extended-hashes": "node scripts/test-extended-hashes.js",
     "test:security-authority": "node scripts/test-security-authority.js",
     "test:security-tools": "node scripts/test-security-tools.js",
-    "test:security-wire": "node scripts/test-security-wire.js"
+    "test:security-wire": "node scripts/test-security-wire.js",
+    "test:security-operations": "node scripts/test-security-operations.js",
+    "test:security-admin": "node scripts/test-security-admin.js",
+    "test:security-evidence": "node scripts/test-security-evidence.js",
+    "test:security-native-contract": "node scripts/test-security-native-contract.js"
   },
   "engines": {
     "node": ">=22.14"

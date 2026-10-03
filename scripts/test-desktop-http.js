@@ -117,7 +117,25 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await upload('A', bootstrapFixture.PE('A'), viewer)).status, 403);
         assert.equal((await upload('A', bootstrapFixture.PE('A'), auth, false)).status, 403);
         const invalidPE = await upload('A', Buffer.from('MZ not an executable'), auth); assert.equal(invalidPE.status, 400); assert.equal(invalidPE.json.error, 'BOOTSTRAP_PE_INVALID');
-        for (const component of ['A', 'B']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200); assert.equal(published.json.artifact.sha256, digest(bytes)); }
+        const candidates={};
+        for (const component of ['A', 'B']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200); assert.equal(published.json.artifact.sha256, digest(bytes)); assert.equal(published.json.disposition,'CANDIDATE'); assert.equal(published.json.activeUnchanged,true);candidates[component]=published.json.artifact; }
+        const security='/api/desktop/bootstrap/security-authority',operations='/api/desktop/bootstrap/security-operations';
+        for(const route of [security,operations,operations+'/approvals']){assert.equal((await call(route)).status,401);assert.equal((await call(route,undefined,viewer)).status,403);}
+        let settings=(await call(security,undefined,auth)).json;
+        assert.equal(settings.operations.active.A,'');assert.equal(settings.operations.active.B,'');
+        const previewBody={expectedRevision:settings.policy.revision,expectedOperationsRevision:settings.operations.operations.revision,requireCfg:true};
+        assert.equal((await call(security+'/preview',previewBody,auth,{csrf:false})).status,403);
+        const preview=await call(security+'/preview',previewBody,auth);assert.equal(preview.status,200);assert.equal(preview.json.preview.readOnly,true);
+        const unchanged=(await call(security,undefined,auth)).json;assert.equal(unchanged.policy.revision,settings.policy.revision);
+        const pair={aId:candidates.A.id,bId:candidates.B.id},view=await call(operations+'/preview-pair',pair,auth);assert.equal(view.status,200);assert.equal(view.json.preview.eligible,true);
+        const activate={expectedRevision:settings.operations.operations.revision,expectedPolicyRevision:settings.policy.revision,...pair};
+        assert.equal((await call(operations+'/activate',activate,auth,{csrf:false})).status,403);
+        assert.equal((await call(operations+'/activate',activate,viewer)).status,403);
+        assert.equal((await call(operations+'/activate',{...activate,expectedPolicyRevision:999},auth)).status,409);
+        assert.equal((await call(operations+'/activate',activate,auth)).status,200);
+        settings=(await call(security,undefined,auth)).json;assert.deepEqual(settings.operations.active,{A:pair.aId,B:pair.bId});
+        assert.equal((await call(operations+'/activate',activate,auth)).status,409,'Stale revision cannot repeat an activation');
+        console.log('PASS real HTTP server operations: authenticated staging, read-only preview, CSRF, viewer rejection, atomic activation, stale revision');
         const dll = bootstrapFixture.PE('B'), peOffset = dll.readUInt32LE(0x3c);
         dll.writeUInt16LE(dll.readUInt16LE(peOffset + 22) | 0x2000, peOffset + 22);
         assert.equal((await uploadBaseline(dll)).status,401);

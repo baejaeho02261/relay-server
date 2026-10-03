@@ -25,7 +25,13 @@ async function HandleApiRequest(req, res, session) {
         return;
     }
 
-    if (!['GET','HEAD'].includes(method) && require('../services/privilegedApproval').Required(pathname)) {
+    const desktopGuard=require('../services/desktopAdminGuard');
+    if(!['GET','HEAD'].includes(method)&&desktopGuard.IsMutation(pathname)) {
+        if(!require('./webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return;}
+        const guarded=desktopGuard.Authorize(session,method,pathname,body,String(req.headers['x-approval-ticket']||''));
+        if(!guarded.ok){ApiError(res,guarded.status||428,guarded.reason,guarded.ticketId||'');return;}
+    }
+    if (!['GET','HEAD'].includes(method) && !desktopGuard.IsMutation(pathname) && require('../services/privilegedApproval').Required(pathname)) {
         const ticketId = String(req.headers['x-approval-ticket'] || '');
         const approval = require('../services/privilegedApproval').Consume(ticketId, session, method, pathname, body);
         if (!approval.ok) {

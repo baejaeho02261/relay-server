@@ -26,7 +26,9 @@ function EventHash(previousHash, sequence, time, type, detail) {
         .digest('hex').toUpperCase();
 }
 
-function LogEvent(type, detail) {
+const writeHealth = { status:'UNKNOWN', failedWrites:0, lastFailureAt:0, lastSuccessAt:0, lastErrorCode:'', lastDurableSequence:0 };
+function WriteHealth() { return {...writeHealth, sinceProcessStart:true, missingRecordsRecovered:false}; }
+function LogEvent(type, detail, options = {}) {
     const chain = state.production.auditChain;
     const event = {
         time: Now(), type: SafeField(type), detail: SafeField(detail),
@@ -36,7 +38,7 @@ function LogEvent(type, detail) {
     event.hash = EventHash(event.previousHash, event.sequence, event.time, event.type, event.detail);
     chain.head = event.hash;
     chain.count = event.sequence;
-    chain.lastError = '';
+    // Chain verification errors are not cleared by an unrelated new event.
     events.push(event);
     while (events.length > MAX_EVENT_MEMORY) events.shift();
     console.log('[EVENT]', event.type, event.detail);
@@ -44,9 +46,23 @@ function LogEvent(type, detail) {
     try { require('../services/notificationCenter').CaptureEvent(event); } catch (_) {}
     try { require('../services/incidentCenter').CaptureEvent(event); } catch (_) {}
     try {
-        fs.appendFileSync(AuditFileForTime(event.time), JSON.stringify(event) + '\n', 'utf8');
+        if (options.durable === true) {
+            const fd=fs.openSync(AuditFileForTime(event.time),'a',0o600);
+            try { fs.writeFileSync(fd,JSON.stringify(event)+'\n','utf8'); fs.fsyncSync(fd); }
+            finally { fs.closeSync(fd); }
+            writeHealth.lastDurableSequence=event.sequence;
+        } else fs.appendFileSync(AuditFileForTime(event.time), JSON.stringify(event) + '\n', 'utf8');
+        writeHealth.status='HEALTHY';writeHealth.lastSuccessAt=event.time;writeHealth.lastErrorCode='';
+        return {ok:true,sequence:event.sequence,hash:event.hash,durable:options.durable===true};
     } catch (error) {
-        console.error('AUDIT WRITE ERROR:', error.message);
+        writeHealth.status='DEGRADED';writeHealth.failedWrites++;writeHealth.lastFailureAt=event.time;
+        writeHealth.lastErrorCode=/^[A-Z0-9_]{1,40}$/.test(String(error.code||''))?error.code:'WRITE_FAILED';
+        console.error('AUDIT WRITE ERROR:', writeHealth.lastErrorCode);
+        const signal={time:event.time,type:'AUDIT_WRITE_FAILED',detail:'Server audit storage unavailable; failed writes: '+writeHealth.failedWrites};
+        // Do not call LogEvent recursively when the audit storage itself fails.
+        try { require('../services/incidentCenter').CaptureEvent(signal); } catch (_) {}
+        try { require('../services/notificationCenter').CaptureEvent(signal); } catch (_) {}
+        return {ok:false,sequence:event.sequence,errorCode:writeHealth.lastErrorCode};
     }
 }
 
@@ -141,6 +157,7 @@ function ClearAudit() {
 }
 
 module.exports = {
+    WriteHealth,
     AuditFileForTime,
     LogEvent,
     LoadRecentAudit,

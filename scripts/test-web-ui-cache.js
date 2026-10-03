@@ -84,13 +84,18 @@ async function testRefresh(ready) {
 }
 
 async function testWorker() {
-  const handlers = {}, removed = [], puts = [], reads = [], network = [];
+  const handlers = {}, removed = [], puts = [], reads = [], network = [], installed = [];
   const { WEB_ADMIN_VERSION, WEB_UI_REVISION } = require('../config/config');
   const currentCache = `relay-admin-shell-v${WEB_ADMIN_VERSION}-${WEB_UI_REVISION}`;
   const oldCaches = ['relay-admin-shell-old', 'relay-admin-shell-v4.26.0-fix39', 'relay-admin-shell-v5.0.0-fix42'];
   let failNetwork = false, responseStatus = 200;
   const cache = {
-    addAll: async requests => { for (const r of requests) assert.equal(r.cache, 'no-store'); },
+    addAll: async requests => { for (const r of requests) {
+      assert.equal(r.cache, 'no-store');
+      const asset = new URL(r.url).pathname; installed.push(asset);
+      assert.equal(fs.statSync(path.join(root, 'public', asset)).isFile(), true, 'Every cached shell asset must exist: ' + asset);
+      assert.ok(!asset.startsWith('/api/') && !asset.startsWith('/member/') && !asset.startsWith('/pay/'), 'Never pre-cache authenticated data');
+    } },
     put: async (key, response) => { puts.push(typeof key === 'string' ? key : key.url); assert.equal(response.status, 200); },
     match: async key => { reads.push(key); return key === '/index.html' ? new Response('<html>cached shell</html>') : undefined; }
   };
@@ -121,6 +126,7 @@ async function testWorker() {
     handlers[type]({ waitUntil: p => { work = p; } });
     await work;
   }
+  assert.ok(installed.includes('/admin-desktop-security.js') && installed.includes('/admin-desktop-licenses.js') && installed.includes('/admin-desktop.css'), 'New desktop UI is part of the actual shell');
   assert.deepEqual(removed, oldCaches, 'Only prior app caches are removed; current and unrelated caches survive');
   async function request(url, mode) {
     let response;

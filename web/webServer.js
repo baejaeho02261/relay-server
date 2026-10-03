@@ -205,6 +205,7 @@ async function RequestHandler(req, res) {
         const result = require('../services/passkeyAuth').LoginFinish(req, body);
         if (!result.ok) { ApiError(res, 401, result.reason); return; }
         const session = require('./webAuth').CreateSession(req, result.role);
+        require('../services/desktopAdminGuard').MarkVerified(session,result.credentialId);
         res.setHeader('Set-Cookie', SessionCookie(req, session.token, SESSION_MS / 1000));
         Json(res, 200, { ok:true, role:session.role, csrf:session.csrf, expiresAt:session.expiresAt });
         return;
