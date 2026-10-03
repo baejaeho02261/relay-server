@@ -57,15 +57,16 @@ function Pe(bytes,component){
   const marker=Buffer.from(encoded,'hex');if(bytes.includes(marker)||bytes.includes(Buffer.from(marker.toString('ascii'),'utf16le')))Fail('BOOTSTRAP_PE_INVALID');
  }
 }
-function Publish(component,version,bytes){
+function Publish(component,version,bytes,releaseApproval){
  if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);
  if(!['A','B'].includes(component)||typeof version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(version)||version.length>40)Fail('BOOTSTRAP_INPUT_INVALID');
- DB();Pe(bytes,component);let code;try{code=integrity.CodeImage(bytes);}catch(_){Fail('BOOTSTRAP_PE_INVALID');}const row={id:Id(),component,protocol:'GAME-CONNECT-3',version,...integrity.Digests(bytes),codeSha256:code.sha256,codeCrc64:code.crc64,codeXxh64:code.xxh64,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,size:bytes.length,createdAt:now()};
+ DB();Pe(bytes,component);const securityMetadata=require('./desktopSecurityAuthority').PublishMetadata(component,version,bytes,releaseApproval);let code;try{code=integrity.CodeImage(bytes);}catch(_){Fail('BOOTSTRAP_PE_INVALID');}const row={id:Id(),component,protocol:'GAME-CONNECT-3',version,...securityMetadata,...integrity.Digests(bytes),codeSha256:code.sha256,codeCrc64:code.crc64,codeXxh64:code.xxh64,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,size:bytes.length,createdAt:now()};
  try{store.PublishBytes(row.id,bytes);}catch(_){Fail('STORAGE_SAVE_FAILED',503);}
  Atomic(db=>{db.artifacts[row.id]=row;db.active[component]=row.id;});
  Audit('DESKTOP_BOOTSTRAP_PUBLISHED',Artifact(row));return Artifact(row);
 }
 function Bytes(artifact){
+ require('./desktopSecurityAuthority').RequireArtifact(artifact);
  let fd;
  try{const file=store.ArtifactPath(artifact.id);fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==artifact.size)throw Error();const bytes=fs.readFileSync(fd),digests=integrity.Digests(bytes);if(digests.sha256!==artifact.sha256||digests.crc64!==artifact.crc64||artifact.xxh64&&digests.xxh64!==artifact.xxh64||artifact.blake3&&digests.blake3!==artifact.blake3)throw Error();return bytes;}
  catch(_){Fail('BOOTSTRAP_ARTIFACT_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
@@ -104,11 +105,12 @@ function Verify(row,canonical,signature){
  if(!crypto.verify('sha256',Buffer.from(canonical,'utf8'),{key,padding:crypto.constants.RSA_PKCS1_PADDING},bytes))Fail('BOOTSTRAP_PROOF_INVALID',401);
 }
 function FlowLive(row,allowClaimed=false){if(row?.machineId)MachinePolicy().AssertAllowed(row.machineId,row.machinePolicyGeneration,row.sessionId);if(row?.status==='EXPIRED')Fail('BOOTSTRAP_EXPIRED',403);if(!row)Fail('BOOTSTRAP_FLOW_INVALID',401);if(row.status==='REVOKED')Fail('BOOTSTRAP_REVOKED',403);if(row.status==='CLOSED')Fail('BOOTSTRAP_SESSION_CLOSED',403);if(row.status==='CLAIMED'){if(!allowClaimed)Fail('BOOTSTRAP_LAUNCHER_USED',409);if(row.sessionExpiresAt<=now())Fail('BOOTSTRAP_EXPIRED',403);}else if(row.expiresAt<=now())Fail('BOOTSTRAP_EXPIRED',403);}
-function DownloadFlow(body,allowClaimed=false){const row=DB().flows[body.flowId];FlowLive(row,allowClaimed);if(!EqualHash(body.downloadTicket,row.downloadHash))Fail('BOOTSTRAP_FLOW_INVALID',401);return row;}
+function DownloadFlow(body,allowClaimed=false){const row=DB().flows[body.flowId];FlowLive(row,allowClaimed);if(!EqualHash(body.downloadTicket,row.downloadHash))Fail('BOOTSTRAP_FLOW_INVALID',401);require('./desktopSecurityAuthority').RequireArtifact(DB().artifacts[row.releaseId]);require('./desktopSecurityAuthority').RequireArtifact(DB().artifacts[DB().launchers[row.launcherId].artifactId]);return row;}
 function Begin(body){
  Fields(body,['requestId','launcherId','launcherTicket','launcherSha256','launcherCrc64','aCodeSha256','aCodeCrc64','publicKey','deviceId','machineId']);RequestId(body.requestId);const digest=Sha(body.launcherSha256),crc64=Crc(body.launcherCrc64),machineId=MachinePolicy().Validate(body.machineId);MachinePolicy().AssertAllowed(machineId);
  const parsed=require('./desktopLicenses').ParseKey(body.publicKey);if(body.deviceId!==parsed.deviceId)Fail('BOOTSTRAP_PROOF_INVALID',401);
  const db=DB(),launcher=db.launchers[body.launcherId];if(!launcher||!EqualHash(body.launcherTicket,launcher.ticketHash))Fail('BOOTSTRAP_LAUNCHER_INVALID',401);
+ require('./desktopSecurityAuthority').RequireArtifact(db.artifacts[launcher.artifactId]);
  CheckFile(launcher,digest,crc64,{stage:'A',machineId,artifactId:launcher.artifactId});
  const aCodeSha256=Sha(body.aCodeSha256),aCodeCrc64=Crc(body.aCodeCrc64),aArtifact=db.artifacts[launcher.artifactId];CheckCode(aArtifact,aCodeSha256,aCodeCrc64,{stage:'A',machineId,launcherId:launcher.id});
  const fingerprint=hash(JSON.stringify({requestId:body.requestId,launcherId:body.launcherId,sha256:digest,crc64,aCodeSha256,aCodeCrc64,machineId,deviceId:parsed.deviceId,publicKey:parsed.publicKey}));
@@ -136,6 +138,7 @@ function Chunk(body){
 function Finish(body){
  Fields(body,['flowId','downloadTicket','sha256','crc64','aCodeSha256','aCodeCrc64','signature']);const row=DownloadFlow(body,true),artifact=DB().artifacts[row.releaseId];CheckFile(artifact,Sha(body.sha256),Crc(body.crc64),{stage:'B',row});Verify(row,FinishCanonical(row),body.signature);CheckCode(DB().artifacts[DB().launchers[row.launcherId].artifactId],Sha(body.aCodeSha256),Crc(body.aCodeCrc64),{stage:'A',row});Bytes(artifact);
  require('./desktopIntegrityReports').RequireSnapshot(row,'A');
+ require('./desktopSecurityAuthority').RequireFresh(row,'A','finish',require('./desktopSecurityAuthority').Binding(row.id,artifact.sha256));
  if(row.status==='CLAIMED'||row.status==='DOWNLOADED'){if(row.handoffExpiresAt<=now())Fail('BOOTSTRAP_EXPIRED',403);return FinishResult(row);}
  if(row.chunkOffsets.length!==Math.ceil(artifact.size/CHUNK_SIZE))Fail('BOOTSTRAP_DOWNLOAD_INCOMPLETE',409);
  Atomic(db=>{const item=db.flows[row.id];item.status='DOWNLOADED';item.downloadedAt=now();item.handoffNonce=Nonce();item.claimNonce=Nonce();item.handoffExpiresAt=Math.min(item.expiresAt,now()+HANDOFF_MS);item.handoffHash=hash(HandoffToken(item));});
@@ -159,7 +162,8 @@ function Gate(id,token,deviceId,options={}){
  const released=options.allowReleased&&row.status==='CLOSED'&&row.closedByLicenseRelease;
  if(!released)FlowLive(row,true);
  const artifact=DB().artifacts[row.releaseId];if(MachinePolicy().Validate(options.machineId)!==row.machineId)Fail('BOOTSTRAP_HASH_MISMATCH',403);CheckFile(artifact,Sha(options.binarySha256),Crc(options.binaryCrc64),{stage:'B',row});MachinePolicy().AssertAllowed(row.machineId,row.machinePolicyGeneration,row.sessionId);
- if((row.status!=='CLAIMED'&&!released)||row.deviceId!==deviceId)Fail('BOOTSTRAP_SESSION_INVALID',403);CheckCode(artifact,Sha(options.codeSha256),Crc(options.codeCrc64),{stage:'B',row});if(!released)require('./desktopIntegrityReports').RequireSnapshot(row,'B');return row;
+ if((row.status!=='CLAIMED'&&!released)||row.deviceId!==deviceId)Fail('BOOTSTRAP_SESSION_INVALID',403);CheckCode(artifact,Sha(options.codeSha256),Crc(options.codeCrc64),{stage:'B',row});if(!released)require('./desktopIntegrityReports').RequireSnapshot(row,'B');
+ if(!released&&options.securityIntent!=='release')require('./desktopSecurityAuthority').RequireFresh(row,'B',options.securityIntent||'verify',options.securityBinding||'');return row;
 }
 function RecordIntegritySuccess(info){
  const key=info.stage+':'+info.sessionId+':'+info.check,at=now();if(at-(integritySuccessTimes.get(key)||0)<10000)return;
@@ -255,4 +259,4 @@ function Overview(){
  Prune();const db=DB();return {artifacts:{A:Artifact(db.artifacts[db.active.A]),B:Artifact(db.artifacts[db.active.B])},launchers:Object.values(db.launchers).map(row=>({id:row.id,downloadName:LauncherName(row),label:row.label,issuedAt:row.issuedAt,expiresAt:row.expiresAt,status:row.status==='AVAILABLE'&&row.expiresAt<=now()?'EXPIRED':row.status,flowId:row.flowId||'',sha256:row.sha256,crc64:row.crc64})).sort((a,b)=>b.issuedAt-a.issuedAt),sessions:Object.values(db.flows).map(SessionView).sort((a,b)=>b.createdAt-a.createdAt),limits:{maxArtifactBytes:MAX_ARTIFACT_BYTES,chunkSize:CHUNK_SIZE,launcherLifetimeMs:LAUNCHER_MS,flowLifetimeMs:FLOW_MS,sessionLifetimeMs:SESSION_MS},serverTime:now()};
 }
 function Execute(body){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
-module.exports={MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,Revoke};
+module.exports={EnsureSecurityAvailable:Available,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,Revoke};

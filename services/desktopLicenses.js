@@ -129,7 +129,7 @@ function Execute(body){
  if(typeof body.signature!=='string'||body.signature.length!==344||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('DESKTOP_PROOF_INVALID',401);
  const signature=Buffer.from(body.signature,'base64');if(signature.length!==256||signature.toString('base64')!==body.signature||!crypto.verify('sha256',Buffer.from(Canonical(c),'utf8'),{key:parsed.key,padding:crypto.constants.RSA_PKCS1_PADDING},signature))Fail('DESKTOP_PROOF_INVALID',401);
  const receiptKey=body.deviceId+':'+body.requestId,receipt=DB().receipts[receiptKey]||verifyReceipts.get(receiptKey),fingerprint=hash(body.action+'|'+payloadHash);
- const bootstrap=require('./desktopBootstrap').Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release',machineId:payload.machineId,binarySha256:payload.binarySha256,binaryCrc64:payload.binaryCrc64,codeSha256:payload.codeSha256,codeCrc64:payload.codeCrc64});
+ const bootstrap=require('./desktopBootstrap').Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release',machineId:payload.machineId,binarySha256:payload.binarySha256,binaryCrc64:payload.binaryCrc64,codeSha256:payload.codeSha256,codeCrc64:payload.codeCrc64,securityIntent:body.action,securityBinding:require('./desktopSecurityAuthority').Binding(body.requestId,payloadHash)});
  if(receipt){
   if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
   const row=DB().licenses[receipt.licenseId];if(!row||row.deviceId!==body.deviceId)Fail('DESKTOP_ACTIVATION_INVALID',401);SessionBinding(row,bootstrap);

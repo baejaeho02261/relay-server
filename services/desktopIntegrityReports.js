@@ -96,6 +96,11 @@ function Submit(body){
  const artifact=row.integrityArtifact;if(!artifact)Fail('INTEGRITY_REPORT_BASELINE_UNAVAILABLE',503);
  const fields={stage:row.stage||'B',machineId:row.machineId,sessionId:row.sessionId,flowId:row.id,artifactId:artifact.id,check:payload.check,reason:payload.reason,hashVersion:payload.hashVersion};
  let result;
+ if(payload.own?.status==='READ_ERROR'&&require('./desktopSecurityAuthority').UsesAuthority(row,row.stage||'B')){
+  require('./desktopSecurityAuthority').Invalidate(row,row.stage||'B','MEASUREMENT_UNAVAILABLE');
+  result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason:'MEASUREMENT_UNAVAILABLE',trusted:false});
+  return {accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false};
+ }
  if(payload.own){const own=payload.own,codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file'),matches=own.status==='MEASURED'&&own.codeSha256===artifact.codeSha256&&own.codeCrc64===artifact.codeCrc64&&!codeComparison.mismatch&&!fileComparison.mismatch;
   const extendedHashesVerified=matches&&payload.hashVersion===2&&codeComparison.verified&&fileComparison.verified,unverifiedExtended=payload.hashVersion===2&&matches&&!extendedHashesVerified;
   if(!matches)require('./desktopBootstrap').Revoke(row.sessionId,{reason:own.status==='READ_ERROR'?'INTEGRITY_MEASUREMENT_FAILED':'INTEGRITY_CODE_HASH_MISMATCH'},'INTEGRITY_REPORT');
