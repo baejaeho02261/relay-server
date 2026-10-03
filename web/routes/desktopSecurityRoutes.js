@@ -3,13 +3,15 @@ const authority=require('../../services/desktopSecurityAuthority');
 const operations=require('../../services/desktopSecurityOperations');
 const guard=require('../../services/desktopAdminGuard');
 const {Json,ApiError}=require('../apiContext');
-async function Handle({method,pathname,body,req,res,session}) {
+async function Handle({method,pathname,body,req,res,session,desktopAuthorization}) {
   const prefix='/api/desktop/bootstrap/security-operations';
   if(pathname==='/api/desktop/bootstrap/security-authority/preview'&&method==='POST'){
     if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}
     Json(res,200,{ok:true,preview:authority.PreviewPolicy(body)});return true;
   }
   if(pathname!==prefix&&!pathname.startsWith(prefix+'/'))return false;
+  if(!session||session.role!=='admin'){ApiError(res,403,'ADMIN_REQUIRED');return true;}
+  if(method==='GET'&&pathname===prefix+'/activation'){Json(res,200,{ok:true,status:require('../../services/desktopSecurityActivation').Status()});return true;}
   if(method==='GET'&&pathname===prefix){Json(res,200,{ok:true,...operations.List()});return true;}
   if(method==='GET'&&pathname===prefix+'/approvals'){
     const tickets=require('../../services/privilegedApproval').List().filter(x=>guard.IsMutation(x.pathname));
@@ -24,6 +26,13 @@ async function Handle({method,pathname,body,req,res,session}) {
   if(action==='approve'){
     if(!body||Object.keys(body).length!==1||typeof body.ticketId!=='string'){ApiError(res,400,'INPUT_INVALID');return true;}
     const result=require('../../services/privilegedApproval').Approve(body.ticketId,session);if(result.ok)Json(res,200,result);else ApiError(res,428,result.reason);return true;
+  }
+  if(action==='preview-enable-all'){
+    if(!body||Object.keys(body).length!==1||!['ALL','SERVER'].includes(body.profile)){ApiError(res,400,'SECURITY_ACTIVATION_INPUT_INVALID');return true;}
+    Json(res,200,{ok:true,preview:require('../../services/desktopSecurityActivation').Preview(body.profile,session)});return true;
+  }
+  if(action==='enable-all'){
+    Json(res,200,{ok:true,result:require('../../services/desktopSecurityActivation').Apply(body,session,desktopAuthorization?.ticket)});return true;
   }
   if(action==='preview-rollout'){Json(res,200,{ok:true,preview:authority.PreviewRollout(body)});return true;}
   if(action==='preview-pair'){Json(res,200,{ok:true,preview:operations.PreviewPair(body)});return true;}

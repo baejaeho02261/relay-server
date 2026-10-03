@@ -25,11 +25,13 @@ async function HandleApiRequest(req, res, session) {
         return;
     }
 
+    let desktopAuthorization=null;
     const desktopGuard=require('../services/desktopAdminGuard');
     if(!['GET','HEAD'].includes(method)&&desktopGuard.IsMutation(pathname)) {
         if(!require('./webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return;}
         const guarded=desktopGuard.Authorize(session,method,pathname,body,String(req.headers['x-approval-ticket']||''));
         if(!guarded.ok){ApiError(res,guarded.status||428,guarded.reason,guarded.ticketId||'');return;}
+        desktopAuthorization=guarded;
     }
     if (!['GET','HEAD'].includes(method) && !desktopGuard.IsMutation(pathname) && require('../services/privilegedApproval').Required(pathname)) {
         const ticketId = String(req.headers['x-approval-ticket'] || '');
@@ -63,7 +65,7 @@ async function HandleApiRequest(req, res, session) {
         return;
     }
 
-    const context = { method, pathname, url, body, req, res, session };
+    const context = { method, pathname, url, body, req, res, session, desktopAuthorization };
     if (await require('./routes/desktopBootstrapRoutes').Handle(context)) return;
     if (await require('./routes/desktopLicenseRoutes').Handle(context)) return;
 
