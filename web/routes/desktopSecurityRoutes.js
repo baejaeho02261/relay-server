@@ -28,7 +28,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
     const result=require('../../services/privilegedApproval').Approve(body.ticketId,session);if(result.ok)Json(res,200,result);else ApiError(res,428,result.reason);return true;
   }
   if(action==='preview-enable-all'){
-    if(!body||Object.keys(body).length!==1||!['ALL','SERVER'].includes(body.profile)){ApiError(res,400,'SECURITY_ACTIVATION_INPUT_INVALID');return true;}
+    if(!body||Object.keys(body).length!==1||!['READY','ALL','SERVER'].includes(body.profile)){ApiError(res,400,'SECURITY_ACTIVATION_INPUT_INVALID');return true;}
     Json(res,200,{ok:true,preview:require('../../services/desktopSecurityActivation').Preview(body.profile,session)});return true;
   }
   if(action==='enable-all'){
@@ -38,7 +38,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   if(action==='preview-pair'){Json(res,200,{ok:true,preview:operations.PreviewPair(body)});return true;}
   const actions={controls:operations.SetControls,contracts:operations.SetContract,signers:operations.SetSignerState,rollout:operations.SetRollout,'test-evidence':operations.RecordEvidence,activate:operations.ActivatePair};
   if(!actions[action]){ApiError(res,404,'NOT_FOUND');return true;}
-  // Authentication / CSRF / optional fresh passkey and dual approval were checked
+  // Existing admin authentication / CSRF / single-operator authorization were checked
   // by webApi before dispatch. No duplicate consumption of one-use tickets here.
   Json(res,200,{ok:true,result:actions[action](body,actor)});return true;
 }
