@@ -21,16 +21,16 @@ async function showDesktopSecurityOperations() {
     const choices=component=>rows.filter(x=>!component||x.component===component).map(a=>[a.id,`${a.component} ${a.version} · ${a.sha256.slice(0,12)}${a.active?' · 운영 중':' · 후보'}`]);
     policyPreview='';pairPreview='';rolloutPreview='';activationPreview=null;
     root.innerHTML=`<p class="small-note">정책·검사 기준·승인·배포 이력은 서버에 저장합니다. 이 화면은 메모리에서만 초안을 유지합니다. 시험 기록은 운영자 확인 자료이며 하드웨어 실행 증명이 아닙니다.</p>
-      <div class="actions">${button('refresh','새로고침')}${button('step-up','관리자 패스키 재인증')}</div>
+      <div class="actions">${button('refresh','새로고침')}</div>
       <p id="security-status" role="status" aria-live="polite"></p>
-      <div class="kv"><div>정책 / 운영 revision</div><div>${p.revision} / ${s.revision}</div><div>관리자 보호</div><div>${box.adminProtection.dualApprovalRequired?'2인 승인 요구':'추가 승인 비활성'} · ${box.adminProtection.stepUpRequired?'최근 재인증 요구':'재인증 강제 비활성'} · 매핑된 운영자 ${box.adminProtection.provisionedPrincipalCount}명</div><div>감사 저장</div><div>${esc(box.auditHealth.status)} · 프로세스 시작 후 실패 ${box.auditHealth.failedWrites}건</div></div>
-      <details open><summary>보호 기능 일괄 활성화</summary>
-      <p><strong>${activationState.allEnabled?'Windows 강제 포함 전체 설정 켜짐':activationState.serverEnabled?'7개 서버 운영 항목 설정 켜짐 · Windows 강제는 별도':'전체 강제 설정 미완료'}</strong></p>
-      <p class="small-note">현재 서버 저장값을 표시합니다. 설정이 켜졌다는 뜻이지 모든 PC의 실행 검증이 끝났다는 뜻은 아닙니다. 첫 활성화에도 등록된 서로 다른 운영자 2명의 승인이 필요합니다.</p>
-      <label>활성화 범위${select('sec-enable-profile',[['ALL','전부: 서버 7개 항목 + Windows 동적 코드 제한·CFG'],['SERVER','서버 7개 항목만: Windows 설정은 현재값 유지']],'ALL')}</label>
-      <div class="actions">${button('check-enable-all','활성화 사전 점검')}<button type="button" id="sec-enable-all-button" data-security-action="enable-all" disabled>점검한 설정 일괄 활성화</button></div>
+      <div class="kv"><div>정책 / 운영 revision</div><div>${p.revision} / ${s.revision}</div><div>관리자 보호</div><div>1인 운영 · 기존 관리자 로그인 사용 · 패스키/추가 운영자 불필요</div><div>감사 저장</div><div>${esc(box.auditHealth.status)} · 프로세스 시작 후 실패 ${box.auditHealth.failedWrites}건</div></div>
+      <details open><summary>1인 운영 · 현재 가능한 보호 적용</summary>
+      <p><strong>${activationState.allEnabled?'1인 운영 · 서버 및 Windows 강제 설정 켜짐':activationState.serverEnabled?'1인 운영 · 서버 검사 규격/시험 요구까지 켜짐':activationState.baselineEnabled?'1인 운영 · 기본 서버 보호 적용됨 · 추가 검증은 별도':'1인 운영 · 기본 서버 보호 적용 전'}</strong></p>
+      <p class="small-note">현재 서버 저장값을 표시합니다. 기존 관리자 로그인으로 혼자 적용합니다. 패스키 등록·USB·운영자 매핑·2인 승인은 필요하지 않습니다. 보호 설정과 실제 PC 실행 검증은 구분합니다.</p>
+      <label>활성화 범위${select('sec-enable-profile',[['READY','현재 가능한 서버 보호: 1인 운영 / Windows 설정 유지']],'READY')}</label>
+      <div class="actions">${button('check-enable-all','적용 내용 확인')}<button type="button" id="sec-enable-all-button" data-security-action="enable-all" disabled>확인한 보호 설정 적용</button></div>
       <div id="sec-enable-issues" class="desktop-security-result" role="status" aria-live="polite"></div><pre id="sec-enable-preview" class="desktop-security-result"></pre>
-      <p class="small-note">조건 미충족 시 기존 정책은 유지됩니다. 키 자동 신뢰, 슬롯 수 추정 등록, 시험 PASS 자동 생성, CFG 플래그 위조는 하지 않습니다. 준비 후 다시 점검하세요. 활성화는 기존 시험 적용을 종료하고 새 측정을 요구합니다.</p></details>
+      <p class="small-note">서명·실제 파일·감사 저장 오류는 적용을 막습니다. 아직 없는 검사 규격·시험 기록·최근 관측은 별도 준비 항목으로 표시합니다. 이미 켜진 요구는 자동 해제하지 않습니다. 시험 PASS 생성이나 CFG 플래그 변경은 하지 않으며, 기존 시험 적용은 종료합니다.</p></details>
       <details><summary>정책 편집 · 적용 전 영향 미리보기</summary><div class="desktop-security-grid">
       <label>검사 결과 정책${select('sec-mode',[['enforce','검사 실패 시 작업 보류'],['observe','관찰만']],p.mode)}</label>
       <label>동적 코드${select('sec-dynamic',[['observe','상태 조회만'],['prohibit','생성·수정 제한 요구']],p.dynamicCode)}</label>
@@ -57,7 +57,6 @@ async function showDesktopSecurityOperations() {
       <pre class="desktop-security-result">${esc(JSON.stringify(s.activations.slice(-10).reverse(),null,2))}</pre></details>
       <details><summary>서명 키 전환 · 철회</summary><p class="small-note">ACTIVE: 신규 서명 배포 허용. RETIRING: 기존 배포 검증만 허용. REVOKED: 기존 배포도 거절하며 복원 불가. 현재 운영 키 철회는 세션 작업을 막을 수 있습니다.</p>
       ${p.trustedReleaseKeys.map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],s.signerStates[k.keyId]?.state||'ACTIVE')}<button type="button" data-security-action="signer" data-key="${esc(k.keyId)}">상태 저장</button></div>`).join('')||'<p>등록된 신뢰 서명자가 없습니다.</p>'}</details>
-      <details><summary>관리자 추가 승인</summary>${button('approvals','요청 목록 새로고침')}<div id="sec-approval-list"></div><p class="small-note">서버에 매핑된 서로 다른 운영자 신원과 최근 패스키 확인을 요구합니다. 브라우저 세션 두 개는 2인 승인이 아닙니다. 승인 후 요청자가 같은 내용을 다시 실행해야 합니다.</p></details>
       <details><summary>최근 빌드별 관측 슬롯 수 · 보안 진단</summary><p class="small-note">최근 10분 클라이언트 보고값입니다. 서버가 실행 상태의 정직성을 증명하거나 정상 기준으로 자동 등록하지 않습니다.</p><pre class="desktop-security-result">${esc(JSON.stringify(data.recentBuildObservations,null,2))}</pre><pre class="desktop-security-result">${esc(JSON.stringify(data.events.slice(0,40),null,2))}</pre></details>`;
     fillContract();
   }
@@ -65,15 +64,6 @@ async function showDesktopSecurityOperations() {
   function policyBody(){return{expectedRevision:data.policy.revision,expectedOperationsRevision:data.operations.operations.revision,mode:node('sec-mode').value,dynamicCode:node('sec-dynamic').value,freshnessMs:Number(node('sec-fresh').value),challengeMs:Number(node('sec-challenge').value),minVersionA:node('sec-min-a').value.trim(),minVersionB:node('sec-min-b').value.trim(),enforceLegacy:node('sec-legacy').checked,requireReadonlyApi:node('sec-readonly').checked,requireCfg:node('sec-cfg').checked,requireReleaseSignature:node('sec-signature').checked,trustedReleaseKeys:JSON.parse(node('sec-keys').value),revokedSha256:node('sec-revoked').value.split(/\s+/).filter(Boolean)};}
   function pairBody(){return{aId:node('sec-a').value,bId:node('sec-b').value};}
   async function reload(){const next=await api('/api/desktop/bootstrap/security-authority'),activation=await api(base+'/activation');if(alive()){data=next;activationState=activation.status;render();}}
-  function b64(bytes){return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
-  function bytes(s){return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));}
-  async function stepUp(){
-    if(!navigator.credentials)throw Error('이 브라우저에서 패스키를 사용할 수 없습니다. HTTPS와 등록된 패스키를 확인해주세요.');
-    const begin=await api(base+'/step-up/begin',{method:'POST',body:{}});if(!alive())return;
-    const publicKey={...begin.publicKey,challenge:bytes(begin.publicKey.challenge),allowCredentials:begin.publicKey.allowCredentials.map(c=>({...c,id:bytes(c.id)}))};
-    const credential=await navigator.credentials.get({publicKey});if(!credential||!alive())return;
-    await api(base+'/step-up/finish',{method:'POST',body:{challengeId:begin.challengeId,credentialId:credential.id,clientDataJSON:b64(credential.response.clientDataJSON),authenticatorData:b64(credential.response.authenticatorData),signature:b64(credential.response.signature)}});
-  }
   root.addEventListener('change',event=>{if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
   root.addEventListener('click',async event=>{
     const target=event.target.closest('[data-security-action]');if(!target||busy||!alive())return;
@@ -82,15 +72,14 @@ async function showDesktopSecurityOperations() {
     try{
       let changed=false;
       if(action==='refresh')await reload();
-      else if(action==='step-up')await stepUp();
       else if(action==='check-enable-all'){
         const profile=node('sec-enable-profile').value;
         const out=await api(base+'/preview-enable-all',{method:'POST',body:{profile}});
         if(alive()&&node('sec-enable-profile').value===profile){
           activationPreview=out.preview;
           node('sec-enable-all-button').disabled=!out.preview.ready;
-          node('sec-enable-issues').textContent=out.preview.ready?'사전 점검 통과. 일괄 활성화를 요청하면 다른 운영자의 승인이 필요합니다.':out.preview.issues.map(x=>(x.component?x.component+' · ':'')+x.code+' — '+x.detail).join('\n');
-          node('sec-enable-preview').textContent=JSON.stringify({target:out.preview.target,activePair:out.preview.plan,recentObservations:out.preview.recentObservations,warning:out.preview.warning},null,2);
+          node('sec-enable-issues').textContent=(out.preview.ready?'적용 가능합니다. 현재 관리자 혼자 [확인한 보호 설정 적용]을 누르세요.':out.preview.issues.map(x=>(x.component?x.component+' · ':'')+x.code+' — '+x.detail).join('\n'))+((out.preview.pending||[]).length?'\n\n별도 준비 항목 (기존 필수가 아닌 항목은 이번 적용을 막지 않음):\n'+out.preview.pending.map(x=>(x.component?x.component+' · ':'')+x.detail).join('\n'):'');
+          node('sec-enable-preview').textContent=JSON.stringify({target:out.preview.target,activePair:out.preview.plan,recentObservations:out.preview.recentObservations,pending:out.preview.pending,warning:out.preview.warning},null,2);
         }
       }else if(action==='enable-all'){
         if(!activationPreview?.ready||activationPreview.profile!==node('sec-enable-profile').value)throw Error('현재 범위의 사전 점검을 먼저 통과해야 합니다.');
@@ -127,14 +116,10 @@ async function showDesktopSecurityOperations() {
         await api(base+'/test-evidence',{method:'POST',body:{expectedRevision:revision,...pairBody(),report}});changed=true;
       }else if(action==='signer'){
         await api(base+'/signers',{method:'POST',body:{expectedRevision:revision,keyId:target.dataset.key,state:node('signer-'+target.dataset.key).value}});changed=true;
-      }else if(action==='approvals'){
-        const out=await api(base+'/approvals');if(alive())node('sec-approval-list').innerHTML=out.tickets.map(t=>`<details><summary>${esc(t.ticketId)} · ${esc(t.status)}</summary><pre class="desktop-security-result">${esc(JSON.stringify(t.summary||{path:t.pathname,payloadHash:t.payloadHash},null,2))}</pre><p>요청자 ${esc(t.requestedPrincipal||'미확인')} · 만료 ${desktopDate(t.expiresAt)}</p>${t.status==='PENDING'?`<button type="button" data-security-action="approve-ticket" data-ticket="${esc(t.ticketId)}">이 내용 승인</button>`:''}</details>`).join('')||'<p>승인 요청이 없습니다.</p>';
-      }else if(action==='approve-ticket'){
-        await api(base+'/approve',{method:'POST',body:{ticketId:target.dataset.ticket}});
       }
       if(changed&&alive())await reload();
       if(alive())node('security-status').textContent=changed?'서버에 반영했습니다. 이전 임시 판정은 새 검사를 요구합니다.':'처리했습니다.';
-    }catch(error){if(alive())node('security-status').textContent=(error.message||'처리하지 못했습니다.')+' · 재인증/추가 승인 요구 시 먼저 완료한 뒤 같은 내용을 다시 실행하세요. 충돌이면 새로고침 후 다시 미리보세요.';}
+    }catch(error){if(/SECURITY_.*(?:CONFLICT|PAIR_CHANGED|PREVIEW_CHANGED)/.test(error.message||''))activationPreview=null;if(alive())node('security-status').textContent=(error.message||'처리하지 못했습니다.')+' · 로그인 만료면 다시 로그인하세요. 충돌 또는 적용 내용 변경이면 새로고침 후 [적용 내용 확인]을 다시 누르세요.';}
     finally{busy=false;if(target.isConnected)target.disabled=false;if(alive())node('sec-enable-all-button').disabled=!activationPreview?.ready;}
   });
   render();
