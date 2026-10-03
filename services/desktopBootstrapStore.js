@@ -31,6 +31,7 @@ function Load(){
   const stat=fs.lstatSync(FILE);if(!stat.isFile()||stat.isSymbolicLink())throw Error('BOOTSTRAP_STORAGE_INVALID');
   let value;try{value=JSON.parse(fs.readFileSync(FILE,'utf8'));}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
   if(!Plain(value)||![1,2,3,4].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
+  if(value.securityOperations!==undefined){try{require('./desktopSecurityOperations').ValidateState(value.securityOperations);}catch(_){Invalid();}}
   if(value.securityAuthorityPolicy!==undefined){try{require('./desktopSecurityAuthority').ValidatePolicy(value.securityAuthorityPolicy);}catch(_){Invalid();}}
   for(const artifact of Object.values(value.artifacts)){if(artifact.authorityVersion!==undefined&&![0,1].includes(artifact.authorityVersion)||artifact.compiledCfg!==undefined&&typeof artifact.compiledCfg!=='boolean')Invalid();}
   const legacy=value.schema===1,upgrade=value.schema<4,previousProtocol=value.schema<=2?'GAME-CONNECT-1':'GAME-CONNECT-2',previousVersion=value.schema<=2?1:2;
