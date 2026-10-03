@@ -34,7 +34,10 @@
     "test:connect-tls": "node scripts/test-connect-tls.js",
     "deps:install": "npm ci --ignore-scripts",
     "deps:production": "npm ci --omit=dev --ignore-scripts",
-    "test:extended-hashes": "node scripts/test-extended-hashes.js"
+    "test:extended-hashes": "node scripts/test-extended-hashes.js",
+    "test:security-authority": "node scripts/test-security-authority.js",
+    "test:security-tools": "node scripts/test-security-tools.js",
+    "test:security-wire": "node scripts/test-security-wire.js"
   },
   "engines": {
     "node": ">=22.14"

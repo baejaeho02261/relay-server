@@ -31,7 +31,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
   }
   const component=url.searchParams.get('component'),version=url.searchParams.get('version'),name=url.searchParams.get('fileName')||'';
   if(!['A','B'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
-  uploadPending=true;const bytes=await ReadBytes(req),artifact=bootstrap.Publish(component,version,bytes);Json(res,200,{ok:true,artifact});
+  uploadPending=true;const bytes=await ReadBytes(req),approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined,artifact=bootstrap.Publish(component,version,bytes,approval);Json(res,200,{ok:true,artifact});
  }catch(error){ErrorResponse(res,error);}finally{uploadPending=false;}
  return true;
 }
@@ -40,6 +40,8 @@ async function Handle({method,pathname,url,body,req,res,session}){
  if(!RequireAdmin(res,session))return true;
  const actor=String(session.role||'ADMIN')+':'+String(session.id||'');
  try{
+  if(pathname==='/api/desktop/bootstrap/security-authority'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopSecurityAuthority').List()});return true;}
+  if(pathname==='/api/desktop/bootstrap/security-authority'&&method==='POST'){if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}if(!require('../../services/haCoordinator').CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}Json(res,200,{ok:true,policy:require('../../services/desktopSecurityAuthority').SetPolicy(body,actor)});return true;}
   if(pathname==='/api/desktop/bootstrap/integrity-policy'&&method==='GET'){Json(res,200,{ok:true,policy:require('../../services/desktopIntegrityReports').Policy()});return true;}
   if(pathname==='/api/desktop/bootstrap/integrity-policy'&&method==='POST'){if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}if(!require('../../services/haCoordinator').CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}Json(res,200,{ok:true,policy:require('../../services/desktopIntegrityReports').SetPolicy(body,actor)});return true;}
   if(pathname==='/api/desktop/bootstrap/integrity-reports'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopIntegrityReports').List(Object.fromEntries(url.searchParams))});return true;}
