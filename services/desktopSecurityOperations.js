@@ -175,4 +175,4 @@ function List() {
     storage:'SERVER_ONLY',testEvidenceTrust:'OPERATOR_RECORDED_NOT_ATTESTATION',
     candidates:Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha256:a.sha256,createdAt:a.createdAt,active:db.active[a.component]===a.id,contract:s.contracts[BuildKey(a)]||null}))};
 }
-module.exports={Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha};
+module.exports={Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha};

@@ -279,6 +279,19 @@ function Execute(body) {
   if (body.action === 'submit') return Submit(body);
   Fail('SECURITY_INPUT_INVALID', 400);
 }
+function ActivationObservations(policy, artifactIds) {
+  const at=Date.now(),latest=new Map();
+  for(const item of observations.values()) {
+    if(!artifactIds.includes(item.artifactId)||item.at>at||at-item.at>600000)continue;
+    const artifact=store.Load().artifacts[item.artifactId];if(!artifact)continue;
+    const reason=ArtifactReason(artifact,policy);
+    const result=reason?{status:'INDETERMINATE',reason}:Evaluate(item.value,item.baseline,policy,artifact);
+    const previous=latest.get(item.artifactId);
+    if(!previous||item.at>=previous.observedAt)latest.set(item.artifactId,{artifactId:item.artifactId,stage:item.stage,observedAt:item.at,...result,
+      apiSlots:item.value.apiSlots,apiSealed:item.value.apiSealed,dynamicCode:item.value.dynamicCode,cfg:item.value.cfg});
+  }
+  return Array.from(latest.values());
+}
 function RecentBuildObservations() {
   const grouped=new Map(),at=Date.now();
   for(const item of observations.values()) {
@@ -301,6 +314,6 @@ function List() {
     decisionCount: decisions.size, attested: false,
     persistence: 'policy and audit: server; fresh decisions: server RAM only' };
 }
-module.exports = { PreviewRollout, PreviewPolicy, ArtifactReason, InvalidateAll, DOMAIN, RELEASE_DOMAIN, Defaults, ValidatePolicy, Policy, SetPolicy, List,
+module.exports = { ActivationObservations, PreviewRollout, PreviewPolicy, ArtifactReason, InvalidateAll, DOMAIN, RELEASE_DOMAIN, Defaults, ValidatePolicy, Policy, SetPolicy, List,
   Binding, Canonical, Payload, Evaluate, Execute, RequireFresh, RequireArtifact, PublishMetadata,
   ReleaseCanonical, PeCapabilities, VerifyApproval, VersionAtLeast, UsesAuthority, Invalidate };

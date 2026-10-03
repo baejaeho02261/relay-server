@@ -14,14 +14,16 @@ const PROTECTED = [
     /^\/api\/production\/(config\/apply|transport|retention\/apply|update\/rollback)$/,
     /^\/api\/production\/(dual-policy|passkeys\/revoke)$/,
     /^\/api\/desktop\/bootstrap\/(security-authority|integrity-policy|artifacts|module-baselines)$/,
-    /^\/api\/desktop\/bootstrap\/security-operations\/(controls|contracts|signers|rollout|test-evidence|activate)$/
+    /^\/api\/desktop\/bootstrap\/security-operations\/(controls|contracts|signers|rollout|test-evidence|activate|enable-all)$/
 ];
 
 function Digest(method, path, body) {
     return crypto.createHash('sha256').update(`${String(method).toUpperCase()}|${path}|${JSON.stringify(body || {})}`).digest('hex').toUpperCase();
 }
 function Required(pathname) {
-    return state.production.deploymentManifest.dualApprovalRequired === true && PROTECTED.some(re=>re.test(pathname));
+    if(pathname==='/api/desktop/bootstrap/security-operations/enable-all')return true;
+    const desktop=require('./desktopAdminGuard').IsMutation(pathname);
+    return (state.production.deploymentManifest.dualApprovalRequired === true || desktop&&require('./desktopSecurityActivation').AdminEnforced()) && PROTECTED.some(re=>re.test(pathname));
 }
 function Request(session, method, pathname, body, note='') {
     if (!session || session.role !== 'admin') return {ok:false,reason:'ADMIN_REQUIRED'};
