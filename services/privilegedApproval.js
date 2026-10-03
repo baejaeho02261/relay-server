@@ -21,12 +21,13 @@ function Digest(method, path, body) {
     return crypto.createHash('sha256').update(`${String(method).toUpperCase()}|${path}|${JSON.stringify(body || {})}`).digest('hex').toUpperCase();
 }
 function Required(pathname) {
-    if(pathname==='/api/desktop/bootstrap/security-operations/enable-all')return true;
+    if(require('./desktopAdminGuard').SingleOperatorPath(pathname))return false;
     const desktop=require('./desktopAdminGuard').IsMutation(pathname);
     return (state.production.deploymentManifest.dualApprovalRequired === true || desktop&&require('./desktopSecurityActivation').AdminEnforced()) && PROTECTED.some(re=>re.test(pathname));
 }
 function Request(session, method, pathname, body, note='') {
     if (!session || session.role !== 'admin') return {ok:false,reason:'ADMIN_REQUIRED'};
+    if(require('./desktopAdminGuard').SingleOperatorPath(pathname))return {ok:false,reason:'SINGLE_OPERATOR_APPROVAL_NOT_REQUIRED'};
     const desktop=require('./desktopAdminGuard').IsMutation(pathname);
     const principal=desktop?require('./desktopAdminGuard').Identity(session):'';
     if(desktop&&!principal)return{ok:false,reason:'SECURITY_ADMIN_IDENTITY_REQUIRED'};
@@ -40,11 +41,13 @@ function Request(session, method, pathname, body, note='') {
 function Approve(ticketId,session){
     const item=state.production.privilegedApprovals.get(String(ticketId||'').toUpperCase());
     if(!item)return{ok:false,reason:'TICKET_NOT_FOUND'};if(item.expiresAt<=Now())return{ok:false,reason:'TICKET_EXPIRED'};if(item.status!=='PENDING')return{ok:false,reason:`TICKET_${item.status}`};if(!session||session.role!=='admin')return{ok:false,reason:'ADMIN_REQUIRED'};if(item.requestedBy===session.id)return{ok:false,reason:'SECOND_ADMIN_SESSION_REQUIRED'};
+    if(require('./desktopAdminGuard').SingleOperatorPath(item.pathname))return {ok:false,reason:'SINGLE_OPERATOR_APPROVAL_NOT_REQUIRED'};
     const previous={...item};
     if(require('./desktopAdminGuard').IsMutation(item.pathname)){const principal=require('./desktopAdminGuard').Identity(session);if(!principal)return{ok:false,reason:'SECURITY_ADMIN_IDENTITY_REQUIRED'};if(!item.requestedPrincipal||principal===item.requestedPrincipal)return{ok:false,reason:'SECOND_ADMIN_IDENTITY_REQUIRED'};item.approvedPrincipal=principal;item.approvedCredentialId=session.passkeyCredentialId;}
     item.status='APPROVED';item.approvedAt=Now();item.approvedBy=session.id;if(!require('../storage/database').SaveDatabase()&&require('./desktopAdminGuard').IsMutation(item.pathname)){for(const key of Object.keys(item))delete item[key];Object.assign(item,previous);return{ok:false,reason:'SECURITY_APPROVAL_STORAGE_UNAVAILABLE'};}require('../storage/audit').LogEvent('DUAL_APPROVAL_GRANTED',`${item.ticketId} / ${item.approvedBy}`);return{ok:true,ticket:item};
 }
 function Consume(ticketId,session,method,pathname,body){
+    if(require('./desktopAdminGuard').SingleOperatorPath(pathname))return {ok:false,reason:'SINGLE_OPERATOR_APPROVAL_NOT_REQUIRED'};
     const hash=Digest(method,pathname,body);
     let item=state.production.privilegedApprovals.get(String(ticketId||'').toUpperCase());
     if(!item&&session)item=Array.from(state.production.privilegedApprovals.values()).find(x=>x.status==='APPROVED'&&x.requestedBy===session.id&&x.payloadHash===hash);
