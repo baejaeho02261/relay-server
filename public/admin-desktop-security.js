@@ -5,6 +5,7 @@ async function showDesktopSecurityOperations() {
   if(!roleIsAdmin()||!session)throw Error('관리자 로그인을 확인해주세요.');
   const owner=session.csrf,base='/api/desktop/bootstrap/security-operations';
   let data=await api('/api/desktop/bootstrap/security-authority'),policyPreview='',pairPreview='',rolloutPreview='',busy=false,closed=false;
+  let activationState=(await api(base+'/activation')).status,activationPreview=null;
   if(!roleIsAdmin()||session?.csrf!==owner)return;
   const done=openModal({title:'서버 보안 · 배포 운영',html:'<section id="desktop-security-root" class="desktop-security"></section>',confirmLabel:'닫기'});
   const root=document.getElementById('desktop-security-root');
@@ -18,12 +19,19 @@ async function showDesktopSecurityOperations() {
     if(!alive())return;
     const p=data.policy,box=data.operations,s=box.operations,active=box.active,rows=box.candidates;
     const choices=component=>rows.filter(x=>!component||x.component===component).map(a=>[a.id,`${a.component} ${a.version} · ${a.sha256.slice(0,12)}${a.active?' · 운영 중':' · 후보'}`]);
-    policyPreview='';pairPreview='';rolloutPreview='';
+    policyPreview='';pairPreview='';rolloutPreview='';activationPreview=null;
     root.innerHTML=`<p class="small-note">정책·검사 기준·승인·배포 이력은 서버에 저장합니다. 이 화면은 메모리에서만 초안을 유지합니다. 시험 기록은 운영자 확인 자료이며 하드웨어 실행 증명이 아닙니다.</p>
       <div class="actions">${button('refresh','새로고침')}${button('step-up','관리자 패스키 재인증')}</div>
       <p id="security-status" role="status" aria-live="polite"></p>
       <div class="kv"><div>정책 / 운영 revision</div><div>${p.revision} / ${s.revision}</div><div>관리자 보호</div><div>${box.adminProtection.dualApprovalRequired?'2인 승인 요구':'추가 승인 비활성'} · ${box.adminProtection.stepUpRequired?'최근 재인증 요구':'재인증 강제 비활성'} · 매핑된 운영자 ${box.adminProtection.provisionedPrincipalCount}명</div><div>감사 저장</div><div>${esc(box.auditHealth.status)} · 프로세스 시작 후 실패 ${box.auditHealth.failedWrites}건</div></div>
-      <details open><summary>정책 편집 · 적용 전 영향 미리보기</summary><div class="desktop-security-grid">
+      <details open><summary>보호 기능 일괄 활성화</summary>
+      <p><strong>${activationState.allEnabled?'Windows 강제 포함 전체 설정 켜짐':activationState.serverEnabled?'7개 서버 운영 항목 설정 켜짐 · Windows 강제는 별도':'전체 강제 설정 미완료'}</strong></p>
+      <p class="small-note">현재 서버 저장값을 표시합니다. 설정이 켜졌다는 뜻이지 모든 PC의 실행 검증이 끝났다는 뜻은 아닙니다. 첫 활성화에도 등록된 서로 다른 운영자 2명의 승인이 필요합니다.</p>
+      <label>활성화 범위${select('sec-enable-profile',[['ALL','전부: 서버 7개 항목 + Windows 동적 코드 제한·CFG'],['SERVER','서버 7개 항목만: Windows 설정은 현재값 유지']],'ALL')}</label>
+      <div class="actions">${button('check-enable-all','활성화 사전 점검')}<button type="button" id="sec-enable-all-button" data-security-action="enable-all" disabled>점검한 설정 일괄 활성화</button></div>
+      <div id="sec-enable-issues" class="desktop-security-result" role="status" aria-live="polite"></div><pre id="sec-enable-preview" class="desktop-security-result"></pre>
+      <p class="small-note">조건 미충족 시 기존 정책은 유지됩니다. 키 자동 신뢰, 슬롯 수 추정 등록, 시험 PASS 자동 생성, CFG 플래그 위조는 하지 않습니다. 준비 후 다시 점검하세요. 활성화는 기존 시험 적용을 종료하고 새 측정을 요구합니다.</p></details>
+      <details><summary>정책 편집 · 적용 전 영향 미리보기</summary><div class="desktop-security-grid">
       <label>검사 결과 정책${select('sec-mode',[['enforce','검사 실패 시 작업 보류'],['observe','관찰만']],p.mode)}</label>
       <label>동적 코드${select('sec-dynamic',[['observe','상태 조회만'],['prohibit','생성·수정 제한 요구']],p.dynamicCode)}</label>
       ${input('sec-fresh','판정 유효기간 (ms)',p.freshnessMs,'number')}${input('sec-challenge','challenge 유효기간 (ms)',p.challengeMs,'number')}
@@ -56,7 +64,7 @@ async function showDesktopSecurityOperations() {
   function fillContract(){const id=node('sec-contract-artifact')?.value,c=data.operations.candidates.find(x=>x.id===id)?.contract;node('sec-min-slots').value=c?.minApiSlots??'';node('sec-max-slots').value=c?.maxApiSlots??'';}
   function policyBody(){return{expectedRevision:data.policy.revision,expectedOperationsRevision:data.operations.operations.revision,mode:node('sec-mode').value,dynamicCode:node('sec-dynamic').value,freshnessMs:Number(node('sec-fresh').value),challengeMs:Number(node('sec-challenge').value),minVersionA:node('sec-min-a').value.trim(),minVersionB:node('sec-min-b').value.trim(),enforceLegacy:node('sec-legacy').checked,requireReadonlyApi:node('sec-readonly').checked,requireCfg:node('sec-cfg').checked,requireReleaseSignature:node('sec-signature').checked,trustedReleaseKeys:JSON.parse(node('sec-keys').value),revokedSha256:node('sec-revoked').value.split(/\s+/).filter(Boolean)};}
   function pairBody(){return{aId:node('sec-a').value,bId:node('sec-b').value};}
-  async function reload(){const next=await api('/api/desktop/bootstrap/security-authority');if(alive()){data=next;render();}}
+  async function reload(){const next=await api('/api/desktop/bootstrap/security-authority'),activation=await api(base+'/activation');if(alive()){data=next;activationState=activation.status;render();}}
   function b64(bytes){return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
   function bytes(s){return Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));}
   async function stepUp(){
@@ -66,7 +74,7 @@ async function showDesktopSecurityOperations() {
     const credential=await navigator.credentials.get({publicKey});if(!credential||!alive())return;
     await api(base+'/step-up/finish',{method:'POST',body:{challengeId:begin.challengeId,credentialId:credential.id,clientDataJSON:b64(credential.response.clientDataJSON),authenticatorData:b64(credential.response.authenticatorData),signature:b64(credential.response.signature)}});
   }
-  root.addEventListener('change',event=>{if(event.target.id==='sec-contract-artifact')fillContract();});
+  root.addEventListener('change',event=>{if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
   root.addEventListener('click',async event=>{
     const target=event.target.closest('[data-security-action]');if(!target||busy||!alive())return;
     const action=target.dataset.securityAction,revision=data.operations.operations.revision;
@@ -75,7 +83,19 @@ async function showDesktopSecurityOperations() {
       let changed=false;
       if(action==='refresh')await reload();
       else if(action==='step-up')await stepUp();
-      else if(action==='preview-policy'){
+      else if(action==='check-enable-all'){
+        const profile=node('sec-enable-profile').value;
+        const out=await api(base+'/preview-enable-all',{method:'POST',body:{profile}});
+        if(alive()&&node('sec-enable-profile').value===profile){
+          activationPreview=out.preview;
+          node('sec-enable-all-button').disabled=!out.preview.ready;
+          node('sec-enable-issues').textContent=out.preview.ready?'사전 점검 통과. 일괄 활성화를 요청하면 다른 운영자의 승인이 필요합니다.':out.preview.issues.map(x=>(x.component?x.component+' · ':'')+x.code+' — '+x.detail).join('\n');
+          node('sec-enable-preview').textContent=JSON.stringify({target:out.preview.target,activePair:out.preview.plan,recentObservations:out.preview.recentObservations,warning:out.preview.warning},null,2);
+        }
+      }else if(action==='enable-all'){
+        if(!activationPreview?.ready||activationPreview.profile!==node('sec-enable-profile').value)throw Error('현재 범위의 사전 점검을 먼저 통과해야 합니다.');
+        await api(base+'/enable-all',{method:'POST',body:activationPreview.plan});changed=true;
+      }else if(action==='preview-policy'){
         const body=policyBody(),out=await api('/api/desktop/bootstrap/security-authority/preview',{method:'POST',body});
         if(alive()){policyPreview=JSON.stringify(body);node('sec-policy-preview').textContent=JSON.stringify(out.preview,null,2);}
       }else if(action==='save-policy'){
@@ -115,8 +135,8 @@ async function showDesktopSecurityOperations() {
       if(changed&&alive())await reload();
       if(alive())node('security-status').textContent=changed?'서버에 반영했습니다. 이전 임시 판정은 새 검사를 요구합니다.':'처리했습니다.';
     }catch(error){if(alive())node('security-status').textContent=(error.message||'처리하지 못했습니다.')+' · 재인증/추가 승인 요구 시 먼저 완료한 뒤 같은 내용을 다시 실행하세요. 충돌이면 새로고침 후 다시 미리보세요.';}
-    finally{busy=false;if(target.isConnected)target.disabled=false;}
+    finally{busy=false;if(target.isConnected)target.disabled=false;if(alive())node('sec-enable-all-button').disabled=!activationPreview?.ready;}
   });
   render();
-  try{await done;}finally{closed=true;data=null;policyPreview='';pairPreview='';rolloutPreview='';if(root.isConnected)root.replaceChildren();}
+  try{await done;}finally{closed=true;data=null;activationState=null;activationPreview=null;policyPreview='';pairPreview='';rolloutPreview='';if(root.isConnected)root.replaceChildren();}
 }
