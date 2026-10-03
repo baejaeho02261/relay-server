@@ -56,6 +56,13 @@ function AddNotification(options = {}) {
 
 function CaptureEvent(event) {
     if (!event || !event.type) return;
+    const security=require('./desktopSecurityEvents').Classify(event);
+    if(security) {
+        const prior=state.notifications.some(n=>n.entityType==='DESKTOP_SECURITY'&&n.entityId===security.entity&&n.type!=='DESKTOP_SECURITY_RECOVERED');
+        if(security.recovered&&!prior)return;
+        AddNotification({severity:security.recovered?'INFO':security.severity==='HIGH'||security.severity==='CRITICAL'?'CRITICAL':'WARNING',type:security.recovered?'DESKTOP_SECURITY_RECOVERED':event.type,title:security.title,message:security.reason,entityType:'DESKTOP_SECURITY',entityId:security.entity,dedupeKey:security.entity+'|'+security.reason});
+        return;
+    }
     const type = String(event.type).toUpperCase();
     const detail = String(event.detail || '');
     const firstId = (detail.match(/\b[A-F0-9]{16}\b/i) || [])[0] || '';

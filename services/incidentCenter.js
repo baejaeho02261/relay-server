@@ -18,11 +18,19 @@ function EntityFrom(event) {
 }
 
 function CaptureEvent(event) {
-    const severity = SEVERITY.get(String(event && event.type || '').toUpperCase());
+    const security=require('./desktopSecurityEvents').Classify(event);
+    const now = Number(event?.time) || Now();
+    if(security?.recovered) {
+        for(const item of state.production.incidents) if(item.status==='OPEN'&&item.entity===security.entity&&item.correlationKey.startsWith('DESKTOP_SECURITY_AUTHORITY|')) {
+            item.status='RESOLVED';item.resolvedAt=now;item.resolvedBy='SERVER_OBSERVATION';item.lastAt=now;
+            item.timeline.push({time:now,type:'DESKTOP_SECURITY_RECOVERED',detail:security.reason});item.timeline=item.timeline.slice(-100);
+        }
+        return null;
+    }
+    const severity = security?.severity || SEVERITY.get(String(event && event.type || '').toUpperCase());
     if (!severity) return null;
-    const entity = EntityFrom(event);
-    const key = `${event.type}|${entity}`;
-    const now = Number(event.time) || Now();
+    const entity = security?.entity || EntityFrom(event);
+    const key = `${event.type}|${entity}${security?'|'+security.reason:''}`;
     let incident = state.production.incidents.find(x => x.status === 'OPEN' && x.correlationKey === key && now - Number(x.lastAt) < 15 * 60000);
     if (!incident) {
         incident = {
