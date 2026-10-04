@@ -166,7 +166,7 @@ function ActivatePair(body,actor) {
 function Stage(component,version,bytes,approval,actor) {
   AuditIntent('ARTIFACT_STAGE',actor);
   if(approval && !SignerAllowed(approval.keyId,true)) Fail('SECURITY_SIGNER_NOT_ACTIVE',409);
-  return require('./desktopBootstrap').Publish(component,version,bytes,approval,{activate:false});
+  return require('./desktopBootstrap').Publish(component,version,bytes,approval,{activate:false,deduplicate:true});
 }
 function List() {
   const s=State(),db=store.Load();

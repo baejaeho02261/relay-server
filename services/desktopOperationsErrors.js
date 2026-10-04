@@ -1,0 +1,33 @@
+'use strict';
+// Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
+const rows={
+ SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 EXE/승인 JSON을 확인하세요.','security'],
+ SECURITY_SIGNER_NOT_ACTIVE:['서명자가 신규 배포를 허용하지 않습니다.','키가 전환 중이거나 철회된 상태입니다.','서명자 상태를 확인하고 허용된 키로 서명한 파일을 사용하세요.','security'],
+ WORKSPACE_LICENSE_REQUIRED:['사용자에게 연결할 라이선스를 선택하세요.','이 A에는 자동 인증용 서버 라이선스가 연결되지 않았습니다.','사용 전 라이선스를 선택해 새 A를 발급하세요.','licenses'],
+ WORKSPACE_LICENSE_RESERVED:['다른 A에 연결된 라이선스입니다.','아직 유효한 다른 발급 A 또는 실행이 이 라이선스를 사용합니다.','중복 배정하지 말고 다른 사용 전 라이선스를 선택하세요.','licenses'],
+ WORKSPACE_CONFLICT:['화면을 연 뒤 서버 값이 바뀌었습니다.','이전 미리보기나 메모 revision은 적용되지 않았습니다.','새로고침한 뒤 같은 내용을 확인하고 다시 적용하세요.','refresh'],
+ WORKSPACE_PLAN_EXPIRED:['작업 미리보기가 만료되었습니다.','실행은 시작하지 않았습니다.','작업 대상을 다시 미리본 뒤 실행하세요.','refresh'],
+ WORKSPACE_STORAGE_REFERENCED:['사용 중인 배포 파일은 정리할 수 없습니다.','운영·발급 A·실행·되돌리기·시험 기록에서 참조합니다.','저장공간 화면의 보존 이유를 확인하세요.','storage'],
+ WORKSPACE_SAVE_FAILED:['서버 작업을 저장하지 못했습니다.','완료로 처리하지 않았습니다.','서버 저장공간·쓰기 권한을 확인하고 같은 작업을 다시 조회하세요.','jobs'],
+ WORKSPACE_RESTART_REQUIRED:['서버 저장 결과 확인이 필요합니다.','저장 중 장애로 메모리 상태만 신뢰할 수 없습니다.','서버 로그와 디스크를 확인하고 정상 재시작 후 작업 상태를 조회하세요.','jobs'],
+ WORKSPACE_JOB_CAPACITY:['작업함 보관 한도에 도달했습니다.','새 작업은 시작하지 않았습니다.','진행 중 작업 완료를 확인하세요. 보관 한도(1,000개)에 도달한 경우 원본 라이선스를 삭제하지 말고 서버 작업 보관 정책을 검토하세요.','jobs'],
+ SECURITY_AUDIT_UNAVAILABLE:['서버 감사 기록을 저장하지 못했습니다.','변경 작업은 보류되었습니다.','서버 디스크·감사 폴더 권한을 확인하세요.','security'],
+ SECURITY_POLICY_CONFLICT:['정책 revision이 변경되었습니다.','이전 미리보기는 사용할 수 없습니다.','현재 정책을 새로 읽고 다시 미리보세요.','security'],
+ SECURITY_OPERATIONS_CONFLICT:['배포 운영 상태가 변경되었습니다.','선택 당시 revision과 현재 서버 값이 다릅니다.','배포 후보와 정책을 새로고침해 다시 검증하세요.','deploy'],
+ SECURITY_BUILD_CONTRACT_REQUIRED:['이 빌드의 검사 규격이 없습니다.','현재 정책은 정상 빌드 규격을 요구합니다.','실제 정상 실행에서 확인한 규격을 해당 파일 해시에 등록하세요.','security'],
+ SECURITY_TEST_EVIDENCE_REQUIRED:['선택 A/B의 시험 기록이 없습니다.','현재 정책은 해당 조합의 실제 시험 결과를 요구합니다.','실행한 시험 로그로 해당 조합의 기록을 등록하세요.','security'],
+ BOOTSTRAP_NOT_READY:['운영 A/B 조합이 없습니다.','후보 등록만으로 운영 게시되지는 않습니다.','새 버전 배포에서 A/B를 검증한 뒤 게시하세요.','deploy'],
+ BOOTSTRAP_UPLOAD_BUSY:['다른 파일을 검증하고 있습니다.','서버가 앞선 업로드를 처리 중입니다.','잠시 후 같은 파일로 다시 시도하세요.','deploy'],
+ BOOTSTRAP_LAUNCHER_USED:['이미 실행된 A입니다.','일회용 실행 파일은 다시 사용할 수 없습니다.','새 라이선스와 새 A를 발급하세요.','licenses'],
+ BOOTSTRAP_PE_INVALID:['지원하는 실행 파일이 아닙니다.','Windows 64비트 GUI 실행 파일 검증에 실패했습니다.','현재 프로젝트의 정상 Win64 Release 템플릿을 선택하세요.','deploy'],
+ BOOTSTRAP_TEMPLATE_PERSONALIZED:['발급된 A가 아니라 원본 템플릿이 필요합니다.','선택 파일에는 사용자 발급 정보가 붙어 있습니다.','빌드 폴더의 GameLauncher.exe 원본을 선택하세요.','deploy'],
+ DESKTOP_KEY_USED:['이미 사용된 라이선스입니다.','사용 이력을 초기화하지 않았습니다.','사용 전 라이선스를 선택하거나 새로 발급하세요.','licenses'],
+ DESKTOP_MACHINE_BLOCKED:['이 PC의 재사용이 제한되어 있습니다.','서버의 기존 일회용 PC 정책이 적용되었습니다.','PC 상세에서 기존 이력을 확인한 후 관리자가 판단하세요.','licenses'],
+ ADMIN_SESSION_EXPIRED:['관리자 로그인이 만료되었습니다.','작업을 승인하지 않았습니다.','관리자 웹에 다시 로그인하세요.','login'],
+ CSRF_FAILED:['현재 로그인 정보로 요청을 확인하지 못했습니다.','작업을 실행하지 않았습니다.','같은 관리자 웹을 새로고침하거나 다시 로그인하세요.','refresh']
+};
+function Explain(code){
+ if(typeof code!=='string'||!/^[-A-Z0-9_]{1,80}$/.test(code))code='REQUEST_FAILED';
+ const r=rows[code];return {code,title:r?.[0]||'요청을 완료하지 못했습니다.',current:r?.[1]||'해당 작업의 완료를 확인하지 못했습니다.',next:r?.[2]||'서버 상태를 새로고침하고 상세 오류 코드를 확인하세요.',action:r?.[3]||'refresh'};
+}
+module.exports={Explain};

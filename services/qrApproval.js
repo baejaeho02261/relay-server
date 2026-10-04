@@ -1,14 +1,14 @@
 'use strict';
 
 const crypto = require('crypto');
-const QRCode = require('qrcode');
+// Archived QR rendering is loaded only when explicitly used; desktop summaries need no image dependencies.
 const config = require('../config/config');
 const state = require('../core/state');
 const entryPass = require('./member/entryPass');
 const { NormalizeID, Now, SafeField, SafeIP, SendLine } = require('../core/utils');
 const { GetOnlineClient, FindClientDeviceKey } = require('../identity/identityManager');
 const { GetBoundLicenseEntry, CreateLicense, AuthorizeClientByQr, AuthorizeBoundClientByQr } = require('../license/licenseManager');
-const { DecodeQrImage } = require('./qrImageDecoder');
+
 
 const ephemeralSecret = crypto.randomBytes(32).toString('base64url');
 
@@ -76,7 +76,7 @@ function VerifyApprovalToken(record, value) {
 }
 
 function QrMatrix(payload) {
-    const qr = QRCode.create(payload, { errorCorrectionLevel: 'H' });
+    const qr = require('qrcode').create(payload, { errorCorrectionLevel: 'H' });
     const size = qr.modules.size;
     let bits = '';
     for (let i = 0; i < qr.modules.data.length; i++) bits += qr.modules.data[i] ? '1' : '0';
@@ -214,7 +214,7 @@ function InspectPayload(payload) {
 }
 
 function ScanImage(imageData) {
-    return InspectPayload(DecodeQrImage(imageData));
+    return InspectPayload(require('./qrImageDecoder').DecodeQrImage(imageData));
 }
 
 function Approve(requestId, approvalToken, options = {}, actor = 'admin') {
