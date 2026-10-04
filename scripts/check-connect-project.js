@@ -36,12 +36,20 @@ for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launche
       assert.ok(at + 8 <= bytes.length, 'Truncated resource header');
       const size = bytes.readUInt32LE(at), header = bytes.readUInt32LE(at + 4);
       assert.ok(header >= 16 && at + header + size <= bytes.length, 'Truncated resource data');
-      if (bytes.readUInt16LE(at + 8) === 0xffff) types.push(bytes.readUInt16LE(at + 10));
+      if (bytes.readUInt16LE(at + 8) === 0xffff) {
+        const type = bytes.readUInt16LE(at + 10); types.push(type);
+        if (type === 24) assert.deepEqual(bytes.subarray(at + header, at + header + size), fs.readFileSync(path.join(root, name + '.manifest')), 'Compiled manifest must match its source');
+      }
       at += (header + size + 3) & ~3;
     }
     assert.ok(!types.includes(3) && !types.includes(14), 'Custom icon remains: ' + res);
     assert.ok(types.includes(24), 'Missing application manifest: ' + res);
+    assert.ok(!types.includes(16), 'Optional branded version resource remains: ' + res);
   }
+  const manifest = read(name + '.manifest');
+  assert.ok(!manifest.includes(name + '.Windows'));
+  assert.ok(manifest.includes('level="asInvoker" uiAccess="false"'));
+  assert.ok(manifest.includes('{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}'));
 }
 // The renderer is a separate ordinary Win64 DLL project, published as .bin.
 // Its library entry must not pull the host's transport or API resolver
@@ -61,17 +69,23 @@ assert.match(pluginProject, /<DCC_UsePackage\s*\/>/);
 assert.match(pluginProject, /<DCC_ConsoleTarget>false<\/DCC_ConsoleTarget>/);
 assert.match(pluginProject, /<Icon_MainIcon\s*\/>/);
 assert.match(pluginProject, /<Manifest_File>\(None\)<\/Manifest_File>/);
-assert.ok(pluginProject.includes('<DCC_ExeOutput>.\\build\\$(Platform)\\$(Config)\\overlay</DCC_ExeOutput>'));
-assert.ok(pluginProject.includes('<OverlayArtifact>$(MSBuildProjectDirectory)\\build\\$(Platform)\\$(Config)\\overlay\\GameOverlayPlugin.bin</OverlayArtifact>'));
-assert.match(pluginProject, /<Target Name="VerifyOverlayPluginOutput" AfterTargets="Build;Rebuild">/);
+assert.ok(pluginProject.includes('<DCC_ExeOutput>.\\build\\stage\\overlay\\$(Platform)\\$(Config)</DCC_ExeOutput>'));
+assert.ok(pluginProject.includes('<CompiledOverlayArtifact>$(MSBuildProjectDirectory)\\build\\stage\\overlay\\$(Platform)\\$(Config)\\GameOverlayPlugin.bin</CompiledOverlayArtifact>'));
+assert.match(pluginProject, /<Target Name="PublishRandomOverlayPlugin" AfterTargets="Build;Rebuild">/);
+assert.ok(pluginProject.includes("$([System.Guid]::NewGuid().ToString('N')).bin"));
+assert.ok(pluginProject.includes('<Error Condition="!Exists(\'$(CompiledOverlayArtifact)\')"'));
 assert.ok(pluginProject.includes('<Error Condition="!Exists(\'$(OverlayArtifact)\')"'));
 assert.ok(pluginProject.includes('<Error Condition="\'$(Platform)\'!=\'Win64\'"'));
-assert.ok(!pluginProject.includes('<Move '), 'Compiler must directly emit the final .bin; no DLL rename dependency');
+assert.ok(pluginProject.includes('<Move SourceFiles="$(CompiledOverlayArtifact)" DestinationFiles="$(OverlayArtifact)"'));
+assert.ok(pluginProject.includes('<PreBuildEvent>') && pluginProject.includes('exit /b 1'));
+assert.ok(pluginProject.includes('<WriteLinesToFile File="$(OverlayArtifactNameFile)" Lines="$(RandomArtifactName)" Overwrite="true" Encoding="ASCII"'));
+assert.ok(pluginProject.indexOf('<Move SourceFiles="$(CompiledOverlayArtifact)"') < pluginProject.indexOf('<WriteLinesToFile'));
 assert.ok(!pluginProject.includes('GameOverlayPlugin.dll'));
 assert.match(pluginDpr, /\{\$E\s+bin\}/i, 'Compiler output extension must apply to IDE Compile as well as Build');
 const fullBuild = read('Build_Win64.cmd');
 assert.ok(fullBuild.includes('msbuild GameOverlayPlugin.dproj /t:Rebuild'));
-assert.ok(fullBuild.includes('if not exist "build\\Win64\\Release\\overlay\\GameOverlayPlugin.bin"'));
+assert.ok(fullBuild.includes('if not exist "build\\Win64\\Release\\overlay\\artifact-name.txt"'));
+assert.ok(fullBuild.includes('if not exist "build\\Win64\\Release\\overlay\\%OverlayArtifactName%"'));
 const pluginReferences = [...pluginProject.matchAll(/DCCReference\s+Include="([^"]+)"/g)].map(match => match[1]);
 assert.deepEqual(pluginReferences.sort(), ['Game.Overlay.Abi.pas', 'Game.Overlay.Plugin.pas']);
 for (const [, file] of pluginProject.matchAll(/(?:DCCReference|None)\s+Include="([^"]+)"/g)) {

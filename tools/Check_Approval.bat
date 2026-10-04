@@ -220,7 +220,7 @@ function Invoke-Worker {
         $stderr = $errTask.GetAwaiter().GetResult()
         if ($p.ExitCode -ne 0) {
             $code = $stderr.Trim()
-            if ($code -notmatch '^[A-Z_]{1,80}$') { $code = 'NODE_EXECUTION_FAILED' }
+            if ($code -notmatch '^[A-Z0-9_]{1,80}$') { $code = 'NODE_EXECUTION_FAILED' }
             throw ('승인 점검 도구 오류: ' + $code)
         }
         if ([string]::IsNullOrWhiteSpace($stdout)) { throw '승인 점검 도구가 결과를 반환하지 않았습니다.' }
@@ -303,19 +303,22 @@ function Main {
     $base = Split-Path -Parent $env:GAME_APPROVAL_CHECK_BAT
     Write-Host ''
     Write-Host '=== GameConnect 공개 배포 승인 점검 ==='
+    Write-Host '실행 버전: FIX5 / A/B/O 승인 점검 (무작위 이름 .bin 지원)'
+    Write-Host '이 도구는 JSON을 생성하지 않습니다. 없으면 먼저 Create_Approval.bat을 실행하세요.'
     Write-Host 'EXE 또는 오버레이 .bin과 approval.json을 읽기만 합니다. 개인키는 필요하지 않습니다.'
     Write-Host '네트워크 접속, 서버 신뢰 등록, 소스 변경, 새 파일 저장은 하지 않습니다.'
     $node = Find-ExistingNode $base
     Write-Host ('사용 Node: ' + $node)
-    $component = (Read-Host '웹에서 등록한 구분 [A=GameLauncher / B=GameConnect / O=오버레이]').Trim().ToUpperInvariant()
+    $component = (Read-Host '웹에 등록할 구분 [A=GameLauncher / B=GameConnect / O=오버레이 플러그인 (.bin)]').Trim().ToUpperInvariant()
     if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력하세요.' }
     if ($component -eq 'O') {
-        $exe = Choose-File '업로드했던 실제 오버레이 .bin 선택' '오버레이 플러그인 (*.bin)|*.bin' $base
+        Write-Host 'GameConnect_Win64\build\Win64\Release\overlay의 최신 .bin과 해당 O 승인 JSON을 점검합니다.'
+        $exe = Choose-File 'O 승인 점검 - 웹에 등록할 .bin 선택' '오버레이 플러그인 (*.bin)|*.bin' $base
     } else {
-        $exe = Choose-File '업로드했던 실제 EXE 선택' '실행 파일 (*.exe)|*.exe' $base
+        $exe = Choose-File '웹에 등록할 실제 EXE 선택' '실행 파일 (*.exe)|*.exe' $base
     }
     if (-not $exe) { throw '배포 파일 선택이 취소되었습니다.' }
-    $approval = Choose-File '함께 업로드했던 .approval.json 선택' '공개 승인 JSON (*.json)|*.json' (Split-Path -Parent $exe)
+    $approval = Choose-File 'Create_Approval.bat으로 생성한 공개 .approval.json 선택' '공개 승인 JSON (*.json)|*.json' (Split-Path -Parent $exe)
     if (-not $approval) { throw '승인 파일 선택이 취소되었습니다.' }
     $version = (Read-Host '웹 업로드 창의 버전 (예: 1.0.0)').Trim()
     if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '웹에 입력한 숫자 버전을 확인하세요.' }
@@ -328,6 +331,13 @@ function Main {
     Write-Host ('구분: ' + $result.component + '  |  웹 버전: ' + $result.version)
     Write-Host ('파일 SHA-256: ' + $result.sha256)
     Write-Host ('서명자 keyId: ' + $result.keyId)
+    if ($component -eq 'O') {
+        Write-Host '=== 오버레이 발급 · 표시 설정에서 선택할 값 ==='
+        Write-Host ('플러그인 파일: ' + $exe)
+        Write-Host ('공개 승인 JSON: ' + $approval)
+        Write-Host ('입력 버전: ' + $result.version)
+        Write-Host '웹에서 두 파일 선택 → 파일 확인 · 후보 등록 → 선택 플러그인 운영 게시 순서로 진행하세요.'
+    }
     Write-Host ''
     Write-Host '서버 등록 여부와 철회 상태는 이 도구에서 조회하지 않습니다.'
     Write-Host '위 키는 본인이 생성한 배포 키가 맞을 때만 서버에 신뢰 등록하세요.'

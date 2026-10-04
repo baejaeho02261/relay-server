@@ -1,7 +1,7 @@
 'use strict';
 // Administrator-published Win64 rendering library. All runtime access is bound
 // to a completed license's independent overlay capability, never a B token.
-const fs=require('node:fs'),crypto=require('node:crypto');
+const crypto=require('node:crypto');
 const store=require('./desktopBootstrapStore'),integrity=require('./desktopIntegrity');
 const MAX_BYTES=16*1024*1024,CHUNK_SIZE=262144,INSTALL_MS=120000,REPORT_MS=120000,MAX_PENDING=128;
 const EXPORT='GameOverlayRunV1',FILE_NAME='GameOverlayPlugin.bin',LEGACY_FILE_NAME='overlay.bin';
@@ -10,6 +10,7 @@ const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
 const Plain=v=>!!v&&Object.getPrototypeOf(v)===Object.prototype;
 const Id=v=>typeof v==='string'&&/^[A-F0-9]{24}$/.test(v);
 const Time=v=>Number.isSafeInteger(v)&&v>0;
+const PluginName=v=>typeof v==='string'&&v.length<=80&&/^[A-Za-z0-9_-]+\.bin$/i.test(v);
 const FILE_FIELDS=['sha256','crc64','xxh64','blake3'],CODE_FIELDS=['codeSha256','codeCrc64','codeXxh64','codeBlake3'],EXPORT_FIELDS=['exportTableSha256','exportTableCrc64','exportTableXxh64','exportTableBlake3'];
 function Fail(code,status=400){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
 function Fields(v,names){if(!Plain(v)||Object.keys(v).some(k=>!names.includes(k))||names.some(k=>!Object.hasOwn(v,k)))Fail('OVERLAY_PLUGIN_INPUT_INVALID');}
@@ -22,7 +23,7 @@ function ValidateState(s){
  Fields(s,['schema','revision','activeId','artifacts']);
  if(s.schema!==1||!Number.isSafeInteger(s.revision)||s.revision<0||!Plain(s.artifacts)||Object.keys(s.artifacts).length>128||s.activeId!==''&&!Id(s.activeId))Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
  // Published records and running sessions keep their original approved name.
- for(const [id,a]of Object.entries(s.artifacts))if(!Id(id)||!Plain(a)||a.id!==id||a.component!=='O'||a.abi!==1||a.architecture!=='win64'||a.exportName!==EXPORT||![FILE_NAME,LEGACY_FILE_NAME].includes(a.fileName)||a.codeAlgorithm!=='PE64-CODE-V1'||!HashFields(a)||!Number.isSafeInteger(a.size)||a.size<512||a.size>MAX_BYTES||!Time(a.createdAt)||typeof a.version!=='string'||a.version.length>40||!/^\d+(?:\.\d+){0,3}$/.test(a.version)||typeof a.compiledCfg!=='boolean')Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
+ for(const [id,a]of Object.entries(s.artifacts))if(!Id(id)||!Plain(a)||a.id!==id||a.component!=='O'||a.abi!==1||a.architecture!=='win64'||a.exportName!==EXPORT||!PluginName(a.fileName)||a.codeAlgorithm!=='PE64-CODE-V1'||!HashFields(a)||!Number.isSafeInteger(a.size)||a.size<512||a.size>MAX_BYTES||!Time(a.createdAt)||typeof a.version!=='string'||a.version.length>40||!/^\d+(?:\.\d+){0,3}$/.test(a.version)||typeof a.compiledCfg!=='boolean')Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
  for(const a of Object.values(s.artifacts))if(a.releaseApproval!==undefined&&!ApprovalShape(a.releaseApproval))Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
  if(s.activeId&&!s.artifacts[s.activeId])Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
  return s;
@@ -53,10 +54,11 @@ function ValidatePE(bytes){
  }catch(_){Fail('OVERLAY_PLUGIN_PE_INVALID');}
 }
 function Bytes(a){
- RequireArtifact(a);let fd;
- try{fd=fs.openSync(store.PluginPath(a.id),fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==a.size)throw Error();const bytes=fs.readFileSync(fd);if(sha(bytes)!==a.sha256)throw Error();return bytes;}
- catch(_){Fail('OVERLAY_PLUGIN_FILE_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
+ RequireArtifact(a);
+ try{return store.ReadBytes(a.id,a.size,a.sha256,true);}
+ catch(_){Fail('OVERLAY_PLUGIN_FILE_INVALID',503);}
 }
+function VerifyStored(a){const bytes=Bytes(a);try{return true;}finally{bytes.fill(0);}}
 function Stage(version,bytes,approval,actor='ADMIN'){
  if(require('../config/config').HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);
  if(typeof version!=='string'||version.length>40||!/^\d+(?:\.\d+){0,3}$/.test(version))Fail('OVERLAY_PLUGIN_INPUT_INVALID');
@@ -64,7 +66,7 @@ function Stage(version,bytes,approval,actor='ADMIN'){
  if(approval!==undefined&&!ApprovalShape(approval))Fail('OVERLAY_PLUGIN_APPROVAL_INVALID');
  const row={id:crypto.randomBytes(12).toString('hex').toUpperCase(),component:'O',version,abi:1,architecture:'win64',exportName:EXPORT,fileName:FILE_NAME,...integrity.Digests(bytes),codeSha256:code.sha256,codeCrc64:code.crc64,codeXxh64:code.xxh64,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,exportTableSha256:exports.sha256,exportTableCrc64:exports.crc64,exportTableXxh64:exports.xxh64,exportTableBlake3:exports.blake3,size:bytes.length,createdAt:Date.now(),compiledCfg:auth.PeCapabilities(bytes).compiledCfg,...(approval?{releaseApproval:structuredClone(approval)}:{})};
  const reason=Reason(row,true);if(reason)Fail(reason,403);
- const same=Object.values(State().artifacts).find(a=>a.fileName===FILE_NAME&&a.version===version&&a.sha256===row.sha256&&JSON.stringify(a.releaseApproval||null)===JSON.stringify(approval||null));if(same){Bytes(same);return View(same);}
+ const same=Object.values(State().artifacts).find(a=>a.fileName===FILE_NAME&&a.version===version&&a.sha256===row.sha256&&JSON.stringify(a.releaseApproval||null)===JSON.stringify(approval||null));if(same){VerifyStored(same);return View(same);}
  if(Object.keys(State().artifacts).length>=128)Fail('OVERLAY_PLUGIN_CAPACITY',409);
  require('./desktopSecurityOperations').AuditIntent('OVERLAY_PLUGIN_STAGE',actor);
  try{store.PublishBytes(row.id,bytes,true);}catch(_){Fail('STORAGE_SAVE_FAILED',503);}
@@ -75,7 +77,7 @@ function View(a){const auth=require('./desktopSecurityAuthority'),reason=Reason(
 function Overview(){const s=State(),policy=require('./desktopSecurityAuthority').Policy();return {revision:s.revision,activeId:s.activeId,artifacts:Object.values(s.artifacts).map(View).sort((a,b)=>b.createdAt-a.createdAt),maxBytes:MAX_BYTES,fileName:FILE_NAME,approval:{required:policy.requireReleaseSignature,component:'O',trustedSignerKeyIds:policy.trustedReleaseKeys.map(key=>key.keyId)},ready:!!s.activeId&&!Reason(s.artifacts[s.activeId])};}
 function Activate(body,actor='ADMIN'){
  Fields(body,['id','expectedRevision']);const s=State();if(!Id(body.id)||!s.artifacts[body.id])Fail('OVERLAY_PLUGIN_NOT_PUBLISHED',404);if(body.expectedRevision!==s.revision)Fail('OVERLAY_PLUGIN_CONFLICT',409);
- Bytes(s.artifacts[body.id]);require('./desktopSecurityOperations').AuditIntent('OVERLAY_PLUGIN_ACTIVATE',actor);
+ VerifyStored(s.artifacts[body.id]);require('./desktopSecurityOperations').AuditIntent('OVERLAY_PLUGIN_ACTIVATE',actor);
  Atomic(db=>{db.overlayPlugins||=Empty();if(db.overlayPlugins.revision!==body.expectedRevision)Fail('OVERLAY_PLUGIN_CONFLICT',409);db.overlayPlugins.activeId=body.id;db.overlayPlugins.revision++;});return Overview();
 }
 function Pin(){const s=State();return s.activeId?RequireArtifact(s.artifacts[s.activeId]).id:'';}
@@ -96,7 +98,7 @@ function RequireReady(row){if(!row.pluginId)Fail('OVERLAY_PLUGIN_NOT_PUBLISHED',
 function Prune(){const at=Date.now();for(const[id,x]of pending)if(x.expiresAt<=at)pending.delete(id);for(const[id,x]of downloads)if(x.expiresAt<=at)downloads.delete(id);}
 function Host(row){const flow=store.Load().flows[row.flowId],a=store.Load().artifacts[flow.releaseId];return Object.fromEntries([...FILE_FIELDS,...CODE_FIELDS].map(k=>[k,a[k]]));}
 function Manifest(row,license){
- const a=Artifact(row);Bytes(a);Prune();const at=Date.now();if(at<row.lastSeenAt||LiveDeadline(row)<=at)Fail('OVERLAY_EXPIRED',403);
+ const a=Artifact(row);VerifyStored(a);Prune();const at=Date.now();if(at<row.lastSeenAt||LiveDeadline(row)<=at)Fail('OVERLAY_EXPIRED',403);
  if(row.pluginPhase==='PENDING'){
   const end=Math.min(at+INSTALL_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);if(end<=at)Fail('OVERLAY_EXPIRED',403);
   Atomic(db=>Object.assign(db.overlayState.sessions[row.id],{pluginPhase:'INSTALLING',pluginInstallStartedAt:at,pluginInstallExpiresAt:end}));row=store.Load().overlayState.sessions[row.id];
@@ -112,13 +114,15 @@ function Chunk(row,body){
  if(row.pluginPhase!=='INSTALLING'||row.pluginInstallExpiresAt<=Date.now())Fail('OVERLAY_PLUGIN_INSTALL_CLOSED',403);
  Prune();let q=downloads.get(row.id);if(!q){if(downloads.size>=MAX_PENDING)Fail('OVERLAY_PLUGIN_BUSY',429);q={expiresAt:row.pluginInstallExpiresAt,offsets:new Map()};downloads.set(row.id,q);}
  const repeated=q.offsets.get(body.offset)||0;if(repeated>=3)Fail('OVERLAY_PLUGIN_DOWNLOAD_LIMIT',429);q.offsets.set(body.offset,repeated+1);
- const size=Math.min(CHUNK_SIZE,a.size-body.offset),bytes=Buffer.alloc(size);let fd;
- try{fd=fs.openSync(store.PluginPath(a.id),fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==a.size)throw Error();let read=0;while(read<size){const n=fs.readSync(fd,bytes,read,size-read,body.offset+read);if(!n)throw Error();read+=n;}}
- catch(_){Fail('OVERLAY_PLUGIN_FILE_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
- if(row.pluginInstallExpiresAt<=Date.now())Fail('OVERLAY_EXPIRED',403);
- return {pluginId:a.id,offset:body.offset,size,data:bytes.toString('base64')};
+ const size=Math.min(CHUNK_SIZE,a.size-body.offset);let bytes;
+ try{bytes=store.ReadChunk(a.id,a.size,a.sha256,body.offset,size,true);}
+ catch(_){Fail('OVERLAY_PLUGIN_FILE_INVALID',503);}
+ try{
+  if(row.pluginInstallExpiresAt<=Date.now())Fail('OVERLAY_EXPIRED',403);
+  return {pluginId:a.id,offset:body.offset,size,data:bytes.toString('base64')};
+ }finally{bytes.fill(0);}
 }
-function ExactPlugin(module,a){return module.name.toLowerCase()===a.fileName.toLowerCase()&&module.status==='MATCH_LOCAL_FILE'&&module.codeStatus==='MATCH_LOCAL_FILE'&&module.exportTableStatus==='MEASURED'&&FILE_FIELDS.every(k=>module['file'+k[0].toUpperCase()+k.slice(1)]===a[k])&&[...CODE_FIELDS,...EXPORT_FIELDS].every(k=>module[k]===a[k]);}
+function ExactPlugin(module,a){return PluginName(module.name)&&module.status==='MATCH_LOCAL_FILE'&&module.codeStatus==='MATCH_LOCAL_FILE'&&module.exportTableStatus==='MEASURED'&&FILE_FIELDS.every(k=>module['file'+k[0].toUpperCase()+k.slice(1)]===a[k])&&[...CODE_FIELDS,...EXPORT_FIELDS].every(k=>module[k]===a[k]);}
 function Own(payload,row){const own=payload.own,host=Host(row);return own?.status==='MEASURED'&&FILE_FIELDS.every(k=>own['file'+k[0].toUpperCase()+k.slice(1)]===host[k])&&CODE_FIELDS.every(k=>own[k]===host[k]);}
 function Report(row,body,license){
  const a=Artifact(row);Prune();const report=pending.get(row.id);
@@ -134,13 +138,16 @@ function Report(row,body,license){
  if(payload.batchIndex!==report.nextBatch||report.batches&&report.batches!==payload.batchCount||report.nextBatch&&report.total!==payload.totalModules||report.modules.length+payload.modules.length>1024)Fail('OVERLAY_PLUGIN_REPORT_INVALID',409);
  report.batches=payload.batchCount;report.total=payload.totalModules;report.modules.push(...payload.modules);report.hashes.push(digest);report.nextBatch++;
  if(!payload.complete)return {pluginId:a.id,accepted:true,status:'PARTIAL',nextBatch:report.nextBatch,leaseExpiresAt:row.leaseExpiresAt,serverTime:Date.now()};
- if(report.modules.length!==report.total||report.modules.filter(m=>m.name.toLowerCase()===a.fileName.toLowerCase()).length!==1||!report.modules.some(m=>ExactPlugin(m,a)))Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
+ // A new B uses a fresh random local .bin name; old B names still work.
+ // Accept one exact approved image only, never a basename as proof of identity.
+ const matching=report.modules.filter(m=>ExactPlugin(m,a));
+ if(report.modules.length!==report.total||matching.length!==1||report.modules.filter(m=>m.name.toLowerCase()===matching[0].name.toLowerCase()).length!==1)Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
  const actualMeasured=report.modules.filter(m=>m.fileSha256&&m.fileCrc64&&m.codeSha256&&m.codeCrc64&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.codeStatus)).length;
  if(actualMeasured!==payload.measuredModules)Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
- const comparisons=report.modules.filter(m=>m.name.toLowerCase()!==a.fileName.toLowerCase()).map(m=>reports.CompareModule(m,2));
+ const comparisons=report.modules.filter(m=>m!==matching[0]).map(m=>reports.CompareModule(m,2));
  if(comparisons.some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH'))Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
  const policy=reports.Policy();if(policy.enabled&&policy.requiredModules.some(name=>comparisons.filter(m=>m.name.toLowerCase()===name.toLowerCase()).length!==1||!comparisons.some(m=>m.name.toLowerCase()===name.toLowerCase()&&m.serverComparison==='MATCH_REGISTERED_BASELINE'&&m.exportTableVerified&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.codeStatus)&&(!policy.requireExtendedHashes||m.extendedHashesVerified))))Fail('INTEGRITY_SNAPSHOT_REQUIRED',403);
- Bytes(a);const at=Date.now(),end=Math.min(at+30000,license.expiresAt||Number.MAX_SAFE_INTEGER);if(end<=at||at<row.lastSeenAt||LiveDeadline(row)<=at||report.expiresAt<=at)Fail('OVERLAY_EXPIRED',403);
+ VerifyStored(a);const at=Date.now(),end=Math.min(at+30000,license.expiresAt||Number.MAX_SAFE_INTEGER);if(end<=at||at<row.lastSeenAt||LiveDeadline(row)<=at||report.expiresAt<=at)Fail('OVERLAY_EXPIRED',403);
  Atomic(db=>Object.assign(db.overlayState.sessions[row.id],{pluginPhase:'READY',pluginVerifiedAt:at,lastSeenAt:at,leaseExpiresAt:end}));report.completed=true;report.expiresAt=Math.min(at+60000,license.expiresAt||Number.MAX_SAFE_INTEGER);report.modules=[];downloads.delete(row.id);
  return {pluginId:a.id,accepted:true,status:'READY',nextBatch:report.nextBatch,leaseExpiresAt:end,serverTime:at};
 }

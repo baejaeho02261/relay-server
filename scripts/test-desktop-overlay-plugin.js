@@ -328,15 +328,47 @@ function reportBody(item, payload) {
       await ok('overlay', target.auth);
     });
 
-    await check('Windows case-insensitive plugin names are accepted only for the pinned artifact basename', async () => {
-      const target = await complete(); await manifest(target);
-      assert.equal((await ok('overlay', reportBody(target, inventory(target, [pluginRow(bytes, 'gAmEoVeRlAyPlUgIn.BIN')])))).status, 'READY');
-      await ok('overlay', { ...target.auth, action: 'close' });
-      for (const name of ['overlay.bin', 'OtherPlugin.bin', 'GameOverlayPlugin.dll']) {
+    await check('Exact approved plugin bytes support random local names and existing Windows case-insensitive names', async () => {
+      for (const name of ['gAmEoVeRlAyPlUgIn.BIN', 'OvErLaY.BIN', 'gc_' + crypto.randomBytes(16).toString('hex') + '-1.bin', 'a'.repeat(76) + '.bin']) {
+        const target = await complete(); await manifest(target);
+        assert.equal(target.manifest.fileName, 'GameOverlayPlugin.bin', 'Publication remains compatible with previous clients');
+        assert.equal((await ok('overlay', reportBody(target, inventory(target, [pluginRow(bytes, name)])))).status, 'READY');
+        await ok('overlay', target.auth);
+        await ok('overlay', { ...target.auth, action: 'close' });
+      }
+      for (const name of ['GameOverlayPlugin.dll', '../overlay.bin', 'sub\\overlay.bin', 'overlay.bin:stream', 'local name.bin', '플러그인.bin', '.bin', 'name.bin.tmp', 'a'.repeat(77) + '.bin']) {
         const wrong = await complete(); await manifest(wrong);
         await refused('overlay', reportBody(wrong, inventory(wrong, [pluginRow(bytes, name)])));
         await refused('overlay', wrong.auth);
       }
+    });
+
+    await check('Canonical or random filenames cannot authorize modified contents or incomplete measurement statuses', async () => {
+      const otherBytes = dllFixture([requiredExport], 'filename-spoofed-content');
+      for (const row of [pluginRow(otherBytes), pluginRow(otherBytes, crypto.randomBytes(16).toString('hex') + '.bin'),
+        { ...pluginRow(bytes), status: 'UNVERIFIED_BASELINE' },
+        { ...pluginRow(bytes), codeStatus: 'READ_ERROR' },
+        { ...pluginRow(bytes), exportTableStatus: 'READ_ERROR' }]) {
+        const target = await complete(); await manifest(target);
+        await denied('OVERLAY_PLUGIN_REPORT_MISMATCH', 'overlay', reportBody(target, inventory(target, [row])));
+        await denied('OVERLAY_SESSION_CLOSED', 'overlay', target.auth);
+      }
+    });
+
+    await check('An inventory requires exactly one approved image and one case-insensitive row for its local basename', async () => {
+      const name = crypto.randomBytes(16).toString('hex') + '.bin';
+      const row = pluginRow(bytes, name), changedRow = { ...row, name: name.toUpperCase(), codeSha256: changed(row.codeSha256) };
+      for (const modules of [[row, { ...row, name: name.toUpperCase() }], [row, changedRow], [row, pluginRow(bytes, 'another-copy.bin')]]) {
+        const target = await complete(); await manifest(target);
+        await denied('OVERLAY_PLUGIN_REPORT_MISMATCH', 'overlay', reportBody(target, inventory(target, modules)));
+        await denied('OVERLAY_SESSION_CLOSED', 'overlay', target.auth);
+      }
+      const target = await complete(); await manifest(target);
+      const first = inventory(target, [row], { batchCount: 2, totalModules: 2, measuredModules: 2, complete: false });
+      assert.equal((await ok('overlay', reportBody(target, first))).status, 'PARTIAL');
+      const duplicate = inventory(target, [changedRow], { batchIndex: 1, batchCount: 2, totalModules: 2, measuredModules: 2 });
+      await denied('OVERLAY_PLUGIN_REPORT_MISMATCH', 'overlay', reportBody(target, duplicate));
+      await denied('OVERLAY_SESSION_CLOSED', 'overlay', target.auth);
     });
 
     await check('Stored overlay.bin artifacts keep their pinned manifest and inventory names across new publication', async () => {
@@ -380,7 +412,7 @@ function reportBody(item, payload) {
     await check('Missing loaded-plugin rows and every file/code/export hash mismatch reject display', async () => {
       for (const key of [null, ...Object.keys(measured(bytes))]) {
         const target = await complete(); await manifest(target);
-        const row = pluginRow(bytes); if (key) row[key] = changed(row[key]);
+        const row = pluginRow(bytes, crypto.randomBytes(16).toString('hex') + '.bin'); if (key) row[key] = changed(row[key]);
         await refused('overlay', reportBody(target, inventory(target, key ? [row] : [])));
         await refused('overlay', target.auth);
         assert.equal(flowFor(target).closedByLicenseCompletion, true);
@@ -460,6 +492,11 @@ function reportBody(item, payload) {
       ]) {
         const copy = structuredClone(current.overlayPlugins); mutate(copy);
         assert.throws(() => plugins.ValidateState(copy));
+      }
+      for (const fileName of ['../overlay.bin', '/overlay.bin', 'sub\\overlay.bin', 'C:overlay.bin', 'overlay.bin:stream', 'overlay.bin\0', 'name with spaces.bin', '플러그인.bin', 'name.other.bin', '.bin', 'GameOverlayPlugin.dll', 'a'.repeat(77) + '.bin', '', null, 123]) {
+        const copy = structuredClone(current.overlayPlugins);
+        copy.artifacts[candidate.id].fileName = fileName;
+        assert.throws(() => plugins.ValidateState(copy), /OVERLAY_PLUGIN_STORAGE_INVALID/, String(fileName));
       }
       for (const mutate of [
         row => { row.pluginId = '0'.repeat(24); },

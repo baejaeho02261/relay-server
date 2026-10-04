@@ -10,6 +10,7 @@ const { PE } = require('./desktop-bootstrap-fixture');
 const { SignRelease } = require('../tools/sign-release-approval');
 const authority = require('../services/desktopSecurityAuthority');
 const sources = {};
+const errorFilters = {};
 for (const name of ['Create_Approval', 'Check_Approval']) {
   const source = fs.readFileSync(path.join(__dirname, '../tools', name + '.bat'), 'utf8');
   assert.ok(!/(?<!\r)\n/.test(source), name + ' must retain CRLF');
@@ -19,6 +20,9 @@ for (const name of ['Create_Approval', 'Check_Approval']) {
   assert.ok(worker, name + ' worker exists');
   for (const match of worker[1].matchAll(/require\('([^']+)'\)/g)) assert.ok(['node:fs', 'node:path', 'node:crypto'].includes(match[1]), 'Worker stays standalone');
   sources[name] = worker[1];
+  const filter = source.match(/\$code -notmatch '([^']+)'/);
+  assert.ok(filter, name + ' stderr filter exists');
+  errorFilters[name] = new RegExp(filter[1]);
 }
 const privateKey = crypto.generateKeyPairSync('ed25519').privateKey;
 const key = path.join(temp, 'existing.pem');
@@ -64,6 +68,12 @@ function signedInvalid(bytes) {
   return item;
 }
 try {
+  test('BAT error filters retain hash/key diagnostics with digits and reject unsafe output', () => {
+    for (const filter of Object.values(errorFilters)) {
+      for (const code of ['EXE_SHA256_MISMATCH', 'ED25519_KEY_REQUIRED', 'ED25519_PUBLIC_KEY_REQUIRED']) assert.equal(filter.test(code), true, code);
+      for (const value of ['PRIVATE KEY CONTENT', 'C:\\secret.pem', 'bad\noutput', 'A'.repeat(81)]) assert.equal(filter.test(value), false, value);
+    }
+  });
   test('Existing A/B workers and Node signer produce identical public approvals', () => {
     for (const component of ['A', 'B']) {
       const item = create(component, PE(component, authority.DOMAIN)); ok(item.result); ok(inspect(item));

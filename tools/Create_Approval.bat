@@ -306,7 +306,7 @@ function Invoke-Worker {
         $stderr = $errTask.GetAwaiter().GetResult()
         if ($p.ExitCode -ne 0) {
             $code = $stderr.Trim()
-            if ($code -notmatch '^[A-Z_]{1,80}$') { $code = 'NODE_EXECUTION_FAILED' }
+            if ($code -notmatch '^[A-Z0-9_]{1,80}$') { $code = 'NODE_EXECUTION_FAILED' }
             throw ('서명 도구 오류: ' + $code)
         }
         if ([string]::IsNullOrWhiteSpace($stdout)) { throw '서명 도구가 결과를 반환하지 않았습니다.' }
@@ -499,7 +499,7 @@ function Main {
     Write-Host '=== GameConnect 공개 배포 승인 파일 생성 ==='
     Write-Host '기존 서버/클라이언트 소스와 배포 파일은 수정하지 않습니다.'
     Write-Host '서버로 자동 업로드하거나 정책/신뢰 키를 자동 변경하지 않습니다.'
-    Write-Host '실행 버전: FIX3 / BAT 단독형 (A/B/O 지원, 서버 모듈 불필요)'
+    Write-Host '실행 버전: FIX5 / A/B/O 승인 생성 (무작위 이름 .bin 지원)'
     Write-Host '서명 도구: 이 BAT에 포함된 독립 서명기'
     $node = Get-NodeRuntime $homeDirectory $base
     Write-Host ('사용 Node: ' + $node)
@@ -514,8 +514,11 @@ function Main {
         $version = (Read-Host '서버 업로드에 사용할 버전 (예: 1.0.0)').Trim()
         if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '버전은 1.0.0처럼 1~4단계 숫자로 입력하세요(최대 40자).' }
         if ($component -eq 'O') {
+            Write-Host 'GameConnect_Win64\build\Win64\Release\overlay의 artifact-name.txt에 기록된 .bin을 선택하세요.'
+            Write-Host '최종 빌드 파일과 웹의 버전으로 O 공개 승인 JSON을 생성합니다.'
+            Write-Host '기존 A/B에 쓰던 등록된 배포 개인키도 사용할 수 있습니다. 새 키가 필수는 아닙니다.'
             Write-Host 'O는 최대 16MiB의 Win64 DLL 형식 .bin 파일이며 GameOverlayRunV1 내보내기가 필요합니다.'
-            $exe = Choose-File 'O 최종 오버레이 플러그인 선택' '오버레이 플러그인 (*.bin)|*.bin|모든 파일 (*.*)|*.*' $base
+            $exe = Choose-File 'O 승인 생성 - 최종 빌드한 .bin 선택' '오버레이 플러그인 (*.bin)|*.bin|모든 파일 (*.*)|*.*' $base
         } else {
             Write-Host ($component + ' EXE 파일을 선택하세요. 예시 경로가 아닌 실제 빌드 파일을 선택합니다.')
             $exe = Choose-File ($component + ' 최종 Windows EXE 선택') '실행 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*' $base
@@ -542,6 +545,15 @@ function Main {
         Write-Host ('파일 SHA-256: ' + $result.sha256)
         Write-Host ('서명자 keyId: ' + $result.keyId)
         Write-Host '웹에서 같은 배포 파일 / 같은 구분 / 같은 버전과 함께 이 .approval.json을 선택하세요.'
+        if ($component -eq 'O') {
+            Write-Host '=== 오버레이 발급 · 표시 설정에서 선택할 값 ==='
+            Write-Host ('플러그인 파일: ' + $exe)
+            Write-Host ('공개 승인 JSON: ' + $result.output)
+            Write-Host ('입력 버전: ' + $result.version)
+            Write-Host 'Check_Approval.bat에서 O를 선택하면 업로드 전에 두 파일을 점검할 수 있습니다.'
+            Write-Host '웹에서 두 파일 선택 → 파일 확인 · 후보 등록 → 선택 플러그인 운영 게시 순서로 진행하세요.'
+            Write-Host '플러그인과 승인 JSON이 다른 폴더에 있어도 됩니다. 같은 빌드·버전인지 확인하세요.'
+        }
         Write-Host '최초 사용 키라면 JSON의 trustedKey를 서버 신뢰 서명자에 먼저 등록해야 합니다.'
         Write-Host 'PEM 개인키는 업로드하거나 소스 ZIP에 넣지 마세요.'
         $again = (Read-Host '같은 개인키로 다른 배포 파일도 생성할까요? [Y/N]').Trim()

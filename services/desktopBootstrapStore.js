@@ -121,8 +121,15 @@ function Atomic(fn){
 function ArtifactPath(id){if(!Identifier(id,'DA'))throw Error('BOOTSTRAP_ARTIFACT_INVALID');return path.join(DIR,id+'.exe');}
 function PluginPath(id){if(!Identifier(id,'OP'))throw Error('OVERLAY_PLUGIN_INVALID');return path.join(DIR,id+'.bin');}
 function PublishBytes(id,bytes,plugin=false){
- Load();const file=plugin?PluginPath(id):ArtifactPath(id),tmp=file+'.'+crypto.randomBytes(12).toString('hex')+'.tmp';let fd;
- try{fd=fs.openSync(tmp,'wx',0o600);fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.linkSync(tmp,file);fs.unlinkSync(tmp);SyncDir();}
- finally{if(fd!==undefined)try{fs.closeSync(fd);}catch(_){}try{fs.unlinkSync(tmp);}catch(_){} }
+ const state=Load(),file=plugin?PluginPath(id):ArtifactPath(id);
+ require('./desktopArtifactCipher').Publish(file,id,bytes,state.secret,plugin);
 }
-module.exports={DIR,Load,Atomic,ArtifactPath,PluginPath,PublishBytes};
+function ReadBytes(id,size,sha256,plugin=false){
+ const state=Load(),file=plugin?PluginPath(id):ArtifactPath(id);
+ return require('./desktopArtifactCipher').ReadBytes(file,id,size,sha256,state.secret,plugin);
+}
+function ReadChunk(id,size,sha256,offset,length,plugin=false){
+ const state=Load(),file=plugin?PluginPath(id):ArtifactPath(id);
+ return require('./desktopArtifactCipher').ReadChunk(file,id,size,sha256,offset,length,state.secret,plugin);
+}
+module.exports={DIR,Load,Atomic,ArtifactPath,PluginPath,PublishBytes,ReadBytes,ReadChunk};

@@ -65,10 +65,10 @@ check('No renderer entry is reached until loaded-module reporting and a server p
 check('Manifest treats the server release version as text and pins the exact ABI and release',
       "TextField(Data, 'version', 40)" in manifest
       and "IntField(Data, 'version')" not in manifest
-      and "PluginFileName = 'GameOverlayPlugin.bin';" in host
-      and "LegacyPluginFileName = 'overlay.bin';" in host
-      and 'Next.FileName = PluginFileName' in manifest
-      and 'Next.FileName = LegacyPluginFileName' in manifest
+      and 'PluginNameValid(Next.FileName)' in manifest
+      and "SameText(ExtractFileExt(Value), '.bin')" in host
+      and "['A'..'Z', 'a'..'z', '0'..'9', '_', '-']" in host
+      and "ChangeFileExt(BootstrapRandomFileName('.exe'), '.bin')" in download
       and 'Next.FileName = FManifest.FileName' in manifest
       and 'TextField(Data, \'exportName\') = OVERLAY_PLUGIN_ENTRY' in manifest
       and 'Next.ID = FManifest.ID' in manifest

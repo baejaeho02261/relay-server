@@ -43,7 +43,7 @@ const pluginModel = (extra = {}) => ({ ok: true, revision: 3, activeId: '', read
 function chooseFile(selector, file) {
   Object.defineProperty(w.document.querySelector(selector), 'files', { value: file ? [file] : [], configurable: true });
 }
-const nativeFile = (extra = {}) => ({ name: 'GameOverlayPlugin.bin', size: nativeBytes.length,
+const nativeFile = (extra = {}) => ({ name: 'f08a81e24b964b73b1ac91ed24cf7a95.bin', size: nativeBytes.length,
   arrayBuffer: async () => nativeBytes.buffer.slice(nativeBytes.byteOffset, nativeBytes.byteOffset + nativeBytes.byteLength), ...extra });
 function response(data, status = 200) {
   return { ok: status >= 200 && status < 300, status, text: async () => JSON.stringify(data) };
@@ -162,7 +162,7 @@ execute(source('admin-desktop-workflow.js'));
     assert.match(w.document.querySelector('#overlay-session-status').textContent, /다음 확인/);
     responder = () => response({ ...model(99), sessions: [] }); await poll();
     assert.match(w.document.querySelector('#overlay-session-status').textContent, /4초/);
-    assert.match(editor().textContent, /라이선스 완료 요청/); assert.match(editor().textContent, /A의 실행 흐름은 유지/); assert.match(editor().textContent, /B 갱신과 GameOverlayPlugin.bin/);
+    assert.match(editor().textContent, /라이선스 완료 요청/); assert.match(editor().textContent, /A의 실행 흐름은 유지/); assert.match(editor().textContent, /B 갱신과 빌드한 .bin의 운영 게시/);
     assert.doesNotMatch(editor().textContent, /최신 A\/B|새 A를 발급/);
     assert.equal(w.document.querySelector('#overlay-title').value, '조회 중에도 편집');
     passed('Transient poll errors recover and empty grants preserve A while explaining B/plugin publication');
@@ -275,13 +275,17 @@ execute(source('admin-desktop-workflow.js'));
     assert.equal(w.document.querySelector('#overlay-plugin-publish').disabled, false);
     assert.match(editor().textContent, /표시 데이터\(\.dat\)는 실행 플러그인이 아닙니다/);
     assert.match(editor().textContent, /Build_Win64.cmd/);
-    assert.match(editor().textContent, /build\/Win64\/Release\/overlay\/GameOverlayPlugin.bin/);
+    assert.match(editor().textContent, /build\/Win64\/Release\/overlay\//);
+    assert.match(editor().textContent, /artifact-name.txt/);
+    assert.match(editor().textContent, /32자리 16진수 이름/);
+    assert.doesNotMatch(editor().textContent, /등록할 배포 파일:|GameOverlayPlugin\.bin/);
+    assert.equal(w.document.querySelector('#overlay-plugin-file').accept, '.bin');
     assert.match(editor().textContent, /IDE에서는 GameOverlayPlugin 프로젝트/);
     assert.match(modalOptions.message, /유지된 B 프로세스/);
     assert.match(editor().textContent, /B 옆에 DLL을 복사할 필요는 없습니다/);
     assert.match(w.document.querySelector('#overlay-plugin-policy').textContent, /승인 JSON 없이 후보 등록/);
     assert.equal(w.document.querySelector('#overlay-plugin-approval').required, false);
-    passed('Plugin modal names the exact generated bin path, IDE/build steps, server publication and retained B host');
+    passed('Plugin modal points to artifact-name.txt and the randomized bin output, with unchanged server publication and retained B host');
 
     responder = () => response({ ...model(), sessions: [
       { id: 'WAITING', licenseId: 'license', status: 'ACTIVE', lastSeenAt: 0, pluginId: 'PLUGIN_ONE', pluginPhase: 'PENDING' },
@@ -371,7 +375,8 @@ execute(source('admin-desktop-workflow.js'));
       if (request.method === 'POST') {
         const url = new URL(request.url, 'https://fixture.invalid');
         assert.equal(url.pathname, pluginEndpoint); assert.equal(url.searchParams.get('version'), '2.0.0');
-        assert.equal(url.searchParams.get('fileName'), 'GameOverlayPlugin.bin');
+        assert.equal(url.searchParams.get('fileName'), uploadFile.name);
+        assert.match(uploadFile.name, /^[a-f0-9]{32}\.bin$/);
         assert.equal(request.rawBody, uploadFile); assert.equal(request.headers['Content-Type'], 'application/octet-stream');
         assert.equal(request.headers['X-CSRF-Token'], 'OVERLAY_UI_CSRF');
         assert.equal(request.headers['x-game-release-key-id'], approval.approval.keyId);
@@ -388,7 +393,7 @@ execute(source('admin-desktop-workflow.js'));
     assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /후보 등록 완료/);
     assert.match(w.document.querySelector('#overlay-plugin-state').textContent, /운영 게시된 플러그인이 없습니다/);
     assert.equal(w.document.querySelector('#overlay-title').value, '플러그인 게시 중 문서 초안');
-    passed('Upload matches local hash and O approval, includes session CSRF, and remains a candidate until explicit activation');
+    passed('Random-name upload matches local hash and O approval, includes session CSRF, and remains a candidate until explicit activation');
 
     pluginResponder = request => {
       assert.equal(request.url, pluginEndpoint + '/activate'); assert.equal(request.method, 'POST');
