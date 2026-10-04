@@ -33,6 +33,7 @@ worker = body(host, 'procedure TPluginHost.Execute;', 'procedure TPluginHost.Clo
 frame = body(host, 'function TPluginHost.ReadFrame(', 'function ReadHostFrame(')
 destroy = body(host, 'destructor TPluginHost.Destroy;', 'function RunOverlayPlugin(')
 manifest = body(host, 'procedure TPluginHost.ReadManifest(', 'procedure TPluginHost.Download;')
+snapshot = body(host, 'procedure TPluginHost.PrepareSnapshot(', 'procedure TPluginHost.SendNextBatch;')
 
 check('A retains its original role; only B references the plugin host',
       all('Game.Overlay.' not in read(name) for name in ('GameLauncher.dpr', 'GameLauncher.dproj'))
@@ -78,6 +79,17 @@ check('Only the final inventory batch carries complete=true and each batch has f
       and report.index('VerifyMeasurements(Own)') < report.index("Body := NewBody('plugin-report')")
       and 'TEncoding.UTF8.GetByteCount(Text) <= 8192' in report
       and 'ModuleBatchSize = 4;' in host)
+check('Random local module lookup uses the loaded file, preserving all approved content checks',
+      "ChangeFileExt(BootstrapRandomFileName('.exe'), '.bin')" in download
+      and 'LoadedFileName := ExtractFileName(FFile.Path);' in snapshot
+      and "SameText(TextField(Row, 'name', 180), LoadedFileName)" in snapshot
+      and 'FManifest.FileName' not in snapshot
+      and all(f"HexField(Row, '{field}'" in snapshot for field in
+              ('fileSha256', 'fileCrc64', 'fileXxh64', 'fileBlake3'))
+      and "SameCode(ReadCodeDigest(Row, 'code'), FManifest.Code)" in snapshot
+      and "SameCode(ReadCodeDigest(Row, 'exportTable'), FManifest.ExportDigest)" in snapshot
+      and "RequireHost(Found = 1, 'OVERLAY_PLUGIN_MODULE_MISSING')" in snapshot
+      and "ReplaceText(Row, 'name'" not in snapshot)
 check('Slow module scans run separately from the lease-polling worker',
       'TInventoryCollector = class(TThread)' in host
       and 'FCollector.BeginCollection;' in worker
