@@ -1,76 +1,81 @@
 'use strict';
 
 const { Now } = require('../core/utils');
+const { IsSessionActive } = require('./webAuth');
 
 const streams = new Set();
+const MAX_STREAMS = 256;
+const MAX_STREAMS_PER_SESSION = 8;
 let timer = null;
 
+function StopTimerIfIdle() {
+    if (streams.size === 0 && timer) { clearInterval(timer); timer = null; }
+}
+
+function CloseStream(item, destroy = false) {
+    streams.delete(item);
+    try { if (destroy) item.res.destroy(); else item.res.end(); } catch (_) {}
+    StopTimerIfIdle();
+}
+
 function WriteEvent(res, event, data) {
+    if (res.destroyed || res.writableEnded) return false;
     try {
-        res.write(`event: ${event}\n`);
-        res.write(`data: ${JSON.stringify(data)}\n\n`);
-        return true;
+        // One bounded write: disconnect slow peers rather than queue indefinitely.
+        return res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`) !== false;
     } catch (_) {
         return false;
     }
 }
 
+function Broadcast(event, data) {
+    for (const item of Array.from(streams)) {
+        if (!IsSessionActive(item.session)) {
+            WriteEvent(item.res, 'session', { expired: true });
+            CloseStream(item);
+        } else if (!WriteEvent(item.res, event, data)) CloseStream(item, true);
+    }
+}
+
 function EnsureTimer() {
     if (timer) return;
-    timer = setInterval(() => {
-        const now = Now();
-        for (const item of Array.from(streams)) {
-            if (!item.session || item.session.expiresAt <= now) {
-                try { WriteEvent(item.res, 'session', { expired: true }); item.res.end(); } catch (_) {}
-                streams.delete(item);
-                continue;
-            }
-            if (!WriteEvent(item.res, 'tick', { time: now })) streams.delete(item);
-        }
-        if (streams.size === 0 && timer) {
-            clearInterval(timer);
-            timer = null;
-        }
-    }, 3000);
+    timer = setInterval(() => Broadcast('tick', { time: Now() }), 3000);
     timer.unref();
 }
 
-function BroadcastEvent(data) {
-    for (const item of Array.from(streams)) {
-        if (!item.session || item.session.expiresAt <= Now()) continue;
-        if (!WriteEvent(item.res, 'relay-event', data)) streams.delete(item);
-    }
-}
-
-function BroadcastNotification(data) {
-    for (const item of Array.from(streams)) {
-        if (!item.session || item.session.expiresAt <= Now()) continue;
-        if (!WriteEvent(item.res, 'notification', data)) streams.delete(item);
-    }
-}
-
-function BroadcastServiceState(data) {
-    for (const item of Array.from(streams)) {
-        if (!item.session || item.session.expiresAt <= Now()) continue;
-        if (!WriteEvent(item.res, 'service-state', data)) streams.delete(item);
-    }
-}
+function BroadcastEvent(data) { Broadcast('relay-event', data); }
+function BroadcastNotification(data) { Broadcast('notification', data); }
+function BroadcastServiceState(data) { Broadcast('service-state', data); }
 
 function OpenEventStream(req, res, session) {
+    if (!IsSessionActive(session)) {
+        res.writeHead(401, { 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+    }
+    // Reclaim revoked sessions before enforcing limits on new connections.
+    for (const item of Array.from(streams)) if (!IsSessionActive(item.session)) CloseStream(item);
+    let sessionCount = 0;
+    for (const item of streams) if (item.session === session) sessionCount++;
+    if (streams.size >= MAX_STREAMS || sessionCount >= MAX_STREAMS_PER_SESSION) {
+        res.writeHead(429, { 'Retry-After': '5', 'Cache-Control': 'no-store' });
+        res.end();
+        return;
+    }
     res.writeHead(200, {
         'Content-Type': 'text/event-stream; charset=utf-8',
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Connection': 'keep-alive',
         'X-Accel-Buffering': 'no'
     });
-    res.write(': connected\n\n');
-    WriteEvent(res, 'ready', { time: Now(), role: session.role });
-
     const item = { res, session };
     streams.add(item);
+    const onClose = () => { streams.delete(item); StopTimerIfIdle(); };
+    res.once('close', onClose);
+    res.once('error', () => CloseStream(item, true));
+    req.once('aborted', () => CloseStream(item, true));
+    if (!WriteEvent(res, 'ready', { time: Now(), role: session.role })) { CloseStream(item, true); return; }
     EnsureTimer();
-
-    req.on('close', () => streams.delete(item));
 }
 
 module.exports = {

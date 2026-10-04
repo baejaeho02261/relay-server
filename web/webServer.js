@@ -9,7 +9,7 @@ const config = require('../config/config');
 const { HealthSnapshot } = require('../services/dashboard');
 const { LogEvent } = require('../storage/audit');
 const {
-    SessionCookie, SESSION_MS, Login, Authenticate, Logout, ValidateCsrf
+    SessionCookie, SESSION_MS, Login, Authenticate, Logout, ValidateCsrf, IsHttps, IsSameOrigin
 } = require('./webAuth');
 const { Json, ApiError, ReadJsonBody, HandleApiRequest } = require('./webApi');
 const { OpenEventStream } = require('./webEvents');
@@ -31,6 +31,7 @@ const MIME = {
 
 function SecurityHeaders(req, res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (IsHttps(req)) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
@@ -42,7 +43,6 @@ function ReadReleaseUpload(req, meta) {
     return new Promise((resolve, reject) => {
         releaseManager.SigningSecret();
         const crypto = require('crypto');
-        const os = require('os');
         const tmpDir = require('path').join(config.DATA_DIR, 'releases', '.tmp');
         fs.mkdirSync(tmpDir, { recursive: true });
         const tmp = require('path').join(tmpDir, `upload-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.tmp`);
@@ -73,6 +73,8 @@ function ReadReleaseUpload(req, meta) {
             out.end(() => resolve({ tmp, size, sha256: hash.digest('hex'), meta }));
         });
         req.on('error', fail);
+        req.on('aborted', () => fail(new Error('UPLOAD_ABORTED')));
+        out.on('close', () => { if (failed) fs.unlink(tmp, () => {}); });
         out.on('error', fail);
     });
 }
@@ -96,14 +98,17 @@ function ServeUpdateArtifact(req, res, pathname, url) {
     }
     const stat = fs.statSync(file);
     res.writeHead(200, {
-        'Content-Type': release.type === 'CLIENT' && file.toLowerCase().endsWith('.apk') ? 'application/vnd.android.package-archive' : 'application/octet-stream',
+        'Content-Type': 'application/octet-stream',
         'Content-Length': stat.size,
         'Content-Disposition': `attachment; filename="${release.originalName || release.fileName}"`,
         'Cache-Control': 'private, no-store',
         'X-Content-SHA256': release.sha256
     });
     if (String(req.method || 'GET').toUpperCase() === 'HEAD') { res.end(); return true; }
-    fs.createReadStream(file).pipe(res);
+    const source = fs.createReadStream(file);
+    source.on('error', () => res.destroy());
+    res.once('close', () => source.destroy());
+    source.pipe(res);
     return true;
 }
 
@@ -136,7 +141,10 @@ function ServeFile(req, res, fileName) {
     if (safeName === 'service-worker.js') headers['Service-Worker-Allowed'] = '/';
     res.writeHead(200, headers);
     if (String(req.method || 'GET').toUpperCase() === 'HEAD') { res.end(); return; }
-    fs.createReadStream(full).pipe(res);
+    const source = fs.createReadStream(full);
+    source.on('error', () => res.destroy());
+    res.once('close', () => source.destroy());
+    source.pipe(res);
 }
 
 async function RequestHandler(req, res) {
@@ -144,6 +152,9 @@ async function RequestHandler(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const pathname = url.pathname;
     const method = String(req.method || 'GET').toUpperCase();
+    if (pathname.startsWith('/api/') && !['GET', 'HEAD'].includes(method) && !IsSameOrigin(req)) {
+        ApiError(res, 403, 'ORIGIN_NOT_ALLOWED'); return;
+    }
     const desktopMode = require('../services/desktopMode');
     if (desktopMode.RetiredPath(pathname)) { desktopMode.Reject(res); return; }
     // Desktop HMAC challenge/execute have their own authentication, rate limits
@@ -176,8 +187,10 @@ async function RequestHandler(req, res) {
         let body;
         try { body = await ReadJsonBody(req); }
         catch (error) { ApiError(res, 400, error.message); return; }
+        if (!body || typeof body !== 'object' || Array.isArray(body)) { ApiError(res, 400, 'INVALID_JSON_OBJECT'); return; }
         const result = Login(req, body.role, body.password);
         if (!result.ok) {
+            if (result.retryAfter) res.setHeader('Retry-After', String(result.retryAfter));
             RecordAdminActivity(String(body.role || '').toLowerCase(), require('./webAuth').ClientIP(req), 'POST', '/api/login', result.status || 401, 'LOGIN_FAILED');
             ApiError(res, result.status || 401, result.code);
             return;
@@ -243,8 +256,9 @@ async function RequestHandler(req, res) {
                 fileName: url.searchParams.get('fileName'), mandatory: url.searchParams.get('mandatory') === '1',
                 rolloutPercent: Number(url.searchParams.get('rolloutPercent') || 100), notes: url.searchParams.get('notes') || ''
             };
+            let upload;
             try {
-                const upload = await ReadReleaseUpload(req, meta);
+                upload = await ReadReleaseUpload(req, meta);
                 const release = releaseManager.PublishFromTemp(meta, upload.tmp, upload.sha256, upload.size);
                 require('../storage/database').SaveDatabase();
                 LogEvent('RELEASE_PUBLISHED', `${release.type}/${release.channel} ${release.version} ${release.sha256}`);
@@ -252,6 +266,8 @@ async function RequestHandler(req, res) {
                 Json(res, 200, { ok: true, release });
             } catch (error) {
                 ApiError(res, error.message === 'RELEASE_TOO_LARGE' ? 413 : 400, error.message || 'RELEASE_UPLOAD_FAILED');
+            } finally {
+                if (upload) { try { fs.unlinkSync(upload.tmp); } catch (_) {} }
             }
             return;
         }
@@ -326,6 +342,10 @@ function StartWebAdmin() {
         });
     });
 
+    server.headersTimeout = 15000;
+    server.requestTimeout = 120000;
+    server.keepAliveTimeout = 5000;
+    server.maxRequestsPerSocket = 1000;
     server.on('error', error => console.error('WEB ADMIN SERVER ERROR:', error.message));
     server.listen(port, config.HOST, () => {
         console.log('Web Admin HTTP Port:', port);

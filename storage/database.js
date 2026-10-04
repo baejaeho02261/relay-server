@@ -19,12 +19,9 @@ function SafeField(...args) { return require('../core/utils').SafeField(...args)
 
 function BuildDatabaseObject() {
     return {
-        version: 145,
-        clientInstallations: Object.fromEntries(state.clientInstallations),
-        memberHub: state.memberHub || null, // Archived APK member data; no active migration.
+        ...(state.archivedApplicationData || {}),
+        version: 146,
         desktopLicenses: require('../services/desktopLicenses').DB(),
-        supportThreads: Object.fromEntries(state.supportThreads),
-        supportSettings: state.supportSettings,
         serviceEnabled: state.serviceEnabled,
         maintenanceMode: state.maintenanceMode,
         minProtocolVersion: state.minProtocolVersion,
@@ -66,13 +63,6 @@ function BuildDatabaseObject() {
         pushSubscriptions: Object.fromEntries(state.pushSubscriptions),
         dailyHealthReports: Object.fromEntries(state.dailyHealthReports),
         dailyHealthAccumulator: state.dailyHealthAccumulator,
-        qrAuthRequests: Object.fromEntries(state.qrAuthRequests),
-        clientBiometricProfiles: Object.fromEntries(state.clientBiometricProfiles),
-        pendingBuildGrants: Object.fromEntries(state.pendingBuildGrants),
-        buildSessions: Object.fromEntries(state.buildSessions),
-        clientBuildBindings: Object.fromEntries(state.clientBuildBindings),
-        accessGroupGuids: Object.fromEntries(state.accessGroupGuids),
-        buildSessionPolicy: state.buildSessionPolicy,
         productionControl: require('../services/productionState').ExportPersisted(),
         licenseRevision: Number(state.licenseRevision) || 0,
         servers: Object.fromEntries(serverIdentities),
@@ -211,7 +201,7 @@ function ImportDatabaseObject(data) {
     state.clientNotes.clear();
     state.serverDrainMeta.clear();
     state.serverFeatureOverrides.clear(); state.clientFeatureOverrides.clear();
-    state.serverProtocolProfiles.clear(); state.clientProtocolProfiles.clear(); state.deviceSecrets.clear(); state.releaseCatalog.clear(); state.deviceReleaseChannels.clear(); state.configHistory.length=0; state.deviceEnrollments.clear(); state.deviceSecretRotations.clear(); state.deviceSecretMeta.clear(); state.deviceNetworkProfiles.clear(); state.clientFailoverEnabled.clear(); state.clientFailoverRecords.clear(); state.clientServerBindings.clear(); state.clientOfflineQueueEnabled.clear(); state.offlineQueue.clear(); state.deadLetters.clear(); state.processorStats.clear(); state.pushSubscriptions.clear(); state.dailyHealthReports.clear(); state.qrAuthRequests.clear(); state.clientBiometricProfiles.clear(); state.clientBiometricChallenges.clear(); state.pendingBuildGrants.clear(); state.buildSessions.clear(); state.clientBuildBindings.clear(); state.accessGroupGuids.clear();
+    state.serverProtocolProfiles.clear(); state.clientProtocolProfiles.clear(); state.deviceSecrets.clear(); state.releaseCatalog.clear(); state.deviceReleaseChannels.clear(); state.configHistory.length=0; state.deviceEnrollments.clear(); state.deviceSecretRotations.clear(); state.deviceSecretMeta.clear(); state.deviceNetworkProfiles.clear(); state.clientFailoverEnabled.clear(); state.clientFailoverRecords.clear(); state.clientServerBindings.clear(); state.clientOfflineQueueEnabled.clear(); state.offlineQueue.clear(); state.deadLetters.clear(); state.processorStats.clear(); state.pushSubscriptions.clear(); state.dailyHealthReports.clear();
 
     for (const [k, v] of newServers) serverIdentities.set(k, v);
     for (const [k, v] of newClients) clientIdentities.set(k, v);
@@ -313,31 +303,14 @@ function ImportDatabaseObject(data) {
     require('../services/processorCenter').ImportPersisted(data);
     require('../services/pushManager').ImportPersisted(data);
     require('../services/dailyHealth').ImportPersisted(data);
-    require('../services/qrApproval').ImportPersisted(data);
-    require('../services/buildGate').ImportPersisted(data);
-    require('../services/userDashboard').ImportPersisted(data);
     require('../services/productionState').ImportPersisted(data);
-    if (data.clientBiometricProfiles && typeof data.clientBiometricProfiles === 'object') {
-        for (const [rawClientId, raw] of Object.entries(data.clientBiometricProfiles)) {
-            const clientId = NormalizeID(rawClientId);
-            if (!clientId || !raw || typeof raw !== 'object') continue;
-            state.clientBiometricProfiles.set(clientId, {
-                accessType: require('../services/accessType').NormalizeAccessType(raw.accessType),
-                enrolledAt: Math.max(0, Number(raw.enrolledAt) || 0),
-                verifiedAt: Math.max(0, Number(raw.verifiedAt) || 0),
-                ...(raw.resume && /^[0-9A-F]{64}$/.test(raw.resume.binding) && Number.isSafeInteger(raw.resume.expiresAt)
-                    ? { resume: { binding: raw.resume.binding, expiresAt: raw.resume.expiresAt } } : {}),
-                verificationCount: Math.max(0, Number(raw.verificationCount) || 0),
-                resetAt: Math.max(0, Number(raw.resetAt) || 0),
-                resetBy: String(raw.resetBy || '').replace(/[\r\n|]/g, '').slice(0, 64)
-            });
-        }
-    }
-    require('../services/clientInstallation').ImportPersisted(data);
-    state.memberHub = data.memberHub && typeof data.memberHub === 'object' ? structuredClone(data.memberHub) : null;
+    // Opaque backup-only data: no registration, migration, pairing or auth executes.
+    state.archivedApplicationData = Object.fromEntries(
+        ['memberHub', 'clientInstallations', 'supportThreads', 'supportSettings', 'qrAuthRequests', 'clientBiometricProfiles', 'pendingBuildGrants', 'buildSessions', 'clientBuildBindings', 'accessGroupGuids', 'buildSessionPolicy']
+            .filter(key => Object.prototype.hasOwnProperty.call(data, key))
+            .map(key => [key, structuredClone(data[key])])
+    );
     require('../services/desktopLicenses').Import(data.desktopLicenses);
-    require('../services/supportCenter').ImportPersisted(data);
-    require('../services/clientInstallation').Backfill();
     state.licenseRevision=Math.max(0,Number(data.licenseRevision)||0);
     // Archived APK license records are never migrated by the Windows service.
 

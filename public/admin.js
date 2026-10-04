@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'game-console-92';
+const WEB_UI_REVISION = 'game-overlay-93';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -178,6 +178,7 @@ function readableApiError(code) {
 }
 async function api(url, options = {}) {
   const method = String(options.method || 'GET').toUpperCase();
+  const requestOwner = session?.csrf;
   const headers = { Accept: 'application/json', ...(options.headers || {}) };
   if (session && !['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = session.csrf;
   const request = { method, headers, credentials: 'same-origin' };
@@ -208,7 +209,10 @@ async function api(url, options = {}) {
     error.connection=data?.connection;error.serverMessage=data?.message;error.problem=data?.problem;if(error.problem)error.message=error.problem.title+' '+error.problem.next;throw error;
   }
   if (!data || typeof data !== 'object') throw new Error(`EMPTY_API_RESPONSE [${method} ${url}]`);
-  if (!['GET', 'HEAD'].includes(method)) dirtyViews.delete(currentView);
+  if (!['GET', 'HEAD'].includes(method)) {
+    dirtyViews.delete(currentView);
+    if(session?.csrf===requestOwner&&typeof desktopInvalidateMutation==='function')desktopInvalidateMutation(url);
+  }
   return data;
 }
 

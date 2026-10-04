@@ -1,4 +1,49 @@
 'use strict';
+async function showDesktopOverlay(){
+ if(!roleIsAdmin())return;
+ const owner=desktopWorkflowOwner(),endpoint='/api/desktop/bootstrap/overlay';
+ let model=await api(endpoint),busy=false;
+ if(session?.csrf!==owner)return;
+ const pending=openModal({title:'오버레이 발급 · 표시 설정',message:'라이선스 인증을 마친 PC에만 오버레이가 발급됩니다. 표시 내용과 권한은 서버에서 관리합니다.',html:`<div id="desktop-overlay-editor"><label><input id="overlay-enabled" type="checkbox"> 오버레이 발급 및 갱신 허용</label><label>제목<input id="overlay-title" maxlength="120"></label><label>내용 (최대 8줄, 한 줄 240자)<textarea id="overlay-lines" rows="8" maxlength="1927"></textarea></label><label>화면 테마<select id="overlay-theme"><option value="dark">다크</option><option value="light">라이트</option></select></label><div class="actions"><button type="button" id="overlay-save">서버에 저장</button><button type="button" id="overlay-reload">서버 내용 다시 읽기</button><a href="/api/desktop/bootstrap/overlay/module.dat" download="overlay.dat">표시 데이터 내려받기</a></div><p id="overlay-status" role="status" aria-live="polite"></p><p id="overlay-version" class="small-note"></p><h4>오버레이 실행 권한</h4><p class="small-note">권한 회수와 발급 중지는 다음 서버 확인 시 적용됩니다. 연결이 끊기면 최대 30초의 유효기간 후 화면이 닫힙니다.</p><div id="overlay-sessions"></div></div>`,confirmLabel:'닫기'});
+ const root=document.getElementById('desktop-overlay-editor'),status=root.querySelector('#overlay-status');
+ const live=()=>root.isConnected&&session?.csrf===owner;
+ function show(){
+  root.querySelector('#overlay-enabled').checked=model.enabled;
+  root.querySelector('#overlay-title').value=model.document.title;
+  root.querySelector('#overlay-lines').value=model.document.lines.join('\n');
+  root.querySelector('#overlay-theme').value=model.document.theme;
+  root.querySelector('#overlay-version').textContent='표시 버전 '+model.version+' · SHA-256 '+model.documentSha256;
+  root.querySelector('#overlay-sessions').innerHTML=(model.sessions||[]).length?`<div class="table-wrap"><table><thead><tr><th>실행 권한</th><th>라이선스</th><th>상태</th><th>최근 확인</th><th>관리</th></tr></thead><tbody>${model.sessions.map(row=>`<tr><td class="code">${esc(row.id)}</td><td class="code">${esc(row.licenseId)}</td><td>${esc(row.status)}</td><td>${desktopDate(row.lastSeenAt)}</td><td>${row.status==='ACTIVE'?`<button type="button" class="danger" data-overlay-revoke="${esc(row.id)}">권한 회수</button>`:'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p>발급된 오버레이 실행 권한이 없습니다.</p>';
+ }
+ function lock(value){busy=value;for(const el of root.querySelectorAll('button,input,select,textarea'))el.disabled=value;}
+ show();
+ root.querySelector('#overlay-save').onclick=async()=>{
+  if(busy||!live())return;
+  const title=root.querySelector('#overlay-title').value.trim(),text=root.querySelector('#overlay-lines').value;
+  const lines=text===''?[]:text.split(/\r?\n/);
+  if(!title||title.length>120||lines.length>8||lines.some(line=>line.length>240)){status.textContent='제목과 내용의 길이를 확인하세요.';return;}
+  lock(true);
+  try{
+   const next=await api(endpoint,{method:'POST',body:{expectedVersion:model.version,enabled:root.querySelector('#overlay-enabled').checked,document:{schema:1,format:'GAME-OVERLAY-DATA-1',title,lines,theme:root.querySelector('#overlay-theme').value}}});
+   if(live()){model=next;show();status.textContent='서버에 저장했습니다. 실행 중인 오버레이는 다음 확인에서 새 내용을 받습니다.';}
+  }catch(error){if(live())status.textContent=(error.message||'저장하지 못했습니다.')+' 입력 내용은 유지됩니다. 버전이 변경됐다면 서버 내용을 다시 읽고 수정하세요.';}
+  finally{if(live())lock(false);}
+ };
+ root.querySelector('#overlay-reload').onclick=async()=>{
+  if(busy||!live())return;lock(true);
+  try{const next=await api(endpoint);if(live()){model=next;show();status.textContent='서버의 최신 내용을 읽었습니다.';}}
+  catch(error){if(live())status.textContent=error.message||'조회하지 못했습니다.';}
+  finally{if(live())lock(false);}
+ };
+ root.querySelector('#overlay-sessions').onclick=async event=>{
+  const button=event.target.closest('[data-overlay-revoke]');if(!button||busy||!live())return;
+  lock(true);
+  try{await api(endpoint+'/sessions/'+encodeURIComponent(button.dataset.overlayRevoke)+'/revoke',{method:'POST',body:{reason:'관리자 웹에서 오버레이 권한 회수'}});if(!live())return;const next=await api(endpoint);if(live()){model=next;show();status.textContent='선택한 오버레이 권한을 회수했습니다.';}}
+  catch(error){if(live())status.textContent=error.message||'회수하지 못했습니다.';}
+  finally{if(live())lock(false);}
+ };
+ try{await pending;}finally{if(root.isConnected)root.replaceChildren();}
+}
 // Administrator UI only. Drafts, file selections and selection IDs stay in RAM.
 const desktopSelectedLicenses=new Set();
 let desktopSelectionOwner='';

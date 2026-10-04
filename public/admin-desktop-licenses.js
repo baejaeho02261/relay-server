@@ -84,6 +84,9 @@ function desktopSelectTab(tab) {
   else for(const element of desktopScrollElements())if(!content.contains(element)||element===content){element.scrollTop=0;element.scrollLeft=0;}
 }
 const desktopPanels=new Map();
+function desktopInvalidateMutation(url){
+ if(/^\/api\/desktop\/(?:bootstrap(?:\/|$)|machines\/)/.test(url))desktopPanels.clear();
+}
 let desktopPanelOwner='',desktopPanelTimer=null,desktopListGeneration=0;
 function desktopRequestPanel(key,url,owner){
  if(desktopPanelOwner!==owner){desktopPanels.clear();desktopPanelOwner=owner;}
@@ -137,7 +140,7 @@ async function renderDesktopLicenses(silent = false) {
     <div id="desktop-tabpanel-licenses" class="desktop-tab-panel" role="tabpanel" aria-labelledby="desktop-tab-licenses" data-desktop-tab-panel="licenses" ${desktopLicenseTab==='licenses'?'':'hidden'}>
     <section class="desktop-hero"><div class="desktop-platform" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M4 8h32v21H4zM13 35h14M20 29v6M9 13h8v5H9zM21 13h10v5H21zM9 21h8v4H9zM21 21h10v4H21z"/></svg></div><div><span class="desktop-eyebrow">WINDOWS 64-BIT</span><h3>한 번 실행하고, 서버에서 인증</h3><p>무작위 이름으로 발급한 실행기가 프로그램을 받아 연결합니다. 새 사용자용 B는 입력창·관리 안내 없이 실행합니다. 관리자가 사용 전 라이선스를 A에 연결하면 기존 서명·기기·무결성 확인 후 서버에서 승인합니다. 실행 상태·원인·후속 조치는 이 웹에서 확인합니다.</p></div><button type="button" id="desktop-license-create" class="primary">+ 라이선스 발급</button></section>
     <div class="desktop-stats" aria-label="필터와 무관한 전체 라이선스 상태">${Object.entries(desktopStatusLabels).map(([status,label])=>`<button type="button" class="desktop-stat${desktopLicenseStatus===status?' selected':''}" data-desktop-status="${status}"><span>${label}</span><strong>${countLabel(status)}</strong></button>`).join('')}</div>
-    <div class="actions"><button type="button" data-desktop-action="deployment-wizard">새 버전 배포</button><button type="button" data-desktop-action="workspace">서버 통계 · 일괄 작업 · 저장공간</button><button type="button" data-desktop-action="security-operations">서버 보안 · 배포 운영</button></div>
+    <div class="actions"><button type="button" data-desktop-action="deployment-wizard">새 버전 배포</button><button type="button" data-desktop-action="workspace">서버 통계 · 일괄 작업 · 저장공간</button><button type="button" data-desktop-action="security-operations">서버 보안 · 배포 운영</button><button type="button" data-desktop-action="overlay">오버레이 발급 · 표시 설정</button></div>
     ${desktopPanelMarkup(['bootstrap'],desktopBootstrapMarkup(desktopBootstrap))}
     ${desktopPanelMarkup(['machines'],desktopMachineListMarkup(machineData))}
     <section class="section-card desktop-license-list"><div class="section-head"><div><h3>Windows 라이선스</h3><p class="small-note" id="desktop-license-result-summary">전체 ${totalLabel}개 · 검색 결과 ${filteredCount.toLocaleString()}개${filtered?` · 필터 적용: ${esc(desktopStatusLabels[desktopLicenseStatus]||'전체 상태')}${desktopLicenseQuery?' · 검색어 '+esc(desktopLicenseQuery):''}`:' · 전체 보기'} · 위 상태 수치는 전체 기준</p></div><div class="actions"><span class="small-note" id="desktop-license-updated">자동 갱신 · ${desktopDate(data.serverTime)}</span></div></div>
@@ -316,13 +319,14 @@ async function handleDesktopLicenseAction(event) {
   if(!action)return false;if(!roleIsAdmin())throw Error('관리자만 사용할 수 있습니다.');
   if(desktopLicenseActionPending)return true;
   const row=action==='machine-unblock'?desktopMachineRows.get(target.dataset.desktopMachine):action==='session-revoke'?desktopBootstrapSessions.get(target.dataset.id):desktopLicenseRows.get(target.dataset.id);
-  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','workspace','deployment-wizard','retry-panels'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
+  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','workspace','deployment-wizard','retry-panels','overlay'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
   desktopLicenseActionPending=true;target.disabled=true;
   try{
     if(action==='retry-panels'){for(const x of desktopPanels.values())if(x.error)x.at=0;await renderCurrent();return true;}
     if(action==='workspace'){await showDesktopWorkspace();return true;}
+    if(action==='overlay'){await showDesktopOverlay();return true;}
     if(action==='deployment-wizard'){await showDesktopDeploymentWizard();for(const x of desktopPanels.values())x.at=0;await renderCurrent();return true;}
-    if(action==='security-operations'){await showDesktopSecurityOperations();await renderCurrent();return true;}
+    if(action==='security-operations'){await showDesktopSecurityOperations();for(const x of desktopPanels.values())x.at=0;await renderCurrent();return true;}
     if(action==='integrity-policy'){await showDesktopIntegrityPolicy();return true;}
     if(action==='baseline-upload'){await showDesktopBaselineUpload();return true;}
     if(action==='machine-unblock'){await showDesktopMachineAction(row,'unblock',session.csrf);return true;}

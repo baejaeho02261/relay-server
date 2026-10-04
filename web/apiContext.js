@@ -37,10 +37,7 @@ const deviceControl = require('../services/deviceControl');
 const featureFlags = require('../services/featureFlags');
 const protocolReadiness = require('../services/protocolReadiness');
 const deviceAuth = require('../services/deviceAuth');
-const qrApproval = require('../services/qrApproval');
-const buildGate = require('../services/buildGate');
 const productionRoutes = require('./routes/productionRoutes');
-const loadSimulator = require('../services/loadSimulator');
 const storageMigration = require('../services/storageMigration');
 const releaseManager = require('../services/releaseManager');
 const configHistory = require('../services/configHistory');
@@ -54,7 +51,6 @@ const requestRecovery = require('../services/requestRecovery');
 const processorCenter = require('../services/processorCenter');
 const pushManager = require('../services/pushManager');
 const dailyHealth = require('../services/dailyHealth');
-const clientBiometric = require('../services/clientBiometric');
 const deviceRegistry = require('../services/deviceRegistry');
 const historyCleanup = require('../services/historyCleanup');
 
@@ -184,8 +180,6 @@ function BuildDashboard() {
             expired,
             suspended
         },
-        qrAuth: qrApproval.Summary(),
-        buildSessions: buildGate.Summary(),
         ack: {
             pending: state.pendingRequests.size,
             ok: state.runtimeStats.ackOk,
@@ -316,9 +310,6 @@ function BuildClients() {
             appVersion: live ? live.appVersion : '',
             rttMs: live ? live.rttMs : -1,
             kickedUntil,
-            biometric: clientBiometric.PublicStatus(saved.id),
-            buildSession: buildGate.PublicSession(buildGate.ActiveSessionForClient(saved.id)),
-            buildBinding: buildGate.BindingForClient(saved.id)
         });
     }
     return out.sort((a, b) => a.id.localeCompare(b.id));
@@ -421,4 +412,4 @@ function BuildSystem() {
 }
 
 
-module.exports = { fs, path, config, state, Now, NormalizeID, NormalizeLicenseKey, NormalizeVersion, SafeField, SendLine, GetOnlineServer, GetOnlineClient, GetSavedClientByID, FindClientDeviceKey, FindServerDeviceKey, ServerExists, ClientExists, GetKickUntil, ServerHealth, ClientHealth, GetServerClientCount, ClientMove, FindLicense, GetBoundLicenseEntry, GetLicenseStatus, CreateLicense, ExtendLicense, UnbindLicense, SuspendLicense, ResumeLicense, DeleteLicense, ReissueLicense, TransferLicense, SearchLicenses, SetLicenseTags, NormalizeTags, NoticeAll, NoticeClient, NotifyServerUnauthorized, SaveDatabase, CreateBackup, RestoreBackup, AuditSearch, LogEvent, EnforceVersionPolicy, HealthSnapshot, BuildSystemHealth, CheckCurrentDatabase, VerifyBackup, BuildStatistics, StartDrain, StopDrain, ClearDrainMeta, GetDrainStatus, ListAdminActivity, GetReconnectStatus, GetExpirySummary, MatchesExpiryFilter, ListNotifications, NotificationSummary, MarkRead, MarkAllRead, ClearNotifications, Can, IsAdmin, ClientIP, ListSessions, RevokeSession, RevokeOtherSessions, RevokeAllSessions, deviceControl, featureFlags, protocolReadiness, deviceAuth, qrApproval, buildGate, productionRoutes, loadSimulator, storageMigration, releaseManager, configHistory, deviceEnrollment, secretRotation, securityDashboard, maintenanceService, networkSecurity, emergencyFailover, requestRecovery, processorCenter, pushManager, dailyHealth, clientBiometric, deviceRegistry, historyCleanup, BACKUP_DIR, DATA_DIR, CURRENT_PROTOCOL_VERSION, SERVER_KICK_BLOCK_MS, CLIENT_KICK_BLOCK_MS, MAX_CLIENTS_PER_SERVER, RATE_LIMIT_MAX, MAX_BULK_KEYS, ENABLE_LEGACY_TCP_ADMIN, WEB_ADMIN_VERSION, Json, ApiError, DecodePart, NormalizeAlias, NormalizeNote, RequireAdmin, RequireOperation, ReadJsonBody, BuildDashboard, BuildServers, BuildServerDetail, BuildClients, BuildClientDetail, BuildLicenseItem, BuildLicenses, BuildBackups, GlobalSearch, BuildSystem };
+module.exports = { fs, path, config, state, Now, NormalizeID, NormalizeLicenseKey, NormalizeVersion, SafeField, SendLine, GetOnlineServer, GetOnlineClient, GetSavedClientByID, FindClientDeviceKey, FindServerDeviceKey, ServerExists, ClientExists, GetKickUntil, ServerHealth, ClientHealth, GetServerClientCount, ClientMove, FindLicense, GetBoundLicenseEntry, GetLicenseStatus, CreateLicense, ExtendLicense, UnbindLicense, SuspendLicense, ResumeLicense, DeleteLicense, ReissueLicense, TransferLicense, SearchLicenses, SetLicenseTags, NormalizeTags, NoticeAll, NoticeClient, NotifyServerUnauthorized, SaveDatabase, CreateBackup, RestoreBackup, AuditSearch, LogEvent, EnforceVersionPolicy, HealthSnapshot, BuildSystemHealth, CheckCurrentDatabase, VerifyBackup, BuildStatistics, StartDrain, StopDrain, ClearDrainMeta, GetDrainStatus, ListAdminActivity, GetReconnectStatus, GetExpirySummary, MatchesExpiryFilter, ListNotifications, NotificationSummary, MarkRead, MarkAllRead, ClearNotifications, Can, IsAdmin, ClientIP, ListSessions, RevokeSession, RevokeOtherSessions, RevokeAllSessions, deviceControl, featureFlags, protocolReadiness, deviceAuth, productionRoutes, storageMigration, releaseManager, configHistory, deviceEnrollment, secretRotation, securityDashboard, maintenanceService, networkSecurity, emergencyFailover, requestRecovery, processorCenter, pushManager, dailyHealth, deviceRegistry, historyCleanup, BACKUP_DIR, DATA_DIR, CURRENT_PROTOCOL_VERSION, SERVER_KICK_BLOCK_MS, CLIENT_KICK_BLOCK_MS, MAX_CLIENTS_PER_SERVER, RATE_LIMIT_MAX, MAX_BULK_KEYS, ENABLE_LEGACY_TCP_ADMIN, WEB_ADMIN_VERSION, Json, ApiError, DecodePart, NormalizeAlias, NormalizeNote, RequireAdmin, RequireOperation, ReadJsonBody, BuildDashboard, BuildServers, BuildServerDetail, BuildClients, BuildClientDetail, BuildLicenseItem, BuildLicenses, BuildBackups, GlobalSearch, BuildSystem };

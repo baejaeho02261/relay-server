@@ -1,20 +1,7 @@
 'use strict';
-const { NormalizeID, LogEvent, loadSimulator, storageMigration, securityDashboard, networkSecurity, emergencyFailover, Json, ApiError, DecodePart, RequireAdmin, RequireOperation } = require('../apiContext');
+const { NormalizeID, LogEvent, storageMigration, securityDashboard, networkSecurity, emergencyFailover, Json, ApiError, DecodePart, RequireAdmin, RequireOperation } = require('../apiContext');
 async function Handle({ method, pathname, url, body, req, res, session }) {
     let match, m;
-    if (method === 'GET' && pathname === '/api/load-simulator') {
-        if (!RequireAdmin(res, session)) return true;
-        Json(res, 200, { ok: true, simulator: loadSimulator.Overview() });
-        return true;
-    }
-
-    if (method === 'POST' && pathname === '/api/load-simulator/command') {
-        if (!RequireAdmin(res, session)) return true;
-        const options = loadSimulator.NormalizeOptions(body || {});
-        Json(res, 200, { ok: true, options, command: loadSimulator.BuildCommand(options) });
-        return true;
-    }
-
     if (method === 'GET' && pathname === '/api/storage/migration/status') {
         if (!RequireAdmin(res, session)) return true;
         Json(res, 200, { ok: true, migration: storageMigration.Status() });

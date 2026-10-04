@@ -51,6 +51,7 @@ async function Handle({method,pathname,url,body,req,res,session,desktopAuthoriza
  if(!RequireAdmin(res,session))return true;
  const actor=String(session.role||'ADMIN')+':'+String(session.id||'');
  try{
+  if(await require('./desktopOverlayRoutes').Handle({method,pathname,url,body,req,res,session}))return true;
   if(await require('./desktopSecurityRoutes').Handle({method,pathname,url,body,req,res,session,desktopAuthorization}))return true;
   if(pathname==='/api/desktop/bootstrap/security-authority'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopSecurityAuthority').List()});return true;}
   if(pathname==='/api/desktop/bootstrap/security-authority'&&method==='POST'){if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}if(!require('../../services/haCoordinator').CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}Json(res,200,{ok:true,policy:require('../../services/desktopSecurityAuthority').SetPolicy(body,actor)});return true;}
