@@ -1,143 +1,317 @@
 {
-  "delivery": "GameConnect_GameWeb_OVERLAY_CONSOLIDATED",
-  "basis": "GameConnect_GameWeb_OVERLAY_IDE_ONLY_FIX.zip",
-  "basisSha256": "2be6016ffa3a42bf83bd3f267d0e72de6804255c1ba3936254b06fa05ba59ae9",
-  "scope": "Consolidation of the previously provided Window/Client patches and compiled resource, plus exact user-supplied identity. No runtime changes beyond those patches. Development verification/guide updated for the consolidated source package.",
-  "overlayIdentity": {
-    "sha256": "76f197016b0001626e0c55060dd06282ba54617b215e001d07fda40f1811f317",
-    "source": "User pasted generated constant and reported a successful build.",
-    "verifiedAgainstExecutableHere": false,
-    "executableBundled": false
-  },
-  "patchInputs": {
-    "Game.Overlay.Window.pas": {
-      "sha256": "637fe5d74219ab122d4e50c45984432fd2132009c50003f4b14e95de47d0b00d",
-      "copiedByteForByte": true
-    },
-    "Game.Overlay.Client.pas": {
-      "sha256": "46d972a4ef1767a21a15e9478e847fc57f8133ae69ee561b816e9f79ccafe981",
-      "copiedByteForByte": true
-    },
-    "GameOverlayResources.res": {
-      "sha256": "61561747a07eaaecd3b19acd9d40fe5c2944f723caa50eabce58dcf8787bc7e1",
-      "copiedByteForByte": true
-    }
-  },
-  "windowsCompilation": "NOT_RUN",
-  "windowsRuntime": "NOT_RUN",
-  "powershellAndBatExecution": "NOT_RUN",
-  "fullServerRegression": "NOT_RUN; server JavaScript unchanged",
-  "checks": [
-    {
-      "command": "/opt/pyvenv/bin/python GameWeb/scripts/verify-source.py",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.563,
-      "stdout": "OVERLAY EXE NOT VERIFIED: this package carries the user-supplied hash only. Preserve the matching GameOverlay.exe; use --require-overlay to verify it.\nSOURCE VERIFY PASS: delivery files, retired source absence, JSON/JS placement. Not a Delphi compile or runtime security proof.\n",
-      "stderr": ""
-    },
-    {
-      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-contract.py",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.573,
-      "stdout": "",
-      "stderr": "test_all_api_hash_values (__main__.OverlaySourceContract.test_all_api_hash_values) ... ok\ntest_b_does_not_render (__main__.OverlaySourceContract.test_b_does_not_render) ... ok\ntest_build_order_and_include (__main__.OverlaySourceContract.test_build_order_and_include) ... ok\ntest_child_exit_is_parent_or_stop_signalled (__main__.OverlaySourceContract.test_child_exit_is_parent_or_stop_signalled) ... ok\ntest_clickthrough_noactivation_noform (__main__.OverlaySourceContract.test_clickthrough_noactivation_noform) ... ok\ntest_explicit_absolute_image_no_shell (__main__.OverlaySourceContract.test_explicit_absolute_image_no_shell) ... ok\ntest_explicit_three_handle_inheritance (__main__.OverlaySourceContract.test_explicit_three_handle_inheritance) ... ok\ntest_image_cleanup_is_still_license_gated (__main__.OverlaySourceContract.test_image_cleanup_is_still_license_gated) ... ok\ntest_inherited_is_not_a_local_identifier (__main__.OverlaySourceContract.test_inherited_is_not_a_local_identifier) ... ok\ntest_live_authentication_gate (__main__.OverlaySourceContract.test_live_authentication_gate) ... ok\ntest_new_b_apis_preserve_existing_binding_convention (__main__.OverlaySourceContract.test_new_b_apis_preserve_existing_binding_convention) ... ok\ntest_no_credentials_in_child_command (__main__.OverlaySourceContract.test_no_credentials_in_child_command) ... ok\ntest_no_exe_resource_embedding_or_runtime_write (__main__.OverlaySourceContract.test_no_exe_resource_embedding_or_runtime_write) ... ok\ntest_no_standalone_window_on_doubleclick (__main__.OverlaySourceContract.test_no_standalone_window_on_doubleclick) ... ok\ntest_only_separate_exe_draws (__main__.OverlaySourceContract.test_only_separate_exe_draws) ... ok\ntest_overlay_project_no_packages_and_as_invoker (__main__.OverlaySourceContract.test_overlay_project_no_packages_and_as_invoker) ... ok\ntest_overlay_resource_is_shipped (__main__.OverlaySourceContract.test_overlay_resource_is_shipped) ... ok\ntest_pascal_encoding_and_delimiters (__main__.OverlaySourceContract.test_pascal_encoding_and_delimiters) ... ok\ntest_pointer_inheritance_cleared (__main__.OverlaySourceContract.test_pointer_inheritance_cleared) ... ok\ntest_pulse_stale_hides_no_ban (__main__.OverlaySourceContract.test_pulse_stale_hides_no_ban) ... ok\ntest_rechecks_expiry_after_launch_work (__main__.OverlaySourceContract.test_rechecks_expiry_after_launch_work) ... ok\ntest_start_once_and_no_forced_process_kill (__main__.OverlaySourceContract.test_start_once_and_no_forced_process_kill) ... ok\ntest_stop_before_worker_join (__main__.OverlaySourceContract.test_stop_before_worker_join) ... ok\ntest_verified_separate_file_before_start (__main__.OverlaySourceContract.test_verified_separate_file_before_start) ... ok\ntest_window_message_unit_and_var_argument (__main__.OverlaySourceContract.test_window_message_unit_and_var_argument) ... ok\n\n----------------------------------------------------------------------\nRan 25 tests in 0.007s\n\nOK\n"
-    },
-    {
-      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-flat-build.py",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.574,
-      "stdout": "",
-      "stderr": "test_b_only_verifies_existing_identity (__main__.IdeOnlyBuildContracts.test_b_only_verifies_existing_identity) ... ok\ntest_b_resource_is_still_built (__main__.IdeOnlyBuildContracts.test_b_resource_is_still_built) ... ok\ntest_bat_preserves_result_and_pause (__main__.IdeOnlyBuildContracts.test_bat_preserves_result_and_pause) ... ok\ntest_c_resources_and_invalidation_order (__main__.IdeOnlyBuildContracts.test_c_resources_and_invalidation_order) ... ok\ntest_c_success_event_generates_real_hash (__main__.IdeOnlyBuildContracts.test_c_success_event_generates_real_hash) ... ok\ntest_current_identity_is_user_supplied_not_a_guard (__main__.IdeOnlyBuildContracts.test_current_identity_is_user_supplied_not_a_guard) ... ok\ntest_hash_verify_does_not_rewrite_or_invalidate (__main__.IdeOnlyBuildContracts.test_hash_verify_does_not_rewrite_or_invalidate) ... ok\ntest_initialtarget_removed (__main__.IdeOnlyBuildContracts.test_initialtarget_removed) ... ok\ntest_legacy_builds_do_not_fake_success (__main__.IdeOnlyBuildContracts.test_legacy_builds_do_not_fake_success) ... ok\ntest_locked_executable_read (__main__.IdeOnlyBuildContracts.test_locked_executable_read) ... ok\ntest_native_bat_ascii_crlf_and_valid_labels (__main__.IdeOnlyBuildContracts.test_native_bat_ascii_crlf_and_valid_labels) ... ok\ntest_no_bat_infinite_recursion (__main__.IdeOnlyBuildContracts.test_no_bat_infinite_recursion) ... ok\ntest_no_commandline_compiler_in_runner (__main__.IdeOnlyBuildContracts.test_no_commandline_compiler_in_runner) ... ok\ntest_no_compiler_invocation_in_project_events (__main__.IdeOnlyBuildContracts.test_no_compiler_invocation_in_project_events) ... ok\ntest_no_duplicate_overlay_aftertarget (__main__.IdeOnlyBuildContracts.test_no_duplicate_overlay_aftertarget) ... ok\ntest_old_nested_include_paths_absent (__main__.IdeOnlyBuildContracts.test_old_nested_include_paths_absent) ... ok\ntest_old_runner_prepareclient_is_readonly (__main__.IdeOnlyBuildContracts.test_old_runner_prepareclient_is_readonly) ... ok\ntest_output_and_publish_paths_unchanged (__main__.IdeOnlyBuildContracts.test_output_and_publish_paths_unchanged) ... ok\ntest_project_sources_exist (__main__.IdeOnlyBuildContracts.test_project_sources_exist) ... ok\ntest_runtime_still_requires_exact_digest (__main__.IdeOnlyBuildContracts.test_runtime_still_requires_exact_digest) ... ok\ntest_same_folder (__main__.IdeOnlyBuildContracts.test_same_folder) ... ok\ntest_script_has_no_download_or_program_start (__main__.IdeOnlyBuildContracts.test_script_has_no_download_or_program_start) ... ok\ntest_verified_identity_write_no_replace (__main__.IdeOnlyBuildContracts.test_verified_identity_write_no_replace) ... ok\ntest_verify_names_missing_and_unprepared_steps (__main__.IdeOnlyBuildContracts.test_verify_names_missing_and_unprepared_steps) ... ok\n\n----------------------------------------------------------------------\nRan 24 tests in 0.005s\n\nOK\n"
-    },
-    {
-      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-generated-identity.py",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.562,
-      "stdout": "",
-      "stderr": "test_changed_companion_rejected (__main__.GeneratedIdentityTests.test_changed_companion_rejected) ... ok\ntest_include_symlink_rejected (__main__.GeneratedIdentityTests.test_include_symlink_rejected) ... ok\ntest_matching_generated_identity (__main__.GeneratedIdentityTests.test_matching_generated_identity) ... ok\ntest_missing_exe_rejected (__main__.GeneratedIdentityTests.test_missing_exe_rejected) ... ok\ntest_modified_include_rejected (__main__.GeneratedIdentityTests.test_modified_include_rejected) ... ok\ntest_strict_check_rejects_unprepared_source (__main__.GeneratedIdentityTests.test_strict_check_rejects_unprepared_source) ... ok\ntest_supplied_identity_checks_binary_when_present (__main__.GeneratedIdentityTests.test_supplied_identity_checks_binary_when_present) ... ok\ntest_supplied_identity_does_not_accept_a_symlink (__main__.GeneratedIdentityTests.test_supplied_identity_does_not_accept_a_symlink) ... ok\ntest_supplied_identity_does_not_accept_changed_binary (__main__.GeneratedIdentityTests.test_supplied_identity_does_not_accept_changed_binary) ... ok\ntest_supplied_identity_does_not_accept_missing_binary_after_edit (__main__.GeneratedIdentityTests.test_supplied_identity_does_not_accept_missing_binary_after_edit) ... ok\ntest_supplied_source_only_digest_is_not_binary_verification (__main__.GeneratedIdentityTests.test_supplied_source_only_digest_is_not_binary_verification) ... ok\ntest_unknown_generated_source_rejected (__main__.GeneratedIdentityTests.test_unknown_generated_source_rejected) ... ok\ntest_unprepared_guard_tamper_rejected (__main__.GeneratedIdentityTests.test_unprepared_guard_tamper_rejected) ... ok\ntest_unprepared_source_is_intact_not_runtime_proof (__main__.GeneratedIdentityTests.test_unprepared_source_is_intact_not_runtime_proof) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 0.010s\n\nOK\n"
-    },
-    {
-      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-source-verifier.py",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.682,
-      "stdout": "Source verifier: 7 tests passed. Temporary copies only.\n",
-      "stderr": ""
-    },
-    {
-      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-license-success-contract.py",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.572,
-      "stdout": "PASS A deletion stays in authenticated handoff\nPASS B is not unlinked at claim time\nPASS The verified B handle is transferred rather than reopened after license\nPASS License success is checked before cleanup\nPASS An expired lease is checked again before WorkerActive\nPASS Exactly one license-gated call site exists\nPASS Cleanup is guarded once and preserves nonfatal OS refusal\nPASS Cleanup pins the directory and closes capability on both paths\nPASS Worker is joined before handoff context can be freed\nPASS Destructor releases unused cleanup handle\nPASS No window renderer or automatic assignment marker added\nLicense-success source contracts: 11 passed. Static checks only; no Windows deletion or rendering test.\n",
-      "stderr": ""
-    },
-    {
-      "command": "node GameWeb/scripts/test-history-outcomes.js",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.076,
-      "stdout": "PASS A known successful observation has a normal label and no error guidance\nPASS Explicit PASS is accepted for the same known success event\nPASS An explicit non-PASS status is not hidden by a matching reason\nPASS Image digest mismatch retains failure guidance\nPASS Unknown observation reasons retain diagnostic guidance\nPASS A request failure cannot become success by copying BASELINE_MATCH\nPASS Different authority event kinds retain existing handling\nPASS An event without a reason has no invented problem\nPASS Malformed event JSON is ignored without losing the issuance record\nPASS The timeline read does not rewrite the stored events or authority state\nPASS Four successful observations remain four separate successful records\nPASS Unknown sensitive fields in an event are not returned in the timeline\nHistory outcome display: 12 service tests passed. Injected event fixtures; not live server validation.\n",
-      "stderr": ""
-    },
-    {
-      "command": "node GameWeb/scripts/test-key-console.js",
-      "exitCode": 0,
-      "result": "PASS",
-      "seconds": 0.708,
-      "stdout": "[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"D4132B24919DCAC49FBF07DC\",\"component\":\"A\",\"version\":\"92.0\",\"sha256\":\"4611665526f0385cd778fa4633be1672357db6f7f5246306ff5a23fb30b111f9\",\"crc64\":\"83BCB4567E0B2496\",\"xxh64\":\"3a75c4d3a4b9d86c\",\"blake3\":\"ec3c9babf5ca4197aadfdfd0f4647bebcf313da3c846d197e85930c1362c668e\",\"codeSha256\":\"fd5972334a7c2f954631d2a6352f74a0f40566f52b42f1f0d0a625343076eeb0\",\"codeCrc64\":\"823BE4C302CC30F3\",\"codeXxh64\":\"351e86f12d78dcfb\",\"codeBlake3\":\"3edad17fd4e7ecd32b3d4fa6c4c1627ddf6d5f654c2f64e497818cba4a6001a0\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791105822715,\"backgroundVersion\":0}\n[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"89ABDCBFA16994AD77ACB946\",\"component\":\"B\",\"version\":\"92.0\",\"sha256\":\"5af7daa1b1d0732998bc8075cf6e98167df482ef89084c89d1219529700a34e3\",\"crc64\":\"31D2E71F36B6828B\",\"xxh64\":\"9ad4bfcdf9cc818e\",\"blake3\":\"4095662742ec4556c876b9f482f6cf46e546bf9f0375cf03385170423dae6774\",\"codeSha256\":\"ca3c0db3c573d6579c9684a9edb0c341c6d87db19773c37581b53073469c527a\",\"codeCrc64\":\"3055B78A4A7196EE\",\"codeXxh64\":\"655769fa3bc70fab\",\"codeBlake3\":\"2949e48baf75350fc9cb765bcd1cbc347711dfb294694140418baeaeaef469ef\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791105822719,\"backgroundVersion\":0}\nPASS Manual B publishes with no automatic-assignment capability\n[EVENT] DESKTOP_BOOTSTRAP_ISSUED {\"launcherId\":\"A834915125A5F83B56DADCCB\",\"label\":\"Console recipient\",\"expiresAt\":1791192222940,\"licenseId\":\"\"}\nPASS A can be issued while the server contains zero licenses\nPASS Repeated A issue request returns the same file without making a license\nPASS The issued A profile has no license key, license ID or automatic marker\n[EVENT] DESKTOP_BOOTSTRAP_BEGAN {\"flowId\":\"3B4456E3FC85BB139844A6ED\",\"launcherId\":\"A834915125A5F83B56DADCCB\",\"deviceId\":\"739A95421B7AB4C4451B7379627E71F9CB3D453132082B77FC0D55F7BA792902\",\"releaseId\":\"89ABDCBFA16994AD77ACB946\"}\n[EVENT] DESKTOP_BOOTSTRAP_CLAIMED {\"flowId\":\"3B4456E3FC85BB139844A6ED\",\"sessionId\":\"564C8D839854D17051243BE8\",\"deviceId\":\"739A95421B7AB4C4451B7379627E71F9CB3D453132082B77FC0D55F7BA792902\",\"releaseId\":\"89ABDCBFA16994AD77ACB946\"}\nPASS A download and B claim succeed before any license is issued\nPASS A manual B session rejects the old automatic marker\nPASS Missing and unknown keys do not implicitly consume or create licenses\nPASS A key can be created separately after A issuance and B claim\nPASS Tampering with the signed request still fails without consuming the key\n[EVENT] DESKTOP_LICENSE_USED {\"id\":\"5899AC628E977FCFB4795366\",\"deviceId\":\"739A95421B7AB4C4451B7379627E71F9CB3D453132082B77FC0D55F7BA792902\",\"status\":\"USED\"}\nPASS The entered key is consumed by the original signed proof path\nPASS Lost-response retry uses the existing receipt without consuming a second key\nPASS The workspace still links A issuance, B claim and entered-key authentication\n[EVENT] DESKTOP_LICENSE_RELEASED {\"id\":\"5899AC628E977FCFB4795366\",\"deviceId\":\"739A95421B7AB4C4451B7379627E71F9CB3D453132082B77FC0D55F7BA792902\",\"status\":\"USED\"}\nPASS Normal license renewal and release remain signed and session-bound\n[EVENT] DESKTOP_BOOTSTRAP_ISSUED {\"launcherId\":\"F790F3CC9FAB644D5C8481E0\",\"label\":\"Bootstrap test\",\"expiresAt\":1791192223203,\"licenseId\":\"\"}\n[EVENT] DESKTOP_BOOTSTRAP_BEGAN {\"flowId\":\"1F1CB2E20AC88DCF6C84D562\",\"launcherId\":\"F790F3CC9FAB644D5C8481E0\",\"deviceId\":\"D28EBCEB510FC7F5D2CC979051150CE3846581442711619B80E33077A580F7DB\",\"releaseId\":\"89ABDCBFA16994AD77ACB946\"}\n[EVENT] DESKTOP_BOOTSTRAP_CLAIMED {\"flowId\":\"1F1CB2E20AC88DCF6C84D562\",\"sessionId\":\"46F6EADB0406642CB5C96E80\",\"deviceId\":\"D28EBCEB510FC7F5D2CC979051150CE3846581442711619B80E33077A580F7DB\",\"releaseId\":\"89ABDCBFA16994AD77ACB946\"}\nPASS A consumed KEY is not reset or allowed on a different fresh device\n[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"24CEF1A375CE096F931DA92A\",\"component\":\"B\",\"version\":\"91.0\",\"sha256\":\"8819e3f593424b471c84a0a16309dde78d086f714435284df9947d402a6dad38\",\"crc64\":\"55F6C02327754362\",\"xxh64\":\"120c761c49c5b003\",\"blake3\":\"d5dbbbc9bf052b3ffbbe0b28a43a3261a3f84555fd28f49fa23ee4d9ede48beb\",\"codeSha256\":\"e56253260c897b47d61ef81f551f49b58090b7c3b736bae971a194b17f6d2d3d\",\"codeCrc64\":\"547190B65BB25707\",\"codeXxh64\":\"e11e46d3af36f501\",\"codeBlake3\":\"a7f9ccf1a49016fe9b8c879012da0e27a448d054eea376787cc5407ea4779af1\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791105823211,\"backgroundVersion\":1}\n[EVENT] DESKTOP_BOOTSTRAP_ISSUED {\"launcherId\":\"816EBA455541CFB7701E19DB\",\"label\":\"old reserved A\",\"expiresAt\":1791192223213,\"licenseId\":\"25C6B06F16DC02A5A0B686F3\"}\n[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"36FD97EDA29FF916BDA11C6B\",\"component\":\"B\",\"version\":\"92.1\",\"sha256\":\"a904bf0888e1c844cba52dcb95d2bf8fdd45673ee354161e3b4c5e9f18f56582\",\"crc64\":\"4D5D62490A77C8B0\",\"xxh64\":\"9cdf9a666d875a70\",\"blake3\":\"48d0ab3c621eb2ff7e9224bd071694fdcdfe8a19985dbefcf14022d8ec18a641\",\"codeSha256\":\"1db180f23588cba729d34a5b85f5e4aa73484940e70a7ed6059e478c9e7892be\",\"codeCrc64\":\"4CDA32DC76B0DCD5\",\"codeXxh64\":\"3c5ebeb76c98dba5\",\"codeBlake3\":\"4a86a2027aee4b26e23e02e7160690dbbf0bed952c3cef4e71a9e27d3ace54b4\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791105823214,\"backgroundVersion\":0}\n[EVENT] DESKTOP_BOOTSTRAP_BEGAN {\"flowId\":\"9906A38CD8DF37A12C019C83\",\"launcherId\":\"816EBA455541CFB7701E19DB\",\"deviceId\":\"E47D0D953E8885CE457A3109D078FF13B31A428722867B9A2742FD5C4E63E924\",\"releaseId\":\"36FD97EDA29FF916BDA11C6B\"}\n[EVENT] DESKTOP_BOOTSTRAP_CLAIMED {\"flowId\":\"9906A38CD8DF37A12C019C83\",\"sessionId\":\"7662395D2416E43514B52627\",\"deviceId\":\"E47D0D953E8885CE457A3109D078FF13B31A428722867B9A2742FD5C4E63E924\",\"releaseId\":\"36FD97EDA29FF916BDA11C6B\"}\nPASS An old reserved A remains usable with a newer manual-input B\nPASS Historical A assignment cannot auto-authorize the new console build\n[EVENT] DESKTOP_LICENSE_USED {\"id\":\"A1E0E57898711E783D4E0548\",\"deviceId\":\"E47D0D953E8885CE457A3109D078FF13B31A428722867B9A2742FD5C4E63E924\",\"status\":\"USED\"}\nPASS The user-entered valid KEY wins over unused historical A assignment metadata\nPASS Console restoration uses existing KEY input, paste and cleanup handlers\nKEY console restoration: 18 scenarios passed. Server proofs/fixtures and source checks only; Windows UI not executed.\n",
-      "stderr": ""
-    }
+  "basis": "GameConnect_GameWeb_KEY_CONSOLE.zip",
+  "basisSha256": "a186011e3ee5b816fb803bdd295fa83c0c36e2dc5f0291e00186a9a197b2089e",
+  "scope": "Existing B cleanup timing and known-success timeline display only; no overlay implemented.",
+  "operatingDataModified": false,
+  "runtimeModifiedFiles": [
+    "GameConnect_Win64/Game.Console.pas",
+    "GameConnect_Win64/Game.Handoff.pas",
+    "GameWeb/services/desktopWorkspace.js"
   ],
-  "changed": [
-    "GameConnect_Win64/Game.Overlay.Client.pas",
-    "GameConnect_Win64/Game.Overlay.Identity.inc",
-    "GameConnect_Win64/Game.Overlay.Window.pas",
+  "changedFiles": [
+    "GameConnect_Win64/Game.Console.pas",
+    "GameConnect_Win64/Game.Handoff.pas",
     "GameWeb/maintenance/index.html",
     "GameWeb/maintenance/review.json",
     "GameWeb/maintenance/source-manifest.json",
-    "GameWeb/scripts/test-overlay-contract.py",
-    "GameWeb/scripts/test-overlay-flat-build.py",
-    "GameWeb/scripts/test-overlay-generated-identity.py",
-    "GameWeb/scripts/verify-source.py"
+    "GameWeb/scripts/check-connect-project.js",
+    "GameWeb/scripts/regression.js",
+    "GameWeb/scripts/test-desktop-workspace.js",
+    "GameWeb/scripts/test-key-console.js",
+    "GameWeb/services/desktopWorkspace.js"
   ],
-  "added": [
-    "GameConnect_Win64/GameOverlayResources.res"
+  "addedFiles": [
+    "GameWeb/scripts/test-history-outcomes.js",
+    "GameWeb/scripts/test-license-success-contract.py"
   ],
-  "deleted": [],
-  "existingFiles": 352,
-  "unchangedExistingFiles": 342,
-  "totalDeliveryFiles": 353,
-  "preservation": {
-    "serverJavaScriptCount": 232,
-    "allServerJavaScriptByteIdentical": true,
-    "originalNativeFileCount": 63,
-    "nativeExistingUnchanged": 60,
-    "nativeExistingChanged": 3,
-    "pasDprCount": 36,
-    "pasDprUnchanged": 34,
-    "projectBatPs1Count": 17,
-    "allProjectBatPs1ByteIdentical": true,
-    "uploadedFixesCopiedByteForByte": true,
-    "reversePatchComparisonPassed": true
+  "existingFilesDeleted": [],
+  "unchangedExistingFiles": 315,
+  "uiRevision": "game-console-92 (unchanged)",
+  "overlayImplemented": false,
+  "verifiedWindowsDeletion": false,
+  "verification": {
+    "historyOutcomeServiceTests": 12,
+    "keyConsoleServiceAndSourceScenarios": 18,
+    "licenseSuccessSourceContracts": 11,
+    "javascriptSyntax": {
+      "checked": 232,
+      "failures": []
+    },
+    "commandCounts": {
+      "PASS": 33,
+      "BLOCKED_DEPENDENCY": 6,
+      "PASS_WITH_ENVIRONMENT_WARNINGS": 2,
+      "NOT_COMPLETED_TIMEOUT": 1,
+      "NOT_COMPLETED_RUNNER_TIMEOUT": 1
+    },
+    "commands": [
+      {
+        "command": "node scripts/test-key-console.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.873
+      },
+      {
+        "command": "node scripts/test-history-outcomes.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.049
+      },
+      {
+        "command": "node scripts/test-desktop-workspace.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.959
+      },
+      {
+        "command": "node scripts/test-workspace-http.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 5.255
+      },
+      {
+        "command": "node scripts/test-security-activation.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 1.299
+      },
+      {
+        "command": "node scripts/test-security-operations.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.903
+      },
+      {
+        "command": "node scripts/test-security-admin.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.049
+      },
+      {
+        "command": "node scripts/test-security-evidence.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.034
+      },
+      {
+        "command": "node scripts/test-security-native-contract.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.024
+      },
+      {
+        "command": "node scripts/test-security-authority.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.635
+      },
+      {
+        "command": "node scripts/test-security-tools.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.042
+      },
+      {
+        "command": "node scripts/test-security-wire.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.485
+      },
+      {
+        "command": "node scripts/check-modules.js",
+        "status": "BLOCKED_DEPENDENCY",
+        "exitCode": 1,
+        "seconds": 5.152
+      },
+      {
+        "command": "node scripts/check-web-ui.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.039
+      },
+      {
+        "command": "node scripts/check-connect-project.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.031
+      },
+      {
+        "command": "node scripts/test-extended-hashes.js",
+        "status": "BLOCKED_DEPENDENCY",
+        "exitCode": 1,
+        "seconds": 0.027
+      },
+      {
+        "command": "node scripts/test-desktop-extended-integrity.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 6.076
+      },
+      {
+        "command": "node scripts/test-desktop-extended-integrity.js --sqlite",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 6.299
+      },
+      {
+        "command": "node scripts/test-sqlite-driver.js",
+        "status": "BLOCKED_DEPENDENCY",
+        "exitCode": 1,
+        "seconds": 0.068
+      },
+      {
+        "command": "node scripts/test-connect-tls.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 2.044
+      },
+      {
+        "command": "node scripts/test-desktop-pe-exports.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.039
+      },
+      {
+        "command": "node scripts/test-native-report-budget.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.022
+      },
+      {
+        "command": "node scripts/test-desktop-integrity-policy.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 4.234
+      },
+      {
+        "command": "node scripts/test-desktop-integrity-policy.js --sqlite",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 4.302
+      },
+      {
+        "command": "node scripts/test-desktop-machine-policy.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 2.12
+      },
+      {
+        "command": "node scripts/test-desktop-machine-policy.js --sqlite",
+        "status": "PASS_WITH_ENVIRONMENT_WARNINGS",
+        "exitCode": 0,
+        "seconds": 2.245
+      },
+      {
+        "command": "node scripts/test-desktop-licenses.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 1.685
+      },
+      {
+        "command": "node scripts/test-desktop-licenses.js --sqlite",
+        "status": "BLOCKED_DEPENDENCY",
+        "exitCode": 1,
+        "seconds": 1.408
+      },
+      {
+        "command": "node scripts/test-desktop-license-migration.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 2.007
+      },
+      {
+        "command": "node scripts/test-desktop-license-migration.js --sqlite",
+        "status": "PASS_WITH_ENVIRONMENT_WARNINGS",
+        "exitCode": 0,
+        "seconds": 1.719
+      },
+      {
+        "command": "node scripts/test-desktop-bootstrap.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 2.443
+      },
+      {
+        "command": "node scripts/test-desktop-bootstrap.js --sqlite",
+        "status": "BLOCKED_DEPENDENCY",
+        "exitCode": 1,
+        "seconds": 0.75
+      },
+      {
+        "command": "node scripts/test-desktop-code-integrity.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.032
+      },
+      {
+        "command": "node scripts/test-native-code-contract.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.04
+      },
+      {
+        "command": "node scripts/test-desktop-integrity-reports.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 1.774
+      },
+      {
+        "command": "node scripts/test-desktop-admin-ui.js",
+        "status": "BLOCKED_DEPENDENCY",
+        "exitCode": 1,
+        "seconds": 0.024
+      },
+      {
+        "command": "node scripts/test-web-ui-cache.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "seconds": 0.078
+      },
+      {
+        "command": "node scripts/test-desktop-integrity-reports.js --sqlite",
+        "status": "PASS",
+        "exitCode": 0,
+        "note": "Observed runner result; see returned command output."
+      },
+      {
+        "command": "node scripts/test-desktop-retirement.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "note": "Observed runner result; see returned command output."
+      },
+      {
+        "command": "node scripts/test-desktop-http.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "note": "Observed runner result; see returned command output."
+      },
+      {
+        "command": "node scripts/test-connect-deployment.js",
+        "status": "PASS",
+        "exitCode": 0,
+        "note": "Observed runner result; see returned command output."
+      },
+      {
+        "command": "node scripts/test-desktop-connect.js",
+        "status": "NOT_COMPLETED_TIMEOUT",
+        "note": "Exceeded the local 20-second test budget after several successful scenarios. Not a proven product regression."
+      },
+      {
+        "command": "node scripts/test-desktop-connect.js --sqlite",
+        "status": "NOT_COMPLETED_RUNNER_TIMEOUT",
+        "note": "Batch execution was interrupted by container timeout. No completion result recorded."
+      }
+    ],
+    "windowsCompile": "NOT_RUN",
+    "windowsExecution": "NOT_RUN",
+    "browserTest": "NOT_RUN",
+    "preservation": "Existing API wrappers/bindings, deletion primitive, Game.Api.pas are unchanged.",
+    "sourceManifestVerifier": "PASS",
+    "sourceVerifierRegressionTests": 7
   },
-  "resourceChecks": {
-    "providedResSize": 1540,
-    "binaryStructureRecords": 3,
-    "manifestType": 24,
-    "versionType": 16,
-    "manifestByteIdenticalToSource": true
-  },
-  "strictMissingExecutableCheck": {
-    "result": "EXPECTED_REJECTION",
-    "command": "python GameWeb/scripts/verify-source.py --require-overlay",
-    "exitCode": 1,
-    "stdout": "Generated identity companion missing: GameConnect_Win64/Game.Overlay.Identity.inc\n",
-    "stderr": ""
-  },
-  "packagingValidation": "Original ZIP CRC passed. Consolidated output ZIP CRC, unique/safe paths, two top-level folders and all archived bytes are checked by the packaging script before delivery."
+  "knownLimits": [
+    "OS refusal to delete an active image is nonfatal and leaves B on disk.",
+    "Direct screen rendering was not added because the no-Win32-window constraint needs a rendering choice.",
+    "No whole-regression success is claimed; dependency and timeout results remain incomplete."
+  ]
 }
