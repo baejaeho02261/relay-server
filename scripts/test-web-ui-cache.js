@@ -143,7 +143,7 @@ async function testWorker() {
   assert.equal(puts.length, 1, 'Error response must not enter cache');
   responseStatus = 200;
   const beforeAuthCache=puts.length;
-  for(const url of ['/member/oauth/callback/google?code=private-code','/member/oauth/open/private-flow','/pay/return/order/state/complete?paymentKey=private-key'])await request(url,'navigate');
+  for(const url of ['/member/oauth/callback/google?code=private-code','/member/oauth/open/private-flow','/pay/return/order/state/complete?paymentKey=private-key','/auth/callback?code=private-code','/unlisted-page'])await request(url,'navigate');
   assert.equal(puts.length,beforeAuthCache,'OAuth/payment navigation must never replace the cached admin shell');
   failNetwork = true;
   assert.equal((await request('/admin-missing.js')).status, 503);
@@ -152,6 +152,8 @@ async function testWorker() {
   await assert.rejects(request('/api/support'), /OFFLINE/);
   await assert.rejects(request('/member/oauth/callback/google?code=private-code','navigate'), /OFFLINE/);
   await assert.rejects(request('/pay/return/order/state/complete','navigate'), /OFFLINE/);
+  await assert.rejects(request('/auth/callback?code=private-code','navigate'), /OFFLINE/);
+  await assert.rejects(request('/unlisted-page','navigate'), /OFFLINE/);
   await assert.rejects(request('/ui-version.json'), /OFFLINE/);
   await assert.rejects(request('/ui-refresh'), /OFFLINE/);
   assert.equal(reads.length, count, 'API/recovery must never fall back to cached data');

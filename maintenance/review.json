@@ -1,317 +1,236 @@
 {
-  "basis": "GameConnect_GameWeb_KEY_CONSOLE.zip",
-  "basisSha256": "a186011e3ee5b816fb803bdd295fa83c0c36e2dc5f0291e00186a9a197b2089e",
-  "scope": "Existing B cleanup timing and known-success timeline display only; no overlay implemented.",
+  "basis": "Game.zip",
+  "basisSha256": "1392ae75cf3d005384ce9819648b29b453dd0a7f9483edcae46d092dc2c986e9",
+  "scope": "Windows auth/session hardening, Android source retirement, independent server-issued data overlay, resource and API binding refactoring",
   "operatingDataModified": false,
-  "runtimeModifiedFiles": [
-    "GameConnect_Win64/Game.Console.pas",
-    "GameConnect_Win64/Game.Handoff.pas",
-    "GameWeb/services/desktopWorkspace.js"
-  ],
+  "deployedToRemoteServer": false,
+  "uiRevision": "game-overlay-93",
+  "overlayImplemented": true,
+  "overlayFormat": "GAME-OVERLAY-DATA-1 declarative UTF-8 JSON, not executable code",
+  "overlayProcessModel": "Independent module/session lifetime in the same Windows host process",
+  "localExecutionStillRequired": true,
+  "originalBootstrapDownloadFileStillRequired": true,
+  "delphiCompiled": false,
+  "windowsUiExecuted": false,
+  "finalPeImportsExamined": false,
   "changedFiles": [
+    "GameConnect_Win64/Game.Api.ROR13.pas",
+    "GameConnect_Win64/Game.Api.Types.pas",
+    "GameConnect_Win64/Game.Api.pas",
     "GameConnect_Win64/Game.Console.pas",
-    "GameConnect_Win64/Game.Handoff.pas",
+    "GameConnect_Win64/Game.Tls.pas",
+    "GameConnect_Win64/GameConnect.dpr",
+    "GameConnect_Win64/GameConnect.dproj",
+    "GameConnect_Win64/GameConnectRelaySocket.pas",
+    "GameConnect_Win64/GameConnectTransport.pas",
+    "GameConnect_Win64/tests/ApiResolverProbe.dpr",
+    "GameWeb/admin/auth.js",
+    "GameWeb/config/config.js",
+    "GameWeb/core/lifecycle.js",
+    "GameWeb/core/state.js",
+    "GameWeb/identity/identityManager.js",
+    "GameWeb/license/licenseManager.js",
     "GameWeb/maintenance/index.html",
     "GameWeb/maintenance/review.json",
     "GameWeb/maintenance/source-manifest.json",
-    "GameWeb/scripts/check-connect-project.js",
+    "GameWeb/package-lock.json",
+    "GameWeb/package.json",
+    "GameWeb/public/admin-actions-operations.js",
+    "GameWeb/public/admin-appearance.css",
+    "GameWeb/public/admin-desktop-licenses.js",
+    "GameWeb/public/admin-desktop-workflow.js",
+    "GameWeb/public/admin-i18n.js",
+    "GameWeb/public/admin-navigation.js",
+    "GameWeb/public/admin-theme.css",
+    "GameWeb/public/admin-workspace.css",
+    "GameWeb/public/admin.css",
+    "GameWeb/public/admin.js",
+    "GameWeb/public/index.html",
+    "GameWeb/public/service-worker.js",
+    "GameWeb/relay/ackManager.js",
+    "GameWeb/relay/notifications.js",
     "GameWeb/scripts/regression.js",
-    "GameWeb/scripts/test-desktop-workspace.js",
-    "GameWeb/scripts/test-key-console.js",
-    "GameWeb/services/desktopWorkspace.js"
+    "GameWeb/scripts/test-desktop-admin-ui.js",
+    "GameWeb/scripts/test-desktop-licenses.js",
+    "GameWeb/scripts/test-desktop-retirement.js",
+    "GameWeb/scripts/test-web-ui-cache.js",
+    "GameWeb/services/desktopBootstrap.js",
+    "GameWeb/services/desktopBootstrapStore.js",
+    "GameWeb/services/desktopConnect.js",
+    "GameWeb/services/desktopIntegrityReports.js",
+    "GameWeb/services/desktopLicenses.js",
+    "GameWeb/services/desktopMode.js",
+    "GameWeb/services/deviceAuth.js",
+    "GameWeb/services/deviceRegistry.js",
+    "GameWeb/services/deviceSecretRotation.js",
+    "GameWeb/services/emergencyFailover.js",
+    "GameWeb/services/featureFlags.js",
+    "GameWeb/services/historyCleanup.js",
+    "GameWeb/services/networkSecurity.js",
+    "GameWeb/services/productionCenter.js",
+    "GameWeb/services/productionState.js",
+    "GameWeb/services/releaseManager.js",
+    "GameWeb/services/requestRecovery.js",
+    "GameWeb/services/serviceLifecycle.js",
+    "GameWeb/services/transportSecurity.js",
+    "GameWeb/setup/windows.env.example",
+    "GameWeb/storage/database.js",
+    "GameWeb/storage/sqliteDatabase.js",
+    "GameWeb/storage/sqliteSchema.js",
+    "GameWeb/web/apiContext.js",
+    "GameWeb/web/routes/deploymentRoutes.js",
+    "GameWeb/web/routes/desktopBootstrapRoutes.js",
+    "GameWeb/web/routes/deviceRoutes.js",
+    "GameWeb/web/routes/infrastructureRoutes.js",
+    "GameWeb/web/ui-bundle.json",
+    "GameWeb/web/webAuth.js",
+    "GameWeb/web/webEvents.js",
+    "GameWeb/web/webServer.js"
   ],
   "addedFiles": [
-    "GameWeb/scripts/test-history-outcomes.js",
-    "GameWeb/scripts/test-license-success-contract.py"
+    "ANDROID_REMOVAL.txt",
+    "CLIENT_CORRECTNESS_AUDIT.txt",
+    "GameConnect_Win64/Build_Win64.cmd",
+    "GameConnect_Win64/Game.LicenseCompletion.pas",
+    "GameConnect_Win64/Game.Overlay.Data.pas",
+    "GameConnect_Win64/Game.Overlay.Runtime.pas",
+    "GameConnect_Win64/Game.Overlay.WinApi.pas",
+    "GameConnect_Win64/tests/Build_OverlayProbe_Win64.bat",
+    "GameConnect_Win64/tests/OverlayDataProbe.dpr",
+    "GameWeb/scripts/test-desktop-overlay.js",
+    "GameWeb/scripts/test-overlay-admin-ui.js",
+    "GameWeb/scripts/test-overlay-native-contract.py",
+    "GameWeb/scripts/test-web-auth-hardening.js",
+    "GameWeb/scripts/test-web-auth-http.js",
+    "GameWeb/services/desktopOverlay.js",
+    "GameWeb/setup/overlay.dat",
+    "GameWeb/web/routes/desktopOverlayRoutes.js",
+    "README_적용안내.txt"
   ],
-  "existingFilesDeleted": [],
-  "unchangedExistingFiles": 315,
-  "uiRevision": "game-console-92 (unchanged)",
-  "overlayImplemented": false,
-  "verifiedWindowsDeletion": false,
+  "existingFilesDeleted": [
+    "GameWeb/relay/clientConnectPacket.js",
+    "GameWeb/relay/serverHandler.js",
+    "GameWeb/services/buildGate.js",
+    "GameWeb/services/clientAuthRecovery.js",
+    "GameWeb/services/clientBiometric.js",
+    "GameWeb/services/clientInstallation.js",
+    "GameWeb/services/clientPermissions.js",
+    "GameWeb/services/loadSimulator.js",
+    "GameWeb/services/member/activity-settings.js",
+    "GameWeb/services/member/commentThreads.js",
+    "GameWeb/services/member/commerce.js",
+    "GameWeb/services/member/currency-coins.js",
+    "GameWeb/services/member/currency-reference.json",
+    "GameWeb/services/member/currency.js",
+    "GameWeb/services/member/customization.js",
+    "GameWeb/services/member/direct-messages.js",
+    "GameWeb/services/member/entryPass.js",
+    "GameWeb/services/member/follows.js",
+    "GameWeb/services/member/game-downloads.js",
+    "GameWeb/services/member/gamePlans.js",
+    "GameWeb/services/member/gif-pack.json",
+    "GameWeb/services/member/gifMedia.js",
+    "GameWeb/services/member/gifs.js",
+    "GameWeb/services/member/history.js",
+    "GameWeb/services/member/identity.js",
+    "GameWeb/services/member/media.js",
+    "GameWeb/services/member/mentions.js",
+    "GameWeb/services/member/oauthCredentials.js",
+    "GameWeb/services/member/oauthIdentity.js",
+    "GameWeb/services/member/oauthLifecycle.js",
+    "GameWeb/services/member/people.js",
+    "GameWeb/services/member/points.js",
+    "GameWeb/services/member/pollText.js",
+    "GameWeb/services/member/post-controls.js",
+    "GameWeb/services/member/preferences.js",
+    "GameWeb/services/member/profile-activity.js",
+    "GameWeb/services/member/profile-details.js",
+    "GameWeb/services/member/profiles.js",
+    "GameWeb/services/member/protocol.js",
+    "GameWeb/services/member/readScope.js",
+    "GameWeb/services/member/reposts.js",
+    "GameWeb/services/member/rewards.js",
+    "GameWeb/services/member/social-entitlements.js",
+    "GameWeb/services/member/social.js",
+    "GameWeb/services/member/socialActions.js",
+    "GameWeb/services/member/store.js",
+    "GameWeb/services/member/testAccess.js",
+    "GameWeb/services/member/views.js",
+    "GameWeb/services/memberEntry.js",
+    "GameWeb/services/qrApproval.js",
+    "GameWeb/services/qrImageDecoder.js",
+    "GameWeb/services/qrToken.js",
+    "GameWeb/services/supportCenter.js",
+    "GameWeb/services/userDashboard.js",
+    "GameWeb/tools/load-simulator.js"
+  ],
+  "unchangedExistingFiles": 199,
   "verification": {
-    "historyOutcomeServiceTests": 12,
-    "keyConsoleServiceAndSourceScenarios": 18,
-    "licenseSuccessSourceContracts": 11,
-    "javascriptSyntax": {
-      "checked": 232,
-      "failures": []
-    },
-    "commandCounts": {
-      "PASS": 33,
-      "BLOCKED_DEPENDENCY": 6,
-      "PASS_WITH_ENVIRONMENT_WARNINGS": 2,
-      "NOT_COMPLETED_TIMEOUT": 1,
-      "NOT_COMPLETED_RUNNER_TIMEOUT": 1
-    },
+    "runtime": "Node v24.19.0, Linux x64",
+    "dependencies": "Isolated npm install from project lockfile; no node_modules in deliverable",
     "commands": [
       {
-        "command": "node scripts/test-key-console.js",
+        "command": "npm test",
         "status": "PASS",
         "exitCode": 0,
-        "seconds": 0.873
+        "seconds": 117.401
       },
       {
-        "command": "node scripts/test-history-outcomes.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.049
-      },
-      {
-        "command": "node scripts/test-desktop-workspace.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.959
-      },
-      {
-        "command": "node scripts/test-workspace-http.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 5.255
-      },
-      {
-        "command": "node scripts/test-security-activation.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 1.299
-      },
-      {
-        "command": "node scripts/test-security-operations.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.903
-      },
-      {
-        "command": "node scripts/test-security-admin.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.049
-      },
-      {
-        "command": "node scripts/test-security-evidence.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.034
-      },
-      {
-        "command": "node scripts/test-security-native-contract.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.024
-      },
-      {
-        "command": "node scripts/test-security-authority.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.635
-      },
-      {
-        "command": "node scripts/test-security-tools.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.042
-      },
-      {
-        "command": "node scripts/test-security-wire.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.485
-      },
-      {
-        "command": "node scripts/check-modules.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 5.152
-      },
-      {
-        "command": "node scripts/check-web-ui.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.039
-      },
-      {
-        "command": "node scripts/check-connect-project.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.031
-      },
-      {
-        "command": "node scripts/test-extended-hashes.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.027
-      },
-      {
-        "command": "node scripts/test-desktop-extended-integrity.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 6.076
-      },
-      {
-        "command": "node scripts/test-desktop-extended-integrity.js --sqlite",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 6.299
-      },
-      {
-        "command": "node scripts/test-sqlite-driver.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.068
-      },
-      {
-        "command": "node scripts/test-connect-tls.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.044
-      },
-      {
-        "command": "node scripts/test-desktop-pe-exports.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.039
-      },
-      {
-        "command": "node scripts/test-native-report-budget.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.022
-      },
-      {
-        "command": "node scripts/test-desktop-integrity-policy.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 4.234
-      },
-      {
-        "command": "node scripts/test-desktop-integrity-policy.js --sqlite",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 4.302
-      },
-      {
-        "command": "node scripts/test-desktop-machine-policy.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.12
-      },
-      {
-        "command": "node scripts/test-desktop-machine-policy.js --sqlite",
-        "status": "PASS_WITH_ENVIRONMENT_WARNINGS",
-        "exitCode": 0,
-        "seconds": 2.245
-      },
-      {
-        "command": "node scripts/test-desktop-licenses.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 1.685
-      },
-      {
-        "command": "node scripts/test-desktop-licenses.js --sqlite",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 1.408
-      },
-      {
-        "command": "node scripts/test-desktop-license-migration.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.007
-      },
-      {
-        "command": "node scripts/test-desktop-license-migration.js --sqlite",
-        "status": "PASS_WITH_ENVIRONMENT_WARNINGS",
-        "exitCode": 0,
-        "seconds": 1.719
-      },
-      {
-        "command": "node scripts/test-desktop-bootstrap.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.443
-      },
-      {
-        "command": "node scripts/test-desktop-bootstrap.js --sqlite",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.75
-      },
-      {
-        "command": "node scripts/test-desktop-code-integrity.js",
+        "command": "python scripts/test-overlay-native-contract.py",
         "status": "PASS",
         "exitCode": 0,
         "seconds": 0.032
       },
       {
-        "command": "node scripts/test-native-code-contract.js",
+        "command": "python scripts/test-license-success-contract.py",
         "status": "PASS",
         "exitCode": 0,
-        "seconds": 0.04
-      },
-      {
-        "command": "node scripts/test-desktop-integrity-reports.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 1.774
-      },
-      {
-        "command": "node scripts/test-desktop-admin-ui.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.024
-      },
-      {
-        "command": "node scripts/test-web-ui-cache.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.078
-      },
-      {
-        "command": "node scripts/test-desktop-integrity-reports.js --sqlite",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
-      },
-      {
-        "command": "node scripts/test-desktop-retirement.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
-      },
-      {
-        "command": "node scripts/test-desktop-http.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
-      },
-      {
-        "command": "node scripts/test-connect-deployment.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
-      },
-      {
-        "command": "node scripts/test-desktop-connect.js",
-        "status": "NOT_COMPLETED_TIMEOUT",
-        "note": "Exceeded the local 20-second test budget after several successful scenarios. Not a proven product regression."
-      },
-      {
-        "command": "node scripts/test-desktop-connect.js --sqlite",
-        "status": "NOT_COMPLETED_RUNNER_TIMEOUT",
-        "note": "Batch execution was interrupted by container timeout. No completion result recorded."
+        "seconds": 0.032
       }
     ],
-    "windowsCompile": "NOT_RUN",
-    "windowsExecution": "NOT_RUN",
-    "browserTest": "NOT_RUN",
-    "preservation": "Existing API wrappers/bindings, deletion primitive, Game.Api.pas are unchanged.",
-    "sourceManifestVerifier": "PASS",
-    "sourceVerifierRegressionTests": 7
+    "counts": {
+      "regressionScriptEntries": 47,
+      "overlayServiceGroups": 18,
+      "overlayAdminUiChecks": 10,
+      "webAuthBehavioralChecks": 17,
+      "webAuthHttpChecks": 6,
+      "overlayNativeSourceContracts": 14,
+      "licenseSuccessSourceContracts": 11
+    },
+    "limitations": [
+      "No Delphi compiler or Windows runtime available.",
+      "Windows ABI, real EXE handoff/cleanup, native parser probe and actual overlay rendering were not executed.",
+      "Server integration uses real HTTP/TLS/RSA with synthetic PE fixtures; jsdom tests use fixture HTTP replies and have no layout engine."
+    ],
+    "fixtureCorrections": [
+      "Existing admin UI fixture updated to pre-existing workspace pagination/detail endpoints and activation response schema.",
+      "Lazy module panel/cache refresh waits added; successful mutation cache invalidation production defect fixed by root.",
+      "Obsolete empty-console receipt assertion updated to current KEY input instructions."
+    ],
+    "earlierAttempts": [
+      {
+        "command": "npm test",
+        "status": "FAIL",
+        "exitCode": 1,
+        "seconds": 28.226,
+        "reason": "Module checker mistook relative requires inside node -e child-source strings for scripts-directory modules; test fixture corrected."
+      },
+      {
+        "command": "npm test",
+        "status": "FAIL",
+        "exitCode": 1,
+        "seconds": 116.711,
+        "reason": "Last suite detected service worker caching arbitrary navigation after Android-specific exclusions were removed; root changed unknown navigation to network-only."
+      }
+    ],
+    "regressionCompleted": true,
+    "status": "PASS"
   },
-  "knownLimits": [
-    "OS refusal to delete an active image is nonfatal and leaves B on disk.",
-    "Direct screen rendering was not added because the no-Win32-window constraint needs a rendering choice.",
-    "No whole-regression success is claimed; dependency and timeout results remain incomplete."
+  "limitations": [
+    "No Delphi Win64 compiler or Windows UI runtime in this environment",
+    "PEB/Win32 ABI probes supplied but unexecuted; source/hash checks are not compilation",
+    "Host process/local renderer/TLS/self-measurement and existing B download remain",
+    "Exclusive-fullscreen display is not guaranteed",
+    "Reverse proxies require explicit WEB_ADMIN_TRUSTED_PROXY_IPS configuration"
   ]
 }

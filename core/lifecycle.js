@@ -10,7 +10,6 @@ const { HOST, PORT, HEALTH_PORT, DATA_DIR, DB_FILE, DB_BAK_FILE, BACKUP_DIR, AUD
 const { servers, clients, serverIdentities, clientIdentities, licenses, disabledServers, drainingServers, disabledClients, kickedServers, kickedClients, requestHistory, pendingRequests, rateLimits, events, confirmTokens, ipHistory, runtimeStats } = state;
 
 function CreateBackup(...args) { return require('../storage/backup').CreateBackup(...args); }
-function FailPendingRequestsForServer(...args) { return require('../relay/ackManager').FailPendingRequestsForServer(...args); }
 function GetOnlineServer(...args) { return require('../identity/identityManager').GetOnlineServer(...args); }
 function LogEvent(...args) { return require('../storage/audit').LogEvent(...args); }
 function Now(...args) { return require('./utils').Now(...args); }
@@ -23,63 +22,9 @@ function ForceReconnectAll(reason) {
     for (const c of Array.from(servers.values())) { SendLine(c.socket, `ERROR|${reason}`); try { c.socket.destroy(); } catch (_) {} }
 }
 
-function CleanupTransient() {
-    const now=Now();
-    for(const [key,state] of rateLimits) if(state.startedAt<now-RATE_LIMIT_WINDOW_MS*5) rateLimits.delete(key);
-    for(const [id,until] of kickedServers) if(now>=until){kickedServers.delete(id);LogEvent('SERVER_KICK_EXPIRED',id);}
-    for(const [id,until] of kickedClients) if(now>=until){kickedClients.delete(id);LogEvent('CLIENT_KICK_EXPIRED',id);}
-    for(const [token,item] of confirmTokens) if(now>=item.expiresAt) confirmTokens.delete(token);
-    // Connection callbacks normally complete pairing synchronously.  This
-    // idempotent sweep closes the narrow race where Android and its PC finish
-    // registering in the same event-loop interval or one transport is being
-    // replaced.  It never moves an existing fixed binding.
-    try { require('../services/deviceRegistry').RepairPairing(); } catch (_) {}
-}
-
-function DisconnectConnection(connection) {
-    require('../services/member/testAccess').Revoke(connection);
-    require('../services/serviceLifecycle').Forget(connection);
-    if (connection.serviceWaiting) { connection.disconnected = true; return; }
-    if(connection.disconnected)return;connection.disconnected=true;
-    if(connection.type==='server'){
-        const currentServer=connection.serverId?servers.get(connection.serverId):null;
-        // A reconnect replaces the map entry before the old socket's close
-        // callback necessarily runs. Ignore that stale callback completely.
-        if(connection.serverId&&(connection.superseded||(currentServer&&currentServer!==connection))){
-            LogEvent('SERVER_STALE_CONNECTION_CLOSED',connection.serverId);
-            return;
-        }
-        if(connection.serverId&&servers.get(connection.serverId)===connection)servers.delete(connection.serverId);
-        if(connection.serverId){
-            require('../services/buildGate').RevokeForServer(connection.serverId,'SERVER_OFFLINE');
-            if(connection.buildGateCapable)for(const client of clients.values()){
-                if(client.serverId!==connection.serverId)continue;
-                client.buildCompleted=false;
-                SendLine(client.socket,`BUILD_REQUIRED|${connection.serverId}`);
-            }
-            FailPendingRequestsForServer(connection.serverId,'SERVER_OFFLINE');LogEvent('SERVER_OFFLINE',connection.serverId);try{require('../services/emergencyFailover').MarkServerOffline(connection.serverId);}catch(_){}
-        }
-    }else if(connection.type==='client'){
-        const currentClient=connection.clientId?clients.get(connection.clientId):null;
-        if(connection.clientId&&(connection.superseded||(currentClient&&currentClient!==connection))){
-            LogEvent('CLIENT_STALE_CONNECTION_CLOSED',connection.clientId);
-            return;
-        }
-        if(connection.clientId) require('../services/buildGate').RevokeForClient(connection.clientId,'CLIENT_OFFLINE');
-        if(connection.clientId) state.clientBiometricChallenges.delete(connection.clientId);
-        if(connection.clientId&&clients.get(connection.clientId)===connection)clients.delete(connection.clientId);
-        if(connection.clientId&&connection.serverId){const s=GetOnlineServer(connection.serverId);if(s)s.clients.delete(connection.clientId);}
-        if(connection.clientId)LogEvent('CLIENT_OFFLINE',connection.clientId);
-    }else if(connection.type==='admin'){
-        LogEvent('ADMIN_OFFLINE',SafeIP(connection.socket));
-    }
-}
-
 function Shutdown(){try{CreateBackup('shutdown');SaveDatabase();}finally{process.exit(0);}}
 
 module.exports = {
     ForceReconnectAll,
-    CleanupTransient,
-    DisconnectConnection,
     Shutdown
 };

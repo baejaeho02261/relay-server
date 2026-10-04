@@ -3,6 +3,7 @@
 const config = require('../config/config');
 
 module.exports = {
+    archivedApplicationData: {}, // Backup-only records; no retired runtime is loaded.
     serviceEnabled: true,
     maintenanceMode: false,
     minProtocolVersion: config.DEFAULT_MIN_PROTOCOL_VERSION,
@@ -14,9 +15,6 @@ module.exports = {
     clients: new Map(),
     serverIdentities: new Map(),
     clientIdentities: new Map(),
-    clientInstallations: new Map(), // Independent security registry; never part of CLIENT/history deletion.
-    supportThreads: new Map(),
-    supportSettings: {},
     desktopLicenses: null, // Independent Windows-only registration authority.
     licenses: new Map(),
 
@@ -99,23 +97,10 @@ module.exports = {
     dailyHealthAccumulator: null,
     pendingDeviceCommands: new Map(),
     licenseRevision: 0,
-    qrAuthRequests: new Map(),
-    clientBiometricProfiles: new Map(),
-    clientBiometricChallenges: new Map(),
-    pendingBuildGrants: new Map(),
-    buildSessions: new Map(),
-    clientBuildBindings: new Map(),
-    accessGroupGuids: new Map(),
-    buildSessionPolicy: {
-        ttlMinutes: config.DEFAULT_BUILD_SESSION_TTL_MINUTES,
-        updatedAt: 0,
-        updatedBy: 'DEFAULT'
-    },
 
     // Server-authoritative production controls.  Browser and device code may
     // request changes, but every decision and persisted record lives here.
     production: {
-        pairingClaims: new Map(),
         passkeyCredentials: new Map(),
         privilegedApprovals: new Map(),
         deploymentManifest: { revision: 1, updatedAt: 0, updatedBy: 'DEFAULT' },

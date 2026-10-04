@@ -41,6 +41,14 @@ async function request(base, url, method = 'GET', body, auth) {
 
 (async () => {
     try {
+        for (const retired of ['services/member', 'services/memberEntry.js', 'services/clientBiometric.js',
+            'services/clientAuthRecovery.js', 'services/clientInstallation.js', 'services/clientPermissions.js',
+            'services/qrApproval.js', 'services/qrImageDecoder.js', 'services/qrToken.js', 'services/buildGate.js',
+            'services/userDashboard.js', 'services/supportCenter.js', 'relay/serverHandler.js', 'relay/clientConnectPacket.js',
+            'services/loadSimulator.js', 'tools/load-simulator.js'])
+            assert.equal(fs.existsSync(path.join(root, retired)), false, 'Retired source must not ship: ' + retired);
+        const dependencies = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).dependencies;
+        for (const removed of ['jpeg-js', 'jsqr', 'pngjs', 'qrcode']) assert.equal(dependencies[removed], undefined);
         assert.equal(mode.Enabled(), true);
         assert.equal(mode.LegacyTcpEnabled(), false);
         // An old launcher must fail closed even if it manually imports the TCP factory.
@@ -51,10 +59,13 @@ async function request(base, url, method = 'GET', body, auth) {
 
         require('../core/utils').EnsureDirs();
         const state = require('../core/state');
-        const archive = require('../services/member/store').Empty();
+        const archive = { profiles: {}, settings: {} };
         archive.profiles['ARCHIVED-SUBJECT'] = { id: 'USR-AAAAAAAAAAAAAAAAAAAAAAAA', subject: 'ARCHIVED-SUBJECT', nickname: '보관 회원', balance: 13579, points: 2468, recentServices: Array.from({ length: 25 }, (_, i) => ({ id: 'legacy-' + i, at: i + 1 })) };
         archive.settings.retirementProbe = 'preserve-exactly';
-        state.memberHub = structuredClone(archive);
+        const archivedSections = { memberHub: structuredClone(archive), clientInstallations: { fixture: { blockedAt: 123 } },
+            qrAuthRequests: { old: { status: 'PENDING', expiresAt: 1 } }, buildSessions: { old: { status: 'AUTHORIZED' } },
+            supportThreads: { old: { messages: ['preserve history'] } } };
+        state.archivedApplicationData = structuredClone(archivedSections);
         const db = require('../storage/database');
         const seed = db.BuildDatabaseObject();
         fs.writeFileSync(path.join(temp, 'relay-identities.json'), JSON.stringify(seed));
@@ -84,7 +95,7 @@ async function request(base, url, method = 'GET', body, auth) {
             '/api/licenses', '/api/licenses/OLD/qr', '/api/qr-auth', '/api/qr-auth/approve',
             '/api/clients', '/api/clients/1234567890123456/biometric/reset', '/api/build-sessions',
             '/api/build-bindings/1234567890123456/rebind', '/api/games/upload', '/api/support',
-            '/api/reinstall-blocks', '/api/pairing/repair', '/api/failover', '/api/user-dashboard',
+            '/api/reinstall-blocks', '/api/pairing/repair', '/api/load-simulator', '/api/load-simulator/command', '/api/failover', '/api/user-dashboard',
             '/api/control/client/1234567890123456/command', '/api/request-recovery/clients/1234567890123456'
         ];
         for (const url of retired) for (const method of ['GET', 'POST']) {
@@ -117,7 +128,8 @@ async function request(base, url, method = 'GET', body, auth) {
         await delay(1100);
         await stop();
         const saved = JSON.parse(fs.readFileSync(path.join(temp, 'relay-identities.json'), 'utf8'));
-        assert.deepEqual(saved.memberHub, archive, 'Archived member data must survive startup, scheduler and shutdown without a member migration');
+        for (const [key, value] of Object.entries(archivedSections))
+            assert.deepEqual(saved[key], value, 'Archived records must survive without retired code: ' + key);
         console.log('DESKTOP RETIREMENT PASS: real HTTP 410 boundaries, authenticated admin preserved, desktop auth separation, no legacy TCP listener, unchanged member archive.');
     } finally {
         await stop();
