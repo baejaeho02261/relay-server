@@ -18,3 +18,11 @@
 .desktop-security-result { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 22rem; overflow: auto; font-size: .82rem; }
 .desktop-security-signer { margin-block: 1rem; overflow-wrap: anywhere; }
 .desktop-security #security-status { overflow-wrap: anywhere; }
+/* Server workflow additions; existing workspace styling is retained. */
+#desktop-deploy-wizard fieldset,#desktop-workspace-modal fieldset{border:1px solid var(--border,#475569);border-radius:10px;margin:12px 0;padding:16px;min-width:0}
+#desktop-deploy-wizard label,#desktop-workspace-modal label,#desktop-unified-detail label{display:grid;gap:6px;margin:10px 0}
+#desktop-deploy-wizard input,#desktop-workspace-modal input,#desktop-unified-detail input,#desktop-deploy-wizard textarea,#desktop-workspace-modal textarea,#desktop-unified-detail textarea{max-width:100%;box-sizing:border-box}
+#desktop-deploy-wizard textarea,#desktop-workspace-modal textarea,#desktop-unified-detail textarea{min-height:76px}
+#desktop-workspace-modal pre,#desktop-deploy-wizard pre,#desktop-unified-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:340px;overflow:auto}
+.desktop-operation-error{border:1px solid currentColor;border-radius:8px;padding:14px;overflow-wrap:anywhere}.desktop-operation-error p{margin:8px 0}
+[data-license-select]{margin-right:10px}.desktop-panel-pending{padding:18px;border:1px solid var(--border,#475569);border-radius:8px;margin:12px 0}
