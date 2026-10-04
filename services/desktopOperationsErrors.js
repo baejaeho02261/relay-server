@@ -3,7 +3,7 @@
 const rows={
  SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 EXE/승인 JSON을 확인하세요.','security'],
  SECURITY_SIGNER_NOT_ACTIVE:['서명자가 신규 배포를 허용하지 않습니다.','키가 전환 중이거나 철회된 상태입니다.','서명자 상태를 확인하고 허용된 키로 서명한 파일을 사용하세요.','security'],
- WORKSPACE_LICENSE_REQUIRED:['사용자에게 연결할 라이선스를 선택하세요.','이 A에는 자동 인증용 서버 라이선스가 연결되지 않았습니다.','사용 전 라이선스를 선택해 새 A를 발급하세요.','licenses'],
+ WORKSPACE_LICENSE_REQUIRED:['현재 운영 B가 콘솔 없는 이전 자동 인증 버전입니다.','이전 B는 서버 사전 배정이 필요하며, 새 KEY 입력 방식은 아직 운영 게시되지 않았습니다.','새 버전 배포에서 KEY 입력을 복원한 B를 빌드·서명·게시한 뒤 A를 다시 발급하세요. 기존 A 버전은 유지할 수 있습니다.','deploy'],
  WORKSPACE_LICENSE_RESERVED:['다른 A에 연결된 라이선스입니다.','아직 유효한 다른 발급 A 또는 실행이 이 라이선스를 사용합니다.','중복 배정하지 말고 다른 사용 전 라이선스를 선택하세요.','licenses'],
  WORKSPACE_CONFLICT:['화면을 연 뒤 서버 값이 바뀌었습니다.','이전 미리보기나 메모 revision은 적용되지 않았습니다.','새로고침한 뒤 같은 내용을 확인하고 다시 적용하세요.','refresh'],
  WORKSPACE_PLAN_EXPIRED:['작업 미리보기가 만료되었습니다.','실행은 시작하지 않았습니다.','작업 대상을 다시 미리본 뒤 실행하세요.','refresh'],
@@ -18,7 +18,7 @@ const rows={
  SECURITY_TEST_EVIDENCE_REQUIRED:['선택 A/B의 시험 기록이 없습니다.','현재 정책은 해당 조합의 실제 시험 결과를 요구합니다.','실행한 시험 로그로 해당 조합의 기록을 등록하세요.','security'],
  BOOTSTRAP_NOT_READY:['운영 A/B 조합이 없습니다.','후보 등록만으로 운영 게시되지는 않습니다.','새 버전 배포에서 A/B를 검증한 뒤 게시하세요.','deploy'],
  BOOTSTRAP_UPLOAD_BUSY:['다른 파일을 검증하고 있습니다.','서버가 앞선 업로드를 처리 중입니다.','잠시 후 같은 파일로 다시 시도하세요.','deploy'],
- BOOTSTRAP_LAUNCHER_USED:['이미 실행된 A입니다.','일회용 실행 파일은 다시 사용할 수 없습니다.','새 라이선스와 새 A를 발급하세요.','licenses'],
+ BOOTSTRAP_LAUNCHER_USED:['이미 실행된 A입니다.','일회용 실행 파일은 다시 사용할 수 없습니다.','새 A를 발급하세요. KEY는 B 콘솔에서 별도로 입력하며, 사용된 KEY는 재사용할 수 없습니다.','licenses'],
  BOOTSTRAP_PE_INVALID:['지원하는 실행 파일이 아닙니다.','Windows 64비트 GUI 실행 파일 검증에 실패했습니다.','현재 프로젝트의 정상 Win64 Release 템플릿을 선택하세요.','deploy'],
  BOOTSTRAP_TEMPLATE_PERSONALIZED:['발급된 A가 아니라 원본 템플릿이 필요합니다.','선택 파일에는 사용자 발급 정보가 붙어 있습니다.','빌드 폴더의 GameLauncher.exe 원본을 선택하세요.','deploy'],
  DESKTOP_KEY_USED:['이미 사용된 라이선스입니다.','사용 이력을 초기화하지 않았습니다.','사용 전 라이선스를 선택하거나 새로 발급하세요.','licenses'],

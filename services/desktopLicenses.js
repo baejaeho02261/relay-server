@@ -148,10 +148,15 @@ function Execute(body){
  if(body.action==='redeem'){
   result=Atomic(()=>{
    const assigned=payload.licenseKey==='SERVER_ASSIGNED_V1';
-   const assignedId=require('./desktopBootstrap').Initialize().launchers[bootstrap.launcherId]?.assignedLicenseId||'';
+   const boot=require('./desktopBootstrap').Initialize();
+   const assignedId=boot.launchers[bootstrap.launcherId]?.assignedLicenseId||'';
+   const legacyAssigned=boot.artifacts[bootstrap.releaseId]?.backgroundVersion===1;
+   // The approved B artifact, not a client flag, selects legacy compatibility.
+   // Console B always uses the entered KEY; old optional A metadata is not authority.
+   if(assigned&&!legacyAssigned)Fail('DESKTOP_KEY_INVALID',404);
    if(assigned&&!assignedId)Fail('WORKSPACE_LICENSE_REQUIRED',409);
    const digests=assigned?[]:KeyHashes(payload.licenseKey),row=assigned?DB().licenses[assignedId]:Object.values(DB().licenses).find(x=>digests.includes(x.keyHash));if(!row)Fail('DESKTOP_KEY_INVALID',404);
-   if(assignedId&&assignedId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
+   if(legacyAssigned&&assignedId&&assignedId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
    if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
    if(Status(row)==='REVOKED')Fail('DESKTOP_REVOKED',403);if(Status(row)==='EXPIRED')Fail('DESKTOP_EXPIRED',403);if(row.consumed)Fail('DESKTOP_KEY_USED',409);
    // Re-check inside the same synchronous durable transaction. Even an already
