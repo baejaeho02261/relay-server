@@ -24,15 +24,16 @@ function Query(query={}){
  const result=licenses.List({status:query.status||''}),metadata=db.Load().metadata;
  const linked=new Set(),match=values=>values.some(x=>String(x||'').toLowerCase().includes(q));
  if(q){const b=bootStore.Load();for(const a of Object.values(b.launchers))if(a.assignedLicenseId&&match([a.id,a.label,b.artifacts[a.artifactId]?.version,b.artifacts[a.artifactId]?.sha256]))linked.add(a.assignedLicenseId);
-  for(const f of Object.values(b.flows))if(match([f.id,f.sessionId,f.launcherId,b.artifacts[f.releaseId]?.version,b.artifacts[f.releaseId]?.sha256])){const id=f.licenseId||b.launchers[f.launcherId]?.assignedLicenseId;if(id)linked.add(id);}}
+  for(const f of Object.values(b.flows)){const a=b.launchers[f.launcherId];if(match([f.id,f.sessionId,f.launcherId,b.artifacts[f.releaseId]?.version,b.artifacts[f.releaseId]?.sha256,a?.label,b.artifacts[a?.artifactId]?.version,b.artifacts[a?.artifactId]?.sha256])){const id=f.licenseId||a?.assignedLicenseId;if(id)linked.add(id);}}}
  const all=result.items.filter(r=>!q||linked.has(r.id)||match([r.id,r.label,r.deviceId,r.deviceName,r.machineId,r.binarySha256,r.bootstrapSessionId,r.appVersion,metadata[r.id]?.note,...(metadata[r.id]?.tags||[])]));
  const actual=Math.min(page,Math.max(0,Math.ceil(all.length/pageSize)-1));
  return{...result,items:all.slice(actual*pageSize,(actual+1)*pageSize).map(r=>({...r,metadata:Meta(r.id)})),filteredCount:all.length,page:actual,pageSize,pages:Math.max(1,Math.ceil(all.length/pageSize))};
 }
 function Detail(id){
  const license=licenses.Detail(id).license,boot=bootStore.Load();
- const launchers=Object.values(boot.launchers).filter(x=>x.assignedLicenseId===id);
- const flows=Object.values(boot.flows).filter(x=>x.licenseId===id||launchers.some(l=>l.id===x.launcherId));
+ const redeemedLaunchers=new Set(Object.values(boot.flows).filter(x=>x.licenseId===id).map(x=>x.launcherId));
+ const launchers=Object.values(boot.launchers).filter(x=>x.assignedLicenseId===id||redeemedLaunchers.has(x.id));
+ const flows=Object.values(boot.flows).filter(x=>x.licenseId===id||!x.licenseId&&launchers.some(l=>l.id===x.launcherId));
  const timeline=[{at:license.issuedAt,type:'LICENSE_ISSUED',label:'라이선스 발급'}];
  for(const l of launchers)timeline.push({at:l.issuedAt,type:'LAUNCHER_ISSUED',label:'A 발급',launcherId:l.id});
  const stages=[['createdAt','FLOW_STARTED','A 실행'],['downloadedAt','DOWNLOADED','B 다운로드 완료'],['claimedAt','B_CLAIMED','B 연결'],['lastVerifiedAt','VERIFIED','최근 인증'],['closedAt','CLOSED','종료'],['revokedAt','REVOKED','관리자 종료']];
@@ -42,7 +43,11 @@ function Detail(id){
   if(!String(e.type).startsWith('DESKTOP_'))continue;
   let d;try{d=JSON.parse(e.detail);}catch(_){continue;}
   if(!Plain(d)||!['id','licenseId','sessionId','flowId','launcherId'].some(k=>ids.has(d[k])))continue;
-  timeline.push({at:e.time||e.at||0,type:String(e.type).slice(0,80),label:e.type==='DESKTOP_RUNTIME_REQUEST_FAILED'?'서버에서 요청 거절':String(e.type).slice(0,80),reason:typeof d.reason==='string'?d.reason.slice(0,80):'',problem:typeof d.reason==='string'?require('./desktopOperationsErrors').Explain(d.reason):null});
+  // BASELINE_MATCH is the authority evaluator's PASS reason, not an error.
+  // Restrict this rendering exception to its real observation event; unknown
+  // event kinds and actual failures retain the existing error guidance.
+  const baselineMatched=e.type==='DESKTOP_SECURITY_AUTHORITY'&&d.kind==='OBSERVATION'&&d.reason==='BASELINE_MATCH'&&(!Object.hasOwn(d,'status')||d.status==='PASS');
+  timeline.push({at:e.time||e.at||0,type:String(e.type).slice(0,80),label:baselineMatched?'서버 보안 검사 정상':e.type==='DESKTOP_RUNTIME_REQUEST_FAILED'?'서버에서 요청 거절':String(e.type).slice(0,80),reason:typeof d.reason==='string'?d.reason.slice(0,80):'',problem:!baselineMatched&&typeof d.reason==='string'?require('./desktopOperationsErrors').Explain(d.reason):null});
  }
  const histories=flows.map(f=>({flowId:f.id,sessionId:f.sessionId,launcherId:f.launcherId,status:bootstrap.SessionView(f).status,createdAt:f.createdAt,version:boot.artifacts[f.releaseId]?.version||'',binarySha256:boot.artifacts[f.releaseId]?.sha256||'',machineId:f.machineId||'',lastVerifiedAt:f.lastVerifiedAt||0}));
  return{license,metadata:Meta(id),timeline:timeline.sort((a,b)=>b.at-a.at).slice(0,150),flows:histories,timelineScope:'PERSISTED_FLOW_TIMES_AND_LAST_1000_SERVER_EVENTS',support:'APK_SUPPORT_RETIRED_NO_NEW_COLLECTION'};
