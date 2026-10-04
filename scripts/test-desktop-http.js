@@ -122,7 +122,7 @@ async function bootstrapDevice(device, auth) {
         const security='/api/desktop/bootstrap/security-authority',operations='/api/desktop/bootstrap/security-operations';
         for(const route of [security,operations,operations+'/approvals']){assert.equal((await call(route)).status,401);assert.equal((await call(route,undefined,viewer)).status,403);}
         let settings=(await call(security,undefined,auth)).json;
-        assert.equal(settings.operations.active.A,'');assert.equal(settings.operations.active.B,'');
+        assert.equal(settings.operations.active.A||'','');assert.equal(settings.operations.active.B||'',''); // Empty active map may omit A/B; no candidate is active.
         const previewBody={expectedRevision:settings.policy.revision,expectedOperationsRevision:settings.operations.operations.revision,requireCfg:true};
         assert.equal((await call(security+'/preview',previewBody,auth,{csrf:false})).status,403);
         const preview=await call(security+'/preview',previewBody,auth);assert.equal(preview.status,200);assert.equal(preview.json.preview.readOnly,true);

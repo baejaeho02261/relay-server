@@ -158,7 +158,7 @@ Check('Audits contain outcomes but never tokens, payloads or signatures', () => 
 });
 Check('Restart preserves policy and sessions but never reuses RAM decisions', () => {
   Observe(verifyContext,dev);
-  const script=`const b=require('./services/desktopBootstrap'),a=require('./services/desktopSecurityAuthority');const s=JSON.parse(require('node:fs').readFileSync(0,'utf8'));const row=Object.values(b.Initialize().flows).find(x=>x.sessionId===s.sessionId);let error='';try{a.RequireFresh(row,'B','verify',s.binding);}catch(e){error=e.message;}console.log('RESULT:'+JSON.stringify({revision:a.Policy().revision,error,status:row.status}));`;
+  const script=`const b=require(process.cwd()+'/services/desktopBootstrap'),a=require(process.cwd()+'/services/desktopSecurityAuthority');const s=JSON.parse(require('node:fs').readFileSync(0,'utf8'));const row=Object.values(b.Initialize().flows).find(x=>x.sessionId===s.sessionId);let error='';try{a.RequireFresh(row,'B','verify',s.binding);}catch(e){error=e.message;}console.log('RESULT:'+JSON.stringify({revision:a.Policy().revision,error,status:row.status}));`;
   const run=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'..'),env:process.env,input:JSON.stringify({sessionId:session.sessionId,binding:verifyContext.binding}),encoding:'utf8',timeout:15000});
   assert.equal(run.status,0,run.stderr); const out=JSON.parse(run.stdout.split('RESULT:').at(-1));
   assert.equal(out.revision,auth.Policy().revision); assert.equal(out.error,'SECURITY_FRESH_OBSERVATION_REQUIRED'); assert.equal(out.status,'CLAIMED');

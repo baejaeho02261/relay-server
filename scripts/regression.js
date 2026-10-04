@@ -2,6 +2,7 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const checks = [
+  ['test-desktop-workspace.js'], ['test-workspace-http.js'],
   ['test-security-activation.js'],
   ['test-security-operations.js'], ['test-security-admin.js'], ['test-security-evidence.js'], ['test-security-native-contract.js'],
   ['test-security-authority.js'], ['test-security-tools.js'], ['test-security-wire.js'],
