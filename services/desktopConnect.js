@@ -37,7 +37,7 @@ function Dispatch(opened){
   if(!Plain(payload)||Object.keys(payload).sort().join(',')!=='body,operation'||!Plain(payload.body)||!['challenge','execute','bootstrap','report','security'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
   if(typeof payload.body.deviceId==='string')Rate('DEVICE:'+payload.body.deviceId.slice(0,100),40);
   const data=payload.operation==='security'?require('./desktopSecurityAuthority').Execute(payload.body):payload.operation==='report'?require('./desktopIntegrityReports').Execute(payload.body):payload.operation==='bootstrap'?require('./desktopBootstrap').Execute(payload.body):payload.operation==='challenge'?desktop.Challenge(payload.body):desktop.Execute(payload.body);return {ok:true,data};
- }catch(error){const code=error.desktopError?error.message:error.message==='CONNECT_RATE_LIMIT'?'DESKTOP_RATE_LIMIT':'INPUT_INVALID';return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}
+ }catch(error){const code=error.desktopError?error.message:error.message==='CONNECT_RATE_LIMIT'?'DESKTOP_RATE_LIMIT':'INPUT_INVALID';require('./desktopRuntimeDiagnostics').Record(payload?.operation,payload?.body,code);return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}
 }
 function Accept(socket){
  let buffer=Buffer.alloc(0),complete=false;

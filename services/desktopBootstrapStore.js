@@ -31,6 +31,10 @@ function Load(){
   const stat=fs.lstatSync(FILE);if(!stat.isFile()||stat.isSymbolicLink())throw Error('BOOTSTRAP_STORAGE_INVALID');
   let value;try{value=JSON.parse(fs.readFileSync(FILE,'utf8'));}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
   if(!Plain(value)||![1,2,3,4].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
+  if(value.workspaceGarbage!==undefined){
+   if(!Plain(value.workspaceGarbage))Invalid();
+   for(const [id,g]of Object.entries(value.workspaceGarbage))if(!Identifier(id,'DA')||!Plain(g)||!Digest(g.sha256)||!Number.isSafeInteger(g.size)||g.size<1||!Time(g.createdAt)||(g.deletedAt!==undefined&&!Time(g.deletedAt))||value.artifacts[id])Invalid();
+  }
   if(value.securityOperations!==undefined){try{require('./desktopSecurityOperations').ValidateState(value.securityOperations);}catch(_){Invalid();}}
   if(value.securityActivation!==undefined){try{require('./desktopSecurityActivation').ValidateRecord(value.securityActivation);}catch(_){Invalid();}}
   if(value.securityAuthorityPolicy!==undefined){try{require('./desktopSecurityAuthority').ValidatePolicy(value.securityAuthorityPolicy);}catch(_){Invalid();}}
@@ -40,6 +44,7 @@ function Load(){
   for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component||!legacy&&value.artifacts[id]?.protocol!==(upgrade?previousProtocol:PROTOCOL))Invalid();
   for(const [id,row]of Object.entries(value.launchers)){
    if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!Digest(row.sha256)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
+   if(row.assignedLicenseId!==undefined&&!Identifier(row.assignedLicenseId,'DL'))Invalid();
    if(row.crc64!==undefined&&!Crc(row.crc64)||!ExtendedFields(row))Invalid();
    if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();
    if(row.retiredAt!==undefined){if(!Time(row.retiredAt)||row.status==='AVAILABLE'||row.ticketNonce!==undefined||row.profile!==undefined)Invalid();}

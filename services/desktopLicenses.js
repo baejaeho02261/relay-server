@@ -82,6 +82,12 @@ function AdminReceipt(action,id,body,actor,fn){
  return Atomic(()=>{const result=fn();DB().receipts[key]={fingerprint,licenseId:result.license.id,action,replacedId:result.replacedId||'',at:now()};return result;});
 }
 function Create(body={},actor){if(!Plain(body))Fail('INPUT_INVALID');Expiry(body);return AdminReceipt('create','',body,actor,()=>NewRow(body,actor));}
+function CreateReference(body,actor){
+ const key='ADMIN:'+hash(String(actor))+':'+body.requestId;
+ const fingerprint=hash(JSON.stringify({action:'create',id:'',body})),receipt=DB().receipts[key];
+ if(receipt){if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);return {license:Detail(receipt.licenseId).license};}
+ return {license:Create(body,actor).license};
+}
 function Reason(body){const reason=Text(body.reason,300,true);if(reason.length<3)Fail('INPUT_INVALID');return reason;}
 function Revoke(id,body={},actor){const reason=Reason(body);return Atomic(()=>{const row=DB().licenses[id];if(!row)Fail('DESKTOP_KEY_INVALID',404);if(row.status!=='REVOKED'){row.status='REVOKED';row.revokedAt=now();row.revokedBy=String(actor||'ADMIN').slice(0,120);row.reason=reason;}return {license:Public(row)};});}
 function Reissue(id,body={},actor){if(!Plain(body))Fail('INPUT_INVALID');Expiry(body);const reason=Reason(body);return AdminReceipt('reissue',id,body,actor,()=>{const old=DB().licenses[id];if(!old)Fail('DESKTOP_KEY_INVALID',404);old.status='REVOKED';old.revokedAt=now();old.revokedBy=String(actor||'ADMIN').slice(0,120);old.reason=reason;return {...NewRow({...body,label:body.label===undefined?old.label:body.label},actor),replacedId:id};});}
@@ -111,7 +117,7 @@ function Payload(body){
  if(!Plain(p))Fail('INPUT_INVALID');const fields=body.action==='redeem'?['licenseKey','deviceName','appVersion','bootstrapSessionId','bootstrapSessionToken','machineId','binarySha256','binaryCrc64','codeSha256','codeCrc64']:['activationToken','appVersion','bootstrapSessionId','bootstrapSessionToken','machineId','binarySha256','binaryCrc64','codeSha256','codeCrc64'];if(Object.keys(p).some(k=>!fields.includes(k)))Fail('INPUT_INVALID');
  machinePolicy.Validate(p.machineId);if(!/^[a-f0-9]{64}$/.test(p.binarySha256||'')||!/^[A-F0-9]{16}$/.test(p.binaryCrc64||''))Fail('DESKTOP_BINARY_INVALID',403);
  if(!/^[a-f0-9]{64}$/.test(p.codeSha256||'')||!/^[A-F0-9]{16}$/.test(p.codeCrc64||''))Fail('DESKTOP_BINARY_INVALID',403);
- if(p.appVersion!==undefined)Text(p.appVersion,40);if(body.action==='redeem'){NormalizeKey(p.licenseKey);if(p.deviceName!==undefined)Text(p.deviceName,120);}else if(typeof p.activationToken!=='string'||!/^(?:[a-f0-9]{64}|DLA-[A-Za-z0-9_-]{43})$/.test(p.activationToken))Fail('DESKTOP_ACTIVATION_INVALID',401);
+ if(p.appVersion!==undefined)Text(p.appVersion,40);if(body.action==='redeem'){if(p.licenseKey!=='SERVER_ASSIGNED_V1')NormalizeKey(p.licenseKey);if(p.deviceName!==undefined)Text(p.deviceName,120);}else if(typeof p.activationToken!=='string'||!/^(?:[a-f0-9]{64}|DLA-[A-Za-z0-9_-]{43})$/.test(p.activationToken))Fail('DESKTOP_ACTIVATION_INVALID',401);
  return {payload:p,payloadHash:hash(Buffer.from(raw,'utf8'))};
 }
 function Token(row){const mac=crypto.createHmac('sha256',Buffer.from(DB().signingSecret,'hex')).update((row.activationVersion===2?'GAME-DESKTOP-ACTIVATION-V2|':legacyActivationDomain)+row.id+'|'+row.deviceId+'|'+row.activationNonce);return row.activationVersion===2?mac.digest('hex'):'DLA-'+mac.digest('base64url');}
@@ -141,7 +147,11 @@ function Execute(body){
  let result;
  if(body.action==='redeem'){
   result=Atomic(()=>{
-   const digests=KeyHashes(payload.licenseKey),row=Object.values(DB().licenses).find(x=>digests.includes(x.keyHash));if(!row)Fail('DESKTOP_KEY_INVALID',404);
+   const assigned=payload.licenseKey==='SERVER_ASSIGNED_V1';
+   const assignedId=require('./desktopBootstrap').Initialize().launchers[bootstrap.launcherId]?.assignedLicenseId||'';
+   if(assigned&&!assignedId)Fail('WORKSPACE_LICENSE_REQUIRED',409);
+   const digests=assigned?[]:KeyHashes(payload.licenseKey),row=assigned?DB().licenses[assignedId]:Object.values(DB().licenses).find(x=>digests.includes(x.keyHash));if(!row)Fail('DESKTOP_KEY_INVALID',404);
+   if(assignedId&&assignedId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
    if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
    if(Status(row)==='REVOKED')Fail('DESKTOP_REVOKED',403);if(Status(row)==='EXPIRED')Fail('DESKTOP_EXPIRED',403);if(row.consumed)Fail('DESKTOP_KEY_USED',409);
    // Re-check inside the same synchronous durable transaction. Even an already
@@ -161,4 +171,4 @@ function Execute(body){
  }
  c.used=true;result.revision=DB().revision;if(body.action==='redeem')seen.set(result.licenseId,{at:now(),leaseExpiresAt:result.leaseExpiresAt,appVersion:payload.appVersion||''});return BootstrapResult(result,payload,body.deviceId,body.action);
 }
-module.exports={CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
+module.exports={CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};

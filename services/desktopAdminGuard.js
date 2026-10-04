@@ -25,7 +25,7 @@ function MarkVerified(session,credentialId){session.passkeyCredentialId=credenti
 // This edition is explicitly configured for a single desktop operator. Do not
 // change other applications' optional global two-person policy or stored keys.
 function SingleOperatorPath(pathname) {
-  return typeof pathname==='string' && (pathname.startsWith('/api/desktop/bootstrap/') ||
+  return typeof pathname==='string' && (pathname.startsWith('/api/desktop/bootstrap/') || pathname.startsWith('/api/desktop/workspace/') ||
     pathname==='/api/production/passkeys/revoke');
 }
 function CheckSession(session, pathname='') {
