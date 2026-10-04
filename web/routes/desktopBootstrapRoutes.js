@@ -2,7 +2,7 @@
 const bootstrap=require('../../services/desktopBootstrap');
 const {RequireAdmin,Json,ApiError}=require('../apiContext');
 let uploadPending=false;
-function ErrorResponse(res,error){const code=error.desktopError?error.message:'BOOTSTRAP_INPUT_INVALID';Json(res,error.desktopError?error.status:400,{ok:false,error:code,reason:code,message:bootstrap.messages[code]||require('../../services/desktopLicenses').messages[code]||'실행 파일 요청을 처리하지 못했습니다.'});}
+function ErrorResponse(res,error){const code=error.desktopError?error.message:'BOOTSTRAP_INPUT_INVALID';Json(res,error.desktopError?error.status:400,{ok:false,error:code,reason:code,problem:require('../../services/desktopOperationsErrors').Explain(code),message:bootstrap.messages[code]||require('../../services/desktopLicenses').messages[code]||'실행 파일 요청을 처리하지 못했습니다.'});}
 function ReadBytes(req){
  return new Promise((resolve,reject)=>{
   let done=false,size=0;const chunks=[],timer=setTimeout(()=>finish(Error('BOOTSTRAP_UPLOAD_TIMEOUT')),120000);timer.unref();

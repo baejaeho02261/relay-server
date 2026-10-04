@@ -47,6 +47,7 @@ require('./services/desktopConnect').Start();
 require('./services/connectEndpoint').LogConfiguration();
 
 StartWebAdmin();
+require('./services/desktopWorkspace').Start();
 
 if (HEALTH_PORT > 0 && HEALTH_PORT !== WEB_ADMIN_PORT) {
     const health = http.createServer((req, res) => {

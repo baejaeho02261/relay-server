@@ -21,7 +21,7 @@ async function Handle({method,pathname,url,body,res,session}){
  }catch(error){
   const code=error.desktopError||String(error.message).startsWith('CONNECT_TLS_')?error.message:'INPUT_INVALID';
   const connection=(code==='CONNECT_PUBLIC_ENDPOINT_REQUIRED'||code.startsWith('CONNECT_TLS_'))?require('../../services/connectEndpoint').Diagnostics():null;
-  Json(res,error.desktopError?error.status:code.startsWith('CONNECT_TLS_')?503:400,{ok:false,error:code,reason:code,
+  Json(res,error.desktopError?error.status:code.startsWith('CONNECT_TLS_')?503:400,{ok:false,error:code,reason:code,problem:require('../../services/desktopOperationsErrors').Explain(code),
    message:require('../../services/connectTls').Messages[code]||(connection?connection.problems.join(' '):desktop.messages[code])||'입력 내용을 확인해 주세요.',
    ...(connection?{connection}:{})});
  }

@@ -66,6 +66,7 @@ async function HandleApiRequest(req, res, session) {
     }
 
     const context = { method, pathname, url, body, req, res, session, desktopAuthorization };
+    if (await require('./routes/desktopWorkspaceRoutes').Handle(context)) return;
     if (await require('./routes/desktopBootstrapRoutes').Handle(context)) return;
     if (await require('./routes/desktopLicenseRoutes').Handle(context)) return;
 
