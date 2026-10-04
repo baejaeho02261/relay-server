@@ -30,7 +30,7 @@ const wire = require('./tls-request-fixture');
 const transport = require('../services/desktopConnect');
 const server = transport.CreateServer();
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
-let profile, webServer, strictInventoryRows = null, checks = 0;
+let profile, webServer, webBase, adminRequest, strictInventoryRows = null, checks = 0;
 
 function dllFixture(names, marker = 'plugin-fixture', size = 2048) {
   const bytes = Buffer.alloc(size);
@@ -121,7 +121,7 @@ function measured(bytes) {
   }
   return result;
 }
-function pluginRow(bytes, name = 'overlay.bin') {
+function pluginRow(bytes, name = 'GameOverlayPlugin.bin') {
   return { name, status: 'MATCH_LOCAL_FILE', codeStatus: 'MATCH_LOCAL_FILE', exportTableStatus: 'MEASURED', ...measured(bytes) };
 }
 function rejected(fn) { assert.throws(fn, error => error.desktopError === true); }
@@ -193,6 +193,7 @@ function reportBody(item, payload) {
       for (const bad of invalid) reject('OVERLAY_PLUGIN_PE_INVALID', () => plugins.Stage('1.0.0', bad, undefined, 'TEST'));
       candidate = plugins.Stage('1.0.0', bytes, undefined, 'TEST');
       assert.ok(candidate.id);
+      assert.equal(candidate.fileName, 'GameOverlayPlugin.bin');
       assert.equal(plugins.Overview().revision >= 1, true);
       assert.equal(ExportTable(bytes).codeExportCount, 1);
     });
@@ -214,21 +215,24 @@ function reportBody(item, payload) {
       webServer = require('../web/webServer').StartWebAdmin();
       await new Promise((resolve, reject) => { webServer.once('listening', resolve); webServer.once('error', reject); });
       const base = 'http://127.0.0.1:' + port, route = '/api/desktop/bootstrap/overlay/plugins';
+      webBase = base;
       const request = async (pathname, method = 'GET', body, headers = {}) => {
         const response = await fetch(base + pathname, { method, headers, ...(body === undefined ? {} : { body }), signal: AbortSignal.timeout(5000) });
         return { status: response.status, headers: response.headers, json: await response.json() };
       };
+      adminRequest = request;
       assert.equal((await request(route)).status, 401);
       const login = await request('/api/login', 'POST', JSON.stringify({ role: 'admin', password: process.env.ADMIN_SECRET }), { 'Content-Type': 'application/json', Origin: base });
       assert.equal(login.status, 200, JSON.stringify(login.json));
       const cookie = login.headers.get('set-cookie').split(';')[0], owner = { Cookie: cookie, Origin: base, 'X-CSRF-Token': login.json.csrf };
       assert.equal((await request(route, 'GET', undefined, { Cookie: cookie })).status, 200);
-      const upload = route + '?version=1.0.2&fileName=overlay.bin', uploadBytes = dllFixture([requiredExport], 'http-upload');
+      const upload = route + '?version=1.0.2&fileName=GameOverlayPlugin.bin', uploadBytes = dllFixture([requiredExport], 'http-upload');
       assert.equal((await request(upload, 'POST', uploadBytes, { Cookie: cookie, Origin: base, 'Content-Type': 'application/octet-stream' })).status, 403);
       assert.equal((await request(route + '?version=1.0.2&fileName=overlay.exe', 'POST', uploadBytes, { ...owner, 'Content-Type': 'application/octet-stream' })).status, 400);
       const staged = await request(upload, 'POST', uploadBytes, { ...owner, 'Content-Type': 'application/octet-stream' });
       assert.equal(staged.status, 200, JSON.stringify(staged.json));
       assert.equal(staged.json.artifact.sha256, sha(uploadBytes));
+      assert.equal(staged.json.artifact.fileName, 'GameOverlayPlugin.bin');
       assert.equal(staged.json.activeUnchanged, true);
       assert.equal(plugins.Overview().activeId, candidate.id);
       const selection = JSON.stringify({ id: staged.json.artifact.id, expectedRevision: staged.json.revision });
@@ -257,7 +261,7 @@ function reportBody(item, payload) {
       }
       const out = await manifest(item);
       assert.equal(out.pluginId, candidate.id);
-      assert.equal(out.fileName, 'overlay.bin');
+      assert.equal(out.fileName, 'GameOverlayPlugin.bin');
       assert.equal(out.size, bytes.length);
       assert.equal(out.chunkSize, 262144);
       for (const [key, value] of Object.entries(measured(bytes))) {
@@ -322,6 +326,41 @@ function reportBody(item, payload) {
       const accepted = await ok('overlay', report);
       assert.equal(accepted.status, 'READY');
       await ok('overlay', target.auth);
+    });
+
+    await check('Windows case-insensitive plugin names are accepted only for the pinned artifact basename', async () => {
+      const target = await complete(); await manifest(target);
+      assert.equal((await ok('overlay', reportBody(target, inventory(target, [pluginRow(bytes, 'gAmEoVeRlAyPlUgIn.BIN')])))).status, 'READY');
+      await ok('overlay', { ...target.auth, action: 'close' });
+      for (const name of ['overlay.bin', 'OtherPlugin.bin', 'GameOverlayPlugin.dll']) {
+        const wrong = await complete(); await manifest(wrong);
+        await refused('overlay', reportBody(wrong, inventory(wrong, [pluginRow(bytes, name)])));
+        await refused('overlay', wrong.auth);
+      }
+    });
+
+    await check('Stored overlay.bin artifacts keep their pinned manifest and inventory names across new publication', async () => {
+      const legacyBytes = dllFixture([requiredExport], 'existing-overlay-bin');
+      const legacy = plugins.Stage('1.0.4', legacyBytes, undefined, 'TEST');
+      // Simulate the durable row produced by the previous release. Its bytes and
+      // immutable artifact ID are unchanged; production validation must read it.
+      store.Atomic(db => { db.overlayPlugins.artifacts[legacy.id].fileName = 'overlay.bin'; });
+      plugins.ValidateState(store.Load().overlayPlugins);
+      activate(legacy);
+      const target = await complete();
+      assert.equal((await manifest(target)).fileName, 'overlay.bin');
+      assert.equal(target.manifest.pluginId, legacy.id);
+      const republished = plugins.Stage('1.0.4', legacyBytes, undefined, 'TEST');
+      assert.notEqual(republished.id, legacy.id, 'Republishing the same bytes creates the current canonical basename');
+      assert.equal(republished.fileName, 'GameOverlayPlugin.bin');
+      activate(republished);
+      assert.equal((await manifest(target)).fileName, 'overlay.bin');
+      const chunk = await ok('overlay', { ...target.auth, action: 'plugin-chunk', pluginId: legacy.id, offset: 0 });
+      assert.deepEqual(Buffer.from(chunk.data, 'base64'), legacyBytes);
+      assert.equal((await ok('overlay', reportBody(target, inventory(target, [pluginRow(legacyBytes, 'OvErLaY.BIN')])))).status, 'READY');
+      assert.equal((await ok('overlay', target.auth)).sessionId, target.grant.sessionId);
+      await ok('overlay', { ...target.auth, action: 'close' });
+      activate(candidate);
     });
 
     await check('An unrelated unloaded optional module does not hide a verified plugin or bypass registered DLL comparisons', async () => {
@@ -472,19 +511,88 @@ function reportBody(item, payload) {
     await check('Optional release signatures obey the existing O-domain trust and required-signature policy', () => {
       const key = signer(), version = '2.0.0', signedBytes = dllFixture([requiredExport], 'signed-plugin');
       authority.SetPolicy({ expectedRevision: authority.Policy().revision, trustedReleaseKeys: [{ keyId: key.keyId, publicKey: key.pem }] }, 'TEST');
-      rejected(() => plugins.Stage(version, signedBytes, approval(key, 'B', version, signedBytes), 'TEST'));
-      rejected(() => plugins.Stage(version, signedBytes, { ...approval(key, 'O', version, signedBytes), keyId: '0'.repeat(64) }, 'TEST'));
+      const before = structuredClone(authority.Policy());
+      assert.deepEqual(plugins.Overview().approval, { required: false, component: 'O', trustedSignerKeyIds: [key.keyId] });
+      assert.equal(plugins.Overview().fileName, 'GameOverlayPlugin.bin');
+      reject('OVERLAY_PLUGIN_SIGNATURE_INVALID', () => plugins.Stage(version, signedBytes, approval(key, 'B', version, signedBytes), 'TEST'));
+      reject('OVERLAY_PLUGIN_SIGNER_UNTRUSTED', () => plugins.Stage(version, signedBytes, { ...approval(key, 'O', version, signedBytes), keyId: '0'.repeat(64) }, 'TEST'));
+      for (const malformed of [null, [], {}, { keyId: key.keyId }, { ...approval(key, 'O', version, signedBytes), extra: true }, { keyId: key.keyId.toUpperCase(), signature: approval(key, 'O', version, signedBytes).signature }, { keyId: key.keyId, signature: 'invalid' }]) {
+        reject('OVERLAY_PLUGIN_APPROVAL_INVALID', () => plugins.Stage(version, signedBytes, malformed, 'TEST'));
+      }
       const signed = plugins.Stage(version, signedBytes, approval(key, 'O', version, signedBytes), 'TEST');
       assert.ok(signed.id);
+      assert.equal(signed.signatureValid, true);
+      assert.deepEqual(authority.Policy(), before, 'Candidate upload never changes trust policy');
       for (const component of ['A', 'B']) {
         const native = fixture.PE(component, 'signed-host');
         boot.Publish(component, version, native, approval(key, component, version, native));
       }
       authority.SetPolicy({ expectedRevision: authority.Policy().revision, requireReleaseSignature: true }, 'TEST');
-      rejected(() => plugins.Stage('2.0.1', dllFixture([requiredExport], 'unsigned-denied'), undefined, 'TEST'));
+      reject('OVERLAY_PLUGIN_APPROVAL_REQUIRED', () => plugins.Stage('2.0.1', dllFixture([requiredExport], 'unsigned-denied'), undefined, 'TEST'));
       activate(signed);
       operations.SetSignerState({ expectedRevision: operations.Revision(), keyId: key.keyId, state: 'RETIRING' }, 'TEST');
-      rejected(() => plugins.Stage(version, signedBytes, approval(key, 'O', version, signedBytes), 'TEST'));
+      reject('SECURITY_SIGNER_NOT_ACTIVE', () => plugins.Stage(version, signedBytes, approval(key, 'O', version, signedBytes), 'TEST'));
+      assert.equal(authority.Policy().requireReleaseSignature, true);
+    });
+
+    await check('Admin upload reports exact approval failures and keeps required signatures enabled through a valid O upload', async () => {
+      const key = signer(), outsider = signer(), version = '2.1.0', signedBytes = dllFixture([requiredExport], 'http-signed-plugin');
+      authority.SetPolicy({ expectedRevision: authority.Policy().revision, requireReleaseSignature: true, trustedReleaseKeys: [...authority.Policy().trustedReleaseKeys, { keyId: key.keyId, publicKey: key.pem }] }, 'TEST');
+      const policyBefore = structuredClone(authority.Policy());
+      const login = await adminRequest('/api/login', 'POST', JSON.stringify({ role: 'admin', password: process.env.ADMIN_SECRET }), { 'Content-Type': 'application/json', Origin: webBase });
+      assert.equal(login.status, 200, JSON.stringify(login.json));
+      const cookie = login.headers.get('set-cookie').split(';')[0];
+      const owner = { Cookie: cookie, Origin: webBase, 'X-CSRF-Token': login.json.csrf };
+      const route = '/api/desktop/bootstrap/overlay/plugins';
+      const initial = await adminRequest(route, 'GET', undefined, { Cookie: cookie });
+      assert.equal(initial.status, 200);
+      assert.deepEqual(initial.json.approval, { required: true, component: 'O', trustedSignerKeyIds: policyBefore.trustedReleaseKeys.map(row => row.keyId) });
+      const upload = (value, name = 'GameOverlayPlugin.bin', bytes = signedBytes, requestedVersion = version, metadata = {}) => adminRequest(route + '?version=' + requestedVersion + '&fileName=' + name, 'POST', bytes, { ...owner, 'Content-Type': 'application/octet-stream', ...(value ? { 'X-Game-Release-Key-Id': value.keyId, ...(value.signature === undefined ? {} : { 'X-Game-Release-Signature': value.signature }) } : {}), ...metadata });
+      const valid = approval(key, 'O', version, signedBytes);
+      for (const [expected, value, bytes, requestedVersion] of [
+        ['OVERLAY_PLUGIN_APPROVAL_REQUIRED', undefined],
+        ['OVERLAY_PLUGIN_APPROVAL_INVALID', { keyId: key.keyId }],
+        ['OVERLAY_PLUGIN_APPROVAL_INVALID', { keyId: key.keyId, signature: 'malformed' }],
+        ['OVERLAY_PLUGIN_SIGNER_UNTRUSTED', approval(outsider, 'O', version, signedBytes)],
+        ['OVERLAY_PLUGIN_SIGNATURE_INVALID', approval(key, 'B', version, signedBytes)],
+        ['OVERLAY_PLUGIN_SIGNATURE_INVALID', valid, signedBytes, '2.1.1'],
+        ['OVERLAY_PLUGIN_SIGNATURE_INVALID', valid, dllFixture([requiredExport], 'different-content')]
+      ]) {
+        const result = await upload(value, 'GameOverlayPlugin.bin', bytes, requestedVersion);
+        assert.ok(result.status >= 400 && result.status < 500, JSON.stringify(result));
+        assert.equal(result.json.error, expected, JSON.stringify(result.json));
+        assert.ok(result.json.problem, 'Admin receives the specific remediation');
+        assert.deepEqual(authority.Policy(), policyBefore);
+        assert.equal(plugins.Overview().revision, initial.json.revision, 'Rejected uploads cannot register a candidate');
+        assert.equal(plugins.Overview().activeId, initial.json.activeId);
+      }
+      const metadata = { 'X-Game-Release-Component': 'O', 'X-Game-Release-Version': version, 'X-Game-Release-Sha256': sha(signedBytes) };
+      for (const [expected, headers] of [
+        ['OVERLAY_PLUGIN_APPROVAL_INVALID', { 'X-Game-Release-Component': 'O' }],
+        ['OVERLAY_PLUGIN_APPROVAL_COMPONENT_MISMATCH', { ...metadata, 'X-Game-Release-Component': 'B' }],
+        ['OVERLAY_PLUGIN_APPROVAL_VERSION_MISMATCH', { ...metadata, 'X-Game-Release-Version': '2.1.1' }],
+        ['OVERLAY_PLUGIN_APPROVAL_HASH_MISMATCH', { ...metadata, 'X-Game-Release-Sha256': changed(metadata['X-Game-Release-Sha256']) }]
+      ]) {
+        const result = await upload(valid, 'GameOverlayPlugin.bin', signedBytes, version, headers);
+        assert.ok(result.status >= 400 && result.status < 500, JSON.stringify(result));
+        assert.equal(result.json.error, expected, JSON.stringify(result.json));
+        assert.deepEqual(authority.Policy(), policyBefore);
+        assert.equal(plugins.Overview().revision, initial.json.revision);
+      }
+      const staged = await upload(valid, 'GameOverlayPlugin.bin', signedBytes, version, metadata);
+      assert.equal(staged.status, 200, JSON.stringify(staged.json));
+      assert.equal(staged.json.artifact.fileName, 'GameOverlayPlugin.bin');
+      assert.equal(staged.json.artifact.signatureValid, true);
+      assert.equal(staged.json.artifact.sha256, sha(signedBytes));
+      const sameBytesOtherName = await upload(valid, 'renamed-plugin.bin');
+      assert.equal(sameBytesOtherName.status, 200, JSON.stringify(sameBytesOtherName.json));
+      assert.equal(sameBytesOtherName.json.artifact.id, staged.json.artifact.id, 'Filename is not part of the release signature canonical string');
+      assert.deepEqual(authority.Policy(), policyBefore);
+      const selected = await adminRequest(route + '/activate', 'POST', JSON.stringify({ id: staged.json.artifact.id, expectedRevision: plugins.Overview().revision }), { ...owner, 'Content-Type': 'application/json' });
+      assert.equal(selected.status, 200, JSON.stringify(selected.json));
+      assert.equal(selected.json.ready, true);
+      assert.equal(selected.json.approval.required, true);
+      assert.equal((await adminRequest('/api/logout', 'POST', '{}', { ...owner, 'Content-Type': 'application/json' })).status, 200);
     });
 
     console.log('Desktop overlay plugin: ' + checks + ' publication and production-wire checks passed');

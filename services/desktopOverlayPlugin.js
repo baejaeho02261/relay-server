@@ -4,7 +4,7 @@
 const fs=require('node:fs'),crypto=require('node:crypto');
 const store=require('./desktopBootstrapStore'),integrity=require('./desktopIntegrity');
 const MAX_BYTES=16*1024*1024,CHUNK_SIZE=262144,INSTALL_MS=120000,REPORT_MS=120000,MAX_PENDING=128;
-const EXPORT='GameOverlayRunV1',FILE_NAME='overlay.bin';
+const EXPORT='GameOverlayRunV1',FILE_NAME='GameOverlayPlugin.bin',LEGACY_FILE_NAME='overlay.bin';
 const pending=new Map(),downloads=new Map();
 const sha=v=>crypto.createHash('sha256').update(v).digest('hex');
 const Plain=v=>!!v&&Object.getPrototypeOf(v)===Object.prototype;
@@ -17,11 +17,13 @@ function Atomic(fn){try{return store.Atomic(fn);}catch(error){if(error.desktopEr
 function Empty(){return {schema:1,revision:0,activeId:'',artifacts:{}};}
 function State(db=store.Load()){return db.overlayPlugins||Empty();}
 function HashFields(row){return [...FILE_FIELDS,...CODE_FIELDS,...EXPORT_FIELDS].every(k=>typeof row[k]==='string'&&(k.toLowerCase().endsWith('crc64')?/^[A-F0-9]{16}$/:k.toLowerCase().endsWith('xxh64')?/^[a-f0-9]{16}$/:/^[a-f0-9]{64}$/).test(row[k]));}
+function ApprovalShape(a){return Plain(a)&&Object.keys(a).length===2&&Object.hasOwn(a,'keyId')&&Object.hasOwn(a,'signature')&&typeof a.keyId==='string'&&/^[a-f0-9]{64}$/.test(a.keyId)&&typeof a.signature==='string'&&/^[A-Za-z0-9+/]{86}==$/.test(a.signature)&&Buffer.from(a.signature,'base64').toString('base64')===a.signature;}
 function ValidateState(s){
  Fields(s,['schema','revision','activeId','artifacts']);
  if(s.schema!==1||!Number.isSafeInteger(s.revision)||s.revision<0||!Plain(s.artifacts)||Object.keys(s.artifacts).length>128||s.activeId!==''&&!Id(s.activeId))Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
- for(const [id,a]of Object.entries(s.artifacts))if(!Id(id)||!Plain(a)||a.id!==id||a.component!=='O'||a.abi!==1||a.architecture!=='win64'||a.exportName!==EXPORT||a.fileName!==FILE_NAME||a.codeAlgorithm!=='PE64-CODE-V1'||!HashFields(a)||!Number.isSafeInteger(a.size)||a.size<512||a.size>MAX_BYTES||!Time(a.createdAt)||typeof a.version!=='string'||a.version.length>40||!/^\d+(?:\.\d+){0,3}$/.test(a.version)||typeof a.compiledCfg!=='boolean')Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
- for(const a of Object.values(s.artifacts)){if(a.releaseApproval!==undefined){Fields(a.releaseApproval,['keyId','signature']);if(!/^[a-f0-9]{64}$/.test(a.releaseApproval.keyId)||typeof a.releaseApproval.signature!=='string'||!/^[A-Za-z0-9+/]{86}==$/.test(a.releaseApproval.signature)||Buffer.from(a.releaseApproval.signature,'base64').toString('base64')!==a.releaseApproval.signature)Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);}}
+ // Published records and running sessions keep their original approved name.
+ for(const [id,a]of Object.entries(s.artifacts))if(!Id(id)||!Plain(a)||a.id!==id||a.component!=='O'||a.abi!==1||a.architecture!=='win64'||a.exportName!==EXPORT||![FILE_NAME,LEGACY_FILE_NAME].includes(a.fileName)||a.codeAlgorithm!=='PE64-CODE-V1'||!HashFields(a)||!Number.isSafeInteger(a.size)||a.size<512||a.size>MAX_BYTES||!Time(a.createdAt)||typeof a.version!=='string'||a.version.length>40||!/^\d+(?:\.\d+){0,3}$/.test(a.version)||typeof a.compiledCfg!=='boolean')Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
+ for(const a of Object.values(s.artifacts))if(a.releaseApproval!==undefined&&!ApprovalShape(a.releaseApproval))Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
  if(s.activeId&&!s.artifacts[s.activeId])Fail('OVERLAY_PLUGIN_STORAGE_INVALID',503);
  return s;
 }
@@ -29,8 +31,13 @@ function Reason(a,newUpload=false){
  if(!a)return 'OVERLAY_PLUGIN_NOT_PUBLISHED';
  const auth=require('./desktopSecurityAuthority'),policy=auth.Policy();
  if(policy.revokedSha256.includes(a.sha256))return 'SECURITY_RELEASE_REVOKED';
- if(!auth.VerifyApproval(a,policy))return 'SECURITY_RELEASE_SIGNATURE';
- if(a.releaseApproval&&!require('./desktopSecurityOperations').SignerAllowed(a.releaseApproval.keyId,newUpload))return 'SECURITY_SIGNER_NOT_ACTIVE';
+ if(a.releaseApproval===undefined){if(policy.requireReleaseSignature)return 'OVERLAY_PLUGIN_APPROVAL_REQUIRED';}
+ else{
+  if(!ApprovalShape(a.releaseApproval))return 'OVERLAY_PLUGIN_APPROVAL_INVALID';
+  if(!policy.trustedReleaseKeys.some(key=>key.keyId===a.releaseApproval.keyId))return 'OVERLAY_PLUGIN_SIGNER_UNTRUSTED';
+  if(!require('./desktopSecurityOperations').SignerAllowed(a.releaseApproval.keyId,newUpload))return 'SECURITY_SIGNER_NOT_ACTIVE';
+  if(!auth.VerifyApproval(a,policy))return 'OVERLAY_PLUGIN_SIGNATURE_INVALID';
+ }
  if(policy.requireCfg&&!a.compiledCfg)return 'SECURITY_CFG_BUILD_REQUIRED';
  return '';
 }
@@ -54,10 +61,10 @@ function Stage(version,bytes,approval,actor='ADMIN'){
  if(require('../config/config').HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);
  if(typeof version!=='string'||version.length>40||!/^\d+(?:\.\d+){0,3}$/.test(version))Fail('OVERLAY_PLUGIN_INPUT_INVALID');
  const {code,exports}=ValidatePE(bytes),auth=require('./desktopSecurityAuthority');
- if(approval!==undefined)Fields(approval,['keyId','signature']);
+ if(approval!==undefined&&!ApprovalShape(approval))Fail('OVERLAY_PLUGIN_APPROVAL_INVALID');
  const row={id:crypto.randomBytes(12).toString('hex').toUpperCase(),component:'O',version,abi:1,architecture:'win64',exportName:EXPORT,fileName:FILE_NAME,...integrity.Digests(bytes),codeSha256:code.sha256,codeCrc64:code.crc64,codeXxh64:code.xxh64,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,exportTableSha256:exports.sha256,exportTableCrc64:exports.crc64,exportTableXxh64:exports.xxh64,exportTableBlake3:exports.blake3,size:bytes.length,createdAt:Date.now(),compiledCfg:auth.PeCapabilities(bytes).compiledCfg,...(approval?{releaseApproval:structuredClone(approval)}:{})};
  const reason=Reason(row,true);if(reason)Fail(reason,403);
- const same=Object.values(State().artifacts).find(a=>a.version===version&&a.sha256===row.sha256&&JSON.stringify(a.releaseApproval||null)===JSON.stringify(approval||null));if(same){Bytes(same);return View(same);}
+ const same=Object.values(State().artifacts).find(a=>a.fileName===FILE_NAME&&a.version===version&&a.sha256===row.sha256&&JSON.stringify(a.releaseApproval||null)===JSON.stringify(approval||null));if(same){Bytes(same);return View(same);}
  if(Object.keys(State().artifacts).length>=128)Fail('OVERLAY_PLUGIN_CAPACITY',409);
  require('./desktopSecurityOperations').AuditIntent('OVERLAY_PLUGIN_STAGE',actor);
  try{store.PublishBytes(row.id,bytes,true);}catch(_){Fail('STORAGE_SAVE_FAILED',503);}
@@ -65,7 +72,7 @@ function Stage(version,bytes,approval,actor='ADMIN'){
  return View(row);
 }
 function View(a){const auth=require('./desktopSecurityAuthority'),reason=Reason(a);const {releaseApproval,...publicRow}=a;return {...publicRow,active:State().activeId===a.id,signaturePresent:!!releaseApproval,signatureValid:!!releaseApproval&&auth.VerifyApproval(a,auth.Policy()),eligible:!reason,reason};}
-function Overview(){const s=State();return {revision:s.revision,activeId:s.activeId,artifacts:Object.values(s.artifacts).map(View).sort((a,b)=>b.createdAt-a.createdAt),maxBytes:MAX_BYTES,ready:!!s.activeId&&!Reason(s.artifacts[s.activeId])};}
+function Overview(){const s=State(),policy=require('./desktopSecurityAuthority').Policy();return {revision:s.revision,activeId:s.activeId,artifacts:Object.values(s.artifacts).map(View).sort((a,b)=>b.createdAt-a.createdAt),maxBytes:MAX_BYTES,fileName:FILE_NAME,approval:{required:policy.requireReleaseSignature,component:'O',trustedSignerKeyIds:policy.trustedReleaseKeys.map(key=>key.keyId)},ready:!!s.activeId&&!Reason(s.artifacts[s.activeId])};}
 function Activate(body,actor='ADMIN'){
  Fields(body,['id','expectedRevision']);const s=State();if(!Id(body.id)||!s.artifacts[body.id])Fail('OVERLAY_PLUGIN_NOT_PUBLISHED',404);if(body.expectedRevision!==s.revision)Fail('OVERLAY_PLUGIN_CONFLICT',409);
  Bytes(s.artifacts[body.id]);require('./desktopSecurityOperations').AuditIntent('OVERLAY_PLUGIN_ACTIVATE',actor);
@@ -98,7 +105,7 @@ function Manifest(row,license){
  let report=pending.get(row.id);
  if(report?.completed){pending.delete(row.id);report=null;}
  if(!report){if(pending.size>=MAX_PENDING)Fail('OVERLAY_PLUGIN_BUSY',429);report={id:crypto.randomBytes(16).toString('hex'),pluginId:a.id,expiresAt:Math.min(at+REPORT_MS,row.pluginPhase==='INSTALLING'?row.pluginInstallExpiresAt:Number.MAX_SAFE_INTEGER,license.expiresAt||Number.MAX_SAFE_INTEGER),nextBatch:0,modules:[],hashes:[],batches:0,total:0,attempts:0};pending.set(row.id,report);}
- return {schema:1,pluginId:a.id,abi:1,architecture:'win64',exportName:EXPORT,fileName:FILE_NAME,version:a.version,size:a.size,chunkSize:CHUNK_SIZE,...Object.fromEntries([...FILE_FIELDS,...CODE_FIELDS,...EXPORT_FIELDS,'codeAlgorithm'].map(k=>[k,a[k]])),host:Host(row),installExpiresAt:row.pluginInstallExpiresAt,reportId:report.id,reportExpiresAt:report.expiresAt,serverTime:at};
+ return {schema:1,pluginId:a.id,abi:1,architecture:'win64',exportName:EXPORT,fileName:a.fileName,version:a.version,size:a.size,chunkSize:CHUNK_SIZE,...Object.fromEntries([...FILE_FIELDS,...CODE_FIELDS,...EXPORT_FIELDS,'codeAlgorithm'].map(k=>[k,a[k]])),host:Host(row),installExpiresAt:row.pluginInstallExpiresAt,reportId:report.id,reportExpiresAt:report.expiresAt,serverTime:at};
 }
 function Chunk(row,body){
  const a=Artifact(row);if(body.pluginId!==a.id||!Number.isSafeInteger(body.offset)||body.offset<0||body.offset>=a.size||body.offset%CHUNK_SIZE)Fail('OVERLAY_PLUGIN_INPUT_INVALID');
@@ -111,7 +118,7 @@ function Chunk(row,body){
  if(row.pluginInstallExpiresAt<=Date.now())Fail('OVERLAY_EXPIRED',403);
  return {pluginId:a.id,offset:body.offset,size,data:bytes.toString('base64')};
 }
-function ExactPlugin(module,a){return module.name.toLowerCase()===FILE_NAME&&module.status==='MATCH_LOCAL_FILE'&&module.codeStatus==='MATCH_LOCAL_FILE'&&module.exportTableStatus==='MEASURED'&&FILE_FIELDS.every(k=>module['file'+k[0].toUpperCase()+k.slice(1)]===a[k])&&[...CODE_FIELDS,...EXPORT_FIELDS].every(k=>module[k]===a[k]);}
+function ExactPlugin(module,a){return module.name.toLowerCase()===a.fileName.toLowerCase()&&module.status==='MATCH_LOCAL_FILE'&&module.codeStatus==='MATCH_LOCAL_FILE'&&module.exportTableStatus==='MEASURED'&&FILE_FIELDS.every(k=>module['file'+k[0].toUpperCase()+k.slice(1)]===a[k])&&[...CODE_FIELDS,...EXPORT_FIELDS].every(k=>module[k]===a[k]);}
 function Own(payload,row){const own=payload.own,host=Host(row);return own?.status==='MEASURED'&&FILE_FIELDS.every(k=>own['file'+k[0].toUpperCase()+k.slice(1)]===host[k])&&CODE_FIELDS.every(k=>own[k]===host[k]);}
 function Report(row,body,license){
  const a=Artifact(row);Prune();const report=pending.get(row.id);
@@ -127,10 +134,10 @@ function Report(row,body,license){
  if(payload.batchIndex!==report.nextBatch||report.batches&&report.batches!==payload.batchCount||report.nextBatch&&report.total!==payload.totalModules||report.modules.length+payload.modules.length>1024)Fail('OVERLAY_PLUGIN_REPORT_INVALID',409);
  report.batches=payload.batchCount;report.total=payload.totalModules;report.modules.push(...payload.modules);report.hashes.push(digest);report.nextBatch++;
  if(!payload.complete)return {pluginId:a.id,accepted:true,status:'PARTIAL',nextBatch:report.nextBatch,leaseExpiresAt:row.leaseExpiresAt,serverTime:Date.now()};
- if(report.modules.length!==report.total||report.modules.filter(m=>m.name.toLowerCase()===FILE_NAME).length!==1||!report.modules.some(m=>ExactPlugin(m,a)))Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
+ if(report.modules.length!==report.total||report.modules.filter(m=>m.name.toLowerCase()===a.fileName.toLowerCase()).length!==1||!report.modules.some(m=>ExactPlugin(m,a)))Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
  const actualMeasured=report.modules.filter(m=>m.fileSha256&&m.fileCrc64&&m.codeSha256&&m.codeCrc64&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.codeStatus)).length;
  if(actualMeasured!==payload.measuredModules)Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
- const comparisons=report.modules.filter(m=>m.name.toLowerCase()!==FILE_NAME).map(m=>reports.CompareModule(m,2));
+ const comparisons=report.modules.filter(m=>m.name.toLowerCase()!==a.fileName.toLowerCase()).map(m=>reports.CompareModule(m,2));
  if(comparisons.some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH'))Fail('OVERLAY_PLUGIN_REPORT_MISMATCH',403);
  const policy=reports.Policy();if(policy.enabled&&policy.requiredModules.some(name=>comparisons.filter(m=>m.name.toLowerCase()===name.toLowerCase()).length!==1||!comparisons.some(m=>m.name.toLowerCase()===name.toLowerCase()&&m.serverComparison==='MATCH_REGISTERED_BASELINE'&&m.exportTableVerified&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG'].includes(m.codeStatus)&&(!policy.requireExtendedHashes||m.extendedHashesVerified))))Fail('INTEGRITY_SNAPSHOT_REQUIRED',403);
  Bytes(a);const at=Date.now(),end=Math.min(at+30000,license.expiresAt||Number.MAX_SAFE_INTEGER);if(end<=at||at<row.lastSeenAt||LiveDeadline(row)<=at||report.expiresAt<=at)Fail('OVERLAY_EXPIRED',403);
@@ -138,5 +145,5 @@ function Report(row,body,license){
  return {pluginId:a.id,accepted:true,status:'READY',nextBatch:report.nextBatch,leaseExpiresAt:end,serverTime:at};
 }
 function Retire(id){pending.delete(id);downloads.delete(id);}
-const messages={OVERLAY_PLUGIN_NOT_PUBLISHED:'운영 게시된 오버레이 플러그인이 없습니다.',OVERLAY_PLUGIN_PE_INVALID:'Win64 DLL과 GameOverlayRunV1 내보내기를 확인하세요.',OVERLAY_PLUGIN_TOO_LARGE:'오버레이 플러그인은 최대 16MiB입니다.',OVERLAY_PLUGIN_INPUT_INVALID:'플러그인 파일과 버전 정보를 확인하세요.',OVERLAY_PLUGIN_CONFLICT:'플러그인 목록이 변경되었습니다. 다시 조회하세요.',OVERLAY_PLUGIN_FILE_INVALID:'게시된 플러그인 파일 무결성을 확인할 수 없습니다.',OVERLAY_PLUGIN_NOT_READY:'오버레이 모듈 확인이 아직 완료되지 않았습니다.',OVERLAY_PLUGIN_REPORT_MISMATCH:'오버레이 또는 실행 프로그램의 무결성 확인이 일치하지 않습니다.',OVERLAY_PLUGIN_REPORT_REQUIRED:'오버레이 모듈 무결성을 다시 확인하세요.',SECURITY_RELEASE_SIGNATURE:'현재 신뢰하는 서명 키와 파일 승인 JSON을 확인하세요.',SECURITY_SIGNER_NOT_ACTIVE:'현재 사용할 수 없는 파일 서명 키입니다.',SECURITY_CFG_BUILD_REQUIRED:'현재 서버 정책에 맞는 CFG 빌드를 게시하세요.'};
+const messages={OVERLAY_PLUGIN_NOT_PUBLISHED:'운영 게시된 오버레이 플러그인이 없습니다.',OVERLAY_PLUGIN_PE_INVALID:'Win64 GameOverlayPlugin.bin과 GameOverlayRunV1 내보내기를 확인하세요.',OVERLAY_PLUGIN_TOO_LARGE:'오버레이 플러그인은 최대 16MiB입니다.',OVERLAY_PLUGIN_INPUT_INVALID:'플러그인 파일과 버전 정보를 확인하세요.',OVERLAY_PLUGIN_CONFLICT:'플러그인 목록이 변경되었습니다. 다시 조회하세요.',OVERLAY_PLUGIN_FILE_INVALID:'게시된 플러그인 파일 무결성을 확인할 수 없습니다.',OVERLAY_PLUGIN_NOT_READY:'오버레이 모듈 확인이 아직 완료되지 않았습니다.',OVERLAY_PLUGIN_REPORT_MISMATCH:'오버레이 또는 실행 프로그램의 무결성 확인이 일치하지 않습니다.',OVERLAY_PLUGIN_REPORT_REQUIRED:'오버레이 모듈 무결성을 다시 확인하세요.',OVERLAY_PLUGIN_APPROVAL_REQUIRED:'현재 서버 정책은 오버레이 승인 JSON을 요구합니다.',OVERLAY_PLUGIN_APPROVAL_INVALID:'오버레이 승인 JSON의 키 식별자 또는 서명 형식이 올바르지 않습니다.',OVERLAY_PLUGIN_SIGNER_UNTRUSTED:'오버레이 승인 JSON의 서명 공개키가 서버에 등록되어 있지 않습니다.',OVERLAY_PLUGIN_SIGNATURE_INVALID:'오버레이 파일·O 구분·버전에 대한 승인 서명이 일치하지 않습니다.',OVERLAY_PLUGIN_APPROVAL_COMPONENT_MISMATCH:'오버레이용 O 승인 JSON을 선택하세요.',OVERLAY_PLUGIN_APPROVAL_VERSION_MISMATCH:'오버레이 입력 버전과 승인 JSON 버전이 다릅니다.',OVERLAY_PLUGIN_APPROVAL_HASH_MISMATCH:'오버레이 파일과 승인 JSON의 SHA-256이 다릅니다.',SECURITY_RELEASE_SIGNATURE:'현재 신뢰하는 서명 키와 파일 승인 JSON을 확인하세요.',SECURITY_SIGNER_NOT_ACTIVE:'현재 사용할 수 없는 파일 서명 키입니다.',SECURITY_CFG_BUILD_REQUIRED:'현재 서버 정책에 맞는 CFG 빌드를 게시하세요.'};
 module.exports={messages,MAX_BYTES,CHUNK_SIZE,INSTALL_MS,REPORT_MS,Stage,Activate,Overview,ValidateState,ValidateSession,Pin,LiveDeadline,CheckRuntime,RequireReady,Manifest,Chunk,Report,Retire};

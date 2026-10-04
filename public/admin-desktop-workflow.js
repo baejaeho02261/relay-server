@@ -5,7 +5,7 @@ async function showDesktopOverlay(){
  let [model,plugins]=await Promise.all([api(endpoint),api(pluginEndpoint)]),busy=false,stopped=false,timer=null;
  const controllers=new Set();
  if(session?.csrf!==owner)return;
- const pending=openModal({title:'오버레이 발급 · 표시 설정',message:'B의 라이선스 인증 화면이 닫힌 뒤 같은 프로세스에서 별도 플러그인을 표시합니다. 표시 내용과 실행 권한은 서버에서 관리합니다.',html:`<div id="desktop-overlay-editor"><fieldset><legend>오버레이 플러그인 · overlay.bin</legend><p class="small-note">A의 실행 흐름은 유지됩니다. B를 갱신한 뒤 빌드한 .bin을 등록하고 운영 게시하세요. 파일 등록만으로 운영 버전이 바뀌지는 않습니다.</p><label>플러그인 파일 (최대 16MB)<input id="overlay-plugin-file" type="file" accept=".bin"></label><label>버전<input id="overlay-plugin-version" maxlength="40" value="1.0.0"></label><label>공개 승인 JSON (서버 정책에서 요구할 때)<input id="overlay-plugin-approval" type="file" accept=".json"></label><p class="small-note">개인키는 업로드하지 않습니다. 표시 데이터(.dat)는 실행 플러그인이 아닙니다.</p><button type="button" id="overlay-plugin-upload">파일 확인 · 후보 등록</button><label>플러그인 후보<select id="overlay-plugin-candidate"></select></label><div class="actions"><button type="button" id="overlay-plugin-publish">선택 플러그인 운영 게시</button><button type="button" id="overlay-plugin-reload">플러그인 상태 다시 읽기</button></div><div id="overlay-plugin-result" role="status" aria-live="polite"></div><div id="overlay-plugin-state"></div></fieldset><label><input id="overlay-enabled" type="checkbox"> 오버레이 발급 및 갱신 허용</label><label>제목<input id="overlay-title" maxlength="120"></label><label>내용 (최대 8줄, 한 줄 240자)<textarea id="overlay-lines" rows="8" maxlength="1927"></textarea></label><label>화면 테마<select id="overlay-theme"><option value="dark">다크</option><option value="light">라이트</option></select></label><div class="actions"><button type="button" id="overlay-save">서버에 저장</button><button type="button" id="overlay-reload">서버 내용 다시 읽기</button><a href="/api/desktop/bootstrap/overlay/module.dat" download="overlay.dat">표시 데이터 내려받기</a></div><p id="overlay-status" role="status" aria-live="polite"></p><p id="overlay-version" class="small-note"></p><h4>오버레이 실행 권한</h4><p class="small-note">권한 회수와 발급 중지는 다음 서버 확인 시 적용됩니다. 연결이 끊기면 최대 30초의 유효기간 후 화면이 닫힙니다.</p><p id="overlay-session-status" class="small-note" role="status">권한 목록은 4초마다 자동 갱신됩니다.</p><div id="overlay-sessions"></div></div>`,confirmLabel:'닫기'});
+ const pending=openModal({title:'오버레이 발급 · 표시 설정',message:'B는 라이선스 인증을 마친 뒤 인증 세션과 콘솔을 닫습니다. 유지된 B 프로세스가 서버에서 받은 GameOverlayPlugin.bin을 검증하고 로드합니다.',html:`<div id="desktop-overlay-editor"><fieldset><legend>오버레이 플러그인 · GameOverlayPlugin.bin</legend><p class="small-note">A의 실행 흐름은 유지됩니다. RAD Studio 명령 프롬프트에서 <code>Build_Win64.cmd</code>를 실행한 뒤 <code>build/Win64/Release/overlay/GameOverlayPlugin.bin</code>을 아래에서 선택하세요. IDE에서는 GameOverlayPlugin 프로젝트를 Win64 / Release로 빌드하면 같은 .bin 파일이 생성됩니다.</p><p class="small-note">파일 확인 · 후보 등록 → 선택 플러그인 운영 게시 순서로 적용합니다. 서버에서 게시한 파일을 인증 후 B가 내려받으므로 B 옆에 DLL을 복사할 필요는 없습니다.</p><label>플러그인 파일 (최대 16MB)<input id="overlay-plugin-file" type="file" accept=".bin"></label><label>버전<input id="overlay-plugin-version" maxlength="40" value="1.0.0"></label><div id="overlay-plugin-policy" role="status"></div><label><span id="overlay-plugin-approval-label">공개 승인 JSON</span><input id="overlay-plugin-approval" type="file" accept=".json"></label><p class="small-note">개인키는 업로드하지 않습니다. 표시 데이터(.dat)는 실행 플러그인이 아닙니다.</p><button type="button" id="overlay-plugin-upload">파일 확인 · 후보 등록</button><label>플러그인 후보<select id="overlay-plugin-candidate"></select></label><div class="actions"><button type="button" id="overlay-plugin-publish">선택 플러그인 운영 게시</button><button type="button" id="overlay-plugin-reload">플러그인 상태 다시 읽기</button></div><div id="overlay-plugin-result" role="status" aria-live="polite"></div><div id="overlay-plugin-state"></div></fieldset><label><input id="overlay-enabled" type="checkbox"> 오버레이 발급 및 갱신 허용</label><label>제목<input id="overlay-title" maxlength="120"></label><label>내용 (최대 8줄, 한 줄 240자)<textarea id="overlay-lines" rows="8" maxlength="1927"></textarea></label><label>화면 테마<select id="overlay-theme"><option value="dark">다크</option><option value="light">라이트</option></select></label><div class="actions"><button type="button" id="overlay-save">서버에 저장</button><button type="button" id="overlay-reload">서버 내용 다시 읽기</button><a href="/api/desktop/bootstrap/overlay/module.dat" download="overlay.dat">표시 데이터 내려받기</a></div><p id="overlay-status" role="status" aria-live="polite"></p><p id="overlay-version" class="small-note"></p><h4>오버레이 실행 권한</h4><p class="small-note">권한 회수와 발급 중지는 다음 서버 확인 시 적용됩니다. 연결이 끊기면 최대 30초의 유효기간 후 화면이 닫힙니다.</p><p id="overlay-session-status" class="small-note" role="status">권한 목록은 4초마다 자동 갱신됩니다.</p><div id="overlay-sessions"></div></div>`,confirmLabel:'닫기'});
  const root=document.getElementById('desktop-overlay-editor'),status=root.querySelector('#overlay-status'),sessionStatus=root.querySelector('#overlay-session-status');
  const pluginResult=root.querySelector('#overlay-plugin-result'),candidate=root.querySelector('#overlay-plugin-candidate');
  const live=()=>!stopped&&root.isConnected&&session?.csrf===owner;
@@ -27,20 +27,46 @@ async function showDesktopOverlay(){
   return phase+(row.pluginPhase==='READY'&&row.pluginVerifiedAt>0?' · '+desktopDate(row.pluginVerifiedAt):'');
  }
  function showSessions(rows){
-  root.querySelector('#overlay-sessions').innerHTML=(rows||[]).length?`<div class="table-wrap"><table><thead><tr><th>실행 권한</th><th>라이선스</th><th>상태</th><th>최근 확인</th><th>관리</th></tr></thead><tbody>${rows.map(row=>`<tr><td class="code">${esc(row.id)}</td><td class="code">${esc(row.licenseId)}</td><td>${esc(row.status)}<br><span class="small-note">${pluginPhase(row)}</span></td><td>${desktopDate(row.lastSeenAt)}</td><td>${row.status==='ACTIVE'?`<button type="button" class="danger" data-overlay-revoke="${esc(row.id)}">권한 회수</button>`:'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p>발급된 오버레이 실행 권한이 없습니다. B의 라이선스 완료 요청이 서버에 도착해야 발급됩니다. A의 실행 흐름은 유지하고, B 갱신과 .bin 플러그인 운영 게시를 확인하세요.</p>';
+  root.querySelector('#overlay-sessions').innerHTML=(rows||[]).length?`<div class="table-wrap"><table><thead><tr><th>실행 권한</th><th>라이선스</th><th>상태</th><th>최근 확인</th><th>관리</th></tr></thead><tbody>${rows.map(row=>`<tr><td class="code">${esc(row.id)}</td><td class="code">${esc(row.licenseId)}</td><td>${esc(row.status)}<br><span class="small-note">${pluginPhase(row)}</span></td><td>${desktopDate(row.lastSeenAt)}</td><td>${row.status==='ACTIVE'?`<button type="button" class="danger" data-overlay-revoke="${esc(row.id)}">권한 회수</button>`:'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p>발급된 오버레이 실행 권한이 없습니다. B의 라이선스 완료 요청이 서버에 도착해야 발급됩니다. A의 실행 흐름은 유지하고, B 갱신과 GameOverlayPlugin.bin 운영 게시를 확인하세요.</p>';
  }
  function pluginActions(){
   const selected=(plugins.artifacts||[]).find(row=>row.id===candidate.value);
   root.querySelector('#overlay-plugin-publish').disabled=busy||!selected?.eligible||selected.active;
  }
+ function approvalPolicy(){
+  const value=plugins.approval;
+  return value&&typeof value.required==='boolean'&&value.component==='O'&&Array.isArray(value.trustedSignerKeyIds)&&value.trustedSignerKeyIds.every(key=>/^[a-f0-9]{64}$/.test(key))?value:null;
+ }
+ function pluginInputError(code,title,current,next,action='refresh'){
+  const error=Error(title);error.problem={code,title,current,next,action};throw error;
+ }
+ function showApprovalPolicy(){
+  const policy=approvalPolicy(),node=root.querySelector('#overlay-plugin-policy');
+  root.querySelector('#overlay-plugin-approval').required=policy?.required===true;
+  root.querySelector('#overlay-plugin-approval-label').textContent=!policy?'공개 승인 JSON · 서버 정책 확인 필요':policy.required?'공개 승인 JSON · 필수 (O / 같은 버전 / 같은 파일)':'공개 승인 JSON · 선택 (제출 시 서버 검증)';
+  if(!policy){node.textContent='서버의 오버레이 승인 정책을 확인하지 못했습니다. 이번 GameWeb 소스를 적용한 뒤 상태를 다시 읽으세요.';return;}
+  const keyText=policy.trustedSignerKeyIds.length?`<details><summary>현재 등록된 배포 서명 키 ${policy.trustedSignerKeyIds.length}개</summary>${policy.trustedSignerKeyIds.map(key=>`<div><code>${esc(key)}</code></div>`).join('')}</details>`:'<p>등록된 배포 서명 키가 없습니다. 서버 보안 설정에서 기존 승인 개인키에 대응하는 공개키를 확인하세요.</p>';
+  node.innerHTML=`<p>${policy.required?'현재 서버 정책: O 배포 승인 서명 필수. 같은 .bin 파일과 입력 버전으로 생성한 공개 승인 JSON을 함께 선택하세요.':'현재 서버 정책: 승인 JSON 없이 후보 등록할 수 있습니다. JSON을 제출하면 구분·버전·파일·등록된 서명 키를 모두 확인합니다.'}</p>${policy.required||policy.trustedSignerKeyIds.length?keyText:''}`;
+ }
+ async function readPluginApproval(file,version,digest,policy){
+  if(!file.size||file.size>65536)pluginInputError('OVERLAY_PLUGIN_APPROVAL_INVALID','공개 승인 JSON을 읽을 수 없습니다.','승인 파일 크기는 1바이트 이상 64KB 이하여야 합니다.','개인키가 아닌 GameOverlayPlugin.bin의 공개 승인 JSON을 선택하세요.');
+  let value;try{value=JSON.parse(await file.text());}catch(_){pluginInputError('OVERLAY_PLUGIN_APPROVAL_INVALID','공개 승인 JSON 형식이 올바르지 않습니다.','선택한 파일을 JSON으로 읽지 못했습니다.','개인키가 아닌 GameOverlayPlugin.bin의 공개 승인 JSON을 선택하세요.');}
+  const plain=value&&typeof value==='object'&&!Array.isArray(value),approved=plain&&(value.approval||value);
+  if(!plain||value.component!=='O')pluginInputError('OVERLAY_PLUGIN_APPROVAL_COMPONENT_MISMATCH','오버레이용 O 승인 JSON이 필요합니다.','선택한 승인 JSON은 오버레이 구분 O가 아닙니다.','승인 생성 도구에서 O를 선택하고 같은 GameOverlayPlugin.bin으로 승인 JSON을 생성하세요.');
+  if(value.version!==version)pluginInputError('OVERLAY_PLUGIN_APPROVAL_VERSION_MISMATCH','입력 버전과 승인 버전이 다릅니다.',`입력 버전: ${version} / 승인 버전: ${typeof value.version==='string'?value.version:'없음'}`,'같은 배포 버전을 입력하거나 해당 버전의 공개 승인 JSON을 선택하세요.');
+  if(value.sha256!==digest)pluginInputError('OVERLAY_PLUGIN_APPROVAL_HASH_MISMATCH','선택한 .bin과 승인 JSON의 파일 해시가 다릅니다.','승인 JSON은 현재 선택한 파일 내용에 대한 승인이 아닙니다.','같은 빌드의 GameOverlayPlugin.bin과 공개 승인 JSON을 선택하세요. 재빌드했다면 승인을 다시 생성하세요.');
+  if(!approved||typeof approved!=='object'||Array.isArray(approved)||!/^[a-f0-9]{64}$/.test(approved.keyId||'')||typeof approved.signature!=='string'||!/^[A-Za-z0-9+/]{86}==$/.test(approved.signature))pluginInputError('OVERLAY_PLUGIN_APPROVAL_INVALID','공개 승인 서명 형식이 올바르지 않습니다.','승인 JSON의 keyId 또는 Ed25519 서명이 없거나 형식이 다릅니다.','승인 생성 도구가 만든 공개 승인 JSON을 그대로 선택하세요.');
+  if(!policy.trustedSignerKeyIds.includes(approved.keyId))pluginInputError('OVERLAY_PLUGIN_SIGNER_UNTRUSTED','이 승인 키는 서버에 등록되어 있지 않습니다.',`선택한 승인 키: ${approved.keyId}`,'서버 보안 설정에서 기존 승인 개인키에 대응하는 공개키 등록·사용 가능 상태를 확인하세요.','security');
+  return {...value,approval:approved};
+ }
  function showPlugins(next,preferred=''){
-  plugins=next;const selected=preferred||candidate.value||plugins.activeId,rows=plugins.artifacts||[];
+  plugins=next;showApprovalPolicy();const selected=preferred||candidate.value||plugins.activeId,rows=plugins.artifacts||[];
   candidate.innerHTML=rows.length?rows.map(row=>`<option value="${esc(row.id)}"${row.eligible?'':' disabled'}>${esc(row.version)} · ${esc(row.sha256.slice(0,12))}${row.active?' · 현재 운영':''}${row.eligible?'':' · 게시 불가'}</option>`).join(''):'<option value="">등록된 플러그인 없음</option>';
   if(rows.some(row=>row.id===selected))candidate.value=selected;
   const active=rows.find(row=>row.id===plugins.activeId&&row.active);
   const current=active?`운영 버전 ${esc(active.version)} · ${plugins.ready&&active.eligible?'서버 사용 가능':'사용 불가'}`:'운영 게시된 플러그인이 없습니다.';
   const details=rows.map(row=>`<details><summary>${esc(row.version)}${row.active?' · 현재 운영':' · 후보'} · ${Math.ceil(row.size/1024)}KB</summary><p>${row.eligible?'서버 검사 통과':'서버 검사 보류: '+esc(row.reason||'상태 확인 필요')} · ${row.signaturePresent?(row.signatureValid?'승인 서명 확인됨':'승인 서명 확인 실패'):'승인 서명 없음'}</p><p class="small-note">파일 SHA-256: <code>${esc(row.sha256)}</code><br>코드 SHA-256: <code>${esc(row.codeSha256||'확인되지 않음')}</code><br>모듈 내보내기 SHA-256: <code>${esc(row.exportTableSha256||'확인되지 않음')}</code></p></details>`).join('');
-  root.querySelector('#overlay-plugin-state').innerHTML=`<p>${current}</p>${details}`;
+  root.querySelector('#overlay-plugin-state').innerHTML=`<p>등록할 배포 파일: <code>${esc(plugins.fileName||'GameOverlayPlugin.bin')}</code></p><p>${current}</p>${details}`;
   pluginActions();
  }
  function show(){
@@ -71,10 +97,13 @@ async function showDesktopOverlay(){
   if(!file||!file.size||file.size>Math.min(plugins.maxBytes||16777216,16777216)||!file.name.toLowerCase().endsWith('.bin')||!/^\d{1,9}(?:\.\d{1,9}){0,3}$/.test(version)){pluginResult.textContent='16MB 이하의 .bin 파일과 올바른 버전을 선택하세요.';return;}
   lock(true);
   try{
+   const policy=approvalPolicy();
+   if(!policy)pluginInputError('OVERLAY_PLUGIN_POLICY_UNAVAILABLE','서버의 오버레이 승인 정책을 확인하지 못했습니다.','필수 서명 여부와 등록된 배포 서명 키를 확인할 수 없습니다.','이번 GameWeb 소스를 적용한 뒤 플러그인 상태를 다시 읽으세요.');
+   if(policy.required&&!approvalFile)pluginInputError('OVERLAY_PLUGIN_APPROVAL_REQUIRED','현재 서버 정책에서는 O 승인 JSON이 필수입니다.','GameOverlayPlugin.bin만 선택되어 있습니다.','같은 .bin 파일과 입력 버전으로 생성한 O 공개 승인 JSON을 함께 선택하세요.');
    pluginResult.textContent='선택한 파일을 확인하고 있습니다.';
    const digest=await desktopFileHash(file);if(!live())return;
    const headers={};
-   if(approvalFile){const approved=await desktopApprovalRead(approvalFile,'O');if(!live())return;if(approved.version!==version||approved.sha256!==digest)throw Error('플러그인 파일의 버전·해시와 공개 승인 JSON이 다릅니다. 같은 빌드의 파일을 선택하세요.');headers['x-game-release-key-id']=approved.approval.keyId;headers['x-game-release-signature']=approved.approval.signature;}
+   if(approvalFile){const approved=await readPluginApproval(approvalFile,version,digest,policy);if(!live())return;headers['x-game-release-key-id']=approved.approval.keyId;headers['x-game-release-signature']=approved.approval.signature;headers['x-game-release-component']=approved.component;headers['x-game-release-version']=approved.version;headers['x-game-release-sha256']=approved.sha256;}
    pluginResult.textContent='서버에서 플러그인과 무결성을 검증하고 있습니다.';
    const saved=await request(pluginEndpoint+'?'+new URLSearchParams({version,fileName:file.name}),{method:'POST',rawBody:file,headers},120000);
    if(!live())return;

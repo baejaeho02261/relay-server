@@ -49,6 +49,15 @@ async function HandleUpload({method,pathname,url,req,res,session}){
   // Upload completion never revives a logged-out or replaced browser session.
   if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}
   const approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
+  // Older clients sent only key/signature. New clients also declare the signed
+  // metadata so a mismatch can be explained without guessing from crypto failure.
+  const declared=['component','version','sha256'].map(field=>req.headers['x-game-release-'+field]);
+  if(declared.some(value=>value!==undefined)){
+   if(!approval||declared.some(value=>typeof value!=='string'||!value)||!/^\d+(?:\.\d+){0,3}$/.test(declared[1])||declared[1].length>40||!/^[a-f0-9]{64}$/.test(declared[2]))throw Error('OVERLAY_PLUGIN_APPROVAL_INVALID');
+   if(declared[0]!=='O')throw Error('OVERLAY_PLUGIN_APPROVAL_COMPONENT_MISMATCH');
+   if(declared[1]!==version)throw Error('OVERLAY_PLUGIN_APPROVAL_VERSION_MISMATCH');
+   if(declared[2]!==require('node:crypto').createHash('sha256').update(bytes).digest('hex'))throw Error('OVERLAY_PLUGIN_APPROVAL_HASH_MISMATCH');
+  }
   const artifact=plugin.Stage(version,bytes,approval,String(session.role)+':'+String(session.id));Json(res,200,{ok:true,artifact,revision:plugin.Overview().revision,activeUnchanged:true});
  }catch(error){const code=error.desktopError?error.message:plugin.messages[error.message]?error.message:'OVERLAY_PLUGIN_INPUT_INVALID';Json(res,error.desktopError?error.status:code==='OVERLAY_PLUGIN_TOO_LARGE'?413:400,{ok:false,error:code,reason:code,problem:require('../../services/desktopOperationsErrors').Explain(code),message:plugin.messages[code]||'오버레이 플러그인을 게시하지 못했습니다.'});}
  finally{uploadPending=false;}

@@ -39,11 +39,11 @@ const pluginArtifact = (extra = {}) => ({ id: 'PLUGIN_ONE', component: 'O', vers
   sha256: nativeHash, codeSha256: 'b'.repeat(64), exportTableSha256: 'c'.repeat(64), size: nativeBytes.length,
   active: false, signaturePresent: false, signatureValid: false, eligible: true, reason: '', ...extra });
 const pluginModel = (extra = {}) => ({ ok: true, revision: 3, activeId: '', ready: false,
-  maxBytes: 16777216, artifacts: [pluginArtifact()], ...extra });
+  maxBytes: 16777216, fileName: 'GameOverlayPlugin.bin', approval: { required: false, component: 'O', trustedSignerKeyIds: ['d'.repeat(64)] }, artifacts: [pluginArtifact()], ...extra });
 function chooseFile(selector, file) {
   Object.defineProperty(w.document.querySelector(selector), 'files', { value: file ? [file] : [], configurable: true });
 }
-const nativeFile = (extra = {}) => ({ name: 'overlay.bin', size: nativeBytes.length,
+const nativeFile = (extra = {}) => ({ name: 'GameOverlayPlugin.bin', size: nativeBytes.length,
   arrayBuffer: async () => nativeBytes.buffer.slice(nativeBytes.byteOffset, nativeBytes.byteOffset + nativeBytes.byteLength), ...extra });
 function response(data, status = 200) {
   return { ok: status >= 200 && status < 300, status, text: async () => JSON.stringify(data) };
@@ -162,7 +162,7 @@ execute(source('admin-desktop-workflow.js'));
     assert.match(w.document.querySelector('#overlay-session-status').textContent, /다음 확인/);
     responder = () => response({ ...model(99), sessions: [] }); await poll();
     assert.match(w.document.querySelector('#overlay-session-status').textContent, /4초/);
-    assert.match(editor().textContent, /라이선스 완료 요청/); assert.match(editor().textContent, /A의 실행 흐름은 유지/); assert.match(editor().textContent, /B 갱신과 .bin/);
+    assert.match(editor().textContent, /라이선스 완료 요청/); assert.match(editor().textContent, /A의 실행 흐름은 유지/); assert.match(editor().textContent, /B 갱신과 GameOverlayPlugin.bin/);
     assert.doesNotMatch(editor().textContent, /최신 A\/B|새 A를 발급/);
     assert.equal(w.document.querySelector('#overlay-title').value, '조회 중에도 편집');
     passed('Transient poll errors recover and empty grants preserve A while explaining B/plugin publication');
@@ -274,7 +274,14 @@ execute(source('admin-desktop-workflow.js'));
     assert.match(w.document.querySelector('#overlay-plugin-state').textContent, /승인 서명 없음/);
     assert.equal(w.document.querySelector('#overlay-plugin-publish').disabled, false);
     assert.match(editor().textContent, /표시 데이터\(\.dat\)는 실행 플러그인이 아닙니다/);
-    passed('Native plugin candidates, unsigned state and display data are distinguished without inventing an active release');
+    assert.match(editor().textContent, /Build_Win64.cmd/);
+    assert.match(editor().textContent, /build\/Win64\/Release\/overlay\/GameOverlayPlugin.bin/);
+    assert.match(editor().textContent, /IDE에서는 GameOverlayPlugin 프로젝트/);
+    assert.match(modalOptions.message, /유지된 B 프로세스/);
+    assert.match(editor().textContent, /B 옆에 DLL을 복사할 필요는 없습니다/);
+    assert.match(w.document.querySelector('#overlay-plugin-policy').textContent, /승인 JSON 없이 후보 등록/);
+    assert.equal(w.document.querySelector('#overlay-plugin-approval').required, false);
+    passed('Plugin modal names the exact generated bin path, IDE/build steps, server publication and retained B host');
 
     responder = () => response({ ...model(), sessions: [
       { id: 'WAITING', licenseId: 'license', status: 'ACTIVE', lastSeenAt: 0, pluginId: 'PLUGIN_ONE', pluginPhase: 'PENDING' },
@@ -311,21 +318,67 @@ execute(source('admin-desktop-workflow.js'));
     passed('Non-bin, empty, oversized and invalid-version uploads stop before HTTP');
 
     const approval = { component: 'O', version: '2.0.0', sha256: nativeHash,
-      approval: { keyId: 'd'.repeat(64), signature: 'fixture-signature-validated-by-server' } };
+      approval: { keyId: 'd'.repeat(64), signature: Buffer.alloc(64, 1).toString('base64') } };
+    const requiredPolicy = { required: true, component: 'O', trustedSignerKeyIds: [approval.approval.keyId] };
+    pluginResponder = () => response(pluginModel({ approval: requiredPolicy }));
+    await poll();
+    assert.equal(w.document.querySelector('#overlay-plugin-approval').required, true);
+    assert.match(w.document.querySelector('#overlay-plugin-policy').textContent, /O 배포 승인 서명 필수/);
+    const beforeMissingApproval = calls.length;
+    await w.document.querySelector('#overlay-plugin-upload').onclick();
+    assert.equal(calls.length, beforeMissingApproval);
+    assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /OVERLAY_PLUGIN_APPROVAL_REQUIRED/);
+    assert.equal(w.document.querySelector('#overlay-plugin-file').files[0], uploadFile);
+    passed('Required server policy makes O approval mandatory before upload and preserves the selected binary');
+
+    pluginResponder = () => { throw Error('Approval preflight must not request'); };
+    for (const [value, code] of [
+      [{ ...approval, component: 'B' }, 'OVERLAY_PLUGIN_APPROVAL_COMPONENT_MISMATCH'],
+      [{ ...approval, version: '1.0.0' }, 'OVERLAY_PLUGIN_APPROVAL_VERSION_MISMATCH'],
+      [{ ...approval, sha256: 'e'.repeat(64) }, 'OVERLAY_PLUGIN_APPROVAL_HASH_MISMATCH'],
+      [{ ...approval, approval: { ...approval.approval, keyId: 'c'.repeat(64) } }, 'OVERLAY_PLUGIN_SIGNER_UNTRUSTED'],
+      [{ ...approval, approval: { ...approval.approval, signature: 'invalid' } }, 'OVERLAY_PLUGIN_APPROVAL_INVALID']
+    ]) {
+      const chosen = { size: 1024, text: async () => JSON.stringify(value) };
+      chooseFile('#overlay-plugin-approval', chosen); const before = calls.length;
+      await w.document.querySelector('#overlay-plugin-upload').onclick();
+      assert.equal(calls.length, before);
+      assert.match(w.document.querySelector('#overlay-plugin-result').textContent, new RegExp(code));
+      assert.equal(w.document.querySelector('#overlay-plugin-approval').files[0], chosen);
+      assert.equal(w.document.querySelector('#overlay-plugin-version').value, '2.0.0');
+    }
+    chooseFile('#overlay-plugin-approval', { size: 10, text: async () => '{bad JSON' });
+    const beforeInvalidJson = calls.length; await w.document.querySelector('#overlay-plugin-upload').onclick();
+    assert.equal(calls.length, beforeInvalidJson);
+    assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /OVERLAY_PLUGIN_APPROVAL_INVALID/);
+    passed('Wrong O component, version, hash, key, signature format and JSON each get precise local errors without changing the version');
+
+    const approvedFile = { size: 1024, text: async () => JSON.stringify(approval) };
+    chooseFile('#overlay-plugin-approval', approvedFile);
+    pluginResponder = () => response(pluginModel({ approval: requiredPolicy }));
+    await poll();
+    assert.equal(w.document.querySelector('#overlay-plugin-approval').files[0], approvedFile);
+    assert.equal(w.document.querySelector('#overlay-plugin-file').files[0], uploadFile);
+    assert.equal(w.document.querySelector('#overlay-plugin-version').value, '2.0.0');
+    passed('Policy refresh preserves the exact selected approval, native file and edited version');
+
     chooseFile('#overlay-plugin-approval', { size: 1024, text: async () => JSON.stringify({ ...approval, sha256: 'e'.repeat(64) }) });
     const beforeBadApproval = calls.length; await w.document.querySelector('#overlay-plugin-upload').onclick();
     assert.equal(calls.length, beforeBadApproval);
-    assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /버전·해시/);
+    assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /파일 해시가 다릅니다/);
     chooseFile('#overlay-plugin-approval', { size: 1024, text: async () => JSON.stringify(approval) });
     pluginResponder = request => {
       if (request.method === 'POST') {
         const url = new URL(request.url, 'https://fixture.invalid');
         assert.equal(url.pathname, pluginEndpoint); assert.equal(url.searchParams.get('version'), '2.0.0');
-        assert.equal(url.searchParams.get('fileName'), 'overlay.bin');
+        assert.equal(url.searchParams.get('fileName'), 'GameOverlayPlugin.bin');
         assert.equal(request.rawBody, uploadFile); assert.equal(request.headers['Content-Type'], 'application/octet-stream');
         assert.equal(request.headers['X-CSRF-Token'], 'OVERLAY_UI_CSRF');
         assert.equal(request.headers['x-game-release-key-id'], approval.approval.keyId);
         assert.equal(request.headers['x-game-release-signature'], approval.approval.signature);
+        assert.equal(request.headers['x-game-release-component'], 'O');
+        assert.equal(request.headers['x-game-release-version'], approval.version);
+        assert.equal(request.headers['x-game-release-sha256'], nativeHash);
         return response({ ok: true, artifact: pluginArtifact({ id: 'PLUGIN_TWO', version: '2.0.0' }), revision: 5, activeUnchanged: true });
       }
       return response(pluginModel({ revision: 5, artifacts: [pluginArtifact(), pluginArtifact({ id: 'PLUGIN_TWO', version: '2.0.0' })] }));
@@ -352,6 +405,17 @@ execute(source('admin-desktop-workflow.js'));
     assert.equal(calls.length, beforeRepeatPublish);
     passed('Explicit publication uses authoritative revision and shows only the returned active version');
 
+    pluginResponder = () => response({ ok: false, error: 'OVERLAY_PLUGIN_SIGNATURE_INVALID', problem: {
+      code: 'OVERLAY_PLUGIN_SIGNATURE_INVALID', title: '오버레이 승인 서명의 암호 검증에 실패했습니다.',
+      current: '등록된 공개키로 현재 O 구분·버전·파일 해시에 대한 서명을 검증하지 못했습니다.',
+      next: '같은 파일과 버전의 승인 JSON을 다시 생성하세요.', action: 'refresh'
+    } }, 403);
+    await w.document.querySelector('#overlay-plugin-upload').onclick();
+    assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /암호 검증에 실패/);
+    assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /OVERLAY_PLUGIN_SIGNATURE_INVALID/);
+    assert.equal(w.document.querySelector('#overlay-plugin-file').files[0], uploadFile);
+    passed('Matching local metadata does not bypass the server signature decision and its precise rejection');
+
     chooseFile('#overlay-plugin-approval', null);
     pluginResponder = () => response({ ok: false, error: 'OVERLAY_PLUGIN_ABI', message: '플러그인 ABI가 일치하지 않습니다.' }, 400);
     await w.document.querySelector('#overlay-plugin-upload').onclick();
@@ -368,6 +432,14 @@ execute(source('admin-desktop-workflow.js'));
     await close(view.pending);
 
     session(); view = await open(); chooseFile('#overlay-plugin-file', nativeFile());
+    pluginResponder = () => response(pluginModel({ approval: undefined })); await poll();
+    assert.match(w.document.querySelector('#overlay-plugin-policy').textContent, /승인 정책을 확인하지 못했습니다/);
+    assert.doesNotMatch(w.document.querySelector('#overlay-plugin-approval-label').textContent, /선택/);
+    const beforeUnknownPolicy = calls.length; await w.document.querySelector('#overlay-plugin-upload').onclick();
+    assert.equal(calls.length, beforeUnknownPolicy);
+    assert.match(w.document.querySelector('#overlay-plugin-result').textContent, /OVERLAY_PLUGIN_POLICY_UNAVAILABLE/);
+    passed('A stale backend without policy metadata directs the operator to update GameWeb before upload');
+    pluginResponder = () => response(pluginModel()); await poll();
     const uploading = deferred(); pluginResponder = () => uploading.promise;
     const pendingUpload = w.document.querySelector('#overlay-plugin-upload').onclick();
     await until(() => calls.at(-1).method === 'POST' && calls.at(-1).url.startsWith(pluginEndpoint + '?'));

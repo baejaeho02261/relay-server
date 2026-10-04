@@ -84,6 +84,21 @@ try {
     denied(inspect(item, 'B'), 'UPLOAD_COMPONENT_MISMATCH');
     denied(inspect(item, 'O', '94.1.1'), 'UPLOAD_VERSION_MISMATCH');
   });
+  test('Renaming GameOverlayPlugin.dll to GameOverlayPlugin.bin preserves the exact O approval', () => {
+    const bytes = dll(), original = path.join(temp, 'GameOverlayPlugin.dll');
+    const renamed = path.join(temp, 'GameOverlayPlugin.bin'), version = '94.1.0';
+    fs.writeFileSync(original, bytes);
+    const signed = SignRelease('O', version, original, key);
+    const output = path.join(temp, 'GameOverlayPlugin.approval.json');
+    fs.writeFileSync(output, JSON.stringify(signed));
+    fs.renameSync(original, renamed);
+    const checked = ok(inspect({ file: renamed, output, version, component: 'O' }));
+    assert.equal(checked.component, 'O');
+    assert.deepEqual(SignRelease('O', version, renamed, key), signed);
+    assert.deepEqual(fs.readFileSync(renamed), bytes);
+    const policy = { ...authority.Defaults(), requireReleaseSignature: true, trustedReleaseKeys: [signed.trustedKey] };
+    assert.equal(authority.VerifyApproval({ ...signed, releaseApproval: signed.approval }, policy), true);
+  });
   test('Wrong DLL flags, architecture, missing/forwarded/writable/noncode ABI exports fail before approval', () => {
     const invalid = [];
     let b = dll(); b.writeUInt16LE(0x22, 0x80 + 22); invalid.push(b);

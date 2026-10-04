@@ -48,7 +48,8 @@ async function authorize(item){
 async function complete(item){
  item.grant=await ok('bootstrap',item.completion);item.auth={action:'poll',sessionId:item.grant.sessionId,sessionToken:item.grant.sessionToken,deviceId:item.device.deviceId};
  await denied('OVERLAY_PLUGIN_NOT_READY','overlay',item.auth);
- const manifest=await ok('overlay',{...item.auth,action:'plugin-manifest'}),own={status:'MEASURED'},module={name:'overlay.bin',status:'MATCH_LOCAL_FILE',codeStatus:'MATCH_LOCAL_FILE',exportTableStatus:'MEASURED'};
+ const manifest=await ok('overlay',{...item.auth,action:'plugin-manifest'}),own={status:'MEASURED'},module={name:manifest.fileName,status:'MATCH_LOCAL_FILE',codeStatus:'MATCH_LOCAL_FILE',exportTableStatus:'MEASURED'};
+ assert.equal(manifest.fileName,'GameOverlayPlugin.bin');
  for(const key of ['sha256','crc64','xxh64','blake3']){const name='file'+key[0].toUpperCase()+key.slice(1);own[name]=manifest.host[key];module[name]=manifest[key];}
  for(const key of ['codeSha256','codeCrc64','codeXxh64','codeBlake3']){own[key]=manifest.host[key];module[key]=manifest[key];}
  for(const key of ['exportTableSha256','exportTableCrc64','exportTableXxh64','exportTableBlake3'])module[key]=manifest[key];
