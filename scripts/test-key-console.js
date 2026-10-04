@@ -1,0 +1,43 @@
+'use strict';
+// Real services and signed requests with synthetic PE data; no Windows execution.
+// All writes are restricted to a fresh temporary server DATA_DIR.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'game-key-console-'));
+Object.assign(process.env,{DATA_DIR:dir,STORAGE_ENGINE:'json',HA_ENABLED:'0',DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'29131'});
+require('../core/utils').EnsureDirs();
+const b=require('../services/desktopBootstrap'),d=require('../services/desktopLicenses'),w=require('../services/desktopWorkspace'),F=require('./desktop-bootstrap-fixture');
+let passed=0;
+function test(name,fn){fn();passed++;console.log('PASS '+name);}
+function bad(fn,code){assert.throws(fn,e=>e.message===code,code);}
+function proof(dev,session,action,extra,requestId=crypto.randomUUID()){
+ const payloadJSON=JSON.stringify({...F.Evidence(dev,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,...extra});
+ const base={action,requestId,deviceId:dev.deviceId,publicKey:dev.publicKey,payloadHash:F.sha256(payloadJSON)},challenge=d.Challenge(base);
+ return{...base,challengeId:challenge.challengeId,payloadJSON,signature:F.Sign(dev,challenge.canonical)};
+}
+function openIssued(dev,issue){
+ const bytes=b.LauncherBytes(issue.launcherId),c=F.Config(bytes),begin=b.Execute({action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:c.launcherTicket,launcherSha256:F.sha256(bytes),launcherCrc64:F.Crc64(bytes),aCodeSha256:F.CodeImage(bytes).sha256,aCodeCrc64:F.CodeImage(bytes).crc64,machineId:dev.machineId,deviceId:dev.deviceId,publicKey:dev.publicKey});
+ F.Download(begin);return F.Claim(dev,begin,F.Finish(dev,begin));
+}
+try{
+ let issue,body,dev,session,key,result,requestId,oldIssue,reserved,other,secondDev,secondSession;
+ test('Manual B publishes with no automatic-assignment capability',()=>{b.Publish('A','92.0',F.PE('A','UNCHANGED_LAUNCHER'));const v=b.Publish('B','92.0',F.PE('B','KEY_CONSOLE'));assert.equal(v.backgroundVersion,0);assert.equal(d.List().items.length,0);});
+ test('A can be issued while the server contains zero licenses',()=>{body={requestId:crypto.randomUUID(),label:'Console recipient'};issue=b.IssueLauncher(body,'TEST');assert.ok(issue.launcherId);assert.equal(d.List().items.length,0);assert.ok(!Object.hasOwn(b.Initialize().launchers[issue.launcherId],'assignedLicenseId'));});
+ test('Repeated A issue request returns the same file without making a license',()=>{assert.equal(b.IssueLauncher(body,'TEST').launcherId,issue.launcherId);assert.equal(d.List().items.length,0);});
+ test('The issued A profile has no license key, license ID or automatic marker',()=>{const text=JSON.stringify(F.Config(b.LauncherBytes(issue.launcherId)));for(const word of ['licenseKey','licenseId','assignedLicenseId','SERVER_ASSIGNED_V1'])assert.ok(!text.includes(word));});
+ test('A download and B claim succeed before any license is issued',()=>{dev=F.Device();session=openIssued(dev,issue);assert.equal(d.List().items.length,0);assert.equal(b.Execute({action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken}).licenseId,'');});
+ test('A manual B session rejects the old automatic marker',()=>{bad(()=>d.Execute(proof(dev,session,'redeem',{licenseKey:'SERVER_ASSIGNED_V1'})),'DESKTOP_KEY_INVALID');assert.equal(d.List().items.length,0);});
+ test('Missing and unknown keys do not implicitly consume or create licenses',()=>{bad(()=>d.Execute(proof(dev,session,'redeem',{licenseKey:''})),'DESKTOP_KEY_INVALID');bad(()=>d.Execute(proof(dev,session,'redeem',{licenseKey:'0'.repeat(64)})),'DESKTOP_KEY_INVALID');assert.equal(d.List().items.length,0);});
+ test('A key can be created separately after A issuance and B claim',()=>{key=d.Create({label:'User key',requestId:crypto.randomUUID()},'TEST');assert.equal(key.license.status,'AVAILABLE');assert.equal(b.Initialize().launchers[issue.launcherId].assignedLicenseId,undefined);});
+ test('Tampering with the signed request still fails without consuming the key',()=>{const p=proof(dev,session,'redeem',{licenseKey:key.licenseKey});p.signature='A'.repeat(342)+'==';bad(()=>d.Execute(p),'DESKTOP_PROOF_INVALID');assert.equal(d.Detail(key.license.id).license.status,'AVAILABLE');});
+ test('The entered key is consumed by the original signed proof path',()=>{requestId=crypto.randomUUID();result=d.Execute(proof(dev,session,'redeem',{licenseKey:key.licenseKey,appVersion:'92.0'},requestId));assert.equal(result.licenseId,key.license.id);assert.equal(result.status,'USED');assert.ok(result.activationToken);});
+ test('Lost-response retry uses the existing receipt without consuming a second key',()=>{const r=d.Execute(proof(dev,session,'redeem',{licenseKey:key.licenseKey,appVersion:'92.0'},requestId));assert.equal(r.activationToken,result.activationToken);assert.equal(d.List().items.length,1);});
+ test('The workspace still links A issuance, B claim and entered-key authentication',()=>{const info=w.Detail(key.license.id);assert.ok(info.timeline.some(x=>x.type==='LAUNCHER_ISSUED'&&x.launcherId===issue.launcherId));assert.ok(info.timeline.some(x=>x.type==='B_CLAIMED'));assert.ok(w.Query({q:'Console recipient'}).items.some(x=>x.id===key.license.id));assert.ok(w.Query({q:issue.launcherId}).items.some(x=>x.id===key.license.id));assert.ok(!JSON.stringify(info).includes(result.activationToken));assert.ok(!JSON.stringify(info).includes(key.licenseKey));});
+ test('Normal license renewal and release remain signed and session-bound',()=>{assert.equal(d.Execute(proof(dev,session,'verify',{activationToken:result.activationToken})).licenseId,key.license.id);assert.equal(d.Execute(proof(dev,session,'release',{activationToken:result.activationToken})).released,true);});
+ test('A consumed KEY is not reset or allowed on a different fresh device',()=>{const x=F.Device(),z=F.Begin(x);F.Download(z.begin);const s=F.Claim(x,z.begin,F.Finish(x,z.begin));bad(()=>d.Execute(proof(x,s,'redeem',{licenseKey:key.licenseKey})),'DESKTOP_KEY_USED');assert.equal(d.Detail(key.license.id).license.consumed,true);});
+ test('An old reserved A remains usable with a newer manual-input B',()=>{b.Publish('B','91.0',F.PE('B','SERVER_ASSIGNED_V1'));reserved=d.Create({label:'Historical reserved key',requestId:crypto.randomUUID()},'TEST');oldIssue=b.IssueLauncher({requestId:crypto.randomUUID(),label:'old reserved A',licenseId:reserved.license.id},'TEST');b.Publish('B','92.1',F.PE('B','KEY_CONSOLE_RESTORED'));secondDev=F.Device();secondSession=openIssued(secondDev,oldIssue);});
+ test('Historical A assignment cannot auto-authorize the new console build',()=>{bad(()=>d.Execute(proof(secondDev,secondSession,'redeem',{licenseKey:'SERVER_ASSIGNED_V1'})),'DESKTOP_KEY_INVALID');assert.equal(d.Detail(reserved.license.id).license.status,'AVAILABLE');});
+ test('The user-entered valid KEY wins over unused historical A assignment metadata',()=>{other=d.Create({label:'Actually entered key',requestId:crypto.randomUUID()},'TEST');const r=d.Execute(proof(secondDev,secondSession,'redeem',{licenseKey:other.licenseKey}));assert.equal(r.licenseId,other.license.id);assert.equal(d.Detail(reserved.license.id).license.status,'AVAILABLE');assert.equal(b.Initialize().launchers[oldIssue.launcherId].assignedLicenseId,reserved.license.id);assert.equal(w.Detail(reserved.license.id).flows.length,0);assert.ok(w.Detail(other.license.id).flows.some(x=>x.launcherId===oldIssue.launcherId));});
+ test('Console restoration uses existing KEY input, paste and cleanup handlers',()=>{const native=path.resolve(__dirname,'../../GameConnect_Win64'),text=fs.readFileSync(path.join(native,'Game.Console.pas'),'utf8'),entry=text.split('function RunGameConsole: Integer;').at(-1);assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(')<entry.indexOf('if not AllocConsole'));for(const word of ['Console := TConsoleSession.Create(Api, Context);','Result := Console.Run;','SetConsoleCtrlHandler(@ConsoleControlHandler, True)','Console.Free;'])assert.ok(entry.includes(word),word);for(const word of ['FWorker.SubmitKey(Key)','ReadClipboardKey','WipeText(Key)'])assert.ok(text.includes(word),word);assert.ok(!text.includes('SERVER_ASSIGNED_V1'));assert.ok(!fs.readFileSync(path.join(native,'Game.Api.pas'),'utf8').includes('SERVER_ASSIGNED_V1'));});
+ console.log(`KEY console restoration: ${passed} scenarios passed. Server proofs/fixtures and source checks only; Windows UI not executed.`);
+}catch(e){console.error(e);process.exitCode=1;}
+finally{w.Stop();fs.rmSync(dir,{recursive:true,force:true});}

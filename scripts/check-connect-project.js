@@ -53,9 +53,12 @@ for(const name of ['GameConnect','GameLauncher'])assert.ok(read(name+'.dproj').i
 
 const consoleSource = read('Game.Console.pas');
 const entry = consoleSource.slice(consoleSource.indexOf('function RunGameConsole: Integer;', consoleSource.indexOf('implementation')));
-assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') >= 0 && entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('Worker.StartChecks'), 'User worker must start only after authenticated handoff and cleanup');
-assert.ok(entry.includes("Worker.SubmitKey('SERVER_ASSIGNED_V1')"));
-assert.ok(!entry.includes('if not AllocConsole'), 'User entry must not open a console');
+assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') >= 0 && entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('if not AllocConsole'), 'User console must start only after authenticated handoff and cleanup');
+assert.ok(entry.indexOf('Api.CheckIntegrity;') < entry.indexOf('if not AllocConsole'));
+assert.ok(entry.includes('Console := TConsoleSession.Create(Api, Context);') && entry.includes('Result := Console.Run;'));
+assert.ok(consoleSource.includes('FWorker.SubmitKey(Key)'));
+assert.ok(!consoleSource.includes('SERVER_ASSIGNED_V1'));
+assert.ok(!read('Game.Api.pas').includes('SERVER_ASSIGNED_V1'));
 assert.ok(!/\b(?:WriteLn|ShowMessage|MessageBox)\s*\(/i.test(consoleSource), 'User diagnostics must remain silent');
 for (const name of fs.readdirSync(root)) {
   if (!/\.(?:pas|dpr|dproj|bat|inc)$/.test(name)) continue;

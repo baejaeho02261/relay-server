@@ -132,6 +132,30 @@ with sync_playwright() as p:
         page.evaluate("session={csrf:'NEW_ADMIN_SESSION',role:'admin'};desktopWorkflowOwner();")
         assert page.evaluate('desktopSelectedLicenses.size')==0
     test('Browser selection is session-bound RAM and is cleared on session change',selection)
+    fresh()
+    def launcher_form():
+        openfn('createDesktopLauncher()','[data-modal-field="label"]')
+        assert page.locator('[data-modal-field="licenseId"]').count()==0
+        assert page.evaluate('calls.length')==0
+        assert 'KEY' in page.locator('#modal-body').inner_text()
+    test('A issuance form opens without fetching or requiring available licenses',launcher_form)
+    def launcher_cancel():
+        close()
+        assert not page.evaluate("calls.some(x=>x.method==='POST')")
+    test('Cancelling A issuance creates neither A nor a license',launcher_cancel)
+    def launcher_submit():
+        page.evaluate("()=>{const old=mock;mock=async(p,o)=>p==='/api/desktop/bootstrap/launchers'?{launcherId:'A'.repeat(24),downloadName:'a'.repeat(32)+'.exe',downloadUrl:'/api/desktop/bootstrap/launchers/'+('A'.repeat(24))+'/download',expiresAt:1}:old(p,o);}")
+        openfn('createDesktopLauncher()','[data-modal-field="label"]')
+        page.locator('[data-modal-field="label"]').fill('콘솔 사용자')
+        page.click('#modal-confirm')
+        page.wait_for_selector('#desktop-launcher-download')
+        body=page.evaluate("calls.find(x=>x.path==='/api/desktop/bootstrap/launchers').body")
+        assert set(body)=={'requestId','label'}
+        assert body['label']=='콘솔 사용자'
+        assert 'KEY' in page.locator('#modal-body').inner_text()
+        assert '입력창 없이' not in page.locator('#modal-body').inner_text()
+        close()
+    test('A issuance submits only its request ID and label; receipt explains KEY input',launcher_submit)
     assert not page.evaluate('errors'),page.evaluate('errors')
     test('No unhandled promise rejection in the exercised administrator paths',lambda:None)
     browser.close()
