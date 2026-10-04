@@ -1,8 +1,8 @@
 {
   "webAdminVersion": "5.0.1",
-  "uiRevision": "game-console-91",
+  "uiRevision": "game-console-92",
   "files": {
-    "index.html": "d1158d6c9395cf535234cec542a5e5b3938d2701814d101eb9c3dd965be49cbb",
+    "index.html": "b849cda3768bbf2929a54fe3dd748e32ea053865dd00abc03101bc0506034e5f",
     "admin.css": "418c8ffc7fe91376dfc75b04b4f2e8dc62caf436cfd931e8089738d331d23cd0",
     "admin-theme.css": "ab981b94df03c3130ef2515c5b0846f82381bd61a3a0086760396dfbcc1e4fc7",
     "admin-appearance.css": "1fd249b49ff85a27c79ba5fc6cb358c165ec0e0d38c16927795ef25195d4f1d3",
@@ -12,7 +12,7 @@
     "admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "admin-navigation.css": "b4dfe7add02b3459ccafe03bf048b6f705c2cdd97e15a2fa57c30135e5ade104",
     "admin-i18n.js": "241828ff4f1da3ce57b9c1e8d9261f12878a80ee79e73c3c3ea079a05955cb63",
-    "admin.js": "eb379bf6904bb16d7a61af0082b7e8f58840e88b0c2a169cfe43b2d7977ee100",
+    "admin.js": "5dfea73ae71d3e8684ff86604e1f7661e3d8eacc6333562a9b32cd811eca4ecc",
     "admin-navigation.js": "4b5470a7895ad167aa9e98ac80aeaf9c408f0289ada61202d3ad618abe2c8807",
     "admin-pages-monitoring.js": "3e5ce63308968502a229d6e800fd39efeb28046bfefad3c5748bdf78eaedb8f1",
     "admin-terminal.js": "55bf9bce7e1629e589b44cbd30c4f2a432e8cfa90c35732c5fbe4e903023c483",
@@ -35,12 +35,12 @@
     "admin-actions.js": "1aa996e0652b6f079e641f8785f1c3c369148df26ba3540efdf1912217d493a8",
     "icons/game.svg": "d96ab892c3e4cc217ecf804e1bcdb8635ce17cb548acac07a1cb654c58136d8b",
     "admin-palette.js": "244f0e1d402c816d7f09be67c43d76a62d87d1da588ed51a8ad99f03e10697ce",
-    "admin-desktop-licenses.js": "efac77197c4efff275c2d6edaf3f3f745054371c9f15ecd7c3cb37f86397d882",
+    "admin-desktop-licenses.js": "044cf44e73a9f5813bb7a7165a47709e2856b890b5f3cfe0767452db04cfea13",
     "admin-desktop-security.js": "5633b52bd48bc79ce51e9b2fd14c0b727cbbf8644e8a01c7da61d23c1bb81d79",
     "admin-desktop-workflow.js": "3d6321694aa24316f0c1289188aa197cbd435229f7b7a6a4ca77cfbcdec58ccf",
     "admin-desktop.css": "61565a07007d4ed8c66991e4e7e99e490ff4e60de951e0234ffc260ab37fd20b",
     "admin-pages-production.js": "eada9601f15ce351070c09500c0e880a5dbd95faa72288c7a165f722b3e818f1",
-    "service-worker.js": "f5063cd11397631afc7d5eec45848314a88dda6d683c2c48abecda8d3efda11f",
+    "service-worker.js": "7eaca2ce84e358c1e61fad94b63ccda8ac7bd8db0a1890100fd6a01693d1288d",
     "ui-refresh.html": "f187ed39e3847c0cab81785762e67f014dd8a480677d31e3bbccdd4301ae21e9",
     "ui-refresh.js": "18c00a09bdc6409509b42ce6a7d4e5480d6edd1e7feabcd575aafa6922e42dac"
   }
