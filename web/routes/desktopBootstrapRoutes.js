@@ -15,6 +15,7 @@ function ReadBytes(req){
 // web server has already authenticated the session; repeat CSRF/admin checks
 // here so this special path cannot accidentally bypass either gate.
 async function HandleUpload({method,pathname,url,req,res,session}){
+ if(await require('./desktopOverlayRoutes').HandleUpload({method,pathname,url,req,res,session}))return true;
  if(!['/api/desktop/bootstrap/artifacts','/api/desktop/bootstrap/module-baselines'].includes(pathname))return false;
  if(pathname==='/api/desktop/bootstrap/module-baselines'&&method==='GET')return false;
  if(!RequireAdmin(res,session))return true;

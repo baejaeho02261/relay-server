@@ -5,7 +5,7 @@ const rows={
  ROLE_NOT_CONFIGURED:['선택한 로그인 권한이 설정되지 않았습니다.','해당 권한의 서버 로그인 설정을 사용할 수 없습니다.','사용할 권한의 서버 비밀번호 설정을 확인하세요.','login'],
  AUTH_RATE_LIMITED:['로그인 시도 횟수를 초과했습니다.','반복된 인증 실패로 로그인이 일시 제한되었습니다.','잠시 기다린 뒤 권한과 비밀번호를 확인하고 다시 로그인하세요.','login'],
  ORIGIN_NOT_ALLOWED:['접속 주소를 확인하지 못했습니다. (ORIGIN_NOT_ALLOWED)','브라우저 주소와 서버의 관리자 웹 주소가 일치하지 않습니다.','정식 관리자 웹 주소로 접속하고 서버의 WEB_ADMIN_PUBLIC_ORIGIN 또는 프록시 설정을 확인하세요.','login'],
- SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 EXE/승인 JSON을 확인하세요.','security'],
+ SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B/O 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 실행 파일·플러그인/승인 JSON을 확인하세요.','security'],
  SECURITY_SIGNER_NOT_ACTIVE:['서명자가 신규 배포를 허용하지 않습니다.','키가 전환 중이거나 철회된 상태입니다.','서명자 상태를 확인하고 허용된 키로 서명한 파일을 사용하세요.','security'],
  WORKSPACE_LICENSE_REQUIRED:['현재 운영 B가 콘솔 없는 이전 자동 인증 버전입니다.','이전 B는 서버 사전 배정이 필요하며, 새 KEY 입력 방식은 아직 운영 게시되지 않았습니다.','새 버전 배포에서 KEY 입력을 복원한 B를 빌드·서명·게시한 뒤 A를 다시 발급하세요. 기존 A 버전은 유지할 수 있습니다.','deploy'],
  WORKSPACE_LICENSE_RESERVED:['다른 A에 연결된 라이선스입니다.','아직 유효한 다른 발급 A 또는 실행이 이 라이선스를 사용합니다.','중복 배정하지 말고 다른 사용 전 라이선스를 선택하세요.','licenses'],
@@ -32,6 +32,7 @@ const rows={
 };
 function Explain(code){
  if(typeof code!=='string'||!/^[-A-Z0-9_]{1,80}$/.test(code))code='REQUEST_FAILED';
- const r=rows[code];return {code,title:r?.[0]||'요청을 완료하지 못했습니다.',current:r?.[1]||'해당 작업의 완료를 확인하지 못했습니다.',next:r?.[2]||'서버 상태를 새로고침하고 상세 오류 코드를 확인하세요.',action:r?.[3]||'refresh'};
+ const pluginMessage=require('./desktopOverlayPlugin').messages[code];
+ const r=rows[code]||(pluginMessage?[pluginMessage,'플러그인 작업을 완료하거나 표시를 승인하지 않았습니다.','오버레이 설정에서 현재 파일·서명·운영 게시 상태를 확인하고 다시 시도하세요.','refresh']:null);return {code,title:r?.[0]||'요청을 완료하지 못했습니다.',current:r?.[1]||'해당 작업의 완료를 확인하지 못했습니다.',next:r?.[2]||'서버 상태를 새로고침하고 상세 오류 코드를 확인하세요.',action:r?.[3]||'refresh'};
 }
 module.exports={Explain};

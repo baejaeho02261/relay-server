@@ -8,6 +8,7 @@ process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
 require('../core/utils').EnsureDirs();
 const fixture=require('./desktop-bootstrap-fixture'),licenses=require('../services/desktopLicenses'),boot=require('../services/desktopBootstrap'),store=require('../services/desktopBootstrapStore'),overlay=require('../services/desktopOverlay'),state=require('../core/state');
 const transport=require('../services/desktopConnect'),keys=require('../services/connectTransportKey'),wire=require('./tls-request-fixture'),server=transport.CreateServer();
+const plugins=require('../services/desktopOverlayPlugin');
 let profile,checks=0;
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
 const request=(operation,body)=>wire.Request(profile,operation,body);
@@ -44,7 +45,16 @@ async function authorize(item){
  item.completion={action:'completeLicense',requestId:crypto.randomUUID(),sessionId:item.session.sessionId,sessionToken:item.session.sessionToken,deviceId:item.device.deviceId,activationToken:item.license.activationToken};
  return item;
 }
-async function complete(item){item.grant=await ok('bootstrap',item.completion);item.auth={action:'poll',sessionId:item.grant.sessionId,sessionToken:item.grant.sessionToken,deviceId:item.device.deviceId};return item;}
+async function complete(item){
+ item.grant=await ok('bootstrap',item.completion);item.auth={action:'poll',sessionId:item.grant.sessionId,sessionToken:item.grant.sessionToken,deviceId:item.device.deviceId};
+ await denied('OVERLAY_PLUGIN_NOT_READY','overlay',item.auth);
+ const manifest=await ok('overlay',{...item.auth,action:'plugin-manifest'}),own={status:'MEASURED'},module={name:'overlay.bin',status:'MATCH_LOCAL_FILE',codeStatus:'MATCH_LOCAL_FILE',exportTableStatus:'MEASURED'};
+ for(const key of ['sha256','crc64','xxh64','blake3']){const name='file'+key[0].toUpperCase()+key.slice(1);own[name]=manifest.host[key];module[name]=manifest[key];}
+ for(const key of ['codeSha256','codeCrc64','codeXxh64','codeBlake3']){own[key]=manifest.host[key];module[key]=manifest[key];}
+ for(const key of ['exportTableSha256','exportTableCrc64','exportTableXxh64','exportTableBlake3'])module[key]=manifest[key];
+ const payload=JSON.stringify({version:1,hashVersion:2,check:'MODULE_INVENTORY',reason:'PERIODIC',scope:'current-process',trust:'client-reported',snapshotId:manifest.reportId,batchIndex:0,batchCount:1,complete:true,truncated:false,totalModules:1,measuredModules:1,own,modules:[module]});
+ item.pluginReady=await ok('overlay',{...item.auth,action:'plugin-report',pluginId:manifest.pluginId,reportId:manifest.reportId,payload});assert.equal(item.pluginReady.status,'READY');return item;
+}
 const flowFor=item=>Object.values(store.Load().flows).find(row=>row.sessionId===item.session.sessionId);
 async function admin(method,pathname,body={},session={role:'admin',id:'TEST',csrf:'csrf-token'},headers={}){
  let status,result,responseHeaders;
@@ -55,6 +65,8 @@ async function admin(method,pathname,body={},session={role:'admin',id:'TEST',csr
 (async()=>{
  try{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));process.env.DESKTOP_PUBLIC_PORT=String(server.address().port);profile=keys.Profile();
+  const pluginBytes=require('./test-desktop-pe-exports').Fixture();pluginBytes.writeUInt32LE(8400,1072);pluginBytes.write('GameOverlayRunV1\0',1232,'ascii');
+  const plugin=plugins.Stage('1.0.0',pluginBytes,undefined,'TEST');plugins.Activate({id:plugin.id,expectedRevision:plugins.Overview().revision},'TEST');
   let item=await newSession();
   await check('No overlay capability before successful license redemption',async()=>{
    await denied('OVERLAY_NOT_AUTHORIZED','bootstrap',{action:'completeLicense',requestId:crypto.randomUUID(),sessionId:item.session.sessionId,sessionToken:item.session.sessionToken,deviceId:item.device.deviceId,activationToken:'0'.repeat(64)});
@@ -107,7 +119,7 @@ async function admin(method,pathname,body={},session={role:'admin',id:'TEST',csr
    await denied('OVERLAY_SESSION_CLOSED','overlay',item.auth);await denied('OVERLAY_SESSION_CLOSED','bootstrap',item.completion);
   });
   await check('Disconnected overlays expire and cannot be revived by polling',async()=>{
-   item=await complete(await authorize(await newSession()));const original=Date.now,after=item.grant.leaseExpiresAt+1;Date.now=()=>after;
+   item=await complete(await authorize(await newSession()));const original=Date.now,after=item.pluginReady.leaseExpiresAt+1;Date.now=()=>after;
    try{await denied('OVERLAY_EXPIRED','overlay',item.auth);}finally{Date.now=original;}
    await denied('OVERLAY_SESSION_CLOSED','overlay',item.auth);
   });

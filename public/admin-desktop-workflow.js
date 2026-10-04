@@ -1,21 +1,47 @@
 'use strict';
 async function showDesktopOverlay(){
  if(!roleIsAdmin())return;
- const owner=desktopWorkflowOwner(),endpoint='/api/desktop/bootstrap/overlay';
- let model=await api(endpoint),busy=false,stopped=false,timer=null,readController=null;
+ const owner=desktopWorkflowOwner(),endpoint='/api/desktop/bootstrap/overlay',pluginEndpoint=endpoint+'/plugins';
+ let [model,plugins]=await Promise.all([api(endpoint),api(pluginEndpoint)]),busy=false,stopped=false,timer=null;
+ const controllers=new Set();
  if(session?.csrf!==owner)return;
- const pending=openModal({title:'오버레이 발급 · 표시 설정',message:'라이선스 인증을 마친 PC에만 오버레이가 발급됩니다. 표시 내용과 권한은 서버에서 관리합니다.',html:`<div id="desktop-overlay-editor"><label><input id="overlay-enabled" type="checkbox"> 오버레이 발급 및 갱신 허용</label><label>제목<input id="overlay-title" maxlength="120"></label><label>내용 (최대 8줄, 한 줄 240자)<textarea id="overlay-lines" rows="8" maxlength="1927"></textarea></label><label>화면 테마<select id="overlay-theme"><option value="dark">다크</option><option value="light">라이트</option></select></label><div class="actions"><button type="button" id="overlay-save">서버에 저장</button><button type="button" id="overlay-reload">서버 내용 다시 읽기</button><a href="/api/desktop/bootstrap/overlay/module.dat" download="overlay.dat">표시 데이터 내려받기</a></div><p id="overlay-status" role="status" aria-live="polite"></p><p id="overlay-version" class="small-note"></p><h4>오버레이 실행 권한</h4><p class="small-note">권한 회수와 발급 중지는 다음 서버 확인 시 적용됩니다. 연결이 끊기면 최대 30초의 유효기간 후 화면이 닫힙니다.</p><p id="overlay-session-status" class="small-note" role="status">권한 목록은 4초마다 자동 갱신됩니다.</p><div id="overlay-sessions"></div></div>`,confirmLabel:'닫기'});
+ const pending=openModal({title:'오버레이 발급 · 표시 설정',message:'B의 라이선스 인증 화면이 닫힌 뒤 같은 프로세스에서 별도 플러그인을 표시합니다. 표시 내용과 실행 권한은 서버에서 관리합니다.',html:`<div id="desktop-overlay-editor"><fieldset><legend>오버레이 플러그인 · overlay.bin</legend><p class="small-note">A의 실행 흐름은 유지됩니다. B를 갱신한 뒤 빌드한 .bin을 등록하고 운영 게시하세요. 파일 등록만으로 운영 버전이 바뀌지는 않습니다.</p><label>플러그인 파일 (최대 16MB)<input id="overlay-plugin-file" type="file" accept=".bin"></label><label>버전<input id="overlay-plugin-version" maxlength="40" value="1.0.0"></label><label>공개 승인 JSON (서버 정책에서 요구할 때)<input id="overlay-plugin-approval" type="file" accept=".json"></label><p class="small-note">개인키는 업로드하지 않습니다. 표시 데이터(.dat)는 실행 플러그인이 아닙니다.</p><button type="button" id="overlay-plugin-upload">파일 확인 · 후보 등록</button><label>플러그인 후보<select id="overlay-plugin-candidate"></select></label><div class="actions"><button type="button" id="overlay-plugin-publish">선택 플러그인 운영 게시</button><button type="button" id="overlay-plugin-reload">플러그인 상태 다시 읽기</button></div><div id="overlay-plugin-result" role="status" aria-live="polite"></div><div id="overlay-plugin-state"></div></fieldset><label><input id="overlay-enabled" type="checkbox"> 오버레이 발급 및 갱신 허용</label><label>제목<input id="overlay-title" maxlength="120"></label><label>내용 (최대 8줄, 한 줄 240자)<textarea id="overlay-lines" rows="8" maxlength="1927"></textarea></label><label>화면 테마<select id="overlay-theme"><option value="dark">다크</option><option value="light">라이트</option></select></label><div class="actions"><button type="button" id="overlay-save">서버에 저장</button><button type="button" id="overlay-reload">서버 내용 다시 읽기</button><a href="/api/desktop/bootstrap/overlay/module.dat" download="overlay.dat">표시 데이터 내려받기</a></div><p id="overlay-status" role="status" aria-live="polite"></p><p id="overlay-version" class="small-note"></p><h4>오버레이 실행 권한</h4><p class="small-note">권한 회수와 발급 중지는 다음 서버 확인 시 적용됩니다. 연결이 끊기면 최대 30초의 유효기간 후 화면이 닫힙니다.</p><p id="overlay-session-status" class="small-note" role="status">권한 목록은 4초마다 자동 갱신됩니다.</p><div id="overlay-sessions"></div></div>`,confirmLabel:'닫기'});
  const root=document.getElementById('desktop-overlay-editor'),status=root.querySelector('#overlay-status'),sessionStatus=root.querySelector('#overlay-session-status');
+ const pluginResult=root.querySelector('#overlay-plugin-result'),candidate=root.querySelector('#overlay-plugin-candidate');
  const live=()=>!stopped&&root.isConnected&&session?.csrf===owner;
- function stop(){stopped=true;if(timer!==null){clearInterval(timer);timer=null;}if(readController){readController.abort();readController=null;}}
- async function readModel(){
-  const controller=new AbortController();readController=controller;
-  const deadline=setTimeout(()=>controller.abort(),10000);
-  try{return await api(endpoint,{signal:controller.signal});}
-  finally{clearTimeout(deadline);if(readController===controller)readController=null;}
+ function stop(){stopped=true;if(timer!==null){clearInterval(timer);timer=null;}for(const controller of controllers)controller.abort();controllers.clear();}
+ async function request(url,options={},timeout=10000){
+  const controller=new AbortController();controllers.add(controller);
+  const deadline=setTimeout(()=>controller.abort(),timeout);
+  try{return await api(url,{...options,signal:controller.signal});}
+  finally{clearTimeout(deadline);controllers.delete(controller);}
+ }
+ async function readState(){
+  const results=await Promise.allSettled([request(endpoint),request(pluginEndpoint)]);
+  for(const result of results)if(result.status==='rejected')throw result.reason;
+  return results.map(result=>result.value);
+ }
+ function pluginPhase(row){
+  if(!row.pluginId)return '플러그인 미지정';
+  const phase={PENDING:'플러그인 설치 대기',INSTALLING:'플러그인 · 무결성 확인 중',READY:'서버 무결성 확인됨'}[row.pluginPhase]||'플러그인 상태 미확인';
+  return phase+(row.pluginPhase==='READY'&&row.pluginVerifiedAt>0?' · '+desktopDate(row.pluginVerifiedAt):'');
  }
  function showSessions(rows){
-  root.querySelector('#overlay-sessions').innerHTML=(rows||[]).length?`<div class="table-wrap"><table><thead><tr><th>실행 권한</th><th>라이선스</th><th>상태</th><th>최근 확인</th><th>관리</th></tr></thead><tbody>${rows.map(row=>`<tr><td class="code">${esc(row.id)}</td><td class="code">${esc(row.licenseId)}</td><td>${esc(row.status)}</td><td>${desktopDate(row.lastSeenAt)}</td><td>${row.status==='ACTIVE'?`<button type="button" class="danger" data-overlay-revoke="${esc(row.id)}">권한 회수</button>`:'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p>발급된 오버레이 실행 권한이 없습니다. PC의 라이선스 완료 요청이 서버에 도착해야 발급됩니다. 최신 A/B를 운영 게시한 뒤 새 A를 발급해 실행하세요.</p>';
+  root.querySelector('#overlay-sessions').innerHTML=(rows||[]).length?`<div class="table-wrap"><table><thead><tr><th>실행 권한</th><th>라이선스</th><th>상태</th><th>최근 확인</th><th>관리</th></tr></thead><tbody>${rows.map(row=>`<tr><td class="code">${esc(row.id)}</td><td class="code">${esc(row.licenseId)}</td><td>${esc(row.status)}<br><span class="small-note">${pluginPhase(row)}</span></td><td>${desktopDate(row.lastSeenAt)}</td><td>${row.status==='ACTIVE'?`<button type="button" class="danger" data-overlay-revoke="${esc(row.id)}">권한 회수</button>`:'—'}</td></tr>`).join('')}</tbody></table></div>`:'<p>발급된 오버레이 실행 권한이 없습니다. B의 라이선스 완료 요청이 서버에 도착해야 발급됩니다. A의 실행 흐름은 유지하고, B 갱신과 .bin 플러그인 운영 게시를 확인하세요.</p>';
+ }
+ function pluginActions(){
+  const selected=(plugins.artifacts||[]).find(row=>row.id===candidate.value);
+  root.querySelector('#overlay-plugin-publish').disabled=busy||!selected?.eligible||selected.active;
+ }
+ function showPlugins(next,preferred=''){
+  plugins=next;const selected=preferred||candidate.value||plugins.activeId,rows=plugins.artifacts||[];
+  candidate.innerHTML=rows.length?rows.map(row=>`<option value="${esc(row.id)}"${row.eligible?'':' disabled'}>${esc(row.version)} · ${esc(row.sha256.slice(0,12))}${row.active?' · 현재 운영':''}${row.eligible?'':' · 게시 불가'}</option>`).join(''):'<option value="">등록된 플러그인 없음</option>';
+  if(rows.some(row=>row.id===selected))candidate.value=selected;
+  const active=rows.find(row=>row.id===plugins.activeId&&row.active);
+  const current=active?`운영 버전 ${esc(active.version)} · ${plugins.ready&&active.eligible?'서버 사용 가능':'사용 불가'}`:'운영 게시된 플러그인이 없습니다.';
+  const details=rows.map(row=>`<details><summary>${esc(row.version)}${row.active?' · 현재 운영':' · 후보'} · ${Math.ceil(row.size/1024)}KB</summary><p>${row.eligible?'서버 검사 통과':'서버 검사 보류: '+esc(row.reason||'상태 확인 필요')} · ${row.signaturePresent?(row.signatureValid?'승인 서명 확인됨':'승인 서명 확인 실패'):'승인 서명 없음'}</p><p class="small-note">파일 SHA-256: <code>${esc(row.sha256)}</code><br>코드 SHA-256: <code>${esc(row.codeSha256||'확인되지 않음')}</code><br>모듈 내보내기 SHA-256: <code>${esc(row.exportTableSha256||'확인되지 않음')}</code></p></details>`).join('');
+  root.querySelector('#overlay-plugin-state').innerHTML=`<p>${current}</p>${details}`;
+  pluginActions();
  }
  function show(){
   root.querySelector('#overlay-enabled').checked=model.enabled;
@@ -25,19 +51,52 @@ async function showDesktopOverlay(){
   root.querySelector('#overlay-version').textContent='표시 버전 '+model.version+' · SHA-256 '+model.documentSha256;
   showSessions(model.sessions);
  }
- function lock(value,freezeForm=true){busy=value;for(const el of root.querySelectorAll('button'))el.disabled=value;if(freezeForm)for(const el of root.querySelectorAll('input,select,textarea'))el.disabled=value;}
+ function lock(value,freezeForm=true){busy=value;for(const el of root.querySelectorAll('button'))el.disabled=value;if(freezeForm)for(const el of root.querySelectorAll('input,select,textarea'))el.disabled=value;pluginActions();}
  async function refreshSessions(){
   if(!live()){stop();return;}
   if(busy||document.hidden)return;
   lock(true,false);
   try{
-   const next=await readModel();
-   // Automatic reads never replace the draft or its optimistic-lock version.
-   if(live()){showSessions(next.sessions);sessionStatus.textContent='권한 목록은 4초마다 자동 갱신됩니다.';}
+   const [next,nextPlugins]=await readState();
+   // Automatic reads preserve display drafts, version input and selected files.
+   if(live()){showSessions(next.sessions);showPlugins(nextPlugins);sessionStatus.textContent='권한 목록은 4초마다 자동 갱신됩니다.';}
   }catch(_){if(live())sessionStatus.textContent='권한 목록을 갱신하지 못했습니다. 다음 확인에서 다시 시도합니다.';}
   finally{if(live())lock(false);else stop();}
  }
- show();
+ show();showPlugins(plugins);
+ candidate.onchange=pluginActions;
+ root.querySelector('#overlay-plugin-upload').onclick=async()=>{
+  if(busy||!live())return;
+  const file=root.querySelector('#overlay-plugin-file').files[0],version=root.querySelector('#overlay-plugin-version').value.trim(),approvalFile=root.querySelector('#overlay-plugin-approval').files[0];
+  if(!file||!file.size||file.size>Math.min(plugins.maxBytes||16777216,16777216)||!file.name.toLowerCase().endsWith('.bin')||!/^\d{1,9}(?:\.\d{1,9}){0,3}$/.test(version)){pluginResult.textContent='16MB 이하의 .bin 파일과 올바른 버전을 선택하세요.';return;}
+  lock(true);
+  try{
+   pluginResult.textContent='선택한 파일을 확인하고 있습니다.';
+   const digest=await desktopFileHash(file);if(!live())return;
+   const headers={};
+   if(approvalFile){const approved=await desktopApprovalRead(approvalFile,'O');if(!live())return;if(approved.version!==version||approved.sha256!==digest)throw Error('플러그인 파일의 버전·해시와 공개 승인 JSON이 다릅니다. 같은 빌드의 파일을 선택하세요.');headers['x-game-release-key-id']=approved.approval.keyId;headers['x-game-release-signature']=approved.approval.signature;}
+   pluginResult.textContent='서버에서 플러그인과 무결성을 검증하고 있습니다.';
+   const saved=await request(pluginEndpoint+'?'+new URLSearchParams({version,fileName:file.name}),{method:'POST',rawBody:file,headers},120000);
+   if(!live())return;
+   if(!saved.artifact||saved.artifact.sha256!==digest)throw Error('서버에서 확인한 파일 해시가 다릅니다. 운영 게시하지 말고 파일을 다시 확인하세요.');
+   const next=await request(pluginEndpoint);if(live()){showPlugins(next,saved.artifact.id);pluginResult.textContent='후보 등록 완료. 선택한 플러그인을 운영 게시해야 새 인증에서 사용할 수 있습니다.';}
+  }catch(error){if(live())desktopWorkflowError(pluginResult,error);}
+  finally{if(live())lock(false);else stop();}
+ };
+ root.querySelector('#overlay-plugin-publish').onclick=async()=>{
+  if(busy||!live())return;
+  const selected=(plugins.artifacts||[]).find(row=>row.id===candidate.value);if(!selected?.eligible||selected.active)return;
+  lock(true);
+  try{const next=await request(pluginEndpoint+'/activate',{method:'POST',body:{id:selected.id,expectedRevision:plugins.revision}});if(live()){showPlugins(next,selected.id);pluginResult.textContent=next.ready&&next.activeId===selected.id?'선택한 플러그인을 운영 게시했습니다. B의 다음 라이선스 인증에서 적용됩니다.':'서버 응답에서 운영 사용 가능 상태를 확인하지 못했습니다. 플러그인 상태를 다시 읽으세요.';}}
+  catch(error){if(live())desktopWorkflowError(pluginResult,error);}
+  finally{if(live())lock(false);else stop();}
+ };
+ root.querySelector('#overlay-plugin-reload').onclick=async()=>{
+  if(busy||!live())return;lock(true);
+  try{const next=await request(pluginEndpoint);if(live()){showPlugins(next);pluginResult.textContent='서버의 플러그인 상태를 읽었습니다.';}}
+  catch(error){if(live())desktopWorkflowError(pluginResult,error);}
+  finally{if(live())lock(false);else stop();}
+ };
  root.querySelector('#overlay-save').onclick=async()=>{
   if(busy||!live())return;
   const title=root.querySelector('#overlay-title').value.trim(),text=root.querySelector('#overlay-lines').value;
@@ -45,21 +104,21 @@ async function showDesktopOverlay(){
   if(!title||title.length>120||lines.length>8||lines.some(line=>line.length>240)){status.textContent='제목과 내용의 길이를 확인하세요.';return;}
   lock(true);
   try{
-   const next=await api(endpoint,{method:'POST',body:{expectedVersion:model.version,enabled:root.querySelector('#overlay-enabled').checked,document:{schema:1,format:'GAME-OVERLAY-DATA-1',title,lines,theme:root.querySelector('#overlay-theme').value}}});
+   const next=await request(endpoint,{method:'POST',body:{expectedVersion:model.version,enabled:root.querySelector('#overlay-enabled').checked,document:{schema:1,format:'GAME-OVERLAY-DATA-1',title,lines,theme:root.querySelector('#overlay-theme').value}}});
    if(live()){model=next;show();status.textContent='서버에 저장했습니다. 실행 중인 오버레이는 다음 확인에서 새 내용을 받습니다.';}
   }catch(error){if(live())status.textContent=(error.message||'저장하지 못했습니다.')+' 입력 내용은 유지됩니다. 버전이 변경됐다면 서버 내용을 다시 읽고 수정하세요.';}
   finally{if(live())lock(false);else stop();}
  };
  root.querySelector('#overlay-reload').onclick=async()=>{
   if(busy||!live())return;lock(true);
-  try{const next=await readModel();if(live()){model=next;show();status.textContent='서버의 최신 내용을 읽었습니다.';}}
+  try{const [next,nextPlugins]=await readState();if(live()){model=next;show();showPlugins(nextPlugins);status.textContent='서버의 최신 내용을 읽었습니다.';}}
   catch(error){if(live())status.textContent=error.message||'조회하지 못했습니다.';}
   finally{if(live())lock(false);else stop();}
  };
  root.querySelector('#overlay-sessions').onclick=async event=>{
   const button=event.target.closest('[data-overlay-revoke]');if(!button||busy||!live())return;
   lock(true);
-  try{await api(endpoint+'/sessions/'+encodeURIComponent(button.dataset.overlayRevoke)+'/revoke',{method:'POST',body:{reason:'관리자 웹에서 오버레이 권한 회수'}});if(!live())return;const next=await readModel();if(live()){showSessions(next.sessions);status.textContent='선택한 오버레이 권한을 회수했습니다.';}}
+  try{await request(endpoint+'/sessions/'+encodeURIComponent(button.dataset.overlayRevoke)+'/revoke',{method:'POST',body:{reason:'관리자 웹에서 오버레이 권한 회수'}});if(!live())return;const next=await request(endpoint);if(live()){showSessions(next.sessions);status.textContent='선택한 오버레이 권한을 회수했습니다.';}}
   catch(error){if(live())status.textContent=error.message||'회수하지 못했습니다.';}
   finally{if(live())lock(false);else stop();}
  };

@@ -2,12 +2,12 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const checks = [
-  ['test-web-auth-hardening.js'], ['test-web-auth-http.js'], ['test-overlay-admin-ui.js'], ['test-desktop-overlay.js'],
+  ['test-web-auth-hardening.js'], ['test-web-auth-http.js'], ['test-overlay-admin-ui.js'], ['test-desktop-overlay.js'], ['test-desktop-overlay-plugin.js'],
   ['test-key-console.js'], ['test-history-outcomes.js'],
   ['test-desktop-workspace.js'], ['test-workspace-http.js'],
   ['test-security-activation.js'],
   ['test-security-operations.js'], ['test-security-admin.js'], ['test-security-evidence.js'], ['test-security-native-contract.js'],
-  ['test-security-authority.js'], ['test-security-tools.js'], ['test-security-wire.js'],
+  ['test-security-authority.js'], ['test-security-tools.js'], ['test-approval-tools.js'], ['test-security-wire.js'],
   ['check-modules.js'], ['check-web-ui.js'], ['check-connect-project.js'],
   ['test-extended-hashes.js'],
   ['test-desktop-extended-integrity.js'], ['test-desktop-extended-integrity.js', '--sqlite'],

@@ -1,6 +1,6 @@
 'use strict';
-// Declarative display data only. The overlay never distributes native code,
-// scripts, executable paths, URLs, or a second copy of the B authorization.
+// Display data and a separately published, capability-bound native renderer.
+// Neither surface carries a second copy of the B authorization.
 // Its authority shares B's durable transaction so completion cannot leave a
 // valid B session and a newly issued overlay capability active together.
 const crypto=require('node:crypto');
@@ -32,6 +32,7 @@ function ValidateState(value,db){
   if(value.schema!==1||!Number.isSafeInteger(value.version)||value.version<1||typeof value.enabled!=='boolean'||!Plain(value.sessions)||Object.keys(value.sessions).length>MAX_SESSIONS)throw Error();
   Document(value.document);
   for(const [id,row]of Object.entries(value.sessions)){
+   require('./desktopOverlayPlugin').ValidateSession(row,db);
    if(!Id(id)||!Plain(row)||row.id!==id||!['ACTIVE','CLOSED','EXPIRED','REVOKED'].includes(row.status)||!Identity(row.deviceId)||!Identity(row.machineId)||!Number.isSafeInteger(row.machinePolicyGeneration)||row.machinePolicyGeneration<0||!Digest(row.tokenHash)||!Digest(row.completionHash)||!Time(row.createdAt)||!Time(row.lastSeenAt)||!Time(row.leaseExpiresAt)||!Time(row.completionExpiresAt)||row.completionExpiresAt>row.createdAt+COMPLETION_MS||!Number.isSafeInteger(row.documentVersion)||row.documentVersion<1||row.documentVersion>value.version||!Number.isSafeInteger(row.policyRevision)||row.policyRevision<0||!Number.isSafeInteger(row.operationsRevision)||row.operationsRevision<0||!Number.isSafeInteger(row.integrityRevision)||row.integrityRevision<0)throw Error();
    if(row.lastSeenAt<row.createdAt||row.leaseExpiresAt<=row.lastSeenAt||row.leaseExpiresAt>row.lastSeenAt+LEASE_MS||row.completionExpiresAt!==row.createdAt+COMPLETION_MS||row.closedAt!==undefined&&(!Time(row.closedAt)||row.closedAt<row.createdAt))throw Error();
    if(row.status==='ACTIVE'){if(typeof row.nonce!=='string'||!/^[a-f0-9]{48}$/.test(row.nonce)||hash(Token(db,row))!==row.tokenHash)throw Error();}
@@ -64,7 +65,8 @@ function Runtime(flow){
 function Active(row){
  if(!row)Fail('OVERLAY_SESSION_INVALID',401);
  if(row.status!=='ACTIVE')Fail('OVERLAY_SESSION_CLOSED',403);
- if(row.leaseExpiresAt<=now())Fail('OVERLAY_EXPIRED',403);
+ if(now()<row.lastSeenAt||require('./desktopOverlayPlugin').LiveDeadline(row)<=now())Fail('OVERLAY_EXPIRED',403);
+ require('./desktopOverlayPlugin').CheckRuntime(row);
  const flow=store.Load().flows[row.flowId];
  if(!flow||flow.status!=='CLOSED'||flow.closedByLicenseCompletion!==true||flow.overlaySessionId!==row.id)Fail('OVERLAY_SESSION_CLOSED',403);
  const license=License(flow,row.deviceId);Runtime(flow);
@@ -93,6 +95,7 @@ function Complete(flow,body,retireFlow){
  if(at<flow.createdAt||at<flow.lastVerifiedAt||flow.licenseLeaseExpiresAt<=at)Fail('OVERLAY_NOT_AUTHORIZED',403);
  if(leaseExpiresAt<=at)Fail('DESKTOP_EXPIRED',403);
  const row={id,flowId:flow.id,bootstrapSessionId:flow.sessionId,licenseId:license.id,deviceId:flow.deviceId,machineId:flow.machineId,machinePolicyGeneration:flow.machinePolicyGeneration,status:'ACTIVE',nonce:crypto.randomBytes(24).toString('hex'),createdAt:at,lastSeenAt:at,leaseExpiresAt,completionExpiresAt:at+COMPLETION_MS,completionHash:fingerprint,documentVersion:s.version,documentText,documentSha256:hash(documentText),...Revisions()};
+ const pluginId=require('./desktopOverlayPlugin').Pin();if(pluginId)Object.assign(row,{pluginId,pluginPhase:'PENDING'});
  row.tokenHash=hash(Token(store.Load(),row));
  Atomic(db=>{
   const target=db.flows[flow.id];if(target.status!=='CLAIMED'||target.closedByLicenseCompletion)Fail('OVERLAY_REQUEST_REUSED',409);
@@ -109,16 +112,17 @@ function Complete(flow,body,retireFlow){
  Audit('ISSUED',{sessionId:id,bootstrapSessionId:flow.sessionId,licenseId:license.id,documentVersion:row.documentVersion});
  return Result(State().sessions[id]);
 }
-function Retire(row,status,reason=''){row.status=status;row.closedAt=Math.max(now(),row.createdAt,row.lastSeenAt);row.reason=reason;delete row.nonce;}
+function Retire(row,status,reason=''){require('./desktopOverlayPlugin').Retire(row.id);row.status=status;row.closedAt=Math.max(now(),row.createdAt,row.lastSeenAt);row.reason=reason;delete row.nonce;}
 function PruneState(state,at){
- for(const row of Object.values(state.sessions))if(row.status==='ACTIVE'&&row.leaseExpiresAt<=at)Retire(row,'EXPIRED');
+ for(const row of Object.values(state.sessions))if(row.status==='ACTIVE'&&require('./desktopOverlayPlugin').LiveDeadline(row)<=at)Retire(row,'EXPIRED');
  // Tombstones and token hashes support close retries for one day. Original
  // B flow tombstones still forbid reissuance after an overlay row is removed.
  for(const [id,row]of Object.entries(state.sessions))if(row.status!=='ACTIVE'&&Math.max(row.completionExpiresAt,row.closedAt||row.leaseExpiresAt)+86400000<=at)delete state.sessions[id];
 }
 function Execute(body){
- Fields(body,['action','sessionId','sessionToken','deviceId']);
- if(!['poll','close'].includes(body.action)||!Id(body.sessionId)||!Identity(body.deviceId))Fail('OVERLAY_INPUT_INVALID');
+ const pluginAction=['plugin-manifest','plugin-chunk','plugin-report'].includes(body?.action);
+ Fields(body,['action','sessionId','sessionToken','deviceId',...(body?.action==='plugin-chunk'?['pluginId','offset']:body?.action==='plugin-report'?['pluginId','reportId','payload']:[])]);
+ if(!['poll','close','plugin-manifest','plugin-chunk','plugin-report'].includes(body.action)||!Id(body.sessionId)||!Identity(body.deviceId))Fail('OVERLAY_INPUT_INVALID');
  const row=State().sessions[body.sessionId];
  if(!row||row.deviceId!==body.deviceId||!EqualToken(body.sessionToken,row.tokenHash))Fail('OVERLAY_SESSION_INVALID',401);
  if(body.action==='close'){
@@ -126,17 +130,20 @@ function Execute(body){
   return {sessionId:row.id,status:'CLOSED',serverTime:now()};
  }
  let license,at,leaseExpiresAt;
- try{Available();license=Active(row);at=now();if(at<row.lastSeenAt)Fail('OVERLAY_EXPIRED',403);leaseExpiresAt=Math.min(at+LEASE_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);if(leaseExpiresAt<=at)Fail('DESKTOP_EXPIRED',403);}catch(error){
+ try{Available();license=Active(row);
+  const plugin=require('./desktopOverlayPlugin');
+  if(pluginAction){if(body.action==='plugin-manifest')return plugin.Manifest(row,license);if(body.action==='plugin-chunk')return plugin.Chunk(row,body);return plugin.Report(row,body,license);}
+  plugin.RequireReady(row);at=now();if(at<row.lastSeenAt)Fail('OVERLAY_EXPIRED',403);leaseExpiresAt=Math.min(at+LEASE_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);if(leaseExpiresAt<=at)Fail('DESKTOP_EXPIRED',403);}catch(error){
   // Policy, license, maintenance and disconnect failures never leave a grant
   // that can become usable again when the rejecting condition is removed.
-  if(row.status==='ACTIVE'&&error.desktopError)Atomic(db=>Retire(db.overlayState.sessions[row.id],error.message==='OVERLAY_EXPIRED'?'EXPIRED':'REVOKED',error.message));
+  if(row.status==='ACTIVE'&&error.desktopError&&(!pluginAction||error.status===403||error.status===503)&&error.message!=='OVERLAY_PLUGIN_NOT_READY')Atomic(db=>Retire(db.overlayState.sessions[row.id],error.message==='OVERLAY_EXPIRED'?'EXPIRED':'REVOKED',error.message));
   throw error;
  }
  Atomic(db=>{const state=db.overlayState,item=state.sessions[row.id];item.lastSeenAt=at;item.leaseExpiresAt=leaseExpiresAt;item.documentText=JSON.stringify(state.document);item.documentSha256=hash(item.documentText);item.documentVersion=state.version;});
  return Result(State().sessions[row.id]);
 }
 function Audit(kind,value){try{require('../storage/audit').LogEvent('DESKTOP_OVERLAY_'+kind,JSON.stringify(value));}catch(_){} }
-function View(row){let status=row.status;if(status==='ACTIVE'&&row.leaseExpiresAt<=now())status='EXPIRED';return {id:row.id,licenseId:row.licenseId,bootstrapSessionId:row.bootstrapSessionId,deviceId:row.deviceId,machineId:row.machineId,status,createdAt:row.createdAt,lastSeenAt:row.lastSeenAt,leaseExpiresAt:row.leaseExpiresAt,documentVersion:row.documentVersion};}
+function View(row){let status=row.status;if(status==='ACTIVE'&&require('./desktopOverlayPlugin').LiveDeadline(row)<=now())status='EXPIRED';return {id:row.id,licenseId:row.licenseId,bootstrapSessionId:row.bootstrapSessionId,deviceId:row.deviceId,machineId:row.machineId,status,createdAt:row.createdAt,lastSeenAt:row.lastSeenAt,leaseExpiresAt:row.leaseExpiresAt,documentVersion:row.documentVersion,...(row.pluginId?{pluginId:row.pluginId,pluginPhase:row.pluginPhase,pluginVerifiedAt:row.pluginVerifiedAt||0}:{} )};}
 function Overview(){const state=State();return {enabled:state.enabled,version:state.version,document:structuredClone(state.document),documentSha256:hash(JSON.stringify(state.document)),fileName:'overlay.dat',sessions:Object.values(state.sessions).map(View).sort((a,b)=>b.createdAt-a.createdAt).slice(0,500),limits:{leaseMs:LEASE_MS,pollAfterMs:POLL_MS},serverTime:now()};}
 function Update(body,actor){
  Fields(body,['expectedVersion','enabled','document']);

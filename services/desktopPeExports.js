@@ -5,7 +5,7 @@
 const {Digests}=require('./desktopIntegrity');
 const PREFIX=Buffer.from('GAME-EXPORT-V1\0','ascii');
 const MAX_SPAN=8*1024*1024,MAX_ENTRIES=131072,MAX_STRING=512;
-function ExportTable(bytes){
+function ExportTable(bytes,requiredExport=''){
  const unsupported={status:'UNSUPPORTED_EXPORT_LAYOUT',sha256:'',crc64:''};
  const bad=()=>{throw Error('EXPORT_LAYOUT');};
  try{
@@ -41,7 +41,8 @@ function ExportTable(bytes){
    if(target>=rva&&target<end){stringAt(target,true);forwarded++;}
    else if(sections.some(s=>target>=s.start&&target<s.start+s.span&&(s.flags&0x20000000)&&!(s.flags&0x80000000)))code++;
   }
-  for(let i=0;i<names;i++){if(bytes.readUInt16LE(ordinalAt+i*2)>=functions)bad();stringAt(bytes.readUInt32LE(nameAt+i*4));}
+  let requiredExportRva=0;
+  for(let i=0;i<names;i++){const ordinal=bytes.readUInt16LE(ordinalAt+i*2);if(ordinal>=functions)bad();const nameRvaValue=bytes.readUInt32LE(nameAt+i*4),length=stringAt(nameRvaValue);if(requiredExport&&bytes.toString('ascii',inside(nameRvaValue,length),inside(nameRvaValue,length)+length)===requiredExport){const target=bytes.readUInt32LE(functionAt+ordinal*4);if(target>=rva&&target<end||!sections.some(s=>target>=s.start&&target<s.start+s.span&&(s.flags&0x20000000)&&!(s.flags&0x80000000))||requiredExportRva)bad();requiredExportRva=target;}}
   // Export tables should hold RVAs, not loader-relocated VA operands. Decline
   // unsupported images rather than normalize away a redirected API address.
   if(dirs>5){
@@ -55,7 +56,7 @@ function ExportTable(bytes){
    }
   }
   const offset=Buffer.alloc(4);offset.writeUInt32LE(directoryOffset);
-  return {status:'MEASURED',...Digests(Buffer.concat([PREFIX,offset,bytes.subarray(directoryOffset,directoryOffset+8),bytes.subarray(start,start+span)])),directoryOffset,rva,span,exportCount:exported,codeExportCount:code,forwardedExportCount:forwarded};
+  return {status:'MEASURED',...Digests(Buffer.concat([PREFIX,offset,bytes.subarray(directoryOffset,directoryOffset+8),bytes.subarray(start,start+span)])),directoryOffset,rva,span,exportCount:exported,codeExportCount:code,forwardedExportCount:forwarded,...(requiredExport?{requiredExportRva}:{})};
  }catch(_){return unsupported;}
 }
 module.exports={ExportTable,MAX_SPAN,MAX_ENTRIES,MAX_STRING};

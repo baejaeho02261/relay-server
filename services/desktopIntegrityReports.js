@@ -53,7 +53,7 @@ function Payload(text){
  if(typeof text!=='string'||Buffer.byteLength(text,'utf8')>MAX_PAYLOAD)Fail('INTEGRITY_REPORT_INVALID');let p;try{p=JSON.parse(text);}catch(_){Fail('INTEGRITY_REPORT_INVALID');}
  Keys(p,['version','hashVersion','check','reason','own','modules','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust']);
  if(p.version!==1||p.hashVersion!==undefined&&![1,2].includes(p.hashVersion)||!['OWN_IMAGE','MODULE_INVENTORY'].includes(p.check))Fail('INTEGRITY_REPORT_INVALID');p.hashVersion=p.hashVersion||1;Token(p.reason);
- if(p.own){Keys(p.own,['codeSha256','codeCrc64','status','fileXxh64','fileBlake3','codeXxh64','codeBlake3']);if(!['MEASURED','READ_ERROR'].includes(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,codeSha256:Digest(p.own.codeSha256,64),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh64')?16:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha256||!own.codeCrc64||p.hashVersion===2&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
+ if(p.own){Keys(p.own,['fileSha256','fileCrc64','codeSha256','codeCrc64','status','fileXxh64','fileBlake3','codeXxh64','codeBlake3']);if(!['MEASURED','READ_ERROR'].includes(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,...(p.own.fileSha256!==undefined?{fileSha256:Digest(p.own.fileSha256,64)}:{}),...(p.own.fileCrc64!==undefined?{fileCrc64:Digest(p.own.fileCrc64,16)}:{}),codeSha256:Digest(p.own.codeSha256,64),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh64')?16:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha256||!own.codeCrc64||p.hashVersion===2&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
  if(p.check==='OWN_IMAGE'&&!p.own)Fail('INTEGRITY_REPORT_INVALID');
  if(p.modules!==undefined&&(!Array.isArray(p.modules)||p.modules.length>16))Fail('INTEGRITY_REPORT_INVALID');p.modules=(p.modules||[]).map(row=>Module(row,p.hashVersion));
  if(p.check==='MODULE_INVENTORY'){
@@ -114,7 +114,7 @@ function Submit(body){
 function Execute(body){if(!Plain(body))Fail('INTEGRITY_REPORT_INVALID');if(body.action==='challenge')return Challenge(body);if(body.action==='submit')return Submit(body);Fail('INTEGRITY_REPORT_INVALID');}
 function List(query={}){Load();const machineId=String(query.machineId||''),sessionId=String(query.sessionId||'');if(machineId&&!/^[A-F0-9]{64}$/.test(machineId)||sessionId&&!/^[-A-Za-z0-9_]{1,100}$/.test(sessionId))Fail('INTEGRITY_REPORT_INVALID');return {items:records.filter(row=>(!machineId||row.machineId===machineId)&&(!sessionId||row.sessionId===sessionId)).slice(-100).reverse(),revision,serverTime:Date.now(),scope:'SHA-256, CRC64-ECMA, XXH64 and BLAKE3 comparisons cover files, executable sections and registered DLL export tables. Measurements are client-reported, not hardware attestation.',policy:Policy(),attested:false,limit:100};}
 function CompareModule(row,hashVersion=1){
- const baseline=baselines.find(b=>b.name.toLowerCase()===row.name.toLowerCase()&&b.fileSha256===row.fileSha256);
+ Load();const baseline=baselines.find(b=>b.name.toLowerCase()===row.name.toLowerCase()&&b.fileSha256===row.fileSha256);
  const unverified={fileExtendedVerified:false,codeExtendedVerified:false,exportTableExtendedVerified:false,extendedHashesVerified:false};
  if(!baseline)return {...row,...unverified,serverComparison:'UNVERIFIED_BASELINE'};
  const exportComparable=baseline.exportTableStatus==='MEASURED'&&baseline.exportTableSha256&&baseline.exportTableCrc64;
@@ -205,4 +205,4 @@ function RetireSession(row){
  for(const id of finishedSnapshots.keys())if(id.startsWith('B:'+row.sessionId+':')||id.startsWith('A:'+row.id+':'))finishedSnapshots.delete(id);
  rates.delete(row.sessionId);rates.delete(row.id);
 }
-module.exports={Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,RetireSession};
+module.exports={CompareModule,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,RetireSession};

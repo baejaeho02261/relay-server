@@ -73,6 +73,7 @@ function Load(){
    if(row.lastSecurityIntent!==undefined&&!['redeem','verify','release'].includes(row.lastSecurityIntent)||row.lastSecurityBinding!==undefined&&row.lastSecurityBinding!==''&&!Digest(row.lastSecurityBinding))Invalid();
    if(row.closedByLicenseCompletion!==undefined&&(row.closedByLicenseCompletion!==true||!Identifier(row.overlaySessionId,'OS')||!['CLOSED','REVOKED','EXPIRED'].includes(row.status)))Invalid();
   }
+  if(value.overlayPlugins!==undefined){try{require('./desktopOverlayPlugin').ValidateState(value.overlayPlugins);}catch(_){Invalid();}}
   if(value.overlayState!==undefined){try{require('./desktopOverlay').ValidateState(value.overlayState,value);}catch(_){Invalid();}}
   for(const receipt of Object.values(value.issueReceipts))if(!Plain(receipt)||!Digest(receipt.fingerprint)||!value.launchers[receipt.launcherId])Invalid();
   if(upgrade){
@@ -118,9 +119,10 @@ function Atomic(fn){
  return result;
 }
 function ArtifactPath(id){if(!Identifier(id,'DA'))throw Error('BOOTSTRAP_ARTIFACT_INVALID');return path.join(DIR,id+'.exe');}
-function PublishBytes(id,bytes){
- Load();const file=ArtifactPath(id),tmp=file+'.'+crypto.randomBytes(12).toString('hex')+'.tmp';let fd;
+function PluginPath(id){if(!Identifier(id,'OP'))throw Error('OVERLAY_PLUGIN_INVALID');return path.join(DIR,id+'.bin');}
+function PublishBytes(id,bytes,plugin=false){
+ Load();const file=plugin?PluginPath(id):ArtifactPath(id),tmp=file+'.'+crypto.randomBytes(12).toString('hex')+'.tmp';let fd;
  try{fd=fs.openSync(tmp,'wx',0o600);fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.linkSync(tmp,file);fs.unlinkSync(tmp);SyncDir();}
  finally{if(fd!==undefined)try{fs.closeSync(fd);}catch(_){}try{fs.unlinkSync(tmp);}catch(_){} }
 }
-module.exports={DIR,Load,Atomic,ArtifactPath,PublishBytes};
+module.exports={DIR,Load,Atomic,ArtifactPath,PluginPath,PublishBytes};

@@ -44,17 +44,113 @@ function readBounded(file, min, max, code) {
     return b;
   } finally { fs.closeSync(fd); }
 }
+function ValidatePeImage(bytes,component){
+ const bad=()=>{const error=Error(component==='O'?'OVERLAY_PLUGIN_PE_INVALID':'BOOTSTRAP_PE_INVALID');error.safeCode=error.message;throw error;};
+ if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>(component==='O'?16:64)*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
+ const pe=bytes.readUInt32LE(0x3c);if(pe<64||pe>bytes.length-24||bytes.readUInt32LE(pe)!==0x4550||bytes.readUInt16LE(pe+4)!==0x8664)bad();
+ if(component==='O'&&(bytes.readUInt16LE(pe+22)&0x2002)!==0x2002)bad();
+ const count=bytes.readUInt16LE(pe+6),opt=pe+24,optSize=bytes.readUInt16LE(pe+20),table=opt+optSize;
+ if(count<1||count>96||optSize<160||table+count*40>bytes.length||bytes.readUInt16LE(opt)!==0x20b)bad();
+ const imageSize=bytes.readUInt32LE(opt+56),headerSize=bytes.readUInt32LE(opt+60),dirCount=bytes.readUInt32LE(opt+108);
+ if(imageSize<4096||imageSize>128*1024*1024||headerSize<table+count*40||headerSize>bytes.length||dirCount>16||112+dirCount*8>optSize)bad();
+ const sections=[];let total=0;
+ for(let i=0;i<count;i++){
+  const at=table+i*40,virtualSize=bytes.readUInt32LE(at+8),rva=bytes.readUInt32LE(at+12),rawSize=bytes.readUInt32LE(at+16),raw=bytes.readUInt32LE(at+20),flags=bytes.readUInt32LE(at+36),span=virtualSize||rawSize,mapped=Math.max(span,rawSize);
+  if(!span||rva<headerSize||rva+mapped>imageSize||rawSize&&(raw<headerSize||raw+rawSize>bytes.length)||sections.some(s=>rva<s.rva+s.mapped&&rva+mapped>s.rva||rawSize&&s.rawSize&&raw<s.raw+s.rawSize&&raw+rawSize>s.raw))bad();
+  const protectedCode=!!(flags&0x20000000)&&!(flags&0x80000000);if(protectedCode){total+=span;if(total>64*1024*1024)bad();}
+  sections.push({rva,span,mapped,raw,rawSize,protectedCode});
+ }
+ const protectedSections=sections.filter(s=>s.protectedCode).sort((a,b)=>a.rva-b.rva);if(!protectedSections.length)bad();
+ for(const section of protectedSections){section.bytes=Buffer.alloc(section.span);bytes.copy(section.bytes,0,section.raw,section.raw+Math.min(section.rawSize,section.span));}
+ const rawAt=(rva,length)=>{if(!Number.isSafeInteger(length)||length<0)bad();if(rva<headerSize&&rva+length<=headerSize)return rva;const s=sections.find(s=>rva>=s.rva&&rva+length<=s.rva+s.rawSize);if(!s)bad();return s.raw+(rva-s.rva);};
+ const relocRva=dirCount>5?bytes.readUInt32LE(opt+112+5*8):0,relocSize=dirCount>5?bytes.readUInt32LE(opt+116+5*8):0;
+ if(!!relocRva!==!!relocSize||relocSize>16*1024*1024)bad();
+ let relocations=0;
+ if(relocSize){
+  let cursor=rawAt(relocRva,relocSize),end=cursor+relocSize;const seen=[];
+  while(cursor<end){
+   if(cursor+8>end)bad();const page=bytes.readUInt32LE(cursor),block=bytes.readUInt32LE(cursor+4);if(block<8||block%2||cursor+block>end||page>=imageSize)bad();
+   for(let at=cursor+8;at<cursor+block;at+=2){
+    const entry=bytes.readUInt16LE(at),type=entry>>>12,target=page+(entry&0xfff);if(type===0)continue;
+    const width=type===10?8:type===3?4:1,section=protectedSections.find(s=>target<s.rva+s.span&&target+width>s.rva);
+    if(!section)continue;if(type!==10&&type!==3||target<section.rva||target+width>section.rva+section.span)bad();
+    section.bytes.fill(0,target-section.rva,target-section.rva+width);seen.push([target,target+width]);if(++relocations>1000000)bad();
+   }
+   cursor+=block;
+  }
+  seen.sort((a,b)=>a[0]-b[0]);for(let i=1;i<seen.length;i++)if(seen[i][0]<seen[i-1][1])bad();
+ }
+ if(component==='O')ValidateOverlayExport(bytes);
+ return true;
+}
+
+// O uses the server's fixed DLL ABI; export bytes are inspected, never executed.
+function ValidateOverlayExport(bytes){
+ const requiredExport='GameOverlayRunV1',MAX_SPAN=8*1024*1024,MAX_ENTRIES=131072,MAX_STRING=512;
+ const bad=()=>{throw Error('EXPORT_LAYOUT');};
+ try{
+  if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>64*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
+  const pe=bytes.readUInt32LE(0x3c);if(pe<64||pe+24>bytes.length||bytes.readUInt32LE(pe)!==0x4550||bytes.readUInt16LE(pe+4)!==0x8664)bad();
+  const count=bytes.readUInt16LE(pe+6),opt=pe+24,optSize=bytes.readUInt16LE(pe+20),table=opt+optSize;
+  if(count<1||count>96||optSize<112||table+count*40>bytes.length||bytes.readUInt16LE(opt)!==0x20b)bad();
+  const imageSize=bytes.readUInt32LE(opt+56),headers=bytes.readUInt32LE(opt+60),dirs=bytes.readUInt32LE(opt+108);
+  if(imageSize<4096||imageSize>128*1024*1024||headers<table+count*40||headers>bytes.length||dirs>16||112+dirs*8>optSize)bad();
+  if(!dirs)bad();
+  const directoryOffset=opt+112,rva=bytes.readUInt32LE(directoryOffset),span=bytes.readUInt32LE(directoryOffset+4);
+  if(!rva&&!span)bad();
+  if(!rva||span<40||span>MAX_SPAN||rva+span>imageSize)bad();
+  const sections=[];
+  for(let i=0;i<count;i++){
+   const at=table+i*40,virtualSize=bytes.readUInt32LE(at+8),start=bytes.readUInt32LE(at+12),rawSize=bytes.readUInt32LE(at+16),raw=bytes.readUInt32LE(at+20),flags=bytes.readUInt32LE(at+36),mapped=Math.max(virtualSize||rawSize,rawSize);
+   if(!mapped||start<headers||start+mapped>imageSize||rawSize&&(raw<headers||raw+rawSize>bytes.length)||sections.some(s=>start<s.start+s.mapped&&start+mapped>s.start||rawSize&&s.rawSize&&raw<s.raw+s.rawSize&&raw+rawSize>s.raw))bad();
+   sections.push({start,mapped,span:virtualSize||rawSize,rawSize,raw,flags});
+  }
+  const section=sections.find(s=>rva>=s.start&&rva+span<=s.start+s.rawSize&&rva+span<=s.start+s.span);
+  if(!section||(section.flags&0x80000000))bad();
+  const start=section.raw+rva-section.start,end=rva+span;
+  const inside=(at,length)=>{if(!Number.isSafeInteger(at)||!Number.isSafeInteger(length)||length<0||at<rva||at+length>end)bad();return start+at-rva;};
+  const stringAt=(at,forwarder=false)=>{const offset=inside(at,1);for(let i=0;i<MAX_STRING;i++){if(at+i>=end)bad();const c=bytes[offset+i];if(c===0){if(i===0)bad();return i;}if(c<32||c>126||forwarder&&c===32)bad();}bad();};
+  const functions=bytes.readUInt32LE(start+20),names=bytes.readUInt32LE(start+24);
+  if(functions>MAX_ENTRIES||names>MAX_ENTRIES||names>functions)bad();
+  stringAt(bytes.readUInt32LE(start+12));
+  const functionRva=bytes.readUInt32LE(start+28),nameRva=bytes.readUInt32LE(start+32),ordinalRva=bytes.readUInt32LE(start+36);
+  const functionAt=functions?inside(functionRva,functions*4):0,nameAt=names?inside(nameRva,names*4):0,ordinalAt=names?inside(ordinalRva,names*2):0;
+  let exported=0,code=0,forwarded=0;
+  for(let i=0;i<functions;i++){
+   const target=bytes.readUInt32LE(functionAt+i*4);if(!target)continue;if(target>=imageSize)bad();exported++;
+   if(target>=rva&&target<end){stringAt(target,true);forwarded++;}
+   else if(sections.some(s=>target>=s.start&&target<s.start+s.span&&(s.flags&0x20000000)&&!(s.flags&0x80000000)))code++;
+  }
+  let requiredExportRva=0;
+  for(let i=0;i<names;i++){const ordinal=bytes.readUInt16LE(ordinalAt+i*2);if(ordinal>=functions)bad();const nameRvaValue=bytes.readUInt32LE(nameAt+i*4),length=stringAt(nameRvaValue);if(requiredExport&&bytes.toString('ascii',inside(nameRvaValue,length),inside(nameRvaValue,length)+length)===requiredExport){const target=bytes.readUInt32LE(functionAt+ordinal*4);if(target>=rva&&target<end||!sections.some(s=>target>=s.start&&target<s.start+s.span&&(s.flags&0x20000000)&&!(s.flags&0x80000000))||requiredExportRva)bad();requiredExportRva=target;}}
+  // Export tables should hold RVAs, not loader-relocated VA operands. Decline
+  // unsupported images rather than normalize away a redirected API address.
+  if(dirs>5){
+   const relocRva=bytes.readUInt32LE(opt+152),relocSize=bytes.readUInt32LE(opt+156);
+   if(!!relocRva!==!!relocSize||relocSize>16*1024*1024)bad();
+   if(relocSize){const rs=sections.find(s=>relocRva>=s.start&&relocRva+relocSize<=s.start+s.rawSize);if(!rs)bad();let at=rs.raw+relocRva-rs.start,stop=at+relocSize;
+    while(at<stop){if(at+8>stop)bad();const page=bytes.readUInt32LE(at),size=bytes.readUInt32LE(at+4);if(size<8||size%2||at+size>stop||page>=imageSize)bad();
+     for(let p=at+8;p<at+size;p+=2){const entry=bytes.readUInt16LE(p),type=entry>>>12,target=page+(entry&0xfff);if(!type)continue;const width=type===10?8:type===3?4:1;if(target<end&&target+width>rva)bad();}
+     at+=size;
+    }
+   }
+  }
+  if(!requiredExportRva)bad();
+  return true;
+ }catch(_){const error=Error('OVERLAY_PLUGIN_PE_INVALID');error.safeCode=error.message;throw error;}
+}
+
 function main() {
   if (env.GC_APPROVAL_ACTION === 'probe') {
     return { version: process.version, major: Number(process.versions.node.split('.')[0]), lts: process.release.lts || '' };
   }
   if (env.GC_APPROVAL_ACTION !== 'inspect') fail('ACTION_INVALID');
-  const bytes = readBounded(env.GC_APPROVAL_EXE, 512, 64*1024*1024, 'EXE_FILE_INVALID');
+  const bytes = readBounded(env.GC_APPROVAL_EXE, 512, (env.GC_APPROVAL_COMPONENT==='O'?16:64)*1024*1024, 'EXE_FILE_INVALID');
   const raw = readBounded(env.GC_APPROVAL_JSON, 1, 16384, 'APPROVAL_FILE_INVALID');
   const text = raw.toString('utf8').replace(/^\uFEFF/, '');
   if (text.includes('PRIVATE KEY')) fail('PRIVATE_KEY_NOT_ALLOWED');
   let a; try { a = JSON.parse(text); } catch (_) { fail('APPROVAL_JSON_INVALID'); }
-  if (!plain(a) || !['A','B'].includes(a.component) || typeof a.version !== 'string' || a.version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(a.version) || typeof a.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(a.sha256)) fail('APPROVAL_FIELDS_INVALID');
+  if (!plain(a) || !['A','B','O'].includes(a.component) || typeof a.version !== 'string' || a.version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(a.version) || typeof a.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(a.sha256)) fail('APPROVAL_FIELDS_INVALID');
   if (!plain(a.trustedKey) || Object.keys(a.trustedKey).some(k => !['keyId','publicKey'].includes(k))) fail('TRUSTED_KEY_MISSING_OR_INVALID');
   const k = a.trustedKey;
   if (typeof k.keyId !== 'string' || !/^[a-f0-9]{64}$/.test(k.keyId) || typeof k.publicKey !== 'string' || k.publicKey.length > 4096 || !/^-----BEGIN PUBLIC KEY-----\r?\n[A-Za-z0-9+/=\r\n]+\r?\n-----END PUBLIC KEY-----\r?\n?$/.test(k.publicKey)) fail('PUBLIC_KEY_FORMAT_INVALID');
@@ -69,7 +165,9 @@ function main() {
   const canonical = ['GAME-RELEASE-APPROVAL-V1', a.component, a.version, a.sha256].join('\n');
   if (!crypto.verify(null, Buffer.from(canonical, 'utf8'), key, signature)) fail('SIGNATURE_INVALID');
   if (digest !== a.sha256) fail('EXE_SHA256_MISMATCH');
-  // This is a signature/hash check, NOT a full PE parser or release-policy gate.
+  // Preserve A/B signature/hash inspection; O also checks the fixed DLL ABI.
+  if (a.component === 'O') ValidatePeImage(bytes, 'O');
+  // Local validation never changes server release policy or signer trust.
   if (env.GC_APPROVAL_COMPONENT !== a.component) fail('UPLOAD_COMPONENT_MISMATCH');
   if (env.GC_APPROVAL_VERSION !== a.version) fail('UPLOAD_VERSION_MISMATCH');
   return { ok:true, component:a.component, version:a.version, sha256:digest, keyId:id,
@@ -205,16 +303,20 @@ function Main {
     $base = Split-Path -Parent $env:GAME_APPROVAL_CHECK_BAT
     Write-Host ''
     Write-Host '=== GameConnect 공개 배포 승인 점검 ==='
-    Write-Host 'EXE와 approval.json을 읽기만 합니다. 개인키는 필요하지 않습니다.'
+    Write-Host 'EXE 또는 오버레이 .bin과 approval.json을 읽기만 합니다. 개인키는 필요하지 않습니다.'
     Write-Host '네트워크 접속, 서버 신뢰 등록, 소스 변경, 새 파일 저장은 하지 않습니다.'
     $node = Find-ExistingNode $base
     Write-Host ('사용 Node: ' + $node)
-    $exe = Choose-File '업로드했던 실제 EXE 선택' '실행 파일 (*.exe)|*.exe' $base
-    if (-not $exe) { throw 'EXE 선택이 취소되었습니다.' }
+    $component = (Read-Host '웹에서 등록한 구분 [A=GameLauncher / B=GameConnect / O=오버레이]').Trim().ToUpperInvariant()
+    if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력하세요.' }
+    if ($component -eq 'O') {
+        $exe = Choose-File '업로드했던 실제 오버레이 .bin 선택' '오버레이 플러그인 (*.bin)|*.bin' $base
+    } else {
+        $exe = Choose-File '업로드했던 실제 EXE 선택' '실행 파일 (*.exe)|*.exe' $base
+    }
+    if (-not $exe) { throw '배포 파일 선택이 취소되었습니다.' }
     $approval = Choose-File '함께 업로드했던 .approval.json 선택' '공개 승인 JSON (*.json)|*.json' (Split-Path -Parent $exe)
     if (-not $approval) { throw '승인 파일 선택이 취소되었습니다.' }
-    $component = (Read-Host '웹에서 등록한 구분 [A=GameLauncher / B=GameConnect]').Trim().ToUpperInvariant()
-    if ($component -notin @('A','B')) { throw 'A 또는 B를 입력하세요.' }
     $version = (Read-Host '웹 업로드 창의 버전 (예: 1.0.0)').Trim()
     if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '웹에 입력한 숫자 버전을 확인하세요.' }
     $result = Invoke-Worker $node @{
@@ -222,9 +324,9 @@ function Main {
         GC_APPROVAL_COMPONENT=$component; GC_APPROVAL_VERSION=$version
     } $base
     Write-Host ''
-    Write-Host '[정상] 선택한 EXE SHA-256 / 공개키 ID / Ed25519 서명 / 구분 / 버전 일치'
+    Write-Host '[정상] 선택한 파일 SHA-256 / 공개키 ID / Ed25519 서명 / 구분 / 버전 일치'
     Write-Host ('구분: ' + $result.component + '  |  웹 버전: ' + $result.version)
-    Write-Host ('EXE SHA-256: ' + $result.sha256)
+    Write-Host ('파일 SHA-256: ' + $result.sha256)
     Write-Host ('서명자 keyId: ' + $result.keyId)
     Write-Host ''
     Write-Host '서버 등록 여부와 철회 상태는 이 도구에서 조회하지 않습니다.'
@@ -250,11 +352,12 @@ try { Main; exit 0 }
 catch {
     Write-Host ''
     Write-Host ('[중단] ' + $_.Exception.Message)
-    Write-Host 'EXE_SHA256_MISMATCH: 선택한 EXE가 승인 대상과 다릅니다. 재빌드/수정 뒤에는 기존 키로 새 승인을 생성하세요.'
-    Write-Host 'UPLOAD_COMPONENT_MISMATCH / UPLOAD_VERSION_MISMATCH: 웹의 A/B 및 버전을 승인 생성 때와 맞추세요.'
+    Write-Host 'EXE_SHA256_MISMATCH: 선택한 배포 파일이 승인 대상과 다릅니다. 재빌드/수정 뒤에는 기존 키로 새 승인을 생성하세요.'
+    Write-Host 'UPLOAD_COMPONENT_MISMATCH / UPLOAD_VERSION_MISMATCH: 웹의 A/B/O 및 버전을 승인 생성 때와 맞추세요.'
+    Write-Host 'OVERLAY_PLUGIN_PE_INVALID / EXE_FILE_INVALID: O는 최대 16MiB의 Win64 DLL과 실행 가능한 GameOverlayRunV1 내보내기가 필요합니다.'
     Write-Host 'SIGNATURE_INVALID / KEY_ID_MISMATCH: JSON의 서명/공개키/ID가 맞지 않습니다. 올바른 원본 승인 파일을 선택하세요.'
     Write-Host 'PRIVATE_KEY_NOT_ALLOWED: PEM 개인키가 아니라 공개 approval.json을 선택하세요.'
-    Write-Host 'TRUSTED_KEY_MISSING_OR_INVALID / PUBLIC_KEY_FORMAT_INVALID: FIX2로 만든 완전한 공개 승인 JSON을 선택하세요.'
+    Write-Host 'TRUSTED_KEY_MISSING_OR_INVALID / PUBLIC_KEY_FORMAT_INVALID: 생성 도구로 만든 완전한 공개 승인 JSON을 선택하세요.'
     Write-Host '입력 파일과 서버는 변경하지 않았습니다. 원본 자료는 삭제하거나 덮어쓰지 않았습니다.'
     exit 1
 }

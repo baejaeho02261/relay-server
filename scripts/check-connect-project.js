@@ -1,6 +1,6 @@
 'use strict';
 // Packaging checks for the previously reported IDE source/resource errors.
-// They do not replace compiling and running both programs with Delphi Win64.
+// They do not replace compiling and running the A/B programs and plugin with Delphi Win64.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -43,6 +43,49 @@ for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launche
     assert.ok(types.includes(24), 'Missing application manifest: ' + res);
   }
 }
+// The renderer is a separate ordinary Win64 DLL project, published as .bin.
+// Its library entry must not pull the host's transport or API resolver
+// initialization into the Windows loader-lock callback.
+const pluginProject = read('GameOverlayPlugin.dproj');
+const pluginDpr = read('GameOverlayPlugin.dpr');
+const pluginEntries = [...pluginProject.matchAll(/<DelphiCompile\s+Include="([^"]+)"\s*>([\s\S]*?)<\/DelphiCompile>/g)];
+assert.equal(pluginEntries.length, 1, 'Exactly one overlay compiler entry');
+assert.equal(pluginEntries[0][1], 'GameOverlayPlugin.dpr');
+assert.match(pluginEntries[0][2], /<MainSource>MainSource<\/MainSource>/);
+assert.ok(pluginProject.includes('<MainSource>GameOverlayPlugin.dpr</MainSource>'));
+assert.match(pluginProject, /<AppType>Library<\/AppType>/);
+assert.match(pluginProject, /<Borland\.ProjectType>DynamicLibrary<\/Borland\.ProjectType>/);
+assert.match(pluginProject, /<FrameworkType>None<\/FrameworkType>/);
+assert.match(pluginProject, /<Platform value="Win64">True<\/Platform>/);
+assert.match(pluginProject, /<DCC_UsePackage\s*\/>/);
+assert.match(pluginProject, /<DCC_ConsoleTarget>false<\/DCC_ConsoleTarget>/);
+assert.match(pluginProject, /<Icon_MainIcon\s*\/>/);
+assert.match(pluginProject, /<Manifest_File>\(None\)<\/Manifest_File>/);
+assert.ok(pluginProject.includes('<DCC_ExeOutput>.\\build\\stage\\overlay\\$(Platform)\\$(Config)</DCC_ExeOutput>'));
+assert.ok(pluginProject.includes('<CompiledOverlayArtifact>$(MSBuildProjectDirectory)\\build\\stage\\overlay\\$(Platform)\\$(Config)\\GameOverlayPlugin.dll</CompiledOverlayArtifact>'));
+assert.ok(pluginProject.includes('<OverlayArtifactDirectory>$(MSBuildProjectDirectory)\\build\\$(Platform)\\$(Config)\\overlay</OverlayArtifactDirectory>'));
+assert.match(pluginProject, /<Target Name="PublishOverlayPlugin" AfterTargets="Build;Rebuild">/);
+assert.ok(pluginProject.includes('<Error Condition="!Exists(\'$(CompiledOverlayArtifact)\')"'));
+assert.ok(pluginProject.includes('<Error Condition="\'$(Platform)\'!=\'Win64\'"'));
+assert.ok(pluginProject.includes('<Move SourceFiles="$(CompiledOverlayArtifact)" DestinationFiles="$(OverlayArtifactDirectory)\\overlay.bin"'));
+const pluginReferences = [...pluginProject.matchAll(/DCCReference\s+Include="([^"]+)"/g)].map(match => match[1]);
+assert.deepEqual(pluginReferences.sort(), ['Game.Overlay.Abi.pas', 'Game.Overlay.Plugin.pas']);
+for (const [, file] of pluginProject.matchAll(/(?:DCCReference|None)\s+Include="([^"]+)"/g)) {
+  assert.ok(fs.existsSync(path.join(root, file)), 'Missing overlay resource: ' + file);
+}
+assert.match(pluginDpr, /^\uFEFFlibrary GameOverlayPlugin;/);
+assert.match(pluginDpr, /exports\s+GameOverlayRunV1 name 'GameOverlayRunV1';/);
+const pluginEntryWithoutComments = pluginDpr.replace(/\{[\s\S]*?\}|\(\*[\s\S]*?\*\)/g, '');
+assert.match(pluginEntryWithoutComments, /\bbegin\s+end\./, 'Plugin entry must not run work under loader lock');
+for (const name of ['GameLauncher.dpr', 'GameLauncher.dproj']) {
+  assert.ok(!/Game\.Overlay\./.test(read(name)), 'A must remain independent of the overlay');
+}
+for (const name of ['GameConnect.dpr', 'GameConnect.dproj']) {
+  const source = read(name);
+  assert.ok(source.includes('Game.Overlay.Host') && source.includes('Game.Overlay.Abi'), 'B must link the host ABI');
+  assert.ok(!source.includes('Game.Overlay.Runtime') && !source.includes('Game.Overlay.Plugin'), 'B must load the separate renderer artifact');
+}
+assert.ok(!read('Game.Console.pas').includes('RunAuthorizedOverlay'), 'B must enter the separate plugin host');
 assert.ok(!fs.existsSync(path.join(root, 'GameConnect.ico')));
 const tls=read('Game.Tls.pas'), transport=read('GameConnectTransport.pas');
 assert.ok(transport.includes('.ConnectTLS('),'Every native request must use TLS');
@@ -79,4 +122,4 @@ for (const name of fs.readdirSync(root)) {
 for (const retired of ['Game.dproj', 'Game.Main.pas', 'Game.UI.pas']) {
   assert.ok(!fs.existsSync(path.join(root, retired)), 'Retired GUI source: ' + retired);
 }
-console.log('A/B PROJECT SOURCE CHECK PASS (actual Delphi compilation still required)');
+console.log('A/B/OVERLAY PROJECT SOURCE CHECK PASS (actual Delphi compilation still required)');

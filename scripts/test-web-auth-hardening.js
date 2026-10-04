@@ -9,6 +9,7 @@ const { execFileSync } = require('node:child_process');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'game-web-auth-'));
 Object.assign(process.env, { DATA_DIR: temporary, STORAGE_ENGINE: 'json', HA_ENABLED: '0',
     ADMIN_SECRET: 'fixture-auth-hardening-admin', WEB_ADMIN_TRUSTED_PROXY_IPS: '',
+    WEB_ADMIN_PUBLIC_ORIGIN: '', RAILWAY_PUBLIC_DOMAIN: '',
     WEB_ADMIN_LOGIN_MAX_ATTEMPTS: '3', WEB_ADMIN_LOGIN_WINDOW_MS: '1000' });
 const utils = require('../core/utils');
 utils.EnsureDirs();
