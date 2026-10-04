@@ -1,8 +1,8 @@
 {
   "webAdminVersion": "5.0.1",
-  "uiRevision": "game-overlay-93",
+  "uiRevision": "game-overlay-94",
   "files": {
-    "index.html": "463f72be59c0eaef37c981282b69601f0b8ee95a117c9950e608b968b98c7f47",
+    "index.html": "b9925610da68d34a5b1a7c9d77889c938b6f12c3e107f49296fcdc0f3ab41691",
     "admin.css": "4953d48907c8bdce7f4c953fc1d6f6f9247a4db8cee1ba9d630fba2069950d99",
     "admin-theme.css": "3a7e3358eac274c9c8fcf0ebc9c54e745102b4416c79728cc61213a5a53d9cda",
     "admin-appearance.css": "f2642dfc2ff7ebabc34ecfbabb99ecddb660d08dc59a8277514c07cb54cc266d",
@@ -12,7 +12,7 @@
     "admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "admin-navigation.css": "b4dfe7add02b3459ccafe03bf048b6f705c2cdd97e15a2fa57c30135e5ade104",
     "admin-i18n.js": "c22e6e7e0a5c17673f8a3328d50d3aa35e0a88a8972498df0c817b10d63f5a85",
-    "admin.js": "0c39d3a586a65549dddf35a6ce7a88a0d54c9d8eb3bf16bde1f72bfcf8f6b5f9",
+    "admin.js": "fb89dd370beb9353824d6e0146e376bc573be9ae0026e219d6412bd21947a47a",
     "admin-navigation.js": "013e7da5458325da03a62fca53c45cdfbb6445bf036b17d5252f04608d8d5494",
     "admin-pages-monitoring.js": "3e5ce63308968502a229d6e800fd39efeb28046bfefad3c5748bdf78eaedb8f1",
     "admin-terminal.js": "55bf9bce7e1629e589b44cbd30c4f2a432e8cfa90c35732c5fbe4e903023c483",
@@ -37,10 +37,10 @@
     "admin-palette.js": "244f0e1d402c816d7f09be67c43d76a62d87d1da588ed51a8ad99f03e10697ce",
     "admin-desktop-licenses.js": "97096b23f2026c94ccdc8603103a63c904bd23bb57d3d4f7f2aacb432e66c79e",
     "admin-desktop-security.js": "5633b52bd48bc79ce51e9b2fd14c0b727cbbf8644e8a01c7da61d23c1bb81d79",
-    "admin-desktop-workflow.js": "a5210cd236942b58a2c0f0400164b9d61d6feae3c33df004fddf9fefe125e4f4",
+    "admin-desktop-workflow.js": "95489ff2146b5d7bdc452c9ebb952cbd79784500485e77631cd0721653c1fd21",
     "admin-desktop.css": "61565a07007d4ed8c66991e4e7e99e490ff4e60de951e0234ffc260ab37fd20b",
     "admin-pages-production.js": "eada9601f15ce351070c09500c0e880a5dbd95faa72288c7a165f722b3e818f1",
-    "service-worker.js": "ef3e21d0fcfd9b12c5dc8e27d6fa963afdec05f3784ea4e68c139681a68aba80",
+    "service-worker.js": "900ae1fbb28eff6b6e44c3b0b259cd11cebf19179f6b40a592dd15c6f2c082ca",
     "ui-refresh.html": "f187ed39e3847c0cab81785762e67f014dd8a480677d31e3bbccdd4301ae21e9",
     "ui-refresh.js": "18c00a09bdc6409509b42ce6a7d4e5480d6edd1e7feabcd575aafa6922e42dac"
   }

@@ -9,6 +9,8 @@ api = read('Game.Api.pas')
 completion = read('Game.LicenseCompletion.pas')
 data = read('Game.Overlay.Data.pas')
 runtime = read('Game.Overlay.Runtime.pas')
+launcher = read('Game.Launcher.pas')
+handoff = read('Game.Handoff.pas')
 count = 0
 
 
@@ -33,6 +35,10 @@ take = body(console, 'function TConsoleSession.TakeOverlayGrant:',
 complete = body(api, 'function TGameApi.CompleteLicense:', 'function TGameApi.Redeem(')
 poll = body(runtime, 'procedure TOverlayWorker.Execute;', 'function OverlayWindowProcedure(')
 snapshot = body(runtime, 'function TOverlayWorker.Snapshot(', 'procedure TOverlayWorker.Execute;')
+launch = launcher.rsplit('function RunLauncher: Integer;', 1)[1]
+wait_result = body(handoff, 'function THandoffHost.WaitForLicenseResult:',
+                   'destructor THandoffHost.Destroy;')
+initial_poll = runtime.rsplit('function RunAuthorizedOverlay(Profile: TConnectServerProfile;', 1)[1]
 
 check('A successful current license precedes completion and visible authorization',
       redeem.index('FApi.Redeem(Key)') < redeem.index('if not LicenseState.IsActive')
@@ -41,11 +47,35 @@ check('B stops its worker loop immediately after completion and does not renew a
       'if State = WorkerActive then Break;' in worker and 'FApi.Verify' not in worker)
 check('The grant is taken only after the B worker is joined',
       take.index('FWorker.StopAndJoin') < take.index('FWorker.TakeOverlayGrant'))
-check('B authentication owners and console are disposed before the renderer is entered',
-      all(entry.index(token) < entry.index('RunAuthorizedOverlay(')
-          for token in ('Console.Free;', 'Api.Free;', 'Bootstrap.Free;', 'Context.Free;',
-                        'if ConsoleAllocated then FreeConsole;'))
-      and 'if LicenseCompleted and (Result = 0) and not StopIsRequested then' in entry)
+check('B has no renderer and returns only the separate capability after authentication teardown',
+      'RunAuthorizedOverlay' not in console
+      and 'Game.Overlay.Runtime' not in read('GameConnect.dpr')
+      and 'Game.Overlay.Runtime' not in read('GameConnect.dproj')
+      and all(entry.index(token) < entry.index('Context.SendOverlayCapability(')
+              for token in ('Console.Free;', 'Api.Free;', 'Bootstrap.Free;',
+                            'if ConsoleAllocated then FreeConsole;')))
+check('A drops bootstrap owners before acknowledging B and waits for B before rendering',
+      launch.index('ReleaseBootstrapResources;\n      Host.ReadyForLicense;')
+      < launch.index('Host.WaitForLicenseResult') < launch.index('RunAuthorizedOverlay(')
+      and 'Game.Overlay.Runtime' in read('GameLauncher.dpr')
+      and 'Game.Overlay.Runtime' in read('GameLauncher.dproj'))
+check('A accepts one bounded reply only after its exact child has exited successfully',
+      'MaxOverlayFrameBytes - SizeOf(PayloadSize)' in wait_result
+      and wait_result.index('ReadExact(FResultPipe, Bytes') < wait_result.index('RequirePipeEnd(')
+      < wait_result.index('WaitForSingleObject(FChildProcess, ParentExitTimeoutMS)')
+      < wait_result.index('GetExitCodeProcess(FChildProcess, ProcessExitCode)')
+      < wait_result.index('ParseOverlayCapability(')
+      and 'ProcessExitCode = 0' in wait_result)
+check('Only a fresh server poll can turn the transferred capability into visible authorization',
+      initial_poll.index("PostJSON('overlay', Body, 5000)")
+      < initial_poll.index('ParseOverlayGrant(')
+      < initial_poll.index('RunAuthorizedOverlay(Profile, Verified.DeviceID, Grant)')
+      and 'Grant.SessionID <> Verified.SessionID' in initial_poll
+      and 'Grant.SessionToken <> Verified.SessionToken' in initial_poll)
+check('The return channel accepts only three fields bound to the original device',
+      "CheckFields(Obj, ['sessionId', 'sessionToken', 'deviceId'])" in data
+      and 'Result.DeviceID <> ExpectedDeviceID' in data
+      and 'FExpectedDeviceID := Security.DeviceID' in handoff)
 check('B completion cancels future work and drops activation/bootstrap tokens',
       all(token in complete for token in ('RequireRunning;', 'not FCurrent.IsActive',
           'CompleteLicenseSession(', 'RequestStop;', 'ClearPending;', 'ClearModuleSnapshot;',

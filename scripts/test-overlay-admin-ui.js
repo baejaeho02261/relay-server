@@ -13,9 +13,13 @@ const errors = [], calls = [];
 const virtualConsole = new VirtualConsole();
 virtualConsole.on('jsdomError', error => errors.push(error.message));
 const dom = new JSDOM('<!doctype html><main id="modal-host"></main>', {
-  url: 'https://fixture.invalid/', runScripts: 'outside-only', virtualConsole
+  url: 'https://fixture.invalid/', runScripts: 'outside-only', virtualConsole, pretendToBeVisual: true
 });
 const w = dom.window;
+const intervals = new Map(); let nextInterval = 1;
+w.setInterval = (callback, delay) => { const id = nextInterval++; intervals.set(id, { callback, delay }); return id; };
+w.clearInterval = id => intervals.delete(id);
+function poll() { assert.equal(intervals.size, 1); const item = intervals.values().next().value; assert.equal(item.delay, 4000); return item.callback(); }
 let modalResolve, modalOptions, responder, checks = 0;
 const malicious = '<img src=x onerror="window.injected=true">';
 const recordId = 'id\" onclick=\"window.injected=true';
@@ -62,9 +66,16 @@ async function open(reply = model()) {
 }
 w.fetch = async (url, options) => {
   const item = { url, method: options.method, headers: options.headers,
-    credentials: options.credentials, body: options.body ? JSON.parse(options.body) : undefined };
+    credentials: options.credentials, signal: options.signal, body: options.body ? JSON.parse(options.body) : undefined };
   calls.push(item);
-  return responder(item);
+  const result = Promise.resolve().then(() => responder(item));
+  if (!options.signal) return result;
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new w.DOMException('Request aborted', 'AbortError'));
+    if (options.signal.aborted) { abort(); return; }
+    options.signal.addEventListener('abort', abort, { once: true });
+    result.then(resolve, reject).finally(() => options.signal.removeEventListener('abort', abort));
+  });
 };
 w.openModal = options => {
   modalOptions = options;
@@ -104,6 +115,38 @@ execute(source('admin-desktop-workflow.js'));
     assert.equal(editor().querySelector('[data-overlay-revoke]').dataset.overlayRevoke, recordId);
     assert.ok(editor().textContent.includes(malicious));
     passed('Display text, session IDs, license IDs and statuses cannot inject HTML');
+
+    input('#overlay-title', '편집 중 제목'); input('#overlay-lines', '저장 전 내용');
+    input('#overlay-theme', 'light'); w.document.querySelector('#overlay-enabled').checked = false;
+    responder = () => response({ ...model(99), document: { ...model().document, title: 'another admin changed this' },
+      sessions: [{ id: 'NEW_GRANT', licenseId: 'NEW_LICENSE', status: 'ACTIVE', lastSeenAt: Date.now() }] });
+    await poll();
+    assert.equal(w.document.querySelector('#overlay-title').value, '편집 중 제목');
+    assert.equal(w.document.querySelector('#overlay-lines').value, '저장 전 내용');
+    assert.equal(w.document.querySelector('#overlay-theme').value, 'light');
+    assert.equal(w.document.querySelector('#overlay-enabled').checked, false);
+    assert.match(w.document.querySelector('#overlay-version').textContent, /버전 7/);
+    assert.equal(editor().querySelector('[data-overlay-revoke]').dataset.overlayRevoke, 'NEW_GRANT');
+    passed('Four-second automatic polling updates grants while preserving every draft field and its version');
+
+    const slowPoll = deferred(); responder = () => slowPoll.promise;
+    const beforePoll = calls.length, pendingPoll = poll();
+    await poll(); await w.document.querySelector('#overlay-reload').onclick(); await w.document.querySelector('#overlay-save').onclick();
+    assert.equal(calls.length, beforePoll + 1); assert.equal(calls.at(-1).signal.aborted, false);
+    assert.equal(w.document.querySelector('#overlay-title').disabled, false);
+    input('#overlay-title', '조회 중에도 편집');
+    slowPoll.resolve(response(model(99))); await pendingPoll;
+    assert.equal(w.document.querySelector('#overlay-title').value, '조회 중에도 편집');
+    assert.equal(w.document.querySelector('#overlay-save').disabled, false);
+    passed('Slow automatic reads never overlap polls or mutations and keep form fields editable');
+
+    responder = () => { throw Error('temporary network failure'); }; await poll();
+    assert.match(w.document.querySelector('#overlay-session-status').textContent, /다음 확인/);
+    responder = () => response({ ...model(99), sessions: [] }); await poll();
+    assert.match(w.document.querySelector('#overlay-session-status').textContent, /4초/);
+    assert.match(editor().textContent, /라이선스 완료 요청/); assert.match(editor().textContent, /최신 A\/B/); assert.match(editor().textContent, /새 A/);
+    assert.equal(w.document.querySelector('#overlay-title').value, '조회 중에도 편집');
+    passed('Transient poll errors recover and empty grants explain completion and current A/B publication');
 
     input('#overlay-title', '인증 완료'); input('#overlay-lines', '첫째\n둘째');
     input('#overlay-theme', 'light'); w.document.querySelector('#overlay-enabled').checked = false;
@@ -148,14 +191,37 @@ execute(source('admin-desktop-workflow.js'));
     save.resolve(response(model(9))); await pendingSave;
     passed('A second click cannot start a duplicate in-flight save');
 
+    input('#overlay-title', '권한 회수 중 보존할 제목');
     const beforeRevoke = calls.length;
     responder = request => request.method === 'POST' ? response({ ok: true }) : response({ ...model(9), sessions: [] });
     await w.document.querySelector('#overlay-sessions').onclick({ target: editor().querySelector('[data-overlay-revoke]') });
     assert.equal(calls[beforeRevoke].url, endpoint + '/sessions/' + encodeURIComponent(recordId) + '/revoke');
     assert.equal(calls[beforeRevoke].headers['X-CSRF-Token'], 'OVERLAY_UI_CSRF');
     assert.match(status(), /회수했습니다/);
+    assert.equal(w.document.querySelector('#overlay-title').value, '권한 회수 중 보존할 제목');
     passed('Revocation encodes the session ID and refreshes the authoritative list');
-    await close(view.pending);
+    responder = () => response({ ...model(12), document: { ...model().document, title: '명시적으로 다시 읽은 제목' } });
+    await w.document.querySelector('#overlay-reload').onclick();
+    assert.equal(w.document.querySelector('#overlay-title').value, '명시적으로 다시 읽은 제목');
+    assert.match(w.document.querySelector('#overlay-version').textContent, /버전 12/);
+    passed('The explicit reload button still refreshes the server document and editing version');
+    await close(view.pending); assert.equal(intervals.size, 0);
+
+    session(); view = await open();
+    const closingPoll = deferred(); responder = () => closingPoll.promise;
+    const pendingClosingPoll = poll(), closingSignal = calls.at(-1).signal;
+    await close(view.pending); await pendingClosingPoll;
+    assert.equal(closingSignal.aborted, true); assert.equal(intervals.size, 0); assert.equal(editor(), null);
+    closingPoll.resolve(response(model(500)));
+    passed('Closing the modal aborts its current read, clears polling and drops late responses');
+
+    session(); view = await open();
+    const ownerPoll = deferred(); responder = () => ownerPoll.promise;
+    const pendingOwnerPoll = poll(), ownerSignal = calls.at(-1).signal;
+    session(null); await poll(); await pendingOwnerPoll;
+    assert.equal(ownerSignal.aborted, true); assert.equal(intervals.size, 0);
+    ownerPoll.resolve(response(model(600))); await close(view.pending);
+    passed('Logout or owner loss stops polling and aborts outstanding reads without rendering them');
 
     const load = deferred(); responder = () => load.promise;
     const pendingOpen = w.showDesktopOverlay(); session('admin', 'NEW_OWNER');
@@ -184,6 +250,13 @@ execute(source('admin-desktop-workflow.js'));
     await close(view.pending);
     passed('A late revocation reply starts no follow-up read under a new login');
 
+    session(); const unauthorized = deferred(); responder = () => unauthorized.promise;
+    const oldRequest = w.api(endpoint); session('admin', 'NEW_OWNER');
+    unauthorized.resolve(response({ ok: false, error: 'NOT_AUTHORIZED' }, 401));
+    await assert.rejects(oldRequest); assert.equal(w.session.csrf, 'NEW_OWNER');
+    passed('An old request with a late 401 cannot log out a newer administrator session');
+
+    assert.equal(intervals.size, 0);
     assert.deepEqual(errors, []);
     console.log(`OVERLAY ADMIN UI PASS: ${checks} browser-logic checks; jsdom with production helpers, mocked HTTP/modal host.`);
   } finally {

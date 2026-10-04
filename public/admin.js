@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'game-overlay-93';
+const WEB_UI_REVISION = 'game-overlay-94';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -182,6 +182,7 @@ async function api(url, options = {}) {
   const headers = { Accept: 'application/json', ...(options.headers || {}) };
   if (session && !['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = session.csrf;
   const request = { method, headers, credentials: 'same-origin' };
+  if (options.signal) request.signal = options.signal;
   if (options.rawBody !== undefined) {
     headers['Content-Type'] = 'application/octet-stream';
     request.body = options.rawBody;
@@ -199,7 +200,7 @@ async function api(url, options = {}) {
     }
   }
   if (response.status === 401) {
-    showLogin();
+    if (session?.csrf === requestOwner) showLogin();
     throw new Error('로그인이 만료되었습니다.');
   }
   if (!response.ok || (data && data.ok === false)) {
