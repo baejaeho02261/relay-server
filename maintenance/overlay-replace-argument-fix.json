@@ -1,0 +1,78 @@
+{
+  "kind": "OVERLAY_REPLACE_ARGUMENT_FIX",
+  "basis": "GameConnect_GameWeb_OVERLAY_BUILD_RUNNER_FIX.zip",
+  "rootCause": "The file replacement call passed PowerShell $null to the .NET destinationBackupFileName string argument. Use NullString.Value to pass an actual .NET null; preserve atomic replacement.",
+  "failureChain": [
+    "Invalidate failed before the overlay compiler started",
+    "The shipped F1054 unprepared include was not replaced with a real digest",
+    "B compiler therefore still reports F1054"
+  ],
+  "changedBuildBehavior": {
+    "file": "GameConnect_Win64/write-overlay-identity.ps1",
+    "line": 23,
+    "old": "[IO.File]::Replace($temporary, $destination, $null)",
+    "new": "[IO.File]::Replace($temporary, $destination, [System.Management.Automation.Language.NullString]::Value)"
+  },
+  "notChanged": [
+    "All Pascal, DPR, DPROJ, INC, resource and BAT files",
+    "build-game.ps1 discovery, logging, pause and build sequence",
+    "All server JavaScript and web assets",
+    "All runtime authentication and overlay behavior"
+  ],
+  "apply": "Overwrite GameConnect_Win64/write-overlay-identity.ps1 beside Build_Win64.bat, then run the existing Build_Win64.bat. No new BAT or folders. The include is generated from the actual overlay EXE, not fabricated.",
+  "tests": {
+    "executed": [
+      {
+        "command": "python GameWeb/scripts/test-overlay-flat-build.py",
+        "count": 31,
+        "result": "PASS",
+        "scope": "source assertions only"
+      },
+      {
+        "command": "python GameWeb/scripts/test-overlay-generated-identity.py",
+        "count": 8,
+        "result": "PASS",
+        "scope": "Python source-verifier model tests"
+      },
+      {
+        "command": "python GameWeb/scripts/test-overlay-contract.py",
+        "count": 22,
+        "result": "PASS",
+        "scope": "source assertions only"
+      },
+      {
+        "command": "python GameWeb/scripts/test-license-success-contract.py",
+        "count": 11,
+        "result": "PASS",
+        "scope": "source assertions only"
+      },
+      {
+        "command": "python GameWeb/scripts/verify-source.py",
+        "result": "PASS",
+        "scope": "delivered-file hashes, retired-file absence, generated-include rules"
+      },
+      {
+        "command": "python GameWeb/scripts/test-source-verifier.py",
+        "count": 7,
+        "result": "PASS",
+        "scope": "source-verifier temporary-copy regression"
+      }
+    ],
+    "aliasCommands": [
+      "test-overlay-identity-build.py",
+      "test-overlay-ide-prepare.py"
+    ],
+    "aliasNote": "These aliases run the same 31 flat-build tests; they are not counted again.",
+    "notExecuted": [
+      "Windows PowerShell 5.1 generator execution",
+      "Windows BAT and resource tool execution",
+      "dcc64 compilation",
+      "actual GameOverlay Windows execution"
+    ],
+    "limitation": "PowerShell was not installed and the test-runtime download was unavailable. No runtime reproduction success is claimed."
+  },
+  "references": [
+    "https://learn.microsoft.com/en-us/dotnet/api/system.io.file.replace?view=netframework-4.8.1",
+    "https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.language.nullstring?view=powershellsdk-7.4.0"
+  ]
+}

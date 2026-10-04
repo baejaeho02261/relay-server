@@ -1,0 +1,139 @@
+{
+  "delivery": "GameConnect_GameWeb_OVERLAY_SAME_FOLDER",
+  "basis": "GameConnect_GameWeb_OVERLAY_DEBUG_FIX.zip",
+  "scope": "Flatten overlay project and generated identity into native source directory; no changes to Pascal implementations or server runtime.",
+  "moves": {
+    "GameConnect_Win64/overlay/Game.Overlay.Window.pas": "GameConnect_Win64/Game.Overlay.Window.pas",
+    "GameConnect_Win64/overlay/GameOverlay.dpr": "GameConnect_Win64/GameOverlay.dpr",
+    "GameConnect_Win64/overlay/GameOverlay.dproj": "GameConnect_Win64/GameOverlay.dproj",
+    "GameConnect_Win64/overlay/GameOverlay.rc": "GameConnect_Win64/GameOverlay.rc",
+    "GameConnect_Win64/overlay/GameOverlay.manifest": "GameConnect_Win64/GameOverlay.manifest",
+    "GameWeb/tools/write-overlay-identity.ps1": "GameConnect_Win64/write-overlay-identity.ps1"
+  },
+  "preservation": {
+    "pascalContentsIdentical": 36,
+    "javascriptIdentical": 232,
+    "moves": {
+      "GameConnect_Win64/overlay/Game.Overlay.Window.pas": "GameConnect_Win64/Game.Overlay.Window.pas",
+      "GameConnect_Win64/overlay/GameOverlay.dpr": "GameConnect_Win64/GameOverlay.dpr",
+      "GameConnect_Win64/overlay/GameOverlay.dproj": "GameConnect_Win64/GameOverlay.dproj",
+      "GameConnect_Win64/overlay/GameOverlay.rc": "GameConnect_Win64/GameOverlay.rc",
+      "GameConnect_Win64/overlay/GameOverlay.manifest": "GameConnect_Win64/GameOverlay.manifest",
+      "GameWeb/tools/write-overlay-identity.ps1": "GameConnect_Win64/write-overlay-identity.ps1"
+    }
+  },
+  "checks": [
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-flat-build.py",
+      "cwd": ".",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.686,
+      "output": "test_all_overlay_sources_beside_b (__main__.FlatBuildContracts.test_all_overlay_sources_beside_b) ... ok\ntest_b_ide_prebuild_and_compiler_dependency_both_exist (__main__.FlatBuildContracts.test_b_ide_prebuild_and_compiler_dependency_both_exist) ... ok\ntest_b_include_search_is_root_only (__main__.FlatBuildContracts.test_b_include_search_is_root_only) ... ok\ntest_b_publish_location_unchanged (__main__.FlatBuildContracts.test_b_publish_location_unchanged) ... ok\ntest_batch_labels_and_crlf (__main__.FlatBuildContracts.test_batch_labels_and_crlf) ... ok\ntest_c_build_failures_restore_unprepared_state (__main__.FlatBuildContracts.test_c_build_failures_restore_unprepared_state) ... ok\ntest_c_executable_is_beside_include (__main__.FlatBuildContracts.test_c_executable_is_beside_include) ... ok\ntest_c_ide_postbuild_and_msbuild_post_target_exist (__main__.FlatBuildContracts.test_c_ide_postbuild_and_msbuild_post_target_exist) ... ok\ntest_c_invalidates_identity_before_resource_compile (__main__.FlatBuildContracts.test_c_invalidates_identity_before_resource_compile) ... ok\ntest_c_project_references_all_exist (__main__.FlatBuildContracts.test_c_project_references_all_exist) ... ok\ntest_flat_probe_does_not_rebuild_the_pair (__main__.FlatBuildContracts.test_flat_probe_does_not_rebuild_the_pair) ... ok\ntest_full_build_explicitly_prepares_b_before_a (__main__.FlatBuildContracts.test_full_build_explicitly_prepares_b_before_a) ... ok\ntest_generator_atomic_and_verify_compares_exact_text (__main__.FlatBuildContracts.test_generator_atomic_and_verify_compares_exact_text) ... ok\ntest_generator_uses_one_root_not_config_or_gameweb (__main__.FlatBuildContracts.test_generator_uses_one_root_not_config_or_gameweb) ... ok\ntest_generator_validates_and_locks_actual_executable (__main__.FlatBuildContracts.test_generator_validates_and_locks_actual_executable) ... ok\ntest_no_nested_include (__main__.FlatBuildContracts.test_no_nested_include) ... ok\ntest_no_network_or_machine_policy_changes (__main__.FlatBuildContracts.test_no_network_or_machine_policy_changes) ... ok\ntest_old_layout_not_referenced_by_native_build_files (__main__.FlatBuildContracts.test_old_layout_not_referenced_by_native_build_files) ... ok\ntest_optional_helper_prepares_only_one_selected_c (__main__.FlatBuildContracts.test_optional_helper_prepares_only_one_selected_c) ... ok\ntest_unprepared_include_stops_instead_of_allowing_any_file (__main__.FlatBuildContracts.test_unprepared_include_stops_instead_of_allowing_any_file) ... ok\n\n----------------------------------------------------------------------\nRan 20 tests in 0.004s\n\nOK\n"
+    },
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-contract.py",
+      "cwd": ".",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.676,
+      "output": "test_all_api_hash_values (__main__.OverlaySourceContract.test_all_api_hash_values) ... ok\ntest_b_does_not_render (__main__.OverlaySourceContract.test_b_does_not_render) ... ok\ntest_build_order_and_include (__main__.OverlaySourceContract.test_build_order_and_include) ... ok\ntest_child_exit_is_parent_or_stop_signalled (__main__.OverlaySourceContract.test_child_exit_is_parent_or_stop_signalled) ... ok\ntest_clickthrough_noactivation_noform (__main__.OverlaySourceContract.test_clickthrough_noactivation_noform) ... ok\ntest_explicit_absolute_image_no_shell (__main__.OverlaySourceContract.test_explicit_absolute_image_no_shell) ... ok\ntest_explicit_three_handle_inheritance (__main__.OverlaySourceContract.test_explicit_three_handle_inheritance) ... ok\ntest_image_cleanup_is_still_license_gated (__main__.OverlaySourceContract.test_image_cleanup_is_still_license_gated) ... ok\ntest_live_authentication_gate (__main__.OverlaySourceContract.test_live_authentication_gate) ... ok\ntest_new_b_apis_preserve_existing_binding_convention (__main__.OverlaySourceContract.test_new_b_apis_preserve_existing_binding_convention) ... ok\ntest_no_credentials_in_child_command (__main__.OverlaySourceContract.test_no_credentials_in_child_command) ... ok\ntest_no_exe_resource_embedding_or_runtime_write (__main__.OverlaySourceContract.test_no_exe_resource_embedding_or_runtime_write) ... ok\ntest_no_standalone_window_on_doubleclick (__main__.OverlaySourceContract.test_no_standalone_window_on_doubleclick) ... ok\ntest_only_separate_exe_draws (__main__.OverlaySourceContract.test_only_separate_exe_draws) ... ok\ntest_overlay_project_no_packages_and_as_invoker (__main__.OverlaySourceContract.test_overlay_project_no_packages_and_as_invoker) ... ok\ntest_pascal_encoding_and_delimiters (__main__.OverlaySourceContract.test_pascal_encoding_and_delimiters) ... ok\ntest_pointer_inheritance_cleared (__main__.OverlaySourceContract.test_pointer_inheritance_cleared) ... ok\ntest_pulse_stale_hides_no_ban (__main__.OverlaySourceContract.test_pulse_stale_hides_no_ban) ... ok\ntest_rechecks_expiry_after_launch_work (__main__.OverlaySourceContract.test_rechecks_expiry_after_launch_work) ... ok\ntest_start_once_and_no_forced_process_kill (__main__.OverlaySourceContract.test_start_once_and_no_forced_process_kill) ... ok\ntest_stop_before_worker_join (__main__.OverlaySourceContract.test_stop_before_worker_join) ... ok\ntest_verified_separate_file_before_start (__main__.OverlaySourceContract.test_verified_separate_file_before_start) ... ok\n\n----------------------------------------------------------------------\nRan 22 tests in 0.006s\n\nOK\n"
+    },
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-generated-identity.py",
+      "cwd": ".",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.591,
+      "output": "test_changed_companion_rejected (__main__.GeneratedIdentityTests.test_changed_companion_rejected) ... ok\ntest_include_symlink_rejected (__main__.GeneratedIdentityTests.test_include_symlink_rejected) ... ok\ntest_matching_generated_identity (__main__.GeneratedIdentityTests.test_matching_generated_identity) ... ok\ntest_missing_exe_rejected (__main__.GeneratedIdentityTests.test_missing_exe_rejected) ... ok\ntest_modified_include_rejected (__main__.GeneratedIdentityTests.test_modified_include_rejected) ... ok\ntest_unknown_generated_source_rejected (__main__.GeneratedIdentityTests.test_unknown_generated_source_rejected) ... ok\ntest_unprepared_guard_tamper_rejected (__main__.GeneratedIdentityTests.test_unprepared_guard_tamper_rejected) ... ok\ntest_unprepared_source_is_intact_not_runtime_proof (__main__.GeneratedIdentityTests.test_unprepared_source_is_intact_not_runtime_proof) ... ok\n\n----------------------------------------------------------------------\nRan 8 tests in 0.006s\n\nOK\n"
+    },
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-license-success-contract.py",
+      "cwd": ".",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.538,
+      "output": "PASS A deletion stays in authenticated handoff\nPASS B is not unlinked at claim time\nPASS The verified B handle is transferred rather than reopened after license\nPASS License success is checked before cleanup\nPASS An expired lease is checked again before WorkerActive\nPASS Exactly one license-gated call site exists\nPASS Cleanup is guarded once and preserves nonfatal OS refusal\nPASS Cleanup pins the directory and closes capability on both paths\nPASS Worker is joined before handoff context can be freed\nPASS Destructor releases unused cleanup handle\nPASS No window renderer or automatic assignment marker added\nLicense-success source contracts: 11 passed. Static checks only; no Windows deletion or rendering test.\n"
+    },
+    {
+      "command": "node scripts/test-history-outcomes.js",
+      "cwd": "GameWeb",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.079,
+      "output": "PASS A known successful observation has a normal label and no error guidance\nPASS Explicit PASS is accepted for the same known success event\nPASS An explicit non-PASS status is not hidden by a matching reason\nPASS Image digest mismatch retains failure guidance\nPASS Unknown observation reasons retain diagnostic guidance\nPASS A request failure cannot become success by copying BASELINE_MATCH\nPASS Different authority event kinds retain existing handling\nPASS An event without a reason has no invented problem\nPASS Malformed event JSON is ignored without losing the issuance record\nPASS The timeline read does not rewrite the stored events or authority state\nPASS Four successful observations remain four separate successful records\nPASS Unknown sensitive fields in an event are not returned in the timeline\nHistory outcome display: 12 service tests passed. Injected event fixtures; not live server validation.\n"
+    },
+    {
+      "command": "node scripts/test-key-console.js",
+      "cwd": "GameWeb",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.899,
+      "output": "[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"8EA59A241ED06B747C6A145C\",\"component\":\"A\",\"version\":\"92.0\",\"sha256\":\"4611665526f0385cd778fa4633be1672357db6f7f5246306ff5a23fb30b111f9\",\"crc64\":\"83BCB4567E0B2496\",\"xxh64\":\"3a75c4d3a4b9d86c\",\"blake3\":\"ec3c9babf5ca4197aadfdfd0f4647bebcf313da3c846d197e85930c1362c668e\",\"codeSha256\":\"fd5972334a7c2f954631d2a6352f74a0f40566f52b42f1f0d0a625343076eeb0\",\"codeCrc64\":\"823BE4C302CC30F3\",\"codeXxh64\":\"351e86f12d78dcfb\",\"codeBlake3\":\"3edad17fd4e7ecd32b3d4fa6c4c1627ddf6d5f654c2f64e497818cba4a6001a0\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791097570742,\"backgroundVersion\":0}\n[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"2A1B8110B453836F0CBCBAD5\",\"component\":\"B\",\"version\":\"92.0\",\"sha256\":\"5af7daa1b1d0732998bc8075cf6e98167df482ef89084c89d1219529700a34e3\",\"crc64\":\"31D2E71F36B6828B\",\"xxh64\":\"9ad4bfcdf9cc818e\",\"blake3\":\"4095662742ec4556c876b9f482f6cf46e546bf9f0375cf03385170423dae6774\",\"codeSha256\":\"ca3c0db3c573d6579c9684a9edb0c341c6d87db19773c37581b53073469c527a\",\"codeCrc64\":\"3055B78A4A7196EE\",\"codeXxh64\":\"655769fa3bc70fab\",\"codeBlake3\":\"2949e48baf75350fc9cb765bcd1cbc347711dfb294694140418baeaeaef469ef\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791097570747,\"backgroundVersion\":0}\nPASS Manual B publishes with no automatic-assignment capability\n[EVENT] DESKTOP_BOOTSTRAP_ISSUED {\"launcherId\":\"52DDA12FC0ED7A6E416C50AE\",\"label\":\"Console recipient\",\"expiresAt\":1791183971063,\"licenseId\":\"\"}\nPASS A can be issued while the server contains zero licenses\nPASS Repeated A issue request returns the same file without making a license\nPASS The issued A profile has no license key, license ID or automatic marker\n[EVENT] DESKTOP_BOOTSTRAP_BEGAN {\"flowId\":\"8FE20A135EDD911EDD386C72\",\"launcherId\":\"52DDA12FC0ED7A6E416C50AE\",\"deviceId\":\"53AA7A566B67759EB7B531A4887FD747DEE179562910941EDBB7FD1672D6E4F7\",\"releaseId\":\"2A1B8110B453836F0CBCBAD5\"}\n[EVENT] DESKTOP_BOOTSTRAP_CLAIMED {\"flowId\":\"8FE20A135EDD911EDD386C72\",\"sessionId\":\"40203AD2406F7B97EBFE5FA9\",\"deviceId\":\"53AA7A566B67759EB7B531A4887FD747DEE179562910941EDBB7FD1672D6E4F7\",\"releaseId\":\"2A1B8110B453836F0CBCBAD5\"}\nPASS A download and B claim succeed before any license is issued\nPASS A manual B session rejects the old automatic marker\nPASS Missing and unknown keys do not implicitly consume or create licenses\nPASS A key can be created separately after A issuance and B claim\nPASS Tampering with the signed request still fails without consuming the key\n[EVENT] DESKTOP_LICENSE_USED {\"id\":\"8D87C073A181EF62AE522191\",\"deviceId\":\"53AA7A566B67759EB7B531A4887FD747DEE179562910941EDBB7FD1672D6E4F7\",\"status\":\"USED\"}\nPASS The entered key is consumed by the original signed proof path\nPASS Lost-response retry uses the existing receipt without consuming a second key\nPASS The workspace still links A issuance, B claim and entered-key authentication\n[EVENT] DESKTOP_LICENSE_RELEASED {\"id\":\"8D87C073A181EF62AE522191\",\"deviceId\":\"53AA7A566B67759EB7B531A4887FD747DEE179562910941EDBB7FD1672D6E4F7\",\"status\":\"USED\"}\nPASS Normal license renewal and release remain signed and session-bound\n[EVENT] DESKTOP_BOOTSTRAP_ISSUED {\"launcherId\":\"98D32F9E87830D2BE6AAF8B6\",\"label\":\"Bootstrap test\",\"expiresAt\":1791183971440,\"licenseId\":\"\"}\n[EVENT] DESKTOP_BOOTSTRAP_BEGAN {\"flowId\":\"4DC9D7A845D30C286A401304\",\"launcherId\":\"98D32F9E87830D2BE6AAF8B6\",\"deviceId\":\"8B7F58A374F00711091B01904EA85418C2C9B4F631835B1F930B24A05E7A5D00\",\"releaseId\":\"2A1B8110B453836F0CBCBAD5\"}\n[EVENT] DESKTOP_BOOTSTRAP_CLAIMED {\"flowId\":\"4DC9D7A845D30C286A401304\",\"sessionId\":\"6D27241744620FC181DE232B\",\"deviceId\":\"8B7F58A374F00711091B01904EA85418C2C9B4F631835B1F930B24A05E7A5D00\",\"releaseId\":\"2A1B8110B453836F0CBCBAD5\"}\nPASS A consumed KEY is not reset or allowed on a different fresh device\n[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"6A790C41E0D1CB7CE9BAC94F\",\"component\":\"B\",\"version\":\"91.0\",\"sha256\":\"8819e3f593424b471c84a0a16309dde78d086f714435284df9947d402a6dad38\",\"crc64\":\"55F6C02327754362\",\"xxh64\":\"120c761c49c5b003\",\"blake3\":\"d5dbbbc9bf052b3ffbbe0b28a43a3261a3f84555fd28f49fa23ee4d9ede48beb\",\"codeSha256\":\"e56253260c897b47d61ef81f551f49b58090b7c3b736bae971a194b17f6d2d3d\",\"codeCrc64\":\"547190B65BB25707\",\"codeXxh64\":\"e11e46d3af36f501\",\"codeBlake3\":\"a7f9ccf1a49016fe9b8c879012da0e27a448d054eea376787cc5407ea4779af1\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791097571448,\"backgroundVersion\":1}\n[EVENT] DESKTOP_BOOTSTRAP_ISSUED {\"launcherId\":\"37ED933564D7F895347CA01D\",\"label\":\"old reserved A\",\"expiresAt\":1791183971450,\"licenseId\":\"528740DC95A8A8DB41E252EF\"}\n[EVENT] DESKTOP_BOOTSTRAP_PUBLISHED {\"id\":\"C109E84EE247D149A3F28876\",\"component\":\"B\",\"version\":\"92.1\",\"sha256\":\"a904bf0888e1c844cba52dcb95d2bf8fdd45673ee354161e3b4c5e9f18f56582\",\"crc64\":\"4D5D62490A77C8B0\",\"xxh64\":\"9cdf9a666d875a70\",\"blake3\":\"48d0ab3c621eb2ff7e9224bd071694fdcdfe8a19985dbefcf14022d8ec18a641\",\"codeSha256\":\"1db180f23588cba729d34a5b85f5e4aa73484940e70a7ed6059e478c9e7892be\",\"codeCrc64\":\"4CDA32DC76B0DCD5\",\"codeXxh64\":\"3c5ebeb76c98dba5\",\"codeBlake3\":\"4a86a2027aee4b26e23e02e7160690dbbf0bed952c3cef4e71a9e27d3ace54b4\",\"codeAlgorithm\":\"PE64-CODE-V1\",\"size\":1024,\"createdAt\":1791097571451,\"backgroundVersion\":0}\n[EVENT] DESKTOP_BOOTSTRAP_BEGAN {\"flowId\":\"D218520CACF45E2C5524B971\",\"launcherId\":\"37ED933564D7F895347CA01D\",\"deviceId\":\"9F6548939A1843D4702210AFFF69E69F9E9A37ADA263923D8FEA10AFDEEE2678\",\"releaseId\":\"C109E84EE247D149A3F28876\"}\n[EVENT] DESKTOP_BOOTSTRAP_CLAIMED {\"flowId\":\"D218520CACF45E2C5524B971\",\"sessionId\":\"114B932DFF9F81A0AC7557D8\",\"deviceId\":\"9F6548939A1843D4702210AFFF69E69F9E9A37ADA263923D8FEA10AFDEEE2678\",\"releaseId\":\"C109E84EE247D149A3F28876\"}\nPASS An old reserved A remains usable with a newer manual-input B\nPASS Historical A assignment cannot auto-authorize the new console build\n[EVENT] DESKTOP_LICENSE_USED {\"id\":\"BF6C1C9E750133DA84CD5EE2\",\"deviceId\":\"9F6548939A1843D4702210AFFF69E69F9E9A37ADA263923D8FEA10AFDEEE2678\",\"status\":\"USED\"}\nPASS The user-entered valid KEY wins over unused historical A assignment metadata\nPASS Console restoration uses existing KEY input, paste and cleanup handlers\nKEY console restoration: 18 scenarios passed. Server proofs/fixtures and source checks only; Windows UI not executed.\n"
+    },
+    {
+      "command": "python GameWeb/scripts/verify-source.py",
+      "status": "PASS",
+      "scope": "Current file hashes, allowed generated identity, retired paths; source package not yet a Windows build"
+    },
+    {
+      "command": "python GameWeb/scripts/test-source-verifier.py",
+      "status": "PASS",
+      "tests": 7,
+      "scope": "Disposable copies"
+    }
+  ],
+  "notRun": [
+    "dcc64 compilation",
+    "Windows BAT/PowerShell/MSBuild execution",
+    "Overlay runtime/window/display",
+    "Live server and deployed Windows integration"
+  ],
+  "identity": "One source-folder include; initially an explicit unprepared compile guard, replaced by the actual built GameOverlay.exe SHA-256. No zero/empty digest bypass.",
+  "parallelBuilds": "Debug and Release share one flat sidecar and include: do not build both concurrently in this working directory.",
+  "javascriptSyntax": {
+    "files": 232,
+    "status": "PASS",
+    "compiler": "node --check only"
+  },
+  "byteComparison": {
+    "basisFiles": 345,
+    "samePathUnchanged": 326,
+    "samePathModified": [
+      "GameConnect_Win64/Build_Overlay_Win64.bat",
+      "GameConnect_Win64/Build_Win64.bat",
+      "GameConnect_Win64/Game.Overlay.Identity.inc",
+      "GameConnect_Win64/GameConnect.dproj",
+      "GameConnect_Win64/Prepare_Overlay_IDE.bat",
+      "GameConnect_Win64/Rebuild_Overlay_Client_Win64.bat",
+      "GameConnect_Win64/tests/Build_OverlayProbe_Win64.bat",
+      "GameWeb/maintenance/index.html",
+      "GameWeb/maintenance/source-manifest.json",
+      "GameWeb/scripts/test-overlay-contract.py",
+      "GameWeb/scripts/test-overlay-ide-prepare.py",
+      "GameWeb/scripts/test-overlay-identity-build.py",
+      "GameWeb/scripts/verify-source.py"
+    ],
+    "removedPaths": [
+      "GameConnect_Win64/overlay/Game.Overlay.Window.pas",
+      "GameConnect_Win64/overlay/GameOverlay.dpr",
+      "GameConnect_Win64/overlay/GameOverlay.dproj",
+      "GameConnect_Win64/overlay/GameOverlay.manifest",
+      "GameConnect_Win64/overlay/GameOverlay.rc",
+      "GameWeb/tools/write-overlay-identity.ps1"
+    ],
+    "addedPaths": [
+      "GameConnect_Win64/GameOverlay.manifest",
+      "GameConnect_Win64/GameOverlay.dpr",
+      "GameConnect_Win64/GameOverlay.dproj",
+      "GameConnect_Win64/write-overlay-identity.ps1",
+      "GameConnect_Win64/Game.Overlay.Window.pas",
+      "GameConnect_Win64/Update_Overlay_Identity.bat",
+      "GameConnect_Win64/GameOverlay.rc",
+      "GameWeb/maintenance/overlay-flat-review.json",
+      "GameWeb/scripts/test-overlay-generated-identity.py",
+      "GameWeb/scripts/test-overlay-flat-build.py"
+    ],
+    "note": "Moved paths are listed in removed/added; they are not deleted runtime features. Review contains historical not-current tests in earlier files."
+  }
+}

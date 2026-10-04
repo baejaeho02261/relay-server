@@ -1,0 +1,84 @@
+{
+  "basis": "GameConnect_GameWeb_SEPARATE_OVERLAY.zip",
+  "basisSha256": "25f70c75b421b24d672254b064a6ae47ca6b96397d467459bcf22719b2900268",
+  "issue": "F1026 at Game.Overlay.Client.pas:42: generated include missing or not visible to the compiler",
+  "scope": "Build-only repair. No runtime .pas/.dpr, Windows API binding, overlay drawing, license or server runtime changes.",
+  "exactUserBuildFailure": "Only F1026 was supplied. No full IDE/prebuild log was available; the specific upstream failure on the user machine has not been reproduced.",
+  "changedExistingFiles": [
+    "GameConnect_Win64/Build_Overlay_Win64.bat",
+    "GameConnect_Win64/GameConnect.dproj",
+    "GameWeb/maintenance/source-manifest.json",
+    "GameWeb/scripts/test-overlay-contract.py"
+  ],
+  "addedSourceFiles": [
+    "GameConnect_Win64/Game.Overlay.Identity.inc",
+    "GameConnect_Win64/Rebuild_Overlay_Client_Win64.bat",
+    "GameWeb/scripts/test-overlay-identity-build.py"
+  ],
+  "unchangedExistingFiles": 334,
+  "existingFileCount": 338,
+  "tests": [
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-identity-build.py",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "test_absolute_project_include_search (__main__.OverlayIdentityBuildFix.test_absolute_project_include_search) ... ok\ntest_batch_encoding_and_no_runtime_download (__main__.OverlayIdentityBuildFix.test_batch_encoding_and_no_runtime_download) ... ok\ntest_batch_labels_are_resolved (__main__.OverlayIdentityBuildFix.test_batch_labels_are_resolved) ... ok\ntest_configurations_are_canonical_and_bounded (__main__.OverlayIdentityBuildFix.test_configurations_are_canonical_and_bounded) ... ok\ntest_existing_generator_still_hashes_real_image (__main__.OverlayIdentityBuildFix.test_existing_generator_still_hashes_real_image) ... ok\ntest_explicit_build_order_does_not_depend_on_ide_event (__main__.OverlayIdentityBuildFix.test_explicit_build_order_does_not_depend_on_ide_event) ... ok\ntest_ide_event_enabled_and_failures_not_ignored (__main__.OverlayIdentityBuildFix.test_ide_event_enabled_and_failures_not_ignored) ... ok\ntest_original_runtime_sources_unchanged (__main__.OverlayIdentityBuildFix.test_original_runtime_sources_unchanged) ... ok\ntest_prepare_deletes_only_its_old_generated_identity (__main__.OverlayIdentityBuildFix.test_prepare_deletes_only_its_old_generated_identity) ... ok\ntest_prepare_generator_is_after_child_build (__main__.OverlayIdentityBuildFix.test_prepare_generator_is_after_child_build) ... ok\ntest_prepare_paths_are_frozen_before_environment_setup (__main__.OverlayIdentityBuildFix.test_prepare_paths_are_frozen_before_environment_setup) ... ok\ntest_publish_and_overlay_output_paths_preserved (__main__.OverlayIdentityBuildFix.test_publish_and_overlay_output_paths_preserved) ... ok\ntest_source_dispatcher_is_available (__main__.OverlayIdentityBuildFix.test_source_dispatcher_is_available) ... ok\ntest_wrapper_rebuilds_b_and_checks_errors (__main__.OverlayIdentityBuildFix.test_wrapper_rebuilds_b_and_checks_errors) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 0.006s\n\nOK\n",
+      "scope": "source/text/packaging checks, not Windows/dcc64 execution"
+    },
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-overlay-contract.py",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "test_all_api_hash_values (__main__.OverlaySourceContract.test_all_api_hash_values) ... ok\ntest_b_does_not_render (__main__.OverlaySourceContract.test_b_does_not_render) ... ok\ntest_build_order_and_include (__main__.OverlaySourceContract.test_build_order_and_include) ... ok\ntest_child_exit_is_parent_or_stop_signalled (__main__.OverlaySourceContract.test_child_exit_is_parent_or_stop_signalled) ... ok\ntest_clickthrough_noactivation_noform (__main__.OverlaySourceContract.test_clickthrough_noactivation_noform) ... ok\ntest_explicit_absolute_image_no_shell (__main__.OverlaySourceContract.test_explicit_absolute_image_no_shell) ... ok\ntest_explicit_three_handle_inheritance (__main__.OverlaySourceContract.test_explicit_three_handle_inheritance) ... ok\ntest_image_cleanup_is_still_license_gated (__main__.OverlaySourceContract.test_image_cleanup_is_still_license_gated) ... ok\ntest_live_authentication_gate (__main__.OverlaySourceContract.test_live_authentication_gate) ... ok\ntest_new_b_apis_preserve_existing_binding_convention (__main__.OverlaySourceContract.test_new_b_apis_preserve_existing_binding_convention) ... ok\ntest_no_credentials_in_child_command (__main__.OverlaySourceContract.test_no_credentials_in_child_command) ... ok\ntest_no_exe_resource_embedding_or_runtime_write (__main__.OverlaySourceContract.test_no_exe_resource_embedding_or_runtime_write) ... ok\ntest_no_standalone_window_on_doubleclick (__main__.OverlaySourceContract.test_no_standalone_window_on_doubleclick) ... ok\ntest_only_separate_exe_draws (__main__.OverlaySourceContract.test_only_separate_exe_draws) ... ok\ntest_overlay_project_no_packages_and_as_invoker (__main__.OverlaySourceContract.test_overlay_project_no_packages_and_as_invoker) ... ok\ntest_pascal_encoding_and_delimiters (__main__.OverlaySourceContract.test_pascal_encoding_and_delimiters) ... ok\ntest_pointer_inheritance_cleared (__main__.OverlaySourceContract.test_pointer_inheritance_cleared) ... ok\ntest_pulse_stale_hides_no_ban (__main__.OverlaySourceContract.test_pulse_stale_hides_no_ban) ... ok\ntest_rechecks_expiry_after_launch_work (__main__.OverlaySourceContract.test_rechecks_expiry_after_launch_work) ... ok\ntest_start_once_and_no_forced_process_kill (__main__.OverlaySourceContract.test_start_once_and_no_forced_process_kill) ... ok\ntest_stop_before_worker_join (__main__.OverlaySourceContract.test_stop_before_worker_join) ... ok\ntest_verified_separate_file_before_start (__main__.OverlaySourceContract.test_verified_separate_file_before_start) ... ok\n\n----------------------------------------------------------------------\nRan 22 tests in 0.006s\n\nOK\n",
+      "scope": "source/text/packaging checks, not Windows/dcc64 execution"
+    },
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-license-success-contract.py",
+      "exitCode": 0,
+      "stdout": "PASS A deletion stays in authenticated handoff\nPASS B is not unlinked at claim time\nPASS The verified B handle is transferred rather than reopened after license\nPASS License success is checked before cleanup\nPASS An expired lease is checked again before WorkerActive\nPASS Exactly one license-gated call site exists\nPASS Cleanup is guarded once and preserves nonfatal OS refusal\nPASS Cleanup pins the directory and closes capability on both paths\nPASS Worker is joined before handoff context can be freed\nPASS Destructor releases unused cleanup handle\nPASS No window renderer or automatic assignment marker added\nLicense-success source contracts: 11 passed. Static checks only; no Windows deletion or rendering test.\n",
+      "stderr": "",
+      "scope": "source/text/packaging checks, not Windows/dcc64 execution"
+    },
+    {
+      "command": "node GameWeb/scripts/check-connect-project.js",
+      "exitCode": 0,
+      "stdout": "A/B PROJECT SOURCE CHECK PASS (actual Delphi compilation still required)\n",
+      "stderr": "",
+      "scope": "source/text/packaging checks, not Windows/dcc64 execution"
+    },
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/verify-source.py",
+      "exitCode": 0,
+      "stdout": "SOURCE VERIFY PASS: delivery files, retired source absence, JSON/JS placement. Not a Delphi compile or runtime security proof.\n",
+      "stderr": "",
+      "scope": "source/text/packaging checks, not Windows/dcc64 execution"
+    },
+    {
+      "command": "/opt/pyvenv/bin/python GameWeb/scripts/test-source-verifier.py",
+      "exitCode": 0,
+      "stdout": "Source verifier: 7 tests passed. Temporary copies only.\n",
+      "stderr": "",
+      "scope": "source/text/packaging checks, not Windows/dcc64 execution"
+    }
+  ],
+  "nativeSourceFilesPinnedByTest": 45,
+  "notExecuted": [
+    "Windows BAT/PowerShell execution",
+    "RAD Studio IDE",
+    "dcc64 compile/link",
+    "Windows overlay launch/window lifecycle"
+  ],
+  "testAssertionUpdate": "The pre-existing test matched the first occurrence of the generator filename (now an early preflight path declaration). It now matches the actual PowerShell invocation when checking execution order.",
+  "apply": [
+    "Overlay this patch on GameConnect_GameWeb_SEPARATE_OVERLAY with both root folders retained.",
+    "Do not put an empty or example digest into the generated include.",
+    "Close the IDE project before replacing GameConnect.dproj; reopen that dproj afterward.",
+    "In the RAD Studio Command Prompt, cd to GameConnect_Win64.",
+    "Run Rebuild_Overlay_Client_Win64.bat Release (or Debug, matching the build configuration).",
+    "This explicitly builds C, generates its real hash include, builds B resources, then rebuilds B.",
+    "Only for this explicit sequential build, B prebuild is suppressed because its original actions have already completed. Normal IDE/dproj builds retain the prebuild.",
+    "Generated include: GameConnect_Win64/build/overlay-identity/<Config>/Game.Overlay.Identity.inc",
+    "The include at GameConnect_Win64/Game.Overlay.Identity.inc is a source dispatcher, not the actual EXE hash.",
+    "Use the resulting B and C as a pair. Sign and publish the new B using the existing release key. Existing A and server runtime are unchanged."
+  ]
+}
