@@ -197,4 +197,12 @@ function RequireSnapshot(row,stage){
  if(!reason)return;RevokeSnapshot(row,reason);Record({stage,sessionId:row.sessionId,flowId:row.id,machineId:row.machineId,check:'MODULE_POLICY',status:'REJECTED',reason,trusted:true,strictPolicyRevision:policy.revision});Fail(reason,403);
 }
 
-module.exports={Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};
+function RetireSession(row){
+ // Historical measurements remain in the server audit. Only in-flight proof
+ // objects and partial inventory buffers belong to the completed B session.
+ for(const [id,item]of pending)if(item.sessionId===row.sessionId||item.sessionId===row.id)pending.delete(id);
+ for(const [id,item]of snapshots)if(item.context===row.sessionId||item.context===row.id)snapshots.delete(id);
+ for(const id of finishedSnapshots.keys())if(id.startsWith('B:'+row.sessionId+':')||id.startsWith('A:'+row.id+':'))finishedSnapshots.delete(id);
+ rates.delete(row.sessionId);rates.delete(row.id);
+}
+module.exports={Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,RetireSession};

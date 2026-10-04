@@ -8,12 +8,12 @@ const config = require('../config/config');
 const { Now, SafeField, NormalizeID, NormalizeVersion } = require('../core/utils');
 
 const REQUIRED = {
-    SERVER: ['DEVICE_HMAC', 'BUILD_SESSION_LEASE', 'FIXED_BUILD_BINDING', 'SIGNED_UPDATE', 'SERVER_AUTHORITY'],
-    CLIENT: ['DEVICE_HMAC', 'QR_DEVICE_APPROVAL', 'BIOMETRIC_AUTH', 'BIOMETRIC_STRONG', 'BUILD_SESSION_LEASE', 'FIXED_BUILD_BINDING', 'SIGNED_UPDATE', 'SERVER_AUTHORITY']
+    SERVER: ['DEVICE_HMAC', 'SIGNED_UPDATE', 'SERVER_AUTHORITY']
 };
 
 function DeviceRows(type) {
     type = String(type || '').toUpperCase();
+    if (type !== 'SERVER') return [];
     const identities = type === 'SERVER'
         ? Array.from(state.serverIdentities.values()).map(id => ({ id }))
         : Array.from(state.clientIdentities.values()).map(item => ({ id: item.id }));
@@ -30,7 +30,7 @@ function DeviceRows(type) {
 }
 
 function CompatibilityOverview() {
-    const devices = [...DeviceRows('SERVER'), ...DeviceRows('CLIENT')];
+    const devices = DeviceRows('SERVER');
     return {
         manifest: state.production.deploymentManifest,
         requiredCapabilities: REQUIRED,
@@ -60,7 +60,7 @@ function ConfigDryRun(input, actor) {
         const value = Number(input.heartbeatMs);
         if (!Number.isInteger(value) || value < 1000 || value > 300000) return { ok: false, reason: 'INVALID_HEARTBEAT' };
         changes.heartbeatMs = value;
-        if (value < 5000) warnings.push('Heartbeat below 5 seconds increases Relay and mobile radio load.');
+        if (value < 5000) warnings.push('Heartbeat below 5 seconds increases server and network load.');
     }
     const plan = {
         planId: `PLAN-${crypto.randomBytes(8).toString('hex').toUpperCase()}`,

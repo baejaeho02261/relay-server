@@ -170,7 +170,13 @@ function Claim(body){
 }
 function ClaimResult(row){return {sessionId:row.sessionId,sessionToken:SessionToken(row),expiresAt:row.sessionExpiresAt,release:Release(DB().artifacts[row.releaseId])};}
 function FindSession(id){return Object.values(DB().flows).find(row=>row.sessionId===id);}
-function SessionAuthenticated(id,token){const row=FindSession(id);if(!row||!row.sessionHash||!EqualHash(token,row.sessionHash))Fail('BOOTSTRAP_SESSION_INVALID',401);return row;}
+function SessionAuthenticated(id,token,allowCompletionReceipt=false){const row=FindSession(id);if(!row||!row.sessionHash||!EqualHash(token,row.sessionHash))Fail('BOOTSTRAP_SESSION_INVALID',401);if(row.closedByLicenseCompletion&&!allowCompletionReceipt)Fail('BOOTSTRAP_SESSION_CLOSED',403);return row;}
+function CompleteLicense(body){
+ Fields(body,['requestId','sessionId','sessionToken','deviceId','activationToken']);
+ const row=SessionAuthenticated(body.sessionId,body.sessionToken,true);
+ if(!row.closedByLicenseCompletion)FlowLive(row,true);
+ return require('./desktopOverlay').Complete(row,body,RetireFlow);
+}
 function Gate(id,token,deviceId,options={}){
  Available();if(!id||!token)Fail('BOOTSTRAP_REQUIRED',403);const row=SessionAuthenticated(id,token);
  const released=options.allowReleased&&row.status==='CLOSED'&&row.closedByLicenseRelease;
@@ -250,7 +256,7 @@ function TouchLicense(id,token,deviceId,license,action,verification={}){
  const row=SessionAuthenticated(id,token),released=action==='release'&&row.status==='CLOSED'&&row.closedByLicenseRelease;
  if((row.status!=='CLAIMED'&&!released)||row.deviceId!==deviceId)Fail('BOOTSTRAP_SESSION_INVALID',403);
  if(row.licenseId&&row.licenseId!==license.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
- Atomic(db=>{const item=db.flows[row.id];item.licenseId=license.id;item.codeIntegrityStatus='VERIFIED';item.lastCodeVerifiedAt=now();item.lastVerifiedAt=now();item.licenseLeaseExpiresAt=Number(verification.leaseExpiresAt)||0;item.appVersion=typeof verification.appVersion==='string'?verification.appVersion.slice(0,40):'';item.sessionExpiresAt=Math.min(now()+SESSION_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);if(action==='release'){item.status='CLOSED';item.closedAt=now();item.closedByLicenseRelease=true;RetireFlow(item);}});
+ Atomic(db=>{const item=db.flows[row.id];item.licenseId=license.id;item.codeIntegrityStatus='VERIFIED';item.lastCodeVerifiedAt=now();item.lastVerifiedAt=now();item.lastSecurityIntent=verification.securityIntent||action;item.lastSecurityBinding=verification.securityBinding||'';item.licenseLeaseExpiresAt=Number(verification.leaseExpiresAt)||0;item.appVersion=typeof verification.appVersion==='string'?verification.appVersion.slice(0,40):'';item.sessionExpiresAt=Math.min(now()+SESSION_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);if(action==='release'){item.status='CLOSED';item.closedAt=now();item.closedByLicenseRelease=true;RetireFlow(item);}});
 }
 function LicenseActivity(id){
  // This direct projection intentionally never calls desktopLicenses.Public or
@@ -272,5 +278,5 @@ function Initialize(){DB();Prune();if(!retirementTimer){retirementTimer=setInter
 function Overview(){
  Prune();const db=DB();return {artifacts:{A:Artifact(db.artifacts[db.active.A]),B:Artifact(db.artifacts[db.active.B])},launchers:Object.values(db.launchers).map(row=>({id:row.id,downloadName:LauncherName(row),label:row.label,issuedAt:row.issuedAt,expiresAt:row.expiresAt,status:row.status==='AVAILABLE'&&row.expiresAt<=now()?'EXPIRED':row.status,flowId:row.flowId||'',sha256:row.sha256,crc64:row.crc64})).sort((a,b)=>b.issuedAt-a.issuedAt),sessions:Object.values(db.flows).map(SessionView).sort((a,b)=>b.createdAt-a.createdAt),limits:{maxArtifactBytes:MAX_ARTIFACT_BYTES,chunkSize:CHUNK_SIZE,launcherLifetimeMs:LAUNCHER_MS,flowLifetimeMs:FLOW_MS,sessionLifetimeMs:SESSION_MS},serverTime:now()};
 }
-function Execute(body){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
+function Execute(body){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'completeLicense':return CompleteLicense(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
 module.exports={ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};

@@ -70,7 +70,10 @@ function Load(){
     else if(row.status==='CLAIMED')Invalid();
    }
    if(typeof row.licenseId!=='string'||row.licenseId&&!Identifier(row.licenseId,'DL')||!Number.isSafeInteger(row.lastVerifiedAt)||row.lastVerifiedAt<0)Invalid();
+   if(row.lastSecurityIntent!==undefined&&!['redeem','verify','release'].includes(row.lastSecurityIntent)||row.lastSecurityBinding!==undefined&&row.lastSecurityBinding!==''&&!Digest(row.lastSecurityBinding))Invalid();
+   if(row.closedByLicenseCompletion!==undefined&&(row.closedByLicenseCompletion!==true||!Identifier(row.overlaySessionId,'OS')||!['CLOSED','REVOKED','EXPIRED'].includes(row.status)))Invalid();
   }
+  if(value.overlayState!==undefined){try{require('./desktopOverlay').ValidateState(value.overlayState,value);}catch(_){Invalid();}}
   for(const receipt of Object.values(value.issueReceipts))if(!Plain(receipt)||!Digest(receipt.fingerprint)||!value.launchers[receipt.launcherId])Invalid();
   if(upgrade){
    // Protocol upgrades cannot reuse native templates or old secret capabilities.

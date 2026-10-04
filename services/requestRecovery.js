@@ -60,14 +60,6 @@ function NumberFrom(input) {
     return /^-?\d+$/.test(candidate) ? candidate : '';
 }
 
-function BuildSessionReady(clientId, serverId) {
-    if (!require('./member/entryPass').ForClient(GetOnlineClient(clientId))) return { ok: false, reason: 'GAME_PASS_REQUIRED' };
-    const session = require('./buildGate').ActiveSessionForClient(clientId);
-    if (!session) return { ok: false, reason: 'BUILD_REQUIRED' };
-    if (NormalizeID(session.serverId) !== NormalizeID(serverId)) return { ok: false, reason: 'SERVER_BINDING_MISMATCH' };
-    return { ok: true, session };
-}
-
 function QueueCount(clientId) {
     clientId = NormalizeID(clientId);
     let count = 0;
@@ -232,51 +224,8 @@ function LicenseReady(clientId) {
     return Boolean(entry && manager.GetLicenseStatus(entry.license) === 'BOUND');
 }
 
-function DispatchRequest(input, options = {}) {
-    EnsureState();
-    const clientId = NormalizeID(input.clientId);
-    const requestId = String(input.requestId || NewRequestId(options.prefix || 'REPLAY')).trim().slice(0, 64);
-    const number = NumberFrom(input);
-    const saved = GetSavedClientByID(clientId);
-    if (!saved) return { ok: false, reason: 'CLIENT_NOT_FOUND' };
-    if (!requestId || !number) return { ok: false, reason: 'INVALID_REQUEST' };
-    const requestKey = MakeRequestKey(clientId, requestId);
-    if (state.requestHistory.has(requestKey) || state.pendingRequests.has(requestKey) || FindQueued(clientId, requestId)) {
-        return { ok: false, reason: 'DUPLICATE_REQUEST' };
-    }
-    if (!LicenseReady(clientId)) return { ok: false, reason: 'LICENSE_REQUIRED' };
-    const serverId = NormalizeID(saved.serverId);
-    const ready = ServerReady(serverId);
-    const build = ready.ok ? BuildSessionReady(clientId, serverId) : { ok: false, reason: ready.reason };
-    const common = {
-        clientId, requestId, serverId, number,
-        accessType: build.ok ? build.session.accessType : require('./accessType').NormalizeAccessType(input.accessType),
-        payload: build.ok ? `NUMBER|${requestId}|${clientId}|${build.session.accessType}|${number}` : '',
-        source: SafeField(input.source || options.source || 'ADMIN_REPLAY'),
-        replayOf: SafeField(input.replayOf || ''),
-        notifyClient: input.notifyClient === true,
-        originCreatedAt: Number(input.originCreatedAt) || Now()
-    };
-    if (!ready.ok) {
-        if (options.allowQueue && CanQueue(clientId)) return EnqueueRequest(common, ready.reason);
-        return { ok: false, reason: ready.reason };
-    }
-    if (!build.ok) {
-        if (options.allowQueue && CanQueue(clientId)) return EnqueueRequest(common, build.reason);
-        return { ok: false, reason: build.reason };
-    }
-    if (!SendLine(ready.server.socket, common.payload)) {
-        if (options.allowQueue && CanQueue(clientId)) return EnqueueRequest(common, 'SERVER_SEND_FAILED');
-        return { ok: false, reason: 'SERVER_SEND_FAILED' };
-    }
-    const now = Now();
-    state.requestHistory.set(requestKey, now);
-    require('./requestTrace').StartTrace(clientId, requestId, serverId, number, now, common);
-    state.pendingRequests.set(requestKey, {
-        ...common, createdAt: now, lastSendAt: now, retries: 0
-    });
-    LogEvent('REQUEST_REPLAY_DISPATCHED', `${requestId} / ${clientId} / ${common.replayOf || '-'}`);
-    return { ok: true, queued: false, requestId, clientId, serverId };
+function DispatchRequest() {
+    return { ok: false, reason: 'APK_FEATURE_RETIRED' };
 }
 
 function ReplayTrace(traceKey, actor = 'admin') {
@@ -348,60 +297,7 @@ function FailQueueItem(queueId, reason) {
 }
 
 function ProcessOfflineQueue() {
-    EnsureState();
-    if (!state.offlineQueuePolicy.enabled || !state.serviceEnabled || state.maintenanceMode) return { delivered: 0, failed: 0, paused: true };
-    const now = Now();
-    const items = Array.from(state.offlineQueue.values()).sort((a, b) => a.createdAt - b.createdAt || a.queueId.localeCompare(b.queueId));
-    const firstByClient = new Map();
-    for (const item of items) if (!firstByClient.has(item.clientId)) firstByClient.set(item.clientId, item);
-    let delivered = 0;
-    let failed = 0;
-    let changed = false;
-    for (const item of firstByClient.values()) {
-        if (delivered + failed >= config.OFFLINE_QUEUE_PROCESS_LIMIT) break;
-        if (now >= item.expiresAt) { FailQueueItem(item.queueId, 'QUEUE_EXPIRED'); failed++; changed = true; continue; }
-        if (state.disabledClients.has(item.clientId)) { FailQueueItem(item.queueId, 'CLIENT_DISABLED'); failed++; changed = true; continue; }
-        if (!LicenseReady(item.clientId)) { FailQueueItem(item.queueId, 'LICENSE_REQUIRED'); failed++; changed = true; continue; }
-        const saved = GetSavedClientByID(item.clientId);
-        if (!saved) { FailQueueItem(item.queueId, 'CLIENT_NOT_FOUND'); failed++; changed = true; continue; }
-        const ready = ServerReady(saved.serverId);
-        if (!ready.ok) continue;
-        const build = BuildSessionReady(item.clientId, saved.serverId);
-        if (!build.ok) continue;
-        if (now - Number(item.lastAttemptAt || 0) < 1000) continue;
-        item.lastAttemptAt = now;
-        item.attempts++;
-        item.serverId = NormalizeID(saved.serverId);
-        item.accessType = build.session.accessType;
-        item.payload = `NUMBER|${item.requestId}|${item.clientId}|${item.accessType}|${item.number}`;
-        if (!SendLine(ready.server.socket, item.payload)) {
-            changed = true;
-            if (item.attempts >= state.offlineQueuePolicy.maxDeliveryAttempts) {
-                FailQueueItem(item.queueId, 'QUEUE_DELIVERY_FAILED');
-                failed++;
-            }
-            continue;
-        }
-        state.offlineQueue.delete(item.queueId);
-        const requestKey = MakeRequestKey(item.clientId, item.requestId);
-        state.pendingRequests.set(requestKey, {
-            clientId: item.clientId, serverId: item.serverId, requestId: item.requestId,
-            number: item.number, payload: item.payload, createdAt: now, lastSendAt: now, retries: 0,
-            originCreatedAt: item.createdAt, source: item.source, replayOf: item.replayOf,
-            notifyClient: item.notifyClient
-        });
-        require('./requestTrace').MarkForwarded(item.clientId, item.requestId, item.serverId, now);
-        if (item.notifyClient) {
-            const client = GetOnlineClient(item.clientId);
-            if (client) SendLine(client.socket, `DEQUEUED|${item.requestId}|${item.serverId}`);
-        }
-        state.runtimeStats.dequeuedRequests++;
-        LogEvent('REQUEST_DEQUEUED', `${item.requestId} / ${item.clientId} / ${item.serverId}`);
-        delivered++;
-        changed = true;
-    }
-    if (changed) SaveDatabase();
-    return { delivered, failed, paused: false };
+    return { delivered: 0, failed: 0, paused: true };
 }
 
 function ListDeadLetters(query = '') {

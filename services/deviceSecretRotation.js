@@ -76,7 +76,7 @@ function VerifyAlternateAuth(type,id,ch,hex){
     const expected=crypto.createHmac('sha256',pending).update(`${ch.type}|${ch.id}|${ch.challengeId}|${ch.nonce}|${ch.issuedAt}`,'utf8').digest('hex').toUpperCase();
     if(!SafeEqualHex(expected,hex))return false;
     // A reconnect proof under the committed device key finishes a lost ACK.
-    // Persist that key before biometric/update HMAC uses the current secret.
+    // Persist that key before update HMAC uses the current secret.
     return Commit(r,pending);
 }
 function Overview(){const out=[];for(const r of state.deviceSecretRotations.values())out.push({...Current(r.type,r.id)});return out.sort((a,b)=>(b.startedAt||0)-(a.startedAt||0));}

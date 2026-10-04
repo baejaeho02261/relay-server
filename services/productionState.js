@@ -42,7 +42,6 @@ function ImportPersisted(data) {
     // A restore must never merge the previous in-memory database into the
     // restored database.  Start from deterministic defaults, including when
     // an older database has no productionControl section yet.
-    p.pairingClaims.clear();
     p.passkeyCredentials = new Map();
     p.privilegedApprovals = new Map();
     p.updateTransactions = new Map();

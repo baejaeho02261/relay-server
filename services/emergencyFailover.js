@@ -16,10 +16,7 @@ function GetSavedClientByID(id) { return require('../identity/identityManager').
 function GetServerClientCount(id) { return require('../identity/identityManager').GetServerClientCount(id); }
 function GetKickUntil(map, id) { return require('../identity/identityManager').GetKickUntil(map, id); }
 function ServerExists(id) { return require('../identity/identityManager').ServerExists(id); }
-function GetFixedBuildBinding(clientId) {
-    try { return require('./buildGate').BindingForClient(clientId); }
-    catch (_) { return null; }
-}
+function GetFixedBuildBinding() { return null; }
 
 function DefaultPolicy() {
     return {
@@ -362,7 +359,7 @@ function Evaluate() {
         }
         let record = state.clientFailoverRecords.get(clientId);
 
-        // A successful Build permanently binds this APK to its GameConnect.
+        // Historical fixed assignments cannot be reactivated.
         // Automatic failover/return must never rewrite that binding. Only the
         // explicit Web Admin rebind operation may move a Build-bound client.
         if (GetFixedBuildBinding(clientId)) {

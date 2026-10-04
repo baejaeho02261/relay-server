@@ -8,8 +8,6 @@ const DEFAULTS = Object.freeze({
     REMOTE_DIAGNOSTICS: true,
     ADVANCED_NOTICE: true,
     PROCESS_RESULT: true,
-    UI_STATE: true,
-    QR_DEVICE_APPROVAL: true,
     PROTOCOL_V3_PREVIEW: false,
     DEVICE_HMAC_ENFORCE: false,
     EVENT_SEQUENCE: false
@@ -20,7 +18,10 @@ function NormalizeFlagName(name) {
 }
 
 function GlobalFlags() {
-    return { ...DEFAULTS, ...(state.desiredRuntimeConfig.featureFlags || {}) };
+    const flags = { ...DEFAULTS };
+    for (const [name, value] of Object.entries(state.desiredRuntimeConfig.featureFlags || {}))
+        if (Object.hasOwn(DEFAULTS, name) && typeof value === 'boolean') flags[name] = value;
+    return flags;
 }
 
 function OverrideMap(type) {
