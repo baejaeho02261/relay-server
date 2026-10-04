@@ -69,19 +69,42 @@ function ParseCookies(req) {
     return out;
 }
 
+function PublicOrigin() {
+    // TLS may terminate at a managed proxy whose backend IP is not stable.
+    // Use only server configuration for the public origin, never forwarded
+    // host/proto headers from an untrusted peer. An explicit custom domain
+    // overrides Railway's generated domain. UPDATE_BASE_URL may be a CDN.
+    const explicit = String(process.env.WEB_ADMIN_PUBLIC_ORIGIN || '').trim();
+    const railwayDomain = String(process.env.RAILWAY_PUBLIC_DOMAIN || '').trim();
+    const value = explicit || (railwayDomain ? `https://${railwayDomain}` : '');
+    if (!value) return '';
+    try {
+        const url = new URL(value);
+        if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password ||
+            url.pathname !== '/' || url.search || url.hash) return null;
+        return url.origin;
+    } catch (_) { return null; }
+}
+
 function IsHttps(req) {
     if (req.socket && req.socket.encrypted) return true;
+    const origin = PublicOrigin();
+    // This describes the configured browser-facing endpoint. The hop from
+    // its TLS terminator to this HTTP listener need not itself use TLS.
+    if (origin && origin.startsWith('https://')) return true;
     return TrustedProxy(NormalizeAddress(req.socket && req.socket.remoteAddress)) &&
         String(req.headers['x-forwarded-proto'] || '').trim().toLowerCase() === 'https';
 }
 
 function IsSameOrigin(req) {
     if (String(req.headers['sec-fetch-site'] || '').toLowerCase() === 'cross-site') return false;
+    const publicOrigin = PublicOrigin();
+    if (publicOrigin === null) return false; // Invalid explicit configuration fails closed.
     const origin = req.headers.origin;
     if (origin === undefined) return true; // Existing non-browser API clients.
     if (typeof origin !== 'string' || origin === 'null') return false;
     try {
-        const expected = new URL(`${IsHttps(req) ? 'https' : 'http'}://${req.headers.host}`);
+        const expected = new URL(publicOrigin || `${IsHttps(req) ? 'https' : 'http'}://${req.headers.host}`);
         const supplied = new URL(origin);
         return supplied.origin === expected.origin && supplied.href === supplied.origin + '/';
     } catch (_) { return false; }

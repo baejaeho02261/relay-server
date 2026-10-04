@@ -1,6 +1,10 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ AUTH_FAILED:['로그인 정보를 확인하세요.','선택한 권한과 비밀번호로 인증하지 못했습니다.','권한과 비밀번호를 확인한 뒤 다시 로그인하세요.','login'],
+ ROLE_NOT_CONFIGURED:['선택한 로그인 권한이 설정되지 않았습니다.','해당 권한의 서버 로그인 설정을 사용할 수 없습니다.','사용할 권한의 서버 비밀번호 설정을 확인하세요.','login'],
+ AUTH_RATE_LIMITED:['로그인 시도 횟수를 초과했습니다.','반복된 인증 실패로 로그인이 일시 제한되었습니다.','잠시 기다린 뒤 권한과 비밀번호를 확인하고 다시 로그인하세요.','login'],
+ ORIGIN_NOT_ALLOWED:['접속 주소를 확인하지 못했습니다. (ORIGIN_NOT_ALLOWED)','브라우저 주소와 서버의 관리자 웹 주소가 일치하지 않습니다.','정식 관리자 웹 주소로 접속하고 서버의 WEB_ADMIN_PUBLIC_ORIGIN 또는 프록시 설정을 확인하세요.','login'],
  SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 EXE/승인 JSON을 확인하세요.','security'],
  SECURITY_SIGNER_NOT_ACTIVE:['서명자가 신규 배포를 허용하지 않습니다.','키가 전환 중이거나 철회된 상태입니다.','서명자 상태를 확인하고 허용된 키로 서명한 파일을 사용하세요.','security'],
  WORKSPACE_LICENSE_REQUIRED:['현재 운영 B가 콘솔 없는 이전 자동 인증 버전입니다.','이전 B는 서버 사전 배정이 필요하며, 새 KEY 입력 방식은 아직 운영 게시되지 않았습니다.','새 버전 배포에서 KEY 입력을 복원한 B를 빌드·서명·게시한 뒤 A를 다시 발급하세요. 기존 A 버전은 유지할 수 있습니다.','deploy'],
