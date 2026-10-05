@@ -44,5 +44,9 @@ async function handleDevicesAction(event) {
       if (t) await openModal({ title: `요청 추적 ${t.requestId}`, html: `<div class="kv"><div>상태</div><div>${badge(t.status)}</div><div>소스</div><div>${esc(t.source||'CLIENT')}</div><div>재전송 원본</div><div class="code">${esc(t.replayOf||'-')}</div><div>실패 보관함</div><div class="code">${esc(t.deadLetterId||'-')}</div><div>앱 기기</div><div class="code">${esc(t.clientId)}</div><div>서버</div><div class="code">${esc(t.serverId)}</div><div>입력값</div><div class="code">${esc(t.number)}</div><div>대기 중</div><div>${esc(fmtTime(t.queuedAt))}</div><div>전달됨</div><div>${esc(fmtTime(t.forwardedAt))}</div><div>처리 응답 / 완료</div><div>${esc(fmtTime(t.completedAt))}</div><div>기간</div><div>${t.completedAt ? `${t.durationMs} ms` : '-'}</div><div>재시도</div><div>${t.retries}</div><div>사유</div><div>${esc(t.reason || '-')}</div></div>`, confirmLabel: '닫기' });
       return true;
     }
+    const traceReplay=event.target.closest('[data-trace-replay]');
+    if(traceReplay){const t=traceRows.get(traceReplay.dataset.traceReplay);if(!t)throw new Error('TRACE_NOT_FOUND');const v=await openModal({title:"재전송 요청",message:`${t.requestId} 요청을 새 요청 식별자로 다시 실행합니다.`,confirmLabel:"재전송"});if(!v)return true;const r=await api('/api/request-traces/replay',{method:'POST',body:{key:t.key}});toast(`재전송 ${r.requestId||r.item?.requestId}`);await renderTrace();return true;}
+
+    
   return false;
 }

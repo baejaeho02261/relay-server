@@ -45,39 +45,39 @@
 .workspace-tabs button:hover { color:var(--workspace-ink)!important; }
 .workspace-tabs button:focus-visible { outline-offset:-3px; }
 .main .content { flex:1 1 auto; min-height:0; min-width:0; width:100%; max-width:none; margin:0; padding:24px 28px 32px; overflow:auto; overscroll-behavior:contain; scrollbar-gutter:stable; background:var(--workspace-bg); }
-.content :is(.card,.section-card,.table-wrap,.terminal-panel,.chart-box) { border-color:var(--workspace-border); background:var(--workspace-panel); border-radius:13px; box-shadow:0 2px 5px rgba(24,35,53,.018); }
+.content :is(.card,.section-card,.table-wrap,.member-panel,.biometric-hero,.terminal-panel,.chart-box,.support-conversation) { border-color:var(--workspace-border); background:var(--workspace-panel); border-radius:13px; box-shadow:0 2px 5px rgba(24,35,53,.018); }
 .cards { gap:14px; }
 .card { padding:19px 20px; }
 .stat-label { display:block; color:var(--workspace-muted); font-size:12px; }
 .stat-value { font-size:29px; letter-spacing:-1px; color:var(--workspace-ink); margin:8px 0 2px; }
 .section-head { padding:17px 19px; background:transparent; border-color:var(--workspace-border); }
-.section-head h3 { color:var(--workspace-ink); font-size:14px; line-height:1.4; }
+.section-head h3,.member-panel h3 { color:var(--workspace-ink); font-size:14px; line-height:1.4; }
 .section-body { padding:19px; }
-
-
-
-
-
-
+.content :is(.member-toolbar,.member-filter) { gap:10px; }
+.content .member-panel { padding:20px; }
+.content .member-panel .table-wrap { box-shadow:none; }
+.content .member-metrics article { padding:18px; border-radius:11px; border-color:var(--workspace-border); background:var(--workspace-bg); }
+.content .member-metrics article strong { font-size:21px; color:var(--workspace-ink); }
+.content .member-metrics article span { font-size:12px; color:var(--workspace-muted); }
 .content table { border-collapse:separate; border-spacing:0; }
 .content th { background:var(--workspace-bg); color:var(--workspace-muted); font-size:11px; font-weight:600; padding:12px 14px; border-color:var(--workspace-border); }
 .content td { padding:13px 14px; border-color:var(--workspace-border); }
 .content .table-wrap { overflow:auto; }
 .content .table-wrap th { position:sticky; top:0; z-index:1; }
 .content .table-wrap th.sticky-actions { z-index:2; }
-.content :is(.empty) { color:var(--workspace-muted); padding:40px 20px; }
-
-
-
-
-
-
-
-
+.content :is(.member-empty,.empty) { color:var(--workspace-muted); padding:40px 20px; }
+.content .member-filter :is(input,select) { min-height:38px; border-radius:9px; }
+.content .member-filter button { min-height:38px; }
+.content .support-workspace { min-height:360px; }
+.content .support-thread.selected { border-color:var(--workspace-active); background:var(--workspace-tint); box-shadow:none; }
+.content .support-transcript { background:var(--workspace-bg); border:1px solid var(--workspace-border); }
+.content .support-message { width:fit-content; max-width:85%; overflow-wrap:anywhere; border-radius:12px; margin-bottom:14px; }
+.content .support-message.from-admin { margin-left:auto; }
+.content .support-message.from-system { margin-left:auto; margin-right:auto; }
 .modal-card { border-radius:16px; }
 [data-theme="dark"] .sidebar { background:#101115; border-right:1px solid #24262d; }
 [data-theme="dark"] .main .topbar,[data-theme="dark"] .workspace-tabs { background:var(--workspace-panel); }
-
+[data-theme="dark"] .content .member-metrics article { background:#17191e; }
 @media (max-width:1100px) {
  .app { grid-template-columns:226px minmax(0,1fr); }
  .main .topbar { padding:18px 22px 15px; flex-wrap:wrap; gap:8px; }
@@ -100,10 +100,10 @@
  .workspace-tabs { min-height:44px; padding:0 16px; gap:19px; }
  .workspace-tabs button { min-height:43px; font-size:11px; }
  .main .content { padding:16px 14px 24px; }
- 
- 
- 
- 
+ .content .member-panel { padding:16px; }
+ .content .member-metrics { grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); }
+ .content .member-metrics article { padding:15px; }
+ .content .member-metrics article strong { font-size:18px; }
  .card { padding:16px; }.stat-value { font-size:26px; }
 }
 @media (max-height:560px) {

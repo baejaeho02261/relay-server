@@ -25,7 +25,7 @@ async function executeTerminalCommand(rawLine) {
   terminalHistoryIndex = terminalHistory.length;
   terminalWrite('cmd', `relay-admin > ${line}`);
   const a = terminalTokenize(line);
-  const commands = { '도움말':'help','상태':'status','서버':'server',
+  const commands = { '도움말':'help','상태':'status','서버':'server','앱':'client',
     '라이선스':'license','점검':'maintenance','백업':'backup','버전':'version','공지':'notice',
     '열기':'open','검색':'search','지우기':'clear' };
   const operations = { '목록':'list','보기':'show','차단':'kick','비활성':'disable','활성':'enable',
@@ -42,7 +42,8 @@ async function executeTerminalCommand(rawLine) {
       terminalWrite('ok', [
         '허용된 관리 명령만 실행합니다.',
         '상태', '서버 목록', '서버 보기 <식별자>', '서버 차단|비활성|활성 <식별자>',
-        '서버 정리 켜기|끄기 <식별자>',
+        '서버 정리 켜기|끄기 <식별자>', '앱 목록', '앱 보기 <식별자>',
+        '앱 차단|비활성|활성 <식별자>', '앱 이동 <앱식별자> <서버식별자>',
         '라이선스 검색 <검색어>', '점검 상태|켜기|끄기', '백업 목록|생성',
         '버전 상태', '공지 전체 <내용>', '열기 <메뉴>', '검색 <검색어>', '지우기'
       ].join('\n'));
@@ -50,7 +51,7 @@ async function executeTerminalCommand(rawLine) {
     }
     if (cmd === 'status') {
       const { dashboard: d } = await api('/api/dashboard');
-      terminalWrite('ok', `SERVICE=${d.serviceEnabled ? 'ONLINE' : 'OFFLINE'} MAINT=${d.maintenanceMode ? 'ON' : 'OFF'} SERVERS=${d.servers.online}/${d.servers.total} ACK=${d.ack.successRate}% PENDING=${d.ack.pending}`);
+      terminalWrite('ok', `SERVICE=${d.serviceEnabled ? 'ONLINE' : 'OFFLINE'} MAINT=${d.maintenanceMode ? 'ON' : 'OFF'} SERVERS=${d.servers.online}/${d.servers.total} CLIENTS=${d.clients.online}/${d.clients.total} ACK=${d.ack.successRate}% PENDING=${d.ack.pending}`);
       return;
     }
     if (cmd === 'server' && sub === 'list') {
@@ -63,15 +64,25 @@ async function executeTerminalCommand(rawLine) {
     }
     if (cmd === 'server' && ['kick','disable','enable'].includes(sub) && a[2]) { await serverAction(sub, a[2]); terminalWrite('ok', `SERVER ${sub.toUpperCase()} OK ${a[2]}`); return; }
     if (cmd === 'server' && sub === 'drain' && ['on','off'].includes(String(a[2]||'').toLowerCase()) && a[3]) { await serverAction(`drain-${String(a[2]).toLowerCase()}`, a[3]); terminalWrite('ok', `SERVER DRAIN ${String(a[2]).toUpperCase()} OK ${a[3]}`); return; }
+    if (cmd === 'client' && sub === 'list') {
+      const { clients } = await api('/api/clients');
+      terminalWrite('ok', terminalObjectLines(clients, c => `${c.alias || '-'} ${c.id} ${c.status}/${c.health} SERVER=${c.serverAlias || c.serverId} LICENSE=${c.licenseStatus}`)); return;
+    }
+    if (cmd === 'client' && sub === 'show' && a[2]) {
+      const { client: c } = await api(`/api/clients/${encodeURIComponent(a[2])}`);
+      terminalWrite('ok', JSON.stringify({ id:c.id, alias:c.alias, status:c.status, health:c.health, serverId:c.serverId, licenseStatus:c.licenseStatus, rttMs:c.rttMs }, null, 2)); return;
+    }
+    if (cmd === 'client' && ['kick','disable','enable'].includes(sub) && a[2]) { await clientAction(sub, a[2]); terminalWrite('ok', `CLIENT ${sub.toUpperCase()} OK ${a[2]}`); return; }
+    if (cmd === 'client' && sub === 'move' && a[2] && a[3]) { await api(`/api/clients/${encodeURIComponent(a[2])}/move`, { method:'POST', body:{ serverId:a[3] } }); terminalWrite('ok', `CLIENT MOVE OK ${a[2]} -> ${a[3]}`); return; }
     if (cmd === 'license' && sub === 'find') {
-      const q = a.slice(2).join(' '); const { licenses } = await api(`/api/desktop/licenses?query=${encodeURIComponent(q)}`);
-      terminalWrite('ok', terminalObjectLines(licenses, x => `${x.id} ${x.status} PC=${x.machineId || '-'} ${x.label || ''}`)); return;
+      const q = a.slice(2).join(' '); const { licenses } = await api(`/api/licenses?query=${encodeURIComponent(q)}&status=ALL&expiry=ALL`);
+      terminalWrite('ok', terminalObjectLines(licenses, x => `${x.key} ${x.status} CLIENT=${x.boundClient || '-'} TAGS=${(x.tags||[]).join(',') || '-'}`)); return;
     }
     if (cmd === 'maintenance' && sub === 'status') { const { system:s }=await api('/api/system'); terminalWrite('ok', `MAINTENANCE=${s.maintenanceMode?'ON':'OFF'} SERVICE=${s.serviceEnabled?'ONLINE':'OFFLINE'} SCHEDULE=${s.maintenanceSchedule?`${fmtTime(s.maintenanceSchedule.startAt)} -> ${fmtTime(s.maintenanceSchedule.endAt)}`:'NONE'}`); return; }
     if (cmd === 'maintenance' && ['on','off'].includes(sub)) { await api(`/api/system/maintenance/${sub}`, {method:'POST',body:{}}); terminalWrite('ok', `MAINTENANCE ${sub.toUpperCase()} OK`); return; }
     if (cmd === 'backup' && sub === 'list') { const {backups}=await api('/api/backups'); terminalWrite('ok', terminalObjectLines(backups, b=>`${b.file} ${fmtBytes(b.size)} ${fmtTime(b.mtimeMs)}`)); return; }
     if (cmd === 'backup' && sub === 'create') { const r=await api('/api/backups/create',{method:'POST',body:{}}); terminalWrite('ok', `BACKUP CREATED ${r.file}`); return; }
-    if (cmd === 'version' && sub === 'status') { const {system:s}=await api('/api/system'); terminalWrite('ok', `PROTOCOL=${s.minProtocolVersion}/${s.currentProtocolVersion} SERVER>=${s.minServerVersion} WEB=${s.webAdminVersion}`); return; }
+    if (cmd === 'version' && sub === 'status') { const {system:s}=await api('/api/system'); terminalWrite('ok', `PROTOCOL=${s.minProtocolVersion}/${s.currentProtocolVersion} SERVER>=${s.minServerVersion} CLIENT>=${s.minClientVersion} WEB=${s.webAdminVersion}`); return; }
     if (cmd === 'notice' && sub === 'all' && a.length >= 3) { const message=a.slice(2).join(' '); const r=await api('/api/system/notice',{method:'POST',body:{message}}); terminalWrite('ok', `NOTICE SENT ${r.count}`); return; }
     if (cmd === 'open' && a[1]) { const view=String(a[1]).toLowerCase(); if (!titles[view]) throw new Error('UNKNOWN_VIEW'); if (view==='danger'&&!roleIsAdmin()) throw new Error('FORBIDDEN'); switchView(view); await renderCurrent(); return; }
     if (cmd === 'search' && a.length >= 2) { openPalette(); const q=a.slice(1).join(' '); const input=document.getElementById('palette-input'); if(input){input.value=q; await runPaletteSearch(q);} return; }

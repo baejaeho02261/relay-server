@@ -11,7 +11,7 @@ content.addEventListener('change', event => {
 });
 function resetServiceUi() {
   dirtyViews.clear();
-  liveConsoleEvents.length = 0; consoleHistoryLoaded = false; traceRows.clear();
+  liveConsoleEvents.length = 0; consoleHistoryLoaded = false; traceRows.clear(); failoverRows.clear();
   terminalLines.length = 0;
   if (typeof resetSupportUiState === 'function') resetSupportUiState();
   if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();
@@ -49,7 +49,7 @@ const navigationIcons = {
 };
 for (const button of nav.querySelectorAll('button[data-view]')) {
  const key=button.dataset.view;
- const family=/audit|history|activity|sessions|trace/.test(key)?'history':/security|enroll|block|danger/.test(key)?'security':'settings';
+ const family=/audit|history|activity|sessions|trace/.test(key)?'history':/security|enroll|biometric|block|danger/.test(key)?'security':'settings';
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
  svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.classList.add('nav-icon');
  const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',navigationIcons[key]||navigationIcons[family]);svg.append(path);button.prepend(svg);

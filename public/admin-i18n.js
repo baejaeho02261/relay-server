@@ -324,6 +324,7 @@ const UI_KO = Object.freeze({
   "NEW": "새 항목",
   "OLD": "이전 항목",
   "USED": "사용됨",
+  "BIOMETRIC": "생체인증",
   "SEC": "초",
   "TRANSPORT": "통신",
   "TOKEN": "토큰",
