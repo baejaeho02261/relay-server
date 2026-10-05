@@ -102,7 +102,7 @@ function ParseKey(value){
  return {key,publicKey:value,deviceId:hash(bytes).toUpperCase()};
 }
 function Bind(body){
- if(!Plain(body)||!['redeem','verify','release'].includes(body.action)||!/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId||'')||!/^[A-F0-9]{64}$/.test(body.deviceId||''))Fail('INPUT_INVALID');
+ if(!Plain(body)||!['redeem','verify','release','overlay'].includes(body.action)||!/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId||'')||!/^[A-F0-9]{64}$/.test(body.deviceId||''))Fail('INPUT_INVALID');
  const parsed=ParseKey(body.publicKey);if(body.deviceId!==parsed.deviceId)Fail('DESKTOP_DEVICE_MISMATCH',403);return parsed;
 }
 function Canonical(value){return ['GAME-DESKTOP-V1',value.action,value.challengeId,value.nonce,value.requestId,value.deviceId,value.payloadHash,String(value.expiresAt)].join('\n');}
@@ -135,7 +135,8 @@ function Execute(body){
  if(typeof body.signature!=='string'||body.signature.length!==344||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('DESKTOP_PROOF_INVALID',401);
  const signature=Buffer.from(body.signature,'base64');if(signature.length!==256||signature.toString('base64')!==body.signature||!crypto.verify('sha256',Buffer.from(Canonical(c),'utf8'),{key:parsed.key,padding:crypto.constants.RSA_PKCS1_PADDING},signature))Fail('DESKTOP_PROOF_INVALID',401);
  const receiptKey=body.deviceId+':'+body.requestId,receipt=DB().receipts[receiptKey]||verifyReceipts.get(receiptKey),fingerprint=hash(body.action+'|'+payloadHash);
- const bootstrap=require('./desktopBootstrap').Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release',machineId:payload.machineId,binarySha256:payload.binarySha256,binaryCrc64:payload.binaryCrc64,codeSha256:payload.codeSha256,codeCrc64:payload.codeCrc64,securityIntent:body.action,securityBinding:require('./desktopSecurityAuthority').Binding(body.requestId,payloadHash)});
+ const bootstrap=require('./desktopBootstrap').Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release',machineId:payload.machineId,binarySha256:payload.binarySha256,binaryCrc64:payload.binaryCrc64,codeSha256:payload.codeSha256,codeCrc64:payload.codeCrc64,securityIntent:body.action==='overlay'?'verify':body.action,securityBinding:require('./desktopSecurityAuthority').Binding(body.requestId,payloadHash)});
+ if(body.action==='overlay'){const row=Activation(payload,body.deviceId);Active(row);SessionBinding(row,bootstrap);const result=require('./desktopOverlay').Prepare(bootstrap,row,body.requestId,fingerprint);c.used=true;return result;}
  if(receipt){
   if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
   const row=DB().licenses[receipt.licenseId];if(!row||row.deviceId!==body.deviceId)Fail('DESKTOP_ACTIVATION_INVALID',401);SessionBinding(row,bootstrap);
@@ -176,4 +177,5 @@ function Execute(body){
  }
  c.used=true;result.revision=DB().revision;if(body.action==='redeem')seen.set(result.licenseId,{at:now(),leaseExpiresAt:result.leaseExpiresAt,appVersion:payload.appVersion||''});return BootstrapResult(result,payload,body.deviceId,body.action);
 }
-module.exports={CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
+function RetireRuntime(row){for(const [id,value]of challenges)if(value.deviceId===row.deviceId)challenges.delete(id);for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);if(row.licenseId)seen.delete(row.licenseId);}
+module.exports={RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};

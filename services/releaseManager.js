@@ -6,12 +6,12 @@ const path = require('path');
 const config = require('../config/config');
 const state = require('../core/state');
 const { CompareVersions, NormalizeID, NormalizeVersion, SafeField, SendLine } = require('../core/utils');
-const { GetOnlineServer, GetOnlineClient } = require('../identity/identityManager');
+const { GetOnlineServer } = require('../identity/identityManager');
 
 const RELEASE_DIR = path.join(config.DATA_DIR, 'releases');
 const SECRET_FILE = path.join(config.DATA_DIR, 'update-download-secret.txt');
 const CHANNELS = ['STABLE', 'BETA', 'TEST'];
-const TYPES = ['SERVER', 'CLIENT'];
+const TYPES = ['SERVER'];
 const MAX_RELEASE_BYTES = Math.max(8 * 1024 * 1024, Number(process.env.MAX_RELEASE_BYTES || 256 * 1024 * 1024));
 
 function EnsureDir() { fs.mkdirSync(RELEASE_DIR, { recursive: true }); }
@@ -38,7 +38,7 @@ function VerifyDownload(artifactId,exp,sig){ exp=Number(exp); if(!artifactId||!N
 function FindArtifact(id){
     for(const root of state.releaseCatalog.values()){
         let r=root, depth=0;
-        while(r&&depth++<10){if(r.artifactId===id)return r;r=r.previous;}
+        while(r&&depth++<10){if(r.type==='SERVER'&&r.artifactId===id)return r;r=r.previous;}
     }
     return null;
 }
@@ -60,7 +60,7 @@ function UpdateMessageSignature(type,id,fields){
 }
 
 function NotifyDevice(type,id){
-    type=NormalizeType(type); id=NormalizeID(id); const c=type==='SERVER'?GetOnlineServer(id):GetOnlineClient(id); if(!c)return {ok:false,reason:'OFFLINE'};
+    type=NormalizeType(type); id=NormalizeID(id); const c=type==='SERVER'?GetOnlineServer(id):null; if(!c)return {ok:false,reason:'OFFLINE'};
     const caps=state.deviceCapabilities.get(DeviceKey(type,id))||new Set();
     if(!caps.has('AUTO_UPDATE'))return {ok:false,reason:'CAPABILITY_MISSING'};
     if(!caps.has('SIGNED_UPDATE'))return {ok:false,reason:'SIGNED_UPDATE_CAPABILITY_MISSING'};
@@ -93,14 +93,12 @@ function NotifyAll(filter = {}) {
     const out = [], type = NormalizeType(filter.type), channel = NormalizeChannel(filter.channel);
     const notify = (kind, id) => { if ((!type || type === kind) && (!channel || channel === ChannelFor(kind, id))) out.push({type:kind,id,...NotifyDevice(kind,id)}); };
     for (const id of state.serverIdentities.values()) notify('SERVER', id);
-    for (const saved of state.clientIdentities.values()) notify('CLIENT', saved.id);
     return out;
 }
 function ReleaseOverview(){
-    const releases=[]; for(const r of state.releaseCatalog.values())releases.push({...r}); releases.sort((a,b)=>`${a.type}:${a.channel}`.localeCompare(`${b.type}:${b.channel}`));
+    const releases=[]; for(const r of state.releaseCatalog.values())if(r.type==='SERVER')releases.push({...r}); releases.sort((a,b)=>`${a.type}:${a.channel}`.localeCompare(`${b.type}:${b.channel}`));
     const assignments=[];
     for(const id of state.serverIdentities.values()){const channel=ChannelFor('SERVER',id),c=GetOnlineServer(id),u=UpdateForDevice('SERVER',id,c?c.appVersion:'');assignments.push({type:'SERVER',id,channel,bucket:HashBucket('SERVER',id),online:!!c,currentVersion:c?c.appVersion:'',update:u,updateStatus:GetUpdateStatus('SERVER',id)});}
-    for(const saved of state.clientIdentities.values()){const id=saved.id,channel=ChannelFor('CLIENT',id),c=GetOnlineClient(id),u=UpdateForDevice('CLIENT',id,c?c.appVersion:'');assignments.push({type:'CLIENT',id,channel,bucket:HashBucket('CLIENT',id),online:!!c,currentVersion:c?c.appVersion:'',update:u,updateStatus:GetUpdateStatus('CLIENT',id)});}
     return {channels:CHANNELS,releases,assignments,maxReleaseBytes:MAX_RELEASE_BYTES};
 }
 function SetRollout(type,channel,percent){ const r=GetRelease(type,channel); if(!r)return null; r.rolloutPercent=Math.max(0,Math.min(100,Number(percent)||0)); r.updatedAt=Date.now(); return r; }
@@ -108,7 +106,7 @@ function SetReleaseEnabled(type,channel,enabled){ const r=GetRelease(type,channe
 function PublishFromTemp(meta,tmpPath,sha256,size){
     const type=NormalizeType(meta.type), channel=NormalizeChannel(meta.channel), version=NormalizeVersion(meta.version);
     if(!type||!channel||!version)throw new Error('INVALID_RELEASE_META');
-    const ext=path.extname(SafeFileName(meta.fileName)).toLowerCase(); const allow=type==='CLIENT'?new Set(['.apk','.zip']):new Set(['.zip','.exe']); if(!allow.has(ext))throw new Error('INVALID_ARTIFACT_TYPE');
+    const ext=path.extname(SafeFileName(meta.fileName)).toLowerCase(); const allow=new Set(['.zip','.exe']); if(!allow.has(ext))throw new Error('INVALID_ARTIFACT_TYPE');
     const artifactId=RandomId(); const destName=`${type.toLowerCase()}-${channel.toLowerCase()}-${version}-${artifactId}${ext}`; const dest=path.join(RELEASE_DIR,destName); EnsureDir(); fs.renameSync(tmpPath,dest);
     const old=GetRelease(type,channel);
     const previous=old?{...old,previous:old.previous||null}:null;
