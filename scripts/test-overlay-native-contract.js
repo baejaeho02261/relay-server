@@ -23,11 +23,14 @@ const o = read('Game.Overlay.pas');
 for (const required of ['THandoffContext.ReceiveFromCommandLine',
   'Bootstrap.OverlayClaim(', 'Context.CompleteClaimAndCleanup(',
   'FApi.CheckIntegrity;', 'FApi.ContinueModuleInventory', 'FApi.VerifyOverlay',
-  'Worker.Free;', 'Bootstrap.Close;', 'WS_EX_LAYERED', 'WS_EX_NOACTIVATE',
-  'STUDY ONLY - NOT FOR REAL USE', 'Ctrl+Shift+F12: Close']) {
+  'Worker.Free;', 'Bootstrap.Close;', 'RunOverlaySurface(@AwaitSurfaceSession',
+  'Not intended for actual use.', 'FApi.MemoryGuardFailed']) {
   assert.ok(o.includes(required), 'O contract missing: ' + required);
 }
 assert.ok(!/\b(?:Vcl|FMX)\./i.test(o));
+const surface = read('Game.Overlay.Surface.pas');
+assert.ok(surface.includes('AwaitReady(Context)'));
+assert.ok(!/RegisterHotKey|UnregisterHotKey|GetAsyncKeyState|WM_HOTKEY|CloseChordPressed/.test(o + surface));
 assert.ok(!/\b(?:ReadProcessMemory|WriteProcessMemory|CreateRemoteThread)\s*\(/i.test(o));
 const api = read('Game.Api.pas');
 assert.ok(api.includes("Body.AddPair('stage', FStage)"));

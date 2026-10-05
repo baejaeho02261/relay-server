@@ -27,4 +27,41 @@ Check('Server-only handoff state survives restart with retired A/B and unchanged
 Check('Administrative parent revocation also denies the transferred O session',()=>{boot.Revoke(s.sessionId,{reason:'Test revocation'},'TEST');Reject(()=>boot.Execute(verifyBody()),'BOOTSTRAP_FLOW_INVALID');});
 Check('Explicit O close clears O authority state and prevents reuse',()=>{const result=boot.Execute({action:'overlayClose',sessionId:o.sessionId,sessionToken:o.sessionToken});assert.equal(result.status,'CLOSED');assert.equal(store.Load().overlays[prepared.overlayId].sessionNonce,undefined);assert.equal(auth.List().pendingCount,0);assert.equal(auth.List().decisionCount,0);Reject(()=>boot.Execute(verifyBody()),'BOOTSTRAP_SESSION_CLOSED');});
 Check('Stored O references and token derivation are validated before reload',()=>{const valid=structuredClone(store.Load());overlay.ValidateStore(valid);valid.overlays[prepared.overlayId].parentSessionId='A'.repeat(24);assert.throws(()=>overlay.ValidateStore(valid),/OVERLAY_STORE_INVALID/);});
+function FreshOverlay(label){
+ const device=Device(),parent=fixture.Session(device),license=licenses.Create({label},'TEST');
+ const active=licenses.Execute(Proof(device,parent,'redeem',{licenseKey:license.licenseKey}));
+ const offer=licenses.Execute(Proof(device,parent,'overlay',{activationToken:active.activationToken}));
+ for(let offset=0;offset<offer.release.size;offset+=offer.chunkSize)boot.Execute({action:'overlayChunk',overlayId:offer.overlayId,overlayTicket:offer.overlayTicket,offset});
+ boot.Execute({action:'overlayFinish',overlayId:offer.overlayId,overlayTicket:offer.overlayTicket,signature:Sign(device,offer.finishCanonical)});
+ const session=boot.Execute({action:'overlayClaim',overlayId:offer.overlayId,overlayTicket:offer.overlayTicket,signature:Sign(device,offer.claimCanonical),binarySha256:offer.release.sha256,crc64:offer.release.crc64,oCodeSha256:offer.release.codeSha256,oCodeCrc64:offer.release.codeCrc64});
+ return {device,parent,offer,session};
+}
+function OwnReport(current,own){
+ const reports=require('../services/desktopIntegrityReports'),context={action:'challenge',stage:'O',sessionId:current.session.sessionId,sessionToken:current.session.sessionToken,machineId:current.device.machineId};
+ const challenge=reports.Execute(context),payload=JSON.stringify({version:1,check:'OWN_IMAGE',reason:'PERIODIC',own});
+ return reports.Execute({...context,action:'submit',reportId:challenge.reportId,payload,signature:Sign(current.device,reports.Canonical(current.session.sessionId,challenge,payload))});
+}
+Check('Measured O code mismatch revokes the session and retires pending authority and claim recovery',()=>{
+ const current=FreshOverlay('Own-code mismatch test'),context=Context(current.device,current.session,'O');
+ Observe(current.device,context);auth.Execute(context);assert.ok(auth.List().pendingCount>0);assert.ok(auth.List().decisionCount>0);
+ const result=OwnReport(current,{status:'MEASURED',codeSha256:'0'.repeat(64),codeCrc64:current.session.release.codeCrc64});
+ assert.equal(result.status,'REJECTED');assert.equal(result.terminate,true);
+ const row=store.Load().overlays[current.offer.overlayId];assert.equal(row.status,'REVOKED');assert.equal(row.reason,'INTEGRITY_CODE_HASH_MISMATCH');
+ for(const name of ['sessionNonce','ticketNonce','claimRecoveryUntil','claimFingerprint'])assert.equal(row[name],undefined);
+ assert.equal(auth.List().pendingCount,0);assert.equal(auth.List().decisionCount,0);
+ Reject(()=>boot.Execute({action:'overlayVerify',sessionId:current.session.sessionId,sessionToken:current.session.sessionToken,...Evidence(current.device,current.session)}),'BOOTSTRAP_REVOKED');
+});
+Check('O read failure can close with retained session tokens after authority freshness is invalidated',()=>{
+ const current=FreshOverlay('Read failure cleanup test'),context=Context(current.device,current.session,'O');
+ Observe(current.device,context);auth.Execute(context);
+ const result=OwnReport(current,{status:'READ_ERROR'});assert.equal(result.status,'CLIENT_DIAGNOSTIC');assert.equal(result.terminate,false);
+ assert.equal(store.Load().overlays[current.offer.overlayId].status,'CLAIMED');assert.equal(auth.List().decisionCount,0);
+ Reject(()=>boot.Execute({action:'overlayVerify',sessionId:current.session.sessionId,sessionToken:current.session.sessionToken,...Evidence(current.device,current.session)}),'SECURITY_FRESH_OBSERVATION_REQUIRED');
+ // Cleanup must not need another code measurement or a fresh authority grant.
+ auth.Execute(context);assert.ok(auth.List().pendingCount>0);
+ const closed=boot.Execute({action:'overlayClose',sessionId:current.session.sessionId,sessionToken:current.session.sessionToken});assert.equal(closed.status,'CLOSED');
+ const row=store.Load().overlays[current.offer.overlayId];for(const name of ['sessionNonce','ticketNonce','claimRecoveryUntil','claimFingerprint'])assert.equal(row[name],undefined);
+ assert.equal(auth.List().pendingCount,0);assert.equal(auth.List().decisionCount,0);
+ Reject(()=>boot.Execute({action:'overlayVerify',sessionId:current.session.sessionId,sessionToken:current.session.sessionToken,...Evidence(current.device,current.session)}),'BOOTSTRAP_SESSION_CLOSED');
+});
 console.log('Desktop overlay checks: '+checks+' passed ('+process.env.STORAGE_ENGINE+')');

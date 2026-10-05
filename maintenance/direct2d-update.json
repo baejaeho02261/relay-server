@@ -1,0 +1,53 @@
+{
+  "update": "A/B/O Direct2D overlay and memory failure session termination",
+  "educationalOnly": true,
+  "intendedForActualUse": false,
+  "ui": {
+    "changedStage": "O",
+    "renderer": [
+      "native Direct2D",
+      "native DirectWrite"
+    ],
+    "checkboxes": [
+      "Option 1",
+      "Option 2",
+      "Option 3"
+    ],
+    "checkboxSemantics": "Independent in-memory study selection flags; no game or security actions connected",
+    "hotkeys": "Removed from O; A/B existing input unchanged"
+  },
+  "memory": {
+    "stages": [
+      "A",
+      "B",
+      "O"
+    ],
+    "mode": "read-only detection, latched failure, existing session close/abort, fresh authorized launch required",
+    "liveExecutableWrites": false,
+    "automaticRestart": false,
+    "serverCrcChanged": false,
+    "fileCrcChanged": false,
+    "scanBudgetBytes": 1048576,
+    "waitBetweenSlicesMilliseconds": 50,
+    "maximumBaselineBytes": 67108864,
+    "latency": "Full sweep depends on image size and scheduling; network close has existing bounded request timeouts; unreachable server uses lease expiry"
+  },
+  "validation": {
+    "existingRegressionCommands": 53,
+    "existingRegressionResult": "PASS",
+    "additionalDirect2DSourceContracts": 13,
+    "additionalDirect2DSourceContractsResult": "PASS",
+    "licenseSuccessSourceContracts": 11,
+    "licenseSuccessSourceContractsResult": "PASS",
+    "overlayLifecycleChecksPerBackend": 14,
+    "overlayBackends": [
+      "json",
+      "sqlite"
+    ],
+    "nativeCodeDigestImplementations": "Digest, BuildStream, MeasureNow, MeasureExportTableNow unchanged",
+    "serverStorageWebSourceFilesByteIdentical": 100,
+    "delphiCompilation": "NOT RUN: Delphi unavailable",
+    "windowsRendering": "NOT RUN: Linux environment",
+    "nativeMemoryGuardProbe": "ADDED, NOT RUN: Windows/Delphi unavailable"
+  }
+}
