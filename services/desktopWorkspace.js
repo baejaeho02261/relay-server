@@ -58,10 +58,8 @@ function SaveMetadata(id,body,actor){
  Audit('METADATA',actor);db.Atomic(next=>{const old=next.metadata[id]?.revision||0;if(old!==body.expectedRevision)Fail('WORKSPACE_CONFLICT',409);next.metadata[id]={...value,revision:old+1,updatedAt:Date.now(),updatedBy:actor};});return Meta(id);
 }
 function SaveReleaseNote(body,actor){
- Fields(body,['aId','bId','oId','note'],['aId','bId','note']);const b=bootStore.Load();
- const oId=Object.hasOwn(body,'oId')?body.oId:b.active.O||'';
- if(b.artifacts[body.aId]?.component!=='A'||b.artifacts[body.bId]?.component!=='B'||typeof oId!=='string'||oId&&b.artifacts[oId]?.component!=='O')Fail('INPUT_INVALID');
- const note=Text(body.note,1000);Audit('RELEASE_NOTE',actor);db.Atomic(next=>{next.releaseNotes||={};next.releaseNotes[body.aId+':'+body.bId+(oId?':'+oId:'')]={note,updatedAt:Date.now(),updatedBy:actor};});return{saved:true};
+ Fields(body,['aId','bId','note']);const b=bootStore.Load();if(b.artifacts[body.aId]?.component!=='A'||b.artifacts[body.bId]?.component!=='B')Fail('INPUT_INVALID');
+ const note=Text(body.note,1000);Audit('RELEASE_NOTE',actor);db.Atomic(next=>{next.releaseNotes||={};next.releaseNotes[body.aId+':'+body.bId]={note,updatedAt:Date.now(),updatedBy:actor};});return{saved:true};
 }
 function RefreshSummary(){
  const b=bootStore.Load(),all=Object.values(b.flows),since=Date.now()-7*86400000,flows=all.filter(f=>f.createdAt>=since),issued=Object.values(b.launchers).filter(l=>l.issuedAt>=since);
@@ -73,7 +71,7 @@ function RefreshSummary(){
  durations.sort((a,b)=>a-b);const quantile=p=>durations.length?durations[Math.min(durations.length-1,Math.floor((durations.length-1)*p))]:null;
  const timings=values=>{values.sort((a,b)=>a-b);return{count:values.length,medianMs:values.length?values[Math.floor((values.length-1)*.5)]:null,p95Ms:values.length?values[Math.floor((values.length-1)*.95)]:null};};
  const failures={};for(const e of state.events.slice(-1000)){if(e.type!=='DESKTOP_RUNTIME_REQUEST_FAILED'||e.time<since)continue;let info;try{info=JSON.parse(e.detail);}catch(_){continue;}if(!Plain(info))continue;const version=b.artifacts[info.releaseId]?.version||'unknown',key=version+':'+info.reason;const f=failures[key]||(failures[key]={version,reason:info.reason,count:0,lastAt:0,problem:require('./desktopOperationsErrors').Explain(info.reason)});f.count++;f.lastAt=Math.max(f.lastAt,e.time);}
- summary={asOf:Date.now(),since,pending:false,scope:'FLOW_CREATED_WITHIN_7_DAYS',issued:issued.length,started:flows.length,downloaded,claimed,authorized,medianStartToClaimMs:quantile(.5),p95StartToClaimMs:quantile(.95),versions:Object.values(byVersion),incompleteIsFailure:false,flowCountLifetime:all.length,downloadTiming:timings(downloadDurations),claimTiming:timings(claimDurations),recentRequestFailures:Object.values(failures),failureScope:'LAST_1000_EVENTS_10_SECOND_DEDUP_NOT_ALL_FAILED_USERS',releaseNote:db.Load().releaseNotes?.[b.active.A+':'+b.active.B+(b.active.O?':'+b.active.O:'')]?.note||''};return summary;
+ summary={asOf:Date.now(),since,pending:false,scope:'FLOW_CREATED_WITHIN_7_DAYS',issued:issued.length,started:flows.length,downloaded,claimed,authorized,medianStartToClaimMs:quantile(.5),p95StartToClaimMs:quantile(.95),versions:Object.values(byVersion),incompleteIsFailure:false,flowCountLifetime:all.length,downloadTiming:timings(downloadDurations),claimTiming:timings(claimDurations),recentRequestFailures:Object.values(failures),failureScope:'LAST_1000_EVENTS_10_SECOND_DEDUP_NOT_ALL_FAILED_USERS',releaseNote:db.Load().releaseNotes?.[b.active.A+':'+b.active.B]?.note||''};return summary;
 }
 function Summary(){if(!summary.asOf)RefreshSummary();return structuredClone(summary);}
 function ProjectJob(j){return{id:j.id,kind:j.kind,status:j.status,createdAt:j.createdAt,updatedAt:j.updatedAt||j.createdAt,total:j.items.length,done:j.items.filter(x=>x.status==='DONE').length,failed:j.items.filter(x=>x.status==='FAILED').length,items:j.items.map((x,index)=>({index,status:x.status,reference:x.input.id||x.input.label||'',result:x.result||null,error:x.error||''})),createdBy:j.createdBy};}
