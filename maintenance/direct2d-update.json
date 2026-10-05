@@ -1,5 +1,5 @@
 {
-  "update": "A/B/O Direct2D overlay and memory failure session termination",
+  "update": "Direct2D overlay retained; added memory guard and session-ending recovery reverted",
   "educationalOnly": true,
   "intendedForActualUse": false,
   "ui": {
@@ -22,17 +22,16 @@
       "B",
       "O"
     ],
-    "mode": "read-only detection, latched failure, existing session close/abort, fresh authorized launch required",
+    "mode": "Original code/server/file integrity behavior restored; added memory guard and its termination triggers removed",
     "liveExecutableWrites": false,
     "automaticRestart": false,
+    "reauthenticationRecovery": false,
     "serverCrcChanged": false,
     "fileCrcChanged": false,
-    "scanBudgetBytes": 1048576,
-    "waitBetweenSlicesMilliseconds": 50,
-    "maximumBaselineBytes": 67108864,
-    "latency": "Full sweep depends on image size and scheduling; network close has existing bounded request timeouts; unreachable server uses lease expiry"
+    "existingMismatchRejectionRetained": true,
+    "requestedLiveCodeOverwrite": "Not implemented; cannot support all retained policies because dynamicCode=prohibit blocks executable modification"
   },
-  "validation": {
+  "previousReleaseValidation": {
     "existingRegressionCommands": 53,
     "existingRegressionResult": "PASS",
     "additionalDirect2DSourceContracts": 13,
@@ -48,6 +47,30 @@
     "serverStorageWebSourceFilesByteIdentical": 100,
     "delphiCompilation": "NOT RUN: Delphi unavailable",
     "windowsRendering": "NOT RUN: Linux environment",
-    "nativeMemoryGuardProbe": "ADDED, NOT RUN: Windows/Delphi unavailable"
+    "nativeMemoryGuardProbe": "REMOVED: native probe restored to its pre-guard version",
+    "priorDirect2DRegression": "The listed 53-command full regression and 13 source contracts passed before this focused rollback; see rollbackValidation for current checks"
+  },
+  "validation": {
+    "scope": "Focused checks for rollback, not a rerun of the previous full regression",
+    "restoredNativeFilesByteIdentical": 5,
+    "direct2dSurfaceAndProjectByteIdentical": true,
+    "serverStorageWebSourceFilesByteIdentical": 100,
+    "overlayOwnershipSourceContract": "PASS",
+    "direct2dSourceContracts": {
+      "count": 13,
+      "result": "PASS"
+    },
+    "nativeProjectSources": "PASS",
+    "keyConsole": {
+      "count": 18,
+      "result": "PASS"
+    },
+    "nativeCodeAndExportCanonicalVectors": "PASS",
+    "licenseSuccessSourceContracts": {
+      "count": 11,
+      "result": "PASS"
+    },
+    "delphiCompilation": "NOT RUN",
+    "windowsRuntime": "NOT RUN"
   }
 }

@@ -24,7 +24,7 @@ for (const required of ['THandoffContext.ReceiveFromCommandLine',
   'Bootstrap.OverlayClaim(', 'Context.CompleteClaimAndCleanup(',
   'FApi.CheckIntegrity;', 'FApi.ContinueModuleInventory', 'FApi.VerifyOverlay',
   'Worker.Free;', 'Bootstrap.Close;', 'RunOverlaySurface(@AwaitSurfaceSession',
-  'Not intended for actual use.', 'FApi.MemoryGuardFailed']) {
+  'Not intended for actual use.']) {
   assert.ok(o.includes(required), 'O contract missing: ' + required);
 }
 assert.ok(!/\b(?:Vcl|FMX)\./i.test(o));
