@@ -46,21 +46,6 @@ function DeleteServer(serverId) {
     if (!identity.ServerExists(id)) return { ok: false, reason: 'SERVER_NOT_FOUND' };
     const deviceKey = identity.FindServerDeviceKey(id);
     const live = identity.GetOnlineServer(id);
-    try { require('../relay/ackManager').FailPendingRequestsForServer(id, 'SERVER_DELETED'); } catch (_) {}
-
-    // Historical rows keep their identity/history, but cannot retain a foreign
-    // key to a server the administrator explicitly deleted.
-    let releasedClients = 0;
-    for (const saved of state.clientIdentities.values()) {
-        if (saved && NormalizeID(saved.serverId) === id) { saved.serverId = ''; releasedClients++; }
-    }
-    for (const [clientId, binding] of state.clientServerBindings) {
-        if (NormalizeID(binding?.primaryServerId) === id || NormalizeID(binding?.backupServerId) === id) {
-            state.clientServerBindings.delete(clientId);
-            state.clientFailoverRecords.delete(clientId);
-        }
-    }
-
     state.serverIdentities.delete(deviceKey);
     state.servers.delete(id);
     DeleteServerState(id, deviceKey);
@@ -71,7 +56,6 @@ function DeleteServer(serverId) {
     }
     Save();
     Log('SERVER_DELETE', id);
-    return { ok: true, id, deviceKey, releasedClients, reassignedClients: 0 };
+    return { ok: true, id, deviceKey, releasedClients: 0, reassignedClients: 0 };
 }
-
 module.exports = { DeleteServer };

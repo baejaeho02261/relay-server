@@ -17,13 +17,11 @@ function Key(type, id) {
 }
 
 function NormalizeIP(value) {
-    const ip = String(value || '').trim().split('%')[0];
-    if (net.isIP(ip) !== 6) return ip;
-    const canonical = new URL(`http://[${ip}]/`).hostname.slice(1, -1);
-    const mapped = canonical.match(/^::ffff:([0-9a-f]+):([0-9a-f]+)$/i);
-    if (!mapped) return canonical;
-    const high = parseInt(mapped[1], 16), low = parseInt(mapped[2], 16);
-    return [high >>> 8, high & 255, low >>> 8, low & 255].join('.');
+    let ip = String(value || '').trim();
+    if (ip.startsWith('::ffff:')) ip = ip.slice(7);
+    const zone = ip.indexOf('%');
+    if (zone >= 0) ip = ip.slice(0, zone);
+    return ip;
 }
 
 function IsPrivateIPv4(ip) {
@@ -40,7 +38,7 @@ function IsLocalIP(ip) {
     if (net.isIP(ip) === 4) return IsPrivateIPv4(ip);
     if (net.isIP(ip) !== 6) return false;
     const lower = ip.toLowerCase();
-    return lower === '::1' || lower.startsWith('fc') || lower.startsWith('fd') || (parseInt(lower.split(':')[0], 16) & 0xffc0) === 0xfe80;
+    return lower === '::1' || lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80:');
 }
 
 function Subnet(ip) {
@@ -50,19 +48,8 @@ function Subnet(ip) {
         return `${p[0]}.${p[1]}.${p[2]}.0/24`;
     }
     if (net.isIP(ip) === 6) {
-        // Expand before selecting /64: splitting a compressed address can put
-        // host bits inside the prefix and falsely classify a network change.
-        let value = ip.toLowerCase();
-        if (value.includes('.')) {
-            const tail = value.slice(value.lastIndexOf(':') + 1).split('.').map(Number);
-            value = value.slice(0, value.lastIndexOf(':') + 1) +
-                ((tail[0] << 8) | tail[1]).toString(16) + ':' + ((tail[2] << 8) | tail[3]).toString(16);
-        }
-        const parts = value.split('::');
-        const left = parts[0] ? parts[0].split(':') : [];
-        const right = parts.length > 1 && parts[1] ? parts[1].split(':') : [];
-        const expanded = parts.length === 1 ? left : [...left, ...Array(8 - left.length - right.length).fill('0'), ...right];
-        return `${expanded.slice(0, 4).map(part => parseInt(part, 16).toString(16)).join(':')}::/64`;
+        const expanded = ip.split(':').slice(0, 4).join(':');
+        return `${expanded}::/64`;
     }
     return '';
 }

@@ -21,6 +21,7 @@ function SendEnrollmentSecret(type,id,force=false){
     if(!c)return {ok:false,reason:'OFFLINE'};
     if(!Capabilities(type,id).includes('DEVICE_HMAC'))return {ok:false,reason:'CAPABILITY_MISSING'};
 
+
     let secret=state.deviceSecrets.get(key);
     if(secret && !force) return IssueChallenge(type,id);
 
@@ -36,6 +37,7 @@ function SendEnrollmentSecret(type,id,force=false){
         return {ok:false,reason:'STORAGE_SAVE_FAILED'};
     }
     c.deviceAuthVerified=false;
+
     SendLine(c.socket,`DEVICE_SECRET|${secret}`);
     Status(type,id,'ENROLLING',{enrolledAt:Now(),verifiedAt:0});
     return {ok:true,enrolling:true};
@@ -46,6 +48,7 @@ function IssueChallenge(type,id){
     const key=K(type,id),c=Online(type,id);
     if(!c)return {ok:false,reason:'OFFLINE'};
     if(!Capabilities(type,id).includes('DEVICE_HMAC'))return {ok:false,reason:'CAPABILITY_MISSING'};
+
     if(!state.deviceSecrets.has(key))return SendEnrollmentSecret(type,id,false);
 
     if(c.authRecovery&&c.authRecovery.expiresAt>Now())return {ok:true,recovering:true};
@@ -57,6 +60,7 @@ function IssueChallenge(type,id){
     const nonce=crypto.randomBytes(16).toString('hex').toUpperCase();
     const issuedAt=Now();
     c.deviceAuthVerified=false;
+
     state.deviceAuthChallenges.set(challengeId,{challengeId,type,id,nonce,issuedAt,expiresAt:issuedAt+30000,connection:c});
     c.deviceAuthChallengeId=challengeId;
     Status(type,id,'CHALLENGED',{lastChallengeAt:issuedAt});
@@ -86,6 +90,7 @@ function HandleDeviceAuthError(type,id,parts){
     }
     c.deviceSecretRecoveryAt=Now();
     c.deviceAuthVerified=false;
+
     state.deviceAuthChallenges.delete(challengeId);
     require('../storage/audit').LogEvent('DEVICE_SECRET_RECOVERY',`${type} ${id} / LOCAL_SECRET_MISSING`);
     try{require('./notificationCenter').AddNotification({severity:'WARNING',type:'DEVICE_SECRET_RECOVERY',title:'Device secret recovered',message:`${type} ${id} re-enrolled after local secret loss.`,entityType:type,entityId:id,dedupeKey:`DEVICE_SECRET_RECOVERY|${type}|${id}`});}catch(_){}
@@ -104,10 +109,12 @@ function HandleAuth(type,id,challengeId,hex){
         try{require('../storage/audit').LogEvent('DEVICE_AUTH_INVALID_CHALLENGE',`${type} ${id} ${challengeId}`);}catch(_){}
         return false;
     }
+
     const secret=state.deviceSecrets.get(K(type,id));
     if(!secret){
         state.deviceAuthChallenges.delete(challengeId);
         c.deviceAuthVerified=false;
+
         SendEnrollmentSecret(type,id,false);
         return false;
     }
@@ -126,6 +133,7 @@ function HandleAuth(type,id,challengeId,hex){
         return true;
     }
     c.deviceAuthVerified=false;
+
     Status(type,id,'FAILED',{failedAt:Now()});
     try{require('../storage/audit').LogEvent('DEVICE_AUTH_FAILED',`${type} ${id} INVALID_HMAC`);}catch(_){}
     try{require('./notificationCenter').AddNotification({severity:'CRITICAL',type:'DEVICE_AUTH_FAILED',title:'Device HMAC authentication failed',message:`${type} ${id} rejected invalid HMAC`,entityType:type,entityId:id,dedupeKey:`DEVICE_AUTH_FAILED|${type}|${id}`});}catch(_){}
@@ -151,6 +159,7 @@ function Reset(type,id){
     const key=K(type,id),c=Online(type,id);
     if(!c)return {ok:false,reason:'OFFLINE'};
     if(!Capabilities(type,id).includes('DEVICE_HMAC'))return {ok:false,reason:'CAPABILITY_MISSING'};
+
     for(const [challengeId,ch] of state.deviceAuthChallenges)if(ch.type===type&&ch.id===id)state.deviceAuthChallenges.delete(challengeId);
     c.deviceAuthChallengeId='';c.authRecovery=null;c.authRecoveryAttempted=false;
     const rotation=state.deviceSecretRotations.get(key);

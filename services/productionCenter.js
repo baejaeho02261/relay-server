@@ -60,7 +60,7 @@ function ConfigDryRun(input, actor) {
         const value = Number(input.heartbeatMs);
         if (!Number.isInteger(value) || value < 1000 || value > 300000) return { ok: false, reason: 'INVALID_HEARTBEAT' };
         changes.heartbeatMs = value;
-        if (value < 5000) warnings.push('Heartbeat below 5 seconds increases server and network load.');
+        if (value < 5000) warnings.push('Heartbeat below 5 seconds increases Relay and mobile radio load.');
     }
     const plan = {
         planId: `PLAN-${crypto.randomBytes(8).toString('hex').toUpperCase()}`,

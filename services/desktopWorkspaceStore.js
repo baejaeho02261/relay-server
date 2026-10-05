@@ -13,6 +13,7 @@ function Fail(code='WORKSPACE_STORAGE_INVALID') { const e=Error(code);e.desktopE
 function Validate(v) {
   if(!Plain(v)||v.schema!==1||!Number.isSafeInteger(v.revision)||v.revision<0||!['metadata','jobs','receipts'].every(k=>Plain(v[k])))Fail();
   if(v.releaseNotes!==undefined&&(!Plain(v.releaseNotes)||Object.keys(v.releaseNotes).length>1000))Fail();
+  for(const [key,note] of Object.entries(v.releaseNotes||{}))if(!/^(?:DA-)?[A-F0-9]{24}:(?:DA-)?[A-F0-9]{24}(?::(?:DA-)?[A-F0-9]{24})?$/.test(key)||!Plain(note)||typeof note.note!=='string'||note.note.length>1000||!Number.isSafeInteger(note.updatedAt)||note.updatedAt<1||typeof note.updatedBy!=='string')Fail();
   if(Object.keys(v.jobs).length>1000||Object.keys(v.receipts).length>1000||Object.keys(v.metadata).length>100000)Fail();
   for(const [id,m] of Object.entries(v.metadata))if(!/^(?:DL-)?[A-F0-9]{24}$/.test(id)||!Plain(m)||typeof m.note!=='string'||m.note.length>500||!Array.isArray(m.tags)||m.tags.length>10||m.tags.some(t=>typeof t!=='string'||t.length>30)||!Number.isSafeInteger(m.revision)||m.revision<1)Fail();
   for(const [id,j] of Object.entries(v.jobs)){

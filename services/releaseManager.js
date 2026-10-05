@@ -38,7 +38,7 @@ function VerifyDownload(artifactId,exp,sig){ exp=Number(exp); if(!artifactId||!N
 function FindArtifact(id){
     for(const root of state.releaseCatalog.values()){
         let r=root, depth=0;
-        while(r&&depth++<10){if(r.artifactId===id)return r;r=r.previous;}
+        while(r&&depth++<10){if(r.type==='SERVER'&&r.artifactId===id)return r;r=r.previous;}
     }
     return null;
 }

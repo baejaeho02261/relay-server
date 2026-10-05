@@ -1,20 +1,25 @@
 'use strict';
 // Only unreferenced server deployment candidates, never client files, keys or logs.
 const fs=require('node:fs');
+const crypto=require('node:crypto');
 const store=require('./desktopBootstrapStore');
 const KEEP_MS=7*86400000;
 let snapshot={asOf:0,pending:false,items:[],bytes:0},running;
 function Fail(code,status=409){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
 function References(db,id){
  const a=db.artifacts[id],reasons=[];if(!a)return reasons;
- if(Object.values(db.active).includes(id))reasons.push('현재 운영 A/B');
+ if(Object.values(db.active).includes(id))reasons.push('현재 운영 A/B/O');
  // Keep even historical references: loader validation expects their artifact rows.
  if(Object.values(db.launchers).some(x=>x.artifactId===id))reasons.push('발급 A 이력');
- if(Object.values(db.flows).some(x=>x.releaseId===id))reasons.push('실행·다운로드 이력');
+ if(Object.values(db.flows).some(x=>x.releaseId===id||x.overlayReleaseId===id))reasons.push('실행·다운로드 이력');
+ // The store validates historical overlay relationships after restart too, so
+ // terminal rows must keep their release metadata and bytes just like A/B.
+ if(Object.values(db.overlays||{}).some(x=>x.releaseId===id))reasons.push('O 실행 이력');
  const ops=db.securityOperations||{};
- if((ops.activations||[]).some(x=>['aId','bId','previousA','previousB'].some(k=>x[k]===id)))reasons.push('게시·되돌리기 이력');
+ if((ops.activations||[]).some(x=>['aId','bId','oId','previousA','previousB','previousO'].some(k=>x[k]===id)))reasons.push('게시·되돌리기 이력');
  if(ops.contracts?.[a.component+':'+a.sha256])reasons.push('빌드 검사 규격');
- if(Object.values(ops.pairEvidence||{}).some(e=>e.aSha256===a.sha256||e.bSha256===a.sha256))reasons.push('시험 근거');
+ if(Object.values(ops.pairEvidence||{}).some(e=>e.aSha256===a.sha256||e.bSha256===a.sha256||e.oSha256===a.sha256))reasons.push('시험 근거');
+ if(Object.keys(require('./desktopWorkspaceStore').Load().releaseNotes||{}).some(key=>key.split(':').includes(id)))reasons.push('게시 메모');
  if((ops.rollout?.artifactKeys||[]).includes(a.component+':'+a.sha256))reasons.push('시험 적용');
  const record=db.securityActivation;
  if(record&&JSON.stringify(record).includes(a.sha256))reasons.push('보호 활성화 기록');
@@ -45,15 +50,13 @@ function Check(id,sha256){
  if(References(db,id).length)Fail('WORKSPACE_STORAGE_REFERENCED');
  return a;
 }
-function VerifyStored(id,size,sha256){
- let bytes;
- try{bytes=store.ReadBytes(id,size,sha256);}catch(error){if(error.code==='ENOENT')throw error;Fail('WORKSPACE_CONFLICT');}finally{bytes?.fill(0);}
-}
 function DeleteCandidate(id,sha256){
  const db=store.Load(),pending=db.workspaceGarbage?.[id];
  if(pending?.deletedAt){if(pending.sha256!==sha256)Fail('WORKSPACE_CONFLICT');return{id,deleted:true,bytes:pending.size};}
  if(!pending){
-  const a=Check(id,sha256);VerifyStored(id,a.size,sha256);
+  const a=Check(id,sha256);const file=store.ArtifactPath(id);
+  const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
+  try{const st=fs.fstatSync(fd);if(!st.isFile()||st.size!==a.size||crypto.createHash('sha256').update(fs.readFileSync(fd)).digest('hex')!==sha256)Fail('WORKSPACE_CONFLICT');}finally{fs.closeSync(fd);}
   // Commit an unreferenced deletion intent before unlink. A restart can finish
   // that same item; it cannot cause an already referenced release to disappear.
   store.Atomic(next=>{if(References(next,id).length||next.artifacts[id]?.sha256!==sha256)Fail('WORKSPACE_STORAGE_REFERENCED');
@@ -62,8 +65,8 @@ function DeleteCandidate(id,sha256){
  const intent=store.Load().workspaceGarbage?.[id];if(!intent||intent.sha256!==sha256||store.Load().artifacts[id])Fail('WORKSPACE_CONFLICT');
  const file=store.ArtifactPath(id);
  try{
-  VerifyStored(id,intent.size,sha256);
-  const st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink())Fail('WORKSPACE_CONFLICT');
+  const st=fs.lstatSync(file);if(!st.isFile()||st.isSymbolicLink()||st.size!==intent.size)Fail('WORKSPACE_CONFLICT');
+  if(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex')!==sha256)Fail('WORKSPACE_CONFLICT');
   fs.unlinkSync(file);
  }catch(e){if(e.code!=='ENOENT')throw e;}
  store.Atomic(next=>{if(next.artifacts[id]||next.workspaceGarbage?.[id]?.sha256!==sha256)Fail('WORKSPACE_CONFLICT');next.workspaceGarbage[id].deletedAt=Date.now();});

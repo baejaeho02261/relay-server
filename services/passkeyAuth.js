@@ -10,7 +10,7 @@ const Buf=s=>Buffer.from(String(s||''),'base64url');
 function Context(req){
     const host=String(req.headers.host||'').split(':')[0].toLowerCase();
     const rpId=String(process.env.WEBAUTHN_RP_ID||host).trim().toLowerCase();
-    const proto=String(req.headers['x-forwarded-proto']||'').split(',')[0].trim()==='https'||(req.socket&&req.socket.encrypted)?'https':'http';
+    const proto=require('../web/webAuth').IsHttps(req)?'https':'http';
     const origin=String(process.env.WEBAUTHN_ORIGIN||`${proto}://${req.headers.host||host}`).replace(/\/$/,'');
     return{rpId,origin};
 }

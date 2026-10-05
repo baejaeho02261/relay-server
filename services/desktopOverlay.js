@@ -1,161 +1,70 @@
 'use strict';
-// Display data and a separately published, capability-bound native renderer.
-// Neither surface carries a second copy of the B authorization.
-// Its authority shares B's durable transaction so completion cannot leave a
-// valid B session and a newly issued overlay capability active together.
-const crypto=require('node:crypto');
-const store=require('./desktopBootstrapStore');
-const LEASE_MS=30000,POLL_MS=10000,COMPLETION_MS=60000,MAX_SESSIONS=10000;
-const FORMAT='GAME-OVERLAY-DATA-1';
-const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
+// Educational desktop rendering handoff. This service authorizes only approved
+// own-process O artifacts; it never accesses another process or injects code.
+const crypto=require('node:crypto'),fs=require('node:fs'),store=require('./desktopBootstrapStore');
+const HANDOFF_MS=120000,SESSION_MS=120000,CHUNK_SIZE=262144;
+const TERMINAL=['CLOSED','REVOKED','EXPIRED'];
+const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
+const plain=value=>value&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype;
+const id=()=>crypto.randomBytes(12).toString('hex').toUpperCase();
+const nonce=()=>crypto.randomBytes(24).toString('hex');
 const now=()=>Date.now();
-const messages={OVERLAY_INPUT_INVALID:'오버레이 표시 데이터를 확인해 주세요.',OVERLAY_DISABLED:'오버레이가 중지되었습니다.',OVERLAY_NOT_AUTHORIZED:'라이선스 인증을 먼저 완료해 주세요.',OVERLAY_SESSION_INVALID:'오버레이 인증을 확인할 수 없습니다.',OVERLAY_SESSION_CLOSED:'종료된 오버레이입니다. 새로 인증해 주세요.',OVERLAY_EXPIRED:'오버레이 연결이 만료되었습니다.',OVERLAY_COMPLETION_EXPIRED:'인증 완료 응답의 재시도 시간이 지났습니다.',OVERLAY_REQUEST_REUSED:'다른 인증 완료 요청에 사용한 요청 번호입니다.',OVERLAY_TEMPLATE_CONFLICT:'오버레이 설정이 변경되었습니다. 새로 고침해 주세요.',OVERLAY_CAPACITY:'동시에 표시할 수 있는 오버레이 수를 초과했습니다.',OVERLAY_STORAGE_INVALID:'오버레이 저장 정보를 확인할 수 없습니다.'};
-function Fail(code,status=400){const error=Error(code);error.desktopError=true;error.status=status;throw error;}
-function Plain(value){return !!value&&Object.getPrototypeOf(value)===Object.prototype;}
-function Fields(value,names){if(!Plain(value)||Object.keys(value).some(key=>!names.includes(key))||names.some(key=>!Object.hasOwn(value,key)))Fail('OVERLAY_INPUT_INVALID');}
-function Text(value,limit,required=false){if(typeof value!=='string'||value.length>limit||/[\u0000-\u001f\u007f]/.test(value)||!value.isWellFormed()||required&&!value.trim())Fail('OVERLAY_INPUT_INVALID');return value;}
-function Document(value){
- Fields(value,['schema','format','title','lines','theme']);
- if(value.schema!==1||value.format!==FORMAT||!['dark','light'].includes(value.theme)||!Array.isArray(value.lines)||value.lines.length>8)Fail('OVERLAY_INPUT_INVALID');
- return {schema:1,format:FORMAT,title:Text(value.title,120,true),lines:value.lines.map(line=>Text(line,240)),theme:value.theme};
+function Boot(){return require('./desktopBootstrap');}
+function Fail(code,status=403){Boot().Fail(code,status);}
+function Fields(body,names){if(!plain(body)||Object.keys(body).some(k=>!['action',...names].includes(k)))Fail('BOOTSTRAP_INPUT_INVALID',400);}
+function Rows(){return store.Load().overlays||{};}
+function Ticket(row){return Token('OVERLAY-HANDOFF',row.id,row.ticketNonce);}
+function SessionToken(row){return Token('OVERLAY-SESSION',row.sessionId,row.sessionNonce);}
+function Token(domain,key,value){if(!value)Fail('BOOTSTRAP_SESSION_CLOSED');return crypto.createHmac('sha256',Buffer.from(store.Load().secret,'hex')).update(['GAME-OVERLAY-V1',domain,key,value].join('|')).digest('base64url');}
+function Canonical(row,kind){const artifact=store.Load().artifacts[row.releaseId];return ['GAME-OVERLAY-'+kind+'-V1',row.id,row.parentSessionId,row.deviceId,row.machineId,artifact.id,artifact.sha256,artifact.crc64,artifact.codeSha256,artifact.codeCrc64,String(artifact.size),row.ticketHash,String(row.expiresAt)].join('\n');}
+function License(row){const license=require('./desktopLicenses').DB().licenses[row.licenseId];if(!license||!license.consumed||license.status!=='USED'||license.releasedAt||license.expiresAt&&license.expiresAt<=now()||license.deviceId!==row.deviceId||license.bootstrapSessionId!==row.parentSessionId)Fail('DESKTOP_ACTIVATION_INVALID');require('./desktopMachinePolicy').AssertAllowed(row.machineId,row.machinePolicyGeneration,row.parentSessionId);return license;}
+function RequireArtifact(row){const db=store.Load(),parent=db.flows[row.parentFlowId];if(!parent||parent.overlayReleaseId!==row.releaseId||row.status==='PREPARED'&&parent.status!=='CLAIMED'||['READY','CLAIMED'].includes(row.status)&&(parent.status!=='CLOSED'||!parent.closedByOverlay))Fail('BOOTSTRAP_FLOW_INVALID');require('./desktopSecurityAuthority').RequireArtifact(db.artifacts[row.releaseId]);require('./desktopSecurityOperations').RequireRuntimePair(db.artifacts[db.launchers[parent.launcherId]?.artifactId],db.artifacts[parent.releaseId],db.artifacts[row.releaseId]);return db.artifacts[row.releaseId];}
+function Live(row){if(!row)Fail('BOOTSTRAP_SESSION_INVALID',401);if(TERMINAL.includes(row.status))Fail(row.status==='EXPIRED'?'BOOTSTRAP_EXPIRED':row.status==='REVOKED'?'BOOTSTRAP_REVOKED':'BOOTSTRAP_SESSION_CLOSED');if((row.status==='CLAIMED'?row.sessionExpiresAt:row.expiresAt)<=now())Fail('BOOTSTRAP_EXPIRED');License(row);return RequireArtifact(row);}
+function Retire(row){row.retiredAt||=now();delete row.ticketNonce;delete row.sessionNonce;delete row.claimRecoveryUntil;delete row.claimFingerprint;row.chunkOffsets=[];require('./desktopSecurityAuthority').RetireContext(row,'O');require('./desktopIntegrityReports').RetireContext(row);}
+function Prepare(parent,license,requestId,fingerprint){
+ Prune();const db=store.Load(),artifact=db.artifacts[parent.overlayReleaseId];if(!artifact||artifact.component!=='O')Fail('BOOTSTRAP_OVERLAY_NOT_READY',409);
+ if(parent.status!=='CLAIMED'||parent.licenseId!==license.id)Fail('BOOTSTRAP_LICENSE_MISMATCH');
+ const prior=Object.values(Rows()).find(r=>r.parentFlowId===parent.id);
+ if(prior){if(prior.requestId!==requestId||prior.fingerprint!==fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);Live(prior);if(prior.status!=='PREPARED')Fail('BOOTSTRAP_LAUNCHER_USED',409);return PrepareResult(prior);}
+ const row={id:id(),sessionId:id(),parentFlowId:parent.id,parentSessionId:parent.sessionId,launcherId:parent.launcherId,releaseId:artifact.id,licenseId:license.id,deviceId:parent.deviceId,publicKey:parent.publicKey,machineId:parent.machineId,machinePolicyGeneration:parent.machinePolicyGeneration,requestId,fingerprint,status:'PREPARED',createdAt:now(),expiresAt:Math.min(now()+HANDOFF_MS,parent.sessionExpiresAt,license.expiresAt||Number.MAX_SAFE_INTEGER),ticketNonce:nonce(),chunkOffsets:[],lastVerifiedAt:0};
+ row.ticketHash=sha(Ticket(row));License(row);RequireArtifact(row);Boot().ReadArtifactBytes(artifact);
+ store.Atomic(next=>{next.overlays||={};if(Object.values(next.overlays).some(r=>r.parentFlowId===parent.id))Fail('BOOTSTRAP_REQUEST_REUSED',409);next.overlays[row.id]=row;});
+ Audit('PREPARED',row);return PrepareResult(row);
 }
-function Empty(){return {schema:1,version:1,enabled:true,document:Document({schema:1,format:FORMAT,title:'GameConnect',lines:['라이선스 인증이 완료되었습니다.'],theme:'dark'}),sessions:{}};}
-function State(db=store.Load()){return db.overlayState||Empty();}
-function Atomic(fn){try{return store.Atomic(fn);}catch(error){if(error.desktopError)throw error;Fail(error.message==='BOOTSTRAP_STORAGE_RESTART_REQUIRED'?error.message:'STORAGE_SAVE_FAILED',503);}}
-function Digest(value){return typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);}
-function Id(value){return typeof value==='string'&&/^[A-F0-9]{24}$/.test(value);}
-function Identity(value){return typeof value==='string'&&/^[A-F0-9]{64}$/.test(value);}
-function Time(value){return Number.isSafeInteger(value)&&value>0;}
-function ValidateState(value,db){
- try{
-  Fields(value,['schema','version','enabled','document','sessions']);
-  if(value.schema!==1||!Number.isSafeInteger(value.version)||value.version<1||typeof value.enabled!=='boolean'||!Plain(value.sessions)||Object.keys(value.sessions).length>MAX_SESSIONS)throw Error();
-  Document(value.document);
-  for(const [id,row]of Object.entries(value.sessions)){
-   require('./desktopOverlayPlugin').ValidateSession(row,db);
-   if(!Id(id)||!Plain(row)||row.id!==id||!['ACTIVE','CLOSED','EXPIRED','REVOKED'].includes(row.status)||!Identity(row.deviceId)||!Identity(row.machineId)||!Number.isSafeInteger(row.machinePolicyGeneration)||row.machinePolicyGeneration<0||!Digest(row.tokenHash)||!Digest(row.completionHash)||!Time(row.createdAt)||!Time(row.lastSeenAt)||!Time(row.leaseExpiresAt)||!Time(row.completionExpiresAt)||row.completionExpiresAt>row.createdAt+COMPLETION_MS||!Number.isSafeInteger(row.documentVersion)||row.documentVersion<1||row.documentVersion>value.version||!Number.isSafeInteger(row.policyRevision)||row.policyRevision<0||!Number.isSafeInteger(row.operationsRevision)||row.operationsRevision<0||!Number.isSafeInteger(row.integrityRevision)||row.integrityRevision<0)throw Error();
-   if(row.lastSeenAt<row.createdAt||row.leaseExpiresAt<=row.lastSeenAt||row.leaseExpiresAt>row.lastSeenAt+LEASE_MS||row.completionExpiresAt!==row.createdAt+COMPLETION_MS||row.closedAt!==undefined&&(!Time(row.closedAt)||row.closedAt<row.createdAt))throw Error();
-   if(row.status==='ACTIVE'){if(typeof row.nonce!=='string'||!/^[a-f0-9]{48}$/.test(row.nonce)||hash(Token(db,row))!==row.tokenHash)throw Error();}
-   else if(row.nonce!==undefined)throw Error();
-   if(typeof row.documentText!=='string'||row.documentText.length>10000||!Digest(row.documentSha256)||hash(row.documentText)!==row.documentSha256||JSON.stringify(Document(JSON.parse(row.documentText)))!==row.documentText)throw Error();
-   const flow=db.flows[row.flowId];
-   if(!flow||flow.sessionId!==row.bootstrapSessionId||flow.licenseId!==row.licenseId||flow.deviceId!==row.deviceId||flow.machineId!==row.machineId||flow.machinePolicyGeneration!==row.machinePolicyGeneration||flow.overlaySessionId!==id||flow.closedByLicenseCompletion!==true||!['CLOSED','REVOKED','EXPIRED'].includes(flow.status))throw Error();
-  }
- }catch(_){throw Error('OVERLAY_STORAGE_INVALID');}
+function PrepareResult(row){return {overlayId:row.id,overlayTicket:Ticket(row),release:Boot().Release(store.Load().artifacts[row.releaseId]),chunkSize:CHUNK_SIZE,expiresAt:row.expiresAt,finishCanonical:Canonical(row,'FINISH'),claimCanonical:Canonical(row,'CLAIM')};}
+function TicketRow(body){const row=Rows()[body.overlayId];if(!row||!Boot().EqualHash(body.overlayTicket,row.ticketHash))Fail('BOOTSTRAP_FLOW_INVALID',401);Live(row);return row;}
+function Chunk(body){Fields(body,['overlayId','overlayTicket','offset']);const row=TicketRow(body);if(row.status!=='PREPARED')Fail('BOOTSTRAP_LAUNCHER_USED',409);const parent=store.Load().flows[row.parentFlowId];if(parent.status!=='CLAIMED'||parent.sessionExpiresAt<=now())Fail('BOOTSTRAP_SESSION_CLOSED');const artifact=RequireArtifact(row);
+ if(!Number.isSafeInteger(body.offset)||body.offset<0||body.offset>=artifact.size||body.offset%CHUNK_SIZE)Fail('BOOTSTRAP_INPUT_INVALID',400);
+ const size=Math.min(CHUNK_SIZE,artifact.size-body.offset),bytes=Buffer.alloc(size);let fd;
+ try{fd=fs.openSync(store.ArtifactPath(artifact.id),fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const st=fs.fstatSync(fd);if(!st.isFile()||st.size!==artifact.size)throw Error();let at=0;while(at<size){const n=fs.readSync(fd,bytes,at,size-at,body.offset+at);if(!n)throw Error();at+=n;}}
+ catch(_){Fail('BOOTSTRAP_ARTIFACT_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
+ if(!row.chunkOffsets.includes(body.offset))store.Atomic(next=>next.overlays[row.id].chunkOffsets.push(body.offset));return {offset:body.offset,data:bytes.toString('base64'),size};
 }
-function Token(db,row){return crypto.createHmac('sha256',Buffer.from(db.secret,'hex')).update(['GAME-OVERLAY-CAPABILITY-1',row.id,row.deviceId,row.nonce].join('|')).digest('base64url');}
-function EqualToken(value,digest){if(typeof value!=='string'||value.length>200||!Digest(digest))return false;return crypto.timingSafeEqual(Buffer.from(hash(value),'hex'),Buffer.from(digest,'hex'));}
-function Revisions(){return {policyRevision:require('./desktopSecurityAuthority').Policy().revision,operationsRevision:require('./desktopSecurityOperations').Revision(),integrityRevision:require('./desktopIntegrityReports').Policy().revision};}
-function Available(){require('./desktopBootstrap').EnsureSecurityAvailable();if(!State().enabled)Fail('OVERLAY_DISABLED',403);}
-function License(flow,deviceId,activationToken){
- const row=require('./desktopLicenses').DB().licenses[flow.licenseId];
- if(!row||!row.consumed||row.deviceId!==deviceId||row.bootstrapSessionId!==flow.sessionId||row.machineId!==flow.machineId||row.machinePolicyGeneration!==flow.machinePolicyGeneration)Fail('OVERLAY_NOT_AUTHORIZED',403);
- if(activationToken!==undefined&&!EqualToken(activationToken,row.tokenHash))Fail('DESKTOP_ACTIVATION_INVALID',401);
- if(row.status==='REVOKED')Fail('DESKTOP_REVOKED',403);
- if(row.status==='RELEASED'||row.releasedAt)Fail('DESKTOP_RELEASED',403);
- if(row.expiresAt&&row.expiresAt<=now())Fail('DESKTOP_EXPIRED',403);
- require('./desktopMachinePolicy').AssertAllowed(row.machineId,row.machinePolicyGeneration,flow.sessionId);
- return row;
-}
-function Runtime(flow){
- const db=store.Load(),a=db.artifacts[db.launchers[flow.launcherId]?.artifactId],b=db.artifacts[flow.releaseId];
- require('./desktopSecurityAuthority').RequireArtifact(a);require('./desktopSecurityAuthority').RequireArtifact(b);
- require('./desktopSecurityOperations').RequireRuntimePair(a,b);
-}
-function Active(row){
- if(!row)Fail('OVERLAY_SESSION_INVALID',401);
- if(row.status!=='ACTIVE')Fail('OVERLAY_SESSION_CLOSED',403);
- if(now()<row.lastSeenAt||require('./desktopOverlayPlugin').LiveDeadline(row)<=now())Fail('OVERLAY_EXPIRED',403);
- require('./desktopOverlayPlugin').CheckRuntime(row);
- const flow=store.Load().flows[row.flowId];
- if(!flow||flow.status!=='CLOSED'||flow.closedByLicenseCompletion!==true||flow.overlaySessionId!==row.id)Fail('OVERLAY_SESSION_CLOSED',403);
- const license=License(flow,row.deviceId);Runtime(flow);
- const revisions=Revisions();
- if(row.policyRevision!==revisions.policyRevision||row.operationsRevision!==revisions.operationsRevision||row.integrityRevision!==revisions.integrityRevision)Fail('SECURITY_FRESH_OBSERVATION_REQUIRED',403);
- return license;
-}
-function Result(row){const at=now();return {sessionId:row.id,sessionToken:Token(store.Load(),row),leaseExpiresAt:row.leaseExpiresAt,serverTime:at,pollAfterMs:Math.max(1,Math.min(POLL_MS,Math.floor((row.leaseExpiresAt-at)/3))),documentText:row.documentText,documentSha256:row.documentSha256,documentVersion:row.documentVersion};}
-function CompletionFingerprint(body){return hash(JSON.stringify({requestId:body.requestId,sessionId:body.sessionId,deviceId:body.deviceId,activationHash:hash(body.activationToken)}));}
-function Complete(flow,body,retireFlow){
- Available();
- if(!/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId||'')||!Identity(body.deviceId)||typeof body.activationToken!=='string'||body.activationToken.length>200)Fail('OVERLAY_INPUT_INVALID');
- if(flow.deviceId!==body.deviceId)Fail('OVERLAY_NOT_AUTHORIZED',403);
- const license=License(flow,body.deviceId,body.activationToken),fingerprint=CompletionFingerprint(body);
- if(flow.closedByLicenseCompletion){
-  const previous=State().sessions[flow.overlaySessionId];
-  if(!previous||previous.completionHash!==fingerprint)Fail('OVERLAY_REQUEST_REUSED',409);
-  if(previous.completionExpiresAt<=now())Fail('OVERLAY_COMPLETION_EXPIRED',409);
-  Active(previous);return Result(previous);
+function Finish(body){Fields(body,['overlayId','overlayTicket','signature']);const row=TicketRow(body);if(!['PREPARED','READY'].includes(row.status))Fail('BOOTSTRAP_LAUNCHER_USED',409);Boot().Verify(row,Canonical(row,'FINISH'),body.signature);const artifact=RequireArtifact(row);
+ if(row.status==='PREPARED'){
+  const parent=store.Load().flows[row.parentFlowId];if(parent.status!=='CLAIMED'||parent.sessionExpiresAt<=now())Fail('BOOTSTRAP_SESSION_CLOSED');
+  if(row.chunkOffsets.length!==Math.ceil(artifact.size/CHUNK_SIZE))Fail('BOOTSTRAP_DOWNLOAD_INCOMPLETE',409);Boot().ReadArtifactBytes(artifact);
+  store.Atomic(next=>{const item=next.overlays[row.id],flow=next.flows[row.parentFlowId];if(item.status!=='PREPARED'||flow.status!=='CLAIMED')Fail('BOOTSTRAP_SESSION_CLOSED');item.status='READY';item.readyAt=now();flow.status='CLOSED';flow.closedAt=now();flow.closedByOverlay=true;flow.licenseLeaseExpiresAt=0;flow.sessionExpiresAt=now();Boot().RetireFlow(flow);});
+  Audit('AB_RETIRED',row);
  }
- if(flow.status!=='CLAIMED'||!flow.lastVerifiedAt||flow.lastVerifiedAt>now()||now()-flow.lastVerifiedAt>LEASE_MS||!flow.licenseLeaseExpiresAt||flow.licenseLeaseExpiresAt<=now())Fail('OVERLAY_NOT_AUTHORIZED',403);
- Runtime(flow);
- require('./desktopIntegrityReports').RequireSnapshot(flow,'B');
- require('./desktopSecurityAuthority').RequireFresh(flow,'B',flow.lastSecurityIntent||'redeem',flow.lastSecurityBinding||'');
- const at=now(),s=State(),id=crypto.randomBytes(12).toString('hex').toUpperCase(),documentText=JSON.stringify(Document(s.document)),leaseExpiresAt=Math.min(at+LEASE_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);
- if(at<flow.createdAt||at<flow.lastVerifiedAt||flow.licenseLeaseExpiresAt<=at)Fail('OVERLAY_NOT_AUTHORIZED',403);
- if(leaseExpiresAt<=at)Fail('DESKTOP_EXPIRED',403);
- const row={id,flowId:flow.id,bootstrapSessionId:flow.sessionId,licenseId:license.id,deviceId:flow.deviceId,machineId:flow.machineId,machinePolicyGeneration:flow.machinePolicyGeneration,status:'ACTIVE',nonce:crypto.randomBytes(24).toString('hex'),createdAt:at,lastSeenAt:at,leaseExpiresAt,completionExpiresAt:at+COMPLETION_MS,completionHash:fingerprint,documentVersion:s.version,documentText,documentSha256:hash(documentText),...Revisions()};
- const pluginId=require('./desktopOverlayPlugin').Pin();if(pluginId)Object.assign(row,{pluginId,pluginPhase:'PENDING'});
- row.tokenHash=hash(Token(store.Load(),row));
- Atomic(db=>{
-  const target=db.flows[flow.id];if(target.status!=='CLAIMED'||target.closedByLicenseCompletion)Fail('OVERLAY_REQUEST_REUSED',409);
-  db.overlayState||=Empty();PruneState(db.overlayState,at);
-  if(Object.keys(db.overlayState.sessions).length>=MAX_SESSIONS)Fail('OVERLAY_CAPACITY',503);
-  db.overlayState.sessions[id]=row;
-  Object.assign(target,{status:'CLOSED',closedAt:at,closedByLicenseCompletion:true,overlaySessionId:id,licenseLeaseExpiresAt:0});
-  retireFlow(target);
- });
- require('./desktopLicenses').RetireAuthorization(flow.deviceId,license.id);
- require('./desktopIntegrityReports').RetireSession(flow);
- require('./desktopSecurityAuthority').Invalidate(flow,'A','LICENSE_COMPLETED');
- require('./desktopSecurityAuthority').Invalidate(flow,'B','LICENSE_COMPLETED');
- Audit('ISSUED',{sessionId:id,bootstrapSessionId:flow.sessionId,licenseId:license.id,documentVersion:row.documentVersion});
- return Result(State().sessions[id]);
+ return {overlayId:row.id,overlayTicket:body.overlayTicket,claimCanonical:Canonical(row,'CLAIM'),expiresAt:row.expiresAt};
 }
-function Retire(row,status,reason=''){require('./desktopOverlayPlugin').Retire(row.id);row.status=status;row.closedAt=Math.max(now(),row.createdAt,row.lastSeenAt);row.reason=reason;delete row.nonce;}
-function PruneState(state,at){
- for(const row of Object.values(state.sessions))if(row.status==='ACTIVE'&&require('./desktopOverlayPlugin').LiveDeadline(row)<=at)Retire(row,'EXPIRED');
- // Tombstones and token hashes support close retries for one day. Original
- // B flow tombstones still forbid reissuance after an overlay row is removed.
- for(const [id,row]of Object.entries(state.sessions))if(row.status!=='ACTIVE'&&Math.max(row.completionExpiresAt,row.closedAt||row.leaseExpiresAt)+86400000<=at)delete state.sessions[id];
+function Claim(body){Fields(body,['overlayId','overlayTicket','signature','binarySha256','crc64','oCodeSha256','oCodeCrc64']);const row=TicketRow(body),fingerprint=sha(JSON.stringify([body.overlayId,body.overlayTicket,body.signature,body.binarySha256,body.crc64,body.oCodeSha256,body.oCodeCrc64]));if(row.status==='CLAIMED'){if(row.claimRecoveryUntil<=now()||!row.claimRecoveryUntil||row.claimFingerprint!==fingerprint)Fail('BOOTSTRAP_LAUNCHER_USED',409);Boot().Verify(row,Canonical(row,'CLAIM'),body.signature);return ClaimResult(row);}if(row.status!=='READY')Fail('BOOTSTRAP_LAUNCHER_USED',409);const artifact=RequireArtifact(row),parent=store.Load().flows[row.parentFlowId];if(parent.status!=='CLOSED'||!parent.closedByOverlay)Fail('BOOTSTRAP_FLOW_INVALID');Boot().Verify(row,Canonical(row,'CLAIM'),body.signature);CheckMeasurement(row,artifact,{binarySha256:body.binarySha256,binaryCrc64:body.crc64,codeSha256:body.oCodeSha256,codeCrc64:body.oCodeCrc64});Boot().ReadArtifactBytes(artifact);const license=License(row);
+ store.Atomic(next=>{const item=next.overlays[row.id];if(item.status!=='READY')Fail('BOOTSTRAP_LAUNCHER_USED',409);item.status='CLAIMED';item.claimedAt=now();item.claimRecoveryUntil=Math.min(row.expiresAt,item.claimedAt+30000);item.claimFingerprint=fingerprint;item.lastVerifiedAt=now();item.sessionExpiresAt=Math.min(now()+SESSION_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);item.sessionNonce=nonce();item.sessionHash=sha(SessionToken(item));delete item.ticketNonce;item.chunkOffsets=[];});
+ const claimed=Rows()[row.id];Audit('CLAIMED',claimed);return ClaimResult(claimed);
 }
-function Execute(body){
- const pluginAction=['plugin-manifest','plugin-chunk','plugin-report'].includes(body?.action);
- Fields(body,['action','sessionId','sessionToken','deviceId',...(body?.action==='plugin-chunk'?['pluginId','offset']:body?.action==='plugin-report'?['pluginId','reportId','payload']:[])]);
- if(!['poll','close','plugin-manifest','plugin-chunk','plugin-report'].includes(body.action)||!Id(body.sessionId)||!Identity(body.deviceId))Fail('OVERLAY_INPUT_INVALID');
- const row=State().sessions[body.sessionId];
- if(!row||row.deviceId!==body.deviceId||!EqualToken(body.sessionToken,row.tokenHash))Fail('OVERLAY_SESSION_INVALID',401);
- if(body.action==='close'){
-  if(row.status==='ACTIVE')Atomic(db=>Retire(db.overlayState.sessions[row.id],'CLOSED'));
-  return {sessionId:row.id,status:'CLOSED',serverTime:now()};
- }
- let license,at,leaseExpiresAt;
- try{Available();license=Active(row);
-  const plugin=require('./desktopOverlayPlugin');
-  if(pluginAction){if(body.action==='plugin-manifest')return plugin.Manifest(row,license);if(body.action==='plugin-chunk')return plugin.Chunk(row,body);return plugin.Report(row,body,license);}
-  plugin.RequireReady(row);at=now();if(at<row.lastSeenAt)Fail('OVERLAY_EXPIRED',403);leaseExpiresAt=Math.min(at+LEASE_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);if(leaseExpiresAt<=at)Fail('DESKTOP_EXPIRED',403);}catch(error){
-  // Policy, license, maintenance and disconnect failures never leave a grant
-  // that can become usable again when the rejecting condition is removed.
-  if(row.status==='ACTIVE'&&error.desktopError&&(!pluginAction||error.status===403||error.status===503)&&error.message!=='OVERLAY_PLUGIN_NOT_READY')Atomic(db=>Retire(db.overlayState.sessions[row.id],error.message==='OVERLAY_EXPIRED'?'EXPIRED':'REVOKED',error.message));
-  throw error;
- }
- Atomic(db=>{const state=db.overlayState,item=state.sessions[row.id];item.lastSeenAt=at;item.leaseExpiresAt=leaseExpiresAt;item.documentText=JSON.stringify(state.document);item.documentSha256=hash(item.documentText);item.documentVersion=state.version;});
- return Result(State().sessions[row.id]);
-}
-function Audit(kind,value){try{require('../storage/audit').LogEvent('DESKTOP_OVERLAY_'+kind,JSON.stringify(value));}catch(_){} }
-function View(row){let status=row.status;if(status==='ACTIVE'&&require('./desktopOverlayPlugin').LiveDeadline(row)<=now())status='EXPIRED';return {id:row.id,licenseId:row.licenseId,bootstrapSessionId:row.bootstrapSessionId,deviceId:row.deviceId,machineId:row.machineId,status,createdAt:row.createdAt,lastSeenAt:row.lastSeenAt,leaseExpiresAt:row.leaseExpiresAt,documentVersion:row.documentVersion,...(row.pluginId?{pluginId:row.pluginId,pluginPhase:row.pluginPhase,pluginVerifiedAt:row.pluginVerifiedAt||0}:{} )};}
-function Overview(){const state=State();return {enabled:state.enabled,version:state.version,document:structuredClone(state.document),documentSha256:hash(JSON.stringify(state.document)),fileName:'overlay.dat',sessions:Object.values(state.sessions).map(View).sort((a,b)=>b.createdAt-a.createdAt).slice(0,500),limits:{leaseMs:LEASE_MS,pollAfterMs:POLL_MS},serverTime:now()};}
-function Update(body,actor){
- Fields(body,['expectedVersion','enabled','document']);
- if(!Number.isSafeInteger(body.expectedVersion)||typeof body.enabled!=='boolean')Fail('OVERLAY_INPUT_INVALID');
- const document=Document(body.document);
- Atomic(db=>{const current=State(db);if(body.expectedVersion!==current.version)Fail('OVERLAY_TEMPLATE_CONFLICT',409);db.overlayState={...current,enabled:body.enabled,version:current.version+1,document};if(!body.enabled)for(const row of Object.values(db.overlayState.sessions))if(row.status==='ACTIVE')Retire(row,'REVOKED','OVERLAY_DISABLED');PruneState(db.overlayState,now());});
- Audit('TEMPLATE_UPDATED',{actor:String(actor).slice(0,160),version:State().version,enabled:body.enabled});return Overview();
-}
-function Revoke(id,body,actor){
- Fields(body,['reason']);const reason=Text(body.reason,300,true).trim();if(reason.length<3)Fail('OVERLAY_INPUT_INVALID');
- if(!Id(id)||!State().sessions[id])Fail('OVERLAY_SESSION_INVALID',404);
- Atomic(db=>Retire(db.overlayState.sessions[id],'REVOKED',reason));Audit('REVOKED',{sessionId:id,actor:String(actor).slice(0,160)});return View(State().sessions[id]);
-}
-function ModuleBytes(){return Buffer.from(JSON.stringify(State().document),'utf8');}
-module.exports={FORMAT,LEASE_MS,POLL_MS,COMPLETION_MS,messages,ValidateState,Complete,Execute,Overview,Update,Revoke,ModuleBytes};
+function ClaimResult(row){return {sessionId:row.sessionId,sessionToken:SessionToken(row),expiresAt:row.sessionExpiresAt,release:Boot().Release(RequireArtifact(row))};}
+function Session(id,token){const row=Object.values(Rows()).find(r=>r.sessionId===id);if(!row||!row.sessionHash||!Boot().EqualHash(token,row.sessionHash))Fail('BOOTSTRAP_SESSION_INVALID',401);return row;}
+function CheckMeasurement(row,artifact,body){if(!/^[a-f0-9]{64}$/.test(body.binarySha256||'')||!/^[A-F0-9]{16}$/.test(body.binaryCrc64||'')||!/^[a-f0-9]{64}$/.test(body.codeSha256||'')||!/^[A-F0-9]{16}$/.test(body.codeCrc64||''))Fail('BOOTSTRAP_INPUT_INVALID',400);Boot().CheckFile(artifact,body.binarySha256,body.binaryCrc64,{stage:'O',row});if(artifact.codeSha256!==body.codeSha256||artifact.codeCrc64!==body.codeCrc64){Revoke(row.sessionId,{reason:'CODE_DIGEST_MISMATCH'},'INTEGRITY_REPORT');Fail('BOOTSTRAP_CODE_MISMATCH');}}
+function AuthenticateIntegrityReport(body){const row=Session(body.sessionId,body.sessionToken),artifact=Live(row);if(row.status!=='CLAIMED'||body.machineId!==undefined&&body.machineId!==row.machineId)Fail('BOOTSTRAP_SESSION_INVALID');return {...row,stage:'O',reportContextId:row.sessionId,integrityArtifact:{id:artifact.id,sha256:artifact.sha256,crc64:artifact.crc64,fileXxh64:artifact.xxh64,fileBlake3:artifact.blake3,codeSha256:artifact.codeSha256,codeCrc64:artifact.codeCrc64,codeXxh64:artifact.codeXxh64,codeBlake3:artifact.codeBlake3}};}
+function Verify(body){Fields(body,['sessionId','sessionToken','machineId','binarySha256','binaryCrc64','codeSha256','codeCrc64']);const row=Session(body.sessionId,body.sessionToken),artifact=Live(row);if(row.status!=='CLAIMED'||body.machineId!==row.machineId)Fail('BOOTSTRAP_SESSION_INVALID');CheckMeasurement(row,artifact,body);require('./desktopIntegrityReports').RequireSnapshot(row,'O');const authority=require('./desktopSecurityAuthority');authority.RequireFresh(row,'O','verify',authority.Binding(row.sessionId,artifact.sha256));const license=License(row),expiresAt=Math.min(now()+SESSION_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);store.Atomic(next=>{next.overlays[row.id].sessionExpiresAt=expiresAt;next.overlays[row.id].lastVerifiedAt=now();delete next.overlays[row.id].claimRecoveryUntil;delete next.overlays[row.id].claimFingerprint;});return {status:'ACTIVE',leaseExpiresAt:expiresAt,serverTime:now(),expiresAt};}
+function Close(body){Fields(body,['sessionId','sessionToken']);const row=Session(body.sessionId,body.sessionToken);if(!TERMINAL.includes(row.status)){store.Atomic(next=>{const item=next.overlays[row.id];item.status='CLOSED';item.closedAt=now();Retire(item);});Audit('CLOSED',row);}return {sessionId:row.sessionId,status:Rows()[row.id].status};}
+function Revoke(sessionId,body,actor){const row=Object.values(Rows()).find(r=>r.sessionId===sessionId);if(!row)Fail('BOOTSTRAP_SESSION_INVALID',404);store.Atomic(next=>{const item=next.overlays[row.id];item.status='REVOKED';item.revokedAt=now();item.reason=String(body.reason||'REVOKED').slice(0,300);Retire(item);});Audit('REVOKED',row);return View(Rows()[row.id]);}
+function Prune(){const expired=Object.values(Rows()).filter(r=>!TERMINAL.includes(r.status)&&(r.status==='CLAIMED'?r.sessionExpiresAt:r.expiresAt)<=now());if(expired.length)store.Atomic(next=>{for(const row of expired){const item=next.overlays[row.id];item.status='EXPIRED';Retire(item);}});}
+function View(row){return {id:row.sessionId,flowId:row.id,parentSessionId:row.parentSessionId,component:'O',status:row.status,online:row.status==='CLAIMED'&&row.sessionExpiresAt>now(),deviceId:row.deviceId,machineId:row.machineId,releaseId:row.releaseId,licenseId:row.licenseId,createdAt:row.createdAt,claimedAt:row.claimedAt||0,expiresAt:row.sessionExpiresAt||row.expiresAt,lastVerifiedAt:row.lastVerifiedAt,reason:row.reason||''};}
+function List(){Prune();return Object.values(Rows()).map(View);}
+function Audit(kind,row){try{require('../storage/audit').LogEvent('DESKTOP_OVERLAY_'+kind,JSON.stringify({overlayId:row.id,sessionId:row.sessionId,parentSessionId:row.parentSessionId,licenseId:row.licenseId,releaseId:row.releaseId}));}catch(_){console.error('OVERLAY_AUDIT_FAILED');}}
+function ValidateStore(db){if(!plain(db.overlays))throw Error('OVERLAY_STORE_INVALID');const sessions=new Set(Object.values(db.flows).map(r=>r.sessionId));for(const [key,row]of Object.entries(db.overlays)){if(!plain(row)||key!==row.id||!/^[A-F0-9]{24}$/.test(key)||!/^[A-F0-9]{24}$/.test(row.sessionId)||sessions.has(row.sessionId)||!['PREPARED','READY','CLAIMED',...TERMINAL].includes(row.status)||db.artifacts[row.releaseId]?.component!=='O'||db.flows[row.parentFlowId]?.sessionId!==row.parentSessionId||db.flows[row.parentFlowId]?.overlayReleaseId!==row.releaseId||row.deviceId!==db.flows[row.parentFlowId]?.deviceId||row.publicKey!==db.flows[row.parentFlowId]?.publicKey||row.machineId!==db.flows[row.parentFlowId]?.machineId||row.machinePolicyGeneration!==db.flows[row.parentFlowId]?.machinePolicyGeneration||row.licenseId!==db.flows[row.parentFlowId]?.licenseId||!Number.isSafeInteger(row.createdAt)||!Number.isSafeInteger(row.expiresAt)||row.expiresAt<=row.createdAt||!/^[a-f0-9]{64}$/.test(row.ticketHash)||!/^[a-f0-9]{64}$/.test(row.fingerprint)||typeof row.requestId!=='string')throw Error('OVERLAY_STORE_INVALID');sessions.add(row.sessionId);if((row.claimRecoveryUntil===undefined)!==(row.claimFingerprint===undefined)||row.claimRecoveryUntil!==undefined&&(row.status!=='CLAIMED'||!Number.isSafeInteger(row.claimRecoveryUntil)||row.claimRecoveryUntil<row.claimedAt||row.claimRecoveryUntil>Math.min(row.expiresAt,row.claimedAt+30000)||!/^([a-f0-9]{64})$/.test(row.claimFingerprint)))throw Error('OVERLAY_STORE_INVALID');if(!Array.isArray(row.chunkOffsets)||row.chunkOffsets.length>256||new Set(row.chunkOffsets).size!==row.chunkOffsets.length||row.chunkOffsets.some(o=>!Number.isSafeInteger(o)||o<0||o>=db.artifacts[row.releaseId].size||o%CHUNK_SIZE))throw Error('OVERLAY_STORE_INVALID');if(['PREPARED','READY'].includes(row.status)){if(!/^[a-f0-9]{48}$/.test(row.ticketNonce)||row.ticketHash!==TokenHash(db.secret,'OVERLAY-HANDOFF',row.id,row.ticketNonce))throw Error('OVERLAY_STORE_INVALID');}else if(row.ticketNonce!==undefined)throw Error('OVERLAY_STORE_INVALID');if(row.status==='CLAIMED'){if(!/^[a-f0-9]{48}$/.test(row.sessionNonce)||row.sessionHash!==TokenHash(db.secret,'OVERLAY-SESSION',row.sessionId,row.sessionNonce)||!Number.isSafeInteger(row.sessionExpiresAt)||!Number.isSafeInteger(row.claimedAt))throw Error('OVERLAY_STORE_INVALID');}else if(row.sessionNonce!==undefined)throw Error('OVERLAY_STORE_INVALID');if(TERMINAL.includes(row.status)&&!Number.isSafeInteger(row.retiredAt))throw Error('OVERLAY_STORE_INVALID');}return db.overlays;}
+function TokenHash(secret,domain,key,value){return sha(crypto.createHmac('sha256',Buffer.from(secret,'hex')).update(['GAME-OVERLAY-V1',domain,key,value].join('|')).digest('base64url'));}
+function Execute(body){Prune();switch(body.action){case 'overlayChunk':return Chunk(body);case 'overlayFinish':return Finish(body);case 'overlayClaim':return Claim(body);case 'overlayVerify':return Verify(body);case 'overlayClose':return Close(body);default:Fail('BOOTSTRAP_INPUT_INVALID',400);}}
+module.exports={Prepare,Execute,AuthenticateIntegrityReport,Revoke,Prune,List,ValidateStore};

@@ -4,7 +4,7 @@
 const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),config=require('../config/config');
 const DIR=path.join(config.DATA_DIR,'desktop-integrity-reports'),FILE=path.join(DIR,'reports.json'),KEY=path.join(DIR,'authority.key');
 const MAX_PAYLOAD=10240,MAX_REPORTS=512,MAX_PENDING=1024,TTL=30000;
-const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000};
+const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000,O:120000};
 const DEFAULT_MODULES=['ntdll.dll','kernel32.dll','kernelbase.dll'];
 let secret,loaded=false,revision=0,records=[],baselines=[],observations=[],pending=new Map(),rates=new Map();
 let policy={enabled:false,requireExtendedHashes:false,requiredModules:DEFAULT_MODULES.slice(),revision:0,updatedAt:0,actor:''};
@@ -53,7 +53,7 @@ function Payload(text){
  if(typeof text!=='string'||Buffer.byteLength(text,'utf8')>MAX_PAYLOAD)Fail('INTEGRITY_REPORT_INVALID');let p;try{p=JSON.parse(text);}catch(_){Fail('INTEGRITY_REPORT_INVALID');}
  Keys(p,['version','hashVersion','check','reason','own','modules','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust']);
  if(p.version!==1||p.hashVersion!==undefined&&![1,2].includes(p.hashVersion)||!['OWN_IMAGE','MODULE_INVENTORY'].includes(p.check))Fail('INTEGRITY_REPORT_INVALID');p.hashVersion=p.hashVersion||1;Token(p.reason);
- if(p.own){Keys(p.own,['fileSha256','fileCrc64','codeSha256','codeCrc64','status','fileXxh64','fileBlake3','codeXxh64','codeBlake3']);if(!['MEASURED','READ_ERROR'].includes(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,...(p.own.fileSha256!==undefined?{fileSha256:Digest(p.own.fileSha256,64)}:{}),...(p.own.fileCrc64!==undefined?{fileCrc64:Digest(p.own.fileCrc64,16)}:{}),codeSha256:Digest(p.own.codeSha256,64),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh64')?16:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha256||!own.codeCrc64||p.hashVersion===2&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
+ if(p.own){Keys(p.own,['codeSha256','codeCrc64','status','fileXxh64','fileBlake3','codeXxh64','codeBlake3']);if(!['MEASURED','READ_ERROR'].includes(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,codeSha256:Digest(p.own.codeSha256,64),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh64')?16:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha256||!own.codeCrc64||p.hashVersion===2&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
  if(p.check==='OWN_IMAGE'&&!p.own)Fail('INTEGRITY_REPORT_INVALID');
  if(p.modules!==undefined&&(!Array.isArray(p.modules)||p.modules.length>16))Fail('INTEGRITY_REPORT_INVALID');p.modules=(p.modules||[]).map(row=>Module(row,p.hashVersion));
  if(p.check==='MODULE_INVENTORY'){
@@ -62,7 +62,7 @@ function Payload(text){
  return p;
 }
 function Record(input){
- Load();if(!Plain(input)||!['A','B'].includes(input.stage)||!['VERIFIED','REJECTED','CLIENT_DIAGNOSTIC'].includes(input.status))Fail('INTEGRITY_REPORT_INVALID');
+ Load();if(!Plain(input)||!['A','B','O'].includes(input.stage)||!['VERIFIED','REJECTED','CLIENT_DIAGNOSTIC'].includes(input.status))Fail('INTEGRITY_REPORT_INVALID');
  const record={id:crypto.randomBytes(12).toString('hex').toUpperCase(),at:Date.now(),stage:input.stage,check:Token(input.check),status:input.status,reason:Token(input.reason||input.status),machineId:Identifier(input.machineId),flowId:Identifier(input.flowId),sessionId:Identifier(input.sessionId),artifactId:Identifier(input.artifactId),source:input.trusted===true?'SERVER_COMPARISON':'SIGNED_CLIENT_REPORT',attested:false,
   expectedSha256:Digest(input.expectedSha256,64),observedSha256:Digest(input.observedSha256,64),expectedCrc64:Digest(input.expectedCrc64,16),observedCrc64:Digest(input.observedCrc64,16),hashVersion:input.hashVersion===2?2:1,extendedHashesVerified:input.hashVersion===2&&input.extendedHashesVerified===true};
  for(const prefix of ['expected','observed','expectedFile','observedFile'])for(const algorithm of ['Xxh64','Blake3'])record[prefix+algorithm]=ExtendedDigest(input[prefix+algorithm],algorithm==='Xxh64'?16:64);
@@ -114,7 +114,7 @@ function Submit(body){
 function Execute(body){if(!Plain(body))Fail('INTEGRITY_REPORT_INVALID');if(body.action==='challenge')return Challenge(body);if(body.action==='submit')return Submit(body);Fail('INTEGRITY_REPORT_INVALID');}
 function List(query={}){Load();const machineId=String(query.machineId||''),sessionId=String(query.sessionId||'');if(machineId&&!/^[A-F0-9]{64}$/.test(machineId)||sessionId&&!/^[-A-Za-z0-9_]{1,100}$/.test(sessionId))Fail('INTEGRITY_REPORT_INVALID');return {items:records.filter(row=>(!machineId||row.machineId===machineId)&&(!sessionId||row.sessionId===sessionId)).slice(-100).reverse(),revision,serverTime:Date.now(),scope:'SHA-256, CRC64-ECMA, XXH64 and BLAKE3 comparisons cover files, executable sections and registered DLL export tables. Measurements are client-reported, not hardware attestation.',policy:Policy(),attested:false,limit:100};}
 function CompareModule(row,hashVersion=1){
- Load();const baseline=baselines.find(b=>b.name.toLowerCase()===row.name.toLowerCase()&&b.fileSha256===row.fileSha256);
+ const baseline=baselines.find(b=>b.name.toLowerCase()===row.name.toLowerCase()&&b.fileSha256===row.fileSha256);
  const unverified={fileExtendedVerified:false,codeExtendedVerified:false,exportTableExtendedVerified:false,extendedHashesVerified:false};
  if(!baseline)return {...row,...unverified,serverComparison:'UNVERIFIED_BASELINE'};
  const exportComparable=baseline.exportTableStatus==='MEASURED'&&baseline.exportTableSha256&&baseline.exportTableCrc64;
@@ -197,12 +197,5 @@ function RequireSnapshot(row,stage){
  if(!reason)return;RevokeSnapshot(row,reason);Record({stage,sessionId:row.sessionId,flowId:row.id,machineId:row.machineId,check:'MODULE_POLICY',status:'REJECTED',reason,trusted:true,strictPolicyRevision:policy.revision});Fail(reason,403);
 }
 
-function RetireSession(row){
- // Historical measurements remain in the server audit. Only in-flight proof
- // objects and partial inventory buffers belong to the completed B session.
- for(const [id,item]of pending)if(item.sessionId===row.sessionId||item.sessionId===row.id)pending.delete(id);
- for(const [id,item]of snapshots)if(item.context===row.sessionId||item.context===row.id)snapshots.delete(id);
- for(const id of finishedSnapshots.keys())if(id.startsWith('B:'+row.sessionId+':')||id.startsWith('A:'+row.id+':'))finishedSnapshots.delete(id);
- rates.delete(row.sessionId);rates.delete(row.id);
-}
-module.exports={CompareModule,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,RetireSession};
+function RetireContext(row){const ids=new Set([row.id,row.sessionId]);for(const [id,value]of pending)if(ids.has(value.sessionId))pending.delete(id);for(const id of ids)rates.delete(id);for(const id of snapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))snapshots.delete(id);for(const id of finishedSnapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))finishedSnapshots.delete(id);}
+module.exports={RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};

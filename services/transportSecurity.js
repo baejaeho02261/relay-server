@@ -17,15 +17,11 @@ function ReadConfiguredTls() {
         const caFile = String(process.env.RELAY_TLS_CA_FILE || '').trim();
         const ca = caFile ? fs.readFileSync(caFile) : undefined;
         const x509 = new crypto.X509Certificate(cert);
-        const validFrom = Date.parse(x509.validFrom);
-        const validTo = Date.parse(x509.validTo);
-        if (!Number.isFinite(validFrom) || !Number.isFinite(validTo) || Now() < validFrom || Now() >= validTo) return { configured: false, reason: 'CERTIFICATE_EXPIRED_OR_NOT_YET_VALID' };
-        if (!x509.checkPrivateKey(crypto.createPrivateKey(key))) return { configured: false, reason: 'CERTIFICATE_KEY_MISMATCH' };
         return {
             configured: true, cert, key, ca,
             pinSha256: crypto.createHash('sha256').update(x509.publicKey.export({ type: 'spki', format: 'der' })).digest('base64'),
             subject: x509.subject, issuer: x509.issuer,
-            validFrom, validTo
+            validFrom: Date.parse(x509.validFrom) || 0, validTo: Date.parse(x509.validTo) || 0
         };
     } catch (error) {
         return { configured: false, reason: 'CERTIFICATE_LOAD_FAILED', detail: SafeField(error.message) };
