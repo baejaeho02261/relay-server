@@ -12,7 +12,7 @@ const WEB_ADMIN_PORT = Number(process.env.WEB_ADMIN_PORT || 8080);
 const WEB_ADMIN_SESSION_MS = Number(process.env.WEB_ADMIN_SESSION_MS || 30 * 60 * 1000);
 const ENABLE_LEGACY_TCP_ADMIN = String(process.env.ENABLE_LEGACY_TCP_ADMIN || '') === '1';
 const WEB_ADMIN_VERSION = '5.0.1';
-const WEB_UI_REVISION = 'game-overlay-93';
+const WEB_UI_REVISION = 'game-console-92';
 const UPDATE_BASE_URL = String(process.env.UPDATE_BASE_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')).replace(/\/+$/, '');
 
 const DATA_DIR = process.env.DATA_DIR
@@ -46,7 +46,9 @@ const SERVER_KICK_BLOCK_MS = 60 * 1000;
 const CLIENT_KICK_BLOCK_MS = 60 * 1000;
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = Number(process.env.RATE_LIMIT_MAX || 30);
-// Retained only for rendering historical server capacity snapshots.
+// Product invariant: one APK is paired with exactly one GameConnect.
+// This is intentionally not environment-overridable; increasing it would
+// silently reconnect several waiting APKs to the first PC that comes online.
 const MAX_CLIENTS_PER_SERVER = 1;
 
 const REQUEST_HISTORY_TIMEOUT_MS = 10 * 60 * 1000;
@@ -83,6 +85,22 @@ const HA_SHARED_SECRET = String(process.env.HA_SHARED_SECRET || '');
 const HA_POLL_MS = Math.max(500, Number(process.env.HA_POLL_MS || 2000));
 const HA_FAILOVER_TIMEOUT_MS = Math.max(3000, Number(process.env.HA_FAILOVER_TIMEOUT_MS || 10000));
 
+const QR_AUTH_TTL_MS = 60 * 1000;
+const QR_AUTH_MAX_IMAGE_BYTES = Math.max(512 * 1024, Math.min(12 * 1024 * 1024, Number(process.env.QR_AUTH_MAX_IMAGE_BYTES || 8 * 1024 * 1024)));
+const QR_AUTH_MAX_REQUESTS = Math.max(100, Math.min(5000, Number(process.env.QR_AUTH_MAX_REQUESTS || 500)));
+const QR_AUTH_DEFAULT_DAYS = Math.max(1, Math.min(3650, Number(process.env.QR_AUTH_DEFAULT_DAYS || 30)));
+const QR_APPROVAL_SECRET = String(process.env.QR_APPROVAL_SECRET || '');
+
+const buildWaitTtlInput = Number(process.env.BUILD_GATE_WAIT_TTL_MS || 30 * 60 * 1000);
+const sessionTtlInput = Number(process.env.BUILD_SESSION_TTL_MINUTES || 30);
+const sessionHistoryInput = Number(process.env.MAX_BUILD_SESSION_HISTORY || 2000);
+const BUILD_WAIT_TTL_MS = Math.max(60 * 1000, Math.min(24 * 60 * 60 * 1000,
+    Number.isFinite(buildWaitTtlInput) ? buildWaitTtlInput : 30 * 60 * 1000));
+const DEFAULT_BUILD_SESSION_TTL_MINUTES = Math.max(1, Math.min(1440,
+    Number.isFinite(sessionTtlInput) ? Math.trunc(sessionTtlInput) : 30));
+const MAX_BUILD_SESSION_HISTORY = Math.max(100, Math.min(10000,
+    Number.isFinite(sessionHistoryInput) ? Math.trunc(sessionHistoryInput) : 2000));
+
 const DANGEROUS_PREFIXES = [
     'SERVICE_STOP',
     'BACKUP_RESTORE|',
@@ -108,5 +126,7 @@ module.exports = {
     DAILY_REPORT_TIMEZONE, DAILY_REPORT_RETENTION_DAYS,
     VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT,
     HA_ENABLED, HA_INSTANCE_ID, HA_PRIORITY, HA_PEER_URL, HA_SHARED_SECRET, HA_POLL_MS, HA_FAILOVER_TIMEOUT_MS,
+    QR_AUTH_TTL_MS, QR_AUTH_MAX_IMAGE_BYTES, QR_AUTH_MAX_REQUESTS, QR_AUTH_DEFAULT_DAYS, QR_APPROVAL_SECRET,
+    BUILD_WAIT_TTL_MS, DEFAULT_BUILD_SESSION_TTL_MINUTES, MAX_BUILD_SESSION_HISTORY,
     DANGEROUS_PREFIXES
 };
