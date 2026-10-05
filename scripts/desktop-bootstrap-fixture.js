@@ -57,16 +57,14 @@ function LicensePayload(device,payload,requestId){
  const key=requestId?device.deviceId+':'+requestId:'',session=key&&requests.get(key)||Session(device,payload.licenseKey||payload.activationToken||'');
  if(key)requests.set(key,session);return {...Evidence(device,session),...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken};
 }
-async function TcpRequest(profile,operation,body){
+async function TcpBootstrap(profile,body){
  const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID(),aad=direction=>Buffer.from(['GAME-CONNECT-3',direction,requestId,profile.serverKeyId].join('\n'));
- const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(aad('REQUEST'));const clear=Buffer.from(JSON.stringify({operation,body})),ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);
+ const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(aad('REQUEST'));const clear=Buffer.from(JSON.stringify({operation:'bootstrap',body})),ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);
  const frame={v:1,keyId:profile.serverKeyId,requestId,wrappedKey:crypto.publicEncrypt({key:require('../services/desktopLicenses').ParseKey(profile.serverPublicKey).key,oaepHash:'sha256',padding:crypto.constants.RSA_PKCS1_OAEP_PADDING},key).toString('base64'),nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};
  const raw=await new Promise((resolve,reject)=>{const tls=require('node:tls'),socket=tls.connect({port:profile.port,host:profile.host,servername:profile.tlsServerName,rejectUnauthorized:false,minVersion:'TLSv1.2'});let reply='';socket.setTimeout(5000,()=>{socket.destroy();reject(Error('BOOTSTRAP_TEST_TIMEOUT'));});socket.once('secureConnect',()=>{const cert=socket.getPeerCertificate(),at=Date.now();if(!cert.raw||sha256(cert.raw)!==profile.tlsCertificateSha256||tls.checkServerIdentity(profile.tlsServerName,cert)||at<Date.parse(cert.valid_from)||at>Date.parse(cert.valid_to)){socket.destroy();reject(Error('BOOTSTRAP_TEST_TLS_PIN'));return;}socket.write(JSON.stringify(frame)+'\n');});socket.on('data',data=>{reply+=data.toString();if(reply.length>1024*1024){socket.destroy();reject(Error('BOOTSTRAP_TEST_RESPONSE_LIMIT'));}});socket.once('error',reject);socket.once('close',()=>resolve(reply));});
  const response=JSON.parse(raw);assert.equal(response.v,1);assert.equal(response.requestId,requestId);assert.notEqual(response.nonce,frame.nonce);const decipher=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(response.nonce,'base64'));decipher.setAAD(aad('RESPONSE'));decipher.setAuthTag(Buffer.from(response.tag,'base64'));
- const result=JSON.parse(Buffer.concat([decipher.update(Buffer.from(response.ciphertext,'base64')),decipher.final()]).toString('utf8'));return result;
+ const result=JSON.parse(Buffer.concat([decipher.update(Buffer.from(response.ciphertext,'base64')),decipher.final()]).toString('utf8'));assert.equal(result.ok,true,JSON.stringify(result));return result.data;
 }
-async function TcpBootstrap(profile,body){const result=await TcpRequest(profile,'bootstrap',body);assert.equal(result.ok,true,JSON.stringify(result));return result.data;}
-
 async function RemoteSession(device,launcher){
  const settings=Config(launcher),call=body=>TcpBootstrap(settings.profile,body),begin=await call({action:'begin',requestId:crypto.randomUUID(),launcherId:settings.launcherId,launcherTicket:settings.launcherTicket,launcherSha256:sha256(launcher),launcherCrc64:Crc64(launcher),aCodeSha256:CodeImage(launcher).sha256,aCodeCrc64:CodeImage(launcher).crc64,machineId:device.machineId,publicKey:device.publicKey,deviceId:device.deviceId}),chunks=[];
  for(let offset=0;offset<begin.release.size;){const chunk=await call({action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset}),bytes=Buffer.from(chunk.data,'base64');assert.equal(chunk.offset,offset);assert.ok(bytes.length>0&&bytes.length<=begin.chunkSize);chunks.push(bytes);offset+=bytes.length;}
@@ -74,4 +72,4 @@ async function RemoteSession(device,launcher){
  const finish=await call({action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,crc64:begin.release.crc64,aCodeSha256:begin.finishCanonical.split('\n')[5],aCodeCrc64:begin.finishCanonical.split('\n')[6],signature:Sign(device,begin.finishCanonical)});
  return call({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(device,finish.claimCanonical),binarySha256:begin.release.sha256,crc64:begin.release.crc64,bCodeSha256:begin.release.codeSha256,bCodeCrc64:begin.release.codeCrc64});
 }
-module.exports={PE,Device,Sign,Config,Publish,Begin,Download,Finish,Claim,Session,LicensePayload,TcpBootstrap,TcpRequest,RemoteSession,sha256,Crc64,CodeImage,Evidence};
+module.exports={PE,Device,Sign,Config,Publish,Begin,Download,Finish,Claim,Session,LicensePayload,TcpBootstrap,RemoteSession,sha256,Crc64,CodeImage,Evidence};

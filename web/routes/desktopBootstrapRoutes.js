@@ -28,7 +28,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
   const length=Number(req.headers['content-length']||0);if(!Number.isSafeInteger(length)||length<0)bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');if(length>bootstrap.MAX_ARTIFACT_BYTES)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
   if(pathname==='/api/desktop/bootstrap/module-baselines'){
    if(length>32*1024*1024)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);uploadPending=true;
-   const bytes=await ReadBytes(req);if(!require('../webAuth').IsSessionActive(session)){ApiError(res,401,'SESSION_EXPIRED');return true;}const fileName=url.searchParams.get('fileName'),label=url.searchParams.get('label')||'';
+   const bytes=await ReadBytes(req),fileName=url.searchParams.get('fileName'),label=url.searchParams.get('label')||'';
    const summary={fileName,label,sha256:require('node:crypto').createHash('sha256').update(bytes).digest('hex'),size:bytes.length};
    const allowed=require('../../services/desktopAdminGuard').Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''));
    if(!allowed.ok){ApiError(res,allowed.status||428,allowed.reason,allowed.ticketId||'');return true;}
@@ -36,8 +36,8 @@ async function HandleUpload({method,pathname,url,req,res,session}){
    const baseline=require('../../services/desktopIntegrityReports').RegisterBaseline(fileName,label,bytes,String(session.role||'ADMIN')+':'+String(session.id||''));Json(res,200,{ok:true,baseline});return true;
   }
   const component=url.searchParams.get('component'),version=url.searchParams.get('version'),name=url.searchParams.get('fileName')||'';
-  if(!['A','B','O'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
-  uploadPending=true;const bytes=await ReadBytes(req);if(!require('../webAuth').IsSessionActive(session)){ApiError(res,401,'SESSION_EXPIRED');return true;}const approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
+  if(!['A','B'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
+  uploadPending=true;const bytes=await ReadBytes(req),approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
   const ops=require('../../services/desktopSecurityOperations'),authority=require('../../services/desktopSecurityAuthority');
   const summary={component,version,fileName:name,sha256:ops.sha(bytes),size:bytes.length,keyId:approval?.keyId||'',signatureHash:approval?ops.sha(JSON.stringify(approval)):'',expectedPolicyRevision:authority.Policy().revision,expectedOperationsRevision:ops.Revision(),disposition:'CANDIDATE'};
   const allowed=require('../../services/desktopAdminGuard').Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''));

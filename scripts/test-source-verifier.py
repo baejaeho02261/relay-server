@@ -5,8 +5,7 @@ HERE=Path(__file__).resolve().parent;ROOT=HERE.parent.parent
 spec=importlib.util.spec_from_file_location('verifier',HERE/'verify-source.py');v=importlib.util.module_from_spec(spec);spec.loader.exec_module(v)
 count=0
 with tempfile.TemporaryDirectory(prefix='source-verifier-') as tmp:
-    root=Path(tmp);shutil.copytree(ROOT/'GameWeb',root/'GameWeb',ignore=shutil.ignore_patterns('node_modules','__pycache__'));shutil.copytree(ROOT/'GameConnect_Win64',root/'GameConnect_Win64')
-    shutil.copy2(ROOT/'README_KO.md',root/'README_KO.md')
+    root=Path(tmp);shutil.copytree(ROOT/'GameWeb',root/'GameWeb');shutil.copytree(ROOT/'GameConnect_Win64',root/'GameConnect_Win64')
     assert not v.verify(root);count+=1
     path=root/'GameConnect_Win64/Game.Api.Pointer.pas';raw=path.read_bytes();path.write_bytes(raw+b'changed');assert any('Changed:' in e for e in v.verify(root));count+=1;path.write_bytes(raw)
     path=root/'GameWeb/services/desktopWorkspace.js';raw=path.read_bytes();path.unlink();assert any('Missing' in e for e in v.verify(root));count+=1;path.write_bytes(raw)
