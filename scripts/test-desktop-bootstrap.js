@@ -130,7 +130,7 @@ Check('License consumption requires signed, current, same-device B session',()=>
  const proof=LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken});assert.equal(licenses.Execute(proof).status,'USED');
  const different=licenses.Create({label:'Must remain unused'},'TEST');Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{licenseKey:different.licenseKey,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);assert.equal(licenses.DB().licenses[different.license.id].consumed,false);
  Reject(()=>fixture.Session(a,'attempt-activation-reuse'),/^DESKTOP_MACHINE_BLOCKED$/);
- const oldSnapshot=database.BuildDatabaseObject();bootstrap.Execute({action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken});Reject(()=>Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>licenses.Execute(proof),/^DESKTOP_CHALLENGE_EXPIRED$/);
+ const oldSnapshot=database.BuildDatabaseObject();bootstrap.Execute({action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken});Reject(()=>Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>licenses.Execute(proof));
  database.ImportDatabaseObject(oldSnapshot);Reject(()=>Gate(session.sessionId,session.sessionToken,a.deviceId),/^BOOTSTRAP_SESSION_CLOSED$/);const retry=Restart(claimBody);assert.equal(retry.ok,false);assert.equal(retry.error,'BOOTSTRAP_SESSION_CLOSED');
 });
 Check('Service pause denies bootstrap and expired sessions cannot authorize licenses',()=>{

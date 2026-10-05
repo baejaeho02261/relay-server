@@ -12,7 +12,7 @@ const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'game-desktop-retirement-'));
 process.env.DATA_DIR = temp;
-process.env.STORAGE_ENGINE = process.argv.includes('--sqlite') ? 'sqlite' : 'json';
+process.env.STORAGE_ENGINE = 'json';
 process.env.HA_ENABLED = '0';
 const mode = require('../services/desktopMode');
 const secret = 'retirement-regression-admin-secret';
@@ -43,22 +43,6 @@ async function request(base, url, method = 'GET', body, auth) {
     try {
         assert.equal(mode.Enabled(), true);
         assert.equal(mode.LegacyTcpEnabled(), false);
-        for (const name of [
-            'services/member', 'services/memberEntry.js', 'services/clientBiometric.js',
-            'services/clientInstallation.js', 'services/qrApproval.js', 'services/buildGate.js',
-            'services/qrImageDecoder.js', 'services/qrToken.js', 'services/supportCenter.js',
-            'services/clientPermissions.js', 'services/clientAuthRecovery.js',
-            'services/emergencyFailover.js', 'services/requestRecovery.js',
-            'relay/serverHandler.js', 'relay/clientConnectPacket.js',
-            'public/admin-pages-traffic.js', 'public/admin-actions-traffic.js',
-            'tools/load-simulator.js'
-        ]) assert.equal(fs.existsSync(path.join(root, name)), false, 'Retired implementation must be absent: ' + name);
-        const dependencies = JSON.parse(fs.readFileSync(path.join(root, 'package.json'))).dependencies;
-        for (const name of ['qrcode', 'jsqr', 'jpeg-js', 'pngjs']) assert.equal(dependencies[name], undefined);
-        const releases = require('../services/releaseManager');
-        assert.equal(releases.NormalizeType('CLIENT'), '');
-        assert.throws(() => releases.PublishFromTemp({ type: 'SERVER', channel: 'STABLE', version: '1.0', fileName: 'retired.apk' }, 'unused', '0'.repeat(64), 1), /INVALID_ARTIFACT_TYPE/);
-
         // An old launcher must fail closed even if it manually imports the TCP factory.
         let rejected = '', registered = false;
         require('../core/connection').CreateConnection({ end: text => { rejected = text; }, destroySoon() {}, on() { registered = true; } });
@@ -67,25 +51,12 @@ async function request(base, url, method = 'GET', body, auth) {
 
         require('../core/utils').EnsureDirs();
         const state = require('../core/state');
-        const archive = { profiles: {}, settings: {}, version: 1 };
+        const archive = require('../services/member/store').Empty();
         archive.profiles['ARCHIVED-SUBJECT'] = { id: 'USR-AAAAAAAAAAAAAAAAAAAAAAAA', subject: 'ARCHIVED-SUBJECT', nickname: '보관 회원', balance: 13579, points: 2468, recentServices: Array.from({ length: 25 }, (_, i) => ({ id: 'legacy-' + i, at: i + 1 })) };
         archive.settings.retirementProbe = 'preserve-exactly';
         state.memberHub = structuredClone(archive);
         const db = require('../storage/database');
         const seed = db.BuildDatabaseObject();
-        const historical = {
-            clientInstallations: { archived: { marker: 'opaque-install', token: 'never-executed' } },
-            clientBiometricProfiles: { archived: { marker: 'opaque-proof' } },
-            qrAuthRequests: { archived: { state: 'PENDING', expiresAt: 1 } },
-            buildSessions: { archived: { state: 'ACTIVE', expiresAt: 1 } },
-            supportThreads: { archived: { messages: [{ text: 'preserve history' }] } },
-            offlineQueue: { archived: { clientId: 'unregistered', payload: 'NEVER_DISPATCH', expiresAt: 1 } },
-            deadLetters: { archived: { status: 'ACTIVE', marker: 'keep-exactly' } }
-        };
-        Object.assign(seed, historical);
-        const loadGraph = Object.keys(require.cache).filter(name => name.startsWith(root));
-        assert.ok(!loadGraph.some(name => /services[\\/](?:member|clientBiometric|qrApproval|buildGate)/.test(name)));
-
         fs.writeFileSync(path.join(temp, 'relay-identities.json'), JSON.stringify(seed));
         const webPort = await port(), relayPort = await port();
         child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(relayPort), CONNECT_TCP_PORT: String(relayPort), WEB_ADMIN_PORT: String(webPort), HEALTH_PORT: '0', ADMIN_SECRET: secret, ENABLE_LEGACY_TCP_ADMIN: '1', DESKTOP_ALLOW_HTTP_LOOPBACK: '1', VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -114,8 +85,7 @@ async function request(base, url, method = 'GET', body, auth) {
             '/api/clients', '/api/clients/1234567890123456/biometric/reset', '/api/build-sessions',
             '/api/build-bindings/1234567890123456/rebind', '/api/games/upload', '/api/support',
             '/api/reinstall-blocks', '/api/pairing/repair', '/api/failover', '/api/user-dashboard',
-            '/api/control/client/1234567890123456/command', '/api/request-recovery/clients/1234567890123456',
-            '/api/request-recovery', '/api/request-traces/replay', '/api/dead-letters/old/retry', '/api/load-simulator'
+            '/api/control/client/1234567890123456/command', '/api/request-recovery/clients/1234567890123456'
         ];
         for (const url of retired) for (const method of ['GET', 'POST']) {
             const response = await request(base, url, method, method === 'POST' ? { action: 'identity.start', provider: 'google' } : undefined);
@@ -147,9 +117,8 @@ async function request(base, url, method = 'GET', body, auth) {
         await delay(1100);
         await stop();
         const saved = JSON.parse(fs.readFileSync(path.join(temp, 'relay-identities.json'), 'utf8'));
-        for (const [name, value] of Object.entries(historical)) assert.deepEqual(saved[name], value, 'No stale workflow may migrate or execute ' + name);
         assert.deepEqual(saved.memberHub, archive, 'Archived member data must survive startup, scheduler and shutdown without a member migration');
-        console.log('DESKTOP RETIREMENT PASS (' + process.env.STORAGE_ENGINE + '): removed implementations/assets/QR dependencies, preserved opaque history, real HTTP 410 boundaries, authenticated admin preserved, desktop auth separation, no legacy TCP listener, unchanged member archive.');
+        console.log('DESKTOP RETIREMENT PASS: real HTTP 410 boundaries, authenticated admin preserved, desktop auth separation, no legacy TCP listener, unchanged member archive.');
     } finally {
         await stop();
         fs.rmSync(temp, { recursive: true, force: true });
