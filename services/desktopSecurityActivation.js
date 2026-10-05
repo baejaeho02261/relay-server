@@ -9,7 +9,6 @@ const PROFILES = ['READY', 'SERVER', 'ALL'];
 const HASH = /^[a-f0-9]{64}$/;
 const REQUEST_FIELDS = ['profile', 'expectedPolicyRevision', 'expectedOperationsRevision',
   'expectedActivationRevision', 'aId', 'bId', 'aSha256', 'bSha256', 'targetHash'];
-const OVERLAY_REQUEST_FIELDS = [...REQUEST_FIELDS,'oId','oSha256'];
 function Fail(code, status = 409) {
   const e = Error(code); e.desktopError = true; e.status = status; throw e;
 }
@@ -42,7 +41,7 @@ function ValidateRecord(value) {
   } else if (value?.version === 2) {
     const fields = ['version', 'revision', 'adminMode', 'profile', 'activatedAt',
       'activatedBy', 'aSha256', 'bSha256', 'targetHash'];
-    if (!(Exact(value, fields) || Exact(value,[...fields,'oSha256']) && typeof value.oSha256==='string' && HASH.test(value.oSha256)) || value.adminMode !== 'SINGLE_ADMIN' ||
+    if (!Exact(value, fields) || value.adminMode !== 'SINGLE_ADMIN' ||
         !PROFILES.includes(value.profile) || typeof value.activatedBy!=='string' ||
         !/^admin-[a-f0-9]{24}$/.test(value.activatedBy) || typeof value.targetHash!=='string' ||
         !HASH.test(value.targetHash)) Fail('SECURITY_ACTIVATION_STORAGE_INVALID', 503);
@@ -93,11 +92,11 @@ function Preview(profile, session) {
   const target=Targets(profile),issues=[],pending=[];
   const add=(code,detail,component='')=>issues.push({code,detail,component});
   const defer=(code,detail,component='')=>pending.push({code,detail,component});
-  const a=db.artifacts[db.active.A],b=db.artifacts[db.active.B],o=db.artifacts[db.active.O];
-  const pair=[['A',a],['B',b],...(db.active.O?[['O',o]]:[])];
+  const a=db.artifacts[db.active.A],b=db.artifacts[db.active.B];
+  const pair=[['A',a],['B',b]];
   for (const [component,artifact] of pair) {
     if (!artifact || artifact.component !== component) {
-      add('SECURITY_ACTIVE_PAIR_REQUIRED','후보 등록 후 운영 A/B 및 선택한 O 게시를 먼저 완료하세요.',component);continue;
+      add('SECURITY_ACTIVE_PAIR_REQUIRED','후보 등록 후 운영 A/B 게시를 먼저 완료하세요.',component);continue;
     }
     const reason=auth.ArtifactReason(artifact,target);
     if (reason) add(reason,'현재 운영 파일의 서명·버전·철회·현재 필수 정책을 확인하세요.',component);
@@ -110,11 +109,11 @@ function Preview(profile, session) {
       add(e.desktopError?e.message:'SECURITY_RELEASE_READ_FAILED','서버의 실제 운영 파일을 다시 검증하지 못했습니다.',component);
     }
   }
-  const samples=auth.ActivationObservations(target,pair.map(([,row])=>row?.id).filter(Boolean));
+  const samples=auth.ActivationObservations(target,[a?.id,b?.id].filter(Boolean));
   const allObserved=pair.every(([,row])=>row && samples.some(x=>x.artifactId===row.id&&x.status==='PASS'));
   const allContracts=pair.every(([,row])=>row && s.contracts[ops.BuildKey(row)]);
   let evidenceReady=false;
-  if (a&&b&&(!db.active.O||o)) { try {ops.RequirePairEvidence(a,b,s,o);evidenceReady=true;} catch (_) {} }
+  if (a&&b) { try {ops.RequirePairEvidence(a,b,s);evidenceReady=true;} catch (_) {} }
   const strict=profile!=='READY';
   const controls={
     requireBuildContract:s.requireBuildContract || strict || !!(allContracts && allObserved),
@@ -136,7 +135,7 @@ function Preview(profile, session) {
     }
   }
   if (!evidenceReady) (controls.requireTestEvidence?add:defer)('SECURITY_TEST_EVIDENCE_REQUIRED',
-    '정확한 A/B 및 선택한 O 시험 기록이 없습니다. PASS를 자동 생성하지 않으며, 준비 전에는 신규 필수 요구를 켜지 않습니다.');
+    '정확한 A/B 시험 기록이 없습니다. PASS를 자동 생성하지 않으며, 준비 전에는 신규 필수 요구를 켜지 않습니다.');
   if (profile==='READY') {
     if (allContracts && !allObserved && !s.requireBuildContract)
       defer('SECURITY_BUILD_CONTRACT_ACTIVATION_PENDING','등록된 규격의 실제 정상 관측을 확인한 뒤 규격 필수를 적용합니다.');
@@ -149,7 +148,7 @@ function Preview(profile, session) {
   const targetView={policy:target,controls,admin:{mode:'SINGLE_ADMIN',stepUpRequired:false,dualApprovalRequired:false},rollout:'DISABLED'};
   const plan={profile,expectedPolicyRevision:p.revision,expectedOperationsRevision:s.revision,
     expectedActivationRevision:record?.revision||0,aId:a?.id||'',bId:b?.id||'',
-    aSha256:a?.sha256||'',bSha256:b?.sha256||'',oId:o?.id||'',oSha256:o?.sha256||'',targetHash:TargetHash(targetView)};
+    aSha256:a?.sha256||'',bSha256:b?.sha256||'',targetHash:TargetHash(targetView)};
   const unique=[...new Map(issues.map(x=>[x.code+':'+x.component,x])).values()];
   return {profile,ready:unique.length===0,issues:unique,pending,plan,target:targetView,
     current:Status(),recentObservations:samples,readOnly:true,observationsAreNotAttestation:true,
@@ -157,7 +156,7 @@ function Preview(profile, session) {
     warning:'기존 관리자 로그인과 CSRF 검증으로 적용합니다. 준비되지 않은 추가 보호는 별도 표시하며 기존 필수 정책은 자동으로 끄지 않습니다. 라이선스·키·정리 경로는 유지합니다.'};
 }
 function CheckRequest(body,session) {
-  if (!(Exact(body,REQUEST_FIELDS)||Exact(body,OVERLAY_REQUEST_FIELDS))) Fail('SECURITY_ACTIVATION_INPUT_INVALID',400);
+  if (!Exact(body,REQUEST_FIELDS)) Fail('SECURITY_ACTIVATION_INPUT_INVALID',400);
   Profile(body.profile);
   if (typeof body.targetHash!=='string' || !HASH.test(body.targetHash)) Fail('SECURITY_ACTIVATION_INPUT_INVALID',400);
   for (const k of ['expectedPolicyRevision','expectedOperationsRevision','expectedActivationRevision'])
@@ -170,9 +169,6 @@ function CheckRequest(body,session) {
   if(['aId','bId','aSha256','bSha256'].some(k=>typeof body[k]!=='string')||
     body.aId!==db.active.A||body.bId!==db.active.B||body.aSha256!==db.artifacts[body.aId]?.sha256||
     body.bSha256!==db.artifacts[body.bId]?.sha256)Fail('SECURITY_ACTIVE_PAIR_CHANGED');
-  // Legacy A/B previews remain usable only when no O is selected. An omitted O
-  // must never approve a newly activated overlay between preview and commit.
-  if (Object.hasOwn(body,'oId') ? typeof body.oId!=='string'||typeof body.oSha256!=='string'||body.oId!==(db.active.O||'')||body.oSha256!==(db.artifacts[db.active.O]?.sha256||'') : !!db.active.O) Fail('SECURITY_ACTIVE_PAIR_CHANGED');
   const view=Preview(body.profile,session);
   if(!view.ready)Fail(view.issues[0].code);
   // New evidence can arrive without a policy revision. Never silently apply a
@@ -193,19 +189,19 @@ function Apply(body,session,ticket) {
   const actor='admin-'+crypto.createHash('sha256').update(session.id).digest('hex').slice(0,24);
   const activation=ValidateRecord({version:2,revision:body.expectedActivationRevision+1,
     adminMode:'SINGLE_ADMIN',profile:body.profile,activatedAt:Date.now(),activatedBy:actor,
-    aSha256:body.aSha256,bSha256:body.bSha256,...(body.oId?{oSha256:body.oSha256}:{}),targetHash:body.targetHash});
+    aSha256:body.aSha256,bSha256:body.bSha256,targetHash:body.targetHash});
   ops.AuditIntent('SINGLE_ADMIN_ENABLE_'+body.profile,actor);
   store.Atomic(db=>{
     if((db.securityAuthorityPolicy||auth.Defaults()).revision!==body.expectedPolicyRevision||
       (db.securityOperations||ops.Defaults()).revision!==body.expectedOperationsRevision||
       (db.securityActivation?.revision||0)!==body.expectedActivationRevision||
-      db.active.A!==body.aId||db.active.B!==body.bId||(db.active.O||'')!==(body.oId||''))Fail('SECURITY_ACTIVATION_CONFLICT');
+      db.active.A!==body.aId||db.active.B!==body.bId)Fail('SECURITY_ACTIVATION_CONFLICT');
     db.securityAuthorityPolicy=nextPolicy;db.securityOperations=nextOperations;db.securityActivation=activation;
   });
   auth.InvalidateAll();
   require('../storage/audit').LogEvent('DESKTOP_SECURITY_ACTIVATED',JSON.stringify({
     profile:body.profile,revision:activation.revision,actor,adminMode:'SINGLE_ADMIN',
-    aSha256:body.aSha256,bSha256:body.bSha256,...(body.oId?{oSha256:body.oSha256}:{}),targetHash:body.targetHash}));
+    aSha256:body.aSha256,bSha256:body.bSha256,targetHash:body.targetHash}));
   const current=Status();
   if(!current.baselineEnabled||body.profile==='SERVER'&&!current.serverEnabled||body.profile==='ALL'&&!current.allEnabled)
     Fail('SECURITY_ACTIVATION_RECHECK_FAILED',503);

@@ -8,9 +8,9 @@ function LegacyTcpEnabled() { return false; }
 
 function RetiredPath(pathname) {
     const path = String(pathname || '');
-    return path === '/api/request-traces/replay' || /^\/(?:member|game-download|pay)(?:\/|$)/i.test(path) ||
+    return /^\/(?:member|game-download|pay)(?:\/|$)/i.test(path) ||
         /^\/api\/member/i.test(path) ||
-        /^\/api\/(?:licenses|qr-auth|build-sessions|build-bindings|clients|games|support|reinstall-blocks|pairing|failover|request-recovery|dead-letters|load-simulator)(?:\/|$)/i.test(path) ||
+        /^\/api\/(?:licenses|qr-auth|build-sessions|build-bindings|clients|games|support|reinstall-blocks|pairing|failover)(?:\/|$)/i.test(path) ||
         /^\/api\/control\/client(?:\/|$)/i.test(path) ||
         /^\/api\/request-recovery\/clients(?:\/|$)/i.test(path) ||
         /^\/api\/(?:biometric|permissions|client-permissions|access-groups|user-dashboard)(?:\/|$)/i.test(path);

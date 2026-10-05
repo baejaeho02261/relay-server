@@ -4,7 +4,7 @@
 const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),config=require('../config/config');
 const DIR=path.join(config.DATA_DIR,'desktop-integrity-reports'),FILE=path.join(DIR,'reports.json'),KEY=path.join(DIR,'authority.key');
 const MAX_PAYLOAD=10240,MAX_REPORTS=512,MAX_PENDING=1024,TTL=30000;
-const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000,O:120000};
+const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000};
 const DEFAULT_MODULES=['ntdll.dll','kernel32.dll','kernelbase.dll'];
 let secret,loaded=false,revision=0,records=[],baselines=[],observations=[],pending=new Map(),rates=new Map();
 let policy={enabled:false,requireExtendedHashes:false,requiredModules:DEFAULT_MODULES.slice(),revision:0,updatedAt:0,actor:''};
@@ -62,7 +62,7 @@ function Payload(text){
  return p;
 }
 function Record(input){
- Load();if(!Plain(input)||!['A','B','O'].includes(input.stage)||!['VERIFIED','REJECTED','CLIENT_DIAGNOSTIC'].includes(input.status))Fail('INTEGRITY_REPORT_INVALID');
+ Load();if(!Plain(input)||!['A','B'].includes(input.stage)||!['VERIFIED','REJECTED','CLIENT_DIAGNOSTIC'].includes(input.status))Fail('INTEGRITY_REPORT_INVALID');
  const record={id:crypto.randomBytes(12).toString('hex').toUpperCase(),at:Date.now(),stage:input.stage,check:Token(input.check),status:input.status,reason:Token(input.reason||input.status),machineId:Identifier(input.machineId),flowId:Identifier(input.flowId),sessionId:Identifier(input.sessionId),artifactId:Identifier(input.artifactId),source:input.trusted===true?'SERVER_COMPARISON':'SIGNED_CLIENT_REPORT',attested:false,
   expectedSha256:Digest(input.expectedSha256,64),observedSha256:Digest(input.observedSha256,64),expectedCrc64:Digest(input.expectedCrc64,16),observedCrc64:Digest(input.observedCrc64,16),hashVersion:input.hashVersion===2?2:1,extendedHashesVerified:input.hashVersion===2&&input.extendedHashesVerified===true};
  for(const prefix of ['expected','observed','expectedFile','observedFile'])for(const algorithm of ['Xxh64','Blake3'])record[prefix+algorithm]=ExtendedDigest(input[prefix+algorithm],algorithm==='Xxh64'?16:64);
@@ -197,5 +197,4 @@ function RequireSnapshot(row,stage){
  if(!reason)return;RevokeSnapshot(row,reason);Record({stage,sessionId:row.sessionId,flowId:row.id,machineId:row.machineId,check:'MODULE_POLICY',status:'REJECTED',reason,trusted:true,strictPolicyRevision:policy.revision});Fail(reason,403);
 }
 
-function RetireContext(row){const ids=new Set([row.id,row.sessionId]);for(const [id,value]of pending)if(ids.has(value.sessionId))pending.delete(id);for(const id of ids)rates.delete(id);for(const id of snapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))snapshots.delete(id);for(const id of finishedSnapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))finishedSnapshots.delete(id);}
-module.exports={RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};
+module.exports={Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};

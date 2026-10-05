@@ -9,7 +9,7 @@ function Classify(event) {
   const raw=String(row.sessionId||row.flowId||'');
   if(!/^(?:(?:DS|BF)-)?[A-F0-9]{24}$/.test(raw))return null;
   const reason=String(row.reason||'');if(!/^[A-Z][A-Z0-9_]{1,79}$/.test(reason))return null;
-  const stage=['A','B','O'].includes(row.stage)?row.stage:'?';
+  const stage=['A','B'].includes(row.stage)?row.stage:'?';
   const recovered=row.kind==='OBSERVATION'&&reason==='BASELINE_MATCH';
   const severity=reason==='IMAGE_DIGEST_MISMATCH'||reason==='SECURITY_OBSERVATION_MISMATCH'?'HIGH':'MEDIUM';
   return {entity:stage+':'+raw,reason,severity,recovered,title:recovered?'보안 관측 정상 복구':'서버 보안 확인 필요'};

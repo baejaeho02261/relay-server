@@ -16,13 +16,10 @@ function Fields(value, allowed) { if (!plain(value) || Object.keys(value).some(k
 function Defaults() {
   return { version: 1, revision: 0, mode: 'enforce', enforceLegacy: false,
     freshnessMs: 45000, challengeMs: 15000, requireReadonlyApi: true,
-    dynamicCode: 'observe', requireCfg: false, minVersionA: '0', minVersionB: '0', minVersionO: '0',
+    dynamicCode: 'observe', requireCfg: false, minVersionA: '0', minVersionB: '0',
     requireReleaseSignature: false, trustedReleaseKeys: [], revokedSha256: [] };
 }
 function ValidatePolicy(value) {
-  // Version 1 stores predate O. Reading an old policy is a detached, lossless
-  // projection; no policy write or revision increment occurs during migration.
-  if (plain(value) && !Object.hasOwn(value,'minVersionO')) value={...value,minVersionO:'0'};
   Fields(value, Object.keys(Defaults()));
   if (Object.keys(value).length !== Object.keys(Defaults()).length || value.version !== 1 ||
       !Number.isSafeInteger(value.revision) || value.revision < 0 || !['observe', 'enforce'].includes(value.mode) ||
@@ -30,7 +27,7 @@ function ValidatePolicy(value) {
       ['enforceLegacy', 'requireReadonlyApi', 'requireCfg', 'requireReleaseSignature'].some(k => typeof value[k] !== 'boolean') ||
       !Number.isInteger(value.freshnessMs) || value.freshnessMs < 5000 || value.freshnessMs > 120000 ||
       !Number.isInteger(value.challengeMs) || value.challengeMs < 5000 || value.challengeMs > 30000 ||
-      ['minVersionA', 'minVersionB', 'minVersionO'].some(k => typeof value[k] !== 'string' || !/^\d{1,9}(?:\.\d{1,9}){0,3}$/.test(value[k])) ||
+      ['minVersionA', 'minVersionB'].some(k => typeof value[k] !== 'string' || !/^\d{1,9}(?:\.\d{1,9}){0,3}$/.test(value[k])) ||
       !Array.isArray(value.trustedReleaseKeys) || value.trustedReleaseKeys.length > 8 ||
       !Array.isArray(value.revokedSha256) || value.revokedSha256.length > 512 ||
       value.revokedSha256.some(x => typeof x !== 'string' || !/^[a-f0-9]{64}$/.test(x)) ||
@@ -48,7 +45,8 @@ function ValidatePolicy(value) {
 }
 function Policy() {
   const value = store.Load().securityAuthorityPolicy || Defaults();
-  return structuredClone(ValidatePolicy(value));
+  ValidatePolicy(value);
+  return structuredClone(value);
 }
 function Audit(kind, reason, row, extra = {}) {
   // Whitelist only: no tokens, private/public blobs, payloads, paths or raw memory.
@@ -81,8 +79,7 @@ function VerifyApproval(artifact, policy) {
 function ArtifactReason(artifact, policy) {
   if (!artifact) return 'SECURITY_RELEASE_MISSING';
   if (policy.revokedSha256.includes(artifact.sha256)) return 'SECURITY_RELEASE_REVOKED';
-  if (!['A','B','O'].includes(artifact.component)) return 'SECURITY_RELEASE_COMPONENT';
-  if (!VersionAtLeast(artifact.version, policy['minVersion'+artifact.component] || '0')) return 'SECURITY_RELEASE_VERSION';
+  if (!VersionAtLeast(artifact.version, artifact.component === 'A' ? policy.minVersionA : policy.minVersionB)) return 'SECURITY_RELEASE_VERSION';
   if (!VerifyApproval(artifact, policy)) return 'SECURITY_RELEASE_SIGNATURE';
   if (policy.enforceLegacy && artifact.authorityVersion !== 1) return 'SECURITY_CLIENT_UPGRADE_REQUIRED';
   if (policy.requireCfg && artifact.compiledCfg !== true) return 'SECURITY_CFG_BUILD_REQUIRED';
@@ -153,7 +150,7 @@ function PreviewRollout(body) {
 }
 function SetPolicy(body, actor) {
   const next=ProposedPolicy(body),db=store.Load();
-  for(const component of ['A','B','O']) {
+  for(const component of ['A','B']) {
     const artifact=db.artifacts[db.active[component]];
     if(artifact) { const reason=ArtifactReason(artifact,next)||require('./desktopSecurityOperations').ArtifactReason(artifact);if(reason) Fail(reason,409); }
   }
@@ -171,7 +168,6 @@ function SetPolicy(body, actor) {
   return Policy();
 }
 function InvalidateAll() { pending.clear(); decisions.clear(); }
-function RetireContext(row,stage){const context=Context(row,stage);for(const [id,value]of pending)if(value.context===context)pending.delete(id);for(const id of decisions.keys())if(id.startsWith(context+':'))decisions.delete(id);rates.delete(context);observations.delete(context);}
 function Context(row, stage) { return stage + ':' + (stage === 'A' ? row.id : row.sessionId); }
 function Binding(operationId, payloadHash) { return sha(operationId + '|' + payloadHash); }
 function RowArtifact(row, stage) {
@@ -187,7 +183,7 @@ function Prune() {
 }
 const AUTH_FIELDS = ['action', 'stage', 'sessionId', 'sessionToken', 'machineId', 'intent', 'binding'];
 function Authenticate(body) {
-  if (!['A', 'B', 'O'].includes(body.stage) || !['finish', 'redeem', 'verify', 'observe'].includes(body.intent) ||
+  if (!['A', 'B'].includes(body.stage) || !['finish', 'redeem', 'verify', 'observe'].includes(body.intent) ||
       (body.stage === 'A' ? !['finish', 'observe'].includes(body.intent) : body.intent === 'finish') ||
       typeof body.machineId !== 'string' || !/^[A-F0-9]{64}$/.test(body.machineId) ||
       typeof body.binding !== 'string' || !/^[a-f0-9]{64}$/.test(body.binding)) Fail('SECURITY_INPUT_INVALID', 400);
@@ -318,6 +314,6 @@ function List() {
     decisionCount: decisions.size, attested: false,
     persistence: 'policy and audit: server; fresh decisions: server RAM only' };
 }
-module.exports = { RetireContext, ActivationObservations, PreviewRollout, PreviewPolicy, ArtifactReason, InvalidateAll, DOMAIN, RELEASE_DOMAIN, Defaults, ValidatePolicy, Policy, SetPolicy, List,
+module.exports = { ActivationObservations, PreviewRollout, PreviewPolicy, ArtifactReason, InvalidateAll, DOMAIN, RELEASE_DOMAIN, Defaults, ValidatePolicy, Policy, SetPolicy, List,
   Binding, Canonical, Payload, Evaluate, Execute, RequireFresh, RequireArtifact, PublishMetadata,
   ReleaseCanonical, PeCapabilities, VerifyApproval, VersionAtLeast, UsesAuthority, Invalidate };

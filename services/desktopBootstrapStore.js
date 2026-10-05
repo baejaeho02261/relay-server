@@ -40,8 +40,8 @@ function Load(){
   if(value.securityAuthorityPolicy!==undefined){try{require('./desktopSecurityAuthority').ValidatePolicy(value.securityAuthorityPolicy);}catch(_){Invalid();}}
   for(const artifact of Object.values(value.artifacts)){if(artifact.authorityVersion!==undefined&&![0,1].includes(artifact.authorityVersion)||artifact.compiledCfg!==undefined&&typeof artifact.compiledCfg!=='boolean')Invalid();}
   const legacy=value.schema===1,upgrade=value.schema<4,previousProtocol=value.schema<=2?'GAME-CONNECT-1':'GAME-CONNECT-2',previousVersion=value.schema<=2?1:2;
-  for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||!ExtendedFields(row)||row.id!==id||!['A','B','O'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&(!Crc(row.crc64)||!Digest(row.codeSha256)||!Crc(row.codeCrc64)||row.codeAlgorithm!=='PE64-CODE-V1'))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
-  for(const [component,id]of Object.entries(value.active))if(!['A','B','O'].includes(component)||value.artifacts[id]?.component!==component||!legacy&&value.artifacts[id]?.protocol!==(upgrade?previousProtocol:PROTOCOL))Invalid();
+  for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||!ExtendedFields(row)||row.id!==id||!['A','B'].includes(row.component)||!Digest(row.sha256)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&(!Crc(row.crc64)||!Digest(row.codeSha256)||!Crc(row.codeCrc64)||row.codeAlgorithm!=='PE64-CODE-V1'))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
+  for(const [component,id]of Object.entries(value.active))if(!['A','B'].includes(component)||value.artifacts[id]?.component!==component||!legacy&&value.artifacts[id]?.protocol!==(upgrade?previousProtocol:PROTOCOL))Invalid();
   for(const [id,row]of Object.entries(value.launchers)){
    if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!Digest(row.sha256)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
    if(row.assignedLicenseId!==undefined&&!Identifier(row.assignedLicenseId,'DL'))Invalid();
@@ -54,7 +54,7 @@ function Load(){
   const sessionIds=new Set();
   for(const [id,row]of Object.entries(value.flows)){
    if(!Identifier(id,'BF')||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED','EXPIRED'].includes(row.status)||!Identifier(row.sessionId,'DS')||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!Digest(row.launcherSha256)||!Digest(row.downloadHash)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
-   sessionIds.add(row.sessionId);if(row.overlayReleaseId!==undefined&&value.artifacts[row.overlayReleaseId]?.component!=='O')Invalid();
+   sessionIds.add(row.sessionId);
    if(row.machineId!==undefined&&(!Machine(row.machineId)||!Number.isSafeInteger(row.machinePolicyGeneration)||row.machinePolicyGeneration<0||!Crc(row.launcherCrc64)))Invalid();
    if(!upgrade&&!['CLOSED','REVOKED','EXPIRED'].includes(row.status)&&(!Machine(row.machineId)||!Crc(row.launcherCrc64)||value.artifacts[row.releaseId]?.protocol!==PROTOCOL||!Digest(row.aCodeSha256)||!Crc(row.aCodeCrc64)))Invalid();
    if(!Array.isArray(row.chunkOffsets)||row.chunkOffsets.length>256||new Set(row.chunkOffsets).size!==row.chunkOffsets.length||row.chunkOffsets.some(offset=>!Number.isSafeInteger(offset)||offset<0||offset>=value.artifacts[row.releaseId].size||offset%262144))Invalid();
@@ -71,7 +71,6 @@ function Load(){
    }
    if(typeof row.licenseId!=='string'||row.licenseId&&!Identifier(row.licenseId,'DL')||!Number.isSafeInteger(row.lastVerifiedAt)||row.lastVerifiedAt<0)Invalid();
   }
-  if(value.overlays!==undefined){try{require('./desktopOverlay').ValidateStore(value);}catch(_){Invalid();}}
   for(const receipt of Object.values(value.issueReceipts))if(!Plain(receipt)||!Digest(receipt.fingerprint)||!value.launchers[receipt.launcherId])Invalid();
   if(upgrade){
    // Protocol upgrades cannot reuse native templates or old secret capabilities.

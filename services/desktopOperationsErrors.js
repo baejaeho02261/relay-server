@@ -16,7 +16,6 @@ const rows={
  SECURITY_OPERATIONS_CONFLICT:['배포 운영 상태가 변경되었습니다.','선택 당시 revision과 현재 서버 값이 다릅니다.','배포 후보와 정책을 새로고침해 다시 검증하세요.','deploy'],
  SECURITY_BUILD_CONTRACT_REQUIRED:['이 빌드의 검사 규격이 없습니다.','현재 정책은 정상 빌드 규격을 요구합니다.','실제 정상 실행에서 확인한 규격을 해당 파일 해시에 등록하세요.','security'],
  SECURITY_TEST_EVIDENCE_REQUIRED:['선택 A/B의 시험 기록이 없습니다.','현재 정책은 해당 조합의 실제 시험 결과를 요구합니다.','실행한 시험 로그로 해당 조합의 기록을 등록하세요.','security'],
- BOOTSTRAP_OVERLAY_NOT_READY:['승인된 O 실행 파일이 없습니다.','현재 실행에 GameOverlay 후보가 연결되지 않았습니다.','O의 배포 승인을 확인하고 A/B/O 조합을 게시한 뒤 새 A를 발급하세요.','deploy'],
  BOOTSTRAP_NOT_READY:['운영 A/B 조합이 없습니다.','후보 등록만으로 운영 게시되지는 않습니다.','새 버전 배포에서 A/B를 검증한 뒤 게시하세요.','deploy'],
  BOOTSTRAP_UPLOAD_BUSY:['다른 파일을 검증하고 있습니다.','서버가 앞선 업로드를 처리 중입니다.','잠시 후 같은 파일로 다시 시도하세요.','deploy'],
  BOOTSTRAP_LAUNCHER_USED:['이미 실행된 A입니다.','일회용 실행 파일은 다시 사용할 수 없습니다.','새 A를 발급하세요. KEY는 B 콘솔에서 별도로 입력하며, 사용된 KEY는 재사용할 수 없습니다.','licenses'],
