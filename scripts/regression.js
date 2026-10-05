@@ -2,6 +2,7 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const checks = [
+  ['test-web-session-hardening.js'], ['test-overlay-deployment.js'], ['test-overlay-tools-ui.js'], ['test-desktop-overlay.js'], ['test-desktop-overlay.js', '--sqlite'], ['test-overlay-recovery.js'], ['test-overlay-native-contract.js'], ['test-overlay-transport.js'], ['test-overlay-transport.js', '--sqlite'],
   ['test-key-console.js'], ['test-history-outcomes.js'],
   ['test-desktop-workspace.js'], ['test-workspace-http.js'],
   ['test-security-activation.js'],
@@ -18,7 +19,7 @@ const checks = [
   ['test-desktop-bootstrap.js'], ['test-desktop-bootstrap.js', '--sqlite'],
   ['test-desktop-code-integrity.js'], ['test-native-code-contract.js'],
   ['test-desktop-integrity-reports.js'], ['test-desktop-integrity-reports.js', '--sqlite'],
-  ['test-desktop-retirement.js'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
+  ['test-desktop-retirement.js'], ['test-desktop-retirement.js', '--sqlite'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
   ['test-desktop-connect.js'], ['test-desktop-connect.js', '--sqlite'],
   ['test-desktop-admin-ui.js'], ['test-web-ui-cache.js']
 ];
