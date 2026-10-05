@@ -107,7 +107,7 @@ module.exports = {
     clientBuildBindings: new Map(),
     accessGroupGuids: new Map(),
     buildSessionPolicy: {
-        ttlMinutes: 30,
+        ttlMinutes: config.DEFAULT_BUILD_SESSION_TTL_MINUTES,
         updatedAt: 0,
         updatedBy: 'DEFAULT'
     },

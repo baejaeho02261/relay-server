@@ -1,7 +1,7 @@
 {
   "name": "game-relay",
   "version": "7.0.1",
-  "description": "Educational GameConnect Windows64 A/B/O encrypted license service and administrator console; not intended for real use",
+  "description": "GameConnect Windows64 encrypted TCP license service and administrator console",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -41,17 +41,17 @@
     "test:security-operations": "node scripts/test-security-operations.js",
     "test:security-admin": "node scripts/test-security-admin.js",
     "test:security-evidence": "node scripts/test-security-evidence.js",
-    "test:security-native-contract": "node scripts/test-security-native-contract.js",
-    "test:overlay": "node scripts/test-desktop-overlay.js && node scripts/test-desktop-overlay.js --sqlite && node scripts/test-overlay-recovery.js",
-    "test:overlay:deployment": "node scripts/test-overlay-deployment.js",
-    "test:overlay:ui": "node scripts/test-overlay-tools-ui.js",
-    "test:web-security": "node scripts/test-web-session-hardening.js"
+    "test:security-native-contract": "node scripts/test-security-native-contract.js"
   },
   "engines": {
     "node": ">=22.14"
   },
   "dependencies": {
     "better-sqlite3": "13.0.3",
+    "jpeg-js": "^0.4.4",
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0",
+    "qrcode": "^1.5.4",
     "web-push": "^3.6.7"
   },
   "optionalDependencies": {

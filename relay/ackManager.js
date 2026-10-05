@@ -55,6 +55,37 @@ function HandleServerAck(connection, line) {
     if (pending.serverId !== connection.serverId) { SendLine(connection.socket, 'ERROR|ACK_NOT_OWNER'); return; }
     pendingRequests.delete(key);
     const client = GetOnlineClient(clientId);
+    if (pending.kind === 'BUILD' && result === 'OK') {
+        const detail = parts.length >= 7 ? SafeField(parts.slice(6).join(' ')) : '';
+        const completion = require('../services/buildGate').Complete(clientId, requestId);
+        if (!completion.ok) {
+            CompleteTrace(clientId, requestId, 'ERROR', completion.reason, Now());
+            if (client) SendLine(client.socket, `BUILD_FAILED|${requestId}|${completion.reason}`);
+            SendLine(connection.socket, `ACK_RESULT|ERROR|${requestId}`);
+            LogEvent('BUILD_FAILED', `${requestId} / ${clientId} / ${completion.reason}`);
+            return;
+        }
+        const session = completion.session;
+        connection.buildUnlocked = true;
+        if (!(connection.buildClients instanceof Set)) connection.buildClients = new Set();
+        if (!(connection.buildSessions instanceof Map)) connection.buildSessions = new Map();
+        connection.buildClients.add(clientId);
+        connection.buildSessions.set(clientId, session.sessionId);
+        if (client) { client.buildCompleted = true; client.buildSessionId = session.sessionId; }
+        CompleteTrace(clientId, requestId, 'OK', '', Now());
+        if (client && pending.notifyClient !== false) SendLine(client.socket, `BUILD_OK|${requestId}|${session.sessionId}|${session.expiresAt}|${session.accessType}`);
+        SendLine(connection.socket, `ACK_RESULT|OK|${requestId}`);
+        LogEvent('BUILD_UNLOCKED', `${requestId} / ${clientId} / ${connection.serverId} / ${session.sessionId} / ${session.accessType}`);
+        return;
+    }
+    if (pending.kind === 'BUILD') {
+        const reason = parts.length >= 5 ? SafeField(parts[4]) : 'BUILD_FAILED';
+        CompleteTrace(clientId, requestId, 'ERROR', reason, Now());
+        require('../services/buildGate').Fail(clientId, requestId, reason);
+        SendLine(connection.socket, `ACK_RESULT|ERROR|${requestId}`);
+        LogEvent('BUILD_FAILED', `${requestId} / ${clientId} / ${reason}`);
+        return;
+    }
     if (result === 'OK') {
         runtimeStats.ackOk++;
         RecordAck(connection.serverId, clientId, 'OK');
@@ -101,6 +132,7 @@ function ProcessPendingRequests() {
     const now=Now();
     for(const [key,p] of Array.from(pendingRequests.entries())) {
         if(now-p.createdAt>=ACK_TIMEOUT_MS){
+            if(p.kind==='BUILD'&&require('../services/buildGate').Requeue(p,'ACK_TIMEOUT')){CompleteTrace(p.clientId,p.requestId,'TIMEOUT','ACK_TIMEOUT',now);continue;}
             pendingRequests.delete(key);runtimeStats.ackTimeout++;RecordAck(p.serverId,p.clientId,'TIMEOUT');require('../services/dailyHealth').Record('ackTimeout');CompleteTrace(p.clientId,p.requestId,'TIMEOUT','ACK_TIMEOUT',now);require('../services/requestRecovery').AddDeadLetter(p,'ACK_TIMEOUT');const c=GetOnlineClient(p.clientId);if(c&&p.notifyClient!==false)SendLine(c.socket,`ACK|TIMEOUT|${p.requestId}`);LogEvent('ACK_TIMEOUT',`${p.requestId} / ${p.clientId}`);continue;
         }
         if(now-p.lastSendAt>=ACK_RETRY_MS&&p.retries<ACK_MAX_RETRIES){
@@ -114,6 +146,7 @@ function FailPendingRequestsForServer(serverId, reason) {
     for(const [key,p] of Array.from(pendingRequests.entries())){
         if(p.serverId!==serverId)continue;pendingRequests.delete(key);
         if(p.kind==='BUILD'){
+            if(require('../services/buildGate').Requeue(p,reason)){CompleteTrace(p.clientId,p.requestId,'ERROR',reason,Now());continue;}
             CompleteTrace(p.clientId,p.requestId,'ERROR',reason,Now());const c=GetOnlineClient(p.clientId);if(c&&p.notifyClient!==false)SendLine(c.socket,`ACK|ERROR|${p.requestId}|${reason}`);LogEvent('BUILD_FAILED',`${p.requestId} / ${p.clientId} / ${reason}`);continue;
         }
         const queued=require('../services/requestRecovery').RequeuePending(p,reason);
