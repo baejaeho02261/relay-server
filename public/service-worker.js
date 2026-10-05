@@ -1,47 +1,45 @@
 'use strict';
 
-const CACHE = 'relay-admin-shell-v5.0.1-game-overlay-97';
+const CACHE = 'relay-admin-shell-v5.0.1-game-overlay-93';
 const SHELL = [
   "/index.html",
   "/manifest.json",
   "/icons/icon-192.png",
-  "/admin.css?v=5.0.1-game-overlay-97",
-  "/admin-theme.css?v=5.0.1-game-overlay-97",
-  "/admin-navigation.css?v=5.0.1-game-overlay-97",
-  "/admin-appearance.css?v=5.0.1-game-overlay-97",
-  "/admin-controls.css?v=5.0.1-game-overlay-97",
-  "/admin-workspace.css?v=5.0.1-game-overlay-97",
-  "/admin-desktop.css?v=5.0.1-game-overlay-97",
-  "/admin-controls.js?v=5.0.1-game-overlay-97",
-  "/admin-appearance.js?v=5.0.1-game-overlay-97",
+  "/admin.css?v=5.0.1-game-overlay-93",
+  "/admin-theme.css?v=5.0.1-game-overlay-93",
+  "/admin-navigation.css?v=5.0.1-game-overlay-93",
+  "/admin-appearance.css?v=5.0.1-game-overlay-93",
+  "/admin-controls.css?v=5.0.1-game-overlay-93",
+  "/admin-workspace.css?v=5.0.1-game-overlay-93",
+  "/admin-desktop.css?v=5.0.1-game-overlay-93",
+  "/admin-controls.js?v=5.0.1-game-overlay-93",
+  "/admin-appearance.js?v=5.0.1-game-overlay-93",
   "/icons/game.svg",
-  "/admin-i18n.js?v=5.0.1-game-overlay-97",
-  "/admin.js?v=5.0.1-game-overlay-97",
-  "/admin-navigation.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-monitoring.js?v=5.0.1-game-overlay-97",
-  "/admin-terminal.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-traffic.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-danger.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-access.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-reports.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-devices.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-deployment.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-security.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-operations.js?v=5.0.1-game-overlay-97",
-  "/admin-actions-access.js?v=5.0.1-game-overlay-97",
-  "/admin-actions-operations.js?v=5.0.1-game-overlay-97",
-  "/admin-actions-traffic.js?v=5.0.1-game-overlay-97",
-  "/admin-actions-devices.js?v=5.0.1-game-overlay-97",
-  "/admin-actions-policy.js?v=5.0.1-game-overlay-97",
-  "/admin-actions-system.js?v=5.0.1-game-overlay-97",
-  "/admin-modal.js?v=5.0.1-game-overlay-97",
-  "/admin-device-actions.js?v=5.0.1-game-overlay-97",
-  "/admin-desktop-licenses.js?v=5.0.1-game-overlay-97",
-  "/admin-desktop-security.js?v=5.0.1-game-overlay-97",
-  "/admin-desktop-workflow.js?v=5.0.1-game-overlay-97",
-  "/admin-actions.js?v=5.0.1-game-overlay-97",
-  "/admin-palette.js?v=5.0.1-game-overlay-97",
-  "/admin-pages-production.js?v=5.0.1-game-overlay-97",
+  "/admin-i18n.js?v=5.0.1-game-overlay-93",
+  "/admin.js?v=5.0.1-game-overlay-93",
+  "/admin-navigation.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-monitoring.js?v=5.0.1-game-overlay-93",
+  "/admin-terminal.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-danger.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-access.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-reports.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-devices.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-deployment.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-security.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-operations.js?v=5.0.1-game-overlay-93",
+  "/admin-actions-access.js?v=5.0.1-game-overlay-93",
+  "/admin-actions-operations.js?v=5.0.1-game-overlay-93",
+  "/admin-actions-devices.js?v=5.0.1-game-overlay-93",
+  "/admin-actions-policy.js?v=5.0.1-game-overlay-93",
+  "/admin-actions-system.js?v=5.0.1-game-overlay-93",
+  "/admin-modal.js?v=5.0.1-game-overlay-93",
+  "/admin-device-actions.js?v=5.0.1-game-overlay-93",
+  "/admin-desktop-licenses.js?v=5.0.1-game-overlay-93",
+  "/admin-desktop-security.js?v=5.0.1-game-overlay-93",
+  "/admin-desktop-workflow.js?v=5.0.1-game-overlay-93",
+  "/admin-actions.js?v=5.0.1-game-overlay-93",
+  "/admin-palette.js?v=5.0.1-game-overlay-93",
+  "/admin-pages-production.js?v=5.0.1-game-overlay-93",
   "/icons/icon-512.png"
 ];
 
@@ -58,20 +56,13 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
   // Never cache authenticated API/SSE/health data.
-  if (url.pathname.startsWith('/api/') || url.pathname === '/health' || url.pathname === '/healthz' || url.pathname === '/ui-version.json' || url.pathname === '/ui-refresh' || url.pathname === '/ui-refresh.html' || url.pathname === '/ui-refresh.js') {
+  if (url.pathname.startsWith('/member/') || url.pathname.startsWith('/pay/') || url.pathname.startsWith('/api/') || url.pathname === '/health' || url.pathname === '/healthz' || url.pathname === '/ui-version.json' || url.pathname === '/ui-refresh' || url.pathname === '/ui-refresh.html' || url.pathname === '/ui-refresh.js') {
     event.respondWith(fetch(new Request(request, { cache: 'no-store' })));
     return;
   }
   if (request.method !== 'GET') return;
   const navigation = request.mode === 'navigate';
-  // Only the administrator entry pages may populate or use the offline shell.
-  // Other navigations can contain authenticated or one-time response data.
-  const adminNavigation = navigation && (url.pathname === '/' || url.pathname === '/index.html');
-  if (navigation && !adminNavigation) {
-    event.respondWith(fetch(new Request(request, { cache: 'no-store' })));
-    return;
-  }
-  const cacheable = adminNavigation || SHELL.some(item => new URL(item, self.location.origin).pathname === url.pathname);
+  const cacheable = navigation || SHELL.some(item => new URL(item, self.location.origin).pathname === url.pathname);
   event.respondWith(
     fetch(new Request(request, { cache: 'no-store' })).then(response => {
       if (cacheable && response.ok) {

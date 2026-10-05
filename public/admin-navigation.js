@@ -11,7 +11,7 @@ content.addEventListener('change', event => {
 });
 function resetServiceUi() {
   dirtyViews.clear();
-  liveConsoleEvents.length = 0; consoleHistoryLoaded = false; traceRows.clear(); failoverRows.clear();
+  liveConsoleEvents.length = 0; consoleHistoryLoaded = false; traceRows.clear();
   terminalLines.length = 0;
   if (typeof resetSupportUiState === 'function') resetSupportUiState();
   if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();

@@ -51,8 +51,14 @@
 .stat-label { display:block; color:var(--workspace-muted); font-size:12px; }
 .stat-value { font-size:29px; letter-spacing:-1px; color:var(--workspace-ink); margin:8px 0 2px; }
 .section-head { padding:17px 19px; background:transparent; border-color:var(--workspace-border); }
-.section-head h3{ color:var(--workspace-ink); font-size:14px; line-height:1.4; }
+.section-head h3 { color:var(--workspace-ink); font-size:14px; line-height:1.4; }
 .section-body { padding:19px; }
+
+
+
+
+
+
 .content table { border-collapse:separate; border-spacing:0; }
 .content th { background:var(--workspace-bg); color:var(--workspace-muted); font-size:11px; font-weight:600; padding:12px 14px; border-color:var(--workspace-border); }
 .content td { padding:13px 14px; border-color:var(--workspace-border); }
@@ -60,9 +66,18 @@
 .content .table-wrap th { position:sticky; top:0; z-index:1; }
 .content .table-wrap th.sticky-actions { z-index:2; }
 .content :is(.empty) { color:var(--workspace-muted); padding:40px 20px; }
+
+
+
+
+
+
+
+
 .modal-card { border-radius:16px; }
 [data-theme="dark"] .sidebar { background:#101115; border-right:1px solid #24262d; }
 [data-theme="dark"] .main .topbar,[data-theme="dark"] .workspace-tabs { background:var(--workspace-panel); }
+
 @media (max-width:1100px) {
  .app { grid-template-columns:226px minmax(0,1fr); }
  .main .topbar { padding:18px 22px 15px; flex-wrap:wrap; gap:8px; }
@@ -85,6 +100,10 @@
  .workspace-tabs { min-height:44px; padding:0 16px; gap:19px; }
  .workspace-tabs button { min-height:43px; font-size:11px; }
  .main .content { padding:16px 14px 24px; }
+ 
+ 
+ 
+ 
  .card { padding:16px; }.stat-value { font-size:26px; }
 }
 @media (max-height:560px) {
