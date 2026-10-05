@@ -1,20 +1,7 @@
 'use strict';
-const { NormalizeID, LogEvent, loadSimulator, storageMigration, securityDashboard, networkSecurity, emergencyFailover, Json, ApiError, DecodePart, RequireAdmin, RequireOperation } = require('../apiContext');
+const { NormalizeID, LogEvent, storageMigration, securityDashboard, networkSecurity, Json, ApiError, DecodePart, RequireAdmin, RequireOperation } = require('../apiContext');
 async function Handle({ method, pathname, url, body, req, res, session }) {
     let match, m;
-    if (method === 'GET' && pathname === '/api/load-simulator') {
-        if (!RequireAdmin(res, session)) return true;
-        Json(res, 200, { ok: true, simulator: loadSimulator.Overview() });
-        return true;
-    }
-
-    if (method === 'POST' && pathname === '/api/load-simulator/command') {
-        if (!RequireAdmin(res, session)) return true;
-        const options = loadSimulator.NormalizeOptions(body || {});
-        Json(res, 200, { ok: true, options, command: loadSimulator.BuildCommand(options) });
-        return true;
-    }
-
     if (method === 'GET' && pathname === '/api/storage/migration/status') {
         if (!RequireAdmin(res, session)) return true;
         Json(res, 200, { ok: true, migration: storageMigration.Status() });
@@ -57,75 +44,6 @@ async function Handle({ method, pathname, url, body, req, res, session }) {
         Json(res, 200, { ok: true, profile: networkSecurity.Get(type, id) });
         return true;
     }
-
-    if (method === 'GET' && pathname === '/api/failover') {
-        if (!RequireOperation(res, session, 'VIEW')) return true;
-        Json(res, 200, { ok: true, failover: emergencyFailover.BuildStatus() });
-        return true;
-    }
-
-    if (method === 'POST' && pathname === '/api/failover/policy') {
-        if (!RequireAdmin(res, session)) return true;
-        const policy = emergencyFailover.SetPolicy({
-            enabled: Boolean(body.enabled),
-            autoReturn: body.autoReturn !== false,
-            offlineGraceSeconds: Number(body.offlineGraceSeconds),
-            returnGraceSeconds: Number(body.returnGraceSeconds),
-            maxMovesPerCycle: Number(body.maxMovesPerCycle)
-        });
-        Json(res, 200, { ok: true, policy });
-        return true;
-    }
-
-    if (method === 'POST' && pathname === '/api/failover/run') {
-        if (!RequireAdmin(res, session)) return true;
-        Json(res, 200, { ok: true, result: emergencyFailover.Evaluate(), failover: emergencyFailover.BuildStatus() });
-        return true;
-    }
-
-    match = pathname.match(/^\/api\/failover\/clients\/([^/]+)$/);
-    if (method === 'POST' && match) {
-        if (!RequireAdmin(res, session)) return true;
-        const id = NormalizeID(DecodePart(match[1]));
-        const result = emergencyFailover.SetClientEnabled(id, Boolean(body.enabled));
-        if (!result.ok) { ApiError(res, 404, result.reason); return true; }
-        Json(res, 200, result);
-        return true;
-    }
-
-    match = pathname.match(/^\/api\/failover\/clients\/([^/]+)\/return$/);
-    if (method === 'POST' && match) {
-        if (!RequireAdmin(res, session)) return true;
-        const id = NormalizeID(DecodePart(match[1]));
-        const result = emergencyFailover.ReturnToPrimary(id, true);
-        if (!result.ok) { ApiError(res, 409, result.reason); return true; }
-        Json(res, 200, result);
-        return true;
-    }
-
-    match = pathname.match(/^\/api\/failover\/clients\/([^/]+)\/binding$/);
-    if (method === 'POST' && match) {
-        if (!RequireAdmin(res, session)) return true;
-        const result = emergencyFailover.SetBinding(
-            DecodePart(match[1]),
-            body.primaryServerId,
-            body.backupServerId,
-            Boolean(body.allowAutomaticFallback)
-        );
-        if (!result.ok) { ApiError(res, 409, result.reason); return true; }
-        Json(res, 200, result);
-        return true;
-    }
-
-    match = pathname.match(/^\/api\/failover\/clients\/([^/]+)\/binding\/clear$/);
-    if (method === 'POST' && match) {
-        if (!RequireAdmin(res, session)) return true;
-        const result = emergencyFailover.ClearBinding(DecodePart(match[1]));
-        if (!result.ok) { ApiError(res, 404, result.reason); return true; }
-        Json(res, 200, result);
-        return true;
-    }
-
 
     return false;
 }

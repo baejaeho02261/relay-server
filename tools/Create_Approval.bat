@@ -58,7 +58,7 @@ function ReleaseCanonical(component, version, sha256) {
   return ['GAME-RELEASE-APPROVAL-V1', component, version, sha256].join('\n');
 }
 function SignRelease(component, version, file, keyFile) {
-  if (!['A', 'B'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) stop('RELEASE_ARGUMENT_INVALID');
+  if (!['A', 'B', 'O'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) stop('RELEASE_ARGUMENT_INVALID');
   const bytes = ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID');
   ValidatePeImage(bytes);
   const keyBytes = ReadBoundedInput(keyFile, 1, 16384, 'KEY_FILE_INVALID');
@@ -451,8 +451,8 @@ function Main {
     do {
         Write-Host ''
         Write-Host 'A = 런처 / B = 클라이언트'
-        $component = (Read-Host '생성할 구분 [A/B]').Trim().ToUpperInvariant()
-        if ($component -notin @('A','B')) { throw 'A 또는 B를 입력해 주세요.' }
+        $component = (Read-Host '생성할 구분 [A/B/O]').Trim().ToUpperInvariant()
+        if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력해 주세요.' }
         $version = (Read-Host '서버 업로드에 사용할 버전 (예: 1.0.0)').Trim()
         if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '버전은 1.0.0처럼 1~4단계 숫자로 입력하세요(최대 40자).' }
         Write-Host ($component + ' EXE 파일을 선택하세요. 예시 경로가 아닌 실제 빌드 파일을 선택합니다.')
