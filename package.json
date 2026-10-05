@@ -1,7 +1,7 @@
 {
   "name": "game-relay",
   "version": "7.0.1",
-  "description": "GameConnect Windows64 encrypted TCP license service and administrator console",
+  "description": "Educational GameConnect Windows64 A/B/O encrypted license service and administrator console; not intended for real use",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -42,13 +42,10 @@
     "test:security-admin": "node scripts/test-security-admin.js",
     "test:security-evidence": "node scripts/test-security-evidence.js",
     "test:security-native-contract": "node scripts/test-security-native-contract.js",
-    "test:web-auth": "node scripts/test-web-auth-hardening.js",
-    "test:web-auth:http": "node scripts/test-web-auth-http.js",
-    "test:overlay:ui": "node scripts/test-overlay-admin-ui.js",
-    "test:overlay": "node scripts/test-desktop-overlay.js",
-    "test:overlay:plugin": "node scripts/test-desktop-overlay-plugin.js",
-    "test:overlay:native": "python scripts/test-overlay-native-contract.py",
-    "test:approval-tools": "node scripts/test-approval-tools.js"
+    "test:overlay": "node scripts/test-desktop-overlay.js && node scripts/test-desktop-overlay.js --sqlite && node scripts/test-overlay-recovery.js",
+    "test:overlay:deployment": "node scripts/test-overlay-deployment.js",
+    "test:overlay:ui": "node scripts/test-overlay-tools-ui.js",
+    "test:web-security": "node scripts/test-web-session-hardening.js"
   },
   "engines": {
     "node": ">=22.14"

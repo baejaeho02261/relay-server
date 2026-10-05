@@ -19,9 +19,12 @@ function SafeField(...args) { return require('../core/utils').SafeField(...args)
 
 function BuildDatabaseObject() {
     return {
-        ...(state.archivedApplicationData || {}),
-        version: 146,
+        version: 145,
+        clientInstallations: Object.fromEntries(state.clientInstallations),
+        memberHub: state.memberHub || null, // Archived APK member data; no active migration.
         desktopLicenses: require('../services/desktopLicenses').DB(),
+        supportThreads: Object.fromEntries(state.supportThreads),
+        supportSettings: state.supportSettings,
         serviceEnabled: state.serviceEnabled,
         maintenanceMode: state.maintenanceMode,
         minProtocolVersion: state.minProtocolVersion,
@@ -63,11 +66,19 @@ function BuildDatabaseObject() {
         pushSubscriptions: Object.fromEntries(state.pushSubscriptions),
         dailyHealthReports: Object.fromEntries(state.dailyHealthReports),
         dailyHealthAccumulator: state.dailyHealthAccumulator,
+        qrAuthRequests: Object.fromEntries(state.qrAuthRequests),
+        clientBiometricProfiles: Object.fromEntries(state.clientBiometricProfiles),
+        pendingBuildGrants: Object.fromEntries(state.pendingBuildGrants),
+        buildSessions: Object.fromEntries(state.buildSessions),
+        clientBuildBindings: Object.fromEntries(state.clientBuildBindings),
+        accessGroupGuids: Object.fromEntries(state.accessGroupGuids),
+        buildSessionPolicy: state.buildSessionPolicy,
         productionControl: require('../services/productionState').ExportPersisted(),
         licenseRevision: Number(state.licenseRevision) || 0,
         servers: Object.fromEntries(serverIdentities),
         clients: Object.fromEntries(clientIdentities),
-        licenses: Object.fromEntries(licenses)
+        licenses: Object.fromEntries(licenses),
+        ...require('./legacyArchive').Export()
     };
 }
 
@@ -183,8 +194,8 @@ function ImportDatabaseObject(data) {
                 sendCount: Number(value.sendCount) || 0,
                 suspended: Boolean(value.suspended),
                 memo: SafeField(value.memo || ''),
-                tags: require('../license/licenseManager').NormalizeTags(value.tags || []),
-                accessType: value.entryPass===true?'':require('../services/accessType').NormalizeAccessType(value.accessType)
+                tags: require('./licenseArchive').NormalizeTags(value.tags || []),
+                accessType: value.entryPass===true?'':String(value.accessType || '')
             });
         }
     }
@@ -201,7 +212,7 @@ function ImportDatabaseObject(data) {
     state.clientNotes.clear();
     state.serverDrainMeta.clear();
     state.serverFeatureOverrides.clear(); state.clientFeatureOverrides.clear();
-    state.serverProtocolProfiles.clear(); state.clientProtocolProfiles.clear(); state.deviceSecrets.clear(); state.releaseCatalog.clear(); state.deviceReleaseChannels.clear(); state.configHistory.length=0; state.deviceEnrollments.clear(); state.deviceSecretRotations.clear(); state.deviceSecretMeta.clear(); state.deviceNetworkProfiles.clear(); state.clientFailoverEnabled.clear(); state.clientFailoverRecords.clear(); state.clientServerBindings.clear(); state.clientOfflineQueueEnabled.clear(); state.offlineQueue.clear(); state.deadLetters.clear(); state.processorStats.clear(); state.pushSubscriptions.clear(); state.dailyHealthReports.clear();
+    state.serverProtocolProfiles.clear(); state.clientProtocolProfiles.clear(); state.deviceSecrets.clear(); state.releaseCatalog.clear(); state.deviceReleaseChannels.clear(); state.configHistory.length=0; state.deviceEnrollments.clear(); state.deviceSecretRotations.clear(); state.deviceSecretMeta.clear(); state.deviceNetworkProfiles.clear(); state.clientFailoverEnabled.clear(); state.clientFailoverRecords.clear(); state.clientServerBindings.clear(); state.clientOfflineQueueEnabled.clear(); state.offlineQueue.clear(); state.deadLetters.clear(); state.processorStats.clear(); state.pushSubscriptions.clear(); state.dailyHealthReports.clear(); state.qrAuthRequests.clear(); state.clientBiometricProfiles.clear(); state.clientBiometricChallenges.clear(); state.pendingBuildGrants.clear(); state.buildSessions.clear(); state.clientBuildBindings.clear(); state.accessGroupGuids.clear();
 
     for (const [k, v] of newServers) serverIdentities.set(k, v);
     for (const [k, v] of newClients) clientIdentities.set(k, v);
@@ -288,28 +299,11 @@ function ImportDatabaseObject(data) {
             if(normalized) state.deviceNetworkProfiles.set(key,normalized);
         }
     }
-    state.emergencyFailoverPolicy = require('../services/emergencyFailover').NormalizePolicy(data.emergencyFailoverPolicy);
-    if(Array.isArray(data.clientFailoverEnabled)) for(const rawId of data.clientFailoverEnabled){const id=NormalizeID(rawId);if(id&&Array.from(newClients.values()).some(x=>x.id===id))state.clientFailoverEnabled.add(id);}
-    if(data.clientFailoverRecords&&typeof data.clientFailoverRecords==='object'){
-        for(const [rawClientId,value] of Object.entries(data.clientFailoverRecords)){
-            const clientId=NormalizeID(rawClientId); if(!clientId||!value||typeof value!=='object')continue;
-            const saved=Array.from(newClients.values()).find(x=>x.id===clientId); if(!saved)continue;
-            const primaryServerId=NormalizeID(value.primaryServerId), failoverServerId=NormalizeID(value.failoverServerId);
-            if(!primaryServerId||!failoverServerId||!Array.from(newServers.values()).includes(primaryServerId)||!Array.from(newServers.values()).includes(failoverServerId))continue;
-            state.clientFailoverRecords.set(clientId,{clientId,primaryServerId,failoverServerId,failedOverAt:Number(value.failedOverAt)||0,lastMoveAt:Number(value.lastMoveAt)||0,moveCount:Math.max(1,Number(value.moveCount)||1),reason:String(value.reason||''),selectedBy:String(value.selectedBy||'AUTO_FALLBACK'),lastReturnAt:Number(value.lastReturnAt)||0});
-        }
-    }
-    require('../services/requestRecovery').ImportPersisted(data);
     require('../services/processorCenter').ImportPersisted(data);
     require('../services/pushManager').ImportPersisted(data);
     require('../services/dailyHealth').ImportPersisted(data);
     require('../services/productionState').ImportPersisted(data);
-    // Opaque backup-only data: no registration, migration, pairing or auth executes.
-    state.archivedApplicationData = Object.fromEntries(
-        ['memberHub', 'clientInstallations', 'supportThreads', 'supportSettings', 'qrAuthRequests', 'clientBiometricProfiles', 'pendingBuildGrants', 'buildSessions', 'clientBuildBindings', 'accessGroupGuids', 'buildSessionPolicy']
-            .filter(key => Object.prototype.hasOwnProperty.call(data, key))
-            .map(key => [key, structuredClone(data[key])])
-    );
+    require('./legacyArchive').Import(data);
     require('../services/desktopLicenses').Import(data.desktopLicenses);
     state.licenseRevision=Math.max(0,Number(data.licenseRevision)||0);
     // Archived APK license records are never migrated by the Windows service.

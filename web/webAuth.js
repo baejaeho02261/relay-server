@@ -1,57 +1,76 @@
 'use strict';
 
 const crypto = require('crypto');
-const net = require('net');
+const net = require('node:net');
 const config = require('../config/config');
 const { ConstantTimeEqual, Now } = require('../core/utils');
 const { ResolveAdminRole, AdminAllowed } = require('../admin/auth');
 const { LogEvent } = require('../storage/audit');
 
 const COOKIE_NAME = 'relay_admin_session';
-function BoundedNumber(value, fallback, min, max) {
+function BoundedSetting(value, fallback, min, max) {
     const parsed = Number(value);
-    return Number.isFinite(parsed) && parsed > 0 ? Math.min(max, Math.max(min, Math.floor(parsed))) : fallback;
+    return Number.isSafeInteger(parsed) && parsed >= min && parsed <= max ? parsed : fallback;
 }
-const SESSION_MS = BoundedNumber(config.WEB_ADMIN_SESSION_MS, 30 * 60 * 1000, 5 * 60 * 1000, 24 * 60 * 60 * 1000);
-const ABSOLUTE_SESSION_MS = BoundedNumber(process.env.WEB_ADMIN_ABSOLUTE_SESSION_MS, 12 * 60 * 60 * 1000, SESSION_MS, 7 * 24 * 60 * 60 * 1000);
-const LOGIN_WINDOW_MS = BoundedNumber(process.env.WEB_ADMIN_LOGIN_WINDOW_MS, 15 * 60 * 1000, 1000, 60 * 60 * 1000);
-const LOGIN_MAX_ATTEMPTS = BoundedNumber(process.env.WEB_ADMIN_LOGIN_MAX_ATTEMPTS, 10, 2, 100);
-const MAX_LOGIN_BUCKETS = 4096;
-const MAX_SESSIONS = 1024;
-const sessions = new Map();
-const loginFailures = new Map();
+const SESSION_MS = BoundedSetting(config.WEB_ADMIN_SESSION_MS, 30 * 60 * 1000, 5 * 60 * 1000, 24 * 60 * 60 * 1000);
+const ABSOLUTE_SESSION_MS = Math.max(SESSION_MS, BoundedSetting(process.env.WEB_ADMIN_ABSOLUTE_SESSION_MS, 8 * 60 * 60 * 1000, 5 * 60 * 1000, 7 * 24 * 60 * 60 * 1000));
+const MAX_SESSIONS = 256;
+const LOGIN_WINDOW_MS = 60 * 1000;
+const sessions = new Map(), loginAttempts = new Map();
+const credentialKey = crypto.randomBytes(32);
+
+function NormalizeIP(value) {
+    const text = String(value || '').trim();
+    return text.startsWith('::ffff:') && net.isIP(text.slice(7)) === 4 ? text.slice(7) : text;
+}
+function TrustedIP(peer) {
+    if (!net.isIP(peer)) return false;
+    return String(process.env.WEB_ADMIN_TRUSTED_PROXIES || '').split(',')
+        .some(value => NormalizeIP(value) === peer);
+}
+function TrustedProxy(req) { return TrustedIP(NormalizeIP(req.socket && req.socket.remoteAddress)); }
+function CredentialStamp(role) {
+    return crypto.createHmac('sha256', credentialKey).update(role + '\n' + GetWebSecret(role)).digest('hex');
+}
+function Invalidate(token, session) {
+    if (session) { session.expiresAt = 0; session.csrf = ''; }
+    sessions.delete(token);
+}
+function IsSessionActive(session) {
+    return !!session && sessions.get(session.token) === session &&
+        session.expiresAt > Now() && session.absoluteExpiresAt > Now() &&
+        ConstantTimeEqual(session.credentialStamp, CredentialStamp(session.role));
+}
+// IP/global buckets are bounded. Only explicitly trusted proxies supply client IPs.
+function AllowLoginAttempt(req) {
+    const now = Now();
+    for (const [key, row] of loginAttempts) if (row.until <= now) loginAttempts.delete(key);
+    const keys = [['ALL', 600], ['IP:' + ClientIP(req), 20]];
+    for (const [key, limit] of keys) {
+        let row = loginAttempts.get(key);
+        if (!row) {
+            if (loginAttempts.size >= 4096) return false;
+            row = { count: 0, until: now + LOGIN_WINDOW_MS };
+            loginAttempts.set(key, row);
+        }
+        if (++row.count > limit) return false;
+    }
+    return true;
+}
 
 function RandomToken(bytes = 32) {
     return crypto.randomBytes(bytes).toString('hex');
 }
 
-function NormalizeAddress(value) {
-    const ip = String(value || '').trim().split('%')[0];
-    const family = net.isIP(ip);
-    if (!family) return '';
-    if (family === 4) return ip;
-    const canonical = new URL(`http://[${ip}]/`).hostname.slice(1, -1);
-    const mapped = canonical.match(/^::ffff:([0-9a-f]+):([0-9a-f]+)$/i);
-    if (!mapped) return canonical;
-    const high = parseInt(mapped[1], 16), low = parseInt(mapped[2], 16);
-    return [high >>> 8, high & 255, low >>> 8, low & 255].join('.');
-}
-
-function TrustedProxy(ip) {
-    if (!ip) return false;
-    // Exact addresses only: never infer trust from private ranges or a header.
-    return String(process.env.WEB_ADMIN_TRUSTED_PROXY_IPS || '').split(',')
-        .some(value => NormalizeAddress(value) === ip);
-}
-
 function ClientIP(req) {
-    const remote = NormalizeAddress(req.socket && req.socket.remoteAddress);
-    if (!TrustedProxy(remote)) return remote;
-    const chain = String(req.headers['x-forwarded-for'] || '').split(',').map(NormalizeAddress);
-    if (chain.some(ip => !ip) || chain.length > 32) return remote;
-    let current = remote;
-    for (let index = chain.length - 1; index >= 0 && TrustedProxy(current); index--) current = chain[index];
-    return current;
+    let peer = NormalizeIP(req.socket && req.socket.remoteAddress);
+    if (!TrustedIP(peer)) return peer;
+    const hops = String(req.headers['x-forwarded-for'] || '').split(',').map(NormalizeIP);
+    if (hops.length > 32 || hops.some(hop => !net.isIP(hop))) return peer;
+    // Walk from the connected proxy back to the first untrusted hop. A proxy
+    // may append the real peer after a forged, attacker-provided prefix.
+    for (let index = hops.length - 1; index >= 0 && TrustedIP(peer); index--) peer = hops[index];
+    return peer;
 }
 
 function ParseCookies(req) {
@@ -62,75 +81,16 @@ function ParseCookies(req) {
         if (p <= 0) continue;
         const key = part.substring(0, p).trim();
         const value = part.substring(p + 1).trim();
-        // Ambiguous session cookies must not select an attacker-chosen value.
-        if (Object.prototype.hasOwnProperty.call(out, key)) { out[key] = ''; continue; }
+        // Ambiguous duplicate session cookies must not select an attacker-chosen value.
+        if (Object.hasOwn(out, key)) { out[key] = ''; continue; }
         try { out[key] = decodeURIComponent(value); } catch (_) { out[key] = ''; }
     }
     return out;
 }
 
-function PublicOrigin() {
-    // TLS may terminate at a managed proxy whose backend IP is not stable.
-    // Use only server configuration for the public origin, never forwarded
-    // host/proto headers from an untrusted peer. An explicit custom domain
-    // overrides Railway's generated domain. UPDATE_BASE_URL may be a CDN.
-    const explicit = String(process.env.WEB_ADMIN_PUBLIC_ORIGIN || '').trim();
-    const railwayDomain = String(process.env.RAILWAY_PUBLIC_DOMAIN || '').trim();
-    const value = explicit || (railwayDomain ? `https://${railwayDomain}` : '');
-    if (!value) return '';
-    try {
-        const url = new URL(value);
-        if (!['https:', 'http:'].includes(url.protocol) || url.username || url.password ||
-            url.pathname !== '/' || url.search || url.hash) return null;
-        return url.origin;
-    } catch (_) { return null; }
-}
-
 function IsHttps(req) {
     if (req.socket && req.socket.encrypted) return true;
-    const origin = PublicOrigin();
-    // This describes the configured browser-facing endpoint. The hop from
-    // its TLS terminator to this HTTP listener need not itself use TLS.
-    if (origin && origin.startsWith('https://')) return true;
-    return TrustedProxy(NormalizeAddress(req.socket && req.socket.remoteAddress)) &&
-        String(req.headers['x-forwarded-proto'] || '').trim().toLowerCase() === 'https';
-}
-
-function IsSameOrigin(req) {
-    if (String(req.headers['sec-fetch-site'] || '').toLowerCase() === 'cross-site') return false;
-    const publicOrigin = PublicOrigin();
-    if (publicOrigin === null) return false; // Invalid explicit configuration fails closed.
-    const origin = req.headers.origin;
-    if (origin === undefined) return true; // Existing non-browser API clients.
-    if (typeof origin !== 'string' || origin === 'null') return false;
-    try {
-        const expected = new URL(publicOrigin || `${IsHttps(req) ? 'https' : 'http'}://${req.headers.host}`);
-        const supplied = new URL(origin);
-        return supplied.origin === expected.origin && supplied.href === supplied.origin + '/';
-    } catch (_) { return false; }
-}
-
-function LoginLimit(req) {
-    const now = Now();
-    const key = ClientIP(req) || 'UNKNOWN';
-    for (const [ip, item] of loginFailures) if (item.expiresAt <= now) loginFailures.delete(ip);
-    const item = loginFailures.get(key);
-    if ((item && item.count >= LOGIN_MAX_ATTEMPTS) || (!item && loginFailures.size >= MAX_LOGIN_BUCKETS)) {
-        return { ok: false, status: 429, code: 'AUTH_RATE_LIMITED', retryAfter: Math.max(1, Math.ceil((((item && item.expiresAt) || now + LOGIN_WINDOW_MS) - now) / 1000)) };
-    }
-    return null;
-}
-
-function RecordLoginFailure(req) {
-    const key = ClientIP(req) || 'UNKNOWN';
-    const item = loginFailures.get(key) || { count: 0, expiresAt: Now() + LOGIN_WINDOW_MS };
-    item.count++;
-    loginFailures.set(key, item);
-}
-
-function IsSessionActive(session) {
-    return !!session && sessions.get(session.token) === session &&
-        session.expiresAt > Now() && session.absoluteExpiresAt > Now();
+    return TrustedProxy(req) && String(req.headers['x-forwarded-proto'] || '').toLowerCase() === 'https';
 }
 
 function SessionCookie(req, token, maxAgeSeconds) {
@@ -160,12 +120,10 @@ function CreateSession(req, role) {
     role = ResolveAdminRole(role);
     if (!role) throw new Error('ROLE_NOT_CONFIGURED');
     CleanupSessions();
-    Logout(req); // Rotate the browser's prior authenticated session on login.
-    while (sessions.size >= MAX_SESSIONS) {
-        const oldest = sessions.entries().next().value;
-        oldest[1].expiresAt = 0;
-        sessions.delete(oldest[0]);
-    }
+    const previous = Authenticate(req, false);
+    if (sessions.size >= MAX_SESSIONS && !previous) throw new Error('SESSION_CAPACITY');
+    // Reauthentication replaces this browser's prior authenticated session.
+    Logout(req);
     const token = RandomToken(32);
     const csrf = RandomToken(24);
     const now = Now();
@@ -177,36 +135,35 @@ function CreateSession(req, role) {
         ip: ClientIP(req),
         createdAt: now,
         lastSeenAt: now,
-        expiresAt: now + Math.min(SESSION_MS, ABSOLUTE_SESSION_MS),
+        expiresAt: now + SESSION_MS,
         absoluteExpiresAt: now + ABSOLUTE_SESSION_MS,
-        secure: IsHttps(req)
+        credentialStamp: CredentialStamp(role)
     };
     sessions.set(token, session);
     return session;
 }
 
 function Login(req, role, password) {
+    if (!AllowLoginAttempt(req)) return { ok: false, status: 429, code: 'AUTH_RATE_LIMIT' };
+    if (typeof role !== 'string' || typeof password !== 'string' || password.length > 4096)
+        return { ok: false, status: 401, code: 'AUTH_FAILED' };
     const ip = ClientIP(req);
-    if (!IsSameOrigin(req)) return { ok: false, status: 403, code: 'ORIGIN_NOT_ALLOWED' };
-    const limited = LoginLimit(req);
-    if (limited) return limited;
     role = ResolveAdminRole(role);
 
     if (!role || !IsWebCredentialConfigured(role)) {
-        RecordLoginFailure(req);
         return { ok: false, status: 403, code: 'ROLE_NOT_CONFIGURED' };
     }
 
     const expected = GetWebSecret(role);
-    const supplied = typeof password === 'string' && password.length <= 4096 ? password.trim() : '';
+    const supplied = String(password || '').trim();
     if (!ConstantTimeEqual(expected, supplied)) {
-        RecordLoginFailure(req);
         LogEvent('WEB_ADMIN_AUTH_FAILED', `${role} / ${ip}`);
         return { ok: false, status: 401, code: 'AUTH_FAILED' };
     }
 
-    loginFailures.delete(ip || 'UNKNOWN');
-    const session = CreateSession(req, role);
+    let session;
+    try { session = CreateSession(req, role); }
+    catch (error) { if (error.message === 'SESSION_CAPACITY') return { ok: false, status: 503, code: 'SESSION_CAPACITY' }; throw error; }
     LogEvent('WEB_ADMIN_AUTH', `${role} / ${ip}`);
     return { ok: true, session };
 }
@@ -219,11 +176,9 @@ function Authenticate(req, refresh = true) {
     if (!session) return null;
     const now = Now();
     if (!IsSessionActive(session)) {
-        session.expiresAt = 0;
-        sessions.delete(token);
+        Invalidate(token, session);
         return null;
     }
-    if (session.secure && !IsHttps(req)) return null;
     if (refresh) {
         session.lastSeenAt = now;
         session.expiresAt = Math.min(now + SESSION_MS, session.absoluteExpiresAt);
@@ -235,11 +190,11 @@ function Logout(req) {
     const cookies = ParseCookies(req);
     const token = cookies[COOKIE_NAME] || '';
     const session = token ? sessions.get(token) : null;
-    if (session) session.expiresAt = 0;
-    if (token) sessions.delete(token);
+    if (token) Invalidate(token, session);
 }
 
 function ListSessions(currentSession) {
+    const now = Now();
     const out = [];
     for (const session of sessions.values()) {
         if (!IsSessionActive(session)) continue;
@@ -267,8 +222,7 @@ function RevokeSession(sessionId) {
     sessionId = String(sessionId || '').trim().toUpperCase();
     for (const [token, session] of sessions) {
         if (String(session.id || '').toUpperCase() !== sessionId) continue;
-        session.expiresAt = 0;
-        sessions.delete(token);
+        Invalidate(token, session);
         return true;
     }
     return false;
@@ -278,8 +232,7 @@ function RevokeOtherSessions(currentSession) {
     let count = 0;
     for (const [token, session] of Array.from(sessions)) {
         if (currentSession && session.id === currentSession.id) continue;
-        session.expiresAt = 0;
-        sessions.delete(token);
+        Invalidate(token, session);
         count++;
     }
     return count;
@@ -288,31 +241,29 @@ function RevokeOtherSessions(currentSession) {
 function RevokeAllSessions() {
     let count = 0;
     for (const [token, session] of Array.from(sessions)) {
-        session.expiresAt = 0;
-        sessions.delete(token);
+        Invalidate(token, session);
         count++;
     }
     return count;
 }
 
 function ValidateCsrf(req, session) {
-    if (!IsSessionActive(session) || !IsSameOrigin(req) || (session.secure && !IsHttps(req))) return false;
+    if (!IsSessionActive(session)) return false;
     const supplied = String(req.headers['x-csrf-token'] || '');
     return ConstantTimeEqual(session.csrf, supplied);
 }
 
 function Can(session, operation) {
-    return !!session && AdminAllowed(session.role, operation);
+    return IsSessionActive(session) && AdminAllowed(session.role, operation);
 }
 
 function IsAdmin(session) {
-    return !!session && session.role === 'admin';
+    return IsSessionActive(session) && session.role === 'admin';
 }
 
 function CleanupSessions() {
     const now = Now();
-    for (const [token, session] of sessions) if (!IsSessionActive(session)) { session.expiresAt = 0; sessions.delete(token); }
-    for (const [ip, item] of loginFailures) if (item.expiresAt <= now) loginFailures.delete(ip);
+    for (const [token, session] of sessions) if (!IsSessionActive(session)) Invalidate(token, session);
 }
 
 setInterval(CleanupSessions, 60 * 1000).unref();
@@ -322,8 +273,8 @@ module.exports = {
     SESSION_MS,
     ABSOLUTE_SESSION_MS,
     IsHttps,
-    IsSameOrigin,
     IsSessionActive,
+    AllowLoginAttempt,
     ClientIP,
     SessionCookie,
     Login,

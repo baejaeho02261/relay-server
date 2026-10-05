@@ -11,14 +11,10 @@ const {
 const {
     GetOnlineServer, GetOnlineClient, GetSavedClientByID,
     FindClientDeviceKey, FindServerDeviceKey, ServerExists, ClientExists,
-    GetKickUntil, ServerHealth, ClientHealth, GetServerClientCount, ClientMove
+    GetKickUntil, ServerHealth, ClientHealth, GetServerClientCount
 } = require('../identity/identityManager');
-const {
-    FindLicense, GetBoundLicenseEntry, GetLicenseStatus,
-    CreateLicense, ExtendLicense, UnbindLicense, SuspendLicense, ResumeLicense,
-    DeleteLicense, ReissueLicense, TransferLicense, SearchLicenses, SetLicenseTags, NormalizeTags
-} = require('../license/licenseManager');
-const { NoticeAll, NoticeClient, NotifyServerUnauthorized } = require('../relay/notifications');
+const { GetLicenseStatus } = require('../storage/licenseArchive');
+const { NoticeAll } = require('../relay/notifications');
 const { SaveDatabase } = require('../storage/database');
 const { CreateBackup, RestoreBackup } = require('../storage/backup');
 const { AuditSearch, LogEvent } = require('../storage/audit');
@@ -30,7 +26,7 @@ const { BuildStatistics } = require('../services/statistics');
 const { StartDrain, StopDrain, ClearDrainMeta, GetDrainStatus } = require('../services/drainMonitor');
 const { ListAdminActivity } = require('../services/adminActivity');
 const { GetReconnectStatus } = require('../services/reconnectMonitor');
-const { GetExpirySummary, MatchesExpiryFilter } = require('../services/licenseMonitor');
+const { GetExpirySummary } = require('../services/licenseMonitor');
 const { ListNotifications, NotificationSummary, MarkRead, MarkAllRead, ClearNotifications } = require('../services/notificationCenter');
 const { Can, IsAdmin, ClientIP, ListSessions, RevokeSession, RevokeOtherSessions, RevokeAllSessions } = require('./webAuth');
 const deviceControl = require('../services/deviceControl');
@@ -46,8 +42,6 @@ const secretRotation = require('../services/deviceSecretRotation');
 const securityDashboard = require('../services/securityDashboard');
 const maintenanceService = require('../services/maintenance');
 const networkSecurity = require('../services/networkSecurity');
-const emergencyFailover = require('../services/emergencyFailover');
-const requestRecovery = require('../services/requestRecovery');
 const processorCenter = require('../services/processorCenter');
 const pushManager = require('../services/pushManager');
 const dailyHealth = require('../services/dailyHealth');
@@ -111,31 +105,8 @@ function RequireOperation(res, session, operation) {
 }
 
 
-async function ReadJsonBody(req, maxBytes = 128 * 1024) {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        let size = 0;
-        req.on('data', chunk => {
-            size += chunk.length;
-            if (size > maxBytes) {
-                reject(new Error('BODY_TOO_LARGE'));
-                req.destroy();
-                return;
-            }
-            chunks.push(chunk);
-        });
-        req.on('end', () => {
-            if (!chunks.length) { resolve({}); return; }
-            try {
-                const text = Buffer.concat(chunks).toString('utf8');
-                resolve(text ? JSON.parse(text) : {});
-            } catch (_) {
-                reject(new Error('INVALID_JSON'));
-            }
-        });
-        req.on('error', reject);
-    });
-}
+
+const { ReadJsonBody } = require('./requestBody');
 
 function BuildDashboard() {
     let available = 0;
@@ -262,92 +233,12 @@ function BuildServerDetail(serverId) {
     serverId = NormalizeID(serverId);
     if (!ServerExists(serverId)) return null;
     const server = BuildServers().find(x => x.id === serverId);
-    const clients = BuildClients().filter(x => x.serverId === serverId);
-    return { ...server, clientsList: clients };
+    return { ...server, clientsList: [] };
 }
 
-function BuildClients() {
-    const out = [];
-    for (const [deviceKey, saved] of state.clientIdentities) {
-        const live = GetOnlineClient(saved.id);
-        const bound = GetBoundLicenseEntry(saved.id);
-        const kickedUntil = GetKickUntil(state.kickedClients, saved.id);
-        let status = live ? 'ONLINE' : 'OFFLINE';
-        if (state.disabledClients.has(saved.id)) status = 'DISABLED';
-        else if (kickedUntil > Now()) status = 'KICKED';
 
-        const ack = state.runtimeStats.clientAckStats.get(saved.id) || { ok: 0, error: 0, timeout: 0 };
-        const ackTotal = ack.ok + ack.error + ack.timeout;
-        const reconnectWindow = GetReconnectStatus('CLIENT', saved.id);
-        const binding = emergencyFailover.GetBinding(saved.id);
-        out.push({
-            id: saved.id,
-            alias: state.clientAliases.get(saved.id) || '',
-            note: state.clientNotes.get(saved.id) || '',
-            ack: { ...ack, successRate: ackTotal ? Number(((ack.ok / ackTotal) * 100).toFixed(2)) : 100 },
-            deviceKey,
-            serverId: saved.serverId,
-            serverAlias: state.serverAliases.get(saved.serverId) || '',
-            primaryServerId: binding ? binding.primaryServerId : saved.serverId,
-            backupServerId: binding ? binding.backupServerId : '',
-            bindingConfigured: Boolean(binding && binding.configured),
-            offlineQueueEnabled: state.clientOfflineQueueEnabled.has(saved.id),
-            queuedRequests: Array.from(state.offlineQueue.values()).filter(x => x.clientId === saved.id).length,
-            status,
-            online: !!live,
-            health: reconnectWindow.flapping ? 'FLAPPING' : (live ? ClientHealth(live) : 'OFFLINE'),
-            reconnectWindow,
-            licenseStatus: bound ? GetLicenseStatus(bound.license) : 'NONE',
-            licenseKey: bound ? bound.key : '',
-            licenseExpiresAt: bound ? bound.license.expiresAt : 0,
-            lastAuthAt: saved.lastAuthAt,
-            lastSeenAt: saved.lastSeenAt,
-            lastIP: saved.lastIP,
-            authCount: saved.authCount,
-            sendCount: saved.sendCount,
-            reconnectCount: saved.reconnectCount,
-            protocolVersion: live ? live.protocolVersion : 0,
-            appVersion: live ? live.appVersion : '',
-            rttMs: live ? live.rttMs : -1,
-            kickedUntil,
-        });
-    }
-    return out.sort((a, b) => a.id.localeCompare(b.id));
-}
 
-function BuildClientDetail(clientId) {
-    clientId = NormalizeID(clientId);
-    const saved = GetSavedClientByID(clientId);
-    if (!saved) return null;
-    return BuildClients().find(x => x.id === clientId) || null;
-}
 
-function BuildLicenseItem(key, license) {
-    return {
-        key,
-        status: GetLicenseStatus(license),
-        expiresAt: license.expiresAt,
-        entryPass:license.entryPass===true,
-        boundClient: license.boundClient || '',
-        memo: license.memo || '',
-        createdAt: license.createdAt || 0,
-        boundAt: license.boundAt || 0,
-        lastAuthAt: license.lastAuthAt || 0,
-        lastSeenAt: license.lastSeenAt || 0,
-        lastIP: license.lastIP || '',
-        authCount: license.authCount || 0,
-        sendCount: license.sendCount || 0,
-        suspended: !!license.suspended,
-        accessType: license.entryPass===true?'':require('../services/accessType').NormalizeAccessType(license.accessType),
-        tags: NormalizeTags(license.tags || [])
-    };
-}
-
-function BuildLicenses(query, status, expiry) {
-    return SearchLicenses(query || '', status || 'ALL')
-        .filter(item => MatchesExpiryFilter(item.license, expiry || 'ALL'))
-        .map(item => BuildLicenseItem(item.key, item.license));
-}
 
 function BuildBackups() {
     try {
@@ -377,14 +268,6 @@ function GlobalSearch(query) {
         const text = `${server.id}|${server.alias}|${server.deviceKey}|${server.note}|${server.lastIP}`.toUpperCase();
         if (text.includes(query)) add('SERVER', server.id, server.alias || server.id, `${server.id} // ${server.status} // ${server.health}`, server.status);
     }
-    for (const client of BuildClients()) {
-        const text = `${client.id}|${client.alias}|${client.deviceKey}|${client.note}|${client.serverId}|${client.serverAlias}|${client.licenseKey}|${client.lastIP}`.toUpperCase();
-        if (text.includes(query)) add('CLIENT', client.id, client.alias || client.id, `${client.id} // ${client.status} // ${client.serverAlias || client.serverId}`, client.status);
-    }
-    for (const item of BuildLicenses('', 'ALL', 'ALL')) {
-        const text = `${item.key}|${item.boundClient}|${item.memo}|${(item.tags || []).join('|')}|${item.status}`.toUpperCase();
-        if (text.includes(query)) add('LICENSE', item.key, item.key, `${item.status} // ${(item.tags || []).join(', ') || 'NO TAG'} // ${item.boundClient || 'UNBOUND'}`, item.status);
-    }
     for (const trace of require('../services/requestTrace').SearchTraces(query).slice(0, 20)) {
         add('REQUEST', trace.key, trace.requestId, `${trace.status} // ${trace.clientId} → ${trace.serverId} // ${trace.durationMs || 0}ms`, trace.status);
     }
@@ -412,4 +295,4 @@ function BuildSystem() {
 }
 
 
-module.exports = { fs, path, config, state, Now, NormalizeID, NormalizeLicenseKey, NormalizeVersion, SafeField, SendLine, GetOnlineServer, GetOnlineClient, GetSavedClientByID, FindClientDeviceKey, FindServerDeviceKey, ServerExists, ClientExists, GetKickUntil, ServerHealth, ClientHealth, GetServerClientCount, ClientMove, FindLicense, GetBoundLicenseEntry, GetLicenseStatus, CreateLicense, ExtendLicense, UnbindLicense, SuspendLicense, ResumeLicense, DeleteLicense, ReissueLicense, TransferLicense, SearchLicenses, SetLicenseTags, NormalizeTags, NoticeAll, NoticeClient, NotifyServerUnauthorized, SaveDatabase, CreateBackup, RestoreBackup, AuditSearch, LogEvent, EnforceVersionPolicy, HealthSnapshot, BuildSystemHealth, CheckCurrentDatabase, VerifyBackup, BuildStatistics, StartDrain, StopDrain, ClearDrainMeta, GetDrainStatus, ListAdminActivity, GetReconnectStatus, GetExpirySummary, MatchesExpiryFilter, ListNotifications, NotificationSummary, MarkRead, MarkAllRead, ClearNotifications, Can, IsAdmin, ClientIP, ListSessions, RevokeSession, RevokeOtherSessions, RevokeAllSessions, deviceControl, featureFlags, protocolReadiness, deviceAuth, productionRoutes, storageMigration, releaseManager, configHistory, deviceEnrollment, secretRotation, securityDashboard, maintenanceService, networkSecurity, emergencyFailover, requestRecovery, processorCenter, pushManager, dailyHealth, deviceRegistry, historyCleanup, BACKUP_DIR, DATA_DIR, CURRENT_PROTOCOL_VERSION, SERVER_KICK_BLOCK_MS, CLIENT_KICK_BLOCK_MS, MAX_CLIENTS_PER_SERVER, RATE_LIMIT_MAX, MAX_BULK_KEYS, ENABLE_LEGACY_TCP_ADMIN, WEB_ADMIN_VERSION, Json, ApiError, DecodePart, NormalizeAlias, NormalizeNote, RequireAdmin, RequireOperation, ReadJsonBody, BuildDashboard, BuildServers, BuildServerDetail, BuildClients, BuildClientDetail, BuildLicenseItem, BuildLicenses, BuildBackups, GlobalSearch, BuildSystem };
+module.exports = { fs, path, config, state, Now, NormalizeID, NormalizeLicenseKey, NormalizeVersion, SafeField, SendLine, GetOnlineServer, GetOnlineClient, GetSavedClientByID, FindClientDeviceKey, FindServerDeviceKey, ServerExists, ClientExists, GetKickUntil, ServerHealth, ClientHealth, GetServerClientCount, GetLicenseStatus, NoticeAll, SaveDatabase, CreateBackup, RestoreBackup, AuditSearch, LogEvent, EnforceVersionPolicy, HealthSnapshot, BuildSystemHealth, CheckCurrentDatabase, VerifyBackup, BuildStatistics, StartDrain, StopDrain, ClearDrainMeta, GetDrainStatus, ListAdminActivity, GetReconnectStatus, GetExpirySummary, ListNotifications, NotificationSummary, MarkRead, MarkAllRead, ClearNotifications, Can, IsAdmin, ClientIP, ListSessions, RevokeSession, RevokeOtherSessions, RevokeAllSessions, deviceControl, featureFlags, protocolReadiness, deviceAuth, productionRoutes, storageMigration, releaseManager, configHistory, deviceEnrollment, secretRotation, securityDashboard, maintenanceService, networkSecurity, processorCenter, pushManager, dailyHealth, deviceRegistry, historyCleanup, BACKUP_DIR, DATA_DIR, CURRENT_PROTOCOL_VERSION, SERVER_KICK_BLOCK_MS, CLIENT_KICK_BLOCK_MS, MAX_CLIENTS_PER_SERVER, RATE_LIMIT_MAX, MAX_BULK_KEYS, ENABLE_LEGACY_TCP_ADMIN, WEB_ADMIN_VERSION, Json, ApiError, DecodePart, NormalizeAlias, NormalizeNote, RequireAdmin, RequireOperation, ReadJsonBody, BuildDashboard, BuildServers, BuildServerDetail, BuildBackups, GlobalSearch, BuildSystem };

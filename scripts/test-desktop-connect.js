@@ -5,6 +5,8 @@ for(const name of ['DESKTOP_PUBLIC_HOST','DESKTOP_PUBLIC_PORT','RAILWAY_TCP_PROX
 require('../core/utils').EnsureDirs();
 const desktop=require('../services/desktopLicenses'),transport=require('../services/desktopConnect'),keys=require('../services/connectTransportKey'),state=require('../core/state');
 const bootstrapFixture=require('./desktop-bootstrap-fixture');
+const webAuth=require('../web/webAuth');
+const adminSession=webAuth.CreateSession({headers:{},socket:{remoteAddress:'127.0.0.1'}},'admin');
 const digest=value=>crypto.createHash('sha256').update(value).digest('hex');
 function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),blob=keys.PublicBlob(publicKey);return {privateKey,publicKey:blob.toString('base64'),deviceId:digest(blob).toUpperCase(),machineId:crypto.randomBytes(32).toString('hex').toUpperCase()};}
 const a=Device(),b=Device(),server=transport.CreateServer();let profile,port,checks=0;
@@ -47,9 +49,9 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));port=server.address().port;
   await Check('Administrator-only explicit endpoint and public pin export',async()=>{
    assert.equal((await AdminProfile({role:'viewer'})).status,403);
-   assert.equal((await AdminProfile({role:'admin',id:'TEST'})).value.error,'CONNECT_PUBLIC_ENDPOINT_REQUIRED');
+   assert.equal((await AdminProfile(adminSession)).value.error,'CONNECT_PUBLIC_ENDPOINT_REQUIRED');
    process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT=String(port);
-   const out=await AdminProfile({role:'admin',id:'TEST'});assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','tlsCertificateSha256','tlsServerName','version']);assert.equal(profile.protocol,'GAME-CONNECT-3');assert.equal(profile.version,3);assert.match(profile.tlsCertificateSha256,/^[a-f0-9]{64}$/);assert.match(profile.tlsServerName,/^[a-f0-9]{32}\.invalid$/);
+   const out=await AdminProfile(adminSession);assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','tlsCertificateSha256','tlsServerName','version']);assert.equal(profile.protocol,'GAME-CONNECT-3');assert.equal(profile.version,3);assert.match(profile.tlsCertificateSha256,/^[a-f0-9]{64}$/);assert.match(profile.tlsServerName,/^[a-f0-9]{32}\.invalid$/);
    process.env.DESKTOP_PUBLIC_HOST='https://bad.example';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='::1';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
   });
   await Check('Persisted server key is stable, private, and never silently replaced',async()=>{

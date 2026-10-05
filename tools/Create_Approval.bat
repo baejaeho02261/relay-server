@@ -59,8 +59,8 @@ function ReleaseCanonical(component, version, sha256) {
 }
 function SignRelease(component, version, file, keyFile) {
   if (!['A', 'B', 'O'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) stop('RELEASE_ARGUMENT_INVALID');
-  const bytes = ReadBoundedInput(file, 512, (component === 'O' ? 16 : 64) * 1024 * 1024, 'RELEASE_FILE_INVALID');
-  ValidatePeImage(bytes, component);
+  const bytes = ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID');
+  ValidatePeImage(bytes);
   const keyBytes = ReadBoundedInput(keyFile, 1, 16384, 'KEY_FILE_INVALID');
   let key;
   try {
@@ -79,11 +79,10 @@ function SignRelease(component, version, file, keyFile) {
     headers: { 'x-game-release-key-id': keyId, 'x-game-release-signature': signature } };
 }
 
-function ValidatePeImage(bytes,component){
- const bad=()=>{const error=Error(component==='O'?'OVERLAY_PLUGIN_PE_INVALID':'BOOTSTRAP_PE_INVALID');error.safeCode=error.message;throw error;};
- if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>(component==='O'?16:64)*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
+function ValidatePeImage(bytes){
+ const bad=()=>{throw Error('BOOTSTRAP_PE_INVALID');};
+ if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>64*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
  const pe=bytes.readUInt32LE(0x3c);if(pe<64||pe>bytes.length-24||bytes.readUInt32LE(pe)!==0x4550||bytes.readUInt16LE(pe+4)!==0x8664)bad();
- if(component==='O'&&(bytes.readUInt16LE(pe+22)&0x2002)!==0x2002)bad();
  const count=bytes.readUInt16LE(pe+6),opt=pe+24,optSize=bytes.readUInt16LE(pe+20),table=opt+optSize;
  if(count<1||count>96||optSize<160||table+count*40>bytes.length||bytes.readUInt16LE(opt)!==0x20b)bad();
  const imageSize=bytes.readUInt32LE(opt+56),headerSize=bytes.readUInt32LE(opt+60),dirCount=bytes.readUInt32LE(opt+108);
@@ -115,64 +114,7 @@ function ValidatePeImage(bytes,component){
   }
   seen.sort((a,b)=>a[0]-b[0]);for(let i=1;i<seen.length;i++)if(seen[i][0]<seen[i-1][1])bad();
  }
- if(component==='O')ValidateOverlayExport(bytes);
  return true;
-}
-
-// O uses the server's fixed DLL ABI; export bytes are inspected, never executed.
-function ValidateOverlayExport(bytes){
- const requiredExport='GameOverlayRunV1',MAX_SPAN=8*1024*1024,MAX_ENTRIES=131072,MAX_STRING=512;
- const bad=()=>{throw Error('EXPORT_LAYOUT');};
- try{
-  if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>64*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
-  const pe=bytes.readUInt32LE(0x3c);if(pe<64||pe+24>bytes.length||bytes.readUInt32LE(pe)!==0x4550||bytes.readUInt16LE(pe+4)!==0x8664)bad();
-  const count=bytes.readUInt16LE(pe+6),opt=pe+24,optSize=bytes.readUInt16LE(pe+20),table=opt+optSize;
-  if(count<1||count>96||optSize<112||table+count*40>bytes.length||bytes.readUInt16LE(opt)!==0x20b)bad();
-  const imageSize=bytes.readUInt32LE(opt+56),headers=bytes.readUInt32LE(opt+60),dirs=bytes.readUInt32LE(opt+108);
-  if(imageSize<4096||imageSize>128*1024*1024||headers<table+count*40||headers>bytes.length||dirs>16||112+dirs*8>optSize)bad();
-  if(!dirs)bad();
-  const directoryOffset=opt+112,rva=bytes.readUInt32LE(directoryOffset),span=bytes.readUInt32LE(directoryOffset+4);
-  if(!rva&&!span)bad();
-  if(!rva||span<40||span>MAX_SPAN||rva+span>imageSize)bad();
-  const sections=[];
-  for(let i=0;i<count;i++){
-   const at=table+i*40,virtualSize=bytes.readUInt32LE(at+8),start=bytes.readUInt32LE(at+12),rawSize=bytes.readUInt32LE(at+16),raw=bytes.readUInt32LE(at+20),flags=bytes.readUInt32LE(at+36),mapped=Math.max(virtualSize||rawSize,rawSize);
-   if(!mapped||start<headers||start+mapped>imageSize||rawSize&&(raw<headers||raw+rawSize>bytes.length)||sections.some(s=>start<s.start+s.mapped&&start+mapped>s.start||rawSize&&s.rawSize&&raw<s.raw+s.rawSize&&raw+rawSize>s.raw))bad();
-   sections.push({start,mapped,span:virtualSize||rawSize,rawSize,raw,flags});
-  }
-  const section=sections.find(s=>rva>=s.start&&rva+span<=s.start+s.rawSize&&rva+span<=s.start+s.span);
-  if(!section||(section.flags&0x80000000))bad();
-  const start=section.raw+rva-section.start,end=rva+span;
-  const inside=(at,length)=>{if(!Number.isSafeInteger(at)||!Number.isSafeInteger(length)||length<0||at<rva||at+length>end)bad();return start+at-rva;};
-  const stringAt=(at,forwarder=false)=>{const offset=inside(at,1);for(let i=0;i<MAX_STRING;i++){if(at+i>=end)bad();const c=bytes[offset+i];if(c===0){if(i===0)bad();return i;}if(c<32||c>126||forwarder&&c===32)bad();}bad();};
-  const functions=bytes.readUInt32LE(start+20),names=bytes.readUInt32LE(start+24);
-  if(functions>MAX_ENTRIES||names>MAX_ENTRIES||names>functions)bad();
-  stringAt(bytes.readUInt32LE(start+12));
-  const functionRva=bytes.readUInt32LE(start+28),nameRva=bytes.readUInt32LE(start+32),ordinalRva=bytes.readUInt32LE(start+36);
-  const functionAt=functions?inside(functionRva,functions*4):0,nameAt=names?inside(nameRva,names*4):0,ordinalAt=names?inside(ordinalRva,names*2):0;
-  let exported=0,code=0,forwarded=0;
-  for(let i=0;i<functions;i++){
-   const target=bytes.readUInt32LE(functionAt+i*4);if(!target)continue;if(target>=imageSize)bad();exported++;
-   if(target>=rva&&target<end){stringAt(target,true);forwarded++;}
-   else if(sections.some(s=>target>=s.start&&target<s.start+s.span&&(s.flags&0x20000000)&&!(s.flags&0x80000000)))code++;
-  }
-  let requiredExportRva=0;
-  for(let i=0;i<names;i++){const ordinal=bytes.readUInt16LE(ordinalAt+i*2);if(ordinal>=functions)bad();const nameRvaValue=bytes.readUInt32LE(nameAt+i*4),length=stringAt(nameRvaValue);if(requiredExport&&bytes.toString('ascii',inside(nameRvaValue,length),inside(nameRvaValue,length)+length)===requiredExport){const target=bytes.readUInt32LE(functionAt+ordinal*4);if(target>=rva&&target<end||!sections.some(s=>target>=s.start&&target<s.start+s.span&&(s.flags&0x20000000)&&!(s.flags&0x80000000))||requiredExportRva)bad();requiredExportRva=target;}}
-  // Export tables should hold RVAs, not loader-relocated VA operands. Decline
-  // unsupported images rather than normalize away a redirected API address.
-  if(dirs>5){
-   const relocRva=bytes.readUInt32LE(opt+152),relocSize=bytes.readUInt32LE(opt+156);
-   if(!!relocRva!==!!relocSize||relocSize>16*1024*1024)bad();
-   if(relocSize){const rs=sections.find(s=>relocRva>=s.start&&relocRva+relocSize<=s.start+s.rawSize);if(!rs)bad();let at=rs.raw+relocRva-rs.start,stop=at+relocSize;
-    while(at<stop){if(at+8>stop)bad();const page=bytes.readUInt32LE(at),size=bytes.readUInt32LE(at+4);if(size<8||size%2||at+size>stop||page>=imageSize)bad();
-     for(let p=at+8;p<at+size;p+=2){const entry=bytes.readUInt16LE(p),type=entry>>>12,target=page+(entry&0xfff);if(!type)continue;const width=type===10?8:type===3?4:1;if(target<end&&target+width>rva)bad();}
-     at+=size;
-    }
-   }
-  }
-  if(!requiredExportRva)bad();
-  return true;
- }catch(_){const error=Error('OVERLAY_PLUGIN_PE_INVALID');error.safeCode=error.message;throw error;}
 }
 function PeCapabilities(bytes) {
   // Only metadata of administrator-uploaded bytes, never a client capability claim.
@@ -242,8 +184,8 @@ function main() {
   if (fs.existsSync(output)) stop('OUTPUT_ALREADY_EXISTS');
   const approval = SignRelease(component, version, file, key);
   if (approval.component !== component || approval.version !== version || !approval.trustedKey || !approval.approval) stop('APPROVAL_INVALID');
-  // Recheck the exact release bytes and signature before creating any output.
-  const currentHash = crypto.createHash('sha256').update(ReadBoundedInput(file, 512, (component === 'O' ? 16 : 64) * 1024 * 1024, 'RELEASE_FILE_INVALID')).digest('hex');
+  // Recheck the exact EXE bytes and signature before creating any output.
+  const currentHash = crypto.createHash('sha256').update(ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID')).digest('hex');
   if (approval.sha256 !== currentHash) stop('EXE_CHANGED_DURING_SIGNING');
   const pub = crypto.createPublicKey(approval.trustedKey.publicKey);
   const keyId = crypto.createHash('sha256').update(pub.export({ type: 'spki', format: 'der' })).digest('hex');
@@ -306,7 +248,7 @@ function Invoke-Worker {
         $stderr = $errTask.GetAwaiter().GetResult()
         if ($p.ExitCode -ne 0) {
             $code = $stderr.Trim()
-            if ($code -notmatch '^[A-Z0-9_]{1,80}$') { $code = 'NODE_EXECUTION_FAILED' }
+            if ($code -notmatch '^[A-Z_]{1,80}$') { $code = 'NODE_EXECUTION_FAILED' }
             throw ('서명 도구 오류: ' + $code)
         }
         if ([string]::IsNullOrWhiteSpace($stdout)) { throw '서명 도구가 결과를 반환하지 않았습니다.' }
@@ -497,9 +439,9 @@ function Main {
     $homeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'GameConnectReleaseTools'
     Write-Host ''
     Write-Host '=== GameConnect 공개 배포 승인 파일 생성 ==='
-    Write-Host '기존 서버/클라이언트 소스와 배포 파일은 수정하지 않습니다.'
+    Write-Host '기존 서버/클라이언트 소스와 EXE는 수정하지 않습니다.'
     Write-Host '서버로 자동 업로드하거나 정책/신뢰 키를 자동 변경하지 않습니다.'
-    Write-Host '실행 버전: FIX5 / A/B/O 승인 생성 (무작위 이름 .bin 지원)'
+    Write-Host '실행 버전: FIX2 / BAT 단독형 (서버 모듈 불필요)'
     Write-Host '서명 도구: 이 BAT에 포함된 독립 서명기'
     $node = Get-NodeRuntime $homeDirectory $base
     Write-Host ('사용 Node: ' + $node)
@@ -508,22 +450,14 @@ function Main {
     $keyPath = $null
     do {
         Write-Host ''
-        Write-Host 'A = 런처 / B = 클라이언트 / O = 오버레이 플러그인 (.bin)'
+        Write-Host 'A = 런처 / B = 클라이언트'
         $component = (Read-Host '생성할 구분 [A/B/O]').Trim().ToUpperInvariant()
         if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력해 주세요.' }
         $version = (Read-Host '서버 업로드에 사용할 버전 (예: 1.0.0)').Trim()
         if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '버전은 1.0.0처럼 1~4단계 숫자로 입력하세요(최대 40자).' }
-        if ($component -eq 'O') {
-            Write-Host 'GameConnect_Win64\build\Win64\Release\overlay의 artifact-name.txt에 기록된 .bin을 선택하세요.'
-            Write-Host '최종 빌드 파일과 웹의 버전으로 O 공개 승인 JSON을 생성합니다.'
-            Write-Host '기존 A/B에 쓰던 등록된 배포 개인키도 사용할 수 있습니다. 새 키가 필수는 아닙니다.'
-            Write-Host 'O는 최대 16MiB의 Win64 DLL 형식 .bin 파일이며 GameOverlayRunV1 내보내기가 필요합니다.'
-            $exe = Choose-File 'O 승인 생성 - 최종 빌드한 .bin 선택' '오버레이 플러그인 (*.bin)|*.bin|모든 파일 (*.*)|*.*' $base
-        } else {
-            Write-Host ($component + ' EXE 파일을 선택하세요. 예시 경로가 아닌 실제 빌드 파일을 선택합니다.')
-            $exe = Choose-File ($component + ' 최종 Windows EXE 선택') '실행 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*' $base
-        }
-        if (-not $exe) { throw '배포 파일 선택이 취소되었습니다.' }
+        Write-Host ($component + ' EXE 파일을 선택하세요. 예시 경로가 아닌 실제 빌드 파일을 선택합니다.')
+        $exe = Choose-File ($component + ' 최종 Windows EXE 선택') '실행 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*' $base
+        if (-not $exe) { throw 'EXE 선택이 취소되었습니다.' }
         if (-not $keyPath) { $keyPath = Choose-Key $homeDirectory $node $base }
         $target = [IO.Path]::ChangeExtension($exe, 'approval.json')
         if (Test-Path -LiteralPath $target) {
@@ -531,7 +465,7 @@ function Main {
             $target = Join-Path (Split-Path -Parent $exe) ([IO.Path]::GetFileNameWithoutExtension($exe) + $suffix)
         }
         Write-Host ''
-        Write-Host ('배포 파일: ' + $exe)
+        Write-Host ('EXE: ' + $exe)
         Write-Host ('구분/버전: ' + $component + ' / ' + $version)
         Write-Host ('승인 파일: ' + $target)
         if ((Read-Host '위 파일에 대한 공개 승인 파일을 생성할까요? [Y/N]').Trim() -notmatch '^(?i)y(es)?$') { throw '서명을 취소했습니다.' }
@@ -542,21 +476,12 @@ function Main {
         Write-Host ''
         Write-Host '[완료] 공개 배포 승인 파일을 생성했습니다.'
         Write-Host $result.output
-        Write-Host ('파일 SHA-256: ' + $result.sha256)
+        Write-Host ('EXE SHA-256: ' + $result.sha256)
         Write-Host ('서명자 keyId: ' + $result.keyId)
-        Write-Host '웹에서 같은 배포 파일 / 같은 구분 / 같은 버전과 함께 이 .approval.json을 선택하세요.'
-        if ($component -eq 'O') {
-            Write-Host '=== 오버레이 발급 · 표시 설정에서 선택할 값 ==='
-            Write-Host ('플러그인 파일: ' + $exe)
-            Write-Host ('공개 승인 JSON: ' + $result.output)
-            Write-Host ('입력 버전: ' + $result.version)
-            Write-Host 'Check_Approval.bat에서 O를 선택하면 업로드 전에 두 파일을 점검할 수 있습니다.'
-            Write-Host '웹에서 두 파일 선택 → 파일 확인 · 후보 등록 → 선택 플러그인 운영 게시 순서로 진행하세요.'
-            Write-Host '플러그인과 승인 JSON이 다른 폴더에 있어도 됩니다. 같은 빌드·버전인지 확인하세요.'
-        }
+        Write-Host '웹에서 같은 EXE / 같은 구분 / 같은 버전과 함께 이 .approval.json을 선택하세요.'
         Write-Host '최초 사용 키라면 JSON의 trustedKey를 서버 신뢰 서명자에 먼저 등록해야 합니다.'
         Write-Host 'PEM 개인키는 업로드하거나 소스 ZIP에 넣지 마세요.'
-        $again = (Read-Host '같은 개인키로 다른 배포 파일도 생성할까요? [Y/N]').Trim()
+        $again = (Read-Host '같은 개인키로 다른 EXE도 생성할까요? [Y/N]').Trim()
     } while ($again -match '^(?i)y(es)?$')
 }
 
@@ -564,14 +489,13 @@ try { Main; exit 0 }
 catch {
     Write-Host ''
     Write-Host ('[중단] ' + $_.Exception.Message)
-    Write-Host '기존 배포 파일, 기존 개인키, 기존 승인 파일은 덮어쓰지 않습니다.'
+    Write-Host '기존 EXE, 기존 개인키, 기존 승인 파일은 덮어쓰지 않습니다.'
     Write-Host '이 버전은 sign-release-approval.js, services, vendor, npm 설치가 필요하지 않습니다.'
-    Write-Host 'BOOTSTRAP_PE_INVALID / RELEASE_FILE_INVALID: A/B는 Win64 EXE(최대 64MiB), O는 플러그인(최대 16MiB)인지 확인하세요.'
-    Write-Host 'OVERLAY_PLUGIN_PE_INVALID: O 파일이 Win64 DLL이며 실행 가능한 GameOverlayRunV1 내보내기를 포함하는지 확인하세요.'
+    Write-Host 'BOOTSTRAP_PE_INVALID / RELEASE_FILE_INVALID: 실제 Win64 EXE인지 확인하세요.'
     Write-Host 'ED25519_KEY_REQUIRED / KEY_PEM_INVALID: 올바른 배포용 Ed25519 개인키를 선택하세요.'
     Write-Host 'ENCRYPTED_KEY_NOT_SUPPORTED: 기존 도구와 같은 비암호화 PEM만 지원합니다.'
     Write-Host 'NODE_RUNTIME_MODULE_MISSING: 서버 소스가 아니라 Node 런타임 파일을 확인하세요.'
-    Write-Host 'SIGNING_FAILED이면 실제 Win64 배포 파일과 비암호화 Ed25519 PEM 개인키인지 확인하세요.'
+    Write-Host 'SIGNING_FAILED이면 실제 Win64 EXE와 비암호화 Ed25519 PEM 개인키인지 확인하세요.'
     Write-Host '다운로드 오류이면 nodejs.org 연결/프록시를 확인하세요. 인증서 검사는 끄지 않습니다.'
     exit 1
 }

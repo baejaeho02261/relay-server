@@ -2,12 +2,12 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const checks = [
-  ['test-web-auth-hardening.js'], ['test-web-auth-http.js'], ['test-overlay-admin-ui.js'], ['test-desktop-overlay.js'], ['test-desktop-overlay-plugin.js'],
+  ['test-web-session-hardening.js'], ['test-overlay-deployment.js'], ['test-overlay-tools-ui.js'], ['test-desktop-overlay.js'], ['test-desktop-overlay.js', '--sqlite'], ['test-overlay-recovery.js'], ['test-overlay-native-contract.js'], ['test-overlay-transport.js'], ['test-overlay-transport.js', '--sqlite'],
   ['test-key-console.js'], ['test-history-outcomes.js'],
   ['test-desktop-workspace.js'], ['test-workspace-http.js'],
   ['test-security-activation.js'],
   ['test-security-operations.js'], ['test-security-admin.js'], ['test-security-evidence.js'], ['test-security-native-contract.js'],
-  ['test-security-authority.js'], ['test-security-tools.js'], ['test-approval-tools.js'], ['test-security-wire.js'],
+  ['test-security-authority.js'], ['test-security-tools.js'], ['test-security-wire.js'],
   ['check-modules.js'], ['check-web-ui.js'], ['check-connect-project.js'],
   ['test-extended-hashes.js'],
   ['test-desktop-extended-integrity.js'], ['test-desktop-extended-integrity.js', '--sqlite'],
@@ -18,9 +18,8 @@ const checks = [
   ['test-desktop-license-migration.js'], ['test-desktop-license-migration.js', '--sqlite'],
   ['test-desktop-bootstrap.js'], ['test-desktop-bootstrap.js', '--sqlite'],
   ['test-desktop-code-integrity.js'], ['test-native-code-contract.js'],
-  ['test-artifact-storage.js'],
   ['test-desktop-integrity-reports.js'], ['test-desktop-integrity-reports.js', '--sqlite'],
-  ['test-desktop-retirement.js'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
+  ['test-desktop-retirement.js'], ['test-desktop-retirement.js', '--sqlite'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
   ['test-desktop-connect.js'], ['test-desktop-connect.js', '--sqlite'],
   ['test-desktop-admin-ui.js'], ['test-web-ui-cache.js']
 ];

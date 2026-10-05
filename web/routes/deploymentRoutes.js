@@ -88,8 +88,6 @@ if (method === 'GET' && pathname === '/api/control/devices') {
     if (method === 'POST' && pathname === '/api/control/security/reset') { if(!RequireAdmin(res,session))return true;const r=deviceAuth.Reset(body.type,body.id);if(!r.ok){ApiError(res,409,r.reason);return true;}Json(res,200,r);return true; }
     if (method === 'GET' && pathname === '/api/control/security/rotations') { if(!RequireOperation(res,session,'VIEW'))return true;Json(res,200,{ok:true,rotations:secretRotation.Overview()});return true; }
     if (method === 'POST' && pathname === '/api/control/security/rotate') { if(!RequireAdmin(res,session))return true;const r=secretRotation.Start(body.type,body.id);if(!r.ok){ApiError(res,409,r.reason);return true;}SaveDatabase();LogEvent('DEVICE_SECRET_ROTATION_START',`${String(body.type||'').toUpperCase()} ${NormalizeID(body.id)} ${r.rotation.rotationId}`);Json(res,200,r);return true; }
-
-
     return false;
 }
 module.exports = { Handle };

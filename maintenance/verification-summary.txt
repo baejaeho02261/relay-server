@@ -1,0 +1,12 @@
+Game study-only source verification
+Purpose: educational use; not intended for real use.
+
+PASS: npm test, 53 aggregate commands (sequential fail-fast runner).
+PASS: actual administrator HTTP and pinned native TLS transport tests.
+PASS: JSON and SQLite storage, replay rejection, lost response / restart recovery.
+PASS: DOM UI tests and A/B/O approval tool tests.
+PASS: native project/source ownership and resource-format checks.
+PASS: source manifest verification and 7 corruption/missing-file/symlink tests.
+NOT RUN: Delphi Win64 compilation, native probes and Windows rendering.
+
+The complete command list is in review.json. Source-manifest SHA-256 is a consistency check, not a publisher signature.
