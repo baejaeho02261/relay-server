@@ -66,14 +66,6 @@ async function handleOperationsAction(event) {
       const v=await openModal({title:"버전 정책",message:`프로토콜 >= ${protocol} // 서버 >= ${serverVersion} 로 적용합니다. 기준 미달 연결이 종료될 수 있습니다.`,danger:true,confirmLabel:"적용"}); if(!v)return true;
       await api('/api/system/version',{method:'POST',body:{protocol,serverVersion}}); toast("버전 정책 적용 완료"); await renderDangerZone(); return true;
     }
-    if (event.target.id && event.target.id.startsWith('load-preset-')) {
-      const name=event.target.id.replace('load-preset-','').toLowerCase(); const presets={smoke:[2,10,1],medium:[10,100,1],heavy:[100,1000,1]}; const v=presets[name]; if(v){document.getElementById('load-servers').value=v[0];document.getElementById('load-clients').value=v[1];document.getElementById('load-requests').value=v[2];} return true;
-    }
-    if (event.target.id === 'load-command-btn') {
-      const body={relayHost:document.getElementById('load-relay-host').value,relayPort:Number(document.getElementById('load-relay-port').value),webUrl:document.getElementById('load-web-url').value,mode:document.getElementById('load-mode').value,servers:Number(document.getElementById('load-servers').value),clients:Number(document.getElementById('load-clients').value),requestsPerClient:Number(document.getElementById('load-requests').value)};
-      const r=await api('/api/load-simulator/command',{method:'POST',body}); document.getElementById('load-command-output').textContent=r.command; return true;
-    }
-    if (event.target.id === 'load-copy-btn') { const t=document.getElementById('load-command-output')?.textContent||''; if(navigator.clipboard) await navigator.clipboard.writeText(t); toast("명령을 복사했습니다."); return true; }
     if (event.target.id === 'storage-schema-btn') { const r=await api('/api/storage/migration/schema'); await openModal({title:`SQLite 데이터 구조 v${r.schema.version}`,html:`<pre class="code-block schema-preview">${esc(r.schema.sql)}</pre>`,confirmLabel:'닫기'}); return true; }
     if (event.target.id === 'storage-export-btn') { const v=await openModal({title:"SQLite 스냅샷 내보내기",message:"현재 SQLite 스냅샷을 데이터 구조·데이터·검증값 형식의 이식 가능한 번들로 내보냅니다.",confirmLabel:"내보내기"}); if(!v)return true; const r=await api('/api/storage/migration/export',{method:'POST',body:{}}); const out=document.getElementById('storage-export-result'); if(out)out.textContent=`${r.directory} // SHA256 ${r.checksum}`; toast("SQLite 스냅샷 묶음 파일 생성 완료"); return true; }
 

@@ -1,317 +1,444 @@
 {
-  "basis": "GameConnect_GameWeb_KEY_CONSOLE.zip",
-  "basisSha256": "a186011e3ee5b816fb803bdd295fa83c0c36e2dc5f0291e00186a9a197b2089e",
-  "scope": "Existing B cleanup timing and known-success timeline display only; no overlay implemented.",
+  "date": "2026-10-05",
+  "timezone": "Asia/Seoul",
+  "purpose": "공부용으로 제작되었으며 실제 사용을 목적으로 하지 않습니다.",
+  "basis": "Game.zip",
+  "basisSha256": "1392ae75cf3d005384ce9819648b29b453dd0a7f9483edcae46d092dc2c986e9",
+  "scope": "Preserve existing desktop A/B workflow; approved O overlay handoff; web session hardening; physical Android source/resource removal",
   "operatingDataModified": false,
-  "runtimeModifiedFiles": [
-    "GameConnect_Win64/Game.Console.pas",
-    "GameConnect_Win64/Game.Handoff.pas",
-    "GameWeb/services/desktopWorkspace.js"
-  ],
+  "overlaySourceImplemented": true,
+  "uiRevision": "game-overlay-93",
   "changedFiles": [
+    "GameConnect_Win64/Game.Api.pas",
+    "GameConnect_Win64/Game.Bootstrap.pas",
     "GameConnect_Win64/Game.Console.pas",
     "GameConnect_Win64/Game.Handoff.pas",
+    "GameConnect_Win64/Game.Integrity.pas",
+    "GameConnect_Win64/Game.Launcher.pas",
+    "GameConnect_Win64/Game.ModuleInventory.pas",
+    "GameConnect_Win64/Game.Security.pas",
+    "GameConnect_Win64/Game.ServerAuthority.pas",
+    "GameConnect_Win64/GameConnect.dproj",
+    "GameConnect_Win64/GameLauncher.dproj",
+    "GameWeb/admin/auth.js",
+    "GameWeb/config/config.js",
+    "GameWeb/core/lifecycle.js",
+    "GameWeb/core/state.js",
+    "GameWeb/identity/identityManager.js",
     "GameWeb/maintenance/index.html",
-    "GameWeb/maintenance/review.json",
-    "GameWeb/maintenance/source-manifest.json",
+    "GameWeb/package-lock.json",
+    "GameWeb/package.json",
+    "GameWeb/public/admin-actions-devices.js",
+    "GameWeb/public/admin-actions-operations.js",
+    "GameWeb/public/admin-actions.js",
+    "GameWeb/public/admin-appearance.css",
+    "GameWeb/public/admin-desktop-licenses.js",
+    "GameWeb/public/admin-desktop-security.js",
+    "GameWeb/public/admin-desktop-workflow.js",
+    "GameWeb/public/admin-i18n.js",
+    "GameWeb/public/admin-navigation.js",
+    "GameWeb/public/admin-pages-monitoring.js",
+    "GameWeb/public/admin-terminal.js",
+    "GameWeb/public/admin-theme.css",
+    "GameWeb/public/admin-workspace.css",
+    "GameWeb/public/admin.css",
+    "GameWeb/public/admin.js",
+    "GameWeb/public/index.html",
+    "GameWeb/public/service-worker.js",
+    "GameWeb/relay/notifications.js",
     "GameWeb/scripts/check-connect-project.js",
+    "GameWeb/scripts/desktop-bootstrap-fixture.js",
     "GameWeb/scripts/regression.js",
-    "GameWeb/scripts/test-desktop-workspace.js",
-    "GameWeb/scripts/test-key-console.js",
-    "GameWeb/services/desktopWorkspace.js"
+    "GameWeb/scripts/test-desktop-admin-ui.js",
+    "GameWeb/scripts/test-desktop-bootstrap.js",
+    "GameWeb/scripts/test-desktop-connect.js",
+    "GameWeb/scripts/test-desktop-retirement.js",
+    "GameWeb/scripts/test-license-success-contract.py",
+    "GameWeb/scripts/test-source-verifier.py",
+    "GameWeb/services/desktopAdminGuard.js",
+    "GameWeb/services/desktopBootstrap.js",
+    "GameWeb/services/desktopBootstrapStore.js",
+    "GameWeb/services/desktopIntegrityReports.js",
+    "GameWeb/services/desktopLicenses.js",
+    "GameWeb/services/desktopMode.js",
+    "GameWeb/services/desktopOperationsErrors.js",
+    "GameWeb/services/desktopSecurityActivation.js",
+    "GameWeb/services/desktopSecurityAuthority.js",
+    "GameWeb/services/desktopSecurityEvents.js",
+    "GameWeb/services/desktopSecurityOperations.js",
+    "GameWeb/services/desktopStorageSpace.js",
+    "GameWeb/services/desktopWorkspace.js",
+    "GameWeb/services/desktopWorkspaceStore.js",
+    "GameWeb/services/deviceAuth.js",
+    "GameWeb/services/deviceRegistry.js",
+    "GameWeb/services/featureFlags.js",
+    "GameWeb/services/historyCleanup.js",
+    "GameWeb/services/licenseMonitor.js",
+    "GameWeb/services/passkeyAuth.js",
+    "GameWeb/services/productionCenter.js",
+    "GameWeb/services/releaseManager.js",
+    "GameWeb/services/serviceLifecycle.js",
+    "GameWeb/storage/backup.js",
+    "GameWeb/storage/database.js",
+    "GameWeb/tools/Check_Approval.bat",
+    "GameWeb/tools/Create_Approval.bat",
+    "GameWeb/tools/sign-release-approval.js",
+    "GameWeb/web/apiContext.js",
+    "GameWeb/web/routes/deploymentRoutes.js",
+    "GameWeb/web/routes/desktopBootstrapRoutes.js",
+    "GameWeb/web/routes/deviceRoutes.js",
+    "GameWeb/web/routes/infrastructureRoutes.js",
+    "GameWeb/web/routes/trafficRoutes.js",
+    "GameWeb/web/ui-bundle.json",
+    "GameWeb/web/uiBundle.js",
+    "GameWeb/web/webApi.js",
+    "GameWeb/web/webAuth.js",
+    "GameWeb/web/webEvents.js",
+    "GameWeb/web/webServer.js"
   ],
   "addedFiles": [
-    "GameWeb/scripts/test-history-outcomes.js",
-    "GameWeb/scripts/test-license-success-contract.py"
+    "GameConnect_Win64/Build_All_Win64.bat",
+    "GameConnect_Win64/Game.Overlay.pas",
+    "GameConnect_Win64/GameOverlay.dpr",
+    "GameConnect_Win64/GameOverlay.dproj",
+    "GameConnect_Win64/GameOverlay.manifest",
+    "GameConnect_Win64/GameOverlay.rc",
+    "GameConnect_Win64/GameOverlayResources.res",
+    "GameConnect_Win64/tests/Build_DeviceSecurityHandoffProbe_Win64.bat",
+    "GameConnect_Win64/tests/Build_HashProbe_Win64.bat",
+    "GameConnect_Win64/tests/DeviceSecurityHandoffProbe.dpr",
+    "GameWeb/maintenance/module-review.md",
+    "GameWeb/maintenance/verification-summary.txt",
+    "GameWeb/scripts/test-desktop-overlay.js",
+    "GameWeb/scripts/test-overlay-deployment.js",
+    "GameWeb/scripts/test-overlay-native-contract.js",
+    "GameWeb/scripts/test-overlay-recovery.js",
+    "GameWeb/scripts/test-overlay-tools-ui.js",
+    "GameWeb/scripts/test-overlay-transport.js",
+    "GameWeb/scripts/test-web-session-hardening.js",
+    "GameWeb/services/desktopOverlay.js",
+    "GameWeb/storage/legacyArchive.js",
+    "GameWeb/storage/licenseArchive.js",
+    "GameWeb/web/requestBody.js",
+    "README_KO.md"
   ],
-  "existingFilesDeleted": [],
-  "unchangedExistingFiles": 315,
-  "uiRevision": "game-console-92 (unchanged)",
-  "overlayImplemented": false,
-  "verifiedWindowsDeletion": false,
+  "existingFilesDeleted": [
+    "GameWeb/admin/adminHandler.js",
+    "GameWeb/license/licenseManager.js",
+    "GameWeb/public/admin-actions-traffic.js",
+    "GameWeb/public/admin-pages-traffic.js",
+    "GameWeb/relay/ackManager.js",
+    "GameWeb/relay/clientConnectPacket.js",
+    "GameWeb/relay/heartbeat.js",
+    "GameWeb/relay/serverHandler.js",
+    "GameWeb/services/accessType.js",
+    "GameWeb/services/buildGate.js",
+    "GameWeb/services/clientAuthRecovery.js",
+    "GameWeb/services/clientBiometric.js",
+    "GameWeb/services/clientInstallation.js",
+    "GameWeb/services/clientPermissions.js",
+    "GameWeb/services/emergencyFailover.js",
+    "GameWeb/services/loadSimulator.js",
+    "GameWeb/services/member/activity-settings.js",
+    "GameWeb/services/member/commentThreads.js",
+    "GameWeb/services/member/commerce.js",
+    "GameWeb/services/member/currency-coins.js",
+    "GameWeb/services/member/currency-reference.json",
+    "GameWeb/services/member/currency.js",
+    "GameWeb/services/member/customization.js",
+    "GameWeb/services/member/direct-messages.js",
+    "GameWeb/services/member/entryPass.js",
+    "GameWeb/services/member/follows.js",
+    "GameWeb/services/member/game-downloads.js",
+    "GameWeb/services/member/gamePlans.js",
+    "GameWeb/services/member/gif-pack.json",
+    "GameWeb/services/member/gifMedia.js",
+    "GameWeb/services/member/gifs.js",
+    "GameWeb/services/member/history.js",
+    "GameWeb/services/member/identity.js",
+    "GameWeb/services/member/media.js",
+    "GameWeb/services/member/mentions.js",
+    "GameWeb/services/member/oauthCredentials.js",
+    "GameWeb/services/member/oauthIdentity.js",
+    "GameWeb/services/member/oauthLifecycle.js",
+    "GameWeb/services/member/people.js",
+    "GameWeb/services/member/points.js",
+    "GameWeb/services/member/pollText.js",
+    "GameWeb/services/member/post-controls.js",
+    "GameWeb/services/member/preferences.js",
+    "GameWeb/services/member/profile-activity.js",
+    "GameWeb/services/member/profile-details.js",
+    "GameWeb/services/member/profiles.js",
+    "GameWeb/services/member/protocol.js",
+    "GameWeb/services/member/readScope.js",
+    "GameWeb/services/member/reposts.js",
+    "GameWeb/services/member/rewards.js",
+    "GameWeb/services/member/social-entitlements.js",
+    "GameWeb/services/member/social.js",
+    "GameWeb/services/member/socialActions.js",
+    "GameWeb/services/member/store.js",
+    "GameWeb/services/member/testAccess.js",
+    "GameWeb/services/member/views.js",
+    "GameWeb/services/memberEntry.js",
+    "GameWeb/services/qrApproval.js",
+    "GameWeb/services/qrImageDecoder.js",
+    "GameWeb/services/qrToken.js",
+    "GameWeb/services/requestRecovery.js",
+    "GameWeb/services/supportCenter.js",
+    "GameWeb/services/userDashboard.js",
+    "GameWeb/tools/load-simulator.js"
+  ],
+  "unchangedExistingFiles": 176,
   "verification": {
-    "historyOutcomeServiceTests": 12,
-    "keyConsoleServiceAndSourceScenarios": 18,
-    "licenseSuccessSourceContracts": 11,
-    "javascriptSyntax": {
-      "checked": 232,
-      "failures": []
-    },
-    "commandCounts": {
-      "PASS": 33,
-      "BLOCKED_DEPENDENCY": 6,
-      "PASS_WITH_ENVIRONMENT_WARNINGS": 2,
-      "NOT_COMPLETED_TIMEOUT": 1,
-      "NOT_COMPLETED_RUNNER_TIMEOUT": 1
-    },
+    "runtime": "Node.js v24.19.0 on Linux",
+    "aggregate": "npm test",
+    "aggregateCommandCount": 53,
+    "aggregateStatus": "PASS",
     "commands": [
       {
+        "command": "node scripts/test-web-session-hardening.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-overlay-deployment.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-overlay-tools-ui.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-desktop-overlay.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-desktop-overlay.js --sqlite",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-overlay-recovery.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-overlay-native-contract.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-overlay-transport.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-overlay-transport.js --sqlite",
+        "status": "PASS"
+      },
+      {
         "command": "node scripts/test-key-console.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.873
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-history-outcomes.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.049
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-workspace.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.959
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-workspace-http.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 5.255
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-activation.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 1.299
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-operations.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.903
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-admin.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.049
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-evidence.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.034
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-native-contract.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.024
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-authority.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.635
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-tools.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.042
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-security-wire.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.485
+        "status": "PASS"
       },
       {
         "command": "node scripts/check-modules.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 5.152
+        "status": "PASS"
       },
       {
         "command": "node scripts/check-web-ui.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.039
+        "status": "PASS"
       },
       {
         "command": "node scripts/check-connect-project.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.031
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-extended-hashes.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.027
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-extended-integrity.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 6.076
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-extended-integrity.js --sqlite",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 6.299
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-sqlite-driver.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.068
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-connect-tls.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.044
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-pe-exports.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.039
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-native-report-budget.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.022
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-integrity-policy.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 4.234
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-integrity-policy.js --sqlite",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 4.302
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-machine-policy.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.12
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-machine-policy.js --sqlite",
-        "status": "PASS_WITH_ENVIRONMENT_WARNINGS",
-        "exitCode": 0,
-        "seconds": 2.245
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-licenses.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 1.685
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-licenses.js --sqlite",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 1.408
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-license-migration.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.007
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-license-migration.js --sqlite",
-        "status": "PASS_WITH_ENVIRONMENT_WARNINGS",
-        "exitCode": 0,
-        "seconds": 1.719
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-bootstrap.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 2.443
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-bootstrap.js --sqlite",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.75
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-code-integrity.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.032
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-native-code-contract.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.04
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-integrity-reports.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 1.774
-      },
-      {
-        "command": "node scripts/test-desktop-admin-ui.js",
-        "status": "BLOCKED_DEPENDENCY",
-        "exitCode": 1,
-        "seconds": 0.024
-      },
-      {
-        "command": "node scripts/test-web-ui-cache.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "seconds": 0.078
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-integrity-reports.js --sqlite",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-retirement.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-desktop-retirement.js --sqlite",
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-http.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-connect-deployment.js",
-        "status": "PASS",
-        "exitCode": 0,
-        "note": "Observed runner result; see returned command output."
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-connect.js",
-        "status": "NOT_COMPLETED_TIMEOUT",
-        "note": "Exceeded the local 20-second test budget after several successful scenarios. Not a proven product regression."
+        "status": "PASS"
       },
       {
         "command": "node scripts/test-desktop-connect.js --sqlite",
-        "status": "NOT_COMPLETED_RUNNER_TIMEOUT",
-        "note": "Batch execution was interrupted by container timeout. No completion result recorded."
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-desktop-admin-ui.js",
+        "status": "PASS"
+      },
+      {
+        "command": "node scripts/test-web-ui-cache.js",
+        "status": "PASS"
       }
     ],
-    "windowsCompile": "NOT_RUN",
-    "windowsExecution": "NOT_RUN",
-    "browserTest": "NOT_RUN",
-    "preservation": "Existing API wrappers/bindings, deletion primitive, Game.Api.pas are unchanged.",
-    "sourceManifestVerifier": "PASS",
-    "sourceVerifierRegressionTests": 7
+    "nativeSourceOwnershipSequence": "PASS (11 Python source contracts plus JS project/security/Overlay contracts)",
+    "windowsNativeCompile": "NOT_RUN: Delphi/RAD Studio compiler unavailable",
+    "windowsOverlayRendering": "NOT_RUN: no Windows desktop runtime",
+    "nativeProbeExecution": "NOT_RUN: Windows build scripts and source provided",
+    "sourceManifest": "PASS",
+    "sourceVerifierCorruptionTests": {
+      "status": "PASS",
+      "checks": 7
+    },
+    "finalNativeStaticRerun": "PASS: A/B/O project references/resources, 11 ownership contracts, Overlay contracts, 8 security contracts; not Windows execution"
   },
-  "knownLimits": [
-    "OS refusal to delete an active image is nonfatal and leaves B on disk.",
-    "Direct screen rendering was not added because the no-Win32-window constraint needs a rendering choice.",
-    "No whole-regression success is claimed; dependency and timeout results remain incomplete."
-  ]
+  "limits": [
+    "GameOverlay is a source implementation, not a tested compiled Windows binary.",
+    "Normal CreateProcess requires an executable file; O is not fileless and may remain on disk.",
+    "Client measurements are observations, not proof against a hostile administrator controlling the machine.",
+    "O requires approved active deployment; absence/mismatch fails closed.",
+    "Historical Android database values remain opaque archived data; removed workflows are not loaded.",
+    "No production service was deployed and no external operating data was modified."
+  ],
+  "handoff": {
+    "initialLifetimeMs": 120000,
+    "oLeaseMs": 120000,
+    "claimResponseRecoveryMs": 30000,
+    "claimResponseRecoveryEndsOnFirstVerify": true,
+    "abRetiredAtomically": true
+  },
+  "androidDependenciesRemoved": [
+    "qrcode",
+    "jsqr",
+    "jpeg-js",
+    "pngjs"
+  ],
+  "nativeModuleReview": "GameWeb/maintenance/module-review.md"
 }

@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'game-console-92';
+const WEB_UI_REVISION = 'game-overlay-93';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -62,9 +62,6 @@ let consoleHistoryLoaded = false;
 let consolePaused = false;
 let traceQuery = '';
 let traceRows = new Map();
-let failoverRows = new Map();
-let failoverServers = [];
-let recoveryQuery = '';
 let statsRange = '1H';
 let paletteTimer = null;
 let terminalLines = [];
@@ -78,7 +75,6 @@ const titles = {
   trace: ['요청 추적', "요청 식별자 기준으로 전달/다시 시도/처리 응답 처리 과정을 추적합니다."],
   monitor: ['연결 상태', "서버 왕복 지연과 연결 상태를 실시간으로 감시합니다."],
   terminal: ['관리 명령', "허용된 중계 서버 관리 명령만 실행합니다. OS Shell은 연결되지 않습니다."],
-  recovery: ['요청 복구', "오프라인 대기열, 요청 재전송, 전송 실패 보관함를 관리합니다."],
   notifications: ['알림', '중요 운영 경고와 시스템 이벤트를 확인합니다.'],
   processors: ['처리 정책', "숫자 허용 범위·차단값 정책과 처리기 처리 통계를 관리합니다."],
   reports: ['푸시 · 보고서', "웹 앱 푸시 알림 구독과 날짜별 중계 서버 상태 리포트를 관리합니다."],
@@ -269,8 +265,11 @@ function startEvents() {
   if (eventSource) eventSource.close();
   if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
   const poll = () => {
-    if (!session || document.hidden || rendering) return;
-    if (currentView === 'desktop-licenses') renderCurrent(true);
+    if (!session || document.hidden) return;
+    if (currentView === 'desktop-licenses') {
+      if(typeof desktopInvalidatePanels==='function')desktopInvalidatePanels();
+      renderCurrent(true);
+    }
   };
   const disconnected = () => {
     liveState.textContent = '재연결 중 · 15초마다 갱신';
@@ -306,7 +305,7 @@ function startEvents() {
   });
   eventSource.addEventListener('tick', () => {
     if (document.hidden || rendering) return;
-    const liveViews = ['desktop-licenses', 'dashboard', 'monitor', 'recovery', 'servers', 'notifications', 'processors', 'reports', 'sessions', 'health', 'system', 'features', 'confighistory', 'enrollment', 'releases', 'security', 'protocol', 'storage', 'danger'];
+    const liveViews = ['desktop-licenses', 'dashboard', 'monitor', 'servers', 'notifications', 'processors', 'reports', 'sessions', 'health', 'system', 'features', 'confighistory', 'enrollment', 'releases', 'security', 'protocol', 'storage', 'danger'];
     if (liveViews.includes(currentView)) renderCurrent(true);
     updateNotificationBadge();
   
@@ -473,7 +472,6 @@ async function renderCurrent(silent = false) {
     else if (currentView === 'trace') await renderTrace();
     else if (currentView === 'monitor') await renderMonitor();
     else if (currentView === 'terminal') await renderTerminal();
-    else if (currentView === 'recovery') await renderRecovery();
     else if (currentView === 'notifications') await renderNotifications();
     else if (currentView === 'processors') await renderProcessors();
     else if (currentView === 'reports') await renderReports();
