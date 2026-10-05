@@ -9,7 +9,7 @@ const config = require('../config/config');
 const { HealthSnapshot } = require('../services/dashboard');
 const { LogEvent } = require('../storage/audit');
 const {
-    SessionCookie, SESSION_MS, Login, Authenticate, Logout, ValidateCsrf, IsHttps, AllowLoginAttempt
+    SessionCookie, SESSION_MS, Login, Authenticate, Logout, ValidateCsrf
 } = require('./webAuth');
 const { Json, ApiError, ReadJsonBody, HandleApiRequest } = require('./webApi');
 const { OpenEventStream } = require('./webEvents');
@@ -31,7 +31,6 @@ const MIME = {
 
 function SecurityHeaders(req, res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    if (IsHttps(req)) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
@@ -39,28 +38,43 @@ function SecurityHeaders(req, res) {
 }
 
 
-async function ReadReleaseUpload(req, meta) {
-    releaseManager.SigningSecret();
-    const { pipeline } = require('node:stream/promises');
-    const { Transform } = require('node:stream');
-    const tmpDir = path.join(config.DATA_DIR, 'releases', '.tmp');
-    fs.mkdirSync(tmpDir, { recursive: true });
-    const tmp = path.join(tmpDir, `upload-${crypto.randomBytes(16).toString('hex')}.tmp`);
-    const hash = crypto.createHash('sha256');
-    let size = 0;
-    const limit = new Transform({ transform(chunk, encoding, callback) {
-        size += chunk.length;
-        if (size > releaseManager.MAX_RELEASE_BYTES) { callback(new Error('RELEASE_TOO_LARGE')); return; }
-        hash.update(chunk); callback(null, chunk);
-    }});
-    try {
-        await pipeline(req, limit, fs.createWriteStream(tmp, { flags: 'wx', mode: 0o600 }));
-        return { tmp, size, sha256: hash.digest('hex'), meta };
-    } catch (error) {
-        // pipeline settles after stream destruction, so unlink cannot race open.
-        try { fs.unlinkSync(tmp); } catch (_) {}
-        throw error;
-    }
+function ReadReleaseUpload(req, meta) {
+    return new Promise((resolve, reject) => {
+        releaseManager.SigningSecret();
+        const crypto = require('crypto');
+        const os = require('os');
+        const tmpDir = require('path').join(config.DATA_DIR, 'releases', '.tmp');
+        fs.mkdirSync(tmpDir, { recursive: true });
+        const tmp = require('path').join(tmpDir, `upload-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.tmp`);
+        const out = fs.createWriteStream(tmp, { flags: 'wx', mode: 0o600 });
+        const hash = crypto.createHash('sha256');
+        let size = 0;
+        let failed = false;
+        const fail = error => {
+            if (failed) return;
+            failed = true;
+            try { out.destroy(); } catch (_) {}
+            try { fs.unlinkSync(tmp); } catch (_) {}
+            reject(error);
+        };
+        req.on('data', chunk => {
+            if (failed) return;
+            size += chunk.length;
+            if (size > releaseManager.MAX_RELEASE_BYTES) {
+                fail(new Error('RELEASE_TOO_LARGE'));
+                try { req.destroy(); } catch (_) {}
+                return;
+            }
+            hash.update(chunk);
+            if (!out.write(chunk)) req.pause(), out.once('drain', () => req.resume());
+        });
+        req.on('end', () => {
+            if (failed) return;
+            out.end(() => resolve({ tmp, size, sha256: hash.digest('hex'), meta }));
+        });
+        req.on('error', fail);
+        out.on('error', fail);
+    });
 }
 
 function ServeUpdateArtifact(req, res, pathname, url) {
@@ -82,7 +96,7 @@ function ServeUpdateArtifact(req, res, pathname, url) {
     }
     const stat = fs.statSync(file);
     res.writeHead(200, {
-        'Content-Type': 'application/octet-stream',
+        'Content-Type': release.type === 'CLIENT' && file.toLowerCase().endsWith('.apk') ? 'application/vnd.android.package-archive' : 'application/octet-stream',
         'Content-Length': stat.size,
         'Content-Disposition': `attachment; filename="${release.originalName || release.fileName}"`,
         'Cache-Control': 'private, no-store',
@@ -158,17 +172,12 @@ async function RequestHandler(req, res) {
         if (ServeUpdateArtifact(req, res, pathname, url)) return;
     }
 
-    if (['/api/login', '/api/passkey/login/begin', '/api/passkey/login/finish'].includes(pathname) && method === 'POST' && String(req.headers['sec-fetch-site'] || '') === 'cross-site') {
-        ApiError(res, 403, 'CROSS_SITE_LOGIN'); return;
-    }
-
     if (pathname === '/api/login' && method === 'POST') {
         let body;
-        try { body = await ReadJsonBody(req, 16 * 1024); }
+        try { body = await ReadJsonBody(req); }
         catch (error) { ApiError(res, 400, error.message); return; }
         const result = Login(req, body.role, body.password);
         if (!result.ok) {
-            if (result.status === 429) res.setHeader('Retry-After', '60');
             RecordAdminActivity(String(body.role || '').toLowerCase(), require('./webAuth').ClientIP(req), 'POST', '/api/login', result.status || 401, 'LOGIN_FAILED');
             ApiError(res, result.status || 401, result.code);
             return;
@@ -185,16 +194,14 @@ async function RequestHandler(req, res) {
     }
 
     if (pathname === '/api/passkey/login/begin' && method === 'POST') {
-        if (!AllowLoginAttempt(req)) { ApiError(res, 429, 'AUTH_RATE_LIMIT'); return; }
-        let body; try { body = await ReadJsonBody(req, 16 * 1024); } catch (error) { ApiError(res, 400, error.message); return; }
+        let body; try { body = await ReadJsonBody(req); } catch (error) { ApiError(res, 400, error.message); return; }
         const result = require('../services/passkeyAuth').LoginBegin(body.role, req);
         if (!result.ok) ApiError(res, 400, result.reason); else Json(res, 200, result);
         return;
     }
 
     if (pathname === '/api/passkey/login/finish' && method === 'POST') {
-        if (!AllowLoginAttempt(req)) { ApiError(res, 429, 'AUTH_RATE_LIMIT'); return; }
-        let body; try { body = await ReadJsonBody(req, 16 * 1024); } catch (error) { ApiError(res, 400, error.message); return; }
+        let body; try { body = await ReadJsonBody(req); } catch (error) { ApiError(res, 400, error.message); return; }
         const result = require('../services/passkeyAuth').LoginFinish(req, body);
         if (!result.ok) { ApiError(res, 401, result.reason); return; }
         const session = require('./webAuth').CreateSession(req, result.role);
@@ -238,10 +245,6 @@ async function RequestHandler(req, res) {
             };
             try {
                 const upload = await ReadReleaseUpload(req, meta);
-                if (!require('./webAuth').IsSessionActive(session)) {
-                    try { fs.unlinkSync(upload.tmp); } catch (_) {}
-                    ApiError(res, 401, 'NOT_AUTHORIZED'); return;
-                }
                 const release = releaseManager.PublishFromTemp(meta, upload.tmp, upload.sha256, upload.size);
                 require('../storage/database').SaveDatabase();
                 LogEvent('RELEASE_PUBLISHED', `${release.type}/${release.channel} ${release.version} ${release.sha256}`);
@@ -323,10 +326,6 @@ function StartWebAdmin() {
         });
     });
 
-    server.headersTimeout = 15000;
-    server.requestTimeout = 120000;
-    server.keepAliveTimeout = 5000;
-    server.maxRequestsPerSocket = 1000;
     server.on('error', error => console.error('WEB ADMIN SERVER ERROR:', error.message));
     server.listen(port, config.HOST, () => {
         console.log('Web Admin HTTP Port:', port);
