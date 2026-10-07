@@ -1,0 +1,5 @@
+Upstream: https://github.com/paulmillr/noble-hashes/tree/1.8.0
+Package: @noble/hashes 1.8.0
+Unmodified CommonJS BLAKE3 dependency closure from the installed pinned upstream package.
+The included package.json preserves upstream self-reference resolution for @noble/hashes/crypto.
+License: MIT (see LICENSE). Used for standard keyed/derive/XOF/incremental/tree BLAKE3 modes.

@@ -23,9 +23,9 @@ function Query(query={}){
  if(!Number.isSafeInteger(page)||page<0||page>100000||!Number.isSafeInteger(pageSize)||pageSize<1||pageSize>100||q.length>120)Fail('INPUT_INVALID');
  const result=licenses.List({status:query.status||''}),metadata=db.Load().metadata;
  const linked=new Set(),match=values=>values.some(x=>String(x||'').toLowerCase().includes(q));
- if(q){const b=bootStore.Load();for(const a of Object.values(b.launchers))if(a.assignedLicenseId&&match([a.id,a.label,b.artifacts[a.artifactId]?.version,b.artifacts[a.artifactId]?.sha256]))linked.add(a.assignedLicenseId);
-  for(const f of Object.values(b.flows)){const a=b.launchers[f.launcherId];if(match([f.id,f.sessionId,f.launcherId,b.artifacts[f.releaseId]?.version,b.artifacts[f.releaseId]?.sha256,a?.label,b.artifacts[a?.artifactId]?.version,b.artifacts[a?.artifactId]?.sha256])){const id=f.licenseId||a?.assignedLicenseId;if(id)linked.add(id);}}}
- const all=result.items.filter(r=>!q||linked.has(r.id)||match([r.id,r.label,r.deviceId,r.deviceName,r.machineId,r.binarySha256,r.bootstrapSessionId,r.appVersion,metadata[r.id]?.note,...(metadata[r.id]?.tags||[])]));
+ if(q){const b=bootStore.Load();for(const a of Object.values(b.launchers))if(a.assignedLicenseId&&match([a.id,a.label,b.artifacts[a.artifactId]?.version,b.artifacts[a.artifactId]?.sha512]))linked.add(a.assignedLicenseId);
+  for(const f of Object.values(b.flows)){const a=b.launchers[f.launcherId];if(match([f.id,f.sessionId,f.launcherId,b.artifacts[f.releaseId]?.version,b.artifacts[f.releaseId]?.sha512,a?.label,b.artifacts[a?.artifactId]?.version,b.artifacts[a?.artifactId]?.sha512])){const id=f.licenseId||a?.assignedLicenseId;if(id)linked.add(id);}}}
+ const all=result.items.filter(r=>!q||linked.has(r.id)||match([r.id,r.label,r.deviceId,r.deviceName,r.machineId,r.binarySha512,r.bootstrapSessionId,r.appVersion,metadata[r.id]?.note,...(metadata[r.id]?.tags||[])]));
  const actual=Math.min(page,Math.max(0,Math.ceil(all.length/pageSize)-1));
  return{...result,items:all.slice(actual*pageSize,(actual+1)*pageSize).map(r=>({...r,metadata:Meta(r.id)})),filteredCount:all.length,page:actual,pageSize,pages:Math.max(1,Math.ceil(all.length/pageSize))};
 }
@@ -49,7 +49,7 @@ function Detail(id){
   const baselineMatched=e.type==='DESKTOP_SECURITY_AUTHORITY'&&d.kind==='OBSERVATION'&&d.reason==='BASELINE_MATCH'&&(!Object.hasOwn(d,'status')||d.status==='PASS');
   timeline.push({at:e.time||e.at||0,type:String(e.type).slice(0,80),label:baselineMatched?'서버 보안 검사 정상':e.type==='DESKTOP_RUNTIME_REQUEST_FAILED'?'서버에서 요청 거절':String(e.type).slice(0,80),reason:typeof d.reason==='string'?d.reason.slice(0,80):'',problem:!baselineMatched&&typeof d.reason==='string'?require('./desktopOperationsErrors').Explain(d.reason):null});
  }
- const histories=flows.map(f=>({flowId:f.id,sessionId:f.sessionId,launcherId:f.launcherId,status:bootstrap.SessionView(f).status,createdAt:f.createdAt,version:boot.artifacts[f.releaseId]?.version||'',binarySha256:boot.artifacts[f.releaseId]?.sha256||'',machineId:f.machineId||'',lastVerifiedAt:f.lastVerifiedAt||0}));
+ const histories=flows.map(f=>({flowId:f.id,sessionId:f.sessionId,launcherId:f.launcherId,status:bootstrap.SessionView(f).status,createdAt:f.createdAt,version:boot.artifacts[f.releaseId]?.version||'',binarySha512:boot.artifacts[f.releaseId]?.sha512||'',machineId:f.machineId||'',lastVerifiedAt:f.lastVerifiedAt||0}));
  return{license,metadata:Meta(id),timeline:timeline.sort((a,b)=>b.at-a.at).slice(0,150),flows:histories,timelineScope:'PERSISTED_FLOW_TIMES_AND_LAST_1000_SERVER_EVENTS',support:'APK_SUPPORT_RETIRED_NO_NEW_COLLECTION'};
 }
 function SaveMetadata(id,body,actor){
@@ -89,7 +89,7 @@ async function Preview(body,session){
  }else if(body.kind==='EXPORT')items=Ids(body.ids).map(id=>({id}));
  else if(body.kind==='CLEANUP'){
   if(!Array.isArray(body.ids)||!body.ids.length||body.ids.length>100||new Set(body.ids).size!==body.ids.length)Fail('INPUT_INVALID');
-  await space.Scan();items=body.ids.map(id=>{const a=bootStore.Load().artifacts[id];if(!a)Fail('WORKSPACE_CONFLICT',409);space.Check(id,a.sha256);return{id,sha256:a.sha256};});
+  await space.Scan();items=body.ids.map(id=>{const a=bootStore.Load().artifacts[id];if(!a)Fail('WORKSPACE_CONFLICT',409);space.Check(id,a.sha512);return{id,sha512:a.sha512};});
  }else Fail('INPUT_INVALID');
  for(const [key,p] of plans)if(p.expiresAt<=Date.now())plans.delete(key);if(plans.size>=256)Fail('WORKSPACE_JOB_CAPACITY',429);
  const planId=crypto.randomBytes(24).toString('hex'),expiresAt=Date.now()+300000;
@@ -102,7 +102,7 @@ function Submit(body,session){
  if(prior){if(prior.planId!==body.planId)Fail('WORKSPACE_CONFLICT',409);return ProjectJob(stateNow.jobs[prior.jobId]);}
  const plan=plans.get(body.planId);if(!plan||plan.owner!==session.id||plan.expiresAt<=Date.now())Fail('WORKSPACE_PLAN_EXPIRED',409);
  if(Object.keys(stateNow.jobs).length>=1000||Object.values(stateNow.jobs).filter(j=>['QUEUED','RUNNING'].includes(j.status)).length>=100)Fail('WORKSPACE_JOB_CAPACITY',429);
- if(plan.kind==='CLEANUP')for(const i of plan.items)space.Check(i.id,i.sha256);
+ if(plan.kind==='CLEANUP')for(const i of plan.items)space.Check(i.id,i.sha512);
  if(plan.kind==='METADATA')for(const i of plan.items)if(Meta(i.id).revision!==i.expectedRevision)Fail('WORKSPACE_CONFLICT',409);
  const actor=Actor(session);Audit(plan.kind,actor);const id=crypto.randomBytes(16).toString('hex');
  const job={id,kind:plan.kind,status:'QUEUED',createdAt:Date.now(),createdBy:actor,items:plan.items.map(input=>({status:'PENDING',input}))};
@@ -117,7 +117,7 @@ function DoItem(job,index){
   db.Atomic(next=>{next.metadata[input.id]={note:input.note,tags:input.tags,revision:previous.revision+1,updatedAt:Date.now(),updatedBy:job.createdBy,lastJob:job.id+':'+index};});return{id:input.id,metadata:Meta(input.id)};
  }
  if(job.kind==='EXPORT'){const l=licenses.Detail(input.id).license;return{id:l.id,label:l.label,status:l.status,issuedAt:l.issuedAt,lastVerifiedAt:l.lastVerifiedAt||0,appVersion:l.appVersion||'',metadata:Meta(l.id)};}
- if(job.kind==='CLEANUP')return space.DeleteCandidate(input.id,input.sha256);
+ if(job.kind==='CLEANUP')return space.DeleteCandidate(input.id,input.sha512);
  Fail('INPUT_INVALID');
 }
 function Pump(){

@@ -1,47 +1,37 @@
 Vendored hashing binaries: hash-wasm 4.12.0
 
-Official maintainer repository: https://github.com/Daninet/hash-wasm
+Official repository: https://github.com/Daninet/hash-wasm
 Exact package: https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz
-Package SHA-512 integrity:
+Package integrity:
 sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==
 
-The .wasm files are the unchanged base64-decoded data fields of the respective
-name:"xxhash64" and name:"blake3" objects in this exact package's
-dist/xxhash64.umd.min.js and dist/blake3.umd.min.js. No crypto primitive was
-rewritten or compiled locally. manifest.json pins byte counts and SHA-256:
+The files are the unchanged base64-decoded data fields in the exact package's
+dist/xxhash128.umd.min.js and dist/blake3.umd.min.js. No primitive was rewritten.
+xxhash128 is upstream XXH3-128, with a zero 64-bit seed and canonical big-endian
+128-bit output. BLAKE3 uses standard unkeyed tree hashing and 32-byte output.
 
-xxhash64.wasm 2386 bytes
-de1f937a9c1d82dc347dd6abb38833f73ef77bebe68495b2ca3c51b584df79be
-blake3.wasm 11891 bytes
-984b12e3b76a670fe58f43aa965658cdfefe0867f88c4935a292f68bdf3c55e1
+xxhash128.wasm: 10302 bytes
+blake3.wasm: 11891 bytes
+manifest.json pins byte counts, original SHA-256 provenance and SHA-512.
+The production adapter requires SHA-512 validation before instantiation.
+The obsolete XXH64 WASM asset is removed; no alias reports XXH64 as XXH3-128.
 
 Reproduce/verify after npm ci --ignore-scripts:
 node scripts/check-extended-hash-assets.js
 node scripts/check-extended-hash-assets.js --write
-The write option reproduces only the already-pinned bytes. An upstream version
-upgrade requires manual review of source, licenses, checksums and vectors.
+--write reproduces only the exact pinned bytes. An upstream upgrade requires
+review of source, licenses, checksums and vectors.
 
-Upstream C sources in the npm archive:
-src/xxhash64.c, src/blake3.c, src/hash-wasm.h.
-Upstream JavaScript API/wrapper sources:
-lib/xxhash64.ts, lib/blake3.ts, lib/WASMInterface.ts.
+Upstream sources: src/xxhash128.c, src/blake3.c, src/hash-wasm.h,
+lib/xxhash128.ts, lib/blake3.ts, lib/WASMInterface.ts.
+See LICENSE.txt, CC0-1.0.txt and UPSTREAM-LICENSES.txt.
 
-xxhash64.c is Stephan Brumme's XXHash64 implementation based on Yann Collet's
-algorithm description, modified for hash-wasm by Dani Biro. It is XXH64, not
-XXH3-64. blake3.c derives from the BLAKE3 team's reference C implementation
-(its embedded version string is 0.3.7), modified for hash-wasm by Dani Biro.
-See LICENSE.txt and UPSTREAM-LICENSES.txt. Both sources are in the pinned npm
-package; the JavaScript adapter is local project code, not upstream code.
+The local synchronous Node adapter resets each instance, consumes 16-KiB input
+chunks, copies out canonical output, then wipes its input/output buffer and
+exported hash state. WASM imports no host functions. Production needs no native
+addons, package installation, network or runtime code download for these hashes.
 
-The local adapter replaces only asynchronous WebAssembly compile/instantiate
-with synchronous Module/Instance construction. Each input is copied in at most
-16-KiB chunks, matching upstream MAIN_BUFFER_SIZE/MAX_HEAP. XXH64's eight seed
-bytes are reset to zero before Hash_Init. BLAKE3 Hash_Init(0) selects unkeyed
-mode and Hash_Final(32) selects its first 32 output bytes. No keys, contexts,
-host imports, native addons, network access or build scripts are involved.
-
-The npm package is a pinned development-only dependency for byte-for-byte
-asset verification and comparisons against its public async and streaming API.
-Production runs from these checked-in WASM files with Node >=22.14 only.
-Independent expected results and 64-MiB verification are described in
-scripts/fixtures/extended-hash-vectors.PROVENANCE.txt.
+Standard keyed, derive-key, XOF and incremental BLAKE3 use the pinned unmodified
+noble-hashes-1.8.0 dependency closure beside this directory. Its ordinary BLAKE3
+tree semantics are unchanged. Server derivation contexts are purpose-specific,
+and private material is not embedded in this source or in client executable code.

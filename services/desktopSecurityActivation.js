@@ -6,10 +6,10 @@ const crypto = require('node:crypto');
 const store = require('./desktopBootstrapStore');
 const PATH = '/api/desktop/bootstrap/security-operations/enable-all';
 const PROFILES = ['READY', 'SERVER', 'ALL'];
-const HASH = /^[a-f0-9]{64}$/;
+const HASH = /^[a-f0-9]{128}$/;
 const REQUEST_FIELDS = ['profile', 'expectedPolicyRevision', 'expectedOperationsRevision',
-  'expectedActivationRevision', 'aId', 'bId', 'aSha256', 'bSha256', 'targetHash'];
-const OVERLAY_REQUEST_FIELDS = [...REQUEST_FIELDS,'oId','oSha256'];
+  'expectedActivationRevision', 'aId', 'bId', 'aSha512', 'bSha512', 'targetHash'];
+const OVERLAY_REQUEST_FIELDS = [...REQUEST_FIELDS,'oId','oSha512'];
 function Fail(code, status = 409) {
   const e = Error(code); e.desktopError = true; e.status = status; throw e;
 }
@@ -26,14 +26,14 @@ function Exact(value, fields) {
     fields.every(k => Object.hasOwn(value, k));
 }
 function TargetHash(value) {
-  return crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  return crypto.createHash('sha512').update(JSON.stringify(value)).digest('hex');
 }
 function ValidateRecord(value) {
   // Preserve/validate old records as history without making them a new 2-person
   // requirement. Do not migrate or delete saved data merely by reading it.
   if (value?.version === 1) {
     const fields = ['version', 'revision', 'adminEnforced', 'profile', 'activatedAt',
-      'activatedBy', 'approvedBy', 'aSha256', 'bSha256'];
+      'activatedBy', 'approvedBy', 'aSha512', 'bSha512'];
     if (!Exact(value, fields) || value.adminEnforced !== true ||
         !['ALL','SERVER'].includes(value.profile) ||
         ['activatedBy','approvedBy'].some(k => typeof value[k] !== 'string' ||
@@ -41,16 +41,16 @@ function ValidateRecord(value) {
         value.activatedBy === value.approvedBy) Fail('SECURITY_ACTIVATION_STORAGE_INVALID', 503);
   } else if (value?.version === 2) {
     const fields = ['version', 'revision', 'adminMode', 'profile', 'activatedAt',
-      'activatedBy', 'aSha256', 'bSha256', 'targetHash'];
-    if (!(Exact(value, fields) || Exact(value,[...fields,'oSha256']) && typeof value.oSha256==='string' && HASH.test(value.oSha256)) || value.adminMode !== 'SINGLE_ADMIN' ||
+      'activatedBy', 'aSha512', 'bSha512', 'targetHash'];
+    if (!(Exact(value, fields) || Exact(value,[...fields,'oSha512']) && typeof value.oSha512==='string' && HASH.test(value.oSha512)) || value.adminMode !== 'SINGLE_ADMIN' ||
         !PROFILES.includes(value.profile) || typeof value.activatedBy!=='string' ||
         !/^admin-[a-f0-9]{24}$/.test(value.activatedBy) || typeof value.targetHash!=='string' ||
         !HASH.test(value.targetHash)) Fail('SECURITY_ACTIVATION_STORAGE_INVALID', 503);
   } else Fail('SECURITY_ACTIVATION_STORAGE_INVALID', 503);
   if (!Number.isSafeInteger(value.revision) || value.revision < 1 ||
       !Number.isSafeInteger(value.activatedAt) || value.activatedAt < 1 ||
-      typeof value.aSha256!=='string' || typeof value.bSha256!=='string' ||
-      !HASH.test(value.aSha256) || !HASH.test(value.bSha256)) Fail('SECURITY_ACTIVATION_STORAGE_INVALID', 503);
+      typeof value.aSha512!=='string' || typeof value.bSha512!=='string' ||
+      !HASH.test(value.aSha512) || !HASH.test(value.bSha512)) Fail('SECURITY_ACTIVATION_STORAGE_INVALID', 503);
   return value;
 }
 function Record() {
@@ -149,7 +149,7 @@ function Preview(profile, session) {
   const targetView={policy:target,controls,admin:{mode:'SINGLE_ADMIN',stepUpRequired:false,dualApprovalRequired:false},rollout:'DISABLED'};
   const plan={profile,expectedPolicyRevision:p.revision,expectedOperationsRevision:s.revision,
     expectedActivationRevision:record?.revision||0,aId:a?.id||'',bId:b?.id||'',
-    aSha256:a?.sha256||'',bSha256:b?.sha256||'',oId:o?.id||'',oSha256:o?.sha256||'',targetHash:TargetHash(targetView)};
+    aSha512:a?.sha512||'',bSha512:b?.sha512||'',oId:o?.id||'',oSha512:o?.sha512||'',targetHash:TargetHash(targetView)};
   const unique=[...new Map(issues.map(x=>[x.code+':'+x.component,x])).values()];
   return {profile,ready:unique.length===0,issues:unique,pending,plan,target:targetView,
     current:Status(),recentObservations:samples,readOnly:true,observationsAreNotAttestation:true,
@@ -167,12 +167,12 @@ function CheckRequest(body,session) {
   if(body.expectedOperationsRevision!==ops.Revision())Fail('SECURITY_OPERATIONS_CONFLICT');
   if(body.expectedActivationRevision!==(Record()?.revision||0))Fail('SECURITY_ACTIVATION_CONFLICT');
   const db=store.Load();
-  if(['aId','bId','aSha256','bSha256'].some(k=>typeof body[k]!=='string')||
-    body.aId!==db.active.A||body.bId!==db.active.B||body.aSha256!==db.artifacts[body.aId]?.sha256||
-    body.bSha256!==db.artifacts[body.bId]?.sha256)Fail('SECURITY_ACTIVE_PAIR_CHANGED');
+  if(['aId','bId','aSha512','bSha512'].some(k=>typeof body[k]!=='string')||
+    body.aId!==db.active.A||body.bId!==db.active.B||body.aSha512!==db.artifacts[body.aId]?.sha512||
+    body.bSha512!==db.artifacts[body.bId]?.sha512)Fail('SECURITY_ACTIVE_PAIR_CHANGED');
   // Legacy A/B previews remain usable only when no O is selected. An omitted O
   // must never approve a newly activated overlay between preview and commit.
-  if (Object.hasOwn(body,'oId') ? typeof body.oId!=='string'||typeof body.oSha256!=='string'||body.oId!==(db.active.O||'')||body.oSha256!==(db.artifacts[db.active.O]?.sha256||'') : !!db.active.O) Fail('SECURITY_ACTIVE_PAIR_CHANGED');
+  if (Object.hasOwn(body,'oId') ? typeof body.oId!=='string'||typeof body.oSha512!=='string'||body.oId!==(db.active.O||'')||body.oSha512!==(db.artifacts[db.active.O]?.sha512||'') : !!db.active.O) Fail('SECURITY_ACTIVE_PAIR_CHANGED');
   const view=Preview(body.profile,session);
   if(!view.ready)Fail(view.issues[0].code);
   // New evidence can arrive without a policy revision. Never silently apply a
@@ -193,7 +193,7 @@ function Apply(body,session,ticket) {
   const actor='admin-'+crypto.createHash('sha256').update(session.id).digest('hex').slice(0,24);
   const activation=ValidateRecord({version:2,revision:body.expectedActivationRevision+1,
     adminMode:'SINGLE_ADMIN',profile:body.profile,activatedAt:Date.now(),activatedBy:actor,
-    aSha256:body.aSha256,bSha256:body.bSha256,...(body.oId?{oSha256:body.oSha256}:{}),targetHash:body.targetHash});
+    aSha512:body.aSha512,bSha512:body.bSha512,...(body.oId?{oSha512:body.oSha512}:{}),targetHash:body.targetHash});
   ops.AuditIntent('SINGLE_ADMIN_ENABLE_'+body.profile,actor);
   store.Atomic(db=>{
     if((db.securityAuthorityPolicy||auth.Defaults()).revision!==body.expectedPolicyRevision||
@@ -205,7 +205,7 @@ function Apply(body,session,ticket) {
   auth.InvalidateAll();
   require('../storage/audit').LogEvent('DESKTOP_SECURITY_ACTIVATED',JSON.stringify({
     profile:body.profile,revision:activation.revision,actor,adminMode:'SINGLE_ADMIN',
-    aSha256:body.aSha256,bSha256:body.bSha256,...(body.oId?{oSha256:body.oSha256}:{}),targetHash:body.targetHash}));
+    aSha512:body.aSha512,bSha512:body.bSha512,...(body.oId?{oSha512:body.oSha512}:{}),targetHash:body.targetHash}));
   const current=Status();
   if(!current.baselineEnabled||body.profile==='SERVER'&&!current.serverEnabled||body.profile==='ALL'&&!current.allEnabled)
     Fail('SECURITY_ACTIVATION_RECHECK_FAILED',503);

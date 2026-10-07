@@ -21,4 +21,12 @@ function GetExpirySummary() {
     return summary;
 }
 
-module.exports = { GetExpirySummary };
+function MatchesExpiryFilter(license, filter) {
+ const name=String(filter||'ALL').toUpperCase();
+ if(name==='ALL')return true;
+ const status=GetLicenseStatus(license);
+ if(name==='EXPIRED')return status==='EXPIRED';
+ const days={WITHIN_1D:1,WITHIN_3D:3,WITHIN_7D:7,WITHIN_30D:30,'1D':1,'3D':3,'7D':7,'30D':30}[name];
+ return !!days&&license.entryPass!==true&&status!=='EXPIRED'&&license.expiresAt>Now()&&license.expiresAt<=Now()+days*DAY;
+}
+module.exports = { GetExpirySummary, MatchesExpiryFilter };

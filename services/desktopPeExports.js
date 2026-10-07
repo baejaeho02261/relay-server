@@ -6,7 +6,7 @@ const {Digests}=require('./desktopIntegrity');
 const PREFIX=Buffer.from('GAME-EXPORT-V1\0','ascii');
 const MAX_SPAN=8*1024*1024,MAX_ENTRIES=131072,MAX_STRING=512;
 function ExportTable(bytes){
- const unsupported={status:'UNSUPPORTED_EXPORT_LAYOUT',sha256:'',crc64:''};
+ const unsupported={status:'UNSUPPORTED_EXPORT_LAYOUT',sha512:'',crc64:''};
  const bad=()=>{throw Error('EXPORT_LAYOUT');};
  try{
   if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>64*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
@@ -15,9 +15,9 @@ function ExportTable(bytes){
   if(count<1||count>96||optSize<112||table+count*40>bytes.length||bytes.readUInt16LE(opt)!==0x20b)bad();
   const imageSize=bytes.readUInt32LE(opt+56),headers=bytes.readUInt32LE(opt+60),dirs=bytes.readUInt32LE(opt+108);
   if(imageSize<4096||imageSize>128*1024*1024||headers<table+count*40||headers>bytes.length||dirs>16||112+dirs*8>optSize)bad();
-  if(!dirs)return {status:'NO_EXPORTS',sha256:'',crc64:''};
+  if(!dirs)return {status:'NO_EXPORTS',sha512:'',crc64:''};
   const directoryOffset=opt+112,rva=bytes.readUInt32LE(directoryOffset),span=bytes.readUInt32LE(directoryOffset+4);
-  if(!rva&&!span)return {status:'NO_EXPORTS',sha256:'',crc64:''};
+  if(!rva&&!span)return {status:'NO_EXPORTS',sha512:'',crc64:''};
   if(!rva||span<40||span>MAX_SPAN||rva+span>imageSize)bad();
   const sections=[];
   for(let i=0;i<count;i++){
@@ -55,7 +55,7 @@ function ExportTable(bytes){
    }
   }
   const offset=Buffer.alloc(4);offset.writeUInt32LE(directoryOffset);
-  return {status:'MEASURED',...Digests(Buffer.concat([PREFIX,offset,bytes.subarray(directoryOffset,directoryOffset+8),bytes.subarray(start,start+span)])),directoryOffset,rva,span,exportCount:exported,codeExportCount:code,forwardedExportCount:forwarded};
+  const normalized=Buffer.concat([PREFIX,offset,bytes.subarray(directoryOffset,directoryOffset+8),bytes.subarray(start,start+span)]),result={status:'MEASURED',...Digests(normalized),directoryOffset,rva,span,exportCount:exported,codeExportCount:code,forwardedExportCount:forwarded};Object.defineProperty(result,'normalized',{value:normalized});return result;
  }catch(_){return unsupported;}
 }
 module.exports={ExportTable,MAX_SPAN,MAX_ENTRIES,MAX_STRING};

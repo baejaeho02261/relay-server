@@ -35,6 +35,6 @@ function Load(){
 function Profile(){
  const {host,port,ready}=require('./connectEndpoint').Resolve();
  if(!ready)require('./desktopLicenses').Fail('CONNECT_PUBLIC_ENDPOINT_REQUIRED',503);
- const identity=Load();return {version:3,protocol:'GAME-CONNECT-3',host,port,serverKeyId:identity.keyId,serverPublicKey:identity.serverPublicKey,...require('./connectTls').Public()};
+ const identity=Load();return {version:4,protocol:'GAME-CONNECT-4',host,port,serverKeyId:identity.keyId,serverPublicKey:identity.serverPublicKey,...require('./connectTls').Public()};
 }
 module.exports={Load,Profile,PublicBlob,KEY_FILE,ID_FILE};

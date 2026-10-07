@@ -3,15 +3,17 @@
   "version": "4.12.0",
   "integrity": "sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==",
   "assets": {
-    "xxhash64": {
-      "file": "xxhash64.wasm",
-      "bytes": 2386,
-      "sha256": "de1f937a9c1d82dc347dd6abb38833f73ef77bebe68495b2ca3c51b584df79be"
-    },
     "blake3": {
       "file": "blake3.wasm",
       "bytes": 11891,
-      "sha256": "984b12e3b76a670fe58f43aa965658cdfefe0867f88c4935a292f68bdf3c55e1"
+      "sha256": "984b12e3b76a670fe58f43aa965658cdfefe0867f88c4935a292f68bdf3c55e1",
+      "sha512": "11a3cb4e5dd6fba4ccf44f4ece34452b28c43a4a682a044597cdb9e6a192fe7192fbdd24f3f799c0b0dd7d5c77eba7ee96f2fb31132a03433cd5d2b6575c6737"
+    },
+    "xxhash128": {
+      "file": "xxhash128.wasm",
+      "bytes": 10302,
+      "sha256": "a02165ba1a90d88728f125e1e58b8821f5e46d4a7602b66b4a0458dc250c5fd1",
+      "sha512": "8aa99a4798390b3daa767098c347efdb86d6a00540454d684be5752f4a2e46a3e13d248a4a4170e5857a9cfd3cd39e3196770b1faf45a0c6340d79c68b02a83d"
     }
   }
 }

@@ -4,43 +4,45 @@
 const crypto = require('node:crypto');
 const { performance } = require('node:perf_hooks');
 const store = require('./desktopBootstrapStore');
-const DOMAIN = 'GAME-AUTHORITY-V1';
-const RELEASE_DOMAIN = 'GAME-RELEASE-APPROVAL-V1';
+const DOMAIN = 'GAME-AUTHORITY-V2';
+const RELEASE_DOMAIN = 'GAME-RELEASE-APPROVAL-V2';
 const pending = new Map(), decisions = new Map(), rates = new Map(), events = [], observations = new Map();
 const epoch = crypto.randomBytes(24).toString('hex');
 let sequence = 0;
-const sha = value => crypto.createHash('sha256').update(value).digest('hex');
+const sha = value => crypto.createHash('sha512').update(value).digest('hex');
 const plain = value => !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype;
 function Fail(code, status = 403) { const error = Error(code); error.desktopError = true; error.status = status; throw error; }
 function Fields(value, allowed) { if (!plain(value) || Object.keys(value).some(key => !allowed.includes(key))) Fail('SECURITY_INPUT_INVALID', 400); }
 function Defaults() {
   return { version: 1, revision: 0, mode: 'enforce', enforceLegacy: false,
-    freshnessMs: 45000, challengeMs: 15000, requireReadonlyApi: true,
+    freshnessMs: 45000, challengeMs: 15000, requireReadonlyApi: true, requireCompleteCrcLayers:true,
     dynamicCode: 'observe', requireCfg: false, minVersionA: '0', minVersionB: '0', minVersionO: '0',
-    requireReleaseSignature: false, trustedReleaseKeys: [], revokedSha256: [] };
+    requireReleaseSignature: false, trustedReleaseKeys: [], revokedSha512: [], revokedLegacySha256: [] };
 }
 function ValidatePolicy(value) {
   // Version 1 stores predate O. Reading an old policy is a detached, lossless
   // projection; no policy write or revision increment occurs during migration.
+  if(plain(value)&&!Object.hasOwn(value,'requireCompleteCrcLayers'))value={...value,requireCompleteCrcLayers:true};
+  if(plain(value)&&!Object.hasOwn(value,'revokedLegacySha256'))value={...value,revokedLegacySha256:[]};
   if (plain(value) && !Object.hasOwn(value,'minVersionO')) value={...value,minVersionO:'0'};
   Fields(value, Object.keys(Defaults()));
   if (Object.keys(value).length !== Object.keys(Defaults()).length || value.version !== 1 ||
       !Number.isSafeInteger(value.revision) || value.revision < 0 || !['observe', 'enforce'].includes(value.mode) ||
       !['observe', 'prohibit'].includes(value.dynamicCode) ||
-      ['enforceLegacy', 'requireReadonlyApi', 'requireCfg', 'requireReleaseSignature'].some(k => typeof value[k] !== 'boolean') ||
+      ['enforceLegacy', 'requireReadonlyApi', 'requireCompleteCrcLayers', 'requireCfg', 'requireReleaseSignature'].some(k => typeof value[k] !== 'boolean') ||
       !Number.isInteger(value.freshnessMs) || value.freshnessMs < 5000 || value.freshnessMs > 120000 ||
       !Number.isInteger(value.challengeMs) || value.challengeMs < 5000 || value.challengeMs > 30000 ||
       ['minVersionA', 'minVersionB', 'minVersionO'].some(k => typeof value[k] !== 'string' || !/^\d{1,9}(?:\.\d{1,9}){0,3}$/.test(value[k])) ||
       !Array.isArray(value.trustedReleaseKeys) || value.trustedReleaseKeys.length > 8 ||
-      !Array.isArray(value.revokedSha256) || value.revokedSha256.length > 512 ||
-      value.revokedSha256.some(x => typeof x !== 'string' || !/^[a-f0-9]{64}$/.test(x)) ||
-      new Set(value.revokedSha256).size !== value.revokedSha256.length) Fail('SECURITY_POLICY_INVALID', 400);
+      !Array.isArray(value.revokedSha512) || value.revokedSha512.length > 512 ||
+      value.revokedSha512.some(x => typeof x !== 'string' || !/^[a-f0-9]{128}$/.test(x)) ||
+      new Set(value.revokedSha512).size !== value.revokedSha512.length || !Array.isArray(value.revokedLegacySha256)||value.revokedLegacySha256.length>512||value.revokedLegacySha256.some(x=>typeof x!=='string'||!/^[a-f0-9]{64}$/.test(x))) Fail('SECURITY_POLICY_INVALID', 400);
   const ids = new Set();
   for (const entry of value.trustedReleaseKeys) {
     Fields(entry, ['keyId', 'publicKey']);
     if (typeof entry.publicKey !== 'string' || entry.publicKey.length > 4096 || !/^-----BEGIN PUBLIC KEY-----\r?\n[A-Za-z0-9+/=\r\n]+\r?\n-----END PUBLIC KEY-----\r?\n?$/.test(entry.publicKey) || ids.has(entry.keyId)) Fail('SECURITY_POLICY_INVALID', 400);
     let key; try { key = crypto.createPublicKey(entry.publicKey); } catch (_) { Fail('SECURITY_POLICY_INVALID', 400); }
-    if (key.asymmetricKeyType !== 'ed25519' || entry.keyId !== sha(key.export({ type: 'spki', format: 'der' }))) Fail('SECURITY_POLICY_INVALID', 400);
+    if (key.asymmetricKeyType !== 'ed25519' || entry.keyId !== crypto.createHash('sha256').update(key.export({ type: 'spki', format: 'der' })).digest('hex')) Fail('SECURITY_POLICY_INVALID', 400);
     ids.add(entry.keyId);
   }
   if (value.requireReleaseSignature && !ids.size) Fail('SECURITY_SIGNER_REQUIRED', 409);
@@ -75,12 +77,12 @@ function VerifyApproval(artifact, policy) {
   if (!plain(approval) || typeof approval.keyId !== 'string' || typeof approval.signature !== 'string' || !/^[A-Za-z0-9+/]{86}==$/.test(approval.signature)) return false;
   const signer = policy.trustedReleaseKeys.find(x => x.keyId === approval.keyId);
   if (!signer || !require('./desktopSecurityOperations').SignerAllowed(approval.keyId) || Buffer.from(approval.signature, 'base64').toString('base64') !== approval.signature) return false;
-  try { return crypto.verify(null, Buffer.from(ReleaseCanonical(artifact.component, artifact.version, artifact.sha256)), signer.publicKey, Buffer.from(approval.signature, 'base64')); }
+  try { return crypto.verify(null, Buffer.from(ReleaseCanonical(artifact.component, artifact.version, artifact.sha512)), signer.publicKey, Buffer.from(approval.signature, 'base64')); }
   catch (_) { return false; }
 }
 function ArtifactReason(artifact, policy) {
   if (!artifact) return 'SECURITY_RELEASE_MISSING';
-  if (policy.revokedSha256.includes(artifact.sha256)) return 'SECURITY_RELEASE_REVOKED';
+  if (policy.revokedSha512.includes(artifact.sha512)||artifact.legacyRevocationSha256&&policy.revokedLegacySha256.includes(artifact.legacyRevocationSha256)) return 'SECURITY_RELEASE_REVOKED';
   if (!['A','B','O'].includes(artifact.component)) return 'SECURITY_RELEASE_COMPONENT';
   if (!VersionAtLeast(artifact.version, policy['minVersion'+artifact.component] || '0')) return 'SECURITY_RELEASE_VERSION';
   if (!VerifyApproval(artifact, policy)) return 'SECURITY_RELEASE_SIGNATURE';
@@ -109,11 +111,11 @@ function PeCapabilities(bytes) {
   return { authorityVersion, compiledCfg };
 }
 function PublishMetadata(component, version, bytes, approval) {
-  const row = { component, version, sha256: sha(bytes), ...PeCapabilities(bytes) };
+  const row = { component, version, hashVersion:3,sha512: sha(bytes), legacyRevocationSha256:crypto.createHash('sha256').update(bytes).digest('hex'), ...PeCapabilities(bytes) };
   if (approval !== undefined) { Fields(approval, ['keyId', 'signature']); row.releaseApproval = structuredClone(approval); }
   const reason = ArtifactReason(row, Policy()); if(reason) Fail(reason);
   if(approval && !require('./desktopSecurityOperations').SignerAllowed(approval.keyId,true)) Fail('SECURITY_SIGNER_NOT_ACTIVE',409);
-  return { authorityVersion: row.authorityVersion, compiledCfg: row.compiledCfg, ...(row.releaseApproval ? { releaseApproval: row.releaseApproval } : {}) };
+  return { authorityVersion: row.authorityVersion, compiledCfg: row.compiledCfg, legacyRevocationSha256:row.legacyRevocationSha256, ...(row.releaseApproval ? { releaseApproval: row.releaseApproval } : {}) };
 }
 function ProposedPolicy(body) {
   Fields(body, [...Object.keys(Defaults()).filter(k => !['version', 'revision'].includes(k)), 'expectedRevision', 'expectedOperationsRevision']);
@@ -125,7 +127,7 @@ function ProposedPolicy(body) {
 }
 function PreviewPolicy(body) {
   const next=ProposedPolicy(body),db=store.Load(),at=Date.now(),ops=require('./desktopSecurityOperations');
-  const releases=Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha256:a.sha256,active:db.active[a.component]===a.id,reason:ArtifactReason(a,next)||ops.ArtifactReason(a)}));
+  const releases=Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,active:db.active[a.component]===a.id,reason:ArtifactReason(a,next)||ops.ArtifactReason(a)}));
   const recent=[];
   for(const item of observations.values()) {
     if(at-item.at>600000) continue;
@@ -141,7 +143,7 @@ function PreviewPolicy(body) {
 function PreviewRollout(body) {
   const ops=require('./desktopSecurityOperations'),rollout=ops.ProposedRollout(body),policy=Policy(),db=store.Load(),at=Date.now();
   const effective=artifact=>rollout.enabled&&rollout.artifactKeys.includes(ops.BuildKey(artifact))?{...policy,...rollout.patch}:policy;
-  const releases=Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha256:a.sha256,selected:rollout.enabled&&rollout.artifactKeys.includes(ops.BuildKey(a)),reason:ArtifactReason(a,effective(a))||ops.ArtifactReason(a)}));
+  const releases=Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,selected:rollout.enabled&&rollout.artifactKeys.includes(ops.BuildKey(a)),reason:ArtifactReason(a,effective(a))||ops.ArtifactReason(a)}));
   const recent=[];
   for(const item of observations.values()) {
     if(at-item.at>600000)continue;
@@ -190,7 +192,7 @@ function Authenticate(body) {
   if (!['A', 'B', 'O'].includes(body.stage) || !['finish', 'redeem', 'verify', 'observe'].includes(body.intent) ||
       (body.stage === 'A' ? !['finish', 'observe'].includes(body.intent) : body.intent === 'finish') ||
       typeof body.machineId !== 'string' || !/^[A-F0-9]{64}$/.test(body.machineId) ||
-      typeof body.binding !== 'string' || !/^[a-f0-9]{64}$/.test(body.binding)) Fail('SECURITY_INPUT_INVALID', 400);
+      typeof body.binding !== 'string' || !/^[a-f0-9]{128}$/.test(body.binding)) Fail('SECURITY_INPUT_INVALID', 400);
   const row = require('./desktopBootstrap').AuthenticateIntegrityReport(body);
   RequireArtifact(RowArtifact(row, body.stage));
   return row;
@@ -215,24 +217,30 @@ function Canonical(body, challenge, payload) {
     String(challenge.expiresAt), sha(payload)].join('\n');
 }
 function Payload(text) {
-  if (typeof text !== 'string' || Buffer.byteLength(text) > 2048) Fail('SECURITY_INPUT_INVALID', 400);
+  if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail('SECURITY_INPUT_INVALID', 400);
   let value; try { value = JSON.parse(text); } catch (_) { Fail('SECURITY_INPUT_INVALID', 400); }
-  Fields(value, ['version', 'measurement', 'fileSha256', 'fileCrc64', 'codeSha256', 'codeCrc64', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg']);
-  if (Object.keys(value).length !== 10 || value.version !== 1 || !['MEASURED', 'READ_ERROR'].includes(value.measurement) ||
+  Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg']);
+  if (value.hashVersion !== 3 || value.version !== 1 || !['MEASURED', 'READ_ERROR'].includes(value.measurement) ||
       typeof value.apiSealed !== 'boolean' || !Number.isInteger(value.apiSlots) || value.apiSlots < 0 || value.apiSlots > 1024 ||
       !['UNAVAILABLE', 'ALLOWED', 'PROHIBITED'].includes(value.dynamicCode) || !['UNAVAILABLE', 'DISABLED', 'ENABLED'].includes(value.cfg)) Fail('SECURITY_INPUT_INVALID', 400);
-  for (const k of ['fileSha256', 'codeSha256']) if (typeof value[k] !== 'string' || !(value.measurement === 'READ_ERROR' && value[k] === '') && !/^[a-f0-9]{64}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
+  for (const k of ['fileSha512', 'codeSha512']) if (typeof value[k] !== 'string' || !(value.measurement === 'READ_ERROR' && value[k] === '') && !/^[a-f0-9]{128}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
   for (const k of ['fileCrc64', 'codeCrc64']) if (typeof value[k] !== 'string' || !(value.measurement === 'READ_ERROR' && value[k] === '') && !/^[A-F0-9]{16}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
+  if(value.measurement==='MEASURED'&&!require('./desktopCrcPolicy').Validate(value.crcLayers))Fail('SECURITY_INPUT_INVALID',400);
+  for(const [key,length] of [['codeXxh3_128',32],['codeBlake3',64]])if(typeof value[key]!=='string'||!(value.measurement==='READ_ERROR'&&value[key]==='')&&!new RegExp('^[a-f0-9]{'+length+'}$').test(value[key]))Fail('SECURITY_INPUT_INVALID',400);
   return value;
 }
 function Evaluate(value, baseline, policy, artifact) {
+  if(value.hashVersion!==3||baseline.hashVersion!==3)return {status:'INDETERMINATE',reason:'HASH_VERSION_MISMATCH'};
   if (value.measurement !== 'MEASURED') return { status: 'INDETERMINATE', reason: 'MEASUREMENT_UNAVAILABLE' };
-  if (value.fileSha256 !== baseline.sha256 || value.fileCrc64 !== baseline.crc64 || value.codeSha256 !== baseline.codeSha256 || value.codeCrc64 !== baseline.codeCrc64) return { status: 'MISMATCH', reason: 'IMAGE_DIGEST_MISMATCH' };
+  if (value.fileSha512 !== baseline.sha512 || value.fileCrc64 !== baseline.crc64 || value.codeSha512 !== baseline.codeSha512 || value.codeCrc64 !== baseline.codeCrc64 || value.codeXxh3_128!==baseline.codeXxh3_128 || value.codeBlake3!==baseline.codeBlake3) return { status: 'MISMATCH', reason: 'IMAGE_DIGEST_MISMATCH' };
+  const crcComparison=require('./desktopCrcPolicy').Compare(value.crcLayers,baseline.crcLayers);
+  if(!crcComparison.matched)return {status:'MISMATCH',reason:crcComparison.reason,crcComparison};
+  if(policy.requireCompleteCrcLayers&&!crcComparison.complete)return {status:'INDETERMINATE',reason:'CRC_COVERAGE_INCOMPLETE',crcComparison};
   if (policy.requireReadonlyApi && (!value.apiSealed || value.apiSlots < 1)) return { status: 'INDETERMINATE', reason: 'API_STORAGE_NOT_SEALED' };
   if(artifact) { const contractResult=require('./desktopSecurityOperations').EvaluateContract(value,artifact);if(contractResult) return contractResult; }
   if (policy.dynamicCode === 'prohibit' && value.dynamicCode !== 'PROHIBITED') return { status: 'INDETERMINATE', reason: 'DYNAMIC_CODE_POLICY_UNAVAILABLE' };
   if (policy.requireCfg && value.cfg !== 'ENABLED') return { status: 'INDETERMINATE', reason: 'CFG_UNAVAILABLE' };
-  return { status: 'PASS', reason: 'BASELINE_MATCH' };
+  return { status: 'PASS', reason: 'BASELINE_MATCH',crcComparison }; 
 }
 function Submit(body) {
   Fields(body, [...AUTH_FIELDS, 'challengeId', 'payload', 'signature']);
@@ -249,17 +257,17 @@ function Submit(body) {
   if (!old && decisions.size >= 4096) Fail('SECURITY_CAPACITY', 503);
   const result = Evaluate(value, row.integrityArtifact, policy, artifact);
   if(observations.size>=4096&&!observations.has(context)) observations.delete(observations.keys().next().value);
-  observations.set(context,{at:Date.now(),stage:body.stage,sessionId:body.sessionId,artifactId:artifact.id,value:{...value},baseline:Object.fromEntries(['sha256','crc64','codeSha256','codeCrc64'].map(k=>[k,row.integrityArtifact[k]]))});
+  observations.set(context,{at:Date.now(),stage:body.stage,sessionId:body.sessionId,artifactId:artifact.id,value:{...value},baseline:Object.fromEntries(['hashVersion','sha512','crc64','codeSha512','codeCrc64','codeXxh3_128','codeBlake3','crcLayers'].map(k=>[k,row.integrityArtifact[k]]))});
   const decision = { ...result, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), sequence: challenge.sequence,
     expiresAt: Date.now() + policy.freshnessMs, deadline: performance.now() + policy.freshnessMs };
   decisions.set(id, decision);
   Audit('OBSERVATION', result.reason, {...row,stage:body.stage}, { sequence: challenge.sequence, revision: policy.revision, intent: body.intent });
-  return { version: 1, accepted: true, ...result, proceed: result.status === 'PASS' || policy.mode === 'observe',
+  return { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: result.status === 'PASS' || policy.mode === 'observe',
     sequence: challenge.sequence, expiresAt: decision.expiresAt, attested: false };
 }
 function RequireFresh(row, stage, intent, binding) {
   const artifact = RowArtifact(row, stage), policy = require('./desktopSecurityOperations').EffectivePolicy(Policy(),artifact); RequireArtifact(artifact);
-  if (policy.mode !== 'enforce' || !policy.enforceLegacy && artifact.authorityVersion !== 1) return;
+  if (policy.mode !== 'enforce') return;
   Prune(); const item = decisions.get(Context(row, stage) + ':' + intent + ':' + binding);
   let code = '';
   if (!item || item.revision !== policy.revision || item.operationsRevision!==require('./desktopSecurityOperations').Revision()) code = 'SECURITY_FRESH_OBSERVATION_REQUIRED';
@@ -268,7 +276,7 @@ function RequireFresh(row, stage, intent, binding) {
   if (code) { Audit('HOLD', code, { ...row, stage }, { revision: policy.revision, intent }); Fail(code); }
 }
 function UsesAuthority(row, stage) {
-  return Policy().enforceLegacy || RowArtifact(row, stage)?.authorityVersion === 1;
+  return Policy().enforceLegacy || RowArtifact(row, stage)?.hashVersion === 3;
 }
 function Invalidate(row, stage, reason) {
   const prefix = Context(row, stage) + ':';
@@ -309,7 +317,7 @@ function RecentBuildObservations() {
 function List() {
   Prune(); const policy = Policy();
   const releases = Object.values(store.Load().artifacts).map(row => ({
-    id: row.id, component: row.component, version: row.version, sha256: row.sha256,
+    id: row.id, component: row.component, version: row.version, sha512: row.sha512,
     authorityVersion: row.authorityVersion || 0, compiledCfg: row.compiledCfg === true,
     signaturePresent: !!row.releaseApproval, signatureValid: !!row.releaseApproval && VerifyApproval(row, policy),
     signerKeyId: row.releaseApproval?.keyId || '', policyReason: ArtifactReason(row, policy)

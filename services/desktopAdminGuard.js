@@ -59,13 +59,13 @@ function ConsumeSingleAuthorization(ticket,session,method,path,body){
 function Summary(path,body){
   // No raw request / PE bytes or private key material in an approval ticket.
   const out={path};
-  for(const k of ['profile','expectedActivationRevision','aSha256','bSha256','oSha256','targetHash','expectedRevision','expectedPolicyRevision','expectedOperationsRevision','component','version','sha256','aId','bId','oId','artifactId','keyId','state','mode','enforceLegacy','requireReadonlyApi','dynamicCode','requireCfg','requireReleaseSignature','minVersionA','minVersionB','minVersionO','requireBuildContract','requireTestEvidence'])if(['string','number','boolean'].includes(typeof body?.[k]))out[k]=body[k];
+  for(const k of ['profile','expectedActivationRevision','aSha512','bSha512','oSha512','targetHash','expectedRevision','expectedPolicyRevision','expectedOperationsRevision','component','version','sha512','aId','bId','oId','artifactId','keyId','state','mode','enforceLegacy','requireReadonlyApi','dynamicCode','requireCfg','requireReleaseSignature','minVersionA','minVersionB','minVersionO','requireBuildContract','requireTestEvidence'])if(['string','number','boolean'].includes(typeof body?.[k]))out[k]=body[k];
   if(Array.isArray(body?.trustedReleaseKeys))out.trustedSignerKeyIds=body.trustedReleaseKeys.map(x=>x.keyId).slice(0,8);
-  if(Array.isArray(body?.revokedSha256))out.revokedReleaseHashes=body.revokedSha256.slice(0,512);
+  if(Array.isArray(body?.revokedSha512))out.revokedReleaseHashes=body.revokedSha512.slice(0,512);
   if(body?.contract)out.contract=Object.fromEntries(['version','evidenceVersion','minApiSlots','maxApiSlots'].filter(k=>Number.isSafeInteger(body.contract[k])).map(k=>[k,body.contract[k]]));
-  if(body?.rollout)out.rollout={enabled:body.rollout.enabled===true,artifactKeys:Array.isArray(body.rollout.artifactKeys)?body.rollout.artifactKeys.filter(x=>typeof x==='string'&&/^[ABO]:[a-f0-9]{64}$/.test(x)).slice(0,128):[],patch:Object.fromEntries(['mode','dynamicCode','requireReadonlyApi','requireCfg'].filter(k=>['string','boolean'].includes(typeof body.rollout.patch?.[k])).map(k=>[k,String(body.rollout.patch[k]).slice(0,20)]))};
+  if(body?.rollout)out.rollout={enabled:body.rollout.enabled===true,artifactKeys:Array.isArray(body.rollout.artifactKeys)?body.rollout.artifactKeys.filter(x=>typeof x==='string'&&/^[ABO]:[a-f0-9]{128}$/.test(x)).slice(0,128):[],patch:Object.fromEntries(['mode','dynamicCode','requireReadonlyApi','requireCfg'].filter(k=>['string','boolean'].includes(typeof body.rollout.patch?.[k])).map(k=>[k,String(body.rollout.patch[k]).slice(0,20)]))};
   if(path==='/api/desktop/bootstrap/security-operations/enable-all')out.activationTargets={profile:body?.profile,targetHash:body?.targetHash,stepUpRequired:false,dualApprovalRequired:false,adminMode:'SINGLE_ADMIN',windows:body?.profile==='ALL'?'dynamicCode=prohibit; requireCfg=true':'UNCHANGED'};
-  if(body?.report)out.testEvidence={aSha256:body.report.aSha256,bSha256:body.report.bSha256,...(body.report.oSha256?{oSha256:body.report.oSha256}:{}),nativeBuild:body.report.nativeBuild,apiProbe:body.report.apiProbe,integration:body.report.integration,logsSha256:body.report.logsSha256};
+  if(body?.report)out.testEvidence={aSha512:body.report.aSha512,bSha512:body.report.bSha512,...(body.report.oSha512?{oSha512:body.report.oSha512}:{}),nativeBuild:body.report.nativeBuild,apiProbe:body.report.apiProbe,integration:body.report.integration,logsSha512:body.report.logsSha512};
   return out;
 }
 function Authorize(session,method,path,body,ticketId){

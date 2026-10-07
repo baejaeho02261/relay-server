@@ -1,6 +1,6 @@
 'use strict';
 // CRC64-ECMA-182: non-reflected, init=0, xorout=0. This checksum detects
-// accidental corruption only; SHA-256 + authenticated transport/signatures
+// accidental corruption only; SHA-512 + authenticated transport/signatures
 // remain mandatory for security. No client memory attestation is implied.
 const crypto=require('node:crypto'),high=new Uint32Array(256),low=new Uint32Array(256);
 const {ExtendedDigests}=require('./extendedHashes');
@@ -15,7 +15,7 @@ function Crc64(bytes){
  for(let i=0;i<bytes.length;i++){const index=(hi>>>24)^bytes[i];hi=(((hi<<8)|(lo>>>24))^high[index])>>>0;lo=((lo<<8)^low[index])>>>0;}
  return hi.toString(16).padStart(8,'0').toUpperCase()+lo.toString(16).padStart(8,'0').toUpperCase();
 }
-function Digests(bytes){return {sha256:crypto.createHash('sha256').update(bytes).digest('hex'),crc64:Crc64(bytes),...ExtendedDigests(bytes)};}
+function Digests(bytes){return {hashVersion:3,sha512:crypto.createHash('sha512').update(bytes).digest('hex'),crc64:Crc64(bytes),...ExtendedDigests(bytes)};}
 // A server-generated baseline from pristine uploaded PE bytes. A client report
 // is evidence, not hardware attestation: a compromised verifier can lie.
 const CODE_PREFIX=Buffer.from('GAME-CODE-V1\0','ascii');
@@ -56,6 +56,8 @@ function CodeImage(bytes){
  }
  const head=Buffer.alloc(CODE_PREFIX.length+4);CODE_PREFIX.copy(head);head.writeUInt32LE(protectedSections.length,CODE_PREFIX.length);const chunks=[head];
  for(const s of protectedSections){const meta=Buffer.alloc(8);meta.writeUInt32LE(s.rva);meta.writeUInt32LE(s.span,4);chunks.push(meta,s.bytes);}
- const normalized=Buffer.concat(chunks);return {...Digests(normalized),algorithm:'PE64-CODE-V1',sections:protectedSections.map(({rva,span})=>({rva,span})),relocations};
+ const normalized=Buffer.concat(chunks),crc=require('./crcLayers'),exports=require('./desktopPeExports').ExportTable(bytes);
+ const crcLayers=crc.measureCrcLayers({code:normalized,headers:crc.headerMetadata(bytes),exports:exports.normalized||Buffer.alloc(0),checkers:crc.checkerStreams(normalized,crc.checkerPlan(bytes))});
+ return {...Digests(normalized),crcLayers,algorithm:'PE64-CODE-V1',sections:protectedSections.map(({rva,span})=>({rva,span})),relocations};
 }
 module.exports={Crc64,Digests,CodeImage};
