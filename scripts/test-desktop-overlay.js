@@ -1,30 +1,80 @@
 'use strict';
-// Real production authorization services with synthetic PE fixtures only.
-const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),child=require('node:child_process');
-const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-overlay-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT='29131';
+// Production services with synthetic AMD64 artifacts and real ephemeral RSA proofs.
+const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-overlay-v2-'));
+process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE='json';process.env.HA_ENABLED='0';process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT='29131';
 require('../core/utils').EnsureDirs();
-const boot=require('../services/desktopBootstrap'),licenses=require('../services/desktopLicenses'),auth=require('../services/desktopSecurityAuthority'),store=require('../services/desktopBootstrapStore'),fixture=require('./desktop-bootstrap-fixture'),overlay=require('../services/desktopOverlay');
-const {PE,Device,Sign,sha256,Evidence}=fixture;let checks=0;
-function Check(label,run){run();checks++;console.log('PASS '+label);}
-function Reject(run,code){assert.throws(run,e=>e.message===code,code);}
-function Context(d,s,stage='B',intent='verify',binding=auth.Binding(s.sessionId,s.release.sha256)){return {action:'challenge',stage,sessionId:s.sessionId,sessionToken:s.sessionToken,machineId:d.machineId,intent,binding};}
-function Observe(d,context){const b=boot.AuthenticateIntegrityReport(context).integrityArtifact,payload=JSON.stringify({version:1,measurement:'MEASURED',fileSha256:b.sha256,fileCrc64:b.crc64,codeSha256:b.codeSha256,codeCrc64:b.codeCrc64,apiSealed:true,apiSlots:60,dynamicCode:'ALLOWED',cfg:'DISABLED'}),challenge=auth.Execute(context);return auth.Execute({...context,action:'submit',challengeId:challenge.challengeId,payload,signature:Sign(d,auth.Canonical(context,challenge,payload))});}
-function Proof(d,s,action,payload,requestId=crypto.randomUUID()){const payloadJSON=JSON.stringify({...Evidence(d,s),...payload,bootstrapSessionId:s.sessionId,bootstrapSessionToken:s.sessionToken}),base={action,requestId,deviceId:d.deviceId,publicKey:d.publicKey,payloadHash:sha256(payloadJSON)},challenge=licenses.Challenge(base);Observe(d,Context(d,s,'B',action==='overlay'?'verify':action,auth.Binding(requestId,base.payloadHash)));return {...base,challengeId:challenge.challengeId,payloadJSON,signature:Sign(d,challenge.canonical)};}
-fixture.Publish();boot.Publish('B','90.0.0',PE('B','GAME-AUTHORITY-V1'));const approved=boot.Publish('O','90.0.0',PE('O','GAME-AUTHORITY-V1'));
-const d=Device(),s=fixture.Session(d),key=licenses.Create({label:'educational overlay'},'TEST');let activation,prepared,finish,o,proof;
-Check('Only a redeemed license and signed same-device B session can prepare O',()=>{Reject(()=>licenses.Execute(Proof(d,s,'overlay',{activationToken:'a'.repeat(64)})),'DESKTOP_ACTIVATION_INVALID');activation=licenses.Execute(Proof(d,s,'redeem',{licenseKey:key.licenseKey}));proof=Proof(d,s,'overlay',{activationToken:activation.activationToken});prepared=licenses.Execute(proof);assert.equal(prepared.release.id,approved.id);assert.notEqual(prepared.overlayTicket,s.sessionToken);assert.deepEqual(licenses.Execute(proof),prepared);});
-Check('Transfer canonical binds exact O release, device, parent and one-time capability',()=>{const fields=prepared.claimCanonical.split('\n');assert.equal(fields[0],'GAME-OVERLAY-CLAIM-V1');assert.deepEqual(fields.slice(1,5),[prepared.overlayId,s.sessionId,d.deviceId,d.machineId]);assert.equal(fields[5],prepared.release.id);assert.equal(fields[11],sha256(prepared.overlayTicket));assert.equal(fields[12],String(prepared.expiresAt));});
-Check('Unsigned finish, incomplete download and premature O claim fail closed',()=>{Reject(()=>boot.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:'A'.repeat(342)+'=='}),'BOOTSTRAP_PROOF_INVALID');Reject(()=>boot.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:Sign(d,prepared.finishCanonical)}),'BOOTSTRAP_DOWNLOAD_INCOMPLETE');Reject(()=>boot.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:Sign(d,prepared.claimCanonical)}),'BOOTSTRAP_LAUNCHER_USED');});
-Check('O chunks require exact capability and integral offset, preserve file hash',()=>{Reject(()=>boot.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:'invalid',offset:0}),'BOOTSTRAP_FLOW_INVALID');Reject(()=>boot.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset:1}),'BOOTSTRAP_INPUT_INVALID');const chunks=[];for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize){const chunk=boot.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset});assert.equal(chunk.offset,offset);chunks.push(Buffer.from(chunk.data,'base64'));}assert.equal(sha256(Buffer.concat(chunks)),prepared.release.sha256);});
-let oldLicenseProof;
-Check('Signed finish atomically closes A/B and removes their pending proof and authority caches',()=>{oldLicenseProof=Proof(d,s,'verify',{activationToken:activation.activationToken});auth.Execute(Context(d,s));const report=require('../services/desktopIntegrityReports');report.Execute({action:'challenge',stage:'B',sessionId:s.sessionId,sessionToken:s.sessionToken,machineId:d.machineId});assert.ok(auth.List().pendingCount>0);finish=boot.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:Sign(d,prepared.finishCanonical)});const parent=Object.values(boot.Initialize().flows).find(r=>r.sessionId===s.sessionId);assert.equal(parent.status,'CLOSED');assert.equal(parent.closedByOverlay,true);for(const name of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])assert.equal(parent[name],undefined);assert.equal(auth.List().pendingCount,0);assert.equal(auth.List().decisionCount,0);Reject(()=>licenses.Execute(oldLicenseProof),'DESKTOP_CHALLENGE_EXPIRED');Reject(()=>boot.Gate(s.sessionId,s.sessionToken,d.deviceId,Evidence(d,s)),'BOOTSTRAP_SESSION_CLOSED');});
-const claimBody=()=>({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:Sign(d,prepared.claimCanonical),binarySha256:prepared.release.sha256,crc64:prepared.release.crc64,oCodeSha256:prepared.release.codeSha256,oCodeCrc64:prepared.release.codeCrc64});
-Check('O claim checks signature and own measured file before creating a distinct session',()=>{Reject(()=>boot.Execute({...claimBody(),signature:Sign(Device(),prepared.claimCanonical)}),'BOOTSTRAP_PROOF_INVALID');Reject(()=>boot.Execute({...claimBody(),binarySha256:'0'.repeat(64)}),'BOOTSTRAP_HASH_MISMATCH');o=boot.Execute(claimBody());assert.notEqual(o.sessionId,s.sessionId);assert.notEqual(o.sessionToken,s.sessionToken);assert.equal(store.Load().overlays[prepared.overlayId].ticketNonce,undefined);assert.deepEqual(boot.Execute(claimBody()),o,'Exact lost-response retry returns the same O session');Reject(()=>boot.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:Sign(d,prepared.finishCanonical)}),'BOOTSTRAP_LAUNCHER_USED');});
-const verifyBody=()=>({action:'overlayVerify',sessionId:o.sessionId,sessionToken:o.sessionToken,...Evidence(d,o)});
-Check('Fresh O policy proof is mandatory and B token cannot authorize O verification',()=>{Reject(()=>boot.Execute({...verifyBody(),sessionToken:s.sessionToken}),'BOOTSTRAP_SESSION_INVALID');Reject(()=>boot.Execute(verifyBody()),'SECURITY_FRESH_OBSERVATION_REQUIRED');Observe(d,Context(d,o,'O'));const verified=boot.Execute(verifyBody());assert.equal(verified.status,'ACTIVE');assert.ok(verified.leaseExpiresAt>verified.serverTime);assert.equal(verified.expiresAt,verified.leaseExpiresAt);Reject(()=>boot.Execute(claimBody()),'BOOTSTRAP_LAUNCHER_USED');});
-Check('O accepts the same signed own-image integrity reporting contract',()=>{const reports=require('../services/desktopIntegrityReports'),context={action:'challenge',stage:'O',sessionId:o.sessionId,sessionToken:o.sessionToken,machineId:d.machineId},challenge=reports.Execute(context),payload=JSON.stringify({version:1,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha256:o.release.codeSha256,codeCrc64:o.release.codeCrc64}}),out=reports.Execute({...context,action:'submit',reportId:challenge.reportId,payload,signature:Sign(d,reports.Canonical(o.sessionId,challenge,payload))});assert.equal(out.accepted,true);assert.equal(out.terminate,false);assert.equal(out.status,'VERIFIED');});
-Check('Server-only handoff state survives restart with retired A/B and unchanged O binding',()=>{require('../storage/database').SaveDatabase();const code="const root=process.cwd();require(root+'/storage/database').LoadDatabase();const boot=require(root+'/services/desktopBootstrap'),p=JSON.parse(require('node:fs').readFileSync(0,'utf8'));try{const r=boot.AuthenticateIntegrityReport(p);process.stdout.write('RESULT:'+JSON.stringify({ok:true,stage:r.stage,releaseId:r.releaseId}));}catch(e){process.stdout.write('RESULT:'+JSON.stringify({ok:false,error:e.message}));}";const out=child.spawnSync(process.execPath,['-e',code],{cwd:path.resolve(__dirname,'..'),env:process.env,input:JSON.stringify({stage:'O',sessionId:o.sessionId,sessionToken:o.sessionToken,machineId:d.machineId}),encoding:'utf8'});assert.equal(out.status,0,out.stderr);const marker=out.stdout.lastIndexOf('RESULT:');assert.ok(marker>=0,out.stdout);assert.deepEqual(JSON.parse(out.stdout.slice(marker+7)),{ok:true,stage:'O',releaseId:approved.id});});
-Check('Administrative parent revocation also denies the transferred O session',()=>{boot.Revoke(s.sessionId,{reason:'Test revocation'},'TEST');Reject(()=>boot.Execute(verifyBody()),'BOOTSTRAP_FLOW_INVALID');});
-Check('Explicit O close clears O authority state and prevents reuse',()=>{const result=boot.Execute({action:'overlayClose',sessionId:o.sessionId,sessionToken:o.sessionToken});assert.equal(result.status,'CLOSED');assert.equal(store.Load().overlays[prepared.overlayId].sessionNonce,undefined);assert.equal(auth.List().pendingCount,0);assert.equal(auth.List().decisionCount,0);Reject(()=>boot.Execute(verifyBody()),'BOOTSTRAP_SESSION_CLOSED');});
-Check('Stored O references and token derivation are validated before reload',()=>{const valid=structuredClone(store.Load());overlay.ValidateStore(valid);valid.overlays[prepared.overlayId].parentSessionId='A'.repeat(24);assert.throws(()=>overlay.ValidateStore(valid),/OVERLAY_STORE_INVALID/);});
-console.log('Desktop overlay checks: '+checks+' passed ('+process.env.STORAGE_ENGINE+')');
+const fixture=require('./desktop-bootstrap-fixture'),bootstrap=require('../services/desktopBootstrap'),licenses=require('../services/desktopLicenses'),overlay=require('../services/desktopOverlay');
+const d=fixture.Device(),other=fixture.Device(),sha512=v=>crypto.createHash('sha512').update(v).digest('hex');
+let checks=0;
+function check(label,fn){fn();checks++;console.log('PASS '+label);}
+function reject(fn,code){assert.throws(fn,e=>code?e.message===code:/^(BOOTSTRAP|DESKTOP|SECURITY|INTEGRITY)_/.test(e.message));}
+function proof(action,payload){const body={action,requestId:crypto.randomUUID(),deviceId:d.deviceId,publicKey:d.publicKey,payloadHash:sha512(JSON.stringify(payload))},c=licenses.Challenge(body);fixture.ObserveLicense(d,action,body.requestId,body.payloadHash,payload);return licenses.Execute({...body,challengeId:c.challengeId,payloadJSON:JSON.stringify(payload),signature:fixture.Sign(d,c.canonical)});}
+bootstrap.Publish('A','88.0.0',fixture.PE('A'));bootstrap.Publish('B','88.0.0',fixture.PE('B'));bootstrap.Publish('O','88.0.0',fixture.PE('O'));
+const begin=fixture.Begin(d).begin;fixture.Download(begin);const session=fixture.Claim(d,begin,fixture.Finish(d,begin));
+const common={...fixture.Evidence(d,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,appVersion:'88.0.0'};
+const issued=licenses.Create({requestId:crypto.randomUUID(),label:'overlay regression'},'TEST');
+const activation=proof('redeem',{...common,licenseKey:issued.licenseKey,deviceName:'Overlay test'});
+let prepared,finished,claimed;
+check('Only a live licensed B session can prepare O',()=>{
+ reject(()=>proof('overlay',{...common,activationToken:'0'.repeat(64)}));
+ prepared=proof('overlay',{...common,activationToken:activation.activationToken});
+ assert.equal(prepared.parentSessionId,session.sessionId);assert.equal(prepared.release.hashVersion,3);
+ assert.match(prepared.finishCanonical,/^GAME-OVERLAY-FINISH-V2\n3\n/);
+ assert.equal(prepared.finishCanonical.split('\n')[16],sha512(prepared.overlayTicket));
+});
+check('Standalone or cross-device O claims are rejected',()=>{
+ reject(()=>bootstrap.Execute({action:'overlayClaim',overlayId:'A'.repeat(24),overlayTicket:'invalid'}));
+ reject(()=>bootstrap.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(other,prepared.finishCanonical)}),'BOOTSTRAP_PROOF_INVALID');
+ reject(()=>bootstrap.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,prepared.finishCanonical)}),'BOOTSTRAP_DOWNLOAD_INCOMPLETE');
+});
+check('Download completion authorizes O without retiring B',()=>{
+ let bytes=[];for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize){const chunk=bootstrap.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset});bytes.push(Buffer.from(chunk.data,'base64'));}
+ assert.equal(sha512(Buffer.concat(bytes)),prepared.release.sha512);
+ finished=bootstrap.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,prepared.finishCanonical)});
+ const parent=Object.values(bootstrap.Initialize().flows).find(r=>r.sessionId===session.sessionId);
+ assert.equal(parent.status,'CLAIMED');assert.equal(parent.closedByOverlay,undefined);
+ assert.equal(fixture.Gate(d,session).sessionId,session.sessionId);
+});
+const claim=()=>({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
+check('O claim binds SHA512 file/code and supports exact response recovery',()=>{
+ reject(()=>bootstrap.Execute({...claim(),binarySha512:'0'.repeat(64)}),'BOOTSTRAP_INPUT_INVALID');
+ claimed=bootstrap.Execute(claim());assert.equal(bootstrap.Execute(claim()).sessionToken,claimed.sessionToken);
+ assert.notEqual(claimed.sessionId,session.sessionId);
+ const auth=overlay.AuthenticateIntegrityReport({stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId});
+ assert.equal(auth.integrityArtifact.sha512,prepared.release.sha512);assert.equal(auth.integrityArtifact.fileXxh3_128,prepared.release.xxh3_128);
+});
+check('O signs independent CRC/hash reports and one-use authority observations',()=>{
+ const reports=require('../services/desktopIntegrityReports'),authority=require('../services/desktopSecurityAuthority');
+ const context={stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId};
+ const base=overlay.AuthenticateIntegrityReport(context).integrityArtifact;
+ const payload=JSON.stringify({version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,fileXxh3_128:base.fileXxh3_128,fileBlake3:base.fileBlake3,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3},crcLayers:base.crcLayers});
+ const challenge=reports.Execute({...context,action:'challenge'});
+ const request={...context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(d,reports.Canonical(claimed.sessionId,challenge,payload))};
+ const result=reports.Execute(request);assert.equal(result.status,'VERIFIED');assert.equal(result.terminate,false);
+ reject(()=>reports.Execute(request),'INTEGRITY_REPORT_CHALLENGE_INVALID');
+ const authContext={...context,intent:'verify',binding:authority.Binding(claimed.sessionId,base.sha512)};
+ const observation=authority.Execute({...authContext,action:'challenge'});
+ const evidence=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:base.sha512,fileCrc64:base.crc64,codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3,crcLayers:base.crcLayers,apiSealed:true,apiSlots:100,dynamicCode:'ALLOWED',cfg:'DISABLED'});
+ const signed={...authContext,action:'submit',challengeId:observation.challengeId,payload:evidence,signature:fixture.Sign(d,authority.Canonical(authContext,observation,evidence))};
+ assert.equal(authority.Execute(signed).status,'PASS');
+ reject(()=>authority.Execute(signed),'SECURITY_CHALLENGE_INVALID');
+});
+check('O refresh verifies license, session, machine and image while B remains live',()=>{
+ const body={action:'overlayVerify',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,...fixture.Evidence(d,claimed)};
+ reject(()=>bootstrap.Execute({...body,machineId:other.machineId}),'BOOTSTRAP_SESSION_INVALID');
+ assert.equal(bootstrap.Execute(body).status,'ACTIVE');
+ reject(()=>bootstrap.Execute(claim()),'BOOTSTRAP_LAUNCHER_USED');
+ assert.equal(fixture.Gate(d,session).sessionId,session.sessionId);
+});
+check('Revoking parent B immediately invalidates child O',()=>{
+ bootstrap.Revoke(session.sessionId,{reason:'TEST_PARENT_REVOKED'},'TEST');
+ reject(()=>overlay.AuthenticateIntegrityReport({stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId}),'BOOTSTRAP_FLOW_INVALID');
+});
+check('Close retires O token material and store remains valid',()=>{
+ bootstrap.Execute({action:'overlayClose',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken});
+ const row=Object.values(bootstrap.Initialize().overlays)[0];assert.equal(row.status,'CLOSED');assert.equal(row.sessionNonce,undefined);assert.equal(row.ticketNonce,undefined);
+ overlay.ValidateStore(bootstrap.Initialize());
+ reject(()=>overlay.AuthenticateIntegrityReport({stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId}));
+});
+console.log(`Overlay lifecycle: ${checks} checks passed`);

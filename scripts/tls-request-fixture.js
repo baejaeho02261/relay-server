@@ -4,7 +4,7 @@ const assert=require('node:assert/strict'),crypto=require('node:crypto'),tls=req
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
 async function Request(profile,operation,body){
  const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID();
- const aad=direction=>Buffer.from(['GAME-CONNECT-3',direction,requestId,profile.serverKeyId].join('\n'));
+ const aad=direction=>Buffer.from(['GAME-CONNECT-4',direction,requestId,profile.serverKeyId].join('\n'));
  try{
   const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(aad('REQUEST'));
   const clear=Buffer.from(JSON.stringify({operation,body}));let ciphertext;

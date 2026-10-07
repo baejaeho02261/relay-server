@@ -51,7 +51,7 @@ async function request(base, url, method = 'GET', body, auth) {
 
         require('../core/utils').EnsureDirs();
         const state = require('../core/state');
-        const archive = require('../services/member/store').Empty();
+        const archive = {profiles:{},settings:{}};
         archive.profiles['ARCHIVED-SUBJECT'] = { id: 'USR-AAAAAAAAAAAAAAAAAAAAAAAA', subject: 'ARCHIVED-SUBJECT', nickname: '보관 회원', balance: 13579, points: 2468, recentServices: Array.from({ length: 25 }, (_, i) => ({ id: 'legacy-' + i, at: i + 1 })) };
         archive.settings.retirementProbe = 'preserve-exactly';
         state.memberHub = structuredClone(archive);

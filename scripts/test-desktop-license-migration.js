@@ -1,4 +1,5 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 // This fixture was emitted by the unmodified version 82 service. It is not
 // derived using the current implementation, so domain/format regressions fail.
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
@@ -11,7 +12,8 @@ const d=require('../services/desktopLicenses'),f=require('./desktop-bootstrap-fi
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');let device=f.Device();
 function call(action,payload){
  const requestId=crypto.randomUUID();payload=f.LicensePayload(device,payload,requestId);
- const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha(payloadJSON)},c=d.Challenge(base);
+ const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha512(payloadJSON)},c=d.Challenge(base);
+ f.ObserveLicense(device,action,requestId,sha512(payloadJSON),payload);
  return d.Execute({...base,challengeId:c.challengeId,payloadJSON,signature:f.Sign(device,c.canonical)});
 }
 try{

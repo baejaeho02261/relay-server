@@ -1,4 +1,5 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 // Existing publishing accepts numeric versions up to 40 characters.
 { const a = require('../services/desktopSecurityAuthority');
   require('node:assert/strict').equal(a.VersionAtLeast('12345678901234567890', '0'), true);
@@ -19,9 +20,20 @@ try{
   assert.ok(!JSON.stringify(out).includes('PRIVATE KEY'));assert.ok(!JSON.stringify(out).includes(privatePem));
   assert.deepEqual(fs.readFileSync(file),bytes);assert.equal(fs.readFileSync(keyFile,'utf8'),privatePem);
   const policy={...a.Defaults(),requireReleaseSignature:true,trustedReleaseKeys:[out.trustedKey]};a.ValidatePolicy(policy);
-  assert.equal(a.VerifyApproval({component:'B',version:'87.1.0',sha256:sha256(bytes),releaseApproval:out.approval},policy),true);
+  assert.equal(a.VerifyApproval({component:'B',version:'87.1.0',sha512:sha512(bytes),releaseApproval:out.approval},policy),true);
   assert.equal(Audit(file).authorityVersion,1);assert.equal(Audit(file).compiledCfg,false);
   assert.throws(()=>a.ValidatePolicy({...policy,trustedReleaseKeys:[{...out.trustedKey,publicKey:privatePem}]}));
+ });
+ Test('Overlay approvals match both offline batch workers and the server V2 canonical',()=>{
+  const pair=crypto.generateKeyPairSync('ed25519'),keyFile=path.join(temp,'overlay-signing.pem'),file=path.join(temp,'overlay.exe'),approvalFile=path.join(temp,'overlay.approval.json');
+  fs.writeFileSync(keyFile,pair.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});fs.writeFileSync(file,PE('O',a.DOMAIN));
+  const worker=name=>fs.readFileSync(path.join(__dirname,'../tools',name),'utf8').split("$script:Worker = @'")[1].split("\n'@")[0];
+  const env={...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_KEY:keyFile,GC_APPROVAL_EXE:file,GC_APPROVAL_OUTPUT:approvalFile,GC_APPROVAL_COMPONENT:'O',GC_APPROVAL_VERSION:'93.0.0'};
+  const signed=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{env,encoding:'utf8'});assert.equal(signed.status,0,signed.stderr);
+  const approval=JSON.parse(fs.readFileSync(approvalFile,'utf8'));assert.equal(approval.sha512,sha512(fs.readFileSync(file)));assert.match(approval.trustedKey.keyId,/^[a-f0-9]{64}$/);
+  const checked=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{env:{...env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_JSON:approvalFile},encoding:'utf8'});assert.equal(checked.status,0,checked.stderr);assert.equal(JSON.parse(checked.stdout).ok,true);
+  assert.equal(a.VerifyApproval({component:'O',version:'93.0.0',sha512:approval.sha512,releaseApproval:approval.approval},{...a.Defaults(),requireReleaseSignature:true,trustedReleaseKeys:[approval.trustedKey]}),true);
+  fs.appendFileSync(file,'tampered');const bad=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{env:{...env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_JSON:approvalFile},encoding:'utf8'});assert.notEqual(bad.status,0);assert.match(bad.stderr,/EXE_SHA512_MISMATCH/);
  });
  Test('CFG metadata needs both image flag and bounded load-config fields',()=>{
   const b=PE('B',a.DOMAIN),pe=b.readUInt32LE(0x3c),opt=pe+24,lc=768;
@@ -34,18 +46,18 @@ try{
   const empty=Buffer.from(b);empty.writeBigUInt64LE(0n,lc+136);assert.equal(a.PeCapabilities(empty).compiledCfg,false);
  });
  Test('Evidence has exact bounded types and cannot supply its own policy',()=>{
-  const v={version:1,measurement:'MEASURED',fileSha256:'a'.repeat(64),fileCrc64:'A'.repeat(16),codeSha256:'b'.repeat(64),codeCrc64:'B'.repeat(16),apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'};
+  const v={version:1,hashVersion:3,codeXxh3_128:'c'.repeat(32),codeBlake3:'d'.repeat(64),crcLayers:require('../services/desktopIntegrity').CodeImage(PE('B')).crcLayers,measurement:'MEASURED',fileSha512:'a'.repeat(128),fileCrc64:'A'.repeat(16),codeSha512:'b'.repeat(128),codeCrc64:'B'.repeat(16),apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'};
   assert.equal(a.Payload(JSON.stringify(v)).apiSlots,167);
-  for(const patch of [{apiSlots:1025},{apiSealed:1},{version:2},{mode:'observe'},{dynamicCode:'IGNORE'},{codeSha256:'short'}])assert.throws(()=>a.Payload(JSON.stringify({...v,...patch})));
+  for(const patch of [{apiSlots:1025},{apiSealed:1},{version:2},{mode:'observe'},{dynamicCode:'IGNORE'},{codeSha512:'short'}])assert.throws(()=>a.Payload(JSON.stringify({...v,...patch})));
   assert.throws(()=>a.Payload(' '.repeat(2049)));
  });
  Test('Challenge/canonical Delphi field contract stays in sync',()=>{
   const client=path.resolve(__dirname,'../../GameConnect_Win64/Game.ServerAuthority.pas');
   const text=fs.readFileSync(client,'utf8');assert.match(text,/Challenge\.Count <> 8/);assert.match(text,/Reply\.Count <> 8/);assert.ok(text.includes(a.DOMAIN));
-  const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,10);assert.equal(new Set(fields).size,10);
-  for(const name of ['version','measurement','fileSha256','fileCrc64','codeSha256','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg'])assert.ok(fields.includes(name));
+  const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,14);assert.equal(new Set(fields).size,14);
+  for(const name of ['version','hashVersion','codeXxh3_128','codeBlake3','crcLayers','measurement','fileSha512','fileCrc64','codeSha512','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg'])assert.ok(fields.includes(name));
   const body={stage:'B',sessionId:'SID',intent:'verify',binding:'BIND'},c={challengeId:'CID',nonce:'NONCE',epoch:'EPOCH',sequence:7,revision:2,expiresAt:12345};
-  assert.equal(a.Canonical(body,c,'{}'),[a.DOMAIN,'B','SID','verify','BIND','CID','NONCE','EPOCH','7','2','12345',sha256('{}')].join('\n'));
+  assert.equal(a.Canonical(body,c,'{}'),[a.DOMAIN,'B','SID','verify','BIND','CID','NONCE','EPOCH','7','2','12345',sha512('{}')].join('\n'));
  });
  console.log(`Security tooling tests: ${count} passed`);
 }finally{fs.rmSync(temp,{recursive:true,force:true});}

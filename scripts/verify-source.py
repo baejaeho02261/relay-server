@@ -10,6 +10,8 @@ def verify(root: Path) -> list[str]:
     root=root.resolve(); manifest_path=root/'GameWeb/maintenance/source-manifest.json'
     manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
     problems=[]
+    if manifest.get('version') != 2 or manifest.get('algorithm') != 'sha512':
+        return ['Unsupported source manifest version or algorithm']
     for name, expected in manifest['files'].items():
         rel=Path(name)
         if rel.is_absolute() or '..' in rel.parts:
@@ -19,12 +21,12 @@ def verify(root: Path) -> list[str]:
             problems.append('Missing or symlink: '+name); continue
         if not p.resolve().is_relative_to(root):
             problems.append('Outside source root: '+name); continue
-        if hashlib.sha256(p.read_bytes()).hexdigest()!=expected:
+        if hashlib.sha512(p.read_bytes()).hexdigest()!=expected:
             problems.append('Changed: '+name)
     for name in manifest.get('retiredExecutableSources',[]):
         if (root/name).exists(): problems.append('Old retired source remains: '+name)
     for p in (root/'GameConnect_Win64').rglob('*'):
-        if p.is_file() and p.suffix.lower() in {'.json','.js'}:
+        if p.is_file() and p.suffix.lower() in {'.json','.js'} and not (p.suffix.lower()=='.json' and p.parent.name=='tests' and str(p.relative_to(root)) in manifest['files']):
             problems.append('JSON/JS belongs under GameWeb: '+str(p.relative_to(root)))
     return problems
 

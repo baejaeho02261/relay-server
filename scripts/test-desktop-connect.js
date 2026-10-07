@@ -1,4 +1,5 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),net=require('node:net'),tls=require('node:tls');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';process.env.HA_ENABLED='0';
 for(const name of ['DESKTOP_PUBLIC_HOST','DESKTOP_PUBLIC_PORT','RAILWAY_TCP_PROXY_DOMAIN','RAILWAY_TCP_PROXY_PORT'])delete process.env[name];
@@ -35,8 +36,9 @@ function Decode(envelope,raw){
 async function Round(operation,body){const envelope=Envelope({operation,body});return Decode(envelope,await Wire(envelope.wire));}
 async function Proof(device,action,payload,requestId=crypto.randomUUID()){
  payload=bootstrapFixture.LicensePayload(device,payload,requestId);
- const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:digest(payloadJSON)},challenge=await Round('challenge',base);assert.equal(challenge.ok,true,JSON.stringify(challenge));
- const c=challenge.data,canonical=['GAME-DESKTOP-V1',action,c.challengeId,c.nonce,requestId,device.deviceId,base.payloadHash,c.expiresAt].join('\n');assert.equal(c.canonical,canonical);
+ const payloadJSON=JSON.stringify(payload),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha512(payloadJSON)},challenge=await Round('challenge',base);assert.equal(challenge.ok,true,JSON.stringify(challenge));
+ const c=challenge.data,canonical=['GAME-DESKTOP-V2',action,c.challengeId,c.nonce,requestId,device.deviceId,base.payloadHash,c.expiresAt].join('\n');assert.equal(c.canonical,canonical);
+ bootstrapFixture.ObserveLicense(device,action,requestId,sha512(payloadJSON),payload);
  return {...base,challengeId:c.challengeId,payloadJSON,signature:crypto.sign('sha256',Buffer.from(canonical),{key:device.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64')};
 }
 async function Call(device,action,payload,requestId){return Round('execute',await Proof(device,action,payload,requestId));}
@@ -49,7 +51,7 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    assert.equal((await AdminProfile({role:'viewer'})).status,403);
    assert.equal((await AdminProfile({role:'admin',id:'TEST'})).value.error,'CONNECT_PUBLIC_ENDPOINT_REQUIRED');
    process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT=String(port);
-   const out=await AdminProfile({role:'admin',id:'TEST'});assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','tlsCertificateSha256','tlsServerName','version']);assert.equal(profile.protocol,'GAME-CONNECT-3');assert.equal(profile.version,3);assert.match(profile.tlsCertificateSha256,/^[a-f0-9]{64}$/);assert.match(profile.tlsServerName,/^[a-f0-9]{32}\.invalid$/);
+   const out=await AdminProfile({role:'admin',id:'TEST'});assert.equal(out.status,200);profile=out.value.profile;assert.equal(profile.serverKeyId,digest(Buffer.from(profile.serverPublicKey,'base64')));assert.deepEqual(Object.keys(profile).sort(),['host','port','protocol','serverKeyId','serverPublicKey','tlsCertificateSha256','tlsServerName','version']);assert.equal(profile.protocol,'GAME-CONNECT-4');assert.equal(profile.version,4);assert.match(profile.tlsCertificateSha256,/^[a-f0-9]{64}$/);assert.match(profile.tlsServerName,/^[a-f0-9]{32}\.invalid$/);
    process.env.DESKTOP_PUBLIC_HOST='https://bad.example';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='::1';assert.throws(()=>keys.Profile(),/CONNECT_PUBLIC_ENDPOINT_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
   });
   await Check('Persisted server key is stable, private, and never silently replaced',async()=>{
@@ -61,7 +63,7 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await Check('TLS pin, TLS versions and AEAD-only cipher negotiation fail closed',async()=>{
    await assert.rejects(Wire('anything',4000,{pin:'0'.repeat(64)}),/TEST_TLS_PIN_INVALID/);
    await assert.rejects(Wire('anything',4000,{minVersion:'TLSv1',maxVersion:'TLSv1.1',ciphers:'ALL:@SECLEVEL=0'}));
-   await assert.rejects(Wire('anything',4000,{minVersion:'TLSv1.2',maxVersion:'TLSv1.2',ciphers:'AES128-GCM-SHA256'}));
+   await assert.rejects(Wire('anything',4000,{minVersion:'TLSv1.2',maxVersion:'TLSv1.2',ciphers:'AES128-GCM-SHA512'}));
    const envelope=Envelope({operation:'challenge',body:{}});assert.equal(Decode(envelope,await Wire(envelope.wire,4000,{maxVersion:'TLSv1.2'})).error,'INPUT_INVALID');
   });
   await Check('TLS certificate identity persists and missing or changed identity never regenerates',async()=>{
@@ -88,17 +90,18 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await Check('Real A to B bootstrap and multi-chunk artifact delivery use encrypted TCP',async()=>{
    const bootstrap=bootstrapFixture.Publish(),artifact=Buffer.concat([bootstrapFixture.PE('B'),Buffer.alloc(300000,0x5a)]);bootstrap.Publish('B','80.0.1',artifact);
    const issued=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Encrypted bootstrap'},'TEST'),launcher=bootstrap.LauncherBytes(issued.launcherId),config=bootstrapFixture.Config(launcher);
-   const start=await Round('bootstrap',{action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha256:digest(launcher),launcherCrc64:bootstrapFixture.Crc64(launcher),aCodeSha256:require('../services/desktopIntegrity').CodeImage(launcher).sha256,aCodeCrc64:require('../services/desktopIntegrity').CodeImage(launcher).crc64,machineId:a.machineId,deviceId:a.deviceId,publicKey:a.publicKey});assert.equal(start.ok,true,JSON.stringify(start));const begin=start.data,chunks=[];
+   const start=await Round('bootstrap',{action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha512:sha512(launcher),launcherCrc64:bootstrapFixture.Crc64(launcher),aCodeSha512:require('../services/desktopIntegrity').CodeImage(launcher).sha512,aCodeCrc64:require('../services/desktopIntegrity').CodeImage(launcher).crc64,machineId:a.machineId,deviceId:a.deviceId,publicKey:a.publicKey});assert.equal(start.ok,true,JSON.stringify(start));const begin=start.data,chunks=[];
    for(let offset=0;offset<begin.release.size;){const out=await Round('bootstrap',{action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset});assert.equal(out.ok,true,JSON.stringify(out));const bytes=Buffer.from(out.data.data,'base64');assert.equal(out.data.offset,offset);assert.ok(bytes.length>0&&bytes.length<=begin.chunkSize);chunks.push(bytes);offset+=bytes.length;}
-   assert.ok(chunks.length>1);assert.deepEqual(Buffer.concat(chunks),artifact);assert.equal(digest(artifact),begin.release.sha256);
-   const finished=await Round('bootstrap',{action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha256:begin.release.sha256,crc64:begin.release.crc64,aCodeSha256:require('../services/desktopIntegrity').CodeImage(launcher).sha256,aCodeCrc64:require('../services/desktopIntegrity').CodeImage(launcher).crc64,signature:bootstrapFixture.Sign(a,begin.finishCanonical)});assert.equal(finished.ok,true,JSON.stringify(finished));
-   const claimed=await Round('bootstrap',{action:'claim',flowId:begin.flowId,handoffToken:finished.data.handoffToken,signature:bootstrapFixture.Sign(a,finished.data.claimCanonical),binarySha256:begin.release.sha256,crc64:begin.release.crc64,bCodeSha256:begin.release.codeSha256,bCodeCrc64:begin.release.codeCrc64});assert.equal(claimed.ok,true,JSON.stringify(claimed));
+   assert.ok(chunks.length>1);assert.deepEqual(Buffer.concat(chunks),artifact);assert.equal(sha512(artifact),begin.release.sha512);
+   bootstrapFixture.ObserveFinish(a,begin);
+   const finished=await Round('bootstrap',{action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha512:begin.release.sha512,crc64:begin.release.crc64,aCodeSha512:require('../services/desktopIntegrity').CodeImage(launcher).sha512,aCodeCrc64:require('../services/desktopIntegrity').CodeImage(launcher).crc64,signature:bootstrapFixture.Sign(a,begin.finishCanonical)});assert.equal(finished.ok,true,JSON.stringify(finished));
+   const claimed=await Round('bootstrap',{action:'claim',flowId:begin.flowId,handoffToken:finished.data.handoffToken,signature:bootstrapFixture.Sign(a,finished.data.claimCanonical),binarySha512:begin.release.sha512,crc64:begin.release.crc64,bCodeSha512:begin.release.codeSha512,bCodeCrc64:begin.release.codeCrc64});assert.equal(claimed.ok,true,JSON.stringify(claimed));
    const session=claimed.data,status=await Round('bootstrap',{action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken});assert.equal(status.ok,true);assert.equal(status.data.status,'CLAIMED');assert.ok(!Object.hasOwn(status.data,'sessionToken'));
    const denied=Envelope({operation:'bootstrap',body:{action:'status',sessionId:session.sessionId,sessionToken:'invalid'}}),wire=await Wire(denied.wire);assert.equal(Decode(denied,wire).error,'BOOTSTRAP_SESSION_INVALID');assert.ok(!wire.includes('BOOTSTRAP_SESSION_INVALID'));
-   const reportAuth={sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:a.machineId,binarySha256:begin.release.sha256,binaryCrc64:begin.release.crc64};
+   const reportAuth={sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:a.machineId,binarySha512:begin.release.sha512,binaryCrc64:begin.release.crc64};
    const reportChallenge=(await Round('report',{...reportAuth,action:'challenge'}));assert.equal(reportChallenge.ok,true,JSON.stringify(reportChallenge));
-   const evidence=JSON.stringify({version:1,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha256:begin.release.codeSha256,codeCrc64:begin.release.codeCrc64}}),rc=reportChallenge.data;
-   const reportBody={...reportAuth,action:'submit',reportId:rc.reportId,payload:evidence,signature:bootstrapFixture.Sign(a,['GAME-INTEGRITY-REPORT-V1',session.sessionId,rc.reportId,rc.nonce,String(rc.expiresAt),digest(Buffer.from(evidence))].join('\n'))};
+   const evidence=JSON.stringify({version:1,hashVersion:3,crcLayers:require('../services/desktopIntegrity').CodeImage(artifact).crcLayers,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:begin.release.codeSha512,codeCrc64:begin.release.codeCrc64,fileXxh3_128:begin.release.xxh3_128,fileBlake3:begin.release.blake3,codeXxh3_128:begin.release.codeXxh3_128,codeBlake3:begin.release.codeBlake3}}),rc=reportChallenge.data;
+   const reportBody={...reportAuth,action:'submit',reportId:rc.reportId,payload:evidence,signature:bootstrapFixture.Sign(a,['GAME-INTEGRITY-REPORT-V2',session.sessionId,rc.reportId,rc.nonce,String(rc.expiresAt),sha512(Buffer.from(evidence))].join('\n'))};
    const reportResult=await Round('report',reportBody);assert.equal(reportResult.ok,true,JSON.stringify(reportResult));assert.equal(reportResult.data.status,'VERIFIED');assert.equal(reportResult.data.terminate,false);assert.equal((await Round('report',reportBody)).error,'INTEGRITY_REPORT_CHALLENGE_INVALID');
    assert.equal((await Round('bootstrap',{action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken})).data.status,'CLOSED');bootstrap.Publish('B','80.0.2',bootstrapFixture.PE('B'));
   });

@@ -33,3 +33,8 @@ levels, reports elapsed time, and checks all four desktop integrity digests.
 
 Asset extraction and runtime provenance:
 services/vendor/hash-wasm-4.12.0/PROVENANCE.txt
+
+SHA512/XXH3-128 upgrade (2026-10-07): xxh3_128 was generated independently
+using libxxhash XXH3_128bits(input, byteLength) (default seed), and rendered
+as high64 followed by low64, 16 lowercase hex digits each. The old xxh64
+fixture values are retained as historical data and are never integrity v3.

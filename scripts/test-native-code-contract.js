@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { Fixture } = require('./test-desktop-code-integrity');
 const { CodeImage, Crc64 } = require('../services/desktopIntegrity');
-const { Xxh64, Blake3 } = require('../services/extendedHashes');
+const { Xxh3_128, Blake3 } = require('../services/extendedHashes');
 function relocated(value, preferred, actual, width) {
   return BigInt.asUintN(width * 8, value + actual - preferred);
 }
@@ -35,7 +35,7 @@ function loadedMeasurement(file, preferred, actual, mutate) {
     Buffer.from('0010000008020000', 'hex'), first,
     Buffer.from('0030000040000000', 'hex'), second
   ]);
-  return { sha256: crypto.createHash('sha256').update(data).digest('hex'), crc64: Crc64(data), xxh64: Xxh64(data), blake3: Blake3(data) };
+  return { sha512: crypto.createHash('sha512').update(data).digest('hex'), crc64: Crc64(data), xxh3_128: Xxh3_128(data), blake3: Blake3(data) };
 }
 const fixture = Fixture(), baseline = CodeImage(fixture);
 for (const [preferred, actual] of [
@@ -43,16 +43,16 @@ for (const [preferred, actual] of [
   [0x140000000n, 0x140000000n], [0n, 0x7ffe12340000n]
 ]) {
   const result = loadedMeasurement(fixture, preferred, actual);
-  assert.equal(result.sha256, baseline.sha256);
+  assert.equal(result.sha512, baseline.sha512);
   assert.equal(result.crc64, baseline.crc64);
-  assert.equal(result.xxh64, baseline.xxh64);
+  assert.equal(result.xxh3_128, baseline.xxh3_128);
   assert.equal(result.blake3, baseline.blake3);
   for (const at of [24, 31, 48, 51]) {
     assert.throws(() => loadedMeasurement(fixture, preferred, actual, b => { b[at] ^= 1; }),
       /^Error: RELOCATION_OPERAND_CHANGED$/);
   }
   const changedCode = loadedMeasurement(fixture, preferred, actual, b => { b[40] ^= 1; });
-  for (const hash of ['sha256', 'crc64', 'xxh64', 'blake3']) assert.notEqual(changedCode[hash], baseline[hash]);
+  for (const hash of ['sha512', 'crc64', 'xxh3_128', 'blake3']) assert.notEqual(changedCode[hash], baseline[hash]);
 }
 assert.equal(relocated(0xfffffffffffffff8n, 0n, 16n, 8), 8n);
 assert.equal(relocated(0n, 16n, 0n, 8), 0xfffffffffffffff0n);
@@ -77,15 +77,15 @@ function loadedExportMeasurement(original, mutate) {
     image.subarray(directoryOffset, directoryOffset + 8),
     image.subarray(exportRva, exportRva + exportBytes)
   ]);
-  return { sha256: crypto.createHash('sha256').update(canonical).digest('hex'), crc64: Crc64(canonical), xxh64: Xxh64(canonical), blake3: Blake3(canonical) };
+  return { sha512: crypto.createHash('sha512').update(canonical).digest('hex'), crc64: Crc64(canonical), xxh3_128: Xxh3_128(canonical), blake3: Blake3(canonical) };
 }
 const exportFile = ExportFixture(), exportBaseline = ExportTable(exportFile);
 const exportMemory = loadedExportMeasurement(exportFile);
-assert.equal(exportMemory.sha256, exportBaseline.sha256);
+assert.equal(exportMemory.sha512, exportBaseline.sha512);
 assert.equal(exportMemory.crc64, exportBaseline.crc64);
-assert.equal(exportMemory.xxh64, exportBaseline.xxh64);
+assert.equal(exportMemory.xxh3_128, exportBaseline.xxh3_128);
 assert.equal(exportMemory.blake3, exportBaseline.blake3);
-assert.equal(exportMemory.sha256, 'a762120d6a23876b16e0d3e8c99977a7debd9786421ac0ac093dda59d82c687d');
+assert.equal(exportMemory.sha512, 'efb8f6127b4d419315375549cc391b6c2edcaab07729970f5c408bfb54c0ffde69add7c0f07b3a2da5f67c9eab560d224660d66b8866fd19064bfbb6313f07fb');
 assert.equal(exportMemory.crc64, '57560B63C1315D58');
 for (const change of [
   image => image.writeUInt32LE(4100, 8192 + 40), // Direct API address table redirect.
@@ -95,6 +95,6 @@ for (const change of [
   image => { image[8192 + 80] ^= 1; }          // Name lookup string changed.
 ]) {
   const changedExport = loadedExportMeasurement(exportFile, change);
-  for (const hash of ['sha256', 'crc64', 'xxh64', 'blake3']) assert.notEqual(changedExport[hash], exportBaseline[hash]);
+  for (const hash of ['sha512', 'crc64', 'xxh3_128', 'blake3']) assert.notEqual(changedExport[hash], exportBaseline[hash]);
 }
 console.log('Native export contract vectors passed: four pristine server digests, direct/forwarded/named API table and live header-pointer tamper');

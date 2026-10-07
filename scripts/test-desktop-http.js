@@ -1,4 +1,5 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const net = require('node:net'), crypto = require('node:crypto');
@@ -66,12 +67,20 @@ function device(name) {
 }
 async function signed(device, action, payload) {
     if (device.bootstrap) payload = { ...payload, ...bootstrapFixture.Evidence(device,device.bootstrap), bootstrapSessionId: device.bootstrap.sessionId, bootstrapSessionToken: device.bootstrap.sessionToken };
-    const payloadJSON = JSON.stringify(payload), payloadHash = digest(Buffer.from(payloadJSON));
+    const payloadJSON = JSON.stringify(payload), payloadHash = sha512(Buffer.from(payloadJSON));
     const requestId = 'HTTP-REQUEST-' + (++sequence);
+    if (device.bootstrap) {
+        try { await bootstrapFixture.RemoteObserveLicense(nativeProfile, device, device.bootstrap, action, requestId, payloadHash); }
+        catch (error) {
+            // A revoked machine capability must also be rejected by the license
+            // endpoint under test; it cannot obtain a new authority observation.
+            if (!String(error.message).includes('DESKTOP_MACHINE_SESSION_REVOKED')) throw error;
+        }
+    }
     const body = { action, requestId, deviceId: device.deviceId, publicKey: device.publicKey, payloadHash };
     const response = await call('/api/desktop/challenge', body); assert.equal(response.status, 200);
     const challenge = response.json.data;
-    const canonical = ['GAME-DESKTOP-V1', action, challenge.challengeId, challenge.nonce, requestId,
+    const canonical = ['GAME-DESKTOP-V2', action, challenge.challengeId, challenge.nonce, requestId,
         device.deviceId, payloadHash, String(challenge.expiresAt)].join('\n');
     assert.equal(challenge.canonical, canonical, 'The actual native wire canonical must match the client construction');
     const signature = crypto.sign('sha256', Buffer.from(canonical), { key: device.privateKey, padding: crypto.constants.RSA_PKCS1_PADDING }).toString('base64');
@@ -118,7 +127,7 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await upload('A', bootstrapFixture.PE('A'), auth, false)).status, 403);
         const invalidPE = await upload('A', Buffer.from('MZ not an executable'), auth); assert.equal(invalidPE.status, 400); assert.equal(invalidPE.json.error, 'BOOTSTRAP_PE_INVALID');
         const candidates={};
-        for (const component of ['A', 'B']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200); assert.equal(published.json.artifact.sha256, digest(bytes)); assert.equal(published.json.disposition,'CANDIDATE'); assert.equal(published.json.activeUnchanged,true);candidates[component]=published.json.artifact; }
+        for (const component of ['A', 'B']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200); assert.equal(published.json.artifact.sha512, sha512(bytes)); assert.equal(published.json.disposition,'CANDIDATE'); assert.equal(published.json.activeUnchanged,true);candidates[component]=published.json.artifact; }
         const security='/api/desktop/bootstrap/security-authority',operations='/api/desktop/bootstrap/security-operations';
         for(const route of [security,operations,operations+'/approvals']){assert.equal((await call(route)).status,401);assert.equal((await call(route,undefined,viewer)).status,403);}
         let settings=(await call(security,undefined,auth)).json;
@@ -143,7 +152,7 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await uploadBaseline(dll,auth,false)).status,403);
         assert.equal((await uploadBaseline(bootstrapFixture.PE('B'),auth)).status,400,'EXE renamed DLL must not become trusted module baseline');
         assert.equal((await uploadBaseline(dll,auth,true,'../ntdll.dll')).status,400);
-        const baseline=await uploadBaseline(dll,auth);assert.equal(baseline.status,200,JSON.stringify(baseline.json));assert.equal(baseline.json.baseline.fileSha256,digest(dll));
+        const baseline=await uploadBaseline(dll,auth);assert.equal(baseline.status,200,JSON.stringify(baseline.json));assert.equal(baseline.json.baseline.fileSha512,sha512(dll));
         const baselineList=await call('/api/desktop/bootstrap/module-baselines',undefined,auth);assert.equal(baselineList.status,200);assert.equal(baselineList.json.items.length,1);
         assert.equal((await call('/api/desktop/bootstrap/integrity-reports',undefined,auth)).status,200);
         const integrityPolicyRoute='/api/desktop/bootstrap/integrity-policy',integrityPolicyBody={enabled:false,requiredModules:['ntdll.dll','kernel32.dll','kernelbase.dll']};

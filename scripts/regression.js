@@ -8,7 +8,7 @@ const checks = [
   ['test-security-operations.js'], ['test-security-admin.js'], ['test-security-evidence.js'], ['test-security-native-contract.js'],
   ['test-security-authority.js'], ['test-security-tools.js'], ['test-security-wire.js'],
   ['check-modules.js'], ['check-web-ui.js'], ['check-connect-project.js'],
-  ['test-extended-hashes.js'],
+  ['test-extended-hashes.js'], ['test-security-v4.js'], ['test-desktop-overlay.js'], ['test-crc-layers.js'], ['test-crc-checker-ranges.js'],
   ['test-desktop-extended-integrity.js'], ['test-desktop-extended-integrity.js', '--sqlite'],
   ['test-sqlite-driver.js'], ['test-connect-tls.js'], ['test-desktop-pe-exports.js'], ['test-native-report-budget.js'],
   ['test-desktop-integrity-policy.js'], ['test-desktop-integrity-policy.js', '--sqlite'],
@@ -28,5 +28,6 @@ for (const [name, ...args] of checks) {
   });
   if (result.error) console.error(result.error.message);
   if (result.status !== 0 || result.error) process.exit(result.status || 1);
+  console.log('SUITE PASS '+[name,...args].join(' '));
 }
-console.log('WINDOWS LICENSE REGRESSION PASS');
+console.log('WINDOWS LICENSE REGRESSION PASS: '+checks.length+' suites');

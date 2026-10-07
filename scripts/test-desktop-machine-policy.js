@@ -1,10 +1,12 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),cp=require('node:child_process');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-machine-policy-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';
 require('../core/utils').EnsureDirs();const d=require('../services/desktopLicenses'),policy=require('../services/desktopMachinePolicy'),f=require('./desktop-bootstrap-fixture'),bootstrap=require('../services/desktopBootstrap');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 function proof(device,action,payload,override={},requestId=crypto.randomUUID()){
- const bound={...f.LicensePayload(device,payload,requestId),...override},payloadJSON=JSON.stringify(bound),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:hash(payloadJSON)},c=d.Challenge(base);
+ const bound={...f.LicensePayload(device,payload,requestId),...override},payloadJSON=JSON.stringify(bound),base={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha512(payloadJSON)},c=d.Challenge(base);
+ f.ObserveLicense(device,action,requestId,sha512(payloadJSON),bound);
  return {...base,challengeId:c.challengeId,payloadJSON,signature:f.Sign(device,c.canonical)};
 }
 function call(device,action,payload,override,requestId){return d.Execute(proof(device,action,payload,override,requestId));}
@@ -20,7 +22,7 @@ async function main(){
  // A second process has already obtained a session before the first process
  // consumes a key. Its later redemption still must lose the atomic PC race.
  const otherKey=d.Create({label:'Parallel PC process'},'ADMIN:test'),parallelProof=proof(parallel,'redeem',{licenseKey:otherKey.licenseKey});
- for(const changed of [{machineId:'A'.repeat(64)},{binarySha256:'0'.repeat(64)},{binaryCrc64:'0'.repeat(16)}])reject('BOOTSTRAP_HASH_MISMATCH',()=>call(a,'redeem',{licenseKey:key.licenseKey},changed));
+ for(const changed of [{machineId:'A'.repeat(64)},{binarySha512:'0'.repeat(128)},{binaryCrc64:'0'.repeat(16)}])reject('BOOTSTRAP_HASH_MISMATCH',()=>call(a,'redeem',{licenseKey:key.licenseKey},changed));
  assert.equal(d.DB().licenses[key.license.id].consumed,false,'Untrusted binary evidence cannot consume a key');
  const signed=proof(a,'redeem',{licenseKey:key.licenseKey}),result=d.Execute(signed);assert.equal(result.status,'USED');
  const detail=d.Detail(key.license.id);assert.equal(detail.licenseKey,undefined);assert.equal(detail.license.machineId,a.machineId);assert.match(detail.license.binaryCrc64,/^[A-F0-9]{16}$/);

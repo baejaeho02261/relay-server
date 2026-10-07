@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../../GameConnect_Win64');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
-for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launcher']]) {
+for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launcher'], ['GameOverlay','overlay']]) {
   const project = read(name + '.dproj');
   const entries = [...project.matchAll(/<DelphiCompile\s+Include="([^"]+)"\s*>([\s\S]*?)<\/DelphiCompile>/g)];
   assert.equal(entries.length, 1, 'Exactly one primary Delphi compile item');
@@ -49,7 +49,7 @@ assert.ok(transport.includes('.ConnectTLS('),'Every native request must use TLS'
 assert.ok(tls.includes('CertVerifyTimeValidity') && tls.includes('CryptHashCertificate2'));
 assert.ok(tls.indexOf('if not VerifyCertificate(CertificateSha256) then Exit;') < tls.indexOf('FAuthenticated := True;'));
 assert.ok(read('Game.Api.pas').includes('FImageIntegrity.VerifyNow'));
-for(const name of ['GameConnect','GameLauncher'])assert.ok(read(name+'.dproj').includes('Game.Integrity.pas')&&read(name+'.dproj').includes('Game.Tls.pas'));
+for(const name of ['GameConnect','GameLauncher','GameOverlay'])assert.ok(read(name+'.dproj').includes('Game.Integrity.pas')&&read(name+'.dproj').includes('Game.Tls.pas'));
 
 const consoleSource = read('Game.Console.pas');
 const entry = consoleSource.slice(consoleSource.indexOf('function RunGameConsole: Integer;', consoleSource.indexOf('implementation')));
@@ -65,7 +65,10 @@ for (const name of fs.readdirSync(root)) {
   const source = read(name);
   assert.ok(!source.includes('%MainSource%'), 'Unresolved source macro in ' + name);
   assert.ok(!/\bBS_TYPEMASK\b/.test(source), 'Undeclared SDK mask in ' + name);
-  if (!name.endsWith('.dproj')) assert.ok(!/https?:\/\//i.test(source), 'Embedded HTTP endpoint: ' + name);
+  if (/\.(?:pas|dpr|inc)$/.test(name)) {
+    const executableSource=source.replace(/('(?:''|[^'])*')|\{[\s\S]*?\}|\(\*[\s\S]*?\*\)|\/\/[^\r\n]*/g,(match,literal)=>literal||'');
+    assert.ok(!/https?:\/\//i.test(executableSource), 'Embedded HTTP endpoint: ' + name);
+  }
   if (/\.(?:pas|dpr)$/.test(name)) {
     assert.ok(source.startsWith('\uFEFF'), 'Missing UTF-8 BOM: ' + name);
     assert.ok(!source.replace(/\r\n/g, '').includes('\n'), 'Mixed source line endings: ' + name);
@@ -79,4 +82,4 @@ for (const name of fs.readdirSync(root)) {
 for (const retired of ['Game.dproj', 'Game.Main.pas', 'Game.UI.pas']) {
   assert.ok(!fs.existsSync(path.join(root, retired)), 'Retired GUI source: ' + retired);
 }
-console.log('A/B PROJECT SOURCE CHECK PASS (actual Delphi compilation still required)');
+console.log('A/B/O PROJECT SOURCE CHECK PASS (actual Delphi compilation still required)');

@@ -1,5 +1,5 @@
 'use strict';
-// Actual TLS + encrypted GAME-CONNECT-3 dispatch, with test PE/keys only.
+// Actual TLS + encrypted GAME-CONNECT-4 dispatch, with test PE/keys only.
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),tls=require('node:tls');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'authority-wire-'));
@@ -33,14 +33,14 @@ async function Round(body){
   for(const component of ['A','B']){const artifact=boot.Publish(component,'88.0.0',fixture.PE(component,authority.DOMAIN));ops.SetContract({expectedRevision:ops.Revision(),artifactId:artifact.id,contract:{version:1,evidenceVersion:1,minApiSlots:167,maxApiSlots:167,requiredChecks:['ownImage','apiStorage','mitigations']}},'WIRE_TEST');}
   ops.SetControls({expectedRevision:ops.Revision(),requireBuildContract:true},'WIRE_TEST');
   const started=fixture.Begin(device);fixture.Download(started.begin);
-  const aCtx={action:'challenge',stage:'A',sessionId:started.begin.flowId,sessionToken:started.begin.downloadTicket,machineId:device.machineId,intent:'finish',binding:authority.Binding(started.begin.flowId,started.begin.release.sha256)};
+  const aCtx={action:'challenge',stage:'A',sessionId:started.begin.flowId,sessionToken:started.begin.downloadTicket,machineId:device.machineId,intent:'finish',binding:authority.Binding(started.begin.flowId,started.begin.release.sha512)};
   const ac=await Round(aCtx);assert.equal(ac.ok,true);
   const baseline=boot.AuthenticateIntegrityReport(aCtx).integrityArtifact;
-  const aPayload=JSON.stringify({version:1,measurement:'MEASURED',fileSha256:baseline.sha256,fileCrc64:baseline.crc64,codeSha256:baseline.codeSha256,codeCrc64:baseline.codeCrc64,apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'});
+  const aPayload=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:baseline.sha512,fileCrc64:baseline.crc64,codeSha512:baseline.codeSha512,codeCrc64:baseline.codeCrc64,codeXxh3_128:baseline.codeXxh3_128,codeBlake3:baseline.codeBlake3,crcLayers:baseline.crcLayers,apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'});
   const aSubmit=await Round({...aCtx,action:'submit',challengeId:ac.data.challengeId,payload:aPayload,signature:fixture.Sign(device,authority.Canonical(aCtx,ac.data,aPayload))});assert.equal(aSubmit.data.status,'PASS');
-  const session=fixture.Claim(device,started.begin,fixture.Finish(device,started.begin));const ctx={action:'challenge',stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:device.machineId,intent:'verify',binding:authority.Binding('wire-test',fixture.sha256('payload'))};
+  const session=fixture.Claim(device,started.begin,fixture.Finish(device,started.begin,false));const ctx={action:'challenge',stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:device.machineId,intent:'verify',binding:authority.Binding('wire-test',fixture.sha512('payload'))};
   const first=await Round(ctx);assert.equal(first.ok,true,JSON.stringify(first));assert.equal(Object.keys(first.data).length,8);
-  const payload=JSON.stringify({version:1,measurement:'MEASURED',fileSha256:session.release.sha256,fileCrc64:session.release.crc64,codeSha256:session.release.codeSha256,codeCrc64:session.release.codeCrc64,apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'});
+  const payload=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:session.release.sha512,fileCrc64:session.release.crc64,codeSha512:session.release.codeSha512,codeCrc64:session.release.codeCrc64,codeXxh3_128:session.release.codeXxh3_128,codeBlake3:session.release.codeBlake3,crcLayers:boot.AuthenticateIntegrityReport(ctx).integrityArtifact.crcLayers,apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'});
   const proof={...ctx,action:'submit',challengeId:first.data.challengeId,payload,signature:fixture.Sign(device,authority.Canonical(ctx,first.data,payload))};
   const submitted=await Round(proof);assert.equal(submitted.ok,true,JSON.stringify(submitted));assert.equal(submitted.data.status,'PASS');assert.equal(submitted.data.attested,false);
   const replay=await Round(proof);assert.equal(replay.ok,false);assert.equal(replay.error,'SECURITY_CHALLENGE_INVALID');

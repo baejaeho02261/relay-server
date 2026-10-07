@@ -15,9 +15,10 @@ for(const [name,asset]of Object.entries(manifest.assets)){
  const binary=Buffer.from(match[1],'base64');
  assert.equal(binary.length,asset.bytes);
  assert.equal(crypto.createHash('sha256').update(binary).digest('hex'),asset.sha256);
+ assert.equal(crypto.createHash('sha512').update(binary).digest('hex'),asset.sha512);
  const destination=path.join(directory,asset.file);
  if(process.argv.includes('--write'))fs.writeFileSync(destination,binary);
  else assert.deepEqual(fs.readFileSync(destination),binary);
  assert.deepEqual(WebAssembly.Module.imports(new WebAssembly.Module(binary)),[],'WASM cannot access host functions');
 }
-console.log('EXTENDED HASH ASSETS PASS: exact pinned upstream bytes, SHA-256, no host imports');
+console.log('EXTENDED HASH ASSETS PASS: exact pinned upstream bytes, SHA-512 and upstream SHA-256 pins, no host imports');

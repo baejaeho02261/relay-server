@@ -1,4 +1,5 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const net = require('node:net'), crypto = require('node:crypto');
@@ -66,12 +67,20 @@ function device(name) {
 }
 async function signed(device, action, payload) {
     if (device.bootstrap) payload = { ...payload, ...bootstrapFixture.Evidence(device,device.bootstrap), bootstrapSessionId: device.bootstrap.sessionId, bootstrapSessionToken: device.bootstrap.sessionToken };
-    const payloadJSON = JSON.stringify(payload), payloadHash = digest(Buffer.from(payloadJSON));
+    const payloadJSON = JSON.stringify(payload), payloadHash = sha512(Buffer.from(payloadJSON));
     const requestId = 'HTTP-REQUEST-' + (++sequence);
+    if (device.bootstrap) {
+        try { await bootstrapFixture.RemoteObserveLicense(nativeProfile, device, device.bootstrap, action, requestId, payloadHash); }
+        catch (error) {
+            // A revoked machine capability must also be rejected by the license
+            // endpoint under test; it cannot obtain a new authority observation.
+            if (!String(error.message).includes('DESKTOP_MACHINE_SESSION_REVOKED')) throw error;
+        }
+    }
     const body = { action, requestId, deviceId: device.deviceId, publicKey: device.publicKey, payloadHash };
     const response = await call('/api/desktop/challenge', body); assert.equal(response.status, 200);
     const challenge = response.json.data;
-    const canonical = ['GAME-DESKTOP-V1', action, challenge.challengeId, challenge.nonce, requestId,
+    const canonical = ['GAME-DESKTOP-V2', action, challenge.challengeId, challenge.nonce, requestId,
         device.deviceId, payloadHash, String(challenge.expiresAt)].join('\n');
     assert.equal(challenge.canonical, canonical, 'The actual native wire canonical must match the client construction');
     const signature = crypto.sign('sha256', Buffer.from(canonical), { key: device.privateKey, padding: crypto.constants.RSA_PKCS1_PADDING }).toString('base64');

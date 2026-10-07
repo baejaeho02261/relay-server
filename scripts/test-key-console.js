@@ -1,4 +1,5 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 // Real services and signed requests with synthetic PE data; no Windows execution.
 // All writes are restricted to a fresh temporary server DATA_DIR.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto');
@@ -11,11 +12,12 @@ function test(name,fn){fn();passed++;console.log('PASS '+name);}
 function bad(fn,code){assert.throws(fn,e=>e.message===code,code);}
 function proof(dev,session,action,extra,requestId=crypto.randomUUID()){
  const payloadJSON=JSON.stringify({...F.Evidence(dev,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,...extra});
- const base={action,requestId,deviceId:dev.deviceId,publicKey:dev.publicKey,payloadHash:F.sha256(payloadJSON)},challenge=d.Challenge(base);
+ const base={action,requestId,deviceId:dev.deviceId,publicKey:dev.publicKey,payloadHash:F.sha512(payloadJSON)},challenge=d.Challenge(base);
+ F.ObserveLicense(dev,action,requestId,sha512(payloadJSON),JSON.parse(payloadJSON));
  return{...base,challengeId:challenge.challengeId,payloadJSON,signature:F.Sign(dev,challenge.canonical)};
 }
 function openIssued(dev,issue){
- const bytes=b.LauncherBytes(issue.launcherId),c=F.Config(bytes),begin=b.Execute({action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:c.launcherTicket,launcherSha256:F.sha256(bytes),launcherCrc64:F.Crc64(bytes),aCodeSha256:F.CodeImage(bytes).sha256,aCodeCrc64:F.CodeImage(bytes).crc64,machineId:dev.machineId,deviceId:dev.deviceId,publicKey:dev.publicKey});
+ const bytes=b.LauncherBytes(issue.launcherId),c=F.Config(bytes),begin=b.Execute({action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:c.launcherTicket,launcherSha512:F.sha512(bytes),launcherCrc64:F.Crc64(bytes),aCodeSha512:F.CodeImage(bytes).sha512,aCodeCrc64:F.CodeImage(bytes).crc64,machineId:dev.machineId,deviceId:dev.deviceId,publicKey:dev.publicKey});
  F.Download(begin);return F.Claim(dev,begin,F.Finish(dev,begin));
 }
 try{

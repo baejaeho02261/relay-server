@@ -1,4 +1,5 @@
 'use strict';
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-desktop-licenses-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';
 require('../core/utils').EnsureDirs();const d=require('../services/desktopLicenses'),state=require('../core/state'),database=require('../storage/database'),journal=require('../services/desktopJournal');
@@ -8,8 +9,9 @@ function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',
 let a=Device();const b=Device();
 function Proof(device,action,payload,requestId=crypto.randomUUID()){
  payload=bootstrapFixture.LicensePayload(device,payload,requestId);
- const payloadJSON=JSON.stringify(payload),body={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:hash(payloadJSON)},c=d.Challenge(body);
- assert.equal(c.canonical,['GAME-DESKTOP-V1',action,c.challengeId,c.nonce,requestId,device.deviceId,body.payloadHash,String(c.expiresAt)].join('\n'));
+ const payloadJSON=JSON.stringify(payload),body={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha512(payloadJSON)},c=d.Challenge(body);
+ bootstrapFixture.ObserveLicense(device,action,requestId,sha512(payloadJSON),payload);
+ assert.equal(c.canonical,['GAME-DESKTOP-V2',action,c.challengeId,c.nonce,requestId,device.deviceId,body.payloadHash,String(c.expiresAt)].join('\n'));
  return {...body,challengeId:c.challengeId,payloadJSON,signature:crypto.sign('sha256',Buffer.from(c.canonical),{key:device.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64')};
 }
 function Call(device,action,payload,requestId){return d.Execute(Proof(device,action,payload,requestId));}
@@ -33,7 +35,7 @@ check('Period issuance is rejected and legacy deadlines remain authoritative',()
  // creation through any production endpoint.
  d.DB().licenses[key.license.id].expiresAt=Date.now()+500;d.DB().revision++;journal.Commit(before,d.DB());
  const deadline=d.DB().licenses[key.license.id].expiresAt,r=Call(a,'redeem',{licenseKey:key.licenseKey}),real=Date.now;
- Date.now=()=>real()+1000;try{assert.equal(d.Public(d.DB().licenses[key.license.id]).status,'EXPIRED');assert.throws(()=>Call(a,'verify',{activationToken:r.activationToken}),/DESKTOP_EXPIRED|BOOTSTRAP_EXPIRED/);}finally{Date.now=real;}
+ Date.now=()=>real()+1000;try{assert.equal(d.Public(d.DB().licenses[key.license.id]).status,'EXPIRED');assert.throws(()=>Call(a,'verify',{activationToken:r.activationToken}),/DESKTOP_EXPIRED|BOOTSTRAP_EXPIRED|DESKTOP_CHALLENGE_EXPIRED/);}finally{Date.now=real;}
  Reject('DESKTOP_SINGLE_USE_ONLY',()=>d.Reissue(key.license.id,{reason:'기기 교체',validDays:1},'ADMIN:test'));assert.equal(d.DB().licenses[key.license.id].expiresAt,deadline);
  const re=d.Reissue(key.license.id,{reason:'기기 교체',requestId:crypto.randomUUID()},'ADMIN:test');assert.equal(d.DB().licenses[key.license.id].status,'REVOKED');assert.equal(d.DB().licenses[key.license.id].consumed,true);assert.equal(re.license.status,'AVAILABLE');assert.equal(re.license.expiresAt,0);
 });

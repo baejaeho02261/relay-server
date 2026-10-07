@@ -7,378 +7,432 @@
       "length": 0,
       "blake3": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "ef46db3751d8e999"
+      "xxh64": "ef46db3751d8e999",
+      "xxh3_128": "99aa06d3014798d86001c324468d497f"
     },
     {
       "pattern": "repeat-0-250",
       "length": 1,
       "blake3": "2d3adedff11b61f14c886e35afa036736dcd87a74d27b5c1510225d0f592e213",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "e934a84adb052768"
+      "xxh64": "e934a84adb052768",
+      "xxh3_128": "a6cd5e9392000f6ac44bdff4074eecdb"
     },
     {
       "pattern": "repeat-0-250",
       "length": 2,
       "blake3": "7b7015bb92cf0b318037702a6cdd81dee41224f734684c2c122cd6359cb1ee63",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "4865a00ba85b7cd6"
+      "xxh64": "4865a00ba85b7cd6",
+      "xxh3_128": "6a4a5274c1b0d3add6645fc3051a9457"
     },
     {
       "pattern": "repeat-0-250",
       "length": 3,
       "blake3": "e1be4d7a8ab5560aa4199eea339849ba8e293d55ca0a81006726d184519e647f",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "e5c7bb4533bc65dd"
+      "xxh64": "e5c7bb4533bc65dd",
+      "xxh3_128": "e3b55f57945a17cf5f4299fc161c9cbb"
     },
     {
       "pattern": "repeat-0-250",
       "length": 4,
       "blake3": "f30f5ab28fe047904037f77b6da4fea1e27241c5d132638d8bedce9d40494f32",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "ffced8604453cc1e"
+      "xxh64": "ffced8604453cc1e",
+      "xxh3_128": "eb70bf5fc779e9e6a6111d53e80a3db5"
     },
     {
       "pattern": "repeat-0-250",
       "length": 5,
       "blake3": "b40b44dfd97e7a84a996a91af8b85188c66c126940ba7aad2e7ae6b385402aa2",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "dd0274386e26030c"
+      "xxh64": "dd0274386e26030c",
+      "xxh3_128": "9434532106a7c141c920d2347a85929b"
     },
     {
       "pattern": "repeat-0-250",
       "length": 6,
       "blake3": "06c4e8ffb6872fad96f9aaca5eee1553eb62aed0ad7198cef42e87f6a616c844",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "438e2507bf950423"
+      "xxh64": "438e2507bf950423",
+      "xxh3_128": "545f093d32b168fea6b52f4dea3896a3"
     },
     {
       "pattern": "repeat-0-250",
       "length": 7,
       "blake3": "3f8770f387faad08faa9d8414e9f449ac68e6ff0417f673f602a646a891419fe",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "14cc643f630c72d2"
+      "xxh64": "14cc643f630c72d2",
+      "xxh3_128": "61ce291bc3a4357ddbb207821e6d5efe"
     },
     {
       "pattern": "repeat-0-250",
       "length": 8,
       "blake3": "2351207d04fc16ade43ccab08600939c7c1fa70a5c0aaca76063d04c3228eaeb",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "884a173614b81b8d"
+      "xxh64": "884a173614b81b8d",
+      "xxh3_128": "e1e4432a62217fe4cfd50c61c8bb98c1"
     },
     {
       "pattern": "repeat-0-250",
       "length": 63,
       "blake3": "e9bc37a594daad83be9470df7f7b3798297c3d834ce80ba85d6e207627b7db7b",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "e26aa9e2a95f8e4f"
+      "xxh64": "e26aa9e2a95f8e4f",
+      "xxh3_128": "bb8d4c458fac1f120302a39b74a9cf52"
     },
     {
       "pattern": "repeat-0-250",
       "length": 64,
       "blake3": "4eed7141ea4a5cd4b788606bd23f46e212af9cacebacdc7d1f4c6dc7f2511b98",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "f7c67301db6713f0"
+      "xxh64": "f7c67301db6713f0",
+      "xxh3_128": "9c6e140a465545e590c1971ddb04ce74"
     },
     {
       "pattern": "repeat-0-250",
       "length": 65,
       "blake3": "de1e5fa0be70df6d2be8fffd0e99ceaa8eb6e8c93a63f2d8d1c30ecb6b263dee",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "c31eb63b2ae4465b"
+      "xxh64": "c31eb63b2ae4465b",
+      "xxh3_128": "ebedf05eeadc28f11aee64a1615de88f"
     },
     {
       "pattern": "repeat-0-250",
       "length": 127,
       "blake3": "d81293fda863f008c09e92fc382a81f5a0b4a1251cba1634016a0f86a6bd640d",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "464d085810ce0199"
+      "xxh64": "464d085810ce0199",
+      "xxh3_128": "d5add870c9c9e00f060c2e3ddf0f2fb9"
     },
     {
       "pattern": "repeat-0-250",
       "length": 128,
       "blake3": "f17e570564b26578c33bb7f44643f539624b05df1a76c81f30acd548c44b45ef",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "7a7fe14647b9ab92"
+      "xxh64": "7a7fe14647b9ab92",
+      "xxh3_128": "14792fc3af88dc6c05321a0b64d67b41"
     },
     {
       "pattern": "repeat-0-250",
       "length": 129,
       "blake3": "683aaae9f3c5ba37eaaf072aed0f9e30bac0865137bae68b1fde4ca2aebdcb12",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "0ba25dfd6e891fcf"
+      "xxh64": "0ba25dfd6e891fcf",
+      "xxh3_128": "dd5e74ac6b45f54ebc30b63382b09a3b"
     },
     {
       "pattern": "repeat-0-250",
       "length": 1023,
       "blake3": "10108970eeda3eb932baac1428c7a2163b0e924c9a9e25b35bba72b28f70bd11",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "d66738f081c25cf4"
+      "xxh64": "d66738f081c25cf4",
+      "xxh3_128": "4325711b0ed4d742d3d91d80ac495685"
     },
     {
       "pattern": "repeat-0-250",
       "length": 1024,
       "blake3": "42214739f095a406f3fc83deb889744ac00df831c10daa55189b5d121c855af7",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "138e26c65048ce29"
+      "xxh64": "138e26c65048ce29",
+      "xxh3_128": "d0ac1f7b93bf57b9e5d78bafa45b2aa5"
     },
     {
       "pattern": "repeat-0-250",
       "length": 1025,
       "blake3": "d00278ae47eb27b34faecf67b4fe263f82d5412916c1ffd97c8cb7fb814b8444",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "cfd73aedd2d6a39d"
+      "xxh64": "cfd73aedd2d6a39d",
+      "xxh3_128": "2882ebca04ec915ce95c42288f28186e"
     },
     {
       "pattern": "repeat-0-250",
       "length": 2048,
       "blake3": "e776b6028c7cd22a4d0ba182a8bf62205d2ef576467e838ed6f2529b85fba24a",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "a69e05a7eff57800"
+      "xxh64": "a69e05a7eff57800",
+      "xxh3_128": "a5141efedfefc1af25339063db861586"
     },
     {
       "pattern": "repeat-0-250",
       "length": 2049,
       "blake3": "5f4d72f40d7a5f82b15ca2b2e44b1de3c2ef86c426c95c1af0b6879522563030",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "27858160679416ba"
+      "xxh64": "27858160679416ba",
+      "xxh3_128": "39a54bc93f74921b6c9600c0e506e2ae"
     },
     {
       "pattern": "repeat-0-250",
       "length": 3072,
       "blake3": "b98cb0ff3623be03326b373de6b9095218513e64f1ee2edd2525c7ad1e5cffd2",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "278f56bcf5b542fe"
+      "xxh64": "278f56bcf5b542fe",
+      "xxh3_128": "6ad7706834262fbe4adb90b35034df6b"
     },
     {
       "pattern": "repeat-0-250",
       "length": 3073,
       "blake3": "7124b49501012f81cc7f11ca069ec9226cecb8a2c850cfe644e327d22d3e1cd3",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "9805379a726bf789"
+      "xxh64": "9805379a726bf789",
+      "xxh3_128": "5d57462ac5e1e28c6b63998099a1db88"
     },
     {
       "pattern": "repeat-0-250",
       "length": 4096,
       "blake3": "015094013f57a5277b59d8475c0501042c0b642e531b0a1c8f58d2163229e969",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "122a8c8d994ad3ec"
+      "xxh64": "122a8c8d994ad3ec",
+      "xxh3_128": "e12cd72144990fe57135ffa504f1bc71"
     },
     {
       "pattern": "repeat-0-250",
       "length": 4097,
       "blake3": "9b4052b38f1c5fc8b1f9ff7ac7b27cd242487b3d890d15c96a1c25b8aa0fb995",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "ba236f554636de5b"
+      "xxh64": "ba236f554636de5b",
+      "xxh3_128": "0f77b4bc73e3337db69d29f17d48293f"
     },
     {
       "pattern": "repeat-0-250",
       "length": 5120,
       "blake3": "9cadc15fed8b5d854562b26a9536d9707cadeda9b143978f319ab34230535833",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "ec231c1725317049"
+      "xxh64": "ec231c1725317049",
+      "xxh3_128": "fca66ee812b7536bc253253a1e34eacb"
     },
     {
       "pattern": "repeat-0-250",
       "length": 5121,
       "blake3": "628bd2cb2004694adaab7bbd778a25df25c47b9d4155a55f8fbd79f2fe154cff",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "777b5f0e763553e5"
+      "xxh64": "777b5f0e763553e5",
+      "xxh3_128": "b2629a274f9cf54d0724cd51405ccc2e"
     },
     {
       "pattern": "repeat-0-250",
       "length": 6144,
       "blake3": "3e2e5b74e048f3add6d21faab3f83aa44d3b2278afb83b80b3c35164ebeca205",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "408ed308ca705f21"
+      "xxh64": "408ed308ca705f21",
+      "xxh3_128": "298a9263720080b8901675f3a6446389"
     },
     {
       "pattern": "repeat-0-250",
       "length": 6145,
       "blake3": "f1323a8631446cc50536a9f705ee5cb619424d46887f3c376c695b70e0f0507f",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "c6a342a51b057424"
+      "xxh64": "c6a342a51b057424",
+      "xxh3_128": "0816086e754989625de758f4be7d8805"
     },
     {
       "pattern": "repeat-0-250",
       "length": 7168,
       "blake3": "61da957ec2499a95d6b8023e2b0e604ec7f6b50e80a9678b89d2628e99ada77a",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "e75e4dc64051594c"
+      "xxh64": "e75e4dc64051594c",
+      "xxh3_128": "6e7f04c8841784728a36870fdd6ccf4b"
     },
     {
       "pattern": "repeat-0-250",
       "length": 7169,
       "blake3": "a003fc7a51754a9b3c7fae0367ab3d782dccf28855a03d435f8cfe74605e7817",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "50a2cbf0a3598de2"
+      "xxh64": "50a2cbf0a3598de2",
+      "xxh3_128": "24c69052bc005572fda6df3b258009b5"
     },
     {
       "pattern": "repeat-0-250",
       "length": 8192,
       "blake3": "aae792484c8efe4f19e2ca7d371d8c467ffb10748d8a5a1ae579948f718a2a63",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "1a098375c6e66fd4"
+      "xxh64": "1a098375c6e66fd4",
+      "xxh3_128": "d481c9ee8a8fe42940a71c16bbe37322"
     },
     {
       "pattern": "repeat-0-250",
       "length": 8193,
       "blake3": "bab6c09cb8ce8cf459261398d2e7aef35700bf488116ceb94a36d0f5f1b7bc3b",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "755e4befd10cccf4"
+      "xxh64": "755e4befd10cccf4",
+      "xxh3_128": "eaa446aa30f78391d6735a2b792cf505"
     },
     {
       "pattern": "repeat-0-250",
       "length": 16384,
       "blake3": "f875d6646de28985646f34ee13be9a576fd515f76b5b0a26bb324735041ddde4",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "05773fb9ae5fe381"
+      "xxh64": "05773fb9ae5fe381",
+      "xxh3_128": "89f77cad30e7b59d168f7fb4781d0831"
     },
     {
       "pattern": "repeat-0-250",
       "length": 31744,
       "blake3": "62b6960e1a44bcc1eb1a611a8d6235b6b4b78f32e7abc4fb4c6cdcce94895c47",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "5fd04299cacedf8a"
+      "xxh64": "5fd04299cacedf8a",
+      "xxh3_128": "786ea195976b880d5162bbaf8b257803"
     },
     {
       "pattern": "repeat-0-250",
       "length": 102400,
       "blake3": "bc3e3d41a1146b069abffad3c0d44860cf664390afce4d9661f7902e7943e085",
       "blake3Source": "BLAKE3-team official test_vectors.json",
-      "xxh64": "eb1adcdd9e1369a6"
+      "xxh64": "eb1adcdd9e1369a6",
+      "xxh3_128": "ecd387d36185351b1428e17f1cac2837"
     },
     {
       "pattern": "repeat-0-250",
       "length": 9,
       "blake3": "a0fc27e5d7318b723207637bdeeba4f7dcb22f7f9ec3e8b6f3588ddcd4fdf861",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "67d85784a7c78c5b"
+      "xxh64": "67d85784a7c78c5b",
+      "xxh3_128": "16c769d83e4aebce907931979dca3746"
     },
     {
       "pattern": "repeat-0-250",
       "length": 15,
       "blake3": "163475fc98871015d19097d29536653bdeac6a9c3a18ad4b3a629cfaa1bbf32e",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "a948f5f0f6abac2d"
+      "xxh64": "a948f5f0f6abac2d",
+      "xxh3_128": "301a9f754e8f569a0017ea4be19bc787"
     },
     {
       "pattern": "repeat-0-250",
       "length": 16,
       "blake3": "a6a492965517a830cb75fdb713465aa465f2f098233896fea44c1d98268bf9e3",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "44b6ef2fb84169f7"
+      "xxh64": "44b6ef2fb84169f7",
+      "xxh3_128": "72950631827607e2842812cc870dcae2"
     },
     {
       "pattern": "repeat-0-250",
       "length": 17,
       "blake3": "8462aa7be93b09fda7b93cf9f9cddb703f6dd2cc0c8edd5f9eee092edf8abf0c",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "5603e60c527599b6"
+      "xxh64": "5603e60c527599b6",
+      "xxh3_128": "685bc458b37d057fc06e233df7729217"
     },
     {
       "pattern": "repeat-0-250",
       "length": 31,
       "blake3": "bda80c7fe2db38be6387b35c870bd7728d67b7b6cc5eb9b0e5c7dcb21ea754c2",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "c346d2b59b4d8ee1"
+      "xxh64": "c346d2b59b4d8ee1",
+      "xxh3_128": "4ed3946d393b687bb54de3993874ed20"
     },
     {
       "pattern": "repeat-0-250",
       "length": 32,
       "blake3": "e528e95798037df410543d9f31e396ecdd458d71b157d6014398bae32fb56c65",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "cbf59c5116ff32b4"
+      "xxh64": "cbf59c5116ff32b4",
+      "xxh3_128": "25e7c9b3424ceed2457d9566b6fcd697"
     },
     {
       "pattern": "repeat-0-250",
       "length": 33,
       "blake3": "4f4e6c1dffd3a6c9959876d15aa96b5fb0da8632b995f6ca2e30503f2829fa29",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "0c535d1acafb8ead"
+      "xxh64": "0c535d1acafb8ead",
+      "xxh3_128": "02175c3aabb00637e08d84951339de86"
     },
     {
       "pattern": "repeat-0-250",
       "length": 255,
       "blake3": "cb97b80a66306dd2d4f1ab7ff9fd17d3d62d88c974e8daf0ea9fbd0b1ae1b1c1",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "566d96b832b967c1"
+      "xxh64": "566d96b832b967c1",
+      "xxh3_128": "65652759c081c563074191baf9c49567"
     },
     {
       "pattern": "repeat-0-250",
       "length": 256,
       "blake3": "f462b63aae56ed9fb899ad8eb93aa35d3dd62773fda9c33bfe20f9dab5d3df5f",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "f33944343ee85824"
+      "xxh64": "f33944343ee85824",
+      "xxh3_128": "96c36c85d00e5bc544f5d90dacde463a"
     },
     {
       "pattern": "repeat-0-250",
       "length": 257,
       "blake3": "3d41df314e2c7af6919d994b391780a7d8abb9a57b1abf64e04ec5d49428788e",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "9dd5394c26b3c4d8"
+      "xxh64": "9dd5394c26b3c4d8",
+      "xxh3_128": "8c650dc0594ae28188fc3f7934a6c9be"
     },
     {
       "pattern": "repeat-0-250",
       "length": 16383,
       "blake3": "7529418ecb789a30254899f229522ccde05234d2019c5ec5072bc4685a57658d",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "354da38197bc6101"
+      "xxh64": "354da38197bc6101",
+      "xxh3_128": "b4a782a229e31bc850c466a61f5aec47"
     },
     {
       "pattern": "repeat-0-250",
       "length": 16385,
       "blake3": "1dabe216be2578830263b049de1639f39f05a4da616b9b78c7a5e4e41662fd1f",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "70c0f3c188d8aa7f"
+      "xxh64": "70c0f3c188d8aa7f",
+      "xxh3_128": "7f1012a369696b6dfea38d9173737a4b"
     },
     {
       "pattern": "repeat-0-250",
       "length": 65535,
       "blake3": "de7d0f4c044c56f56e0c5f7ab247be9491c4520e8688f0f0d25406f46fdfbd03",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "fc26b00b70f81612"
+      "xxh64": "fc26b00b70f81612",
+      "xxh3_128": "9a37db99da12045d158b4a19c83280c1"
     },
     {
       "pattern": "repeat-0-250",
       "length": 65536,
       "blake3": "68d647e619a930e7b1082f74f334b0c65a315725569bdc123f0ee11881717bfe",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "316c40df46fe2584"
+      "xxh64": "316c40df46fe2584",
+      "xxh3_128": "f5e7bc5d3d8675bfaaae63800707a868"
     },
     {
       "pattern": "repeat-0-250",
       "length": 65537,
       "blake3": "7c99f9840a73dfcb6e5bfe4ff6d1558acab7e015640790c26411818bdbe17eca",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "8c8e0218a8ee0fee"
+      "xxh64": "8c8e0218a8ee0fee",
+      "xxh3_128": "0924e7a3a30e818770331d53d92bbc56"
     },
     {
       "pattern": "repeat-0-250",
       "length": 1048575,
       "blake3": "f32b849d19684c18c138cf13e29dbadc776f4bc2a56b477680ef546b39ac3f71",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "5321561b8f569a30"
+      "xxh64": "5321561b8f569a30",
+      "xxh3_128": "10fb43d7606e20e4895179b331362d01"
     },
     {
       "pattern": "repeat-0-250",
       "length": 1048576,
       "blake3": "74cb441fd087764ca9c3694da742ebe30cbeb3060a17009ca81825c7a8d10343",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "89ac0399c4464a31"
+      "xxh64": "89ac0399c4464a31",
+      "xxh3_128": "53738d98098cabba6e0d7ac36b8c10ff"
     },
     {
       "pattern": "repeat-0-250",
       "length": 1048577,
       "blake3": "2f053cd7472cf0cd2f9adaf45c1180255b91b9a865404a63671a0ee5f792ed33",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "e886e5e68d330119"
+      "xxh64": "e886e5e68d330119",
+      "xxh3_128": "3db0e7620b0d635947a84c196fd973df"
     },
     {
       "pattern": "repeat-0-250",
       "length": 67108864,
       "blake3": "6837ea41ffe5fe2612df38ae49ca6e52341714f1a117d98ae400e4ac7885701d",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "53bd107144a046aa"
+      "xxh64": "53bd107144a046aa",
+      "xxh3_128": "7227ba0ecbbf133e7d985970875d064c"
     },
     {
       "pattern": "ascii",
@@ -386,7 +440,8 @@
       "length": 3,
       "blake3": "6437b3ac38465133ffb63b75273a8db548c558465d79db03fd359c6cd5bd9d85",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "44bc2cf5ad770999"
+      "xxh64": "44bc2cf5ad770999",
+      "xxh3_128": "06b05ab6733a618578af5f94892f3950"
     },
     {
       "pattern": "ascii",
@@ -394,7 +449,8 @@
       "length": 9,
       "blake3": "b7d65b48420d1033cb2595293263b6f72eabee20d55e699d0df1973b3c9deed1",
       "blake3Source": "@noble/hashes 1.8.0 independent implementation",
-      "xxh64": "8cb841db40e6ae83"
+      "xxh64": "8cb841db40e6ae83",
+      "xxh3_128": "33119477ede5dcd5e9716427681d5860"
     }
   ],
   "xxh64Source": "Independent native libxxhash 802 XXH64(data,len,0), canonical numeric hex"

@@ -5,6 +5,11 @@ const path = require('path');
 const childProcess = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
+// Export probes must not write authority secrets or test data into source.
+const scratchData = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'game-module-check-'));
+process.env.DATA_DIR = scratchData;
+process.env.HA_ENABLED = '0';
+process.on('exit', () => fs.rmSync(scratchData, {recursive:true,force:true}));
 
 function collectJs(dir) {
     const result = [];
