@@ -1,101 +1,78 @@
-Game.Hashes.pas: algorithm provenance and native validation
-=========================================================
+Integrity hash suite v3
+=======================
 
-Scope
------
-XXH64 is the original 64-bit xxHash with seed exactly zero, formatted as
-16 lowercase hexadecimal characters. It is non-cryptographic.
-BLAKE3 is unkeyed hashing with exactly 32 output bytes, formatted as
-64 lowercase hexadecimal characters. It supplements the existing SHA-256
-trust anchor. SHA-256 and CRC64 behavior is retained by integration code.
-There is no keyed hashing, derive-key mode, XOF API, SIMD/assembly path,
-anti-debugging, timing check, hidden API resolution, or hardware claim.
+Sources
+-------
+SHA-512: FIPS 180-4, sections 4.1.3, 4.2.3, 5 and 6.4.
+https://csrc.nist.gov/pubs/fips/180-4/upd1/final
+Game.Hashes.SHA512.pas implements the specified SHA-512 with native UInt64
+arithmetic. The API limits total input to 2^64-1 bytes and writes the complete
+128-bit bit-length field (including the upper three bits).
 
-Design and provenance
----------------------
-This is a new Pascal implementation of the documented algorithms, not an
-embedded binary library. All byte loads are explicit little endian. XXH64
-retains a 32-byte stripe buffer. BLAKE3 retains a 64-byte block and at most
-54 chaining values; input is limited to 2^64-1 bytes before length wrap.
-FinishHex is non-destructive and permits subsequent Update calls.
+XXH3-128: seed-zero scalar algorithm, canonical big-endian high64 then low64.
+https://github.com/Cyan4973/xxHash/blob/v0.8.2/xxhash.h
+Port cross-checked against the equivalent hash-wasm 4.12.0 xxhash128.c source
+and independently against upstream libxxhash 0.8.2 XXH3_128bits at runtime.
+The BSD 2-Clause upstream notice is included in Game.Hashes.XXH3.pas.
+Streaming holds only a 256-byte buffer plus eight accumulators. All boundary
+paths use the actual XXH3-128 algorithm, not two XXH64 calls or truncation.
+Small utility routines are deliberately not marked inline: FPC 3.2.2 can
+miscompile nested inline expressions in this port. Delphi also follows the
+explicit call boundaries; byte results are independent of compiler inlining.
 
-XXH64 specification by Yann Collet, version 0.2.0 (2023-06-29):
-https://github.com/Cyan4973/xxHash/blob/dev/doc/xxhash_spec.md
-The XXH64 constants, stripe accumulation, merge, tail, avalanche, and
-canonical numeric hexadecimal ordering follow this algorithm description.
-The document's permission notice is reproduced below as attribution;
-this file is an implementation/validation note, not a copy of the document.
-
-Copyright (c) Yann Collet
-Permission is granted to copy and distribute this document for any purpose
-and without charge, including translations into other languages and
-incorporation into compilations, provided that the copyright notice and
-this notice are preserved, and that any substantive changes or deletions
-from the original are clearly marked. Distribution of this document is
-unlimited.
-
-BLAKE3 paper and official readable Rust reference implementation:
-https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf
-https://github.com/BLAKE3-team/BLAKE3/blob/master/reference_impl/reference_impl.rs
-The compression and eager tree merge design follows the published BLAKE3
-algorithm. The fixed seven-round schedule is obtained by repeated
-application of its documented 16-word message permutation. The reference
-implementation was inspected through its official upstream GitHub page on
-2026-10-01. BLAKE3's official repository offers Apache-2.0 or CC0-1.0;
-CC0-1.0 is the selected upstream option for any reference-derived material.
-https://github.com/BLAKE3-team/BLAKE3/blob/master/LICENSE_CC0
-
-blake3-official-vectors.json
----------------------------
-Contains all 35 input lengths from the official BLAKE3 test vector file:
+BLAKE3: official specification and official reference vectors.
+https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.tex
 https://github.com/BLAKE3-team/BLAKE3/blob/master/test_vectors/test_vectors.json
-Retrieved from that official GitHub page on 2026-10-01. Each input byte at
-position i is i modulo 251. Only the first 32 bytes of each unkeyed hash
-output are retained; keyed_hash and derive_key vectors are not applicable.
-The JSON therefore is an explicitly reduced/converted fixture, not the
-unmodified upstream file. It contains a source URL and retrieval date.
-Its xxh64 fields were independently generated using the environment's
-system libxxhash 0.8.2, function XXH64(data, input_length, 0); no Pascal or
-JavaScript implementation was used to create those XXH64 expected values.
+The complete public vector file is included as blake3-official-full-vectors.json.
+It includes all three modes and 131-byte XOF results, not just digest prefixes.
+Keyed mode requires exactly 32 bytes. Derive-key context consumes explicit UTF-8
+bytes and uses DERIVE_KEY_CONTEXT then DERIVE_KEY_MATERIAL domain flags.
+Every parent and leaf is initialized with the proper mode/key; ROOT is applied
+only to root output. Output seeking uses the root output-block counter.
+The incremental implementation maintains the canonical 1024-byte chunk tree.
+It does not start worker threads; tree semantics are fully supported, while
+parallel execution remains an optimization requiring separate benchmarks.
 
-Native test workflow
---------------------
-HashProbe.dpr exercises the actual Game.Hashes unit and emits tab-separated
-length/XXH64/BLAKE3. It checks repeated finalization, continued Update after
-intermediate finalization, zero-length Update, and byte-array equivalence.
-verify_hash_probe.py compares its output against the 35 reference vectors
-for 13 update sizes, covering stripes, blocks, chunk endings and tree merges.
-The runner also reads the sibling GameWeb extended-hash-vectors.json fixture
-to test additional boundaries, ASCII inputs, 1 MiB inputs, and a 64 MiB input
-(with suitably larger update sizes for long inputs). These extra BLAKE3
-expectations use independent @noble/hashes 1.8.0, documented by that fixture.
-Use --extended-vectors to point to that file when moving the native tests.
-The Python runner contains no hash implementation and never silently
-substitutes an implementation when the compiler or executable is missing.
+Memory lifetime
+---------------
+BLAKE3 key chaining values, chunk buffers, parent stack and temporary output
+state are explicitly overwritten when no longer needed and in Destroy.
+SHA-512 state, input buffers and schedules are also overwritten. Returned
+TBytes or strings are caller-owned; callers must minimize copies and clear
+sensitive byte buffers. Delphi managed strings cannot promise erasure of
+all historical copies or compiler temporaries. No hash algorithm requires a
+production key embedded in this unit. The test probe's key is a published
+vector constant, never a production secret.
 
-Run from this tests directory, placing build output in a temporary folder:
-  fpc -Mdelphi -Fu.. -FE<temporary-dir> -FU<temporary-dir> HashProbe.dpr
-  python verify_hash_probe.py --probe <temporary-dir>/HashProbe
-Or with the supported Windows toolchain:
-  dcc64 -U.. -E<temporary-dir> -N0<temporary-dir> HashProbe.dpr
-  python verify_hash_probe.py --probe <temporary-dir>/HashProbe.exe
+Compatibility
+-------------
+TXXHash64 and XXHash64Bytes remain explicitly named legacy helpers only.
+The GAME-CONNECT-4/hashVersion=3 measurements must use TXXHash3_128/XXHash3_128Bytes;
+renaming an XXH64 result as XXH3 is prohibited. SHA512Bytes returns 128 lowercase
+hex characters, XXHash3_128Bytes 32; BLAKE3 default is 64 lowercase characters.
+Hash/CRC results alone never grant a session, license, or server approval.
 
-Independent reference validation performed on 2026-10-01
--------------------------------------------------------
-A separate reviewer retrieved the official BLAKE3 C sources (version 1.8.7)
-through the official GitHub source pages and compiled the portable C path
-with GCC, with SIMD disabled. It agreed with all 56 server fixture cases
-(35 official vectors and 21 extras), including the 64 MiB sequence, both
-one-shot and with 65536-byte updates. The system libxxhash 0.8.2 and the
-production server implementation also agreed: 280 oracle/implementation
-checks. A source-logic model used for review is additional evidence only.
-These checks validate expected values and the server implementation; they
-DO NOT establish that Game.Hashes.pas compiled or executed successfully.
+Verification
+------------
+Compile the actual Pascal CLI; never use a surrogate in its place:
+  fpc -Mdelphi -O2 -Fu.. -FE<temp-dir> -FU<temp-dir> HashProbe.dpr
+or:
+  dcc64 -U.. -E<temp-dir> -N0<temp-dir> HashProbe.dpr
+Then:
+  python3 ../../GameWeb/scripts/verify-native-hashes.py --probe <compiled-path>
+On platforms without libxxhash, pass --xxhash-library <path-to-upstream-library>.
 
-Validation limitation in the preparation environment
--------------------------------------------------
-Neither DCC64 nor FPC was available. Therefore native compilation and the
-compiled Pascal probe suite were NOT run here. Source review and any
-algorithm-model or server tests are not a substitute for that native gate.
-The Windows DCC64 build and actual-executable smoke/integrity checks remain
-required before use. No binaries or compiler outputs are shipped here.
+The runner compares every case's SHA-512 against Python/OpenSSL and XXH3-128
+against libxxhash. It checks official BLAKE3 unkeyed, keyed, derive-key, 131-byte
+XOF and an output seek crossing a 64-byte boundary. Update boundaries include
+1, 7, 31, 63/64/65, 127/128/129, 239/240/241, 255/256/257,
+1023/1024/1025, 4093 and 65536 bytes. Extended vectors include a 64 MiB input.
+HashProbe checks zero-byte updates, repeated finish and update after finish.
+This verifies portable algorithms, not a complete Delphi/Windows product build.
+
+Server distribution
+-------------------
+See services/vendor/hash-wasm-4.12.0/PROVENANCE.txt and
+services/vendor/noble-hashes-1.8.0/PROVENANCE.txt for exact pinned dependencies,
+licenses and asset verification. Historical xxh64 fixture columns are retained
+only as explicitly named historical reference data; no v3 report accepts them.

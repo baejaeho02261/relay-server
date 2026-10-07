@@ -64,7 +64,7 @@ function BindUnassignedClients(serverId) {
     if (!capabilities.includes('BUILD_SESSION_LEASE')) return 0;
 
     let assignedCount = GetServerClientCount(serverId);
-    const buildGate = require('../services/buildGate');
+    const buildGate = require('../services/retiredLegacy').Service('buildGate');
     const fixedOwner = buildGate.BindingForServer(serverId);
     if (fixedOwner) return 0;
     let changed = 0;
@@ -164,7 +164,7 @@ function RegisterServer(connection, deviceKey, protocolVersion, appVersion) {
     require('../services/reconnectMonitor').RecordReconnect('SERVER', serverId);
     servers.set(serverId, connection);
     TrackIP('SERVER', serverId, connection.lastIP);
-    try { require('../services/emergencyFailover').MarkServerOnline(serverId); } catch (_) {}
+    try { require('../services/retiredLegacy').Service('emergencyFailover').MarkServerOnline(serverId); } catch (_) {}
 
     SendLine(connection.socket, `REGISTERED|${serverId}|${protocolVersion}|${appVersion}`);
     LogEvent('SERVER_ONLINE', `${serverId} v${appVersion}`);
@@ -192,14 +192,17 @@ function RegisterServer(connection, deviceKey, protocolVersion, appVersion) {
 }
 
 function HandleServerLine(connection, line) {
-    if (require('../services/serviceLifecycle').Gate(connection, line)) return;
+    if (!require('../services/desktopMode').LegacyTcpEnabled()) {
+        SendLine(connection.socket, 'ERROR|APK_FEATURE_RETIRED');
+        return;
+    }
     line = line.trim();
     if (!line) return;
 
     if (connection.serverId) {
         if (line.startsWith('BUILD_REVOKE_ACK|')) { return; }
-        if (line.startsWith('BUILD_GATE_LOCKED|')) { connection.buildUnlocked=false;connection.buildClients=new Set();connection.buildSessions=new Map();require('../services/buildGate').RevokeForServer(connection.serverId,line.split('|')[1]||'SERVER_LOCKED');for(const client of clients.values()){if(client.serverId!==connection.serverId)continue;client.buildCompleted=false;SendLine(client.socket,`BUILD_REQUIRED|${connection.serverId}`);} return; }
-        if (line.startsWith('CAPABILITIES|')) { const dc=require('../services/deviceControl'); dc.RecordCapabilities('SERVER', connection.serverId, line.substring('CAPABILITIES|'.length)); const capabilities=dc.Capabilities('SERVER',connection.serverId); if(capabilities.includes('BUILD_SESSION_LEASE')){connection.buildGateCapable=true;connection.buildUnlocked=false;connection.buildClients=new Set();connection.buildSessions=new Map();for(const client of clients.values()){if(client.serverId!==connection.serverId)continue;client.buildCompleted=false;if(!state.pendingBuildGrants.has(client.clientId))SendLine(client.socket,`BUILD_REQUIRED|${connection.serverId}`);}} dc.PushDesiredConfig('SERVER', connection.serverId); if(capabilities.includes('PROCESSOR_POLICY'))require('../services/processorCenter').PushToServer(connection.serverId); require('../services/releaseManager').NotifyDevice('SERVER', connection.serverId); require('../services/deviceAuth').SendEnrollmentSecret('SERVER', connection.serverId, false); if(require('../services/deviceAuth').Verified('SERVER',connection.serverId))require('../services/buildGate').TryDispatchServer(connection.serverId); return; }
+        if (line.startsWith('BUILD_GATE_LOCKED|')) { connection.buildUnlocked=false;connection.buildClients=new Set();connection.buildSessions=new Map();require('../services/retiredLegacy').Service('buildGate').RevokeForServer(connection.serverId,line.split('|')[1]||'SERVER_LOCKED');for(const client of clients.values()){if(client.serverId!==connection.serverId)continue;client.buildCompleted=false;SendLine(client.socket,`BUILD_REQUIRED|${connection.serverId}`);} return; }
+        if (line.startsWith('CAPABILITIES|')) { const dc=require('../services/deviceControl'); dc.RecordCapabilities('SERVER', connection.serverId, line.substring('CAPABILITIES|'.length)); const capabilities=dc.Capabilities('SERVER',connection.serverId); if(capabilities.includes('BUILD_SESSION_LEASE')){connection.buildGateCapable=true;connection.buildUnlocked=false;connection.buildClients=new Set();connection.buildSessions=new Map();for(const client of clients.values()){if(client.serverId!==connection.serverId)continue;client.buildCompleted=false;if(!state.pendingBuildGrants.has(client.clientId))SendLine(client.socket,`BUILD_REQUIRED|${connection.serverId}`);}} dc.PushDesiredConfig('SERVER', connection.serverId); if(capabilities.includes('PROCESSOR_POLICY'))require('../services/processorCenter').PushToServer(connection.serverId); require('../services/releaseManager').NotifyDevice('SERVER', connection.serverId); require('../services/deviceAuth').SendEnrollmentSecret('SERVER', connection.serverId, false); if(require('../services/deviceAuth').Verified('SERVER',connection.serverId))require('../services/retiredLegacy').Service('buildGate').TryDispatchServer(connection.serverId); return; }
         if (line.startsWith('DEVICE_INFO|')) { require('../services/deviceControl').RecordDeviceInfo('SERVER', connection.serverId, line.split('|').slice(1)); return; }
         if (line.startsWith('PROTOCOL_PROFILE|')) { const p=line.split('|'); require('../services/protocolReadiness').RecordProfile('SERVER', connection.serverId, p[1], p[2], p.slice(3).join('|')); return; }
         if (line === 'DEVICE_SECRET_ACK' || line.startsWith('DEVICE_SECRET_ACK|')) { require('../services/deviceAuth').HandleSecretAck('SERVER', connection.serverId); return; }

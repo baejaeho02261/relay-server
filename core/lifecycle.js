@@ -33,12 +33,12 @@ function CleanupTransient() {
     // idempotent sweep closes the narrow race where Android and its PC finish
     // registering in the same event-loop interval or one transport is being
     // replaced.  It never moves an existing fixed binding.
-    try { require('../services/deviceRegistry').RepairPairing(); } catch (_) {}
+    // Desktop mode preserves archived pairing records without repair/backfill.
 }
 
 function DisconnectConnection(connection) {
-    require('../services/member/testAccess').Revoke(connection);
-    require('../services/serviceLifecycle').Forget(connection);
+    require('../services/retiredLegacy').Service('member/testAccess').Revoke(connection);
+    // Legacy workflow queues are retired; normal connection cleanup follows.
     if (connection.serviceWaiting) { connection.disconnected = true; return; }
     if(connection.disconnected)return;connection.disconnected=true;
     if(connection.type==='server'){
@@ -51,13 +51,13 @@ function DisconnectConnection(connection) {
         }
         if(connection.serverId&&servers.get(connection.serverId)===connection)servers.delete(connection.serverId);
         if(connection.serverId){
-            require('../services/buildGate').RevokeForServer(connection.serverId,'SERVER_OFFLINE');
+            require('../services/retiredLegacy').Service('buildGate').RevokeForServer(connection.serverId,'SERVER_OFFLINE');
             if(connection.buildGateCapable)for(const client of clients.values()){
                 if(client.serverId!==connection.serverId)continue;
                 client.buildCompleted=false;
                 SendLine(client.socket,`BUILD_REQUIRED|${connection.serverId}`);
             }
-            FailPendingRequestsForServer(connection.serverId,'SERVER_OFFLINE');LogEvent('SERVER_OFFLINE',connection.serverId);try{require('../services/emergencyFailover').MarkServerOffline(connection.serverId);}catch(_){}
+            FailPendingRequestsForServer(connection.serverId,'SERVER_OFFLINE');LogEvent('SERVER_OFFLINE',connection.serverId);try{require('../services/retiredLegacy').Service('emergencyFailover').MarkServerOffline(connection.serverId);}catch(_){}
         }
     }else if(connection.type==='client'){
         const currentClient=connection.clientId?clients.get(connection.clientId):null;
@@ -65,7 +65,7 @@ function DisconnectConnection(connection) {
             LogEvent('CLIENT_STALE_CONNECTION_CLOSED',connection.clientId);
             return;
         }
-        if(connection.clientId) require('../services/buildGate').RevokeForClient(connection.clientId,'CLIENT_OFFLINE');
+        if(connection.clientId) require('../services/retiredLegacy').Service('buildGate').RevokeForClient(connection.clientId,'CLIENT_OFFLINE');
         if(connection.clientId) state.clientBiometricChallenges.delete(connection.clientId);
         if(connection.clientId&&clients.get(connection.clientId)===connection)clients.delete(connection.clientId);
         if(connection.clientId&&connection.serverId){const s=GetOnlineServer(connection.serverId);if(s)s.clients.delete(connection.clientId);}

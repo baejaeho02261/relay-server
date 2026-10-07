@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config/config');
 const state = require('../core/state');
-const entryPass = require('../services/member/entryPass');
+const entryPass = require('../services/retiredLegacy').Service('member/entryPass');
 
 const { HOST, PORT, HEALTH_PORT, DATA_DIR, DB_FILE, DB_BAK_FILE, BACKUP_DIR, AUDIT_DIR, CURRENT_PROTOCOL_VERSION, DEFAULT_MIN_PROTOCOL_VERSION, DEFAULT_MIN_SERVER_VERSION, DEFAULT_MIN_CLIENT_VERSION, ADMIN_CREDENTIALS, ADMIN_AUTH_WINDOW_SECONDS, ADMIN_SESSION_TIMEOUT_MS, CONFIRM_TOKEN_TTL_MS, SERVER_KICK_BLOCK_MS, CLIENT_KICK_BLOCK_MS, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX, MAX_CLIENTS_PER_SERVER, REQUEST_HISTORY_TIMEOUT_MS, ACK_RETRY_MS, ACK_TIMEOUT_MS, ACK_MAX_RETRIES, MAX_INPUT_BUFFER, MAX_BULK_KEYS, MAX_SEARCH_RESULTS, MAX_EVENT_MEMORY, AUTO_BACKUP_INTERVAL_MS, MAX_BACKUPS, DANGEROUS_PREFIXES } = config;
 const { servers, clients, serverIdentities, clientIdentities, licenses, disabledServers, drainingServers, disabledClients, kickedServers, kickedClients, requestHistory, pendingRequests, rateLimits, events, confirmTokens, ipHistory, runtimeStats } = state;
@@ -65,14 +65,14 @@ function GetUsableLicenseForConnection(connection) {
 }
 
 function CompleteAuthorization(connection, licenseKey, license, source = 'LICENSE', requestId = '') {
-    if (!require('../services/member/identity').Ready(connection)) { SendLine(connection.socket, 'ERROR|IDENTITY_REQUIRED'); return false; }
-    if (!require('../services/clientPermissions').Ready(connection) ||
-        require('../services/clientPermissions').NeedsApproval(connection)) {
+    if (!require('../services/retiredLegacy').Service('member/identity').Ready(connection)) { SendLine(connection.socket, 'ERROR|IDENTITY_REQUIRED'); return false; }
+    if (!require('../services/retiredLegacy').Service('clientPermissions').Ready(connection) ||
+        require('../services/retiredLegacy').Service('clientPermissions').NeedsApproval(connection)) {
         SendLine(connection.socket, 'ERROR|PERMISSIONS_REQUIRED'); return false;
     }
     const eventSource = source === 'QR' || source === 'QR_RESUME' ? source : 'LICENSE';
     const game = entryPass.ForClient(connection,true);
-    const accessType = entryPass.IsEntry(license) ? (game?.accessType || '') : require('../services/accessType').NormalizeAccessType(license.accessType);
+    const accessType = entryPass.IsEntry(license) ? (game?.accessType || '') : require('../services/retiredLegacy').Service('accessType').NormalizeAccessType(license.accessType);
     if (!entryPass.IsEntry(license)) license.accessType = accessType;
     if (!license.boundClient) {
         license.boundClient = connection.clientId;
@@ -109,8 +109,8 @@ function CompleteAuthorization(connection, licenseKey, license, source = 'LICENS
     if (eventSource === 'LICENSE') SendLine(connection.socket, `LICENSE_OK|${licenseKey}|${license.expiresAt}`);
     else SendLine(connection.socket, `QR_AUTH_OK|${requestId || 'RESUME'}|${license.expiresAt}|${accessType}`);
     NotifyServerUnauthorized(connection.clientId, 'BIOMETRIC_REQUIRED');
-    const biometric = require('../services/clientBiometric');
-    const memberEntry = require('../services/memberEntry');
+    const biometric = require('../services/retiredLegacy').Service('clientBiometric');
+    const memberEntry = require('../services/retiredLegacy').Service('memberEntry');
     if (memberEntry.Supports(connection)) {
         if (!(requestId === 'PURCHASE' && memberEntry.Ready(connection)) && !memberEntry.Grant(connection)) return false;
         // Only an explicitly prepared PC game requires phone proof.
@@ -174,7 +174,7 @@ function CreateLicense(days, memo, tags = [], source = 'LICENSE', persist = true
     licenses.set(key, license);
     if (persist && !PersistLicenseChange()) { licenses.delete(key); return null; }
     LogEvent(source === 'QR' ? 'QR_LICENSE_CREATE' : 'LICENSE_CREATE', source === 'QR' ? `QR-${key.slice(-8)}` : key);
-    setImmediate(() => { try { require('../services/licenseMonitor').ScanLicenseExpiryAlerts(); } catch (_) {} });
+    setImmediate(() => { try { require('../services/licenseMonitor').GetExpirySummary(); } catch (_) {} });
     return { key, expiresAt: license.expiresAt };
 }
 

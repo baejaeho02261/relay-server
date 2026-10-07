@@ -57,7 +57,7 @@ function HandleServerAck(connection, line) {
     const client = GetOnlineClient(clientId);
     if (pending.kind === 'BUILD' && result === 'OK') {
         const detail = parts.length >= 7 ? SafeField(parts.slice(6).join(' ')) : '';
-        const completion = require('../services/buildGate').Complete(clientId, requestId);
+        const completion = require('../services/retiredLegacy').Service('buildGate').Complete(clientId, requestId);
         if (!completion.ok) {
             CompleteTrace(clientId, requestId, 'ERROR', completion.reason, Now());
             if (client) SendLine(client.socket, `BUILD_FAILED|${requestId}|${completion.reason}`);
@@ -81,7 +81,7 @@ function HandleServerAck(connection, line) {
     if (pending.kind === 'BUILD') {
         const reason = parts.length >= 5 ? SafeField(parts[4]) : 'BUILD_FAILED';
         CompleteTrace(clientId, requestId, 'ERROR', reason, Now());
-        require('../services/buildGate').Fail(clientId, requestId, reason);
+        require('../services/retiredLegacy').Service('buildGate').Fail(clientId, requestId, reason);
         SendLine(connection.socket, `ACK_RESULT|ERROR|${requestId}`);
         LogEvent('BUILD_FAILED', `${requestId} / ${clientId} / ${reason}`);
         return;
@@ -110,7 +110,7 @@ function HandleServerAck(connection, line) {
         if(trace){trace.processingMs=processingMs;trace.processor=processor;trace.resultDetail=detail;}
         require('../services/processorCenter').Record(processor || 'DEFAULT', 'ERROR', processingMs, reason);
         require('../services/dailyHealth').Record('ackError');
-        require('../services/requestRecovery').AddDeadLetter(pending, reason, { detail });
+        require('../services/retiredLegacy').Service('requestRecovery').AddDeadLetter(pending, reason, { detail });
         if (client && pending.notifyClient !== false) SendLine(client.socket, processingMs||processor||detail ? `ACK|ERROR|${requestId}|${reason}|${processingMs}|${processor}|${detail}` : `ACK|ERROR|${requestId}|${reason}`);
         SendLine(connection.socket, `ACK_RESULT|ERROR|${requestId}`);
         LogEvent('ACK_ERROR', `${requestId} / ${clientId} / ${reason}`);
@@ -122,7 +122,7 @@ function CleanupRequestHistory() {
     for(const [key,ts] of requestHistory) {
         if (pendingRequests.has(key)) continue;
         const split = key.indexOf('|');
-        const queued = split > 0 && require('../services/requestRecovery').IsQueued(key.substring(0, split), key.substring(split + 1));
+        const queued = split > 0 && require('../services/retiredLegacy').Service('requestRecovery').IsQueued(key.substring(0, split), key.substring(split + 1));
         if (!queued && (!Number.isFinite(ts) || ts < cutoff)) requestHistory.delete(key);
     }
     TrimTraces();
@@ -132,8 +132,8 @@ function ProcessPendingRequests() {
     const now=Now();
     for(const [key,p] of Array.from(pendingRequests.entries())) {
         if(now-p.createdAt>=ACK_TIMEOUT_MS){
-            if(p.kind==='BUILD'&&require('../services/buildGate').Requeue(p,'ACK_TIMEOUT')){CompleteTrace(p.clientId,p.requestId,'TIMEOUT','ACK_TIMEOUT',now);continue;}
-            pendingRequests.delete(key);runtimeStats.ackTimeout++;RecordAck(p.serverId,p.clientId,'TIMEOUT');require('../services/dailyHealth').Record('ackTimeout');CompleteTrace(p.clientId,p.requestId,'TIMEOUT','ACK_TIMEOUT',now);require('../services/requestRecovery').AddDeadLetter(p,'ACK_TIMEOUT');const c=GetOnlineClient(p.clientId);if(c&&p.notifyClient!==false)SendLine(c.socket,`ACK|TIMEOUT|${p.requestId}`);LogEvent('ACK_TIMEOUT',`${p.requestId} / ${p.clientId}`);continue;
+            if(p.kind==='BUILD'&&require('../services/retiredLegacy').Service('buildGate').Requeue(p,'ACK_TIMEOUT')){CompleteTrace(p.clientId,p.requestId,'TIMEOUT','ACK_TIMEOUT',now);continue;}
+            pendingRequests.delete(key);runtimeStats.ackTimeout++;RecordAck(p.serverId,p.clientId,'TIMEOUT');require('../services/dailyHealth').Record('ackTimeout');CompleteTrace(p.clientId,p.requestId,'TIMEOUT','ACK_TIMEOUT',now);require('../services/retiredLegacy').Service('requestRecovery').AddDeadLetter(p,'ACK_TIMEOUT');const c=GetOnlineClient(p.clientId);if(c&&p.notifyClient!==false)SendLine(c.socket,`ACK|TIMEOUT|${p.requestId}`);LogEvent('ACK_TIMEOUT',`${p.requestId} / ${p.clientId}`);continue;
         }
         if(now-p.lastSendAt>=ACK_RETRY_MS&&p.retries<ACK_MAX_RETRIES){
             const s=GetOnlineServer(p.serverId);if(!s)continue;
@@ -146,12 +146,12 @@ function FailPendingRequestsForServer(serverId, reason) {
     for(const [key,p] of Array.from(pendingRequests.entries())){
         if(p.serverId!==serverId)continue;pendingRequests.delete(key);
         if(p.kind==='BUILD'){
-            if(require('../services/buildGate').Requeue(p,reason)){CompleteTrace(p.clientId,p.requestId,'ERROR',reason,Now());continue;}
+            if(require('../services/retiredLegacy').Service('buildGate').Requeue(p,reason)){CompleteTrace(p.clientId,p.requestId,'ERROR',reason,Now());continue;}
             CompleteTrace(p.clientId,p.requestId,'ERROR',reason,Now());const c=GetOnlineClient(p.clientId);if(c&&p.notifyClient!==false)SendLine(c.socket,`ACK|ERROR|${p.requestId}|${reason}`);LogEvent('BUILD_FAILED',`${p.requestId} / ${p.clientId} / ${reason}`);continue;
         }
-        const queued=require('../services/requestRecovery').RequeuePending(p,reason);
+        const queued=require('../services/retiredLegacy').Service('requestRecovery').RequeuePending(p,reason);
         if(queued.ok){LogEvent('ACK_REQUEUED',`${p.requestId} / ${p.clientId} / ${reason}`);continue;}
-        CompleteTrace(p.clientId,p.requestId,'ERROR',reason,Now());require('../services/requestRecovery').AddDeadLetter(p,reason,{detail:queued.reason});const c=GetOnlineClient(p.clientId);if(c&&p.notifyClient!==false)SendLine(c.socket,`ACK|ERROR|${p.requestId}|${reason}`);runtimeStats.ackError++;RecordAck(p.serverId,p.clientId,'ERROR');require('../services/dailyHealth').Record('ackError');LogEvent('ACK_FAILED',`${p.requestId} / ${p.clientId} / ${reason}`);
+        CompleteTrace(p.clientId,p.requestId,'ERROR',reason,Now());require('../services/retiredLegacy').Service('requestRecovery').AddDeadLetter(p,reason,{detail:queued.reason});const c=GetOnlineClient(p.clientId);if(c&&p.notifyClient!==false)SendLine(c.socket,`ACK|ERROR|${p.requestId}|${reason}`);runtimeStats.ackError++;RecordAck(p.serverId,p.clientId,'ERROR');require('../services/dailyHealth').Record('ackError');LogEvent('ACK_FAILED',`${p.requestId} / ${p.clientId} / ${reason}`);
     }
 }
 

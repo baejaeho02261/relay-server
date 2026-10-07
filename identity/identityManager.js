@@ -121,7 +121,7 @@ function RepairOrphanAssignments() {
                 live.buildSessionId = '';
                 SendLine(live.socket, 'SERVER_UNASSIGNED|ORPHAN_SERVER');
             }
-            try { require('../services/buildGate').RevokeForClient(saved.id, 'ORPHAN_SERVER'); } catch (_) {}
+            try { require('../services/retiredLegacy').Service('buildGate').RevokeForClient(saved.id, 'ORPHAN_SERVER'); } catch (_) {}
             state.clientBuildBindings.delete(saved.id);
             changed++;
             LogEvent('CLIENT_ORPHAN_BINDING_REPAIRED', `${saved.id} released from ${serverId}`);
@@ -157,7 +157,7 @@ function RepairOneToOneAssignments() {
             // rows without one, keep the oldest deterministic assignment.
             let aFixed = false, bFixed = false;
             try {
-                const gate = require('../services/buildGate');
+                const gate = require('../services/retiredLegacy').Service('buildGate');
                 const ab = gate.BindingForClient(a.id);
                 const bb = gate.BindingForClient(b.id);
                 aFixed = !!ab && ab.serverId === serverId;
@@ -171,7 +171,7 @@ function RepairOneToOneAssignments() {
         for (const saved of rows.slice(MAX_CLIENTS_PER_SERVER)) {
             saved.serverId = '';
             changed++;
-            try { require('../services/buildGate').RevokeForClient(saved.id, 'ONE_TO_ONE_REPAIR'); } catch (_) {}
+            try { require('../services/retiredLegacy').Service('buildGate').RevokeForClient(saved.id, 'ONE_TO_ONE_REPAIR'); } catch (_) {}
             const live = GetOnlineClient(saved.id);
             if (live) {
                 const previous = GetOnlineServer(live.serverId);
@@ -241,7 +241,7 @@ function ClientMove(clientId, newServerId) {
 
     const oldServer = saved.serverId;
     saved.serverId = newServerId;
-    try { require('../services/emergencyFailover').HandleManualMove(clientId, newServerId); } catch (_) {}
+    try { require('../services/retiredLegacy').Service('emergencyFailover').HandleManualMove(clientId, newServerId); } catch (_) {}
     SaveDatabase();
 
     const live = GetOnlineClient(clientId);

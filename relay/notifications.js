@@ -21,7 +21,7 @@ function NotifyServerAuthorized(clientId, serverId, expiresAt, source = 'LICENSE
     const server = GetOnlineServer(serverId);
     if (!server) return;
     const client = GetOnlineClient(clientId);
-    if(client){const game=require('../services/member/entryPass').ForClient(client,true);if(!game)return;expiresAt=game.expiresAt;}
+    if(client){const game=require('../services/retiredLegacy').Service('member/entryPass').ForClient(client,true);if(!game)return;expiresAt=game.expiresAt;}
     source = String(source || 'LICENSE').toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24) || 'LICENSE';
     const state = `AUTHORIZED|${expiresAt}|${source}`;
     if (client && client.lastServerAuthState === state) return;
@@ -30,7 +30,7 @@ function NotifyServerAuthorized(clientId, serverId, expiresAt, source = 'LICENSE
 }
 
 function NotifyServerUnauthorized(clientId, reason) {
-    require('../services/buildGate').RevokeForClient(clientId, reason || 'CLIENT_UNAUTHORIZED');
+    require('../services/retiredLegacy').Service('buildGate').RevokeForClient(clientId, reason || 'CLIENT_UNAUTHORIZED');
     const saved = GetSavedClientByID(clientId);
     if (!saved) return;
     const server = GetOnlineServer(saved.serverId);
@@ -49,9 +49,9 @@ function NotifyServerUnauthorized(clientId, reason) {
 // Social notices have explicit categories. Muting these never mutes auth,
 // operator announcements, or the separate signed HUB_EVENT live-update stream.
 function NoticeAllowed(client,level){
-    const preferences=require('../services/member/preferences');
+    const preferences=require('../services/retiredLegacy').Service('member/preferences');
     if(!preferences.NotificationKey(level))return true;
-    try{const store=require('../services/member/store');return preferences.NoticeAllowed(store.DB().profiles[store.Subject(client)],level);}
+    try{const store=require('../services/retiredLegacy').Service('member/store');return preferences.NoticeAllowed(store.DB().profiles[store.Subject(client)],level);}
     catch(_){return false;}
 }
 
