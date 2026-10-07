@@ -61,7 +61,7 @@ function RestoreBackup(fileName) {
     rateLimits.clear();
     kickedServers.clear();
     kickedClients.clear();
-    require('../services/requestRecovery').RebuildQueueRuntime();
+    require('../services/retiredLegacy').Service('requestRecovery').RebuildQueueRuntime();
     SaveDatabase();
     LogEvent('BACKUP_RESTORE', safe);
     setTimeout(() => ForceReconnectAll('DATABASE_RESTORED'), 250);

@@ -54,11 +54,11 @@ function ReadBoundedInput(file, min, max, code) {
     throw error;
   } finally { fs.closeSync(fd); }
 }
-function ReleaseCanonical(component, version, sha256) {
-  return ['GAME-RELEASE-APPROVAL-V1', component, version, sha256].join('\n');
+function ReleaseCanonical(component, version, sha512) {
+  return ['GAME-RELEASE-APPROVAL-V2', component, version, sha512].join('\n');
 }
 function SignRelease(component, version, file, keyFile) {
-  if (!['A', 'B'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) stop('RELEASE_ARGUMENT_INVALID');
+  if (!['A', 'B', 'O'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) stop('RELEASE_ARGUMENT_INVALID');
   const bytes = ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID');
   ValidatePeImage(bytes);
   const keyBytes = ReadBoundedInput(keyFile, 1, 16384, 'KEY_FILE_INVALID');
@@ -71,9 +71,9 @@ function SignRelease(component, version, file, keyFile) {
   if (key.asymmetricKeyType !== 'ed25519') stop('ED25519_KEY_REQUIRED');
   const publicKey = crypto.createPublicKey(key);
   const keyId = crypto.createHash('sha256').update(publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
-  const sha256 = crypto.createHash('sha256').update(bytes).digest('hex');
-  const signature = crypto.sign(null, Buffer.from(ReleaseCanonical(component, version, sha256), 'utf8'), key).toString('base64');
-  return { component, version, sha256, ...PeCapabilities(bytes),
+  const sha512 = crypto.createHash('sha512').update(bytes).digest('hex');
+  const signature = crypto.sign(null, Buffer.from(ReleaseCanonical(component, version, sha512), 'utf8'), key).toString('base64');
+  return { component, version, sha512, ...PeCapabilities(bytes),
     trustedKey: { keyId, publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString() },
     approval: { keyId, signature },
     headers: { 'x-game-release-key-id': keyId, 'x-game-release-signature': signature } };
@@ -118,7 +118,7 @@ function ValidatePeImage(bytes){
 }
 function PeCapabilities(bytes) {
   // Only metadata of administrator-uploaded bytes, never a client capability claim.
-  const authorityVersion = bytes.includes(Buffer.from('GAME-AUTHORITY-V1')) || bytes.includes(Buffer.from('GAME-AUTHORITY-V1', 'utf16le')) ? 1 : 0;
+  const authorityVersion = bytes.includes(Buffer.from('GAME-AUTHORITY-V2')) || bytes.includes(Buffer.from('GAME-AUTHORITY-V2', 'utf16le')) ? 1 : 0;
   let compiledCfg = false;
   try {
     const pe = bytes.readUInt32LE(0x3c), opt = pe + 24, optSize = bytes.readUInt16LE(pe + 20), count = bytes.readUInt16LE(pe + 6);
@@ -172,7 +172,7 @@ function main() {
     const data = Buffer.from('GAME-APPROVAL-SELFTEST-V2', 'ascii');
     const signature = crypto.sign(null, data, pair.privateKey);
     if (!crypto.verify(null, data, pair.publicKey, signature)) stop('CRYPTO_SELF_TEST_FAILED');
-    return { ready: true, standalone: true, format: 'GAME-RELEASE-APPROVAL-V1' };
+    return { ready: true, standalone: true, format: 'GAME-RELEASE-APPROVAL-V2' };
   }
   if (action !== 'sign') stop('ACTION_INVALID');
   const component = env.GC_APPROVAL_COMPONENT;
@@ -185,17 +185,17 @@ function main() {
   const approval = SignRelease(component, version, file, key);
   if (approval.component !== component || approval.version !== version || !approval.trustedKey || !approval.approval) stop('APPROVAL_INVALID');
   // Recheck the exact EXE bytes and signature before creating any output.
-  const currentHash = crypto.createHash('sha256').update(ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID')).digest('hex');
-  if (approval.sha256 !== currentHash) stop('EXE_CHANGED_DURING_SIGNING');
+  const currentHash = crypto.createHash('sha512').update(ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID')).digest('hex');
+  if (approval.sha512 !== currentHash) stop('EXE_CHANGED_DURING_SIGNING');
   const pub = crypto.createPublicKey(approval.trustedKey.publicKey);
   const keyId = crypto.createHash('sha256').update(pub.export({ type: 'spki', format: 'der' })).digest('hex');
   if (pub.asymmetricKeyType !== 'ed25519' || keyId !== approval.trustedKey.keyId || keyId !== approval.approval.keyId) stop('PUBLIC_KEY_MISMATCH');
-  const canonical = ['GAME-RELEASE-APPROVAL-V1', component, version, currentHash].join('\n');
+  const canonical = ['GAME-RELEASE-APPROVAL-V2', component, version, currentHash].join('\n');
   if (!crypto.verify(null, Buffer.from(canonical, 'utf8'), pub, Buffer.from(approval.approval.signature, 'base64'))) stop('SIGNATURE_RECHECK_FAILED');
   const text = JSON.stringify(approval, null, 2) + '\n';
   if (/PRIVATE KEY/.test(text)) stop('PRIVATE_DATA_IN_OUTPUT');
   saveNew(output, Buffer.from(text, 'utf8'), 0o600);
-  return { output, component, version, sha256: currentHash, keyId };
+  return { output, component, version, sha512: currentHash, keyId };
 }
 try { process.stdout.write(JSON.stringify(main()) + '\n'); }
 catch (e) {
@@ -375,7 +375,7 @@ function Get-NodeRuntime {
         } finally { $archive.Dispose() }
         $nodePath = Join-Path $unpacked 'node.exe'
         $receipt = [ordered]@{
-            version=$version; source=($baseUrl+$zipName); zipSha256=$actual.ToLowerInvariant();
+            version=$version; source=($baseUrl+$zipName); zipSha512=$actual.ToLowerInvariant();
             nodeSha256=(Get-FileHash -LiteralPath $nodePath -Algorithm SHA256).Hash.ToLowerInvariant()
         } | ConvertTo-Json
         [IO.File]::WriteAllText((Join-Path $unpacked 'download.json'), $receipt, $script:Utf8)
@@ -451,8 +451,8 @@ function Main {
     do {
         Write-Host ''
         Write-Host 'A = 런처 / B = 클라이언트'
-        $component = (Read-Host '생성할 구분 [A/B]').Trim().ToUpperInvariant()
-        if ($component -notin @('A','B')) { throw 'A 또는 B를 입력해 주세요.' }
+        $component = (Read-Host '생성할 구분 [A/B/O]').Trim().ToUpperInvariant()
+        if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력해 주세요.' }
         $version = (Read-Host '서버 업로드에 사용할 버전 (예: 1.0.0)').Trim()
         if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '버전은 1.0.0처럼 1~4단계 숫자로 입력하세요(최대 40자).' }
         Write-Host ($component + ' EXE 파일을 선택하세요. 예시 경로가 아닌 실제 빌드 파일을 선택합니다.')
@@ -476,7 +476,7 @@ function Main {
         Write-Host ''
         Write-Host '[완료] 공개 배포 승인 파일을 생성했습니다.'
         Write-Host $result.output
-        Write-Host ('EXE SHA-256: ' + $result.sha256)
+        Write-Host ('EXE SHA-512: ' + $result.sha512)
         Write-Host ('서명자 keyId: ' + $result.keyId)
         Write-Host '웹에서 같은 EXE / 같은 구분 / 같은 버전과 함께 이 .approval.json을 선택하세요.'
         Write-Host '최초 사용 키라면 JSON의 trustedKey를 서버 신뢰 서명자에 먼저 등록해야 합니다.'

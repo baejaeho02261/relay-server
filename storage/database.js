@@ -194,7 +194,7 @@ function ImportDatabaseObject(data) {
                 suspended: Boolean(value.suspended),
                 memo: SafeField(value.memo || ''),
                 tags: require('../license/licenseManager').NormalizeTags(value.tags || []),
-                accessType: value.entryPass===true?'':require('../services/accessType').NormalizeAccessType(value.accessType)
+                accessType: value.entryPass===true?'':require('../services/retiredLegacy').Service('accessType').NormalizeAccessType(value.accessType)
             });
         }
     }
@@ -298,7 +298,7 @@ function ImportDatabaseObject(data) {
             if(normalized) state.deviceNetworkProfiles.set(key,normalized);
         }
     }
-    state.emergencyFailoverPolicy = require('../services/emergencyFailover').NormalizePolicy(data.emergencyFailoverPolicy);
+    state.emergencyFailoverPolicy = require('../services/retiredLegacy').Service('emergencyFailover').NormalizePolicy(data.emergencyFailoverPolicy);
     if(Array.isArray(data.clientFailoverEnabled)) for(const rawId of data.clientFailoverEnabled){const id=NormalizeID(rawId);if(id&&Array.from(newClients.values()).some(x=>x.id===id))state.clientFailoverEnabled.add(id);}
     if(data.clientFailoverRecords&&typeof data.clientFailoverRecords==='object'){
         for(const [rawClientId,value] of Object.entries(data.clientFailoverRecords)){
@@ -309,20 +309,20 @@ function ImportDatabaseObject(data) {
             state.clientFailoverRecords.set(clientId,{clientId,primaryServerId,failoverServerId,failedOverAt:Number(value.failedOverAt)||0,lastMoveAt:Number(value.lastMoveAt)||0,moveCount:Math.max(1,Number(value.moveCount)||1),reason:String(value.reason||''),selectedBy:String(value.selectedBy||'AUTO_FALLBACK'),lastReturnAt:Number(value.lastReturnAt)||0});
         }
     }
-    require('../services/requestRecovery').ImportPersisted(data);
+    require('../services/retiredLegacy').Service('requestRecovery').ImportPersisted(data);
     require('../services/processorCenter').ImportPersisted(data);
     require('../services/pushManager').ImportPersisted(data);
     require('../services/dailyHealth').ImportPersisted(data);
-    require('../services/qrApproval').ImportPersisted(data);
-    require('../services/buildGate').ImportPersisted(data);
-    require('../services/userDashboard').ImportPersisted(data);
+    require('../services/retiredLegacy').Service('qrApproval').ImportPersisted(data);
+    require('../services/retiredLegacy').Service('buildGate').ImportPersisted(data);
+    require('../services/retiredLegacy').Service('userDashboard').ImportPersisted(data);
     require('../services/productionState').ImportPersisted(data);
     if (data.clientBiometricProfiles && typeof data.clientBiometricProfiles === 'object') {
         for (const [rawClientId, raw] of Object.entries(data.clientBiometricProfiles)) {
             const clientId = NormalizeID(rawClientId);
             if (!clientId || !raw || typeof raw !== 'object') continue;
             state.clientBiometricProfiles.set(clientId, {
-                accessType: require('../services/accessType').NormalizeAccessType(raw.accessType),
+                accessType: require('../services/retiredLegacy').Service('accessType').NormalizeAccessType(raw.accessType),
                 enrolledAt: Math.max(0, Number(raw.enrolledAt) || 0),
                 verifiedAt: Math.max(0, Number(raw.verifiedAt) || 0),
                 ...(raw.resume && /^[0-9A-F]{64}$/.test(raw.resume.binding) && Number.isSafeInteger(raw.resume.expiresAt)
@@ -333,11 +333,11 @@ function ImportDatabaseObject(data) {
             });
         }
     }
-    require('../services/clientInstallation').ImportPersisted(data);
+    require('../services/retiredLegacy').Service('clientInstallation').ImportPersisted(data);
     state.memberHub = data.memberHub && typeof data.memberHub === 'object' ? structuredClone(data.memberHub) : null;
     require('../services/desktopLicenses').Import(data.desktopLicenses);
-    require('../services/supportCenter').ImportPersisted(data);
-    require('../services/clientInstallation').Backfill();
+    require('../services/retiredLegacy').Service('supportCenter').ImportPersisted(data);
+    require('../services/retiredLegacy').Service('clientInstallation').Backfill();
     state.licenseRevision=Math.max(0,Number(data.licenseRevision)||0);
     // Archived APK license records are never migrated by the Windows service.
 

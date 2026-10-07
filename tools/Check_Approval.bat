@@ -54,7 +54,7 @@ function main() {
   const text = raw.toString('utf8').replace(/^\uFEFF/, '');
   if (text.includes('PRIVATE KEY')) fail('PRIVATE_KEY_NOT_ALLOWED');
   let a; try { a = JSON.parse(text); } catch (_) { fail('APPROVAL_JSON_INVALID'); }
-  if (!plain(a) || !['A','B'].includes(a.component) || typeof a.version !== 'string' || a.version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(a.version) || typeof a.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(a.sha256)) fail('APPROVAL_FIELDS_INVALID');
+  if (!plain(a) || !['A','B','O'].includes(a.component) || typeof a.version !== 'string' || a.version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(a.version) || typeof a.sha512 !== 'string' || !/^[a-f0-9]{128}$/.test(a.sha512)) fail('APPROVAL_FIELDS_INVALID');
   if (!plain(a.trustedKey) || Object.keys(a.trustedKey).some(k => !['keyId','publicKey'].includes(k))) fail('TRUSTED_KEY_MISSING_OR_INVALID');
   const k = a.trustedKey;
   if (typeof k.keyId !== 'string' || !/^[a-f0-9]{64}$/.test(k.keyId) || typeof k.publicKey !== 'string' || k.publicKey.length > 4096 || !/^-----BEGIN PUBLIC KEY-----\r?\n[A-Za-z0-9+/=\r\n]+\r?\n-----END PUBLIC KEY-----\r?\n?$/.test(k.publicKey)) fail('PUBLIC_KEY_FORMAT_INVALID');
@@ -65,14 +65,14 @@ function main() {
   if (key.asymmetricKeyType !== 'ed25519') fail('ED25519_PUBLIC_KEY_REQUIRED');
   const id = crypto.createHash('sha256').update(key.export({type:'spki',format:'der'})).digest('hex');
   if (k.keyId !== id || a.approval.keyId !== id) fail('KEY_ID_MISMATCH');
-  const digest = crypto.createHash('sha256').update(bytes).digest('hex');
-  const canonical = ['GAME-RELEASE-APPROVAL-V1', a.component, a.version, a.sha256].join('\n');
+  const digest = crypto.createHash('sha512').update(bytes).digest('hex');
+  const canonical = ['GAME-RELEASE-APPROVAL-V2', a.component, a.version, a.sha512].join('\n');
   if (!crypto.verify(null, Buffer.from(canonical, 'utf8'), key, signature)) fail('SIGNATURE_INVALID');
-  if (digest !== a.sha256) fail('EXE_SHA256_MISMATCH');
+  if (digest !== a.sha512) fail('EXE_SHA512_MISMATCH');
   // This is a signature/hash check, NOT a full PE parser or release-policy gate.
   if (env.GC_APPROVAL_COMPONENT !== a.component) fail('UPLOAD_COMPONENT_MISMATCH');
   if (env.GC_APPROVAL_VERSION !== a.version) fail('UPLOAD_VERSION_MISMATCH');
-  return { ok:true, component:a.component, version:a.version, sha256:digest, keyId:id,
+  return { ok:true, component:a.component, version:a.version, sha512:digest, keyId:id,
     serverTrustChecked:false, serverPolicyChanged:false,
     // Explicit array: this is the policy field's required JSON shape.
     trustedKeysJson:JSON.stringify([{keyId:id,publicKey:key.export({type:'spki',format:'pem'}).toString()}], null, 2) };
@@ -213,8 +213,8 @@ function Main {
     if (-not $exe) { throw 'EXE 선택이 취소되었습니다.' }
     $approval = Choose-File '함께 업로드했던 .approval.json 선택' '공개 승인 JSON (*.json)|*.json' (Split-Path -Parent $exe)
     if (-not $approval) { throw '승인 파일 선택이 취소되었습니다.' }
-    $component = (Read-Host '웹에서 등록한 구분 [A=GameLauncher / B=GameConnect]').Trim().ToUpperInvariant()
-    if ($component -notin @('A','B')) { throw 'A 또는 B를 입력하세요.' }
+    $component = (Read-Host '웹에서 등록한 구분 [A=GameLauncher / B=GameConnect / O=Overlay]').Trim().ToUpperInvariant()
+    if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력하세요.' }
     $version = (Read-Host '웹 업로드 창의 버전 (예: 1.0.0)').Trim()
     if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '웹에 입력한 숫자 버전을 확인하세요.' }
     $result = Invoke-Worker $node @{
@@ -222,9 +222,9 @@ function Main {
         GC_APPROVAL_COMPONENT=$component; GC_APPROVAL_VERSION=$version
     } $base
     Write-Host ''
-    Write-Host '[정상] 선택한 EXE SHA-256 / 공개키 ID / Ed25519 서명 / 구분 / 버전 일치'
+    Write-Host '[정상] 선택한 EXE SHA-512 / 공개키 ID / Ed25519 서명 / 구분 / 버전 일치'
     Write-Host ('구분: ' + $result.component + '  |  웹 버전: ' + $result.version)
-    Write-Host ('EXE SHA-256: ' + $result.sha256)
+    Write-Host ('EXE SHA-512: ' + $result.sha512)
     Write-Host ('서명자 keyId: ' + $result.keyId)
     Write-Host ''
     Write-Host '서버 등록 여부와 철회 상태는 이 도구에서 조회하지 않습니다.'
@@ -250,8 +250,8 @@ try { Main; exit 0 }
 catch {
     Write-Host ''
     Write-Host ('[중단] ' + $_.Exception.Message)
-    Write-Host 'EXE_SHA256_MISMATCH: 선택한 EXE가 승인 대상과 다릅니다. 재빌드/수정 뒤에는 기존 키로 새 승인을 생성하세요.'
-    Write-Host 'UPLOAD_COMPONENT_MISMATCH / UPLOAD_VERSION_MISMATCH: 웹의 A/B 및 버전을 승인 생성 때와 맞추세요.'
+    Write-Host 'EXE_SHA512_MISMATCH: 선택한 EXE가 승인 대상과 다릅니다. 재빌드/수정 뒤에는 기존 키로 새 승인을 생성하세요.'
+    Write-Host 'UPLOAD_COMPONENT_MISMATCH / UPLOAD_VERSION_MISMATCH: 웹의 A/B/O 및 버전을 승인 생성 때와 맞추세요.'
     Write-Host 'SIGNATURE_INVALID / KEY_ID_MISMATCH: JSON의 서명/공개키/ID가 맞지 않습니다. 올바른 원본 승인 파일을 선택하세요.'
     Write-Host 'PRIVATE_KEY_NOT_ALLOWED: PEM 개인키가 아니라 공개 approval.json을 선택하세요.'
     Write-Host 'TRUSTED_KEY_MISSING_OR_INVALID / PUBLIC_KEY_FORMAT_INVALID: FIX2로 만든 완전한 공개 승인 JSON을 선택하세요.'

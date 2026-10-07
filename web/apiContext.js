@@ -37,10 +37,10 @@ const deviceControl = require('../services/deviceControl');
 const featureFlags = require('../services/featureFlags');
 const protocolReadiness = require('../services/protocolReadiness');
 const deviceAuth = require('../services/deviceAuth');
-const qrApproval = require('../services/qrApproval');
-const buildGate = require('../services/buildGate');
+const qrApproval = require('../services/retiredLegacy').Service('qrApproval');
+const buildGate = require('../services/retiredLegacy').Service('buildGate');
 const productionRoutes = require('./routes/productionRoutes');
-const loadSimulator = require('../services/loadSimulator');
+const loadSimulator = require('../services/retiredLegacy').Service('loadSimulator');
 const storageMigration = require('../services/storageMigration');
 const releaseManager = require('../services/releaseManager');
 const configHistory = require('../services/configHistory');
@@ -49,12 +49,12 @@ const secretRotation = require('../services/deviceSecretRotation');
 const securityDashboard = require('../services/securityDashboard');
 const maintenanceService = require('../services/maintenance');
 const networkSecurity = require('../services/networkSecurity');
-const emergencyFailover = require('../services/emergencyFailover');
-const requestRecovery = require('../services/requestRecovery');
+const emergencyFailover = require('../services/retiredLegacy').Service('emergencyFailover');
+const requestRecovery = require('../services/retiredLegacy').Service('requestRecovery');
 const processorCenter = require('../services/processorCenter');
 const pushManager = require('../services/pushManager');
 const dailyHealth = require('../services/dailyHealth');
-const clientBiometric = require('../services/clientBiometric');
+const clientBiometric = require('../services/retiredLegacy').Service('clientBiometric');
 const deviceRegistry = require('../services/deviceRegistry');
 const historyCleanup = require('../services/historyCleanup');
 
@@ -347,7 +347,7 @@ function BuildLicenseItem(key, license) {
         authCount: license.authCount || 0,
         sendCount: license.sendCount || 0,
         suspended: !!license.suspended,
-        accessType: license.entryPass===true?'':require('../services/accessType').NormalizeAccessType(license.accessType),
+        accessType: license.entryPass===true?'':require('../services/retiredLegacy').Service('accessType').NormalizeAccessType(license.accessType),
         tags: NormalizeTags(license.tags || [])
     };
 }

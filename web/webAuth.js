@@ -206,6 +206,7 @@ module.exports = {
     COOKIE_NAME,
     SESSION_MS,
     ClientIP,
+    IsHttps,
     SessionCookie,
     Login,
     CreateSession,
