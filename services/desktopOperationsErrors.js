@@ -1,7 +1,7 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
- SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 EXE/승인 JSON을 확인하세요.','security'],
+ SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B/O 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 EXE/승인 JSON을 확인하세요.','security'],
  SECURITY_SIGNER_NOT_ACTIVE:['서명자가 신규 배포를 허용하지 않습니다.','키가 전환 중이거나 철회된 상태입니다.','서명자 상태를 확인하고 허용된 키로 서명한 파일을 사용하세요.','security'],
  WORKSPACE_LICENSE_REQUIRED:['현재 운영 B가 콘솔 없는 이전 자동 인증 버전입니다.','이전 B는 서버 사전 배정이 필요하며, 새 KEY 입력 방식은 아직 운영 게시되지 않았습니다.','새 버전 배포에서 KEY 입력을 복원한 B를 빌드·서명·게시한 뒤 A를 다시 발급하세요. 기존 A 버전은 유지할 수 있습니다.','deploy'],
  WORKSPACE_LICENSE_RESERVED:['다른 A에 연결된 라이선스입니다.','아직 유효한 다른 발급 A 또는 실행이 이 라이선스를 사용합니다.','중복 배정하지 말고 다른 사용 전 라이선스를 선택하세요.','licenses'],
@@ -15,9 +15,10 @@ const rows={
  SECURITY_POLICY_CONFLICT:['정책 revision이 변경되었습니다.','이전 미리보기는 사용할 수 없습니다.','현재 정책을 새로 읽고 다시 미리보세요.','security'],
  SECURITY_OPERATIONS_CONFLICT:['배포 운영 상태가 변경되었습니다.','선택 당시 revision과 현재 서버 값이 다릅니다.','배포 후보와 정책을 새로고침해 다시 검증하세요.','deploy'],
  SECURITY_BUILD_CONTRACT_REQUIRED:['이 빌드의 검사 규격이 없습니다.','현재 정책은 정상 빌드 규격을 요구합니다.','실제 정상 실행에서 확인한 규격을 해당 파일 해시에 등록하세요.','security'],
- SECURITY_TEST_EVIDENCE_REQUIRED:['선택 A/B의 시험 기록이 없습니다.','현재 정책은 해당 조합의 실제 시험 결과를 요구합니다.','실행한 시험 로그로 해당 조합의 기록을 등록하세요.','security'],
+ SECURITY_TEST_EVIDENCE_REQUIRED:['선택 배포 조합의 시험 기록이 없습니다.','현재 정책은 해당 A/B 또는 A/B/O 조합의 실제 시험 결과를 요구합니다.','실행한 시험 로그로 해당 조합의 기록을 등록하세요.','security'],
  BOOTSTRAP_OVERLAY_NOT_READY:['승인된 O 실행 파일이 없습니다.','현재 실행에 GameOverlay 후보가 연결되지 않았습니다.','O의 배포 승인을 확인하고 A/B/O 조합을 게시한 뒤 새 A를 발급하세요.','deploy'],
  BOOTSTRAP_NOT_READY:['운영 A/B 조합이 없습니다.','후보 등록만으로 운영 게시되지는 않습니다.','새 버전 배포에서 A/B를 검증한 뒤 게시하세요.','deploy'],
+ BOOTSTRAP_INPUT_INVALID:['실행 파일 요청의 입력값을 확인해 주세요.','요청의 구성요소·버전·파일명 또는 입력 형식이 올바르지 않습니다.','등록 시 A/B/O 구분, 숫자 버전(예: 1.0.0), EXE 파일명을 확인하세요.','deploy'],
  BOOTSTRAP_UPLOAD_BUSY:['다른 파일을 검증하고 있습니다.','서버가 앞선 업로드를 처리 중입니다.','잠시 후 같은 파일로 다시 시도하세요.','deploy'],
  BOOTSTRAP_LAUNCHER_USED:['이미 실행된 A입니다.','일회용 실행 파일은 다시 사용할 수 없습니다.','새 A를 발급하세요. KEY는 B 콘솔에서 별도로 입력하며, 사용된 KEY는 재사용할 수 없습니다.','licenses'],
  BOOTSTRAP_PE_INVALID:['지원하는 실행 파일이 아닙니다.','Windows 64비트 GUI 실행 파일 검증에 실패했습니다.','현재 프로젝트의 정상 Win64 Release 템플릿을 선택하세요.','deploy'],

@@ -5,7 +5,7 @@ let desktopSelectionOwner='';
 function desktopWorkflowOwner(){const owner=session?.csrf||'';if(owner!==desktopSelectionOwner){desktopSelectedLicenses.clear();desktopSelectionOwner=owner;}return owner;}
 function desktopWorkflowError(node,error,retry){
  const p=error.problem||{title:error.serverMessage||error.message||'요청을 완료하지 못했습니다.',current:'이 작업의 완료를 확인하지 못했습니다.',next:'내용과 현재 서버 상태를 확인한 뒤 다시 시도하세요.',code:error.code||'REQUEST_FAILED',action:'refresh'};
- node.innerHTML=`<div class="desktop-operation-error" role="alert"><strong>${esc(p.title)}</strong><p>현재: ${esc(p.current)}</p><p>다음: ${esc(p.next)}</p><details><summary>상세 코드</summary><code>${esc(p.code)}</code></details>${retry?'<button type="button" data-workflow-retry>이 항목 다시 확인</button>':''}</div>`;
+ node.innerHTML=`<div class="desktop-operation-error" role="alert"><strong>${esc(p.title)}</strong><p>현재: ${esc(p.current)}</p><p>다음: ${esc(p.next)}</p><details><summary>상세 코드</summary><code>${esc(error.code||p.code||'REQUEST_FAILED')}</code></details>${retry?'<button type="button" data-workflow-retry>이 항목 다시 확인</button>':''}</div>`;
  if(retry)node.querySelector('[data-workflow-retry]').onclick=retry;
  const names={security:'서버 보안 설정 열기',deploy:'새 버전 배포 열기',licenses:'라이선스 목록으로',jobs:'서버 작업함 열기',storage:'저장공간 확인'};
  if(names[p.action]){const go=document.createElement('button');go.type='button';go.textContent=names[p.action];node.firstElementChild.append(go);go.onclick=async()=>{try{const owner=session?.csrf;if(typeof modalCancel!=='undefined')modalCancel.click();await new Promise(r=>setTimeout(r,0));if(session?.csrf!==owner)return;if(p.action==='security')await showDesktopSecurityOperations();else if(p.action==='deploy')await showDesktopDeploymentWizard();else if(p.action==='jobs'||p.action==='storage')await showDesktopWorkspace(p.action);else await renderCurrent();}catch(e){toast(e.message||'화면을 열지 못했습니다.',true);}};}
@@ -55,7 +55,7 @@ async function showDesktopDeploymentWizard(){
   if(busy||!live()||!preview?.eligible)return;const selected=preview;lock(true);
   try{
    const note=root.querySelector('#desktop-release-notes').value.trim();
-   if(note)await api('/api/desktop/workspace/deployment-note',{method:'POST',body:{aId:selected.aId,bId:selected.bId,note}});
+   if(note)await api('/api/desktop/workspace/deployment-note',{method:'POST',body:{aId:selected.aId,bId:selected.bId,oId:selected.oId||'',note}});
    await api('/api/desktop/bootstrap/security-operations/activate',{method:'POST',body:{expectedRevision:selected.operationsRevision,expectedPolicyRevision:selected.policyRevision,aId:selected.aId,bId:selected.bId,oId:selected.oId||''}});
    if(live()){result.textContent='선택 A/B/O를 운영 게시했습니다. 사용자에게 새 A를 발급하세요.';listing=await api('/api/desktop/bootstrap/security-operations');if(live())selects();}invalidate();
   }catch(e){invalidate();if(live())desktopWorkflowError(result,e);}finally{if(live())lock(false);}

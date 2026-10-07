@@ -122,16 +122,23 @@ async function bootstrapDevice(device, auth) {
         for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/integrity-policy', '/api/desktop/bootstrap/integrity-reports', '/api/desktop/bootstrap/module-baselines', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
             assert.equal((await call(route)).status, 401); assert.equal((await call(route, undefined, viewer)).status, 403);
         }
-        assert.equal((await upload('A', bootstrapFixture.PE('A'))).status, 401);
-        assert.equal((await upload('A', bootstrapFixture.PE('A'), viewer)).status, 403);
-        assert.equal((await upload('A', bootstrapFixture.PE('A'), auth, false)).status, 403);
-        const invalidPE = await upload('A', Buffer.from('MZ not an executable'), auth); assert.equal(invalidPE.status, 400); assert.equal(invalidPE.json.error, 'BOOTSTRAP_PE_INVALID');
+        for (const component of ['A', 'O']) {
+            assert.equal((await upload(component, bootstrapFixture.PE(component))).status, 401);
+            assert.equal((await upload(component, bootstrapFixture.PE(component), viewer)).status, 403);
+            assert.equal((await upload(component, bootstrapFixture.PE(component), auth, false)).status, 403);
+            const invalidPE = await upload(component, Buffer.from('MZ not an executable'), auth); assert.equal(invalidPE.status, 400); assert.equal(invalidPE.json.error, 'BOOTSTRAP_PE_INVALID');
+        }
+        const invalidComponent = await upload('X', bootstrapFixture.PE('X'), auth);
+        assert.equal(invalidComponent.status, 400); assert.equal(invalidComponent.json.error, 'BOOTSTRAP_INPUT_INVALID');
+        assert.equal(invalidComponent.json.problem.code, 'BOOTSTRAP_INPUT_INVALID');
+        assert.notEqual(invalidComponent.json.problem.title, '요청을 완료하지 못했습니다.');
         const candidates={};
-        for (const component of ['A', 'B']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200); assert.equal(published.json.artifact.sha512, sha512(bytes)); assert.equal(published.json.disposition,'CANDIDATE'); assert.equal(published.json.activeUnchanged,true);candidates[component]=published.json.artifact; }
+        for (const component of ['A', 'B', 'O']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200, JSON.stringify(published.json)); assert.equal(published.json.artifact.component,component); assert.equal(published.json.artifact.sha512, sha512(bytes)); assert.equal(published.json.disposition,'CANDIDATE'); assert.equal(published.json.activeUnchanged,true);candidates[component]=published.json.artifact; }
         const security='/api/desktop/bootstrap/security-authority',operations='/api/desktop/bootstrap/security-operations';
         for(const route of [security,operations,operations+'/approvals']){assert.equal((await call(route)).status,401);assert.equal((await call(route,undefined,viewer)).status,403);}
         let settings=(await call(security,undefined,auth)).json;
-        assert.equal(settings.operations.active.A||'','');assert.equal(settings.operations.active.B||'',''); // Empty active map may omit A/B; no candidate is active.
+        for (const component of ['A', 'B', 'O']) assert.equal(settings.operations.active[component]||'',''); // Registration must not activate any candidate.
+        assert.ok(settings.operations.candidates.some(row=>row.id===candidates.O.id&&row.component==='O'&&!row.active));
         const previewBody={expectedRevision:settings.policy.revision,expectedOperationsRevision:settings.operations.operations.revision,requireCfg:true};
         assert.equal((await call(security+'/preview',previewBody,auth,{csrf:false})).status,403);
         const preview=await call(security+'/preview',previewBody,auth);assert.equal(preview.status,200);assert.equal(preview.json.preview.readOnly,true);
@@ -144,6 +151,17 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await call(operations+'/activate',activate,auth)).status,200);
         settings=(await call(security,undefined,auth)).json;assert.deepEqual(settings.operations.active,{A:pair.aId,B:pair.bId});
         assert.equal((await call(operations+'/activate',activate,auth)).status,409,'Stale revision cannot repeat an activation');
+        const overlayPair={...pair,oId:candidates.O.id};
+        const overlayPreview=await call(operations+'/preview-pair',overlayPair,auth);
+        assert.equal(overlayPreview.status,200);assert.equal(overlayPreview.json.preview.eligible,true);assert.equal(overlayPreview.json.preview.oId,candidates.O.id);assert.equal(overlayPreview.json.preview.oSha512,candidates.O.sha512);
+        const wrongOverlay=await call(operations+'/preview-pair',{...pair,oId:candidates.B.id},auth);
+        assert.equal(wrongOverlay.status,400);assert.equal(wrongOverlay.json.error,'SECURITY_RELEASE_PAIR_INVALID');
+        const activateOverlay={expectedRevision:settings.operations.operations.revision,expectedPolicyRevision:settings.policy.revision,...overlayPair};
+        assert.equal((await call(operations+'/activate',activateOverlay,auth,{csrf:false})).status,403);
+        assert.equal((await call(operations+'/activate',activateOverlay,viewer)).status,403);
+        const overlayActivated=await call(operations+'/activate',activateOverlay,auth);assert.equal(overlayActivated.status,200,JSON.stringify(overlayActivated.json));
+        settings=(await call(security,undefined,auth)).json;assert.deepEqual(settings.operations.active,{A:pair.aId,B:pair.bId,O:candidates.O.id});
+        assert.equal((await call(operations+'/activate',activateOverlay,auth)).status,409,'Stale revision cannot repeat an Overlay activation');
         console.log('PASS real HTTP server operations: authenticated staging, read-only preview, CSRF, viewer rejection, atomic activation, stale revision');
         const dll = bootstrapFixture.PE('B'), peOffset = dll.readUInt32LE(0x3c);
         dll.writeUInt16LE(dll.readUInt16LE(peOffset + 22) | 0x2000, peOffset + 22);

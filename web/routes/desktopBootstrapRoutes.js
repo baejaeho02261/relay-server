@@ -36,7 +36,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
    const baseline=require('../../services/desktopIntegrityReports').RegisterBaseline(fileName,label,bytes,String(session.role||'ADMIN')+':'+String(session.id||''));Json(res,200,{ok:true,baseline});return true;
   }
   const component=url.searchParams.get('component'),version=url.searchParams.get('version'),name=url.searchParams.get('fileName')||'';
-  if(!['A','B'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
+  if(!['A','B','O'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
   uploadPending=true;const bytes=await ReadBytes(req),approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
   const ops=require('../../services/desktopSecurityOperations'),authority=require('../../services/desktopSecurityAuthority');
   const summary={component,version,fileName:name,sha256:ops.sha(bytes),size:bytes.length,keyId:approval?.keyId||'',signatureHash:approval?ops.sha(JSON.stringify(approval)):'',expectedPolicyRevision:authority.Policy().revision,expectedOperationsRevision:ops.Revision(),disposition:'CANDIDATE'};
