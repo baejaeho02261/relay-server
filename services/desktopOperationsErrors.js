@@ -1,6 +1,13 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ CRC_BASELINE_UNAVAILABLE:['이 빌드의 CRC 기준값을 확인할 수 없습니다.','배포 파일에 유효한 CRC 계층 기준값이 없습니다.','수정된 서버에 다시 빌드·서명한 A/B/O 후보를 등록하고 조합을 검증하세요.','deploy'],
+ CRC_COVERAGE_INCOMPLETE:['이 빌드의 필수 CRC 검사 범위가 부족합니다.','일부 검사 함수의 측정 범위가 제공되지 않아 현재 정책을 충족하지 않습니다.','수정된 소스로 A/B/O를 다시 빌드·서명한 뒤 후보 등록, 조합 게시, 새 A 발급 순서로 적용하세요.','deploy'],
+ INTEGRITY_CRC_COVERAGE_INCOMPLETE:['필수 CRC 검사 범위가 부족해 실행을 거절했습니다.','해시값이 일치해도 일부 CRC 검사 범위가 없으면 승인되지 않습니다.','모듈·무결성의 계층별 상태를 확인하고 수정한 A/B/O를 다시 빌드·게시하세요.','deploy'],
+ INTEGRITY_CRC_ROLE_MISMATCH:['CRC 계층의 측정값이 서버 기준과 다릅니다.','독립 CRC 검사 중 하나 이상이 일치하지 않습니다.','모듈·무결성에서 불일치 계층과 해당 배포 버전을 확인하세요.','security'],
+ INTEGRITY_CODE_HASH_MISMATCH:['실행 코드 해시가 서버 기준과 다릅니다.','코드 SHA-512 또는 CRC64 비교가 일치하지 않습니다.','모듈·무결성에서 기준값과 측정값을 확인하고 등록한 원본 빌드와 비교하세요.','security'],
+ INTEGRITY_CODE_EXTENDED_HASH_MISMATCH:['코드 확장 해시가 서버 기준과 다릅니다.','코드 XXH3-128 또는 BLAKE3 비교가 일치하지 않습니다.','모듈·무결성의 코드 확장 해시와 배포 버전을 확인하세요.','security'],
+ INTEGRITY_FILE_EXTENDED_HASH_MISMATCH:['파일 확장 해시가 서버 기준과 다릅니다.','파일 XXH3-128 또는 BLAKE3 비교가 일치하지 않습니다.','모듈·무결성의 파일 확장 해시와 발급·배포 대상을 확인하세요.','security'],
  SECURITY_RELEASE_SIGNATURE:['배포 승인 서명을 확인하지 못했습니다.','공개키 등록·A/B/O 구분·버전·파일 내용 중 하나가 일치하지 않습니다.','신뢰 서명자 목록과 선택한 EXE/승인 JSON을 확인하세요.','security'],
  SECURITY_SIGNER_NOT_ACTIVE:['서명자가 신규 배포를 허용하지 않습니다.','키가 전환 중이거나 철회된 상태입니다.','서명자 상태를 확인하고 허용된 키로 서명한 파일을 사용하세요.','security'],
  WORKSPACE_LICENSE_REQUIRED:['현재 운영 B가 콘솔 없는 이전 자동 인증 버전입니다.','이전 B는 서버 사전 배정이 필요하며, 새 KEY 입력 방식은 아직 운영 게시되지 않았습니다.','새 버전 배포에서 KEY 입력을 복원한 B를 빌드·서명·게시한 뒤 A를 다시 발급하세요. 기존 A 버전은 유지할 수 있습니다.','deploy'],

@@ -62,6 +62,10 @@ function Publish(component,version,bytes,releaseApproval,options={}){
  if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);
  if(!['A','B','O'].includes(component)||typeof version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(version)||version.length>40)Fail('BOOTSTRAP_INPUT_INVALID');
  DB();Pe(bytes,component);if(!bytes.includes(Buffer.from('GAME-AUTHORITY-V2'))&&!bytes.includes(Buffer.from('GAME-AUTHORITY-V2','utf16le')))Fail('SECURITY_CLIENT_UPGRADE_REQUIRED');const securityMetadata=require('./desktopSecurityAuthority').PublishMetadata(component,version,bytes,releaseApproval);let code;try{code=integrity.CodeImage(bytes);}catch(_){Fail('BOOTSTRAP_PE_INVALID');}const row={id:Id(),component,protocol:'GAME-CONNECT-4',version,...securityMetadata,backgroundVersion:bytes.includes(Buffer.from('SERVER_ASSIGNED_V1'))||bytes.includes(Buffer.from('SERVER_ASSIGNED_V1','utf16le'))?1:0,...integrity.Digests(bytes),codeSha512:code.sha512,codeCrc64:code.crc64,codeXxh3_128:code.xxh3_128,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,crcLayers:code.crcLayers,size:bytes.length,createdAt:now()};
+ // Check the actual parsed baseline before writing bytes, metadata or active
+ // pointers. Build contracts remain a later activation gate, after staging.
+ const authority=require('./desktopSecurityAuthority'),releaseReason=authority.ArtifactReason(row,authority.Policy());
+ if(releaseReason)Fail(releaseReason,409);
  if(options.deduplicate===true){
   const same=Object.values(DB().artifacts).find(x=>x.component===component&&x.version===version&&x.sha512===row.sha512&&JSON.stringify(x.releaseApproval||null)===JSON.stringify(row.releaseApproval||null));
   if(same){Bytes(same);Audit('DESKTOP_BOOTSTRAP_STAGE_REUSED',{id:same.id,component,version,sha512:same.sha512});return Artifact(same);}
@@ -91,7 +95,12 @@ function LauncherResult(row){return {launcherId:row.id,downloadName:LauncherName
 function IssueLauncher(body={},actor='ADMIN'){
  Prune();Fields(body,['requestId','label','licenseId']);RequestId(body.requestId);if(body.label!==undefined&&(typeof body.label!=='string'||body.label.length>120||/[\x00-\x1f\x7f]/.test(body.label)))Fail('BOOTSTRAP_INPUT_INVALID');
  const db=DB(),receiptKey=hash(String(actor))+'|'+body.requestId,fingerprint=hash(JSON.stringify({label:body.label||'',...(body.licenseId?{licenseId:body.licenseId}:{})})),old=db.issueReceipts[receiptKey];
- if(old){if(old.fingerprint!==fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);const row=db.launchers[old.launcherId];if(!row)Fail('BOOTSTRAP_STORAGE_INVALID',503);if(row.status==='EXPIRED')Fail('BOOTSTRAP_EXPIRED',410);if(row.status!=='AVAILABLE')Fail('BOOTSTRAP_LAUNCHER_USED',409);return LauncherResult(row);}
+ if(old){if(old.fingerprint!==fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);const row=db.launchers[old.launcherId];if(!row)Fail('BOOTSTRAP_STORAGE_INVALID',503);if(row.status==='EXPIRED')Fail('BOOTSTRAP_EXPIRED',410);if(row.status!=='AVAILABLE')Fail('BOOTSTRAP_LAUNCHER_USED',409);
+  // A receipt is idempotent, but it cannot preserve permission for a baseline
+  // that no longer meets the current policy. A uses its original template.
+  const auth=require('./desktopSecurityAuthority'),a=db.artifacts[row.artifactId],b=db.artifacts[db.active.B],o=db.artifacts[db.active.O];
+  auth.RequireArtifact(a);auth.RequireArtifact(b);if(o)auth.RequireArtifact(o);
+  require('./desktopSecurityOperations').RequireRuntimePair(a,b,o);return LauncherResult(row);}
  if(!db.artifacts[db.active.A]||!db.artifacts[db.active.B]||db.artifacts[db.active.A].protocol!=='GAME-CONNECT-4'||db.artifacts[db.active.B].protocol!=='GAME-CONNECT-4')Fail('BOOTSTRAP_NOT_READY',409);
  require('./desktopSecurityOperations').RequireRuntimePair(db.artifacts[db.active.A],db.artifacts[db.active.B],db.artifacts[db.active.O]);
  Pe(Bytes(db.artifacts[db.active.A]),'A');Pe(Bytes(db.artifacts[db.active.B]),'B');if(db.active.O)Pe(Bytes(db.artifacts[db.active.O]),'O');

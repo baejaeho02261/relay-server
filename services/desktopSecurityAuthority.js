@@ -80,7 +80,7 @@ function VerifyApproval(artifact, policy) {
   try { return crypto.verify(null, Buffer.from(ReleaseCanonical(artifact.component, artifact.version, artifact.sha512)), signer.publicKey, Buffer.from(approval.signature, 'base64')); }
   catch (_) { return false; }
 }
-function ArtifactReason(artifact, policy) {
+function ArtifactMetadataReason(artifact, policy) {
   if (!artifact) return 'SECURITY_RELEASE_MISSING';
   if (policy.revokedSha512.includes(artifact.sha512)||artifact.legacyRevocationSha256&&policy.revokedLegacySha256.includes(artifact.legacyRevocationSha256)) return 'SECURITY_RELEASE_REVOKED';
   if (!['A','B','O'].includes(artifact.component)) return 'SECURITY_RELEASE_COMPONENT';
@@ -89,6 +89,15 @@ function ArtifactReason(artifact, policy) {
   if (policy.enforceLegacy && artifact.authorityVersion !== 1) return 'SECURITY_CLIENT_UPGRADE_REQUIRED';
   if (policy.requireCfg && artifact.compiledCfg !== true) return 'SECURITY_CFG_BUILD_REQUIRED';
   return '';
+}
+function CoverageReason(artifact, policy) {
+  const coverage = require('./desktopCrcPolicy').Compare(artifact?.crcLayers, artifact?.crcLayers);
+  if (!coverage.matched) return 'CRC_BASELINE_UNAVAILABLE';
+  if (policy.requireCompleteCrcLayers && !coverage.complete) return 'CRC_COVERAGE_INCOMPLETE';
+  return '';
+}
+function ArtifactReason(artifact, policy) {
+  return ArtifactMetadataReason(artifact, policy) || CoverageReason(artifact, policy);
 }
 function RequireArtifact(artifact) { const reason = ArtifactReason(artifact, Policy()) || require('./desktopSecurityOperations').ArtifactReason(artifact); if (reason) Fail(reason); }
 function PeCapabilities(bytes) {
@@ -113,7 +122,9 @@ function PeCapabilities(bytes) {
 function PublishMetadata(component, version, bytes, approval) {
   const row = { component, version, hashVersion:3,sha512: sha(bytes), legacyRevocationSha256:crypto.createHash('sha256').update(bytes).digest('hex'), ...PeCapabilities(bytes) };
   if (approval !== undefined) { Fields(approval, ['keyId', 'signature']); row.releaseApproval = structuredClone(approval); }
-  const reason = ArtifactReason(row, Policy()); if(reason) Fail(reason);
+  // The CRC baseline is computed by Publish after these signature/capability
+  // checks. Only this provisional metadata row omits coverage validation.
+  const reason = ArtifactMetadataReason(row, Policy()); if(reason) Fail(reason);
   if(approval && !require('./desktopSecurityOperations').SignerAllowed(approval.keyId,true)) Fail('SECURITY_SIGNER_NOT_ACTIVE',409);
   return { authorityVersion: row.authorityVersion, compiledCfg: row.compiledCfg, legacyRevocationSha256:row.legacyRevocationSha256, ...(row.releaseApproval ? { releaseApproval: row.releaseApproval } : {}) };
 }

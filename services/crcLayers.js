@@ -96,8 +96,12 @@ function checkerPlan(file){
  const locate=(rva,size)=>sections.find(s=>rva>=s.rva&&rva+size<=s.rva+Math.min(s.rawSize,s.span));
  const rawAt=(rva,size)=>{const s=locate(rva,size);if(!s)bad();return s.raw+rva-s.rva;};
  const ro=s=>!(s.flags&0x80000000),exec=s=>ro(s)&&!!(s.flags&0x20000000);
+ // Delphi emits typed constants and unwind metadata into readable .data.
+ // These bytes are parsed only from the authenticated file to build a fixed
+ // plan; mutable runtime metadata never chooses a code address or extent.
+ const metadata=s=>!!(s.flags&0x40000000)&&!(s.flags&0x20000000);
  let candidate;
- for(const section of sections.filter(s=>ro(s)&&!(s.flags&0x20000000))){
+ for(const section of sections.filter(metadata)){
   const end=section.raw+Math.min(section.rawSize,section.span);
   for(let at=file.indexOf(CHECKER_MARKER,section.raw);at>=section.raw&&at+16<=end;at=file.indexOf(CHECKER_MARKER,at+1)){
    if(candidate||at+72>end)bad();candidate={raw:at,rva:section.rva+at-section.raw};
@@ -129,7 +133,7 @@ function checkerPlan(file){
  at=rawAt(exceptionRva,exceptionSize);end=at+exceptionSize;let previous=0;const functions=[];
  for(;at<end;at+=12){
   const rva=file.readUInt32LE(at),finish=file.readUInt32LE(at+4),unwind=file.readUInt32LE(at+8),section=locate(rva,finish-rva),unwindSection=locate(unwind,4);
-  if(finish<=rva||unwind%4||rva<previous||!section||!exec(section)||!unwindSection||!ro(unwindSection))bad();previous=finish;functions.push({rva,span:finish-rva});
+  if(finish<=rva||unwind%4||rva<previous||!section||!exec(section)||!unwindSection||!metadata(unwindSection))bad();previous=finish;functions.push({rva,span:finish-rva});
  }
  const assignments={nvme:[0],jones:[1,2],iso:[3,4,5]},roles={};
  for(const [role,indexes] of Object.entries(assignments)){

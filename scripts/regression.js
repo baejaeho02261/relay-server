@@ -16,11 +16,11 @@ const checks = [
   ['test-desktop-licenses.js'], ['test-desktop-licenses.js', '--sqlite'],
   ['test-desktop-license-migration.js'], ['test-desktop-license-migration.js', '--sqlite'],
   ['test-desktop-bootstrap.js'], ['test-desktop-bootstrap.js', '--sqlite'],
-  ['test-desktop-code-integrity.js'], ['test-native-code-contract.js'],
-  ['test-desktop-integrity-reports.js'], ['test-desktop-integrity-reports.js', '--sqlite'],
+  ['test-desktop-code-integrity.js'], ['test-native-code-contract.js'], ['test-native-crc-metadata-contract.js'], ['test-crc-release-eligibility.js'],
+  ['test-desktop-integrity-reports.js'], ['test-integrity-rejection-reasons.js'], ['test-desktop-integrity-reports.js', '--sqlite'],
   ['test-desktop-retirement.js'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
   ['test-desktop-connect.js'], ['test-desktop-connect.js', '--sqlite'],
-  ['test-desktop-admin-ui.js'], ['test-overlay-admin-ui.js'], ['test-web-ui-cache.js']
+  ['test-desktop-admin-ui.js'], ['test-integrity-display.js'], ['test-overlay-admin-ui.js'], ['test-web-ui-cache.js']
 ];
 for (const [name, ...args] of checks) {
   const result = spawnSync(process.execPath, [path.join(__dirname, name), ...args], {
