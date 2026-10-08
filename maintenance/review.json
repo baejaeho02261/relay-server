@@ -10,10 +10,60 @@
   "profileVersion": 4,
   "hashVersion": 3,
   "bootstrapStoreSchema": 5,
-  "uiRevision": "security-v4-93",
+  "uiRevision": "security-v4-95",
   "overlayImplemented": true,
   "verification": {
     "serverRegression": {
+      "status": "NOT_RERUN_FOR_INTEGRATED_SOURCE",
+      "command": "npm test",
+      "note": "The initial full regression and subsequent focused patch regressions are recorded separately; assembling this source copy does not claim a new full regression or Windows execution."
+    },
+    "portableHashes": {
+      "status": "PASS",
+      "compiler": "FPC 3.2.2 x86_64 Linux",
+      "referenceComparisons": 3157,
+      "references": [
+        "Python/OpenSSL SHA-512",
+        "libxxhash 0.8.2 XXH3-128",
+        "Official BLAKE3 all modes and 131-byte XOF vectors"
+      ],
+      "largestInputBytes": 67108864,
+      "argumentAndLifecycleContracts": "PASS"
+    },
+    "crc": {
+      "status": "PASS",
+      "variants": 9,
+      "knownAnswers": "Published check vectors and NVMe 4096-byte vectors",
+      "streamingAndPageFraming": "FPC/Node parity passed",
+      "checkerRanges": "Authenticated-file readonly or readable non-executable .data anchors/unwind, DIR64 operands, exact readonly .pdata/code extents; actual supplied A/B/O and modeled ASLR cases passed."
+    },
+    "nativeSourceAndResourceGate": {
+      "status": "PASS",
+      "projects": [
+        "GameLauncher",
+        "GameConnect",
+        "GameOverlay"
+      ],
+      "resourceCompiler": "GNU windres",
+      "overlayResourceExactManifestAndVersionInfo": "PASS",
+      "isWindowsCompile": false
+    },
+    "licenseCleanupSourceContracts": {
+      "status": "PASS",
+      "checks": 12,
+      "isWindowsExecution": false
+    },
+    "nativeWindowsBuild": {
+      "status": "NOT_RUN",
+      "reason": "RAD Studio dcc64 and Windows runtime are not available in this environment"
+    },
+    "productionDeployment": {
+      "status": "NOT_RUN"
+    },
+    "dockerImageBuild": {
+      "status": "NOT_RUN"
+    },
+    "initialUpgradeServerRegression": {
       "status": "PASS",
       "command": "npm test",
       "exitCode": 0,
@@ -69,50 +119,16 @@
       ],
       "scope": "Real Node services, signatures, HTTP/TLS, JSON/SQLite and DOM; synthetic PE fixtures, not Windows native execution"
     },
-    "portableHashes": {
+    "cumulativePatchChecks": {
       "status": "PASS",
-      "compiler": "FPC 3.2.2 x86_64 Linux",
-      "referenceComparisons": 3157,
-      "references": [
-        "Python/OpenSSL SHA-512",
-        "libxxhash 0.8.2 XXH3-128",
-        "Official BLAKE3 all modes and 131-byte XOF vectors"
-      ],
-      "largestInputBytes": 67108864,
-      "argumentAndLifecycleContracts": "PASS"
-    },
-    "crc": {
-      "status": "PASS",
-      "variants": 9,
-      "knownAnswers": "Published check vectors and NVMe 4096-byte vectors",
-      "streamingAndPageFraming": "FPC/Node parity passed",
-      "checkerRanges": "Readonly anchors, DIR64 relocation and exact .pdata extents; malformed/tampered cases rejected"
-    },
-    "nativeSourceAndResourceGate": {
-      "status": "PASS",
-      "projects": [
-        "GameLauncher",
-        "GameConnect",
-        "GameOverlay"
-      ],
-      "resourceCompiler": "GNU windres",
-      "overlayResourceExactManifestAndVersionInfo": "PASS",
-      "isWindowsCompile": false
-    },
-    "licenseCleanupSourceContracts": {
-      "status": "PASS",
-      "checks": 11,
-      "isWindowsExecution": false
-    },
-    "nativeWindowsBuild": {
-      "status": "NOT_RUN",
-      "reason": "RAD Studio dcc64 and Windows runtime are not available in this environment"
-    },
-    "productionDeployment": {
-      "status": "NOT_RUN"
-    },
-    "dockerImageBuild": {
-      "status": "NOT_RUN"
+      "scope": "Previously executed focused tests for the included patches; not a Windows/Delphi run",
+      "included": [
+        "Actual supplied A/B/O: nine CRC roles, positive/negative/zero ASLR mapped model and tamper rejection",
+        "Server CRC coverage eligibility and signed integrity rejection reasons",
+        "Overlay upload/admin policy and lifecycle service tests",
+        "B to O file sharing/lifetime model (9) and license success source contracts (12)",
+        "Web display/cache, native security contracts and project composition"
+      ]
     }
   },
   "migration": {
@@ -133,7 +149,7 @@
   },
   "limits": [
     "BLAKE3 canonical tree/incremental semantics are implemented; multithreaded acceleration is not implemented.",
-    "Actual Delphi readonly anchor and unwind metadata emission must satisfy the default complete-CRC publish/authority gate in a Windows staging build.",
+    "New Delphi builds must satisfy the complete-CRC gate; readable non-executable .data metadata is supported with file-bound ranges and live anchor verification.",
     "O options are local UI selections only; no unspecified target-game actions are attached.",
     "SHA-256 remains for explicitly separate TLS pin, RSA/HMAC, device identity and token/journal compatibility roles.",
     "No original KMAC implementation was present; this delivery does not claim KMAC support.",
@@ -570,5 +586,15 @@
     "GameWeb/services/web/webEvents.js",
     "GameWeb/services/web/webServer.js"
   ],
-  "removedPathReason": "Original GameWeb/services contained 154 exact duplicate files and a nested services copy; active service implementations were moved to GameWeb/services and updated. Obsolete xxhash64 WASM removed."
+  "removedPathReason": "Original GameWeb/services contained 154 exact duplicate files and a nested services copy; active service implementations were moved to GameWeb/services and updated. Obsolete xxhash64 WASM removed.",
+  "integratedSourceDate": "2026-10-08",
+  "integratedPatches": [
+    "Game_CompileFix.zip",
+    "Game_ErrorHintFix.zip",
+    "Game.Overlay.Renderer.pas",
+    "Check_Approval_Fix.zip",
+    "GameWeb_OverlayFix.zip",
+    "Game_IntegrityFix.zip",
+    "Game_OverlayHandoffFix.zip"
+  ]
 }
