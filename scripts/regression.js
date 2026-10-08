@@ -8,7 +8,7 @@ const checks = [
   ['test-security-operations.js'], ['test-security-admin.js'], ['test-security-evidence.js'], ['test-security-native-contract.js'],
   ['test-security-authority.js'], ['test-security-tools.js'], ['test-security-wire.js'],
   ['check-modules.js'], ['check-web-ui.js'], ['check-connect-project.js'],
-  ['test-extended-hashes.js'], ['test-security-v4.js'], ['test-desktop-overlay.js'], ['test-overlay-parent-sharing.js'], ['test-overlay-web-policy.js'], ['test-crc-layers.js'], ['test-crc-checker-ranges.js'],
+  ['test-extended-hashes.js'], ['test-security-v4.js'], ['test-desktop-overlay.js'], ['test-overlay-start-diagnostics.js'], ['test-overlay-parent-sharing.js'], ['test-overlay-web-policy.js'], ['test-crc-layers.js'], ['test-crc-checker-ranges.js'],
   ['test-desktop-extended-integrity.js'], ['test-desktop-extended-integrity.js', '--sqlite'],
   ['test-sqlite-driver.js'], ['test-connect-tls.js'], ['test-desktop-pe-exports.js'], ['test-native-report-budget.js'],
   ['test-desktop-integrity-policy.js'], ['test-desktop-integrity-policy.js', '--sqlite'],
