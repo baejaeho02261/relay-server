@@ -14,9 +14,69 @@
   "overlayImplemented": true,
   "verification": {
     "serverRegression": {
-      "status": "NOT_RERUN_FOR_INTEGRATED_SOURCE",
+      "status": "PASS",
       "command": "npm test",
-      "note": "The initial full regression and subsequent focused patch regressions are recorded separately; assembling this source copy does not claim a new full regression or Windows execution."
+      "exitCode": 0,
+      "suiteCount": 56,
+      "suites": [
+        "test-key-console.js",
+        "test-history-outcomes.js",
+        "test-desktop-workspace.js",
+        "test-workspace-http.js",
+        "test-security-activation.js",
+        "test-security-operations.js",
+        "test-security-admin.js",
+        "test-security-evidence.js",
+        "test-security-native-contract.js",
+        "test-security-authority.js",
+        "test-security-tools.js",
+        "test-security-wire.js",
+        "check-modules.js",
+        "check-web-ui.js",
+        "check-connect-project.js",
+        "test-extended-hashes.js",
+        "test-security-v4.js",
+        "test-desktop-overlay.js",
+        "test-overlay-transfer.js",
+        "test-overlay-start-diagnostics.js",
+        "test-overlay-parent-sharing.js",
+        "test-overlay-web-policy.js",
+        "test-crc-layers.js",
+        "test-crc-checker-ranges.js",
+        "test-desktop-extended-integrity.js",
+        "test-desktop-extended-integrity.js --sqlite",
+        "test-sqlite-driver.js",
+        "test-connect-tls.js",
+        "test-desktop-pe-exports.js",
+        "test-native-report-budget.js",
+        "test-desktop-integrity-policy.js",
+        "test-desktop-integrity-policy.js --sqlite",
+        "test-desktop-machine-policy.js",
+        "test-desktop-machine-policy.js --sqlite",
+        "test-desktop-licenses.js",
+        "test-desktop-licenses.js --sqlite",
+        "test-desktop-license-migration.js",
+        "test-desktop-license-migration.js --sqlite",
+        "test-desktop-bootstrap.js",
+        "test-desktop-bootstrap.js --sqlite",
+        "test-desktop-code-integrity.js",
+        "test-native-code-contract.js",
+        "test-native-crc-metadata-contract.js",
+        "test-crc-release-eligibility.js",
+        "test-desktop-integrity-reports.js",
+        "test-integrity-rejection-reasons.js",
+        "test-desktop-integrity-reports.js --sqlite",
+        "test-desktop-retirement.js",
+        "test-desktop-http.js",
+        "test-connect-deployment.js",
+        "test-desktop-connect.js",
+        "test-desktop-connect.js --sqlite",
+        "test-desktop-admin-ui.js",
+        "test-integrity-display.js",
+        "test-overlay-admin-ui.js",
+        "test-web-ui-cache.js"
+      ],
+      "scope": "Current integrated source: actual Node services, signatures, HTTP/TLS, JSON/SQLite and DOM plus native source/model gates. Synthetic PE fixtures; not Delphi compilation or Windows execution."
     },
     "portableHashes": {
       "status": "PASS",
@@ -50,7 +110,8 @@
     },
     "licenseCleanupSourceContracts": {
       "status": "PASS",
-      "checks": 12,
+      "command": "python3 scripts/test-license-success-contract.py",
+      "checks": 19,
       "isWindowsExecution": false
     },
     "nativeWindowsBuild": {
@@ -117,7 +178,7 @@
         "test-desktop-admin-ui.js",
         "test-web-ui-cache.js"
       ],
-      "scope": "Real Node services, signatures, HTTP/TLS, JSON/SQLite and DOM; synthetic PE fixtures, not Windows native execution"
+      "scope": "Historical initial upgrade run; current final integrated run is recorded in serverRegression. Real Node services, signatures, HTTP/TLS, JSON/SQLite and DOM; synthetic PE fixtures, not Windows native execution"
     },
     "cumulativePatchChecks": {
       "status": "PASS",
@@ -166,7 +227,69 @@
       "userObservedCause": "READY then CLOSED without CLAIMED narrows failure to pre-claim startup; imported-key export policy omission is corrected but the original Windows status code was not captured.",
       "existingIntegrityReportsSQLite": {
         "status": "PASS"
-      }
+      },
+      "recordScope": "Historical checks for the preceding startup correction; current transfer checks are recorded separately."
+    },
+    "overlayRetirementCorrection": {
+      "serverTransfer": {
+        "status": "PASS",
+        "command": "node scripts/test-overlay-transfer.js",
+        "checks": 13,
+        "scope": "Atomic transfer, B authentication retirement, exact-request recovery, independent O leases, restart, admin/license revocation, expiry and failure paths"
+      },
+      "parentFileSharing": {
+        "status": "PASS",
+        "command": "node scripts/test-overlay-parent-sharing.js",
+        "checks": 10,
+        "isWindowsExecution": false
+      },
+      "licenseCleanupSourceContracts": {
+        "status": "PASS",
+        "checks": 19,
+        "isWindowsExecution": false
+      },
+      "overlayWebPolicy": {
+        "status": "PASS",
+        "checks": 6,
+        "scope": "Stored complete CRC baselines with independent O minimum policy; no policy relaxation"
+      },
+      "overlayRenderer": {
+        "status": "SOURCE_CHECKED",
+        "controls": "One custom Direct2D/DirectWrite Injection button; captured empty-area drag; no checkbox or outer border",
+        "action": "UI-only; process injection is not implemented",
+        "isWindowsExecution": false
+      },
+      "nativeShutdown": "Join worker; skip duplicate Bootstrap.Close only after confirmed transfer; release local objects and buffers; O revalidates server transfer plus exact exited-parent file identity before deletion",
+      "hashes": {
+        "status": "PASS",
+        "nativeReferenceComparisons": 3157,
+        "unusedXXH64": "Removed unused TXXHash64/XXHash64Bytes implementation",
+        "adminUploadApproval": "hashVersion 3 with SHA-512 and signatureSHA512",
+        "newSupplyChainManifest": "version 2 / SHA-512; independent Python/OpenSSL verification of file/list/manifest digests; old saved manifests preserved"
+      },
+      "protectionAudit": {
+        "status": "COMPARED_WITH_PROVIDED_ORIGINAL",
+        "basis": "upload/Game.zip",
+        "unchanged": [
+          "Game.ProcessMitigations.pas",
+          "Game.Api.Pointer.pas",
+          "PEB_Export_x64.pas",
+          "Game.SelfImageHeaders.pas"
+        ],
+        "antiDebugDetector": "No separate implementation found in provided original or current source; no restoration claimed"
+      },
+      "sourceDelivery": {
+        "files": 327,
+        "sourceManifest": "SHA-512; regenerated for complete current source",
+        "packagingChecks": "Staged manifest verification, seven corruption tests, ZIP readback and exact source comparison"
+      },
+      "notRun": [
+        "Windows dcc64 build",
+        "Windows native B file removal/process lifecycle",
+        "Windows Direct2D rendering/drag",
+        "Browser fixture execution",
+        "Operating server deployment"
+      ]
     }
   },
   "migration": {
@@ -187,11 +310,14 @@
   },
   "limits": [
     "BLAKE3 canonical tree/incremental semantics are implemented; multithreaded acceleration is not implemented.",
-    "New Delphi builds must satisfy the complete-CRC gate; readable non-executable .data metadata is supported with file-bound ranges and live anchor verification.",
-    "O options are local UI selections only; no unspecified target-game actions are attached.",
-    "SHA-256 remains for explicitly separate TLS pin, RSA/HMAC, device identity and token/journal compatibility roles.",
-    "No original KMAC implementation was present; this delivery does not claim KMAC support.",
-    "Client measurements are not hardware attestation; managed-string copies and OS internals cannot be guaranteed erased."
+    "New Delphi builds must satisfy the complete-CRC gate; readable non-executable .data metadata uses file-bound ranges and live anchor verification.",
+    "Injection is a custom UI button only; no target-process action is attached.",
+    "SHA-256 remains for separate TLS/RSA/HMAC/WebAuthn rules, device identity, stored-token/journal compatibility, legacy revocation and SERVER self-update contracts.",
+    "No original KMAC implementation or separate anti-debug/analysis-tool detector was found; no KMAC support or detector restoration is claimed.",
+    "CRC comparisons have independent roles; acquisition streams are shared and read failures are not isolated by fully independent collectors.",
+    "CRC16 measures parameters/constants and CRC8 measures code/Header/Export length metadata; not every runtime license flag.",
+    "Client measurements are not hardware attestation; managed-string copies, Windows IAT/RTL and OS-internal buffers cannot be guaranteed erased.",
+    "Server and newly rebuilt B/O must be deployed together for handoffVersion 1 and the seven-field O Verify response."
   ],
   "changedExistingFiles": [
     "GameConnect_Win64/Game.Api.pas",
@@ -635,5 +761,38 @@
     "Game_IntegrityFix.zip",
     "Game_OverlayHandoffFix.zip"
   ],
-  "latestCorrection": "B imported ephemeral key forward-handoff export policy and authenticated admin-only overlay startup diagnostics"
+  "latestCorrection": "Confirmed B-to-O server transfer and complete B retirement; native frameless Injection button/drag; hash leftovers audit and approval/supply-chain SHA-512",
+  "overlayHandoffVersion": 1,
+  "latestCorrectionFiles": [
+    "GameConnect_Win64/Game.Api.pas",
+    "GameConnect_Win64/Game.Console.pas",
+    "GameConnect_Win64/Game.Handoff.pas",
+    "GameConnect_Win64/Game.Hashes.pas",
+    "GameConnect_Win64/Game.Overlay.Client.pas",
+    "GameConnect_Win64/Game.Overlay.Renderer.pas",
+    "GameConnect_Win64/Game.Overlay.pas",
+    "GameWeb/maintenance/review.json",
+    "GameWeb/maintenance/source-manifest.json",
+    "GameWeb/scripts/check-connect-project.js",
+    "GameWeb/scripts/regression.js",
+    "GameWeb/scripts/test-desktop-extended-integrity.js",
+    "GameWeb/scripts/test-desktop-workspace.js",
+    "GameWeb/scripts/test-key-console.js",
+    "GameWeb/scripts/test-license-success-contract.py",
+    "GameWeb/scripts/test-overlay-parent-sharing.js",
+    "GameWeb/scripts/test-overlay-start-diagnostics.js",
+    "GameWeb/scripts/test-overlay-transfer.js",
+    "GameWeb/scripts/test-overlay-web-policy.js",
+    "GameWeb/scripts/test-workspace-browser.py",
+    "GameWeb/services/desktopBootstrap.js",
+    "GameWeb/services/desktopBootstrapStore.js",
+    "GameWeb/services/desktopIntegrityReports.js",
+    "GameWeb/services/desktopOperationsErrors.js",
+    "GameWeb/services/desktopOverlay.js",
+    "GameWeb/services/desktopSecurityOperations.js",
+    "GameWeb/services/productionCenter.js",
+    "GameWeb/web/routes/desktopBootstrapRoutes.js",
+    "변경_요약_및_요구사항점검.txt",
+    "업그레이드_안내.txt"
+  ]
 }
