@@ -18,7 +18,7 @@ async function renderCurrent(){}
 function downloadJson(){}
 function setViewLoading(){}
 let aid='A'.repeat(24),bid='B'.repeat(24);
-window.listing={active:{A:aid,B:bid},candidates:[{id:aid,component:'A',version:'1.0.0',sha256:'1'.repeat(64),active:true},{id:bid,component:'B',version:'1.0.0',sha256:'2'.repeat(64),active:true}],operations:{revision:1}};
+window.listing={active:{A:aid,B:bid},candidates:[{id:aid,component:'A',version:'1.0.0',hashVersion:3,sha512:'1'.repeat(128),active:true},{id:bid,component:'B',version:'1.0.0',hashVersion:3,sha512:'2'.repeat(128),active:true}],operations:{revision:1}};
 window.mock=async(p,o={})=>{
  if(p==='/api/desktop/bootstrap/security-operations')return structuredClone(listing);
  if(p.endsWith('/preview-pair'))return{preview:{eligible:true,aId:aid,bId:bid,operationsRevision:1,policyRevision:2,reasons:[]}};
@@ -50,7 +50,7 @@ with sync_playwright() as p:
         # about:blank is not a secure origin in this restricted browser. The
         # browser test uses a deterministic hash fixture; actual SHA/Ed25519
         # behavior is covered by real Node/server service tests separately.
-        page.add_script_tag(content="if(!crypto.subtle)Object.defineProperty(crypto,'subtle',{value:{digest:async()=>new Uint8Array(32).buffer}});if(!crypto.randomUUID)crypto.randomUUID=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');")
+        page.add_script_tag(content="if(!crypto.subtle)Object.defineProperty(crypto,'subtle',{value:{digest:async(algorithm)=>{if(algorithm!=='SHA-512')throw Error('Unexpected browser hash algorithm');return new Uint8Array(64).buffer;}}});if(!crypto.randomUUID)crypto.randomUUID=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');")
         for f in ['admin-modal.js','admin-desktop-licenses.js','admin-desktop-workflow.js']:
             page.add_script_tag(content=(ROOT/'public'/f).read_text())
     def openfn(code,selector):
@@ -66,7 +66,7 @@ with sync_playwright() as p:
         assert not page.evaluate("calls.some(x=>x.method==='POST')")
     test('Deploy opens with current A/B and no mutation',wizard)
     def approval():
-        data={'component':'A','version':'91.2.3','sha256':'a'*64,'approval':{'keyId':'b'*64,'signature':'c'*88}}
+        data={'component':'A','version':'91.2.3','hashVersion':3,'sha512':'a'*128,'approval':{'keyId':'b'*64,'signature':'c'*88}}
         page.locator('[data-approval="A"]').set_input_files({'name':'A.approval.json','mimeType':'application/json','buffer':json.dumps(data).encode()})
         page.wait_for_function("document.querySelector('[data-version=A]').value==='91.2.3'")
         assert '91.2.3' in page.locator('[data-file-status="A"]').inner_text()

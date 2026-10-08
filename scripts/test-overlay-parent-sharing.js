@@ -91,18 +91,20 @@ check('A to B normal path and OS read-only fallback retain compatible strict pin
   assert.equal(canOpen([fallbackB, safeImage(false, true)], file(DELETE, READ | WRITE | DELETE)), false);
 });
 
-check('B cleanup follows authorized visible O readiness and retains same-handle identity checks', () => {
+check('B retirement follows authorized visible O readiness and keeps O parent identity pinned', () => {
   const redeem = consoleSource.slice(consoleSource.indexOf('procedure TIntegrityWorker.RedeemPending'), consoleSource.indexOf('procedure TIntegrityWorker.Execute'));
-  assert(redeem.indexOf('if not FApi.StartOverlay then') < redeem.indexOf('FHandoff.CleanupBinaryAfterLicense'));
+  assert(redeem.indexOf('if not FApi.StartOverlay then') < redeem.indexOf('InterlockedExchange(FState, WorkerTransferred)'));
+  assert.doesNotMatch(redeem, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);
   const complete = handoff.slice(handoff.indexOf('procedure THandoffContext.CompleteOverlayClaim'), handoff.indexOf('procedure THandoffContext.ConfirmOverlayReady'));
   assert.match(complete, /SameText\(HashHandle\(ParentFile\), LauncherSHA512\)/);
   assert.match(complete, /ParentInfo\.dwVolumeSerialNumber = FLauncherVolume/);
   assert.match(complete, /ParentInfo\.nFileIndexHigh = FLauncherIndexHigh/);
   assert.match(complete, /ParentInfo\.nFileIndexLow = FLauncherIndexLow/);
-  assert.match(complete, /Close\(ParentFile\);/);
+  assert.match(complete, /FParentImage := ParentFile;\s*ParentFile := 0;/);
+  assert.match(complete, /FParentPins := Pins;\s*Pins := nil;/);
   assert(overlay.indexOf('Worker.StartAuthorized;') < overlay.indexOf('Result := RunOverlayUI('));
-  assert(overlay.indexOf('Result := RunOverlayUI(') < overlay.indexOf('Context.ConfirmOverlayReady;'));
+  assert(overlay.indexOf('Result := RunOverlayUI(') < overlay.lastIndexOf('Worker.FirstFrameReady;'));
 });
 
 check('B owns distinct cleanup and integrity file objects without dropping its strict pin', () => {
@@ -132,12 +134,24 @@ check('Successful unlink closes its owner while OS refusal retains the strict ow
   assert(unlink.indexOf('if not SetFileInfo(') < unlink.indexOf('    Exit;'));
   assert(unlink.indexOf('    Exit;') < unlink.indexOf('  Close(Handle);'));
   assert.doesNotMatch(cleanup, /Close\(FBinaryCleanupFile\)/);
-  assert.match(handoff, /destructor THandoffContext\.Destroy;\s*begin\s*Close\(FBinaryCleanupFile\);/);
+  assert.match(handoff, /destructor THandoffContext\.Destroy;[\s\S]*?Close\(FBinaryCleanupFile\);/);
   assert.equal(canOpen([bCleanup, bIntegrity], file(DELETE, READ | WRITE | DELETE)), false);
   assert.equal(canOpen([bCleanup, bIntegrity], file(WRITE, READ | WRITE | DELETE)), false);
   // If Windows denied DELETE access initially, retaining the original read
   // owner still prevents delete/rename even though the reader shares delete.
   assert.equal(canOpen([safeImage(), bIntegrity], file(DELETE, READ | WRITE | DELETE)), false);
+});
+
+check('After B actual exit O can delete its pinned B identity while writes stay denied', () => {
+  const oPin = safeImage(false, true);
+  const deletion = safeImage(true);
+  assert.equal(canOpen([...bPins, oPin], deletion), false);
+  assert.equal(canOpen([oPin], deletion), true);
+  assert.equal(canOpen([oPin, deletion], file(WRITE, READ | WRITE | DELETE)), false);
+  const cleanup = handoff.slice(handoff.indexOf('procedure THandoffContext.CleanupTransferredParent;'), handoff.indexOf('procedure THandoffContext.CleanupBinaryAfterLicense;'));
+  assert(cleanup.indexOf('WAIT_OBJECT_0') < cleanup.indexOf('OpenSafeImage(FLauncherPath, True'));
+  assert(cleanup.indexOf('SameIdentity(HeldInfo, DeleteInfo)') < cleanup.indexOf('SetFileInfo(DeleteFile'));
+  assert.match(cleanup, /Close\(FParentImage\);[\s\S]*CloseAll\(FParentPins\);/);
 });
 
 console.log(`${checks} overlay parent sharing checks passed (model/source contracts; Windows runtime not executed).`);

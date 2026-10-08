@@ -32,7 +32,9 @@ try{
  const mismatched=own(current);mismatched.own.codeXxh3_128=changed(mismatched.own.codeXxh3_128);const wrongOwner=signed(current,mismatched);wrongOwner.sessionToken='x'.repeat(43);rejected('BOOTSTRAP_SESSION_INVALID',()=>reports.Execute(wrongOwner));assert.equal(status(current),'CLAIMED');
  const forged=signed(current,own(current));forged.payload=JSON.stringify(mismatched);rejected('INTEGRITY_REPORT_SIGNATURE_INVALID',()=>reports.Execute(forged));assert.equal(status(current),'CLAIMED');gate(current);
  for(const key of extended.slice(0,4)){const ctx=bContext([row]),p=own(ctx);p.own[key]=changed(p.own[key]);assert.equal(submit(ctx,p).terminate,true,key);assert.equal(status(ctx),'REVOKED');}
- for(const key of ['codeSha512','codeCrc64']){const ctx=bContext([row]),p=own(ctx);p.own[key]=changed(p.own[key]);assert.equal(submit(ctx,p).terminate,true);assert.equal(latest(ctx).extendedHashesVerified,false);}
+ // A base code mismatch revokes execution while the independently matching
+ // XXH3/BLAKE3 pairs retain their own successful comparison results.
+ for(const key of ['codeSha512','codeCrc64']){const ctx=bContext([row]),p=own(ctx);p.own[key]=changed(p.own[key]);const reply=submit(ctx,p),record=latest(ctx);assert.equal(reply.terminate,true);assert.equal(reply.status,'REJECTED');assert.equal(record.reason,'CODE_HASH_MISMATCH');assert.equal(record.status,'REJECTED');assert.equal(record.fileExtendedVerified,true);assert.equal(record.codeExtendedVerified,true);assert.equal(record.extendedHashesVerified,true);assert.equal(status(ctx),'REVOKED');}
 
  for(const key of extended){const ctx=bContext([row]),p=payload([{...row,[key]:changed(row[key])}]);assert.equal(submit(ctx,p).terminate,true,key);assert.equal(status(ctx),'REVOKED');assert.equal(latest(ctx).modules[0].extendedHashesVerified,false);}
  // Old hash contracts are rejected before comparison; validly signed legacy

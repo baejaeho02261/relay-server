@@ -7,7 +7,7 @@ require('../core/utils').EnsureDirs();
 const fixture=require('./desktop-bootstrap-fixture'),bootstrap=require('../services/desktopBootstrap');
 const licenses=require('../services/desktopLicenses'),reports=require('../services/desktopIntegrityReports');
 const authority=require('../services/desktopSecurityAuthority'),workspace=require('../services/desktopWorkspace'),state=require('../core/state');
-const reasons=['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED'];
+const reasons=['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED'];
 let checks=0;
 function check(label,fn){fn();checks++;console.log('PASS '+label);}
 function reject(code,fn){assert.throws(fn,error=>error.message===code);}

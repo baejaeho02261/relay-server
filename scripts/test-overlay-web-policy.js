@@ -74,7 +74,10 @@ try {
     assert.deepEqual(Object.keys(store.Load().artifacts), ids);
     for (const component of ['A', 'B']) {
       const row = ops.Stage(component, '1.0', PE(component, auth.DOMAIN + ' candidate'), undefined, 'TEST');
-      assert.equal(auth.ArtifactReason(row, auth.Policy()), '');
+      // Stage returns the public projection; policy admission requires the
+      // server-owned CRC baselines retained in the stored artifact record.
+      assert.equal(row.crcCoverage.complete, true);
+      assert.equal(auth.ArtifactReason(store.Load().artifacts[row.id], auth.Policy()), '');
     }
     assert.deepEqual(store.Load().active, active);
   });
