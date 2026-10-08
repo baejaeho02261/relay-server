@@ -6,6 +6,7 @@ const DIR=path.join(config.DATA_DIR,'desktop-integrity-reports'),FILE=path.join(
 const MAX_PAYLOAD=24576,MAX_REPORTS=512,MAX_PENDING=1024,TTL=30000;
 const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000,O:120000};
 const DEFAULT_MODULES=['ntdll.dll','kernel32.dll','kernelbase.dll'];
+const OVERLAY_START_REASONS=new Set(['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED']);
 let secret,loaded=false,revision=0,records=[],baselines=[],observations=[],pending=new Map(),rates=new Map();
 let policy={enabled:false,requireExtendedHashes:false,requiredModules:DEFAULT_MODULES.slice(),revision:0,updatedAt:0,actor:''};
 const snapshots=new Map(),finishedSnapshots=new Map();
@@ -53,7 +54,12 @@ function Module(row,hashVersion=3){
 function Payload(text){
  if(typeof text!=='string'||Buffer.byteLength(text,'utf8')>MAX_PAYLOAD)Fail('INTEGRITY_REPORT_INVALID');let p;try{p=JSON.parse(text);}catch(_){Fail('INTEGRITY_REPORT_INVALID');}
  Keys(p,['version','hashVersion','check','reason','own','modules','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust','crcLayers']);
- if(p.version!==1||p.hashVersion!==3||!['OWN_IMAGE','MODULE_INVENTORY'].includes(p.check))Fail('INTEGRITY_REPORT_INVALID');Token(p.reason);
+ if(p.version!==1||p.hashVersion!==3||!['OWN_IMAGE','MODULE_INVENTORY','OVERLAY_START'].includes(p.check))Fail('INTEGRITY_REPORT_INVALID');Token(p.reason);
+ if(p.check==='OVERLAY_START'){
+  // A failed startup is a signed client diagnostic, never hash evidence or an
+  // authority observation. Do not accept client-supplied paths or free text.
+  Keys(p,['version','hashVersion','check','reason']);if(!OVERLAY_START_REASONS.has(p.reason))Fail('INTEGRITY_REPORT_INVALID');return p;
+ }
  if(p.own){Keys(p.own,['codeSha512','codeCrc64','status','fileXxh3_128','fileBlake3','codeXxh3_128','codeBlake3']);if(!['MEASURED','READ_ERROR'].includes(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,codeSha512:Digest(p.own.codeSha512,128),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh3_128')?32:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha512||!own.codeCrc64||p.hashVersion===3&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
  if(p.check==='OWN_IMAGE'&&!p.own)Fail('INTEGRITY_REPORT_INVALID');
  if(p.own?.status==='MEASURED'&&!require('./desktopCrcPolicy').Validate(p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
@@ -100,6 +106,13 @@ function Submit(body){
  const artifact=row.integrityArtifact;if(!artifact)Fail('INTEGRITY_REPORT_BASELINE_UNAVAILABLE',503);
  const fields={stage:row.stage||'B',machineId:row.machineId,sessionId:row.sessionId,flowId:row.id,artifactId:artifact.id,check:payload.check,reason:payload.reason,hashVersion:payload.hashVersion};
  let result;
+ if(payload.check==='OVERLAY_START'){
+  if(fields.stage!=='B')Fail('INTEGRITY_REPORT_INVALID');
+  result=Record({...fields,status:'CLIENT_DIAGNOSTIC',trusted:false});
+  require('../storage/audit').LogEvent('DESKTOP_OVERLAY_START_FAILED',JSON.stringify({reportId:result.id,stage:'B',flowId:row.id,sessionId:row.sessionId,machineId:row.machineId,reason:payload.reason,source:'SIGNED_CLIENT_REPORT',attested:false}));
+  // Receipt only: do not refresh, invalidate or grant execution authority.
+  return {accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false};
+ }
  if(payload.own?.status==='READ_ERROR'&&require('./desktopSecurityAuthority').UsesAuthority(row,row.stage||'B')){
   require('./desktopSecurityAuthority').Invalidate(row,row.stage||'B','MEASUREMENT_UNAVAILABLE');
   result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason:'MEASUREMENT_UNAVAILABLE',trusted:false});

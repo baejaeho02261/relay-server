@@ -1,6 +1,15 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ OVERLAY_PREPARE_FAILED:['O 실행 준비를 완료하지 못했습니다.','B가 O 준비 단계의 실패를 보고했습니다.','같은 시각의 서버 요청 거절, 라이선스, 배포 조합 기록을 확인하세요.','security'],
+ OVERLAY_LAUNCH_FAILED:['O 다운로드 또는 실행 연결을 완료하지 못했습니다.','B가 O 준비 응답 이후의 실패를 보고했습니다.','O PREPARED·READY·CLAIMED 기록과 등록한 A/B/O 버전을 함께 확인하세요.','deploy'],
+ HANDOFF_KEY_EXPORT_FAILED:['실행 연결용 세션 키 전달을 준비하지 못했습니다.','B가 메모리 내 키 전달 준비 실패를 보고했습니다.','B의 가져온 키 재전달 정책 수정이 적용됐는지 확인하고 A/B/O를 다시 빌드·게시하세요.','deploy'],
+ HANDOFF_PROCESS_CREATE_FAILED:['O 프로세스를 시작하지 못했습니다.','B가 Windows 프로세스 생성 실패를 보고했습니다.','등록한 O 빌드와 해당 PC의 실행 차단·파일 접근 상태를 확인하세요.','deploy'],
+ HANDOFF_PIPE_TIMEOUT:['O로 실행 연결 정보를 전달하는 시간이 초과됐습니다.','B가 제한 시간 내 파이프 전송을 마치지 못했다고 보고했습니다.','해당 PC의 O 조기 종료·보안 제품 차단 여부와 A/B/O 버전을 확인하세요.','security'],
+ HANDOFF_PIPE_FAILED:['O로 실행 연결 정보를 전달하지 못했습니다.','B가 파이프 전송 실패를 보고했습니다.','해당 PC의 O 조기 종료와 A/B/O 실행 연결 규격을 확인하세요.','deploy'],
+ HANDOFF_CHILD_EXITED:['O가 준비 완료를 알리기 전에 종료됐습니다.','B가 생성한 O 프로세스의 조기 종료를 보고했습니다.','같은 시각의 O CLAIMED·무결성 기록과 Windows 오류 기록을 확인하세요.','security'],
+ HANDOFF_READY_TIMEOUT:['O의 준비 완료 대기 시간이 초과됐습니다.','B가 제한 시간 내 O 준비 완료 신호를 받지 못했다고 보고했습니다.','O CLAIMED·서버 인증·렌더링 시작 기록과 해당 PC의 처리 지연을 확인하세요.','security'],
+ HANDOFF_WAIT_FAILED:['O 준비 완료 상태를 확인하지 못했습니다.','B가 Windows 대기 처리 실패를 보고했습니다.','해당 PC의 Windows 오류 기록과 실행 연결 핸들 상태를 확인하세요.','security'],
  CRC_BASELINE_UNAVAILABLE:['이 빌드의 CRC 기준값을 확인할 수 없습니다.','배포 파일에 유효한 CRC 계층 기준값이 없습니다.','수정된 서버에 다시 빌드·서명한 A/B/O 후보를 등록하고 조합을 검증하세요.','deploy'],
  CRC_COVERAGE_INCOMPLETE:['이 빌드의 필수 CRC 검사 범위가 부족합니다.','일부 검사 함수의 측정 범위가 제공되지 않아 현재 정책을 충족하지 않습니다.','수정된 소스로 A/B/O를 다시 빌드·서명한 뒤 후보 등록, 조합 게시, 새 A 발급 순서로 적용하세요.','deploy'],
  INTEGRITY_CRC_COVERAGE_INCOMPLETE:['필수 CRC 검사 범위가 부족해 실행을 거절했습니다.','해시값이 일치해도 일부 CRC 검사 범위가 없으면 승인되지 않습니다.','모듈·무결성의 계층별 상태를 확인하고 수정한 A/B/O를 다시 빌드·게시하세요.','deploy'],
