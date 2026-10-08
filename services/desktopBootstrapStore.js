@@ -89,8 +89,9 @@ function Load(){
     else if(row.status==='CLAIMED')Invalid();
    }
    if(typeof row.licenseId!=='string'||row.licenseId&&!Identifier(row.licenseId,'DL')||!Number.isSafeInteger(row.lastVerifiedAt)||row.lastVerifiedAt<0)Invalid();
+   try{require('./desktopOverlay').ValidateParentTransfer(value,row);}catch(_){Invalid();}
   }
-  if(value.overlays!==undefined){try{require('./desktopOverlay').ValidateStore(value);}catch(_){Invalid();}}
+  if(value.overlays!==undefined){try{require('./desktopOverlay').ValidateStore(value);require('./desktopOverlay').ValidateTransferRows(value);}catch(_){Invalid();}}
   for(const receipt of Object.values(value.issueReceipts))if(!Plain(receipt)||!Digest(receipt.fingerprint)||!value.launchers[receipt.launcherId])Invalid();
   current=value;
  }else{

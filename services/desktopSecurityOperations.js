@@ -8,7 +8,8 @@ const KEY_ID = /^[a-f0-9]{64}$/;
 const BUILD = /^[ABO]:[a-f0-9]{128}$/;
 const OUTCOMES = ['PASS', 'FAIL', 'NOT_RUN'];
 const CHECKS = ['ownImage', 'apiStorage', 'mitigations'];
-const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+// File/signature upload summaries use the same SHA-512 width as release evidence.
+const sha512 = bytes => crypto.createHash('sha512').update(bytes).digest('hex');
 const plain = x => !!x && typeof x === 'object' && !Array.isArray(x) && Object.getPrototypeOf(x) === Object.prototype;
 function Fail(code, status = 400) { const e = Error(code); e.desktopError = true; e.status = status; throw e; }
 function Fields(value, allowed, required = allowed) {
@@ -192,4 +193,4 @@ function List() {
     storage:'SERVER_ONLY',testEvidenceTrust:'OPERATOR_RECORDED_NOT_ATTESTATION',
     candidates:Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,createdAt:a.createdAt,active:db.active[a.component]===a.id,contract:s.contracts[BuildKey(a)]||null}))};
 }
-module.exports={Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha};
+module.exports={Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};

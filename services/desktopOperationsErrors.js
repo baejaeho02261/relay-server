@@ -1,6 +1,7 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ OVERLAY_TRANSFER_FAILED:['B에서 O로 실행 권한을 인계하지 못했습니다.','O 준비 이후 서버의 인계 확정 응답을 확인하지 못했습니다.','같은 시각의 O 인계·세션 기록과 배포된 A/B/O 버전을 확인하세요.','security'],
  OVERLAY_PREPARE_FAILED:['O 실행 준비를 완료하지 못했습니다.','B가 O 준비 단계의 실패를 보고했습니다.','같은 시각의 서버 요청 거절, 라이선스, 배포 조합 기록을 확인하세요.','security'],
  OVERLAY_LAUNCH_FAILED:['O 다운로드 또는 실행 연결을 완료하지 못했습니다.','B가 O 준비 응답 이후의 실패를 보고했습니다.','O PREPARED·READY·CLAIMED 기록과 등록한 A/B/O 버전을 함께 확인하세요.','deploy'],
  HANDOFF_KEY_EXPORT_FAILED:['실행 연결용 세션 키 전달을 준비하지 못했습니다.','B가 메모리 내 키 전달 준비 실패를 보고했습니다.','B의 가져온 키 재전달 정책 수정이 적용됐는지 확인하고 A/B/O를 다시 빌드·게시하세요.','deploy'],

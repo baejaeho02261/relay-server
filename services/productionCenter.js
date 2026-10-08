@@ -207,13 +207,14 @@ function SetRetention(input,actor){
 function SupplyChainManifest() {
     const root=path.resolve(__dirname,'..'),files=[];
     const runtimeFiles=new Set(['relay-identities.json','relay-identities.bak.json','relay-licenses.json','relay-licenses.bak.json']);
-    const walk=dir=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){if(['node_modules','data','.git','audit','backups','releases'].includes(entry.name)||runtimeFiles.has(entry.name))continue;const full=path.join(dir,entry.name);if(entry.isDirectory())walk(full);else if(/\.(js|json|md|txt)$/.test(entry.name)&&!/(secret|credential)/i.test(entry.name)){const data=fs.readFileSync(full);files.push({path:path.relative(root,full).replace(/\\/g,'/'),size:data.length,sha256:crypto.createHash('sha256').update(data).digest('hex').toUpperCase()});}}};
+    const walk=dir=>{for(const entry of fs.readdirSync(dir,{withFileTypes:true})){if(['node_modules','data','.git','audit','backups','releases'].includes(entry.name)||runtimeFiles.has(entry.name))continue;const full=path.join(dir,entry.name);if(entry.isDirectory())walk(full);else if(/\.(js|json|md|txt)$/.test(entry.name)&&!/(secret|credential)/i.test(entry.name)){const data=fs.readFileSync(full);files.push({path:path.relative(root,full).replace(/\\/g,'/'),size:data.length,sha512:crypto.createHash('sha512').update(data).digest('hex').toUpperCase()});}}};
     walk(root);files.sort((a,b)=>a.path.localeCompare(b.path));
     let dependencies={};try{dependencies=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8')).packages||{};}catch(_){}
     const sbom=Object.entries(dependencies).filter(([k])=>k.startsWith('node_modules/')).map(([k,v])=>({name:k.slice(13),version:v.version||'',license:v.license||''})).sort((a,b)=>a.name.localeCompare(b.name));
-    const sourceHash=crypto.createHash('sha256').update(files.map(x=>`${x.path}:${x.sha256}`).join('\n')).digest('hex').toUpperCase();
-    const manifest={generatedAt:Now(),sourceHash,files,sbom,violations:sbom.filter(x=>!x.version).map(x=>`MISSING_VERSION:${x.name}`)};
-    manifest.manifestHash=crypto.createHash('sha256').update(JSON.stringify(manifest)).digest('hex').toUpperCase();
+    const sourceHash=crypto.createHash('sha512').update(files.map(x=>`${x.path}:${x.sha512}`).join('\n')).digest('hex').toUpperCase();
+    // Existing saved manifests retain their original format until regenerated.
+    const manifest={version:2,algorithm:'sha512',generatedAt:Now(),sourceHash,files,sbom,violations:sbom.filter(x=>!x.version).map(x=>`MISSING_VERSION:${x.name}`)};
+    manifest.manifestHash=crypto.createHash('sha512').update(JSON.stringify(manifest)).digest('hex').toUpperCase();
     state.production.supplyChain=manifest;require('../storage/database').SaveDatabase();
     return {ok:true,manifest};
 }
