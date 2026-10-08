@@ -129,6 +129,44 @@
         "B to O file sharing/lifetime model (9) and license success source contracts (12)",
         "Web display/cache, native security contracts and project composition"
       ]
+    },
+    "overlayStartupCorrection": {
+      "serverDiagnosticRegression": {
+        "status": "PASS",
+        "command": "node scripts/test-overlay-start-diagnostics.js",
+        "checks": 9,
+        "scope": "Real service/session/RSA signatures, replay/forgery/strict fields, non-authority diagnostics and admin timeline"
+      },
+      "existingOverlayLifecycle": {
+        "status": "PASS",
+        "checks": 8
+      },
+      "existingIntegrityReportsJSON": {
+        "status": "PASS"
+      },
+      "parentSharingContracts": {
+        "status": "PASS",
+        "checks": 9,
+        "isWindowsExecution": false
+      },
+      "licenseCleanupContracts": {
+        "status": "PASS",
+        "checks": 12,
+        "isWindowsExecution": false
+      },
+      "projectComposition": {
+        "status": "PASS",
+        "isDelphiCompilation": false
+      },
+      "deviceKeyHandoffProbe": {
+        "status": "NOT_RUN",
+        "source": "GameConnect_Win64/tests/DeviceSecurityHandoffProbe.dpr",
+        "reason": "Windows CNG runtime and dcc64 are unavailable"
+      },
+      "userObservedCause": "READY then CLOSED without CLAIMED narrows failure to pre-claim startup; imported-key export policy omission is corrected but the original Windows status code was not captured.",
+      "existingIntegrityReportsSQLite": {
+        "status": "PASS"
+      }
     }
   },
   "migration": {
@@ -587,7 +625,7 @@
     "GameWeb/services/web/webServer.js"
   ],
   "removedPathReason": "Original GameWeb/services contained 154 exact duplicate files and a nested services copy; active service implementations were moved to GameWeb/services and updated. Obsolete xxhash64 WASM removed.",
-  "integratedSourceDate": "2026-10-08",
+  "integratedSourceDate": "2026-10-09",
   "integratedPatches": [
     "Game_CompileFix.zip",
     "Game_ErrorHintFix.zip",
@@ -596,5 +634,6 @@
     "GameWeb_OverlayFix.zip",
     "Game_IntegrityFix.zip",
     "Game_OverlayHandoffFix.zip"
-  ]
+  ],
+  "latestCorrection": "B imported ephemeral key forward-handoff export policy and authenticated admin-only overlay startup diagnostics"
 }
