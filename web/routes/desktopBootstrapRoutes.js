@@ -29,7 +29,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
   if(pathname==='/api/desktop/bootstrap/module-baselines'){
    if(length>32*1024*1024)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);uploadPending=true;
    const bytes=await ReadBytes(req),fileName=url.searchParams.get('fileName'),label=url.searchParams.get('label')||'';
-   const summary={fileName,label,sha256:require('node:crypto').createHash('sha256').update(bytes).digest('hex'),size:bytes.length};
+   const summary={fileName,label,hashVersion:3,sha512:require('../../services/desktopSecurityOperations').sha512(bytes),size:bytes.length};
    const allowed=require('../../services/desktopAdminGuard').Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''));
    if(!allowed.ok){ApiError(res,allowed.status||428,allowed.reason,allowed.ticketId||'');return true;}
    require('../../services/desktopSecurityOperations').AuditIntent('MODULE_BASELINE_REGISTER',session.id);
@@ -39,7 +39,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
   if(!['A','B','O'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
   uploadPending=true;const bytes=await ReadBytes(req),approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
   const ops=require('../../services/desktopSecurityOperations'),authority=require('../../services/desktopSecurityAuthority');
-  const summary={component,version,fileName:name,sha256:ops.sha(bytes),size:bytes.length,keyId:approval?.keyId||'',signatureHash:approval?ops.sha(JSON.stringify(approval)):'',expectedPolicyRevision:authority.Policy().revision,expectedOperationsRevision:ops.Revision(),disposition:'CANDIDATE'};
+  const summary={component,version,fileName:name,hashVersion:3,sha512:ops.sha512(bytes),size:bytes.length,keyId:approval?.keyId||'',signatureSha512:approval?ops.sha512(JSON.stringify(approval)):'',expectedPolicyRevision:authority.Policy().revision,expectedOperationsRevision:ops.Revision(),disposition:'CANDIDATE'};
   const allowed=require('../../services/desktopAdminGuard').Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''));
   if(!allowed.ok){ApiError(res,allowed.status||428,allowed.reason,allowed.ticketId||'');return true;}
   const artifact=ops.Stage(component,version,bytes,approval,session.id);Json(res,200,{ok:true,artifact,disposition:'CANDIDATE',activeUnchanged:true});
