@@ -48,6 +48,68 @@ function readBounded(file, min, max, code) {
     return b;
   } finally { fs.closeSync(fd); }
 }
+// BEGIN STANDALONE PE PREFLIGHT
+function ValidatePeImage(bytes,reject){
+ const bad=()=>reject('BOOTSTRAP_PE_INVALID');
+ if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>64*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
+ const pe=bytes.readUInt32LE(0x3c);if(pe<64||pe>bytes.length-24||bytes.readUInt32LE(pe)!==0x4550||bytes.readUInt16LE(pe+4)!==0x8664)bad();
+ const count=bytes.readUInt16LE(pe+6),opt=pe+24,optSize=bytes.readUInt16LE(pe+20),table=opt+optSize;
+ if(count<1||count>96||optSize<160||table+count*40>bytes.length||bytes.readUInt16LE(opt)!==0x20b)bad();
+ const imageSize=bytes.readUInt32LE(opt+56),headerSize=bytes.readUInt32LE(opt+60),dirCount=bytes.readUInt32LE(opt+108);
+ if(imageSize<4096||imageSize>128*1024*1024||headerSize<table+count*40||headerSize>bytes.length||dirCount>16||112+dirCount*8>optSize)bad();
+ const sections=[];let total=0;
+ for(let i=0;i<count;i++){
+  const at=table+i*40,virtualSize=bytes.readUInt32LE(at+8),rva=bytes.readUInt32LE(at+12),rawSize=bytes.readUInt32LE(at+16),raw=bytes.readUInt32LE(at+20),flags=bytes.readUInt32LE(at+36),span=virtualSize||rawSize,mapped=Math.max(span,rawSize);
+  if(!span||rva<headerSize||rva+mapped>imageSize||rawSize&&(raw<headerSize||raw+rawSize>bytes.length)||sections.some(s=>rva<s.rva+s.mapped&&rva+mapped>s.rva||rawSize&&s.rawSize&&raw<s.raw+s.rawSize&&raw+rawSize>s.raw))bad();
+  const protectedCode=!!(flags&0x20000000)&&!(flags&0x80000000);if(protectedCode){total+=span;if(total>64*1024*1024)bad();}
+  sections.push({rva,span,mapped,raw,rawSize,flags,protectedCode});
+ }
+ const protectedSections=sections.filter(s=>s.protectedCode).sort((a,b)=>a.rva-b.rva);if(!protectedSections.length)bad();
+ ValidatePeExceptionTable(bytes,opt,dirCount,sections,reject);
+ for(const section of protectedSections){section.bytes=Buffer.alloc(section.span);bytes.copy(section.bytes,0,section.raw,section.raw+Math.min(section.rawSize,section.span));}
+ const rawAt=(rva,length)=>{if(!Number.isSafeInteger(length)||length<0)bad();if(rva<headerSize&&rva+length<=headerSize)return rva;const s=sections.find(s=>rva>=s.rva&&rva+length<=s.rva+s.rawSize);if(!s)bad();return s.raw+(rva-s.rva);};
+ const relocRva=dirCount>5?bytes.readUInt32LE(opt+112+5*8):0,relocSize=dirCount>5?bytes.readUInt32LE(opt+116+5*8):0;
+ if(!!relocRva!==!!relocSize||relocSize>16*1024*1024)bad();
+ let relocations=0;
+ if(relocSize){
+  let cursor=rawAt(relocRva,relocSize),end=cursor+relocSize;const seen=[];
+  while(cursor<end){
+   if(cursor+8>end)bad();const page=bytes.readUInt32LE(cursor),block=bytes.readUInt32LE(cursor+4);if(block<8||block%2||cursor+block>end||page>=imageSize)bad();
+   for(let at=cursor+8;at<cursor+block;at+=2){
+    const entry=bytes.readUInt16LE(at),type=entry>>>12,target=page+(entry&0xfff);if(type===0)continue;
+    const width=type===10?8:type===3?4:1,section=protectedSections.find(s=>target<s.rva+s.span&&target+width>s.rva);
+    if(!section)continue;if(type!==10&&type!==3||target<section.rva||target+width>section.rva+section.span)bad();
+    section.bytes.fill(0,target-section.rva,target-section.rva+width);seen.push([target,target+width]);if(++relocations>1000000)bad();
+   }
+   cursor+=block;
+  }
+  seen.sort((a,b)=>a[0]-b[0]);for(let i=1;i<seen.length;i++)if(seen[i][0]<seen[i-1][1])bad();
+ }
+ return true;
+}
+function ValidatePeExceptionTable(bytes,opt,dirCount,sections,reject){
+ // Read-only preflight: normalization belongs to the completed build, before
+ // detached approval binds its SHA-512. Server CRC/coverage checks still apply.
+ const rva=dirCount>3?bytes.readUInt32LE(opt+136):0,size=dirCount>3?bytes.readUInt32LE(opt+140):0;
+ if(!rva&&!size)return; // The server separately determines missing CRC coverage.
+ const bad=()=>reject('PE_EXCEPTION_TABLE_INVALID');
+ if(!rva||rva%4||!size||size%12||size>16*1024*1024)bad();
+ const locate=(at,length)=>sections.find(s=>at>=s.rva&&at+length<=s.rva+Math.min(s.rawSize,s.span));
+ const table=locate(rva,size);
+ if(!table||(table.flags&0x80000000)||(table.flags&0x20000000))bad();
+ const raw=table.raw+rva-table.rva,end=raw+size;let previousBegin=-1,previousEnd=0;
+ for(let at=raw;at<end;at+=12){
+  const begin=bytes.readUInt32LE(at),finish=bytes.readUInt32LE(at+4),unwind=bytes.readUInt32LE(at+8);
+  if(finish<=begin||unwind%4)bad();
+  const code=locate(begin,finish-begin),metadata=locate(unwind,4);
+  if(!code||!(code.flags&0x20000000)||(code.flags&0x80000000)||!metadata||!(metadata.flags&0x40000000)||(metadata.flags&0x20000000))bad();
+  if(begin<previousBegin)reject('PE_EXCEPTION_TABLE_UNSORTED');
+  if(begin<previousEnd)bad();
+  previousBegin=begin;previousEnd=finish;
+ }
+}
+// END STANDALONE PE PREFLIGHT
+
 function main() {
   if (env.GC_APPROVAL_ACTION === 'probe') {
     return { version: process.version, major: Number(process.versions.node.split('.')[0]), lts: process.release.lts || '' };
@@ -73,11 +135,13 @@ function main() {
   const canonical = ['GAME-RELEASE-APPROVAL-V2', a.component, a.version, a.sha512].join('\n');
   if (!crypto.verify(null, Buffer.from(canonical, 'utf8'), key, signature)) fail('SIGNATURE_INVALID');
   if (digest !== a.sha512) fail('EXE_SHA512_MISMATCH');
-  // This is a signature/hash check, NOT a full PE parser or release-policy gate.
+  // Bounded PE/relocation/unwind preflight; full CRC coverage and release
+  // authorization remain server-side checks. Never normalize signed bytes.
+  ValidatePeImage(bytes,fail);
   if (env.GC_APPROVAL_COMPONENT !== a.component) fail('UPLOAD_COMPONENT_MISMATCH');
   if (env.GC_APPROVAL_VERSION !== a.version) fail('UPLOAD_VERSION_MISMATCH');
   return { ok:true, component:a.component, version:a.version, sha512:digest, keyId:id,
-    serverTrustChecked:false, serverPolicyChanged:false,
+    pePreflightChecked:true, serverTrustChecked:false, serverPolicyChanged:false,
     // Explicit array: this is the policy field's required JSON shape.
     trustedKeysJson:JSON.stringify([{keyId:id,publicKey:key.export({type:'spki',format:'pem'}).toString()}], null, 2) };
 }
@@ -126,7 +190,7 @@ function Invoke-Worker {
         $stderr = $errTask.GetAwaiter().GetResult()
         if ($p.ExitCode -ne 0) {
             $code = $stderr.Trim()
-            if ($code -notmatch '^[A-Z_]{1,80}$') { $code = 'NODE_EXECUTION_FAILED' }
+            if ($code -notmatch '^[A-Z][A-Z0-9_]{0,79}$') { $code = 'NODE_EXECUTION_FAILED' }
             throw ('승인 점검 도구 오류: ' + $code)
         }
         if ([string]::IsNullOrWhiteSpace($stdout)) { throw '승인 점검 도구가 결과를 반환하지 않았습니다.' }
@@ -211,6 +275,8 @@ function Main {
     Write-Host '=== GameConnect 공개 배포 승인 점검 ==='
     Write-Host 'EXE와 approval.json을 읽기만 합니다. 개인키는 필요하지 않습니다.'
     Write-Host '네트워크 접속, 서버 신뢰 등록, 소스 변경, 새 파일 저장은 하지 않습니다.'
+    Write-Host 'O 승인 생성은 Create_Approval.bat에서 O를 선택하세요. EXE 예외 테이블 정리 후 새 JSON을 생성합니다.'
+    Write-Host '정리로 EXE가 변경되면 이전 JSON은 일치하지 않습니다. 새 EXE와 함께 생성된 새 JSON을 선택하세요.'
     $node = Find-ExistingNode $base
     Write-Host ('사용 Node: ' + $node)
     $exe = Choose-File '업로드했던 실제 EXE 선택' '실행 파일 (*.exe)|*.exe' $base
@@ -227,6 +293,8 @@ function Main {
     } $base
     Write-Host ''
     Write-Host '[정상] 선택한 EXE SHA-512 / 공개키 ID / Ed25519 서명 / 구분 / 버전 일치'
+    Write-Host '[정상] PE 구조 / 재배치 / 예외 테이블 사전 검사 통과'
+    Write-Host '전체 CRC 측정 범위와 배포 정책은 서버 등록 시 별도로 검증합니다.'
     Write-Host ('구분: ' + $result.component + '  |  웹 버전: ' + $result.version)
     Write-Host ('EXE SHA-512: ' + $result.sha512)
     Write-Host ('서명자 keyId: ' + $result.keyId)
@@ -258,7 +326,11 @@ catch {
     Write-Host 'UPLOAD_COMPONENT_MISMATCH / UPLOAD_VERSION_MISMATCH: 웹의 A/B/O 및 버전을 승인 생성 때와 맞추세요.'
     Write-Host 'SIGNATURE_INVALID / KEY_ID_MISMATCH: JSON의 서명/공개키/ID가 맞지 않습니다. 올바른 원본 승인 파일을 선택하세요.'
     Write-Host 'PRIVATE_KEY_NOT_ALLOWED: PEM 개인키가 아니라 공개 approval.json을 선택하세요.'
-    Write-Host 'TRUSTED_KEY_MISSING_OR_INVALID / PUBLIC_KEY_FORMAT_INVALID: FIX2로 만든 완전한 공개 승인 JSON을 선택하세요.'
+    Write-Host 'PE_EXCEPTION_TABLE_UNSORTED: O 빌드의 예외 테이블 정렬 단계가 완료되지 않았습니다.'
+    Write-Host 'Create_Approval.bat 실행 > O 선택 > 같은 새 O EXE 선택 순서로 진행해 자동 정리와 승인 JSON 재생성을 완료하세요.'
+    Write-Host '그 후 정리된 같은 EXE와 새 JSON으로 Check_Approval.bat를 다시 실행하세요. 점검 도구는 EXE를 수정하지 않습니다.'
+    Write-Host 'PE_EXCEPTION_TABLE_INVALID / BOOTSTRAP_PE_INVALID: 정상 Win64 Release EXE와 빌드 로그를 확인하세요.'
+    Write-Host 'TRUSTED_KEY_MISSING_OR_INVALID / PUBLIC_KEY_FORMAT_INVALID: 이 도구로 만든 완전한 공개 승인 JSON을 선택하세요.'
     Write-Host '입력 파일과 서버는 변경하지 않았습니다. 원본 자료는 삭제하거나 덮어쓰지 않았습니다.'
     exit 1
 }
