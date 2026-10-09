@@ -78,7 +78,8 @@
         "test-web-ui-cache.js"
       ],
       "scope": "Current integrated service and source tests; synthetic PE and native source/model contracts, not Windows native execution",
-      "finalRendererFollowup": "After final native Present S_OK-only handling and redundant-assignment cleanup: all seven ImGui contract groups and project source check rerun PASS."
+      "finalRendererFollowup": "Full integrated regression rerun includes all eight current ImGui contract groups and check-connect-project.js.",
+      "runDate": "2026-10-09"
     },
     "portableHashes": {
       "status": "PASS",
@@ -118,8 +119,10 @@
       "isWindowsExecution": false
     },
     "nativeWindowsBuild": {
-      "status": "NOT_RUN",
-      "reason": "RAD Studio dcc64 and Windows runtime are not available in this environment"
+      "status": "USER_REPORTED_PASS",
+      "reportedDate": "2026-10-09",
+      "evidence": "User: 좋아, 빌드 전부 잘됨. 전체 풀 소스 다시 정리해서 줘.",
+      "scope": "User environment Windows build success after all ImGui build fixes; independent Windows compilation and runtime were not executed in this workspace."
     },
     "productionDeployment": {
       "status": "NOT_RUN"
@@ -326,8 +329,8 @@
       "rendererContracts": {
         "status": "PASS",
         "command": "node scripts/test-overlay-imgui.js",
-        "groups": 7,
-        "scope": "ABI, provenance/license resource, dynamic API binding, authority/visible-present readiness, audited-build and mouse capture ordering"
+        "groups": 8,
+        "scope": "ABI, provenance/license resource, dynamic API binding, authority/visible-present readiness, audited-build, CRT macros, native local-static guards, object publication and mouse capture ordering"
       },
       "preservation": {
         "status": "PASS",
@@ -337,19 +340,50 @@
         "notes": "Existing server services and native authentication, license, hash, handoff and B retirement sources unchanged. Game.Overlay.pas changes only a renderer comment."
       },
       "ui": "Black borderless window, genuine ImGui Injection UI-only button, blank-area captured drag, mouse/keyboard focus and cancellation",
-      "staticBuild": "GameOverlay pre-build invokes imgui/Build_ImGui_Win64.bat using classic bcc64; audits pending ELF object before linking it into O. No deployed ImGui DLL.",
+      "staticBuild": "GameOverlay pre-build invokes classic bcc64, audits the pending ELF object, and publishes byte-identical canonical and Pascal-unit-directory copies. Strict audit and fail-closed cleanup are retained. No deployed ImGui DLL.",
       "notRun": [
-        "Windows bcc64 compilation and dcc64 static link",
-        "PowerShell object audit execution",
-        "Windows Direct3D11 rendering/driver behavior",
-        "Windows native B cleanup after ImGui first-present",
+        "Independent Windows bcc64/dcc64 build in this workspace",
+        "Windows Direct3D11 rendering/driver behavior after final ImGui build",
+        "Windows native B cleanup after final ImGui first-present",
         "Operating deployment"
       ],
       "sourceDelivery": {
-        "files": 352,
+        "files": 354,
         "manifest": "SHA-512",
-        "archiveChecks": "Staged manifest, seven corruption cases and exact archive readback"
+        "archiveChecks": "Staged manifest, seven corruption cases and exact archive readback",
+        "generatedWindowsObjectsIncluded": false
+      },
+      "localStaticGuard": {
+        "status": "PASS",
+        "compiler": "g++ x86_64 Linux",
+        "scope": "Actual compiler-emitted guards: 16-thread once-only initialization, data publication, nested distinct guards, abort and retry; retained completed guard-fix validation.",
+        "symbols": [
+          "__cxa_guard_acquire",
+          "__cxa_guard_release",
+          "__cxa_guard_abort"
+        ],
+        "threadSafeStaticsDisabled": false,
+        "undefinedImports": 0
+      },
+      "windowsObjectAudit": {
+        "status": "USER_LOG_PASS",
+        "reportedDate": "2026-10-09",
+        "compiler": "Embarcadero C++ 7.80 for Win64, classic bcc64",
+        "evidence": "PASS: ELF64, all 18 C ABI entries, no undefined imports, no static constructor/destructor sections.",
+        "independentlyExecutedHere": false
+      },
+      "windowsBuild": {
+        "status": "USER_REPORTED_PASS",
+        "reportedDate": "2026-10-09"
       }
+    },
+    "fullSourceConsolidation": {
+      "status": "PASS",
+      "sourceFileCount": 354,
+      "preservedRuntimeFilesByteIdenticalToPriorFullSource": 129,
+      "uploadedPascalEditsLost": false,
+      "projects": "Complete maintained A/B/O projects retain resource pre-build and per-role DCU/EXE output paths.",
+      "scope": "Consolidation of completed fixes and build documentation; no new runtime behavior in this packaging step."
     }
   },
   "migration": {
@@ -378,7 +412,7 @@
     "CRC16 measures parameters/constants and CRC8 measures code/Header/Export length metadata; not every runtime license flag.",
     "Client measurements are not hardware attestation; managed-string copies, Windows IAT/RTL and OS-internal buffers cannot be guaranteed erased.",
     "Server and newly rebuilt B/O must be deployed together for handoffVersion 1 and the seven-field O Verify response.",
-    "Dear ImGui integration requires classic bcc64 C++ Win64 build tools in addition to Delphi; Windows compilation/link/rendering is not validated in this environment."
+    "Dear ImGui requires classic bcc64 C++ Win64 tools. The user reported final Windows build success; Windows compilation/linking and D3D11 runtime were not independently executed in this workspace."
   ],
   "changedExistingFiles": [
     "GameConnect_Win64/Game.Api.pas",
@@ -820,9 +854,13 @@
     "Check_Approval_Fix.zip",
     "GameWeb_OverlayFix.zip",
     "Game_IntegrityFix.zip",
-    "Game_OverlayHandoffFix.zip"
+    "Game_OverlayHandoffFix.zip",
+    "Game_ImGui_Object_Build_Fix.zip",
+    "Game_ImGui_CRT_Macro_Fix.zip",
+    "Game_ImGui_Guard_Build_Fix.zip",
+    "Game_ImGui_Object_Path_Fix.zip"
   ],
-  "latestCorrection": "Dear ImGui 1.93.0 WIP plus Direct3D 11 static C ABI integration for Delphi overlay, preserving A/B/O authority and retirement flows",
+  "latestCorrection": "Complete A/B/O and GameWeb source consolidation after user-confirmed Windows build success; ImGui CRT macros, native local-static guards, audited object publication and build-log handling integrated",
   "overlayHandoffVersion": 1,
   "latestCorrectionFiles": [
     "GameConnect_Win64/Build_Win64.bat",
@@ -840,7 +878,9 @@
     "GameConnect_Win64/imgui/bridge/game_imgui_bridge.h",
     "GameConnect_Win64/imgui/bridge/game_imgui_config.h",
     "GameConnect_Win64/imgui/bridge/game_imgui_dx11.cpp",
+    "GameConnect_Win64/imgui/bridge/game_imgui_guard.h",
     "GameConnect_Win64/imgui/tests/test_bridge.cpp",
+    "GameConnect_Win64/imgui/tests/test_guard.cpp",
     "GameConnect_Win64/imgui/vendor/LICENSE.txt",
     "GameConnect_Win64/imgui/vendor/backends/imgui_impl_dx11.cpp",
     "GameConnect_Win64/imgui/vendor/backends/imgui_impl_dx11.h",
