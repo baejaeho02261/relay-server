@@ -90,7 +90,7 @@ check('Host callback layout is versioned and checked before static-object creati
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
   inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'game_imgui_create(Pointer(Window), @Host, Result)'], 'Host validation');
   assert.equal((pascal.match(/\{\$L\s+'[^']+'\}/g) || []).length, 1);
-  assert.match(pascal, /\{\$L\s+'imgui\\obj\\Win64\\game_imgui_bridge\.o'\}/);
+  assert.match(pascal, /\{\$L\s+'game_imgui_bridge\.o'\}/);
   assert.doesNotMatch(pascal, /external\s+'[^']+\.dll'/i);
 });
 
@@ -172,7 +172,21 @@ check('Native Present distinguishes occlusion/failure, and portable tests can ne
   inOrder(present, ['game_imgui_runtime_failed||game_imgui_dx11_failed)return -1;', 'ImGui::Render();', 'c->frame_started=false;', '#ifndef GAME_IMGUI_PORTABLE_TEST', 'ImGui_ImplDX11_RenderDrawData(', 'game_imgui_runtime_failed||game_imgui_dx11_failed)return -1;', '->Present(1,0)', 'hr==DXGI_STATUS_OCCLUDED)return 0;', 'if(FAILED(hr))return -1;', 'return hr==S_OK?1:0;', '#else', 'return -1;', '#endif'], 'Bridge Present');
   const build = read('imgui/Build_ImGui_Win64.bat');
   assert.doesNotMatch(build, /(?:-D|\/D)\s*GAME_IMGUI_PORTABLE_TEST/);
-  inOrder(build, ['set "GAME_IMGUI_COMPILER=%BDS%\\bin\\bcc64.exe"', 'if not exist "%GAME_IMGUI_COMPILER%"', 'game_imgui_bridge.pending.o', '"%GAME_IMGUI_COMPILER%" -c', 'Audit-Object.ps1', 'move /y "obj\\Win64\\game_imgui_bridge.pending.o" "obj\\Win64\\game_imgui_bridge.o"'], 'Validated compiler and audited static build');
+  inOrder(build, ['set "GAME_IMGUI_COMPILER=%BDS%\\bin\\bcc64.exe"', 'if not exist "%GAME_IMGUI_COMPILER%"', '"%GAME_IMGUI_COMPILER%" -c', 'Audit-Object.ps1', 'move /y "obj\\Win64\\game_imgui_bridge.pending.o" "obj\\Win64\\game_imgui_bridge.o"'], 'Validated compiler and audited static build');
+});
+
+check('Project generates the object before Delphi, propagates failure and resolves it independently of cwd', () => {
+  const project = read('GameOverlay.dproj');
+  const build = read('imgui/Build_ImGui_Win64.bat');
+  const objectName = pascal.match(/\{\$L\s+'([^']+)'\}/)[1];
+  assert.equal(path.win32.basename(objectName), objectName, 'Use the project object search path');
+  const objectDir = project.match(/<DCC_ObjPath>([^;<]+);\$\(DCC_ObjPath\)<\/DCC_ObjPath>/)[1];
+  assert.equal(objectDir, '$(MSBuildProjectDirectory)\\imgui\\obj\\Win64');
+  assert(build.includes('if not exist "obj\\Win64\\' + objectName + '" goto failed'));
+  assert.match(project, /<PreBuildEvent>call "\$\(MSBuildProjectDirectory\)\\imgui\\Build_ImGui_Win64\.bat" "\$\(BDS\)" &amp;&amp;/);
+  assert.match(project, /<PreBuildEventIgnoreExitCode>false<\/PreBuildEventIgnoreExitCode>/);
+  inOrder(build, ['DisableDelayedExpansion', 'if not "%~1"=="" set "BDS=%~1"', 'pushd "%~dp0"', 'if errorlevel 1 exit /b 1', 'if not defined BDS', '"%GAME_IMGUI_COMPILER%" -c', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\game_imgui_bridge.pending.o" goto failed', 'Audit-Object.ps1', 'if errorlevel 1 goto failed', 'move /y', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\' + objectName + '" goto failed', 'exit /b 0'], 'Object generation gates');
+  assert.match(build.slice(build.indexOf(':failed\n')), /exit \/b 1/);
 });
 
 check('Intentional capture release preserves ImGui mouse-up; unexpected capture/focus loss cancels it', () => {
