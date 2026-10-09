@@ -46,7 +46,8 @@ vector constant, never a production secret.
 
 Compatibility
 -------------
-TXXHash64 and XXHash64Bytes remain explicitly named legacy helpers only.
+TXXHash64 and XXHash64Bytes have been removed from the production implementation.
+Historical xxh64 fixture comparison columns remain only as reference data.
 The GAME-CONNECT-4/hashVersion=3 measurements must use TXXHash3_128/XXHash3_128Bytes;
 renaming an XXH64 result as XXH3 is prohibited. SHA512Bytes returns 128 lowercase
 hex characters, XXHash3_128Bytes 32; BLAKE3 default is 64 lowercase characters.

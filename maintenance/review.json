@@ -78,9 +78,10 @@
         "test-web-ui-cache.js"
       ],
       "scope": "Current integrated service and source tests; synthetic PE and native source/model contracts, not Windows native execution",
-      "finalRendererFollowup": "Latest focused check: nine ImGui source-contract groups, check-connect-project.js, CRC checker-range tests using four native images, and seven CRC release-admission groups PASS.",
+      "finalRendererFollowup": "Latest focused rerun: nine ImGui source/build contracts and project source checks PASS; previous CRC actual-image/release checks retained because parser/runtime and sorting core are unchanged.",
       "runDate": "2026-10-09",
-      "recordScope": "Retained previous 57-suite full pass; server runtime bytes unchanged. Focused ImGui/build, CRC/native-image and release-admission checks were rerun for the post-link-only correction."
+      "recordScope": "Retained previous 57-suite full pass; server runtime bytes unchanged. Focused ImGui/build, CRC/native-image and release-admission checks were rerun for the post-link-only correction.",
+      "latestFocusedFollowup": "Fresh full 57-suite run PASS with integrated Tools. After four native cleanup calls, code/export contracts, project checks and 11 tooling groups PASS. No server runtime change."
     },
     "portableHashes": {
       "status": "PASS",
@@ -415,7 +416,7 @@
         "normalizationUsed": "Independent byte-level reference sort; Windows PowerShell postlink script not executed here",
         "productionDataModified": false
       },
-      "implementation": "Pure C#5-compatible normalizer in Windows PowerShell5.1; validated atomic post-link replacement before O PublishRandomExecutable Move. Unsigned inputs only; preserve complete 12-byte rows; reject overlap, malformed records and table references.",
+      "implementation": "Pure C#5-compatible normalizer in PowerShell5.1; standard PostBuildEvent plus final pre-publication gate. File.Replace receives genuine NullString, then actual saved bytes are revalidated and identified by SHA-512.",
       "serverRuntimeAndNativePascalChanged": false,
       "testsRun": [
         "node scripts/test-overlay-imgui.js: 9 source-contract groups PASS",
@@ -434,6 +435,92 @@
         "Operating deployment"
       ],
       "requiredApplication": "Reopen updated GameOverlay.dproj; Rebuild Release/Win64; generate fresh approval from the final published O EXE; register O. No A/B rebuild or server runtime update is required for this correction."
+    },
+    "overlayPeSaveCorrection": {
+      "status": "SOURCE_REVIEW_AND_CONTRACTS_PASS",
+      "confirmedDefect": "PowerShell $null passed to a .NET string parameter can become String.Empty; File.Replace requires an actual null backup path. Use System.Management.Automation.Language.NullString.Value.",
+      "actualRetryCauseConfirmed": false,
+      "retryEvidenceLimit": "No newly retried EXE or build log supplied. Defect found in delivered script; corrected attached O is independently prepared and already passed local registration checks.",
+      "saveVerification": "Reread actual file, require ordered exception table, and compare SHA-512 plus byte length before printing success/path/hash.",
+      "buildHooks": [
+        "Standard PostBuildEvent using OUTPUTPATH, cancel on error",
+        "Existing final publication gate before random executable Move"
+      ],
+      "serverAndNativeRuntimeChanged": false,
+      "testsRun": [
+        "Nine ImGui source/build contracts PASS",
+        "A/B/O project source check PASS",
+        "Source manifest and seven corruption cases PASS",
+        "Exact source and corrected-image archive readback PASS"
+      ],
+      "windowsTestsProvidedNotRun": "Test-PE-Unwind.ps1 now includes real PowerShell child-process file replacement, paths with spaces, receipt, idempotence, and signed/overlap rejection preserving input.",
+      "primaryDocumentation": "https://learn.microsoft.com/en-us/dotnet/api/system.management.automation.language.nullstring",
+      "notRun": [
+        "Windows PowerShell file wrapper execution",
+        "RAD Studio post-build execution",
+        "Windows overlay graphics/runtime",
+        "Operating server deployment"
+      ]
+    },
+    "approvalPePreflight": {
+      "status": "NODE_WORKERS_AND_REAL_IMAGE_CASES_PASS",
+      "confirmedGap": "Both old standalone approval workers accepted the original unsorted ImGui O. Approval JSON does not change EXE bytes. Server registration still rejected that EXE.",
+      "changes": [
+        "Identical bounded read-only PE validation in Create_Approval and Check_Approval",
+        "Precise PE_EXCEPTION_TABLE_UNSORTED and PE_EXCEPTION_TABLE_INVALID errors",
+        "Create refuses before reading private key or writing JSON",
+        "Explicit Finalize_Overlay.bat calls the existing strict normalizer before fresh approval"
+      ],
+      "testsRun": [
+        "Security tooling: 9 groups PASS",
+        "Actual existing A/B/O: Create and Check PASS with input bytes unchanged",
+        "Actual uploaded unsorted ImGui O: Create and Check reject PE_EXCEPTION_TABLE_UNSORTED",
+        "Corrected ImGui O: Create and Check PASS",
+        "ImGui source/build contracts: 9 groups PASS",
+        "A/B/O project source check PASS",
+        "Source manifest, seven corruption cases and exact ZIP readback PASS"
+      ],
+      "userReported": "Provided normalized GameOverlay.exe registers successfully and displays the ImGui overlay; user-rebuilt O still gets BOOTSTRAP_PE_INVALID.",
+      "latestRebuiltImageCauseConfirmed": false,
+      "evidenceLimit": "Latest locally rebuilt failing EXE and build/post-build log were not supplied. The earlier uploaded unsorted EXE is the binary used for reproduction.",
+      "approvalAbsenceReproduction": "Current services return SECURITY_RELEASE_SIGNATURE for missing JSON under mandatory signature policy. Normal A/B/O do not produce BOOTSTRAP_PE_INVALID solely because JSON is absent.",
+      "runtimeOrServerPolicyChanged": false,
+      "signatureProtocolChanged": false,
+      "notRun": [
+        "Windows drag-and-drop/PowerShell wrapper integration tests",
+        "New RAD Studio rebuild",
+        "Operating server deployment"
+      ]
+    },
+    "finalRequirementAudit": {
+      "date": "2026-10-09",
+      "timezone": "Asia/Seoul",
+      "status": "SOURCE_AUDIT_AND_AVAILABLE_REGRESSIONS_PASS",
+      "userReported": "All working after integrated Create_Approval/Check_Approval; this report predates the four added native cleanup calls.",
+      "requiredSourceReferencesChecked": 48,
+      "sourceFiles": 358,
+      "missingRequiredSourcesFound": [],
+      "recentToolRegression": "No native/server feature deletion found. Before final cleanup, 45 native .pas/.dpr/.inc files and server runtime matched the prior complete-source stage.",
+      "nativeChange": "Only four WipeText calls for Canonical, Nonce, ChallengeID, PayloadHash after ExecuteProof JSON cleanup. Exact byte diff checked; no signed content, control-flow or result change.",
+      "approvalIntegration": "Create contains exact strict C# normalizer, prepares selected unsigned O, verifies saved bytes, and binds signing to that SHA-512. Check remains read-only. Both BATs byte-identical to user-confirmed Game_Approval_Tools.zip.",
+      "standaloneFinalizeRequired": false,
+      "runtimeServerChanged": false,
+      "testsRun": [
+        "npm test: all 57 suites PASS",
+        "After native cleanup: native code/export contract vectors PASS",
+        "After native cleanup: A/B/O project source check PASS",
+        "After native cleanup: security tooling 11 groups PASS",
+        "ImGui source/provenance/build contracts 9 groups PASS",
+        "Source manifest and seven corruption cases PASS",
+        "Exact final ZIP file set and byte readback PASS"
+      ],
+      "requirementsReport": "최종_요구사항_점검.txt",
+      "notRun": [
+        "Independent Windows dcc64/bcc64 rebuild of this final package",
+        "Independent Windows PowerShell/MSBuild/D3D11 execution",
+        "Operating server deployment"
+      ],
+      "operatingDataModified": false
     }
   },
   "migration": {
@@ -453,17 +540,19 @@
     "modules": "Re-register required DLL baselines with hashVersion 3"
   },
   "limits": [
-    "BLAKE3 canonical tree/incremental semantics are implemented; multithreaded acceleration is not implemented.",
-    "New Delphi builds must satisfy the complete-CRC gate; readable non-executable .data metadata uses file-bound ranges and live anchor verification.",
-    "Injection is a custom UI button only; no target-process action is attached.",
-    "SHA-256 remains for separate TLS/RSA/HMAC/WebAuthn rules, device identity, stored-token/journal compatibility, legacy revocation and SERVER self-update contracts.",
-    "No original KMAC implementation or separate anti-debug/analysis-tool detector was found; no KMAC support or detector restoration is claimed.",
-    "CRC comparisons have independent roles; acquisition streams are shared and read failures are not isolated by fully independent collectors.",
-    "CRC16 measures parameters/constants and CRC8 measures code/Header/Export length metadata; not every runtime license flag.",
-    "Client measurements are not hardware attestation; managed-string copies, Windows IAT/RTL and OS-internal buffers cannot be guaranteed erased.",
-    "Server and newly rebuilt B/O must be deployed together for handoffVersion 1 and the seven-field O Verify response.",
-    "Dear ImGui requires classic bcc64 C++ Win64 tools. The user reported final Windows build success; Windows compilation/linking and D3D11 runtime were not independently executed in this workspace.",
-    "The new O post-link PE normalizer was reviewed and its target transformation validated on the actual supplied image; PowerShell/C# and MSBuild execution require Windows validation. Final release approvals must be regenerated after the transformation."
+    "BLAKE3 Hash/Incremental/standard Tree are used in production; multithreaded acceleration is not implemented. XOF is API/test support only. Native keyed/derive APIs have no production call; server report storage uses one derive context.",
+    "CRC roles/results are compared separately but share acquisition streams and the native CrcUpdate engine; independent implementations and fully isolated failure collectors are not implemented.",
+    "CRC16 measures CRC parameters/constants and CRC8 measures layout lengths, not every small code block or runtime license flag.",
+    "No KMAC or separate anti-debug/analysis-tool detector implementation was found in current/prior sources. Existing HMAC/signatures, pointer protection, integrity and mitigation reporting remain.",
+    "SHA-256 remains for separate RSA/HMAC/TLS/WebAuthn/identity/token/store/legacy revocation/Node download and SERVER updater protocols; it is not the A/B/O file/code measurement digest.",
+    "New period-based licenses are rejected by the current one-use policy. Existing stored expiry, server leases and revocation checks remain.",
+    "Injection is a UI button only, without a target-process operation.",
+    "Plaintext minimization is partial: managed JSON/RTL/OS copies, protocol and DLL/error strings, and Windows imports remain. The four new wipes cover the existing ExecuteProof finally, not exceptions before that try.",
+    "Dynamic binding continues to call Windows APIs and uses RTL. Total IAT/plaintext removal and language identity concealment are not implemented.",
+    "Client measurements are not hardware attestation. Validated local measurement plans/baselines remain in memory; enforcement follows server policy.",
+    "ImGui is a Delphi C ABI integration of the supplied static C++ core, not a full Object Pascal translation. Classic bcc64 Win64 tools are required.",
+    "User confirmed the integrated Tools workflow and earlier O rendering. This workspace did not independently execute Windows tools or rebuild the final native cleanup change.",
+    "Old server/B/O versions with different handoff contracts must not be mixed. The final audit itself introduces no new server or wire protocol."
   ],
   "changedExistingFiles": [
     "GameConnect_Win64/Game.Api.pas",
@@ -911,20 +1000,22 @@
     "Game_ImGui_Guard_Build_Fix.zip",
     "Game_ImGui_Object_Path_Fix.zip"
   ],
-  "latestCorrection": "O-only post-link RUNTIME_FUNCTION sorting before release approval and random executable publication; fixes actual supplied ImGui PE exception-table order while preserving strict server and native admission",
+  "latestCorrection": "Final requirements/source audit; integrate user-confirmed standalone approval BATs; add four existing WipeText calls at ExecuteProof completion; correct workflow/provenance docs and regenerate manifest",
   "overlayHandoffVersion": 1,
   "latestCorrectionFiles": [
-    "GameConnect_Win64/GameOverlay.dproj",
+    "GameConnect_Win64/Game.Api.pas",
     "GameConnect_Win64/imgui/README.txt",
-    "GameConnect_Win64/imgui/bridge/Normalize-PE-Unwind.ps1",
-    "GameConnect_Win64/imgui/tests/Test-PE-Unwind.ps1",
+    "GameConnect_Win64/tests/Hash_Provenance.txt",
+    "GameWeb/licenses/Hash_Provenance.txt",
     "GameWeb/maintenance/review.json",
     "GameWeb/maintenance/source-manifest.json",
-    "GameWeb/scripts/test-crc-checker-ranges.js",
-    "GameWeb/scripts/test-overlay-imgui.js",
+    "GameWeb/scripts/test-security-tools.js",
+    "GameWeb/tools/Check_Approval.bat",
+    "GameWeb/tools/Create_Approval.bat",
     "Overlay_ImGui_적용안내.txt",
     "변경_요약_및_요구사항점검.txt",
-    "업그레이드_안내.txt"
+    "업그레이드_안내.txt",
+    "최종_요구사항_점검.txt"
   ],
   "overlayRenderer": "Dear ImGui + Direct3D 11"
 }
