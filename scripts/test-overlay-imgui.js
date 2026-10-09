@@ -185,8 +185,26 @@ check('Project generates the object before Delphi, propagates failure and resolv
   assert(build.includes('if not exist "obj\\Win64\\' + objectName + '" goto failed'));
   assert.match(project, /<PreBuildEvent>call "\$\(MSBuildProjectDirectory\)\\imgui\\Build_ImGui_Win64\.bat" "\$\(BDS\)" &amp;&amp;/);
   assert.match(project, /<PreBuildEventIgnoreExitCode>false<\/PreBuildEventIgnoreExitCode>/);
-  inOrder(build, ['DisableDelayedExpansion', 'if not "%~1"=="" set "BDS=%~1"', 'pushd "%~dp0"', 'if errorlevel 1 exit /b 1', 'if not defined BDS', '"%GAME_IMGUI_COMPILER%" -c', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\game_imgui_bridge.pending.o" goto failed', 'Audit-Object.ps1', 'if errorlevel 1 goto failed', 'move /y', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\' + objectName + '" goto failed', 'exit /b 0'], 'Object generation gates');
+  inOrder(build, ['DisableDelayedExpansion', 'if not "%~1"=="" set "BDS=%~1"', 'pushd "%~dp0"', 'if errorlevel 1 goto directory_failed', 'if not defined BDS', '"%GAME_IMGUI_COMPILER%" -c', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\game_imgui_bridge.pending.o" goto failed', 'Audit-Object.ps1', 'if errorlevel 1 goto failed', 'move /y', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\' + objectName + '" goto failed', 'exit /b 0'], 'Object generation gates');
   assert.match(build.slice(build.indexOf(':failed\n')), /exit \/b 1/);
+  // A saved IDE project may lose its object search path. Publish an identical,
+  // audited copy beside the Pascal unit, where a bare $L also searches.
+  inOrder(build, ['Audit-Object.ps1', 'if errorlevel 1 goto failed',
+    'move /y "obj\\Win64\\game_imgui_bridge.pending.o" "obj\\Win64\\game_imgui_bridge.o"',
+    'if not exist "..\\Game.Overlay.ImGui.pas" goto failed',
+    'copy /b /y "obj\\Win64\\game_imgui_bridge.o" "..\\game_imgui_bridge.pending.o"',
+    'if errorlevel 1 goto failed',
+    'fc /b "obj\\Win64\\game_imgui_bridge.o" "..\\game_imgui_bridge.pending.o"',
+    'if errorlevel 1 goto failed',
+    'move /y "..\\game_imgui_bridge.pending.o" "..\\game_imgui_bridge.o"',
+    'if errorlevel 1 goto failed', 'if not exist "..\\game_imgui_bridge.o" goto failed',
+    'Delphi link object ready:'], 'Module-directory object publication');
+  const failure = build.slice(build.indexOf('\n:failed\n'), build.indexOf('\n:find_rad_studio\n'));
+  for (const file of ['..\\game_imgui_bridge.o', '..\\game_imgui_bridge.pending.o',
+    'obj\\Win64\\game_imgui_bridge.o', 'obj\\Win64\\game_imgui_bridge.pending.o']) {
+    assert(build.slice(0, build.indexOf('"%GAME_IMGUI_COMPILER%" -c')).includes('del /q "' + file + '"'), 'Pre-build cleanup: ' + file);
+    assert(failure.includes('del /q "' + file + '"'), 'Failed-build cleanup: ' + file);
+  }
 });
 
 check('Intentional capture release preserves ImGui mouse-up; unexpected capture/focus loss cancels it', () => {
