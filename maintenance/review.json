@@ -78,8 +78,9 @@
         "test-web-ui-cache.js"
       ],
       "scope": "Current integrated service and source tests; synthetic PE and native source/model contracts, not Windows native execution",
-      "finalRendererFollowup": "Full integrated regression rerun includes all eight current ImGui contract groups and check-connect-project.js.",
-      "runDate": "2026-10-09"
+      "finalRendererFollowup": "Latest focused check: nine ImGui source-contract groups, check-connect-project.js, CRC checker-range tests using four native images, and seven CRC release-admission groups PASS.",
+      "runDate": "2026-10-09",
+      "recordScope": "Retained previous 57-suite full pass; server runtime bytes unchanged. Focused ImGui/build, CRC/native-image and release-admission checks were rerun for the post-link-only correction."
     },
     "portableHashes": {
       "status": "PASS",
@@ -119,10 +120,9 @@
       "isWindowsExecution": false
     },
     "nativeWindowsBuild": {
-      "status": "USER_REPORTED_PASS",
-      "reportedDate": "2026-10-09",
-      "evidence": "User: 좋아, 빌드 전부 잘됨. 전체 풀 소스 다시 정리해서 줘.",
-      "scope": "User environment Windows build success after all ImGui build fixes; independent Windows compilation and runtime were not executed in this workspace."
+      "status": "NOT_RUN_FOR_PE_FINALIZER",
+      "previousUserReportedPass": "User reported all native builds succeeded on 2026-10-09 before this new post-link preparation step.",
+      "reason": "Windows PowerShell, C# compiler, RAD Studio and Windows graphics runtime are unavailable here; the actual supplied image was validated with a byte-level reference normalization and unchanged server services."
     },
     "productionDeployment": {
       "status": "NOT_RUN"
@@ -329,7 +329,7 @@
       "rendererContracts": {
         "status": "PASS",
         "command": "node scripts/test-overlay-imgui.js",
-        "groups": 8,
+        "groups": 9,
         "scope": "ABI, provenance/license resource, dynamic API binding, authority/visible-present readiness, audited-build, CRT macros, native local-static guards, object publication and mouse capture ordering"
       },
       "preservation": {
@@ -345,12 +345,13 @@
         "Independent Windows bcc64/dcc64 build in this workspace",
         "Windows Direct3D11 rendering/driver behavior after final ImGui build",
         "Windows native B cleanup after final ImGui first-present",
-        "Operating deployment"
+        "Operating deployment",
+        "New O PowerShell post-link PE normalizer and Windows regression script"
       ],
       "sourceDelivery": {
-        "files": 354,
+        "files": 356,
         "manifest": "SHA-512",
-        "archiveChecks": "Staged manifest, seven corruption cases and exact archive readback",
+        "archiveChecks": "Staged SHA-512 manifest, seven corruption cases and exact archive readback",
         "generatedWindowsObjectsIncluded": false
       },
       "localStaticGuard": {
@@ -379,11 +380,60 @@
     },
     "fullSourceConsolidation": {
       "status": "PASS",
-      "sourceFileCount": 354,
+      "sourceFileCount": 356,
       "preservedRuntimeFilesByteIdenticalToPriorFullSource": 129,
       "uploadedPascalEditsLost": false,
       "projects": "Complete maintained A/B/O projects retain resource pre-build and per-role DCU/EXE output paths.",
-      "scope": "Consolidation of completed fixes and build documentation; no new runtime behavior in this packaging step."
+      "scope": "O post-link build correction, associated tests and documentation; existing client/server runtime source preserved.",
+      "runtimeFilesByteIdenticalToPreviousFullSource": 130
+    },
+    "overlayPeFinalization": {
+      "status": "ACTUAL_IMAGE_REFERENCE_AND_SOURCE_CONTRACTS_PASS",
+      "reportedError": "BOOTSTRAP_PE_INVALID",
+      "rootCause": "7351 RUNTIME_FUNCTION rows contain 28 backward-order transitions; zero overlaps after sorting. CRC_CHECKER_PLAN_INVALID is mapped to the public registration error.",
+      "firstFailingRow": {
+        "zeroBasedIndex": 5917,
+        "beginRva": "0x1BCD70",
+        "previousEndRva": "0x26EBA0"
+      },
+      "imageEvidence": {
+        "original": {
+          "sha512": "2d40fe77dd656fd8778e4ff9761ab14aa7b143c5acc46e3f14c16fb3577a953ba19bb896ffe6889dd714502b2aa49666965eae2a54f9e2ae1dbd527911671b01",
+          "codeImageError": "CRC_CHECKER_PLAN_INVALID",
+          "publishError": "BOOTSTRAP_PE_INVALID"
+        },
+        "normalized": {
+          "sha512": "ea7d2a557ef51e54e31445a530e0d85fd8fc5adc3bbe0c9ebb4772373b1a3bd0ee855f3ddd8be9ac7ac633cb4e22c3a229ba9d573d86c3760c62d78618aa6720",
+          "codeSha512": "39ded501204da652072a4be9b6b994e633a570a9d15ce3f1161ebc8c338aaac7b85156628bc44b5f82e33b14d747806fa23dd433a756f76eabe9906206769837",
+          "localPublish": "PASS",
+          "completeCrcLayers": 9
+        },
+        "exceptionRecords": 7351,
+        "outsideTableBytesUnchanged": true,
+        "recordMultisetUnchanged": true,
+        "headerMetadataUnchanged": true,
+        "normalizationUsed": "Independent byte-level reference sort; Windows PowerShell postlink script not executed here",
+        "productionDataModified": false
+      },
+      "implementation": "Pure C#5-compatible normalizer in Windows PowerShell5.1; validated atomic post-link replacement before O PublishRandomExecutable Move. Unsigned inputs only; preserve complete 12-byte rows; reject overlap, malformed records and table references.",
+      "serverRuntimeAndNativePascalChanged": false,
+      "testsRun": [
+        "node scripts/test-overlay-imgui.js: 9 source-contract groups PASS",
+        "node scripts/check-connect-project.js: PASS",
+        "node scripts/test-crc-checker-ranges.js: strict rejection cases and original A/B/O plus reordered actual ImGui O PASS",
+        "node scripts/test-crc-release-eligibility.js: 7 groups PASS",
+        "Unchanged desktopBootstrap.Publish: supplied original O rejected; reference-normalized O accepted with complete 9-role CRC coverage"
+      ],
+      "testsProvidedNotRun": [
+        "GameConnect_Win64/imgui/tests/Test-PE-Unwind.ps1"
+      ],
+      "notRun": [
+        "New PowerShell/C# implementation execution",
+        "Windows MSBuild post-link execution",
+        "Windows O runtime/graphics/session lifecycle",
+        "Operating deployment"
+      ],
+      "requiredApplication": "Reopen updated GameOverlay.dproj; Rebuild Release/Win64; generate fresh approval from the final published O EXE; register O. No A/B rebuild or server runtime update is required for this correction."
     }
   },
   "migration": {
@@ -412,7 +462,8 @@
     "CRC16 measures parameters/constants and CRC8 measures code/Header/Export length metadata; not every runtime license flag.",
     "Client measurements are not hardware attestation; managed-string copies, Windows IAT/RTL and OS-internal buffers cannot be guaranteed erased.",
     "Server and newly rebuilt B/O must be deployed together for handoffVersion 1 and the seven-field O Verify response.",
-    "Dear ImGui requires classic bcc64 C++ Win64 tools. The user reported final Windows build success; Windows compilation/linking and D3D11 runtime were not independently executed in this workspace."
+    "Dear ImGui requires classic bcc64 C++ Win64 tools. The user reported final Windows build success; Windows compilation/linking and D3D11 runtime were not independently executed in this workspace.",
+    "The new O post-link PE normalizer was reviewed and its target transformation validated on the actual supplied image; PowerShell/C# and MSBuild execution require Windows validation. Final release approvals must be regenerated after the transformation."
   ],
   "changedExistingFiles": [
     "GameConnect_Win64/Game.Api.pas",
@@ -860,43 +911,16 @@
     "Game_ImGui_Guard_Build_Fix.zip",
     "Game_ImGui_Object_Path_Fix.zip"
   ],
-  "latestCorrection": "Complete A/B/O and GameWeb source consolidation after user-confirmed Windows build success; ImGui CRT macros, native local-static guards, audited object publication and build-log handling integrated",
+  "latestCorrection": "O-only post-link RUNTIME_FUNCTION sorting before release approval and random executable publication; fixes actual supplied ImGui PE exception-table order while preserving strict server and native admission",
   "overlayHandoffVersion": 1,
   "latestCorrectionFiles": [
-    "GameConnect_Win64/Build_Win64.bat",
-    "GameConnect_Win64/Game.Overlay.ImGui.pas",
-    "GameConnect_Win64/Game.Overlay.Renderer.pas",
-    "GameConnect_Win64/Game.Overlay.pas",
     "GameConnect_Win64/GameOverlay.dproj",
-    "GameConnect_Win64/GameOverlay.rc",
-    "GameConnect_Win64/GameOverlayResources.res",
-    "GameConnect_Win64/imgui/Build_ImGui_Win64.bat",
     "GameConnect_Win64/imgui/README.txt",
-    "GameConnect_Win64/imgui/SOURCE_PROVENANCE.txt",
-    "GameConnect_Win64/imgui/bridge/Audit-Object.ps1",
-    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp",
-    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.h",
-    "GameConnect_Win64/imgui/bridge/game_imgui_config.h",
-    "GameConnect_Win64/imgui/bridge/game_imgui_dx11.cpp",
-    "GameConnect_Win64/imgui/bridge/game_imgui_guard.h",
-    "GameConnect_Win64/imgui/tests/test_bridge.cpp",
-    "GameConnect_Win64/imgui/tests/test_guard.cpp",
-    "GameConnect_Win64/imgui/vendor/LICENSE.txt",
-    "GameConnect_Win64/imgui/vendor/backends/imgui_impl_dx11.cpp",
-    "GameConnect_Win64/imgui/vendor/backends/imgui_impl_dx11.h",
-    "GameConnect_Win64/imgui/vendor/imconfig.h",
-    "GameConnect_Win64/imgui/vendor/imgui.cpp",
-    "GameConnect_Win64/imgui/vendor/imgui.h",
-    "GameConnect_Win64/imgui/vendor/imgui_draw.cpp",
-    "GameConnect_Win64/imgui/vendor/imgui_internal.h",
-    "GameConnect_Win64/imgui/vendor/imgui_tables.cpp",
-    "GameConnect_Win64/imgui/vendor/imgui_widgets.cpp",
-    "GameConnect_Win64/imgui/vendor/imstb_rectpack.h",
-    "GameConnect_Win64/imgui/vendor/imstb_textedit.h",
-    "GameConnect_Win64/imgui/vendor/imstb_truetype.h",
+    "GameConnect_Win64/imgui/bridge/Normalize-PE-Unwind.ps1",
+    "GameConnect_Win64/imgui/tests/Test-PE-Unwind.ps1",
     "GameWeb/maintenance/review.json",
     "GameWeb/maintenance/source-manifest.json",
-    "GameWeb/scripts/regression.js",
+    "GameWeb/scripts/test-crc-checker-ranges.js",
     "GameWeb/scripts/test-overlay-imgui.js",
     "Overlay_ImGui_적용안내.txt",
     "변경_요약_및_요구사항점검.txt",
