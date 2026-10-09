@@ -207,6 +207,27 @@ check('Project generates the object before Delphi, propagates failure and resolv
   }
 });
 
+check('O prepares its unsigned PE exception table before publishing the release executable', () => {
+  const project = read('GameOverlay.dproj');
+  const target = project.match(/<Target Name="PublishRandomExecutable"[\s\S]*?<\/Target>/)[0];
+  inOrder(target, ['<Error Condition="!Exists(\'$(CompiledArtifact)\')"',
+    '<Exec Command=', 'Normalize-PE-Unwind.ps1', '-ImagePath &quot;$(CompiledArtifact)&quot;',
+    '<Move SourceFiles="$(CompiledArtifact)"', '<Message Importance="high"'], 'Post-link preparation');
+  assert.doesNotMatch(target, /(?:IgnoreExitCode|ContinueOnError)="(?:true|WarnAndContinue)"/i);
+  const normalizer = read('imgui/bridge/Normalize-PE-Unwind.ps1');
+  assert.match(normalizer, /SIGNED_IMAGE_REFUSED/);
+  assert.match(normalizer, /DUPLICATE_OR_OVERLAPPING_FUNCTIONS/);
+  inOrder(normalizer, ['PeUnwindNormalizer]::Normalize($bytes)',
+    'if ($result.Changed)', '$output.Write($result.Bytes',
+    '[IO.File]::Replace($temporary, $resolved, $null)', 'exit 0', 'catch', 'exit 1'], 'Validate then atomic publish');
+  // The corrective build step must not turn native/server admission into an
+  // accept-unsorted path: malformed images still fail independently.
+  assert.match(read('Game.CodeIntegrity.pas'), /BeginRVA >= PreviousEnd/);
+  const server = fs.readFileSync(path.join(__dirname, '../services/crcLayers.js'), 'utf8');
+  assert.match(server, /rva<previous/);
+  assert(fs.existsSync(path.join(native, 'imgui/tests/Test-PE-Unwind.ps1')));
+});
+
 check('Intentional capture release preserves ImGui mouse-up; unexpected capture/focus loss cancels it', () => {
   const release = method('procedure TOverlayWindow.ReleaseOwnCapture;', 'procedure TOverlayWindow.CancelInteraction;');
   inOrder(release, ['ApiGetCapture <> FWindow', 'FReleasingCapture := True;', 'try', 'ApiReleaseCapture;', 'finally', 'FReleasingCapture := False;'], 'Release capture');

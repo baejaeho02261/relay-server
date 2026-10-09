@@ -21,6 +21,10 @@ reject(b=>b.writeUInt16LE(0xa018,0xa0a)); // duplicated operand
 reject(b=>b.writeUInt32LE(0,0xa04)); // malformed reloc block
 reject(b=>b.writeUInt32LE(0x1000,0x804)); // empty runtime function
 reject(b=>b.writeUInt32LE(0x101f,0x80c)); // overlapping runtime functions
+reject(b=>{ // Post-link preparation must repair ordering; admission stays strict.
+ const first=Buffer.from(b.subarray(0x800,0x80c));
+ b.copy(b,0x800,0x80c,0x818);first.copy(b,0x80c);
+});
 reject(b=>b.writeUInt32LE(0x3000,0x804)); // function escapes executable section
 reject(b=>b.writeUInt32LE(0x6000,0x808)); // invalid unwind RVA
 reject(b=>b.writeUInt32LE(0xc0000040,0x188+2*40+36)); // writable .pdata
