@@ -210,6 +210,8 @@ check('Project generates the object before Delphi, propagates failure and resolv
 check('O prepares its unsigned PE exception table before publishing the release executable', () => {
   const project = read('GameOverlay.dproj');
   const target = project.match(/<Target Name="PublishRandomExecutable"[\s\S]*?<\/Target>/)[0];
+  assert.match(project, /<PostBuildEvent>[^<]*Normalize-PE-Unwind\.ps1[^<]*-ImagePath &quot;\$\(OUTPUTPATH\)&quot;<\/PostBuildEvent>/);
+  assert.match(project, /<PostBuildEventIgnoreExitCode>false<\/PostBuildEventIgnoreExitCode>/);
   inOrder(target, ['<Error Condition="!Exists(\'$(CompiledArtifact)\')"',
     '<Exec Command=', 'Normalize-PE-Unwind.ps1', '-ImagePath &quot;$(CompiledArtifact)&quot;',
     '<Move SourceFiles="$(CompiledArtifact)"', '<Message Importance="high"'], 'Post-link preparation');
@@ -219,7 +221,14 @@ check('O prepares its unsigned PE exception table before publishing the release 
   assert.match(normalizer, /DUPLICATE_OR_OVERLAPPING_FUNCTIONS/);
   inOrder(normalizer, ['PeUnwindNormalizer]::Normalize($bytes)',
     'if ($result.Changed)', '$output.Write($result.Bytes',
-    '[IO.File]::Replace($temporary, $resolved, $null)', 'exit 0', 'catch', 'exit 1'], 'Validate then atomic publish');
+    '[IO.File]::Replace($temporary, $resolved, [System.Management.Automation.Language.NullString]::Value)',
+    '$savedBytes = [IO.File]::ReadAllBytes($resolved)',
+    'PeUnwindNormalizer]::Normalize($savedBytes)', 'PE_UNWIND_READBACK_MISMATCH',
+    'ordering=PASS', 'PE unwind SHA-512:', 'exit 0', 'catch', 'exit 1'], 'Validate then atomic publish');
+  assert.doesNotMatch(normalizer, /\[IO\.File\]::Replace\([^\n]*,\s*\$null\)/);
+  const fileTests = read('imgui/tests/Test-PE-Unwind.ps1');
+  assert.match(fileTests, /Invoke-NormalizerProcess \$engine \$normalizerPath \$fixturePath/);
+  assert.match(fileTests, /File wrapper did not save the expected normalized bytes/);
   // The corrective build step must not turn native/server admission into an
   // accept-unsorted path: malformed images still fail independently.
   assert.match(read('Game.CodeIntegrity.pas'), /BeginRVA >= PreviousEnd/);
