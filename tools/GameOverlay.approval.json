@@ -1,0 +1,19 @@
+{
+  "component": "O",
+  "version": "1.0.0",
+  "sha512": "4ade49687689000a1d628bca168286170913c4c77e887a7ee6bf0871a12decb8494b3ec796274bb8379476627b2d06f202b1fbd10e7da68180a0bf2402152575",
+  "authorityVersion": 1,
+  "compiledCfg": false,
+  "trustedKey": {
+    "keyId": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
+    "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA3HTTgwMGhMpVAJ3t7up5mMQJyeWXSnV5jVl0oriYkAM=\n-----END PUBLIC KEY-----\n"
+  },
+  "approval": {
+    "keyId": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
+    "signature": "1Huy7WMDQAG1Rp+hm+BAHgAofezmOA88lphRyQmd+DSgLe7Td2Prcx+tb70h/nZkNMzb+t5czYDfZ+9K4O/NBA=="
+  },
+  "headers": {
+    "x-game-release-key-id": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
+    "x-game-release-signature": "1Huy7WMDQAG1Rp+hm+BAHgAofezmOA88lphRyQmd+DSgLe7Td2Prcx+tb70h/nZkNMzb+t5czYDfZ+9K4O/NBA=="
+  }
+}

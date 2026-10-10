@@ -1,0 +1,24 @@
+{
+  "manifestId": "733cb92457d48bff3d40c7d73e1fe776600aac67a1413073173e1913b96fe493aeb7b0d8a4c0f2ca16cf92d01af91fd020f7d9d541187ca512d433dddc3ac5f8",
+  "manifest": {
+    "version": 1,
+    "releaseName": "1.0.0",
+    "securityVersion": 97,
+    "protocol": "GAME-CONNECT-4",
+    "hashVersion": 3,
+    "handoffVersion": 3,
+    "toolchain": {
+      "delphi": "37.0",
+      "cpp": "37.0",
+      "windowsSdk": "10.0.26100.0",
+      "imgui": "19.3"
+    },
+    "artifacts": {
+      "A": "4debd273d0ab0224763a9c67ef526748b0f16235e1f005aa0141535c57fd90e5641158c557d10c86be52eff3073c726dc32e8ff9db39722691c84a0def5bebd8",
+      "B": "095f43f708daaa5f10d676273c454880f7d926fb58e8d82257eb8f91ed655cc6455b2a61632520106bdad2e45589fbee2163295ece672f5c9edf57603eed08a3",
+      "O": "4ade49687689000a1d628bca168286170913c4c77e887a7ee6bf0871a12decb8494b3ec796274bb8379476627b2d06f202b1fbd10e7da68180a0bf2402152575"
+    },
+    "sourceManifestSha512": "674991439e14c619da1474230040192175c37f72811d677e916e94632c98987b6634eb551a6ae3b6de1fb2f707025c4b893bd4db97ab6e939eba12edfc7a169a",
+    "policySha512": "3b8d77e93c2fa287fcf485c6f77b4a6d3fb50c03f28094942203b8c41b3e2d037aa1c4de660d5ef0c67026bf100e3fac4940e7dbc89a0341e557beaf419bf44d"
+  }
+}

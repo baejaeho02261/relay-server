@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "revision": 1,
+  "mode": "enforce",
+  "enforceLegacy": false,
+  "freshnessMs": 45000,
+  "challengeMs": 15000,
+  "requireReadonlyApi": true,
+  "requireCompleteCrcLayers": true,
+  "dynamicCode": "observe",
+  "requireCfg": false,
+  "minVersionA": "0",
+  "minVersionB": "0",
+  "minVersionO": "0",
+  "requireReleaseSignature": false,
+  "trustedReleaseKeys": [
+    {
+      "keyId": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
+      "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA3HTTgwMGhMpVAJ3t7up5mMQJyeWXSnV5jVl0oriYkAM=\n-----END PUBLIC KEY-----\n"
+    }
+  ],
+  "revokedSha512": [],
+  "revokedLegacySha256": []
+}

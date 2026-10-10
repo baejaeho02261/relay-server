@@ -1,0 +1,19 @@
+{
+  "component": "A",
+  "version": "1.0.0",
+  "sha512": "4debd273d0ab0224763a9c67ef526748b0f16235e1f005aa0141535c57fd90e5641158c557d10c86be52eff3073c726dc32e8ff9db39722691c84a0def5bebd8",
+  "authorityVersion": 1,
+  "compiledCfg": false,
+  "trustedKey": {
+    "keyId": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
+    "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA3HTTgwMGhMpVAJ3t7up5mMQJyeWXSnV5jVl0oriYkAM=\n-----END PUBLIC KEY-----\n"
+  },
+  "approval": {
+    "keyId": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
+    "signature": "eBnCiSA2gcVUuLsT38TnqZo1i15pLzm+LnxyTKFF6NxLPAhNgZtGMHsmQ/T4UCSUaPeiT/nmQrd2DHU3IJ7YDQ=="
+  },
+  "headers": {
+    "x-game-release-key-id": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
+    "x-game-release-signature": "eBnCiSA2gcVUuLsT38TnqZo1i15pLzm+LnxyTKFF6NxLPAhNgZtGMHsmQ/T4UCSUaPeiT/nmQrd2DHU3IJ7YDQ=="
+  }
+}
