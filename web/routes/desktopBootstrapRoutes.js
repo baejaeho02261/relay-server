@@ -3,11 +3,12 @@ const bootstrap=require('../../services/desktopBootstrap');
 const {RequireAdmin,Json,ApiError}=require('../apiContext');
 let uploadPending=false;
 function ErrorResponse(res,error){const code=error.desktopError?error.message:'BOOTSTRAP_INPUT_INVALID';Json(res,error.desktopError?error.status:400,{ok:false,error:code,reason:code,problem:require('../../services/desktopOperationsErrors').Explain(code),message:bootstrap.messages[code]||require('../../services/desktopLicenses').messages[code]||'실행 파일 요청을 처리하지 못했습니다.'});}
-function ReadBytes(req){
+function ReadBytes(req,maximum){
+ if(!Number.isSafeInteger(maximum)||maximum<1||maximum>bootstrap.MAX_ARTIFACT_BYTES)return Promise.reject(Error('BOOTSTRAP_INPUT_INVALID'));
  return new Promise((resolve,reject)=>{
   let done=false,size=0;const chunks=[],timer=setTimeout(()=>finish(Error('BOOTSTRAP_UPLOAD_TIMEOUT')),120000);timer.unref();
   function finish(error){if(done)return;done=true;clearTimeout(timer);if(error){chunks.length=0;req.resume();reject(error);}else resolve(Buffer.concat(chunks,size));}
-  req.on('data',chunk=>{if(done)return;size+=chunk.length;if(size>bootstrap.MAX_ARTIFACT_BYTES){const error=Error('BOOTSTRAP_ARTIFACT_TOO_LARGE');error.desktopError=true;error.status=413;return finish(error);}chunks.push(chunk);});
+  req.on('data',chunk=>{if(done)return;size+=chunk.length;if(size>maximum){const error=Error('BOOTSTRAP_ARTIFACT_TOO_LARGE');error.desktopError=true;error.status=413;return finish(error);}chunks.push(chunk);});
   req.once('end',()=>finish());req.once('error',finish);req.once('aborted',()=>finish(Error('BOOTSTRAP_UPLOAD_ABORTED')));
  });
 }
@@ -25,10 +26,11 @@ async function HandleUpload({method,pathname,url,req,res,session}){
  if(uploadPending){ApiError(res,429,'BOOTSTRAP_UPLOAD_BUSY');return true;}
  try{
   if(!/^application\/octet-stream(?:\s*;|$)/i.test(req.headers['content-type']||'')||req.headers['content-encoding']&&req.headers['content-encoding']!=='identity')bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
-  const length=Number(req.headers['content-length']||0);if(!Number.isSafeInteger(length)||length<0)bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');if(length>bootstrap.MAX_ARTIFACT_BYTES)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
+  const rawLength=req.headers['content-length'];if(rawLength!==undefined&&(typeof rawLength!=='string'||!/^\d+$/.test(rawLength)))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');const length=Number(rawLength||0);if(!Number.isSafeInteger(length)||length<0)bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');if(length>bootstrap.MAX_ARTIFACT_BYTES)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
   if(pathname==='/api/desktop/bootstrap/module-baselines'){
    if(length>32*1024*1024)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);uploadPending=true;
-   const bytes=await ReadBytes(req),fileName=url.searchParams.get('fileName'),label=url.searchParams.get('label')||'';
+   const bytes=await ReadBytes(req,32*1024*1024),fileName=url.searchParams.get('fileName'),label=url.searchParams.get('label')||'';
+   await require('../../services/desktopPeCache').Prepare(bytes);
    const summary={fileName,label,hashVersion:3,sha512:require('../../services/desktopSecurityOperations').sha512(bytes),size:bytes.length};
    const allowed=require('../../services/desktopAdminGuard').Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''));
    if(!allowed.ok){ApiError(res,allowed.status||428,allowed.reason,allowed.ticketId||'');return true;}
@@ -38,7 +40,8 @@ async function HandleUpload({method,pathname,url,req,res,session}){
   const component=url.searchParams.get('component'),version=url.searchParams.get('version'),name=url.searchParams.get('fileName')||'',releaseManifestId=url.searchParams.get('releaseManifestId')||'';
   if(releaseManifestId&&!/^[a-f0-9]{128}$/.test(releaseManifestId))bootstrap.Fail('SECURITY_RELEASE_MANIFEST_INVALID');
   if(!['A','B','O'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
-  uploadPending=true;const bytes=await ReadBytes(req),approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
+  uploadPending=true;const bytes=await ReadBytes(req,bootstrap.MAX_ARTIFACT_BYTES),approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
+  await require('../../services/desktopPeCache').Prepare(bytes);
   const ops=require('../../services/desktopSecurityOperations'),authority=require('../../services/desktopSecurityAuthority');
   const summary={component,version,fileName:name,...(releaseManifestId?{releaseManifestId}:{}),hashVersion:3,sha512:ops.sha512(bytes),size:bytes.length,keyId:approval?.keyId||'',signatureSha512:approval?ops.sha512(JSON.stringify(approval)):'',expectedPolicyRevision:authority.Policy().revision,expectedOperationsRevision:ops.Revision(),disposition:'CANDIDATE'};
   const allowed=require('../../services/desktopAdminGuard').Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''));
@@ -71,4 +74,4 @@ async function Handle({method,pathname,url,body,req,res,session,desktopAuthoriza
  }catch(error){ErrorResponse(res,error);}
  return true;
 }
-module.exports={Handle,HandleUpload};
+module.exports={Handle,HandleUpload,ReadBytes};
