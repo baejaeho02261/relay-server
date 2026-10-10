@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "releaseName": "",
+  "securityVersion": 1,
+  "protocol": "GAME-CONNECT-4",
+  "hashVersion": 3,
+  "handoffVersion": 3,
+  "toolchain": {
+    "delphi": "",
+    "cpp": "",
+    "windowsSdk": "",
+    "imgui": ""
+  }
+}

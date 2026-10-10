@@ -9,7 +9,7 @@ const config = require('../config/config');
 const { HealthSnapshot } = require('../services/dashboard');
 const { LogEvent } = require('../storage/audit');
 const {
-    SessionCookie, SESSION_MS, Login, Authenticate, Logout, ValidateCsrf
+    SessionCookie, SESSION_MS, Login, Authenticate, Logout, ValidateCsrf, CheckLoginAttempt, Reauthenticate
 } = require('./webAuth');
 const { Json, ApiError, ReadJsonBody, HandleApiRequest } = require('./webApi');
 const { OpenEventStream } = require('./webEvents');
@@ -18,6 +18,13 @@ const releaseManager = require('../services/releaseManager');
 
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 const uiBundle = require('./uiBundle');
+// At most one outstanding reauthentication challenge per live session.
+const reauthChallenges = new WeakMap();
+function AuthFailure(res, result) {
+    if (result.retryAfterSeconds) res.setHeader('Retry-After', String(result.retryAfterSeconds));
+    ApiError(res, result.status || 401, result.code || result.reason || 'AUTH_FAILED');
+}
+function PlainObject(body) { return !!body && typeof body === 'object' && !Array.isArray(body); }
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -176,10 +183,11 @@ async function RequestHandler(req, res) {
         let body;
         try { body = await ReadJsonBody(req); }
         catch (error) { ApiError(res, 400, error.message); return; }
+        if (!PlainObject(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
         const result = Login(req, body.role, body.password);
         if (!result.ok) {
-            RecordAdminActivity(String(body.role || '').toLowerCase(), require('./webAuth').ClientIP(req), 'POST', '/api/login', result.status || 401, 'LOGIN_FAILED');
-            ApiError(res, result.status || 401, result.code);
+            if (result.status !== 429) RecordAdminActivity(String(body.role || '').toLowerCase(), require('./webAuth').ClientIP(req), 'POST', '/api/login', result.status || 401, 'LOGIN_FAILED');
+            AuthFailure(res, result);
             return;
         }
         RecordAdminActivity(result.session.role, result.session.ip, 'POST', '/api/login', 200, 'LOGIN');
@@ -195,6 +203,9 @@ async function RequestHandler(req, res) {
 
     if (pathname === '/api/passkey/login/begin' && method === 'POST') {
         let body; try { body = await ReadJsonBody(req); } catch (error) { ApiError(res, 400, error.message); return; }
+        if (!PlainObject(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
+        const limited = CheckLoginAttempt(req, body.role);
+        if (!limited.ok) { AuthFailure(res, limited); return; }
         const result = require('../services/passkeyAuth').LoginBegin(body.role, req);
         if (!result.ok) ApiError(res, 400, result.reason); else Json(res, 200, result);
         return;
@@ -202,9 +213,13 @@ async function RequestHandler(req, res) {
 
     if (pathname === '/api/passkey/login/finish' && method === 'POST') {
         let body; try { body = await ReadJsonBody(req); } catch (error) { ApiError(res, 400, error.message); return; }
+        if (!PlainObject(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
+        const limited = CheckLoginAttempt(req, '');
+        if (!limited.ok) { AuthFailure(res, limited); return; }
         const result = require('../services/passkeyAuth').LoginFinish(req, body);
         if (!result.ok) { ApiError(res, 401, result.reason); return; }
-        const session = require('./webAuth').CreateSession(req, result.role);
+        const session = require('./webAuth').CreateSession(req, result.role, { credentialId: result.credentialId });
+        if (!session) { ApiError(res, 503, 'ADMIN_SESSION_CAPACITY'); return; }
         require('../services/desktopAdminGuard').MarkVerified(session,result.credentialId);
         res.setHeader('Set-Cookie', SessionCookie(req, session.token, SESSION_MS / 1000));
         Json(res, 200, { ok:true, role:session.role, csrf:session.csrf, expiresAt:session.expiresAt });
@@ -217,6 +232,9 @@ async function RequestHandler(req, res) {
             ApiError(res, 401, 'NOT_AUTHORIZED');
             return;
         }
+
+        // Refresh browser cookie only up to the server's remaining idle/absolute lifetime.
+        res.setHeader('Set-Cookie', SessionCookie(req, session.token, (session.expiresAt - Date.now()) / 1000));
 
         if (pathname === '/api/session' && method === 'GET') {
             Json(res, 200, {
@@ -245,6 +263,12 @@ async function RequestHandler(req, res) {
             };
             try {
                 const upload = await ReadReleaseUpload(req, meta);
+                // A slow upload must not retain authority after logout, expiry
+                // or credential rotation. Never publish its temporary file.
+                if (!require('./webAuth').IsSessionActive(session)) {
+                    try { fs.unlinkSync(upload.tmp); } catch (_) {}
+                    ApiError(res, 401, 'NOT_AUTHORIZED'); return;
+                }
                 const release = releaseManager.PublishFromTemp(meta, upload.tmp, upload.sha256, upload.size);
                 require('../storage/database').SaveDatabase();
                 LogEvent('RELEASE_PUBLISHED', `${release.type}/${release.channel} ${release.version} ${release.sha256}`);
@@ -266,6 +290,39 @@ async function RequestHandler(req, res) {
             res.once('finish', () => {
                 RecordAdminActivity(session.role, session.ip, method, pathname, res.statusCode, pathname === '/api/logout' ? 'LOGOUT' : 'MUTATION');
             });
+        }
+
+        if (method === 'POST' && ['/api/session/reauthenticate', '/api/session/reauthenticate/passkey/begin', '/api/session/reauthenticate/passkey/finish'].includes(pathname)) {
+            let body;
+            try { body = await ReadJsonBody(req, 16384); }
+            catch (error) { ApiError(res, 400, error.message); return; }
+            if (!require('./webAuth').IsSessionActive(session)) { ApiError(res, 401, 'NOT_AUTHORIZED'); return; }
+            if (!PlainObject(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
+            if (pathname === '/api/session/reauthenticate') {
+                const result = Reauthenticate(req, session, body.password);
+                if (!result.ok) AuthFailure(res, result); else Json(res, 200, result);
+                return;
+            }
+            const limited = CheckLoginAttempt(req, session.role);
+            if (!limited.ok) { AuthFailure(res, limited); return; }
+            const passkeys = require('../services/passkeyAuth');
+            if (pathname.endsWith('/begin')) {
+                const result = passkeys.LoginBegin(session.role, req);
+                if (!result.ok) { AuthFailure(res, result); return; }
+                reauthChallenges.set(session, { id: result.challengeId, expiresAt: Date.now() + 5 * 60000 });
+                Json(res, 200, result); return;
+            }
+            const pending = reauthChallenges.get(session);
+            reauthChallenges.delete(session);
+            if (!pending || pending.expiresAt <= Date.now() || pending.id !== body.challengeId) {
+                ApiError(res, 403, 'REAUTH_CHALLENGE_INVALID'); return;
+            }
+            const result = passkeys.LoginFinish(req, body);
+            if (!result.ok || result.role !== session.role || !require('./webAuth').MarkReauthenticated(session, result.credentialId)) {
+                ApiError(res, 403, 'REAUTH_FAILED'); return;
+            }
+            require('../services/desktopAdminGuard').MarkVerified(session, result.credentialId);
+            Json(res, 200, { ok: true, validForMs: require('./webAuth').REAUTH_MS }); return;
         }
 
         if (pathname === '/api/logout' && method === 'POST') {
@@ -335,5 +392,6 @@ function StartWebAdmin() {
 }
 
 module.exports = {
-    StartWebAdmin
+    StartWebAdmin,
+    RequestHandler
 };

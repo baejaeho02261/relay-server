@@ -36,7 +36,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   }
   if(action==='preview-rollout'){Json(res,200,{ok:true,preview:authority.PreviewRollout(body)});return true;}
   if(action==='preview-pair'){Json(res,200,{ok:true,preview:operations.PreviewPair(body)});return true;}
-  const actions={controls:operations.SetControls,contracts:operations.SetContract,signers:operations.SetSignerState,rollout:operations.SetRollout,'test-evidence':operations.RecordEvidence,activate:operations.ActivatePair};
+  const actions={'plan-release':operations.PlanReleaseManifest,'recovery/prepare':operations.PrepareRecovery,'recovery/apply':operations.ApplyRecovery,'release-governance':operations.SetReleaseGovernance,'release-manifests':operations.RecordReleaseManifest,'ci-signers':operations.SetCiSigner,'ci-evidence':operations.RecordCiEvidence,controls:operations.SetControls,contracts:operations.SetContract,signers:operations.SetSignerState,rollout:operations.SetRollout,'test-evidence':operations.RecordEvidence,activate:operations.ActivatePair};
   if(!actions[action]){ApiError(res,404,'NOT_FOUND');return true;}
   // Existing admin authentication / CSRF / single-operator authorization were checked
   // by webApi before dispatch. No duplicate consumption of one-use tickets here.

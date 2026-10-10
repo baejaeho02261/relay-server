@@ -22,6 +22,9 @@ process.on('unhandledRejection', reason => {
 const http = require('http');
 
 const config = require('./config/config');
+// Acquire before loading any service that can create keys, migrate storage,
+// save state or open a listener. The lock remains held through shutdown writes.
+require('./services/desktopSingleWriter').Acquire(config.DATA_DIR, { haEnabled: config.HA_ENABLED });
 const { EnsureDirs } = require('./core/utils');
 const { LoadRecentAudit } = require('./storage/audit');
 const { LoadDatabase, SaveDatabase } = require('./storage/database');
@@ -38,6 +41,8 @@ EnsureDirs();
 LoadDatabase();
 require('./services/desktopMachinePolicy').Load();
 LoadRecentAudit();
+// Recovery emits audit events: restore the authoritative chain head first.
+require('./services/desktopLicenses').ReconcileOperations();
 require('./services/haCoordinator').Start();
 console.log('Game Windows License Service');
 console.log('Web Admin:', WEB_ADMIN_VERSION, 'HTTP Port:', WEB_ADMIN_PORT);

@@ -386,6 +386,9 @@ function LoadDatabase() {
         try {
             const stored = require('./sqliteDatabase').LoadSnapshot();
             if (stored && ImportDatabaseObject(stored.data)) {
+                // The snapshot may precede later durable audit entries. Restore
+                // their head before a caller appends startup/recovery events.
+                require('./audit').LoadRecentAudit();
                 state.runtimeStats.lastDatabaseSaveAt = stored.savedAt;
                 state.runtimeStats.lastDatabaseSaveOk = true;
                 try { state.runtimeStats.lastDatabaseSize = fs.statSync(config.SQLITE_FILE).size; } catch (_) {}
@@ -395,7 +398,9 @@ function LoadDatabase() {
         } catch (error) {
             if (/^DESKTOP_(JOURNAL|STORAGE)_/.test(String(error.message || ''))) throw error;
             console.error('SQLITE LOAD ERROR:', error.message);
-            LogEvent('SQLITE_LOAD_ERROR', error.message);
+            // The audit anchor may live in the unreadable snapshot. Preserve
+            // existing audit bytes rather than append using an unloaded head;
+            // the startup failure is emitted to the service error stream above.
             // Missing/corrupt SQLite or an unavailable native driver is fatal.
             // JSON cutover is only allowed after a successful, empty SQLite read.
             throw error;
@@ -406,12 +411,15 @@ function LoadDatabase() {
         if (!fs.existsSync(file)) continue;
         const data = TryLoadJson(file);
         if (data && ImportDatabaseObject(data)) {
+            // Never fork the audit chain from the recovery mirror's older head.
+            require('./audit').LoadRecentAudit();
             LogEvent(config.STORAGE_ENGINE === 'sqlite' ? 'DATABASE_SQLITE_CUTOVER' : (file !== DB_FILE ? 'DATABASE_AUTO_RECOVER' : 'DATABASE_LOAD'), path.basename(file));
             try { if (require('./licenseSnapshot').RecoverIfNewer()) LogEvent('LICENSE_SNAPSHOT_RECOVER', `revision=${state.licenseRevision}`); } catch (_) {}
             SaveDatabase();
             return;
         }
     }
+    require('./audit').LoadRecentAudit();
     SaveDatabase();
 }
 

@@ -20,7 +20,7 @@ function EnsureTimer() {
     timer = setInterval(() => {
         const now = Now();
         for (const item of Array.from(streams)) {
-            if (!item.session || item.session.expiresAt <= now) {
+            if (!require('./webAuth').IsSessionActive(item.session)) {
                 try { WriteEvent(item.res, 'session', { expired: true }); item.res.end(); } catch (_) {}
                 streams.delete(item);
                 continue;
@@ -37,21 +37,21 @@ function EnsureTimer() {
 
 function BroadcastEvent(data) {
     for (const item of Array.from(streams)) {
-        if (!item.session || item.session.expiresAt <= Now()) continue;
+        if (!require('./webAuth').IsSessionActive(item.session)) continue;
         if (!WriteEvent(item.res, 'relay-event', data)) streams.delete(item);
     }
 }
 
 function BroadcastNotification(data) {
     for (const item of Array.from(streams)) {
-        if (!item.session || item.session.expiresAt <= Now()) continue;
+        if (!require('./webAuth').IsSessionActive(item.session)) continue;
         if (!WriteEvent(item.res, 'notification', data)) streams.delete(item);
     }
 }
 
 function BroadcastServiceState(data) {
     for (const item of Array.from(streams)) {
-        if (!item.session || item.session.expiresAt <= Now()) continue;
+        if (!require('./webAuth').IsSessionActive(item.session)) continue;
         if (!WriteEvent(item.res, 'service-state', data)) streams.delete(item);
     }
 }

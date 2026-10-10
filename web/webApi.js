@@ -17,6 +17,13 @@ async function HandleApiRequest(req, res, session) {
         catch (error) { ApiError(res, error.message === 'BODY_TOO_LARGE' ? 413 : 400, error.message); return; }
     }
 
+    // Authentication precedes asynchronous body receipt. Recheck the live
+    // managed session before any route can read protected data or mutate state.
+    const webAuth = require('./webAuth');
+    if (webAuth.IsManagedSession(session) && !webAuth.IsSessionActive(session)) {
+        ApiError(res, 401, 'NOT_AUTHORIZED'); return;
+    }
+
     if (!body || typeof body !== 'object' || Array.isArray(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
     if (desktopMode.RetiredTarget(pathname, body, url.searchParams)) { desktopMode.Reject(res); return; }
 

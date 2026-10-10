@@ -1,0 +1,179 @@
+배포 명세와 CI 서명 증거 운영 — 선택 적용
+
+1. 현재 흐름 보존
+Create_Approval.bat / Check_Approval.bat는 변경하지 않았습니다.
+O의 PE .pdata 정규화와 최종 바이트 해시 결속은 그대로입니다.
+기존 운영자 시험 기록은 OPERATOR_RECORDED로 유지됩니다.
+새 명세·CI 요구는 기본 OFF, 최소 보안 버전은 0입니다.
+일반 빌드/등록만 하려면 새로운 CI 키나 추가 승인자는 필요하지 않습니다.
+
+2. 무엇을 묶는가
+명세 ID는 domain을 분리한 canonical JSON의 SHA-512입니다.
+최종 A/B/O 각 파일 SHA-512, source-manifest.json 파일 SHA-512,
+서버 Security Authority 정책 전체의 canonical SHA-512,
+Delphi / C++ / Windows SDK / ImGui 버전,
+GAME-CONNECT-4 / hashVersion 3 / handoffVersion(1 또는 3),
+운영자가 정한 releaseName 및 증가하는 securityVersion을 결속합니다.
+명세는 A/B/O 모두 필요합니다. O를 사용하지 않는 기존 A/B 운영은
+선택 적용을 켜지 않으면 계속 사용할 수 있습니다.
+같은 세 파일을 다른 명세·보안 버전으로 재표시하지 못합니다.
+표시용 EXE 버전 문자열과 securityVersion은 서로 다른 값입니다.
+도구/소스 버전 입력은 주장과 해시 결속이며 컴파일 실행 증명은 아닙니다.
+현재 빌드는 handoffVersion 3, 예전 빌드에서 표식이 없으면 1입니다.
+이 표식은 호환성 정보이며 인증·무결성 통과 증거가 아닙니다.
+
+3. 명세 작성·사전 등록 순서 (GameWeb 폴더에서 실행)
+- 실제 A/B/O Win64 Release 빌드와 필요한 승인/정규화를 완료합니다.
+- 최종 EXE와 등록할 승인 JSON을 보존합니다. 이 다음 EXE를 수정하면
+  새 승인, 명세, 시험 증거가 필요합니다.
+- 서버 보안 · 배포 운영 → 배포 명세 · CI 서명 증거에서
+  [명세 생성용 현재 정책 JSON 저장]으로 deployment-policy.json을 받습니다.
+- setup/release-manifest-spec.example.json을 spec.json으로 복사하고
+  빈 필드에 실제 배포명, 컴파일러/SDK 버전과 ImGui commit 또는 해시를 씁니다.
+  빈 예시는 유효한 명세가 아니며 그대로 사용하면 도구가 거절합니다.
+- source-manifest.json은 검증 완료된 해당 소스 묶음의 파일을 사용합니다.
+
+node tools/release-provenance.js manifest spec.json GameLauncher.exe GameConnect.exe GameOverlay.exe maintenance/source-manifest.json deployment-policy.json --out release-manifest.json
+
+--out은 새 파일만 만들며 기존 파일을 덮어쓰지 않습니다.
+이 도구는 파일을 읽고 해시를 생성하며 EXE를 실행하지 않습니다.
+파일 업로드 전에 웹 [파일 업로드 전 명세 계획 등록]으로 명세를 먼저 저장합니다.
+A/B/O 각각 업로드에 같은 releaseManifestId를 선언하여 순서대로 등록합니다.
+서버는 저장 전에 실제 파일의 역할/해시/프로토콜/인계 세대를 비교합니다.
+세 후보가 준비되면 [세 파일 확인 후 명세 등록 완료]를 누르고 조합을 게시합니다.
+명세 요구 OFF인 기존 무선언 후보는 이전 방식의 등록도 계속 지원합니다.
+정책이 바뀌었다면 현재 정책을 다시 내려받고 등록 전에 명세를 재생성합니다.
+이미 등록된 명세의 정책 해시는 그 배포의 작성 당시 스냅샷입니다.
+후속 서버 정책 변경을 자동으로 과거 빌드의 새 테스트 증거로 해석하지 않습니다.
+
+4. CI 전용 키와 실제 시험 결과
+CI 서명키는 Ed25519이며 실행 파일 승인키와 같은 키를 사용하지 못합니다.
+개인키를 보호된 CI 서명 환경에만 보관하고 서버에는 공개키만 등록합니다.
+키 유효기간은 Unix epoch milliseconds이며 등록 후 변경할 수 없습니다.
+새 키를 미리 ACTIVE로 등록해 이전 키와 전환 기간을 둘 수 있습니다.
+다음 명령은 기존 CI 개인키에서 공개 등록 자료만 출력합니다.
+
+node tools/release-provenance.js public-key CI_PRIVATE.pem NOT_BEFORE_MS NOT_AFTER_MS --out ci-public-registration.json
+
+웹의 [CI 전용 공개키 등록]에 ci-public-registration.json을 선택합니다.
+CI 개인키 파일을 업로드하지 마세요. 하드웨어 서명기는 별도로 구성해야 합니다.
+CI 실행기와 워크플로 파일은 별도 제공됩니다. 다만 실제 CI 제공자의 실행기·
+키 보관·보호된 환경 설정은 운영자가 구성해야 하며 여기서 이미 수행했다고
+주장하지 않습니다. 자세한 자동 실행 순서는 별도 Windows CI 안내를 따르세요.
+
+Windows CI에서 실제 nativeBuild, apiProbe, integration을 실행한 뒤,
+기존 record-release-tests.js의 checks.json에 해당 로그와 결과를 기록합니다.
+--template의 초기 결과는 모두 NOT_RUN입니다. 로그 문자열을 검색해 PASS로
+자동 변환하지 않으며 수행하지 않은 항목은 NOT_RUN으로 남겨야 합니다.
+
+node tools/record-release-tests.js --template GameLauncher.exe GameConnect.exe maintenance/source-manifest.json --overlay GameOverlay.exe
+node tools/record-release-tests.js GameLauncher.exe GameConnect.exe maintenance/source-manifest.json checks.json --overlay GameOverlay.exe > test-report.json
+node tools/release-provenance.js sign release-manifest.json test-report.json CI_PRIVATE.pem CI_RUN_ID --out ci-evidence.json
+
+서명 도구는 report의 A/B/O 및 소스 해시가 명세와 같은지 확인합니다.
+PASS/FAIL/NOT_RUN을 그대로 서명합니다. PASS를 생성하지 않습니다.
+실행 로그는 CI의 보존 정책에 따라 별도로 보관합니다.
+ci-evidence.json만 웹 [CI 서명 증거 검증·등록]에 업로드합니다.
+CI 서명은 등록된 CI 키 소유자가 해당 결과를 주장했다는 검증입니다.
+운영자 손으로 만든 파일도 그 키로 서명할 수 있으므로, CI 키 접근 권한과
+서명 작업의 실행 조건은 실제 CI 환경에서 별도로 제한해야 합니다.
+하드웨어 원격 증명 또는 컴파일/시험 실행 그 자체의 증명은 아닙니다.
+
+선택적인 오프라인 서명 검증:
+node tools/release-provenance.js verify release-manifest.json ci-evidence.json CI_PUBLIC.pem
+이 결과는 암호학적 서명만 검사합니다. 현재 서버의 신뢰·철회·배포 정책은
+웹의 [조합 검증]이 다시 확인합니다.
+
+5. 강제 적용과 키 전환
+- 운영 중 조합의 명세와 필요한 CI 증거를 먼저 등록합니다.
+- 명세 요구를 켜면 서로 다른 명세의 A/B/O 혼합, 명세 없는 조합이 거절됩니다.
+- CI 요구도 켜면 유효한 전용 CI 서명과 세 항목 모두 PASS가 필요합니다.
+  OPERATOR_RECORDED PASS로 대신할 수 없습니다.
+- 보안 버전 하한을 올리려면 먼저 그 이상 버전의 조합을 게시해야 합니다.
+  하한은 내릴 수 없습니다. 긴급 복구도 같은 하한 이상의 새 배포를 사용합니다.
+- RETIRING: 이미 검증한 CI 증거는 유지, 새 증거 등록은 거절합니다.
+- REVOKED: 기존 증거도 무효화하며 복원할 수 없습니다.
+- 키 만료 이후 새 증거는 거절됩니다. 유효기간 내 서버가 받아 검증한 기존
+  증거는 보존되며, 기존 증거까지 거절할 때는 키를 REVOKED로 전환합니다.
+- 최신 CI 결과를 오래된 issuedAt의 결과로 덮어쓸 수 없습니다.
+  동일 증거 재시도는 중복 저장하지 않습니다.
+- 현재 조합이 새 조건을 만족하지 않으면 정책 저장을 거절합니다.
+  긴급 키 철회는 예외적으로 허용하고 그 즉시 후속 서버 권한 검사를 거절합니다.
+- 현재 보안 버전 하한 > 0 또는 CI 요구가 켜져 있으면 명세 요구를 끌 수 없습니다.
+
+6. API (관리자 인증·CSRF·선택적 최근 재인증 필요)
+공통 경로: /api/desktop/bootstrap/security-operations
+POST /plan-release : expectedRevision, manifest, 선택 manifestId (후보 업로드 전 계획)
+POST /release-manifests : expectedRevision, manifest, 선택 manifestId (세 후보 확인 후 완료)
+EXE 업로드 query releaseManifestId : 사전 등록된 manifestId (강제 정책이면 필수)
+POST /ci-signers : expectedRevision, keyId, state; 신규 키는 publicKey/notBefore/notAfter
+POST /ci-evidence : expectedRevision, envelope
+POST /release-governance : expectedRevision, requireManifest, requireCiEvidence, minimumSecurityVersion
+POST /recovery/prepare : expectedRevision, expectedPolicyRevision, requestId(UUID), aId, bId, oId, reason
+POST /recovery/apply : preparedRevision을 expectedRevision으로, policyRevision을 expectedPolicyRevision으로, recoveryId
+GET 공통 경로와 POST /preview-pair에서 현재 명세 ID·검증 등급·거절 사유 확인.
+상태는 기존 서버 authority 저장소에만 저장하며 새 top-level 저장소는 없습니다.
+
+7. 검증 범위
+scripts/test-release-provenance.js는 합성 PE·임시 CI 키로 실제 서버 검증,
+키 전환/철회, 명세 혼합/다운그레이드, 저장/재기동, CLI 결과를 검사합니다.
+scripts/test-release-provenance-ui.js는 실제 관리자 JS를 DOM 모델에서 검사합니다.
+이 테스트의 PASS는 Windows 네이티브 빌드/실행 PASS가 아닙니다.
+이 변경 묶음의 실제 dcc64/bcc64 빌드와 A→B→O 실행은 Windows에서 확인해야 합니다.
+
+
+8. 공통 키 용도 레지스트리
+서버 TLS, 서버 RSA 통신, EXE 승인, CI 증거의 공개키를 같은 형식의
+SPKI SHA-512 지문으로 정규화하여 용도를 영구 결속합니다.
+RSA/Ed25519 알고리즘이 다르다는 이유만으로 구분하지 않습니다.
+예를 들어 같은 RSA 개인키로 TLS 인증서를 만들고 통신키로도 사용하는
+구성은 실제 TLS/통신키 로드 단계에서 SECURITY_KEY_PURPOSE_CONFLICT로 거절합니다.
+저장 파일은 DATA_DIR/desktop-key-purposes.json 및 .initialized 표식입니다.
+저장 내용은 공개 지문·용도·최초 확인 시각뿐이며 개인키가 없습니다.
+기존 예약 조회는 저장소를 변경하거나 작성자 잠금을 획득하지 않습니다.
+신규 예약만 작성자 잠금 후 최신 파일을 다시 검증하여 저장합니다.
+기존 설치는 검증된 키를 최초 사용하는 시점에 용도를 예약합니다.
+예약은 권한 부여가 아닙니다. 이후 승인 등록이 실패해도 같은 키를 다른
+용도로 재사용하지 않도록 용도 예약은 유지할 수 있습니다.
+레지스트리와 표식도 DATA_DIR 백업에 함께 포함합니다.
+저장 장애 후에는 프로세스를 다시 시작해 확정된 상태를 확인해야 합니다.
+표식이 있는데 레지스트리만 없으면 자동 초기화하지 않습니다.
+운영 중 개인키를 교체하거나 레지스트리 파일을 삭제해 우회하지 마세요.
+
+9. 계획 등록 → 순차 후보 등록 → 완료
+현재 정책을 저장하고 최종 EXE들로 명세 파일을 만듭니다.
+후보 파일이 아직 없어도 [파일 업로드 전 명세 계획 등록]이 가능합니다.
+A/B/O 업로드 각각에 같은 manifestId를 선언하면 해시/역할을 저장 전에 검사합니다.
+[세 파일 확인 후 명세 등록 완료] 후 조합 검증·게시 순서로 적용합니다.
+동일 바이트를 다른 조합에서도 사용할 때는 새 명세 ID를 선언하여 다시 후보
+등록해야 합니다. 기존 후보의 ID 결속을 수정하지 않습니다.
+계획 등록 당시 정책 스냅샷은 그대로 보존하며, 완료·게시·실행은 현재의
+서버 보안 정책을 별도로 통과해야 합니다.
+
+10. 긴급 복구 승인
+서버 보안 · 배포 운영에서 목표 A/B/O를 고르고 복구 사유를 입력합니다.
+[선택 조합의 복구 내용 준비]는 현재 활성 조합을 바꾸지 않고 목표·명세 ID·
+정책 revision·운영 revision·준비한 관리자·사유를 서버에 저장합니다.
+5분 안에 내용을 확인하고 [준비한 복구 승인·적용]을 누릅니다.
+적용 직전에 현재 정책, 실제 파일, CI 증거, 명세, 보안 버전 하한을 재검사합니다.
+성공하면 active A/B/O와 복구 완료 이력을 같은 서버 저장 트랜잭션에 기록합니다.
+다른 관리자, 만료·변경된 계획, 낮은 보안 버전은 거절합니다.
+응답 유실 후 같은 recoveryId 적용 재시도는 기존 완료 영수증을 반환하며
+새 활성화나 키/라이선스 복원을 수행하지 않습니다.
+하한을 무시하는 비밀 예외는 없습니다. 낮은 예전 소스가 꼭 필요하면 수정·
+검증 후 현재 하한 이상의 새 배포로 만들어 정상 승인합니다.
+기존 유효 실행은 자체에 결속된 배포와 키가 여전히 허용되면 유지됩니다.
+철회된 키/배포는 기존 실행도 후속 서버 검사에서 거절됩니다.
+
+11. 추가 실제 서버 시험 범위
+scripts/test-release-governance-complete.js:
+계획 전 업로드 거부, 첫 A 사전등록, 잘못된 역할/최종 해시 저장 전 거부,
+3개 후보 완료 전 게시 거부, 실제 서버 A→B 인증 세션의 EXE/CI 키 전환,
+전환 실패 시 기존 세션 유지, 구키 철회 시 구 실행만 거절,
+파일 손상 시 복구 보류, 승인·완료 동일 트랜잭션, 재시도·만료·하한 검사.
+scripts/test-key-purposes.js:
+실제 RSA 통신키로 만든 TLS 인증서와 그 반대 구성의 재사용 거절,
+정규화 공개키 지문, 재시작 이력 보존, 저장 실패/초기화 표식 검사.
+서버가 작성자 잠금을 가진 동안 별도 조회는 허용하고 신규 예약은 차단합니다.
+이 시험은 임시 DATA_DIR·합성 PE로 실제 서버 코드를 구동하며 운영 데이터를
+변경하지 않습니다. 실제 Windows 바이너리/그래픽/운영 키 교체 시험은 별도입니다.

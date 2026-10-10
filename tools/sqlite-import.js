@@ -16,6 +16,14 @@ if (!bundlePath) {
     process.exit(2);
 }
 
+// Coordinate with the server at the actual output directory, even when the
+// import destination differs from DATA_DIR. Never follow an output symlink.
+const resolvedOutput = path.resolve(outputPath);
+require('../services/desktopSingleWriter').Acquire(path.dirname(resolvedOutput), { haEnabled: process.env.HA_ENABLED === '1' });
+if (fs.existsSync(resolvedOutput)) {
+    const stat = fs.lstatSync(resolvedOutput);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1) throw Error('SQLITE_IMPORT_TARGET_INVALID');
+}
 const bundle = JSON.parse(fs.readFileSync(bundlePath, 'utf8'));
 if (!bundle || bundle.format !== 'relay-sqlite-migration-bundle' || !bundle.data) throw new Error('INVALID_MIGRATION_BUNDLE');
 const schemaPath = path.join(path.dirname(bundlePath), 'schema.sql');

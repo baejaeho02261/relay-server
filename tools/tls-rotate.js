@@ -29,8 +29,8 @@ function RestoreGeneration(id){
  const cert=identity.Read(path.join(directory,'certificate.pem'),32768),key=identity.Read(path.join(directory,'private-key.pem'),16384);let metadata;
  try{metadata=JSON.parse(identity.Read(path.join(directory,'identity.json'),2048));}catch(_){Die('TLS_ROTATION_BACKUP_INVALID');}
  if(!metadata||metadata.version!==1||typeof metadata.serverName!=='string'||!/^[a-f0-9]{64}$/.test(metadata.fingerprint))Die('TLS_ROTATION_BACKUP_INVALID');
- const value=identity.Validate(cert,key,metadata.serverName);if(value.fingerprint!==metadata.fingerprint)Die('TLS_ROTATION_BACKUP_INVALID');
- const generation=crypto.randomBytes(24).toString('hex'),next=path.join(identity.DIR,generation);fs.mkdirSync(next,{mode:0o700});
+ identity.AssertPurpose(cert);const value=identity.Validate(cert,key,metadata.serverName);if(value.fingerprint!==metadata.fingerprint)Die('TLS_ROTATION_BACKUP_INVALID');
+ identity.ReservePurpose(cert);const generation=crypto.randomBytes(24).toString('hex'),next=path.join(identity.DIR,generation);fs.mkdirSync(next,{mode:0o700});
  identity.Write(path.join(next,'certificate.pem'),cert);identity.Write(path.join(next,'private-key.pem'),key);identity.Sync(next);identity.Sync(identity.DIR);
  return {...value,pointer:Buffer.from(JSON.stringify({version:2,generation,fingerprint:value.fingerprint})+'\n')};
 }
@@ -38,6 +38,7 @@ async function Main(){
  const args=process.argv.slice(2),action=args.shift();
  if(!['rotate','restore'].includes(action)||!args.includes('--offline')||args.some((arg,index)=>arg!=='--offline'&&arg!=='--backup'&&args[index-1]!=='--backup'))Die('Usage: node tools/tls-rotate.js rotate --offline | restore --offline --backup <backup-id>');
  if(process.env.CONNECT_TLS_CERT_FILE||process.env.CONNECT_TLS_KEY_FILE)Die('TLS_ROTATION_CONFIGURED_CERT_MANUAL_ONLY');
+ require('../services/desktopSingleWriter').Acquire(config.DATA_DIR,{haEnabled:config.HA_ENABLED});
  const held=await Offline();let locked=false,installed=false,previousLock=false;
  try{
   if(action==='rotate'&&fs.existsSync(identity.ROTATION_LOCK))Die('TLS_ROTATION_RESTORE_REQUIRED');

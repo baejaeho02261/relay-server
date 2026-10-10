@@ -26,6 +26,17 @@ function EventHash(previousHash, sequence, time, type, detail) {
         .digest('hex').toUpperCase();
 }
 
+let operationIndex = new Map(), indexLoaded = false, poisoned = false;
+const operationIdPattern = /^[a-f0-9]{64}$/;
+function IndexOperation(event) {
+    try {
+        const detail = JSON.parse(event.detail);
+        if (!operationIdPattern.test(detail.auditEventId || '')) return;
+        const fingerprint = EventHash('', 0, 0, event.type, event.detail), old = operationIndex.get(detail.auditEventId);
+        if (old && old.fingerprint !== fingerprint) throw Error('AUDIT_OPERATION_CONFLICT');
+        operationIndex.set(detail.auditEventId, { fingerprint, sequence:event.sequence, hash:event.hash });
+    } catch (error) { if (error.message === 'AUDIT_OPERATION_CONFLICT') throw error; }
+}
 const writeHealth = { status:'UNKNOWN', failedWrites:0, lastFailureAt:0, lastSuccessAt:0, lastErrorCode:'', lastDurableSequence:0 };
 function WriteHealth() { return {...writeHealth, sinceProcessStart:true, missingRecordsRecovered:false}; }
 function LogEvent(type, detail, options = {}) {
@@ -36,25 +47,39 @@ function LogEvent(type, detail, options = {}) {
         previousHash: String(chain.head || '').toUpperCase()
     };
     event.hash = EventHash(event.previousHash, event.sequence, event.time, event.type, event.detail);
-    chain.head = event.hash;
-    chain.count = event.sequence;
-    // Chain verification errors are not cleared by an unrelated new event.
-    events.push(event);
-    while (events.length > MAX_EVENT_MEMORY) events.shift();
-    console.log('[EVENT]', event.type, event.detail);
-    try { require('../web/webEvents').BroadcastEvent(event); } catch (_) {}
-    try { require('../services/notificationCenter').CaptureEvent(event); } catch (_) {}
-    try { require('../services/incidentCenter').CaptureEvent(event); } catch (_) {}
+    let fd, beforeSize;
     try {
+        if (poisoned) { const error = Error('audit rollback failed'); error.code = 'AUDIT_RESTART_REQUIRED'; throw error; }
+        fd = fs.openSync(AuditFileForTime(event.time), 'a', 0o600);
+        beforeSize = fs.fstatSync(fd).size;
+        fs.writeFileSync(fd, JSON.stringify(event) + '\n', 'utf8');
         if (options.durable === true) {
-            const fd=fs.openSync(AuditFileForTime(event.time),'a',0o600);
-            try { fs.writeFileSync(fd,JSON.stringify(event)+'\n','utf8'); fs.fsyncSync(fd); }
-            finally { fs.closeSync(fd); }
-            writeHealth.lastDurableSequence=event.sequence;
-        } else fs.appendFileSync(AuditFileForTime(event.time), JSON.stringify(event) + '\n', 'utf8');
+            fs.fsyncSync(fd);
+            // The daily audit filename must precede the journal ACK durably,
+            // including when an earlier non-durable event created this file.
+            if(process.platform!=='win32'){
+                const directory=fs.openSync(AUDIT_DIR,'r');
+                try{fs.fsyncSync(directory);}finally{fs.closeSync(directory);}
+            }
+        }
+        fs.closeSync(fd); fd = undefined;
+        // Never advance the chain or publish an event whose append failed.
+        chain.head = event.hash; chain.count = event.sequence;
+        IndexOperation(event);
+        events.push(event); while (events.length > MAX_EVENT_MEMORY) events.shift();
+        console.log('[EVENT]', event.type, event.detail);
+        try { require('../web/webEvents').BroadcastEvent(event); } catch (_) {}
+        try { require('../services/notificationCenter').CaptureEvent(event); } catch (_) {}
+        try { require('../services/incidentCenter').CaptureEvent(event); } catch (_) {}
+        if (options.durable === true) writeHealth.lastDurableSequence = event.sequence;
         writeHealth.status='HEALTHY';writeHealth.lastSuccessAt=event.time;writeHealth.lastErrorCode='';
         return {ok:true,sequence:event.sequence,hash:event.hash,durable:options.durable===true};
     } catch (error) {
+        if (fd !== undefined) {
+            try { if (beforeSize !== undefined) { fs.ftruncateSync(fd, beforeSize); fs.fsyncSync(fd); } }
+            catch (_) { poisoned = true; }
+            finally { try { fs.closeSync(fd); } catch (_) {} }
+        }
         writeHealth.status='DEGRADED';writeHealth.failedWrites++;writeHealth.lastFailureAt=event.time;
         writeHealth.lastErrorCode=/^[A-Z0-9_]{1,40}$/.test(String(error.code||''))?error.code:'WRITE_FAILED';
         console.error('AUDIT WRITE ERROR:', writeHealth.lastErrorCode);
@@ -68,7 +93,7 @@ function LogEvent(type, detail, options = {}) {
 
 function LoadRecentAudit() {
     try {
-        events.length = 0;
+        events.length = 0; operationIndex = new Map(); indexLoaded = false;
         const files = fs.readdirSync(AUDIT_DIR)
             .filter(x => /^audit-\d{4}-\d{2}-\d{2}\.jsonl$/.test(x))
             .sort();
@@ -78,8 +103,15 @@ function LoadRecentAudit() {
         let verifiedCount = 0;
         let lastError = '';
         for (const file of files) {
-            const lines = fs.readFileSync(path.join(AUDIT_DIR, file), 'utf8').split(/\r?\n/);
-            for (const line of lines) {
+            const filename=path.join(AUDIT_DIR,file);
+            const raw=fs.readFileSync(filename,'utf8'),lines=raw.split(/\r?\n/);
+            for (let lineIndex=0;lineIndex<lines.length;lineIndex++) {
+                const line=lines[lineIndex],unterminated=file===files.at(-1)&&lineIndex===lines.length-1&&raw&&!raw.endsWith('\n');
+                function RepairTail(complete){
+                    const fd=fs.openSync(filename,'r+');
+                    try{if(complete)fs.writeSync(fd,'\n',Buffer.byteLength(raw));else fs.ftruncateSync(fd,Buffer.byteLength(raw.slice(0,raw.lastIndexOf('\n')+1)));fs.fsyncSync(fd);}
+                    finally{fs.closeSync(fd);}
+                }
                 if (!line.trim()) continue;
                 try {
                     const item = JSON.parse(line);
@@ -98,10 +130,17 @@ function LoadRecentAudit() {
                         } else {
                             expectedPrevious = normalized.hash;
                             verifiedCount = normalized.sequence;
+                            if (!lastError) IndexOperation(normalized);
                         }
                     }
+                    if(unterminated&&!lastError)RepairTail(true);
                     loaded.push(normalized);
-                } catch (_) {}
+                } catch (error) {
+                    // Repair only an interrupted final append after a verified
+                    // prefix. Complete corrupt rows remain fatal and untouched.
+                    if(unterminated&&!lastError&&error instanceof SyntaxError)RepairTail(false);
+                    else if (!lastError) lastError = file + ':INVALID_ROW';
+                }
             }
         }
         loaded.sort((a, b) => a.time - b.time);
@@ -111,7 +150,8 @@ function LoadRecentAudit() {
         state.production.auditChain.count = verifiedCount;
         state.production.auditChain.verifiedAt = Now();
         state.production.auditChain.lastError = lastError;
-    } catch (_) {}
+        indexLoaded = true;
+    } catch (error) { state.production.auditChain.lastError = 'AUDIT_LOAD_FAILED'; }
 }
 
 function VerifyAuditChain() {
@@ -128,6 +168,21 @@ function VerifyAuditChain() {
     // LoadRecentAudit already restored the most recent authoritative view.
     if (!events.length && previousEvents.length) events.push(...previousEvents.slice(-MAX_EVENT_MEMORY));
     return result;
+}
+
+// The caller first commits this event intent to its durable journal. Only
+// verified audit rows may satisfy a retry after an append/ACK crash boundary.
+function AppendOperationEvent(auditEventId, type, detail) {
+    if (!operationIdPattern.test(auditEventId || '') || !detail || typeof detail !== 'object' || Array.isArray(detail)) throw Error('AUDIT_OPERATION_INVALID');
+    if (!indexLoaded) LoadRecentAudit();
+    if (!indexLoaded || state.production.auditChain.lastError || poisoned) throw Error('AUDIT_CHAIN_UNAVAILABLE');
+    const text = SafeField(JSON.stringify({ ...detail, auditEventId })), normalizedType = SafeField(type);
+    const fingerprint = EventHash('', 0, 0, normalizedType, text), old = operationIndex.get(auditEventId);
+    if (old) {
+        if (old.fingerprint !== fingerprint) throw Error('AUDIT_OPERATION_CONFLICT');
+        return { ok:true, duplicate:true, sequence:old.sequence, hash:old.hash, durable:true };
+    }
+    return LogEvent(normalizedType, text, { durable:true });
 }
 
 function AuditSearch(query, type, sinceMs) {
@@ -153,10 +208,12 @@ function ClearAudit() {
         }
     } catch (_) {}
     state.production.auditChain = { anchor: '', head: '', count: 0, verifiedAt: Now(), lastError: '' };
+    operationIndex.clear(); indexLoaded = true;
     return { removedMemory, removedFiles };
 }
 
 module.exports = {
+    AppendOperationEvent,
     WriteHealth,
     AuditFileForTime,
     LogEvent,
