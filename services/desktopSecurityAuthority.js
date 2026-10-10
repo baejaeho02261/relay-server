@@ -105,24 +105,10 @@ function ArtifactReason(artifact, policy) {
 }
 function RequireArtifact(artifact) { const reason = ArtifactReason(artifact, Policy()) || require('./desktopSecurityOperations').ArtifactReason(artifact); if (reason) Fail(reason); }
 function PeCapabilities(bytes) {
-  // Only metadata of administrator-uploaded bytes, never a client capability claim.
-  const authorityVersion = bytes.includes(Buffer.from(DOMAIN)) || bytes.includes(Buffer.from(DOMAIN, 'utf16le')) ? 1 : 0;
-  let compiledCfg = false;
-  try {
-    const pe = bytes.readUInt32LE(0x3c), opt = pe + 24, optSize = bytes.readUInt16LE(pe + 20), count = bytes.readUInt16LE(pe + 6);
-    if (bytes.readUInt16LE(opt) === 0x20b && optSize >= 200 && (bytes.readUInt16LE(opt + 70) & 0x4000) && bytes.readUInt32LE(opt + 108) > 10) {
-      const rva = bytes.readUInt32LE(opt + 112 + 80), size = bytes.readUInt32LE(opt + 116 + 80);
-      for (let i = 0; i < count; i++) {
-        const at = opt + optSize + i * 40, va = bytes.readUInt32LE(at + 12), rawSize = bytes.readUInt32LE(at + 16), raw = bytes.readUInt32LE(at + 20);
-        if (size >= 148 && rva >= va && rva - va + 148 <= rawSize && raw + rva - va + 148 <= bytes.length) {
-          const lc = raw + rva - va;
-          compiledCfg = bytes.readUInt32LE(lc) >= 148 && (bytes.readUInt32LE(lc + 144) & 0x500) === 0x500 && bytes.readBigUInt64LE(lc + 136) > 0n;
-        }
-      }
-    }
-  } catch (_) { compiledCfg = false; }
-  return { authorityVersion, compiledCfg };
+  const {authorityVersion,compiledCfg}=require('./desktopPeCache').Get(bytes,'capabilities') || require('./peCapabilities').PeCapabilities(bytes);
+  return {authorityVersion,compiledCfg};
 }
+
 function PublishMetadata(component, version, bytes, approval) {
   const row = { component, version, hashVersion:3,sha512: sha(bytes), legacyRevocationSha256:crypto.createHash('sha256').update(bytes).digest('hex'), ...PeCapabilities(bytes) };
   if (approval !== undefined) { Fields(approval, ['keyId', 'signature']); row.releaseApproval = structuredClone(approval); }
@@ -236,11 +222,12 @@ function Canonical(body, challenge, payload) {
 }
 function Payload(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail('SECURITY_INPUT_INVALID', 400);
-  let value; try { value = JSON.parse(text); } catch (_) { Fail('SECURITY_INPUT_INVALID', 400); }
-  Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg']);
+  let value; try { value = require('./strictJson').Parse(text); } catch (_) { Fail('SECURITY_INPUT_INVALID', 400); }
+  Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg', 'mitigationDiagnostics']);
   if (value.hashVersion !== 3 || value.version !== 1 || !['MEASURED', 'READ_ERROR'].includes(value.measurement) ||
       typeof value.apiSealed !== 'boolean' || !Number.isInteger(value.apiSlots) || value.apiSlots < 0 || value.apiSlots > 1024 ||
       !['UNAVAILABLE', 'ALLOWED', 'PROHIBITED'].includes(value.dynamicCode) || !['UNAVAILABLE', 'DISABLED', 'ENABLED'].includes(value.cfg)) Fail('SECURITY_INPUT_INVALID', 400);
+  if(value.mitigationDiagnostics!==undefined){try{require('./mitigationContract').Validate(value.mitigationDiagnostics,value.dynamicCode,value.cfg);}catch(_){Fail('SECURITY_INPUT_INVALID',400);}}
   for (const k of ['fileSha512', 'codeSha512']) if (typeof value[k] !== 'string' || !(value.measurement === 'READ_ERROR' && value[k] === '') && !/^[a-f0-9]{128}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
   for (const k of ['fileCrc64', 'codeCrc64']) if (typeof value[k] !== 'string' || !(value.measurement === 'READ_ERROR' && value[k] === '') && !/^[A-F0-9]{16}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
   if(value.measurement==='MEASURED'&&!require('./desktopCrcPolicy').Validate(value.crcLayers))Fail('SECURITY_INPUT_INVALID',400);
@@ -274,6 +261,7 @@ function Submit(body) {
   const challenge = pending.get(body.challengeId), context = Context(row, body.stage);
   if (!challenge || challenge.context !== context || challenge.intent !== body.intent || challenge.binding !== body.binding || challenge.revision !== policy.revision || challenge.operationsRevision!==require('./desktopSecurityOperations').Revision()) Fail('SECURITY_CHALLENGE_INVALID', 401);
   const value = Payload(body.payload);
+  if(value.mitigationDiagnostics && value.mitigationDiagnostics.requestedMode!==policy.dynamicCode)Fail('SECURITY_INPUT_INVALID',400);
   if (typeof body.signature !== 'string' || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature) || Buffer.from(body.signature, 'base64').toString('base64') !== body.signature) Fail('SECURITY_SIGNATURE_INVALID', 401);
   const key = require('./desktopLicenses').ParseKey(row.publicKey).key;
   if (!crypto.verify('sha256', Buffer.from(Canonical(body, challenge, body.payload)), { key, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(body.signature, 'base64'))) Fail('SECURITY_SIGNATURE_INVALID', 401);
@@ -359,7 +347,7 @@ function List() {
     signaturePresent: !!row.releaseApproval, signatureValid: !!row.releaseApproval && VerifyApproval(row, policy),
     signerKeyId: row.releaseApproval?.keyId || '', policyReason: ArtifactReason(row, policy)
   }));
-  return { policy, releases, recentBuildObservations:RecentBuildObservations(), operations:require('./desktopSecurityOperations').List(), events: events.slice().reverse(), pendingCount: pending.size,
+  return { runtimeLoad:require('./desktopWorkQueue').Snapshot(), policy, releases, recentBuildObservations:RecentBuildObservations(), operations:require('./desktopSecurityOperations').List(), events: events.slice().reverse(), pendingCount: pending.size,
     decisionCount: decisions.size, attested: false,
     persistence: 'policy and audit: server; fresh decisions: server RAM only' };
 }

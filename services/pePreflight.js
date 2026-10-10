@@ -1,27 +1,7 @@
 'use strict';
-// CRC64-ECMA-182: non-reflected, init=0, xorout=0. This checksum detects
-// accidental corruption only; SHA-512 + authenticated transport/signatures
-// remain mandatory for security. No client memory attestation is implied.
-const crypto=require('node:crypto'),high=new Uint32Array(256),low=new Uint32Array(256);
-const {ExtendedDigests}=require('./extendedHashes');
-for(let i=0;i<256;i++){
- let value=BigInt(i)<<56n;
- for(let bit=0;bit<8;bit++)value=BigInt.asUintN(64,(value<<1n)^((value&0x8000000000000000n)?0x42F0E1EBA9EA3693n:0n));
- high[i]=Number(value>>32n);low[i]=Number(value&0xffffffffn);
-}
-function Crc64(bytes){
- if(!Buffer.isBuffer(bytes)&&!(bytes instanceof Uint8Array))throw TypeError('INTEGRITY_BYTES_REQUIRED');
- let hi=0,lo=0;
- for(let i=0;i<bytes.length;i++){const index=(hi>>>24)^bytes[i];hi=(((hi<<8)|(lo>>>24))^high[index])>>>0;lo=((lo<<8)^low[index])>>>0;}
- return hi.toString(16).padStart(8,'0').toUpperCase()+lo.toString(16).padStart(8,'0').toUpperCase();
-}
-function Digests(bytes){const cached=require('./desktopPeCache').Get(bytes,'digests');if(cached)return cached;return {hashVersion:3,sha512:crypto.createHash('sha512').update(bytes).digest('hex'),crc64:Crc64(bytes),...ExtendedDigests(bytes)};}
-// A server-generated baseline from pristine uploaded PE bytes. A client report
-// is evidence, not hardware attestation: a compromised verifier can lie.
-const CODE_PREFIX=Buffer.from('GAME-CODE-V1\0','ascii');
-function CodeImage(bytes){
- const cached=require('./desktopPeCache').Get(bytes,'code');if(cached)return cached;
- const bad=()=>{throw Error('BOOTSTRAP_PE_INVALID');};
+// PE preflight V1: also embedded verbatim into standalone approval tools.
+function ValidatePeImage(bytes,reject){
+ const bad=()=>reject('BOOTSTRAP_PE_INVALID');
  if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>64*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
  const pe=bytes.readUInt32LE(0x3c);if(pe<64||pe>bytes.length-24||bytes.readUInt32LE(pe)!==0x4550||bytes.readUInt16LE(pe+4)!==0x8664)bad();
  const count=bytes.readUInt16LE(pe+6),opt=pe+24,optSize=bytes.readUInt16LE(pe+20),table=opt+optSize;
@@ -35,8 +15,8 @@ function CodeImage(bytes){
   const protectedCode=!!(flags&0x20000000)&&!(flags&0x80000000);if(protectedCode){total+=span;if(total>64*1024*1024)bad();}
   sections.push({rva,span,mapped,raw,rawSize,flags,protectedCode});
  }
- require('./pePreflight').ValidatePeExceptionTable(bytes,opt,dirCount,sections,code=>{throw Error(code);});
  const protectedSections=sections.filter(s=>s.protectedCode).sort((a,b)=>a.rva-b.rva);if(!protectedSections.length)bad();
+ ValidatePeExceptionTable(bytes,opt,dirCount,sections,reject);
  for(const section of protectedSections){section.bytes=Buffer.alloc(section.span);bytes.copy(section.bytes,0,section.raw,section.raw+Math.min(section.rawSize,section.span));}
  const rawAt=(rva,length)=>{if(!Number.isSafeInteger(length)||length<0)bad();if(rva<headerSize&&rva+length<=headerSize)return rva;const s=sections.find(s=>rva>=s.rva&&rva+length<=s.rva+s.rawSize);if(!s)bad();return s.raw+(rva-s.rva);};
  const relocRva=dirCount>5?bytes.readUInt32LE(opt+112+5*8):0,relocSize=dirCount>5?bytes.readUInt32LE(opt+116+5*8):0;
@@ -56,10 +36,28 @@ function CodeImage(bytes){
   }
   seen.sort((a,b)=>a[0]-b[0]);for(let i=1;i<seen.length;i++)if(seen[i][0]<seen[i-1][1])bad();
  }
- const head=Buffer.alloc(CODE_PREFIX.length+4);CODE_PREFIX.copy(head);head.writeUInt32LE(protectedSections.length,CODE_PREFIX.length);const chunks=[head];
- for(const s of protectedSections){const meta=Buffer.alloc(8);meta.writeUInt32LE(s.rva);meta.writeUInt32LE(s.span,4);chunks.push(meta,s.bytes);}
- const normalized=Buffer.concat(chunks),crc=require('./crcLayers'),exports=require('./desktopPeExports').ExportTable(bytes);
- const crcLayers=crc.measureCrcLayers({code:normalized,headers:crc.headerMetadata(bytes),exports:exports.normalized||Buffer.alloc(0),checkers:crc.checkerStreams(normalized,crc.checkerPlan(bytes))});
- return {...Digests(normalized),crcLayers,algorithm:'PE64-CODE-V1',sections:protectedSections.map(({rva,span})=>({rva,span})),relocations};
+ return true;
 }
-module.exports={Crc64,Digests,CodeImage};
+function ValidatePeExceptionTable(bytes,opt,dirCount,sections,reject){
+ // Read-only preflight: normalization belongs to the completed build, before
+ // detached approval binds its SHA-512. Server CRC/coverage checks still apply.
+ const rva=dirCount>3?bytes.readUInt32LE(opt+136):0,size=dirCount>3?bytes.readUInt32LE(opt+140):0;
+ if(!rva&&!size)return; // The server separately determines missing CRC coverage.
+ const bad=()=>reject('PE_EXCEPTION_TABLE_INVALID');
+ if(!rva||rva%4||!size||size%12||size>16*1024*1024)bad();
+ const locate=(at,length)=>sections.find(s=>at>=s.rva&&at+length<=s.rva+Math.min(s.rawSize,s.span));
+ const table=locate(rva,size);
+ if(!table||(table.flags&0x80000000)||(table.flags&0x20000000))bad();
+ const raw=table.raw+rva-table.rva,end=raw+size;let previousBegin=-1,previousEnd=0;
+ for(let at=raw;at<end;at+=12){
+  const begin=bytes.readUInt32LE(at),finish=bytes.readUInt32LE(at+4),unwind=bytes.readUInt32LE(at+8);
+  if(finish<=begin||unwind%4)bad();
+  const code=locate(begin,finish-begin),metadata=locate(unwind,4);
+  if(!code||!(code.flags&0x20000000)||(code.flags&0x80000000)||!metadata||!(metadata.flags&0x40000000)||(metadata.flags&0x20000000))bad();
+  if(begin<previousBegin)reject('PE_EXCEPTION_TABLE_UNSORTED');
+  if(begin<previousEnd)bad();
+  previousBegin=begin;previousEnd=finish;
+ }
+}
+
+module.exports={ValidatePeImage,ValidatePeExceptionTable};
