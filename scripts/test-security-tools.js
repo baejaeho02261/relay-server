@@ -86,7 +86,7 @@ try{
    const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_COMPONENT:'O',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_KEY:path.join(temp,'must-not-be-opened.pem'),GC_APPROVAL_OUTPUT:output}});
    assert.equal(result.status,1,name);assert.equal(result.stderr.trim(),code,name);assert.equal(result.stdout,'',name);
    assert.equal(fs.existsSync(output),false,name);assert.deepEqual(fs.readFileSync(file),bytes,name);
-   assert.throws(()=>require('../services/desktopIntegrity').CodeImage(bytes),/CRC_CHECKER_PLAN_INVALID/,name);
+   assert.throws(()=>require('../services/desktopIntegrity').CodeImage(bytes),new RegExp(code),name);
   }
  });
  Test('Approval preflight preserves A/B/O signatures and leaves absent unwind coverage to the server',()=>{
@@ -109,6 +109,11 @@ try{
   const b=PE('B',a.DOMAIN),pe=b.readUInt32LE(0x3c),opt=pe+24,lc=768;
   b.writeUInt16LE(b.readUInt16LE(opt+70)|0x4000,opt+70);b.writeUInt32LE(0x1100,opt+112+80);b.writeUInt32LE(148,opt+116+80);
   b.writeUInt32LE(148,lc);b.writeBigUInt64LE(1n,lc+136);b.writeUInt32LE(0x500,lc+144);
+  assert.equal(a.PeCapabilities(b).compiledCfg,false,'Flags/count without guard pointers are not CFG');
+  const imageBase=b.readBigUInt64LE(opt+24);
+  b.writeBigUInt64LE(imageBase+0x1180n,lc+112);
+  b.writeBigUInt64LE(imageBase+0x11a0n,lc+128);
+  b.writeUInt32LE(0x1000,512+0x1a0);
   assert.equal(a.PeCapabilities(b).compiledCfg,true);
   const small=Buffer.from(b);small.writeUInt32LE(140,opt+116+80);assert.equal(a.PeCapabilities(small).compiledCfg,false);
   const pointer=Buffer.from(b);pointer.writeUInt32LE(0xfffffff0,opt+112+80);assert.equal(a.PeCapabilities(pointer).compiledCfg,false);
@@ -124,8 +129,8 @@ try{
  Test('Challenge/canonical Delphi field contract stays in sync',()=>{
   const client=path.resolve(__dirname,'../../GameConnect_Win64/Game.ServerAuthority.pas');
   const text=fs.readFileSync(client,'utf8');assert.match(text,/Challenge\.Count <> 8/);assert.match(text,/Reply\.Count <> 8/);assert.ok(text.includes(a.DOMAIN));
-  const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,14);assert.equal(new Set(fields).size,14);
-  for(const name of ['version','hashVersion','codeXxh3_128','codeBlake3','crcLayers','measurement','fileSha512','fileCrc64','codeSha512','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg'])assert.ok(fields.includes(name));
+  const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,15);assert.equal(new Set(fields).size,15);
+  for(const name of ['version','hashVersion','codeXxh3_128','codeBlake3','crcLayers','measurement','fileSha512','fileCrc64','codeSha512','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg','mitigationDiagnostics'])assert.ok(fields.includes(name));
   const body={stage:'B',sessionId:'SID',intent:'verify',binding:'BIND'},c={challengeId:'CID',nonce:'NONCE',epoch:'EPOCH',sequence:7,revision:2,expiresAt:12345};
   assert.equal(a.Canonical(body,c,'{}'),[a.DOMAIN,'B','SID','verify','BIND','CID','NONCE','EPOCH','7','2','12345',sha512('{}')].join('\n'));
  });

@@ -32,7 +32,8 @@ const checks = [
   ['test-desktop-integrity-reports.js'], ['test-integrity-rejection-reasons.js'], ['test-desktop-integrity-reports.js', '--sqlite'],
   ['test-desktop-retirement.js'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
   ['test-desktop-connect.js'], ['test-desktop-connect.js', '--sqlite'],
-  ['test-desktop-admin-ui.js'], ['test-integrity-display.js'], ['test-overlay-admin-ui.js'], ['test-web-ui-cache.js']
+  ['test-desktop-admin-ui.js'], ['test-integrity-display.js'], ['test-overlay-admin-ui.js'], ['test-web-ui-cache.js'],
+  ['test-hardening-protocol.js'], ['test-hardening-work-queue.js'], ['test-hardening-measurement.js'], ['test-hardening-pe-corpus.js']
 ];
 for (const [name, ...args] of checks) {
   const result = spawnSync(process.execPath, [path.join(__dirname, name), ...args], {
