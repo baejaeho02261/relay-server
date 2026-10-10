@@ -7,13 +7,19 @@ process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE='json';process.env.HA_ENABL
 require('../core/utils').EnsureDirs();
 const transport=require('../services/desktopConnect'),keys=require('../services/connectTransportKey');
 const fixture=require('./desktop-bootstrap-fixture'),authority=require('../services/desktopSecurityAuthority');
-const device=fixture.Device();let profile,server;
+const device=fixture.Device();let profile,server,lastFrame;
 async function Round(body){
  const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID();
  const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(transport.Aad('REQUEST',requestId,profile.serverKeyId));
  const clear=JSON.stringify({operation:'security',body}),encrypted=Buffer.concat([cipher.update(clear,'utf8'),cipher.final()]);
  const frame={v:1,keyId:profile.serverKeyId,requestId,wrappedKey:crypto.publicEncrypt({key:require('../services/desktopLicenses').ParseKey(profile.serverPublicKey).key,oaepHash:'sha256',padding:crypto.constants.RSA_PKCS1_OAEP_PADDING},key).toString('base64'),nonce:nonce.toString('base64'),ciphertext:encrypted.toString('base64'),tag:cipher.getAuthTag().toString('base64')};
- const response=await new Promise((resolve,reject)=>{
+ lastFrame=frame;const response=await Wire(frame);
+ const out=JSON.parse(response);assert.equal(out.requestId,requestId);assert.notEqual(out.nonce,frame.nonce);
+ const decipher=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(out.nonce,'base64'));decipher.setAAD(transport.Aad('RESPONSE',requestId,profile.serverKeyId));decipher.setAuthTag(Buffer.from(out.tag,'base64'));
+ return JSON.parse(Buffer.concat([decipher.update(Buffer.from(out.ciphertext,'base64')),decipher.final()]).toString('utf8'));
+}
+async function Wire(frame){
+ return new Promise((resolve,reject)=>{
   let text='',failed=false;
   const socket=tls.connect({host:profile.host,port:profile.port,servername:profile.tlsServerName,rejectUnauthorized:false,minVersion:'TLSv1.2'});
   function failure(error){failed=true;socket.destroy();reject(error);}
@@ -22,9 +28,6 @@ async function Round(body){
   socket.on('data',chunk=>{text+=chunk.toString();if(text.length>1024*1024)failure(Error('TEST_LIMIT'));});
   socket.once('error',failure);socket.once('close',()=>{if(!failed)resolve(text);});
  });
- const out=JSON.parse(response);assert.equal(out.requestId,requestId);assert.notEqual(out.nonce,frame.nonce);
- const decipher=crypto.createDecipheriv('aes-256-gcm',key,Buffer.from(out.nonce,'base64'));decipher.setAAD(transport.Aad('RESPONSE',requestId,profile.serverKeyId));decipher.setAuthTag(Buffer.from(out.tag,'base64'));
- return JSON.parse(Buffer.concat([decipher.update(Buffer.from(out.ciphertext,'base64')),decipher.final()]).toString('utf8'));
 }
 (async()=>{
  try{
@@ -43,11 +46,19 @@ async function Round(body){
   const payload=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:session.release.sha512,fileCrc64:session.release.crc64,codeSha512:session.release.codeSha512,codeCrc64:session.release.codeCrc64,codeXxh3_128:session.release.codeXxh3_128,codeBlake3:session.release.codeBlake3,crcLayers:boot.AuthenticateIntegrityReport(ctx).integrityArtifact.crcLayers,apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'});
   const proof={...ctx,action:'submit',challengeId:first.data.challengeId,payload,signature:fixture.Sign(device,authority.Canonical(ctx,first.data,payload))};
   const submitted=await Round(proof);assert.equal(submitted.ok,true,JSON.stringify(submitted));assert.equal(submitted.data.status,'PASS');assert.equal(submitted.data.attested,false);
-  const replay=await Round(proof);assert.equal(replay.ok,false);assert.equal(replay.error,'SECURITY_CHALLENGE_INVALID');
+  const acceptedFrame=lastFrame,before=authority.List(),flowBefore=boot.AuthenticateIntegrityReport(ctx);
+  const replay=await Round(proof);assert.deepEqual(replay,submitted,'fresh encrypted frame recovers the exact signed submit response');
+  const after=authority.List();assert.equal(after.decisionCount,before.decisionCount);assert.deepEqual(after.events,before.events,'retry must not emit a second observation');assert.deepEqual(after.recentBuildObservations,before.recentBuildObservations,'retry must not change observation time/count');
+  const flowAfter=boot.AuthenticateIntegrityReport(ctx);for(const key of ['sessionExpiresAt','lastVerifiedAt','lastCodeVerifiedAt'])assert.equal(flowAfter[key],flowBefore[key]);
+  const changed=await Round({...proof,payload:proof.payload+' '});assert.equal(changed.ok,false);assert.equal(changed.error,'SECURITY_REQUEST_REUSED');
+  assert.equal(await Wire(acceptedFrame),'','reusing the outer encrypted frame remains CONNECT_REPLAY and receives no response');
+  assert.deepEqual(authority.List().events,before.events);
+  const originalNow=Date.now;try{Date.now=()=>submitted.data.expiresAt;assert.throws(()=>authority.RequireFresh(boot.AuthenticateIntegrityReport(ctx),'B','verify',ctx.binding),/SECURITY_FRESH_OBSERVATION_REQUIRED/);}finally{Date.now=originalNow;}
+
   const invalid=await Round({...ctx,machineId:'0'.repeat(64)});assert.equal(invalid.ok,false);assert.equal(invalid.error,'BOOTSTRAP_SESSION_INVALID');
   const wrongSlotsChallenge=await Round(ctx),wrongSlots=JSON.stringify({...JSON.parse(payload),apiSlots:1});
   const wrongSlotsResult=await Round({...ctx,action:'submit',challengeId:wrongSlotsChallenge.data.challengeId,payload:wrongSlots,signature:fixture.Sign(device,authority.Canonical(ctx,wrongSlotsChallenge.data,wrongSlots))});
   assert.equal(wrongSlotsResult.data.proceed,false);assert.equal(wrongSlotsResult.data.reason,'API_SLOT_COUNT_MISMATCH');
-  console.log('Security wire PASS: new-protocol A/finish gate and B build-contract slot check, TLS pin/name/time, encrypted challenge+signed submit, replay rejection, wrong-machine rejection. No Windows binary executed.');
+  console.log('Security wire PASS: new-protocol A/finish gate and B build-contract slot check, TLS pin/name/time, encrypted challenge+signed submit, exact inner-response recovery without expiry/observation duplication, changed-body rejection, outer-frame replay rejection, original decision expiry, wrong-machine rejection. No Windows binary executed.');
  }finally{if(server)await new Promise(resolve=>server.close(resolve));fs.rmSync(temp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

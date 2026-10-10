@@ -41,7 +41,7 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     PImGuiHost: 'ptr', TImGuiContext: 'ptr', PAnsiChar: 'ptr'
   };
   const cExports = new Map();
-  for (const [, result, name, params] of cHeader.matchAll(/\b(void|int32_t|uint32_t)\s+GAME_IMGUI_CALL\s+(game_imgui_\w+)\(([^)]*)\)\s*;/g)) {
+  for (const [, result, name, params] of cHeader.matchAll(/\b(void|int32_t|uint32_t)\s+GAME_IMGUI_CALL\s+(game_imgui_\w+)\(([^)]*)\)\s*GAME_IMGUI_NOEXCEPT\s*;/g)) {
     const args = params.trim() === 'void' ? [] : params.split(',').map(param => {
       const type = param.trim().replace(/\s*\b\w+$/, '').trim().replace(/\s*\*\s*/g, '*');
       assert(cTypes[type], 'Unknown C ABI type ' + type);
@@ -85,7 +85,7 @@ check('Host callback layout is versioned and checked before static-object creati
   assert.match(pascal, /TImGuiAlloc\s*=\s*function\(Bytes: NativeUInt\): Pointer; cdecl;/);
   assert.match(pascal, /TImGuiFree\s*=\s*procedure\(Memory: Pointer\); cdecl;/);
   assert.match(pascal, /\{\$ALIGN 8\}/);
-  assert.match(pascal, /ImGuiHostABIVersion\s*=\s*1;/);
+  assert.match(pascal, /ImGuiHostABIVersion\s*=\s*2;/);
   assert.match(pascal, /ImGuiHostBytes\s*=\s*32;/);
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
   inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'game_imgui_create(Pointer(Window), @Host, Result)'], 'Host validation');
@@ -100,7 +100,8 @@ check('Native callback IDs resolve the intended API names through the existing e
     ['GI_PROC_D3D_COMPILE', 'd3dcompiler_47.dll', 'D3DCompile'],
     ['GI_PROC_CRT_VSPRINTF', 'ucrtbase.dll', '__stdio_common_vsprintf'],
     ['GI_PROC_CRT_VSSCANF', 'ucrtbase.dll', '__stdio_common_vsscanf'],
-    ...['strtod', 'acos', 'atan2', 'ceil', 'cos', 'fabs', 'floor', 'fmod', 'log', 'pow', 'sin', 'sqrt'].map(name => ['GI_PROC_' + name.toUpperCase(), 'ucrtbase.dll', name])
+    ...['strtod', 'acos', 'atan2', 'ceil', 'cos', 'fabs', 'floor', 'fmod', 'log', 'pow', 'sin', 'sqrt'].map(name => ['GI_PROC_' + name.toUpperCase(), 'ucrtbase.dll', name]),
+    ['GI_PROC_THREAD_ID', 'kernel32.dll', 'GetCurrentThreadId']
   ];
   const ror13 = name => [...Buffer.from(name)].reduce((hash, value) => (((hash >>> 13) | (hash << 19)) + value) >>> 0, 0);
   const ids = new Map([...cHeader.matchAll(/\b(GI_PROC_\w+)\s*=\s*(\d+)/g)].map(m => [m[1], Number(m[2])]));

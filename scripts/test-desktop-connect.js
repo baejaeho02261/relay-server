@@ -43,6 +43,7 @@ async function Proof(device,action,payload,requestId=crypto.randomUUID()){
 }
 async function Call(device,action,payload,requestId){return Round('execute',await Proof(device,action,payload,requestId));}
 async function Check(label,fn){await fn();checks++;console.log('PASS '+label);}
+function IsolatedRead(script){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-read-'));try{fs.cpSync(temp,copy,{recursive:true,filter:source=>!path.basename(source).startsWith('.desktop-single-writer.sqlite')});return require('node:child_process').execFileSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:copy},encoding:'utf8'}).trim();}finally{fs.rmSync(copy,{recursive:true,force:true});}}
 async function AdminProfile(session){let status,value;const res={writeHead(code){status=code;},end(text){value=JSON.parse(text);}};await require('../web/routes/desktopLicenseRoutes').Handle({method:'GET',pathname:'/api/desktop/connect-profile',url:new URL('http://localhost/api/desktop/connect-profile'),body:{},res,session});return {status,value};}
 (async()=>{
  try{
@@ -57,8 +58,8 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await Check('Persisted server key is stable, private, and never silently replaced',async()=>{
    if(process.platform!=='win32')assert.equal(fs.statSync(keys.KEY_FILE).mode&0o777,0o600);
    const child=require('node:child_process'),root=path.resolve(__dirname,'..'),script="const root=process.cwd();console.log(require(root+'/services/connectTransportKey').Load().keyId);";
-   assert.equal(child.execFileSync(process.execPath,['-e',script],{cwd:root,env:process.env,encoding:'utf8'}).trim(),profile.serverKeyId);
-   for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-key-'));fs.cpSync(temp,copy,{recursive:true});if(kind==='missing')fs.unlinkSync(path.join(copy,path.basename(keys.KEY_FILE)));else fs.writeFileSync(path.join(copy,path.basename(keys.ID_FILE)),'0'.repeat(64)+'\n');const result=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(result.status,0);assert.match(result.stderr,/CONNECT_SERVER_KEY_(MISSING|CHANGED)/);}
+   assert.equal(IsolatedRead(script),profile.serverKeyId);
+   for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-key-'));fs.cpSync(temp,copy,{recursive:true,filter:source=>!path.basename(source).startsWith('.desktop-single-writer.sqlite')});if(kind==='missing')fs.unlinkSync(path.join(copy,path.basename(keys.KEY_FILE)));else fs.writeFileSync(path.join(copy,path.basename(keys.ID_FILE)),'0'.repeat(64)+'\n');const result=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(result.status,0);assert.match(result.stderr,/CONNECT_SERVER_KEY_(MISSING|CHANGED)/);}
   });
   await Check('TLS pin, TLS versions and AEAD-only cipher negotiation fail closed',async()=>{
    await assert.rejects(Wire('anything',4000,{pin:'0'.repeat(64)}),/TEST_TLS_PIN_INVALID/);
@@ -69,8 +70,8 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   await Check('TLS certificate identity persists and missing or changed identity never regenerates',async()=>{
    const identity=require('../services/connectTls').Load(),child=require('node:child_process'),root=path.resolve(__dirname,'..');
    assert.equal(identity.fingerprint,profile.tlsCertificateSha256);if(process.platform!=='win32')assert.equal(fs.statSync(identity.keyFile).mode&0o777,0o600);
-   const script="console.log(require(require('node:path').resolve('services/connectTls')).Load().fingerprint)";assert.equal(child.execFileSync(process.execPath,['-e',script],{cwd:root,env:process.env,encoding:'utf8'}).trim(),profile.tlsCertificateSha256);
-   for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-tls-'));try{fs.cpSync(temp,copy,{recursive:true});if(kind==='missing')fs.rmSync(path.join(copy,'connect-tls'),{recursive:true});else fs.writeFileSync(path.join(copy,'connect-tls.sha256'),'0'.repeat(64)+'\n');const out=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(out.status,0);assert.match(out.stderr,/CONNECT_TLS_IDENTITY_(MISSING|CHANGED)/);}finally{fs.rmSync(copy,{recursive:true,force:true});}}
+   const script="console.log(require(require('node:path').resolve('services/connectTls')).Load().fingerprint)";assert.equal(IsolatedRead(script),profile.tlsCertificateSha256);
+   for(const kind of ['missing','changed']){const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-connect-tls-'));try{fs.cpSync(temp,copy,{recursive:true,filter:source=>!path.basename(source).startsWith('.desktop-single-writer.sqlite')});if(kind==='missing')fs.rmSync(path.join(copy,'connect-tls'),{recursive:true});else fs.writeFileSync(path.join(copy,'connect-tls.sha256'),'0'.repeat(64)+'\n');const out=child.spawnSync(process.execPath,['-e',script],{cwd:root,env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.notEqual(out.status,0);assert.match(out.stderr,/CONNECT_TLS_IDENTITY_(MISSING|CHANGED)/);}finally{fs.rmSync(copy,{recursive:true,force:true});}}
   });
   await Check('Plaintext, wrong pin and wrong RSA recipient never receive success',async()=>{
    for(const raw of ['HELLO|CLIENT|old\n',JSON.stringify(Envelope({operation:'challenge',body:{}}).frame)+'\n']){const reply=await PlainWire(raw);assert.ok(!reply.toString().includes('ciphertext'));assert.ok(!reply.toString().includes('ok'));}
@@ -87,6 +88,13 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    const envelope=Envelope({operation:'challenge',body:{}}),raw=await Wire(envelope.wire),result=Decode(envelope,raw);assert.equal(result.ok,false);assert.equal(result.error,'INPUT_INVALID');assert.ok(!raw.includes('INPUT_INVALID'));assert.equal(await Wire(envelope.wire),'');
    assert.equal(await Wire(envelope.wire+envelope.wire),'');assert.equal(await Wire(' '.repeat(transport.MAX_FRAME+1)),'');
   });
+  await Check('Every encrypted operation rejects actions from another purpose before mutation',async()=>{
+   const revision=desktop.DB().revision;
+   for(const [operation,action,error] of [['security','redeem','SECURITY_INPUT_INVALID'],['security','overlayClose','SECURITY_INPUT_INVALID'],['report','release','INTEGRITY_REPORT_INVALID'],['report','overlayAbort','INTEGRITY_REPORT_INVALID'],['bootstrap','submit','BOOTSTRAP_INPUT_INVALID'],['bootstrap','redeem','BOOTSTRAP_INPUT_INVALID'],['bootstrap','toString','BOOTSTRAP_INPUT_INVALID'],['execute','submit','INPUT_INVALID'],['challenge','overlayClaim','INPUT_INVALID']]){
+    const response=await Round(operation,{action});assert.equal(response.ok,false);assert.equal(response.error,error);
+   }
+   assert.equal(desktop.DB().revision,revision);
+  });
   await Check('Real A to B bootstrap and multi-chunk artifact delivery use encrypted TCP',async()=>{
    const bootstrap=bootstrapFixture.Publish(),artifact=Buffer.concat([bootstrapFixture.PE('B'),Buffer.alloc(300000,0x5a)]);bootstrap.Publish('B','80.0.1',artifact);
    const issued=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Encrypted bootstrap'},'TEST'),launcher=bootstrap.LauncherBytes(issued.launcherId),config=bootstrapFixture.Config(launcher);
@@ -102,7 +110,7 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    const reportChallenge=(await Round('report',{...reportAuth,action:'challenge'}));assert.equal(reportChallenge.ok,true,JSON.stringify(reportChallenge));
    const evidence=JSON.stringify({version:1,hashVersion:3,crcLayers:require('../services/desktopIntegrity').CodeImage(artifact).crcLayers,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:begin.release.codeSha512,codeCrc64:begin.release.codeCrc64,fileXxh3_128:begin.release.xxh3_128,fileBlake3:begin.release.blake3,codeXxh3_128:begin.release.codeXxh3_128,codeBlake3:begin.release.codeBlake3}}),rc=reportChallenge.data;
    const reportBody={...reportAuth,action:'submit',reportId:rc.reportId,payload:evidence,signature:bootstrapFixture.Sign(a,['GAME-INTEGRITY-REPORT-V2',session.sessionId,rc.reportId,rc.nonce,String(rc.expiresAt),sha512(Buffer.from(evidence))].join('\n'))};
-   const reportResult=await Round('report',reportBody);assert.equal(reportResult.ok,true,JSON.stringify(reportResult));assert.equal(reportResult.data.status,'VERIFIED');assert.equal(reportResult.data.terminate,false);assert.equal((await Round('report',reportBody)).error,'INTEGRITY_REPORT_CHALLENGE_INVALID');
+   const reportResult=await Round('report',reportBody);assert.equal(reportResult.ok,true,JSON.stringify(reportResult));assert.equal(reportResult.data.status,'VERIFIED');assert.equal(reportResult.data.terminate,false);assert.deepEqual((await Round('report',reportBody)).data,reportResult.data,'new outer frame recovers same inner signed report receipt');
    assert.equal((await Round('bootstrap',{action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken})).data.status,'CLOSED');bootstrap.Publish('B','80.0.2',bootstrapFixture.PE('B'));
   });
   let first,proof,token;

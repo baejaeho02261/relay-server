@@ -36,6 +36,10 @@ function Observe(context, device, patch) {
 }
 function Row(session) { return Object.values(boot.Initialize().flows).find(x => x.sessionId === session.sessionId); }
 function Fresh(session, intent, binding) { auth.RequireFresh(Row(session), 'B', intent, binding); }
+function NewSession(device) {
+  const started = Begin(device); Download(started.begin);
+  return Claim(device, started.begin, Finish(device, started.begin));
+}
 function LeaseProof(device, session, action, requestId, extra) {
   const payloadJSON = JSON.stringify({ ...fixture.Evidence(device, session), ...extra,
     bootstrapSessionId: session.sessionId, bootstrapSessionToken: session.sessionToken });
@@ -74,7 +78,8 @@ Check('One-use challenge, context binding and signature verification are enforce
   Reject(() => auth.Execute({...signed,intent:'redeem'}), 'SECURITY_CHALLENGE_INVALID');
   Reject(() => auth.Execute(Signed(ctx,c,Device())), 'SECURITY_SIGNATURE_INVALID');
   const out = auth.Execute(signed); assert.equal(Object.keys(out).length, 8); assert.equal(out.status,'PASS');
-  Reject(() => auth.Execute(signed), 'SECURITY_CHALLENGE_INVALID');
+  assert.deepEqual(auth.Execute(signed), out, 'lost response recovers exact bounded receipt');
+  Reject(() => auth.Execute({...signed,payload:signed.payload+' '}), 'SECURITY_REQUEST_REUSED');
   Fresh(session,'verify',ctx.binding);
   Reject(() => Fresh(session,'redeem',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
   Reject(() => auth.Execute({...ctx,authorityVersion:0}), 'SECURITY_INPUT_INVALID');
@@ -107,6 +112,86 @@ Check('Expired challenges and decisions require new measurements', () => {
   try { Reject(()=>auth.Execute(submit),'SECURITY_CHALLENGE_INVALID'); } finally { Date.now=real; }
   Observe(ctx,dev); Date.now=()=>real()+auth.Policy().freshnessMs+10;
   try { Reject(()=>Fresh(session,'verify',ctx.binding),'SECURITY_FRESH_OBSERVATION_REQUIRED'); } finally { Date.now=real; }
+});
+Check('Captured responses cannot transfer to another session even with the same device key', () => {
+  const device = Device(), first = NewSession(device), second = NewSession(device), binding = sha512('same-operation');
+  const ctx1 = Context(device,'B',first,'verify',binding), ctx2 = Context(device,'B',second,'verify',binding);
+  const c1 = auth.Execute(ctx1), captured = Signed(ctx1,c1,device), c2 = auth.Execute(ctx2);
+  Reject(() => auth.Execute({...captured,sessionId:second.sessionId,sessionToken:second.sessionToken}), 'SECURITY_CHALLENGE_INVALID');
+  Reject(() => auth.Execute({...captured,sessionId:second.sessionId,sessionToken:second.sessionToken,challengeId:c2.challengeId}), 'SECURITY_SIGNATURE_INVALID');
+  Reject(() => Fresh(second,'verify',binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
+  assert.equal(auth.Execute(captured).status,'PASS');
+  assert.equal(auth.Execute(Signed(ctx2,c2,device)).status,'PASS');
+});
+Check('Every challenge field and the exact payload bytes are covered by the response signature', () => {
+  const device = Device(), s = NewSession(device), ctx = Context(device,'B',s,'verify',sha512('canonical-boundaries'));
+  const c = auth.Execute(ctx), signed = Signed(ctx,c,device);
+  const patches = [{nonce:'0'.repeat(48)},{epoch:'0'.repeat(48)},{sequence:c.sequence+1},
+    {revision:c.revision+1},{expiresAt:c.expiresAt+1},{challengeId:'0'.repeat(48)}];
+  for (const patch of patches) Reject(() => auth.Execute({...signed,
+    signature:Sign(device,auth.Canonical(ctx,{...c,...patch},signed.payload))}), 'SECURITY_SIGNATURE_INVALID');
+  Reject(() => auth.Execute({...signed,signature:Sign(device,auth.Canonical({...ctx,stage:'O'},c,signed.payload))}), 'SECURITY_SIGNATURE_INVALID');
+  Reject(() => auth.Execute({...signed,payload:JSON.stringify({...JSON.parse(signed.payload),apiSlots:61})}), 'SECURITY_SIGNATURE_INVALID');
+  Reject(() => auth.Execute({...signed,payload:JSON.stringify(JSON.parse(signed.payload),null,1)}), 'SECURITY_SIGNATURE_INVALID');
+  for (const patch of [{version:2},{hashVersion:2}]) Reject(() => auth.Execute(Signed(ctx,c,device,patch)), 'SECURITY_INPUT_INVALID');
+  Reject(() => Fresh(s,'verify',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
+  assert.equal(auth.Execute(signed).status,'PASS');
+});
+Check('Noncanonical base64 aliases cannot represent a second signature encoding', () => {
+  const device = Device(), s = NewSession(device), ctx = Context(device,'B',s,'verify',sha512('signature-encoding'));
+  const c = auth.Execute(ctx), signed = Signed(ctx,c,device), alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const at = signed.signature.length-3, alias = signed.signature.slice(0,at)+alphabet[alphabet.indexOf(signed.signature[at])+1]+'==';
+  assert.deepEqual(Buffer.from(alias,'base64'),Buffer.from(signed.signature,'base64'));
+  Reject(() => auth.Execute({...signed,signature:alias}), 'SECURITY_SIGNATURE_INVALID');
+  assert.equal(auth.Execute(signed).status,'PASS');
+});
+Check('A challenge that expires during RSA verification cannot create a decision', () => {
+  const device = Device(), s = NewSession(device), ctx = Context(device,'B',s,'verify',sha512('verification-deadline'));
+  const c = auth.Execute(ctx), signed = Signed(ctx,c,device), realNow = Date.now, realVerify = crypto.verify;
+  try {
+    crypto.verify = function(...args) {
+      const verified = Reflect.apply(realVerify,this,args); Date.now = () => c.expiresAt; return verified;
+    };
+    Reject(() => auth.Execute(signed), 'SECURITY_CHALLENGE_INVALID');
+  } finally { crypto.verify = realVerify; Date.now = realNow; }
+  Reject(() => Fresh(s,'verify',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
+  Reject(() => auth.Execute(signed), 'SECURITY_CHALLENGE_INVALID');
+});
+Check('A backward wall clock cannot extend a monotonic challenge deadline', () => {
+  const device = Device(), s = NewSession(device), ctx = Context(device,'B',s,'verify',sha512('monotonic-deadline'));
+  const c = auth.Execute(ctx), signed = Signed(ctx,c,device), realNow = Date.now, realVerify = crypto.verify;
+  const clock = require('node:perf_hooks').performance, priorNow = Object.getOwnPropertyDescriptor(clock,'now');
+  const expiredTick = clock.now()+auth.Policy().challengeMs+1, pastWall = realNow()-1000;
+  try {
+    crypto.verify = function(...args) {
+      const verified = Reflect.apply(realVerify,this,args);
+      Date.now = () => pastWall; Object.defineProperty(clock,'now',{configurable:true,value:() => expiredTick});
+      return verified;
+    };
+    Reject(() => auth.Execute(signed), 'SECURITY_CHALLENGE_INVALID');
+  } finally {
+    crypto.verify = realVerify; Date.now = realNow;
+    if (priorNow) Object.defineProperty(clock,'now',priorNow); else delete clock.now;
+  }
+  Reject(() => Fresh(s,'verify',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
+});
+Check('Pruning a newer decision never revives an older in-flight observation', () => {
+  const policy = auth.Policy(), realNow = Date.now;
+  try {
+    auth.SetPolicy({expectedRevision:policy.revision,freshnessMs:5000,challengeMs:30000},'TEST');
+    const device = Device(), s = NewSession(device), ctx = Context(device,'B',s,'verify',sha512('expired-ordering'));
+    const older = auth.Execute(ctx), captured = Signed(ctx,older,device), newer = auth.Execute(ctx);
+    assert.equal(auth.Execute(Signed(ctx,newer,device,{codeSha512:'0'.repeat(128)})).status,'MISMATCH');
+    const future = realNow()+6000; Date.now = () => future;
+    Reject(() => Fresh(s,'verify',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
+    Reject(() => auth.Execute(captured), 'SECURITY_OBSERVATION_REPLAY');
+    Reject(() => Fresh(s,'verify',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
+    assert.equal(Observe(ctx,device).status,'PASS');
+    Fresh(s,'verify',ctx.binding);
+  } finally {
+    Date.now = realNow;
+    auth.SetPolicy({expectedRevision:auth.Policy().revision,freshnessMs:policy.freshnessMs,challengeMs:policy.challengeMs},'TEST');
+  }
 });
 Check('License redeem and renew are bound to exact request ID and payload', () => {
   const key=licenses.Create({label:'server-authority-test'},'TEST');

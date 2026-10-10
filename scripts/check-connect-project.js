@@ -8,6 +8,11 @@ const root = path.resolve(__dirname, '../../GameConnect_Win64');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launcher'], ['GameOverlay','overlay']]) {
   const project = read(name + '.dproj');
+  assert.ok(!/GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)/i.test(project), 'Probe-only hooks must not be enabled in an application project');
+  assert.match(project, /<DCC_Define>GAME_APPLICATION_BUILD;/, 'Application builds must reject probe hooks');
+  for (const unit of ['Game.Startup.pas', 'Game.Handoff.Crypto.pas']) {
+    assert.ok(project.includes('DCCReference Include="'+unit+'"'), 'Missing required unit '+unit);
+  }
   const entries = [...project.matchAll(/<DelphiCompile\s+Include="([^"]+)"\s*>([\s\S]*?)<\/DelphiCompile>/g)];
   assert.equal(entries.length, 1, 'Exactly one primary Delphi compile item');
   assert.equal(entries[0][1], name + '.dpr');
@@ -26,6 +31,12 @@ for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launche
     assert.ok(fs.existsSync(path.join(root, file)), 'Missing project resource: ' + file);
   }
   const dpr = read(name + '.dpr');
+  assert.ok(!/GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)/i.test(dpr), 'Probe-only hooks must not be enabled in an application entry point');
+  assert.ok(dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') >= 0 && dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') < dpr.indexOf('{$I Game.Metadata.inc}'), 'Direct compiler builds must reject probe hooks');
+  const expectedRole = {GameLauncher:'gcrLauncher',GameConnect:'gcrConnect',GameOverlay:'gcrOverlay'}[name];
+  const seal = dpr.indexOf('SealApiPointerStorage;'), startup = dpr.indexOf('RequireNativeStartup('+expectedRole+');');
+  assert.ok(seal >= 0 && startup > seal, 'Native startup validation must follow API sealing');
+  assert.match(dpr.slice(startup), /RequireNativeStartup\(gcr(?:Launcher|Connect|Overlay)\);\s+ExitCode := Run/, 'Role-specific startup checks must precede application execution');
   assert.ok(dpr.includes('{$APPTYPE GUI}'));
   for (const [, res] of dpr.matchAll(/\{\$R\s+'([^']+)'\}/g)) {
     const bytes = fs.readFileSync(path.join(root, res));
@@ -44,6 +55,10 @@ for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launche
   }
 }
 assert.ok(!fs.existsSync(path.join(root, 'GameConnect.ico')));
+const metadata = read('Game.Metadata.inc');
+for (const hook of ['GAME_LICENSE_CONTRACT_TESTS', 'GAME_TLS_CONTRACT_TESTS', 'GAME_NATIVE_ABI_TESTS', 'GAME_HANDOFF_CONTRACT_TESTS']) {
+  assert.ok(metadata.includes('{$IFDEF '+hook+'}'), 'Missing product guard for '+hook);
+}
 const tls=read('Game.Tls.pas'), transport=read('GameConnectTransport.pas');
 assert.ok(transport.includes('.ConnectTLS('),'Every native request must use TLS');
 assert.ok(tls.includes('CertVerifyTimeValidity') && tls.includes('CryptHashCertificate2'));

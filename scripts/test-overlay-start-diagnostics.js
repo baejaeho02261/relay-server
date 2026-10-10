@@ -7,7 +7,7 @@ require('../core/utils').EnsureDirs();
 const fixture=require('./desktop-bootstrap-fixture'),bootstrap=require('../services/desktopBootstrap');
 const licenses=require('../services/desktopLicenses'),reports=require('../services/desktopIntegrityReports');
 const authority=require('../services/desktopSecurityAuthority'),workspace=require('../services/desktopWorkspace'),state=require('../core/state');
-const reasons=['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED'];
+const reasons=['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_CIPHER_FAILED','HANDOFF_DELEGATION_INVALID','HANDOFF_BOOTSTRAP_INVALID','HANDOFF_CHILD_BINDING_INVALID','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED'];
 let checks=0;
 function check(label,fn){fn();checks++;console.log('PASS '+label);}
 function reject(code,fn){assert.throws(fn,error=>error.message===code);}
@@ -55,7 +55,7 @@ try{
   for(const event of auditEvents){const value=JSON.parse(event.detail);assert.equal(value.sessionId,ctx.session.sessionId);assert.equal(value.flowId,bootstrap.AuthenticateIntegrityReport(ctx.auth).id);assert.equal(value.source,'SIGNED_CLIENT_REPORT');assert.equal(value.attested,false);}
   for(const text of [JSON.stringify(detail),JSON.stringify(auditEvents),fs.readFileSync(reports.FILE,'utf8')])for(const secret of [ctx.session.sessionToken,licensed.issued.licenseKey,licensed.activation.activationToken,ctx.device.publicKey])assert.ok(!text.includes(secret));
  });
- check('A used report challenge cannot be replayed',()=>reject('INTEGRITY_REPORT_CHALLENGE_INVALID',()=>reports.Execute(acceptedRequest)));
+ check('An exact diagnostic retry returns a receipt without another event',()=>{const revision=reports.List().revision,count=state.events.filter(row=>row.type==='DESKTOP_OVERLAY_START_FAILED').length;assert.equal(reports.Execute(acceptedRequest).terminate,false);assert.equal(reports.List().revision,revision);assert.equal(state.events.filter(row=>row.type==='DESKTOP_OVERLAY_START_FAILED').length,count);reject('INTEGRITY_REPORT_REQUEST_REUSED',()=>reports.Execute({...acceptedRequest,payload:acceptedRequest.payload+' '}));});
  check('A changed diagnostic still requires the actual B signing key',()=>{
   const request=signed(ctx);request.payload=JSON.stringify(payload('HANDOFF_PIPE_FAILED'));
   reject('INTEGRITY_REPORT_SIGNATURE_INVALID',()=>reports.Execute(request));

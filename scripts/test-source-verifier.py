@@ -8,9 +8,12 @@ with tempfile.TemporaryDirectory(prefix='source-verifier-') as tmp:
     root=Path(tmp);shutil.copytree(ROOT/'GameWeb',root/'GameWeb',ignore=shutil.ignore_patterns('node_modules','desktop-bootstrap','data','__pycache__'));shutil.copytree(ROOT/'GameConnect_Win64',root/'GameConnect_Win64')
     for name in json.loads((ROOT/'GameWeb/maintenance/source-manifest.json').read_text())['files']:
         rel=Path(name)
-        if len(rel.parts)==1:
+        if rel.parts[0] not in {'GameWeb','GameConnect_Win64'}:
+            assert not rel.is_absolute() and '..' not in rel.parts
+            (root/rel).parent.mkdir(parents=True,exist_ok=True)
             shutil.copy2(ROOT/rel,root/rel)
     assert not v.verify(root);count+=1
+    path=root/'.github/workflows/windows-ci.yml';raw=path.read_bytes();path.unlink();assert any('Missing' in e and 'windows-ci.yml' in e for e in v.verify(root));count+=1;path.write_bytes(raw)
     path=root/'GameConnect_Win64/Game.Api.Pointer.pas';raw=path.read_bytes();path.write_bytes(raw+b'changed');assert any('Changed:' in e for e in v.verify(root));count+=1;path.write_bytes(raw)
     path=root/'GameWeb/services/desktopWorkspace.js';raw=path.read_bytes();path.unlink();assert any('Missing' in e for e in v.verify(root));count+=1;path.write_bytes(raw)
     manifest=json.loads((root/'GameWeb/maintenance/source-manifest.json').read_text());old=root/manifest['retiredExecutableSources'][0];old.parent.mkdir(parents=True,exist_ok=True);old.write_text('//old');assert any('retired source' in e for e in v.verify(root));count+=1;old.unlink()

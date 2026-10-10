@@ -85,7 +85,7 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     assert.match(byId('desktop-bootstrap-panel').textContent, /A \/ B \/ O 실행 파일 배포/);
     const upload = w.showDesktopArtifactUpload('O');
     const exe = new w.File(['MZ_OVERLAY'], 'GameOverlay.exe');
-    file('desktop-artifact-file', exe);
+    file('desktop-artifact-file', exe);byId('desktop-artifact-manifest').value='a'.repeat(128);
     document.querySelector('[data-modal-field="version"]').value = '3.2.1';
     await byId('modal-confirm').onclick();
     assert.match(byId('desktop-artifact-status').textContent, /BOOTSTRAP_COMPONENT_INVALID/);
@@ -96,7 +96,7 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     assert.equal(byId('modal').classList.contains('hidden'), false);
     await byId('modal-confirm').onclick();
     await upload;
-    assert.equal(calls.filter(c => c.rawBody === exe).length, 2);
+    assert.equal(calls.filter(c => c.rawBody === exe).length, 2);for(const request of calls.filter(c=>c.rawBody===exe))assert.equal(new URL(request.url,'https://fixture.invalid').searchParams.get('releaseManifestId'),'a'.repeat(128));
     assert.equal(count(base + '/activate'), 0, 'Candidate upload must not publish');
     console.log('PASS Overlay upload preserves server error code, escapes text, and retries the selected file without publishing');
 

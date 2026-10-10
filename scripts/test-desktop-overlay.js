@@ -52,13 +52,15 @@ check('O signs independent CRC/hash reports and one-use authority observations',
  const challenge=reports.Execute({...context,action:'challenge'});
  const request={...context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(d,reports.Canonical(claimed.sessionId,challenge,payload))};
  const result=reports.Execute(request);assert.equal(result.status,'VERIFIED');assert.equal(result.terminate,false);
- reject(()=>reports.Execute(request),'INTEGRITY_REPORT_CHALLENGE_INVALID');
+ const reportRevision=bootstrap.Initialize().revision,reportExpiry=overlay.AuthenticateIntegrityReport(context).sessionExpiresAt;
+ assert.deepEqual(reports.Execute(request),result);assert.equal(bootstrap.Initialize().revision,reportRevision);assert.equal(overlay.AuthenticateIntegrityReport(context).sessionExpiresAt,reportExpiry);
  const authContext={...context,intent:'verify',binding:authority.Binding(claimed.sessionId,base.sha512)};
  const observation=authority.Execute({...authContext,action:'challenge'});
  const evidence=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:base.sha512,fileCrc64:base.crc64,codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3,crcLayers:base.crcLayers,apiSealed:true,apiSlots:100,dynamicCode:'ALLOWED',cfg:'DISABLED'});
  const signed={...authContext,action:'submit',challengeId:observation.challengeId,payload:evidence,signature:fixture.Sign(d,authority.Canonical(authContext,observation,evidence))};
- assert.equal(authority.Execute(signed).status,'PASS');
- reject(()=>authority.Execute(signed),'SECURITY_CHALLENGE_INVALID');
+ const decision=authority.Execute(signed);assert.equal(decision.status,'PASS');
+ const authorityRevision=bootstrap.Initialize().revision,authorityExpiry=overlay.AuthenticateIntegrityReport(context).sessionExpiresAt;
+ assert.deepEqual(authority.Execute(signed),decision);assert.equal(bootstrap.Initialize().revision,authorityRevision);assert.equal(overlay.AuthenticateIntegrityReport(context).sessionExpiresAt,authorityExpiry);
 });
 check('O refresh verifies license, session, machine and image while B remains live',()=>{
  const body={action:'overlayVerify',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,...fixture.Evidence(d,claimed)};
