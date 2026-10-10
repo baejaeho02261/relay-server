@@ -37,6 +37,12 @@ const FILES = [
   "admin-device-actions.js",
   "admin-actions.js",
   "icons/game.svg",
+  "icons/icon.svg",
+  "icons/favicon.svg",
+  "icons/favicon.ico",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "manifest.json",
   "admin-palette.js",
   "admin-desktop-licenses.js",
   "admin-desktop-security.js",
@@ -50,7 +56,9 @@ const FILES = [
 const ManifestPath = path.join(__dirname, 'ui-bundle.json');
 function Hash(name, directory = PUBLIC_DIR) {
   // Git on Windows may convert text line endings without changing the UI.
-  const source = fs.readFileSync(path.join(directory, name), 'utf8').replace(/\r\n/g, '\n');
+  const source = /\.(?:png|ico)$/i.test(name)
+    ? fs.readFileSync(path.join(directory, name))
+    : fs.readFileSync(path.join(directory, name), 'utf8').replace(/\r\n/g, '\n');
   return crypto.createHash('sha256').update(source).digest('hex');
 }
 function Generate(directory = PUBLIC_DIR) {

@@ -41,7 +41,9 @@
     "test:security-operations": "node scripts/test-security-operations.js",
     "test:security-admin": "node scripts/test-security-admin.js",
     "test:security-evidence": "node scripts/test-security-evidence.js",
-    "test:security-native-contract": "node scripts/test-security-native-contract.js"
+    "test:security-native-contract": "node scripts/test-security-native-contract.js",
+    "test:release:tools": "node scripts/test-release-tools-split.js",
+    "test:admin:modal": "node scripts/test-admin-modal-isolation.js"
   },
   "engines": {
     "node": ">=22.14"

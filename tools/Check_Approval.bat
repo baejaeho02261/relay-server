@@ -281,7 +281,7 @@ function Main {
     Write-Host ('사용 Node: ' + $node)
     $exe = Choose-File '업로드했던 실제 EXE 선택' '실행 파일 (*.exe)|*.exe' $base
     if (-not $exe) { throw 'EXE 선택이 취소되었습니다.' }
-    $approval = Choose-File '함께 업로드했던 .approval.json 선택' '공개 승인 JSON (*.json)|*.json' (Split-Path -Parent $exe)
+    $approval = Choose-File '함께 업로드했던 .approval.json 선택' '공개 승인 JSON (*.json)|*.json' $base
     if (-not $approval) { throw '승인 파일 선택이 취소되었습니다.' }
     $component = (Read-Host '웹에서 등록한 구분 [A=GameLauncher / B=GameConnect / O=Overlay]').Trim().ToUpperInvariant()
     if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력하세요.' }

@@ -736,6 +736,7 @@ function Main {
     Write-Host '=== GameConnect 공개 배포 승인 파일 생성 ==='
     Write-Host 'O는 선택한 EXE의 예외 테이블을 검사·정렬한 뒤 승인 JSON을 생성합니다.'
     Write-Host 'A/B EXE와 기존 승인 JSON은 변경하지 않습니다.'
+    Write-Host '승인 JSON은 EXE 폴더가 아니라 이 BAT와 같은 폴더에 저장합니다.'
     Write-Host '서버로 자동 업로드하거나 정책/신뢰 키를 자동 변경하지 않습니다.'
     Write-Host '실행 버전: FIX4 / BAT 단독형 (O 자동 정렬 + 승인 JSON 생성)'
     Write-Host '서명 도구: 이 BAT에 포함된 독립 서명기'
@@ -755,10 +756,10 @@ function Main {
         Write-Host ($component + ' EXE 파일을 선택하세요. 예시 경로가 아닌 실제 빌드 파일을 선택합니다.')
         $exe = Choose-File ($component + ' 최종 Windows EXE 선택') '실행 파일 (*.exe)|*.exe|모든 파일 (*.*)|*.*' $base
         if (-not $exe) { throw 'EXE 선택이 취소되었습니다.' }
-        $target = [IO.Path]::ChangeExtension($exe, 'approval.json')
+        $target = Join-Path $base ([IO.Path]::GetFileNameWithoutExtension($exe) + '.approval.json')
         if (Test-Path -LiteralPath $target) {
             $suffix = '.' + $component + '.' + $version + '.' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '.approval.json'
-            $target = Join-Path (Split-Path -Parent $exe) ([IO.Path]::GetFileNameWithoutExtension($exe) + $suffix)
+            $target = Join-Path $base ([IO.Path]::GetFileNameWithoutExtension($exe) + $suffix)
         }
         Write-Host ''
         Write-Host ('EXE: ' + $exe)
