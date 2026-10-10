@@ -13,7 +13,7 @@ const checks = [
   ['test-security-activation.js'],
   ['test-web-auth-hardening.js'], ['test-desktop-deadlines.js'], ['test-desktop-single-writer.js'],
   ['test-desktop-license-recovery.js'], ['test-handoff-delegation.js'], ['test-release-provenance.js'],
-  ['test-handoff-native-contract.js'], ['test-release-provenance-ui.js'],
+  ['test-handoff-native-contract.js'], ['test-release-provenance-ui.js'], ['test-release-tools-split.js'], ['test-admin-modal-isolation.js'],
   ['test-desktop-audit-append.js'], ['test-desktop-audit-outbox.js'], ['test-desktop-request-receipts.js'],
   ['test-handoff-recovery.js'], ['test-handoff-completion-contract.js'],
   ['test-key-purposes.js'], ['test-release-governance-complete.js'], ['test-windows-ci.js'],

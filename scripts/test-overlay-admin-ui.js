@@ -73,7 +73,7 @@ function file(id, value) { Object.defineProperty(byId(id), 'files', { configurab
 async function securityAction(action) {
   const button = document.querySelector('[data-security-action="' + action + '"]');
   button.click();
-  await waitFor(() => !button.isConnected || !button.disabled, action);
+  await waitFor(() => !button.isConnected || byId('security-status')?.dataset.state !== 'busy', action);
 }
 async function close(pending) { byId('modal-cancel').click(); await pending; }
 

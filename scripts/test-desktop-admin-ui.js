@@ -138,7 +138,8 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  w.document.querySelector('#sec-fresh').value='44000';const beforeChanged=requests.length;securityAction('save-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('미리보기'),'changed policy requires new preview');assert.equal(requests.length,beforeChanged);
  securityAction('preview-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent==='처리했습니다.','new policy preview');
  securityAction('save-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('서버에 반영'),'server policy save');
- const beforePair=requests.length;securityAction('activate');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('먼저 검증'),'pair preview required');assert.equal(requests.length,beforePair);
+ const beforePair=requests.length;assert.equal(w.document.querySelector('[data-security-action="activate"]').disabled,true);securityAction('activate');assert.match(w.document.querySelector('#sec-pair-status').textContent,/먼저 검증/);assert.equal(requests.length,beforePair);
+ for(const component of ['A','B']){const select=w.document.querySelector('#sec-'+component.toLowerCase());select.value='ART_'+component;select.dispatchEvent(new w.Event('change',{bubbles:true}));}
  securityAction('preview-pair');await waitFor(()=>w.document.querySelector('#sec-pair-preview').textContent.includes('eligible'),'pair preview');
  securityAction('activate');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('서버에 반영'),'pair activate');
  await closeModal();await w.renderCurrent();assert.equal(w.document.querySelector('#desktop-security-root')?.childElementCount||0,0);

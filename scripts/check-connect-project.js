@@ -50,7 +50,9 @@ for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launche
       if (bytes.readUInt16LE(at + 8) === 0xffff) types.push(bytes.readUInt16LE(at + 10));
       at += (header + size + 3) & ~3;
     }
-    assert.ok(!types.includes(3) && !types.includes(14), 'Custom icon remains: ' + res);
+    assert.equal(types.filter(t => t === 3).length, 7, 'Seven icon sizes required: ' + res);
+    assert.equal(types.filter(t => t === 14).length, 1, 'One MAINICON group required: ' + res);
+    assert.match(read(name + '.rc'), /MAINICON ICON "Game\.ico"/);
     assert.ok(types.includes(24), 'Missing application manifest: ' + res);
   }
 }
