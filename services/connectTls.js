@@ -24,8 +24,10 @@ function Validate(cert,key,serverName,allowExpired=false){
  serverName=serverName||CertificateName(leaf);
  if(privateKey.asymmetricKeyType!=='rsa'||privateKey.asymmetricKeyDetails?.modulusLength<2048||!leaf.checkPrivateKey(privateKey)||!leaf.checkHost(serverName,{wildcards:false,subject:'never'}))Fail('CONNECT_TLS_IDENTITY_INVALID');
  const validFrom=Date.parse(leaf.validFrom),expiresAt=Date.parse(leaf.validTo);if(!Number.isFinite(validFrom)||!Number.isFinite(expiresAt)||!allowExpired&&(Date.now()<validFrom||Date.now()>=expiresAt))Fail('CONNECT_TLS_CERTIFICATE_EXPIRED');
- return {serverName,fingerprint:crypto.createHash('sha256').update(leaf.raw).digest('hex'),validFrom,expiresAt};
+ return {serverName,keyPurposeId:require('./desktopKeyPurposes').Fingerprint(leaf.publicKey),fingerprint:crypto.createHash('sha256').update(leaf.raw).digest('hex'),validFrom,expiresAt};
 }
+function ReservePurpose(cert){const leaf=new crypto.X509Certificate(cert);return require('./desktopKeyPurposes').Reserve(leaf.publicKey,'SERVER_TLS');}
+function AssertPurpose(cert){const leaf=new crypto.X509Certificate(cert);return require('./desktopKeyPurposes').Assert(leaf.publicKey,'SERVER_TLS');}
 function Pointer(bytes){
  const text=bytes.toString('utf8');if(/^[a-f0-9]{64}\n$/.test(text))return {legacy:true,fingerprint:text.trim(),directory:DIR};
  let value;try{value=JSON.parse(text);}catch(_){Fail('CONNECT_TLS_IDENTITY_INVALID');}
@@ -39,6 +41,7 @@ function ReadIdentity(allowExpired=false){
  if(certSetting&&!pointer.legacy)Fail('CONNECT_TLS_IDENTITY_CHANGED');
  const certFile=certSetting?path.resolve(certSetting):path.join(pointer.directory,'certificate.pem'),keyFile=keySetting?path.resolve(keySetting):path.join(pointer.directory,'private-key.pem');
  const cert=Read(certFile,32768),key=Read(keyFile,16384),details=Validate(cert,key,ConfiguredName(),allowExpired);
+ AssertPurpose(cert);
  if(details.fingerprint!==pointer.fingerprint)Fail('CONNECT_TLS_IDENTITY_CHANGED');
  if(certSetting&&!fs.existsSync(DIR)){fs.mkdirSync(DIR,{mode:0o700});Sync(config.DATA_DIR);}
  if(!certSetting&&process.platform!=='win32')fs.chmodSync(keyFile,0o600);
@@ -55,6 +58,7 @@ function Generate(serverName){
   try{execFileSync('openssl',['req','-x509','-newkey','rsa:3072','-sha256','-nodes','-keyout',keyFile,'-out',certFile,'-days','825','-subj','/CN='+serverName,'-addext','subjectAltName=DNS:'+serverName,'-addext','basicConstraints=critical,CA:FALSE','-addext','keyUsage=critical,digitalSignature','-addext','extendedKeyUsage=serverAuth'],{stdio:'ignore',timeout:30000});}catch(_){Fail('CONNECT_TLS_OPENSSL_REQUIRED');}
   for(const file of [keyFile,certFile]){fs.chmodSync(file,0o600);const fd=fs.openSync(file,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
   const details=Validate(Read(certFile,32768),Read(keyFile,16384),serverName);
+  ReservePurpose(Read(certFile,32768));
   Sync(temporary);fs.renameSync(temporary,destination);Sync(DIR);
   return {pointer:Buffer.from(JSON.stringify({version:2,generation,fingerprint:details.fingerprint})+'\n'),...details};
  }finally{fs.rmSync(temporary,{recursive:true,force:true});}
@@ -65,7 +69,7 @@ function Initialize(){
  fs.mkdirSync(config.DATA_DIR,{recursive:true,mode:0o700});
  // Never reconstruct a lost pin from a previously persisted identity.
  if(fs.existsSync(DIR))Fail('CONNECT_TLS_IDENTITY_MISSING');
- if(certSetting){const details=Validate(Read(path.resolve(certSetting),32768),Read(path.resolve(keySetting),16384),ConfiguredName());fs.mkdirSync(DIR,{mode:0o700});Write(MARKER,details.fingerprint+'\n');}
+ if(certSetting){const cert=Read(path.resolve(certSetting),32768),details=Validate(cert,Read(path.resolve(keySetting),16384),ConfiguredName());ReservePurpose(cert);fs.mkdirSync(DIR,{mode:0o700});Write(MARKER,details.fingerprint+'\n');}
  else{const next=Generate(ConfiguredName()||RandomName());Write(MARKER,next.pointer);}
  Sync(config.DATA_DIR);
 }
@@ -73,11 +77,11 @@ function Load(){
  if(fs.existsSync(ROTATION_LOCK))Fail('CONNECT_TLS_ROTATION_IN_PROGRESS');
  if(cached){if(Date.now()<cached.validFrom||Date.now()>=cached.expiresAt)Fail('CONNECT_TLS_CERTIFICATE_EXPIRED');return cached;}
  if(!fs.existsSync(MARKER))Initialize();
- const value=ReadIdentity(),{key,cert}=value;
+ const value=ReadIdentity(),{key,cert}=value;ReservePurpose(cert);
  const options={key,cert,minVersion:'TLSv1.2',maxVersion:'TLSv1.3',ciphers:CIPHERS,honorCipherOrder:true,ecdhCurve:'X25519:prime256v1:secp384r1',secureOptions:crypto.constants.SSL_OP_NO_RENEGOTIATION|crypto.constants.SSL_OP_NO_TICKET,sessionTimeout:120};
  tls.createSecureContext(options);cached={...value,options};return cached;
 }
 function Public(){const value=Load();return {tlsServerName:value.serverName,tlsCertificateSha256:value.fingerprint};}
 function Status(){try{const value=Load();return {ready:true,minVersion:'TLSv1.2',maxVersion:'TLSv1.3',serverName:value.serverName,certificateSha256:value.fingerprint,expiresAt:value.expiresAt,source:process.env.CONNECT_TLS_CERT_FILE?'configured':'persistent-generated'};}catch(error){return {ready:false,error:error.message,message:Messages[error.message]||'TLS 설정을 확인해 주세요.'};}}
 const Messages={CONNECT_TLS_FILES_REQUIRED:'CONNECT_TLS_CERT_FILE과 CONNECT_TLS_KEY_FILE을 함께 지정하세요.',CONNECT_TLS_OPENSSL_REQUIRED:'OpenSSL을 설치하거나 제공된 Dockerfile로 배포하세요.',CONNECT_TLS_IDENTITY_MISSING:'기존 TLS 인증서, 개인 키 또는 핀 기록이 없습니다. DATA_DIR의 TLS 백업을 복원하세요.',CONNECT_TLS_IDENTITY_INVALID:'TLS 인증서, 개인 키 또는 서버 이름이 올바르지 않습니다.',CONNECT_TLS_IDENTITY_CHANGED:'TLS 인증서가 변경되었습니다. 변경을 검토하고 새 A를 발급하세요.',CONNECT_TLS_CERTIFICATE_EXPIRED:'TLS 인증서가 유효하지 않은 기간입니다. 오프라인 인증서 교체 후 새 A를 발급하세요.',CONNECT_TLS_NAME_INVALID:'CONNECT_TLS_SERVER_NAME에 유효한 DNS 이름을 입력하세요.',CONNECT_TLS_NAME_REQUIRED:'여러 DNS 이름을 포함한 인증서는 CONNECT_TLS_SERVER_NAME을 지정하세요.',CONNECT_TLS_ROTATION_IN_PROGRESS:'TLS 교체가 진행 중이거나 중단되었습니다. 오프라인 교체 도구의 복원 명령을 실행하세요.'};
-module.exports={Load,Public,Status,Messages,CIPHERS,DIR,MARKER,ROTATION_LOCK,ReadIdentity,Generate,RandomName,ConfiguredName,Read,Write,Sync,Pointer,Validate,Directory};
+module.exports={AssertPurpose,ReservePurpose,Load,Public,Status,Messages,CIPHERS,DIR,MARKER,ROTATION_LOCK,ReadIdentity,Generate,RandomName,ConfiguredName,Read,Write,Sync,Pointer,Validate,Directory};

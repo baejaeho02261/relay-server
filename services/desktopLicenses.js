@@ -1,6 +1,8 @@
 'use strict';
 // Desktop authorization is separate from archived CLIENT/QR/biometric records.
 const crypto=require('node:crypto'),state=require('../core/state'),machinePolicy=require('./desktopMachinePolicy');
+const deadline=require('./desktopDeadline');
+const requestProtocol=require('./desktopRequestProtocol');
 const CHALLENGE_MS=120000,LEASE_MS=120000;
 const challenges=new Map(),seen=new Map(),verifyReceipts=new Map();
 let authorityLoaded=false;
@@ -76,21 +78,34 @@ function NewRow(body,actor){
 function Detail(id){const row=DB().licenses[id];if(!row)Fail('DESKTOP_KEY_INVALID',404);return {license:Public(row)};}
 function AdminReceipt(action,id,body,actor,fn){
  if(!Plain(body))Fail('INPUT_INVALID');
- if(body.requestId===undefined)return Atomic(fn);
- if(!/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId))Fail('INPUT_INVALID');
- const key='ADMIN:'+hash(String(actor))+':'+body.requestId,fingerprint=hash(JSON.stringify({action,id,body})),old=DB().receipts[key];
- if(old){if(old.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);const row=DB().licenses[old.licenseId];if(!row||row.consumed||Status(row)!=='AVAILABLE')Fail('DESKTOP_KEY_USED',409);return {license:Public(row),licenseKey:IssuedKey(row),...(old.replacedId?{replacedId:old.replacedId}:{})};}
- return Atomic(()=>{const result=fn();DB().receipts[key]={fingerprint,licenseId:result.license.id,action,replacedId:result.replacedId||'',at:now()};return result;});
+ let requestId;try{requestId=requestProtocol.RequestId(body);}catch(_){Fail('INPUT_INVALID');}
+ requestProtocol.Purpose('admin.license.'+action);
+ const key=requestId?'ADMIN:'+hash(String(actor))+':'+requestId:'LEGACY_ADMIN:'+crypto.randomBytes(24).toString('hex');
+ // Keep the legacy fingerprint bytes so existing durable receipts still work.
+ const fingerprint=hash(JSON.stringify({action,id,body})),old=DB().receipts[key];
+ if(old){
+  if(old.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
+  const row=DB().licenses[old.licenseId];if(!row)Fail('DESKTOP_KEY_INVALID',404);
+  if(action==='revoke'){if(row.status!=='REVOKED')Fail('DESKTOP_REQUEST_REUSED',409);DrainAudit();return {license:Public(row)};}
+  if(row.consumed||Status(row)!=='AVAILABLE')Fail('DESKTOP_KEY_USED',409);
+  DrainAudit();return {license:Public(row),licenseKey:IssuedKey(row),...(old.replacedId?{replacedId:old.replacedId}:{})};
+ }
+ const result=Atomic(()=>{
+  const result=fn(),operationId=hash('GAME-ADMIN-LICENSE-OP-V1\n'+key+'\n'+fingerprint);
+  const receipt={fingerprint,licenseId:result.license.id,action,replacedId:result.replacedId||'',at:now(),auditOperationId:operationId,auditOperationRevision:DB().revision+1};
+  AddAuditIntent(receipt,DB().licenses[receipt.licenseId],actor);DB().receipts[key]=receipt;return result;
+ });
+ DrainAudit();return result;
 }
 function Create(body={},actor){if(!Plain(body))Fail('INPUT_INVALID');Expiry(body);return AdminReceipt('create','',body,actor,()=>NewRow(body,actor));}
 function CreateReference(body,actor){
  const key='ADMIN:'+hash(String(actor))+':'+body.requestId;
  const fingerprint=hash(JSON.stringify({action:'create',id:'',body})),receipt=DB().receipts[key];
- if(receipt){if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);return {license:Detail(receipt.licenseId).license};}
+ if(receipt){if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);DrainAudit();return {license:Detail(receipt.licenseId).license};}
  return {license:Create(body,actor).license};
 }
 function Reason(body){const reason=Text(body.reason,300,true);if(reason.length<3)Fail('INPUT_INVALID');return reason;}
-function Revoke(id,body={},actor){const reason=Reason(body);return Atomic(()=>{const row=DB().licenses[id];if(!row)Fail('DESKTOP_KEY_INVALID',404);if(row.status!=='REVOKED'){row.status='REVOKED';row.revokedAt=now();row.revokedBy=String(actor||'ADMIN').slice(0,120);row.reason=reason;}return {license:Public(row)};});}
+function Revoke(id,body={},actor){const reason=Reason(body);return AdminReceipt('revoke',id,body,actor,()=>{const row=DB().licenses[id];if(!row)Fail('DESKTOP_KEY_INVALID',404);if(row.status!=='REVOKED'){row.status='REVOKED';row.revokedAt=now();row.revokedBy=String(actor||'ADMIN').slice(0,120);row.reason=reason;}return {license:Public(row)};});}
 function Reissue(id,body={},actor){if(!Plain(body))Fail('INPUT_INVALID');Expiry(body);const reason=Reason(body);return AdminReceipt('reissue',id,body,actor,()=>{const old=DB().licenses[id];if(!old)Fail('DESKTOP_KEY_INVALID',404);old.status='REVOKED';old.revokedAt=now();old.revokedBy=String(actor||'ADMIN').slice(0,120);old.reason=reason;return {...NewRow({...body,label:body.label===undefined?old.label:body.label},actor),replacedId:id};});}
 function List(body={}){const q=String(body.q||'').trim().toLowerCase().slice(0,120),status=String(body.status||'');if(status&&!['AVAILABLE','USED','REVOKED','EXPIRED'].includes(status))Fail('INPUT_INVALID');const all=Object.values(DB().licenses).map(Public),counts={AVAILABLE:0,USED:0,REVOKED:0,EXPIRED:0};for(const row of all)counts[row.status]++;return {items:all.filter(row=>(!status||row.status===status)&&(!q||[row.id,row.label,row.deviceId,row.deviceName].some(v=>String(v||'').toLowerCase().includes(q)))).sort((a,b)=>b.issuedAt-a.issuedAt||a.id.localeCompare(b.id)),counts,totalCount:all.length,revision:DB().revision,serverTime:now()};}
 function ParseKey(value){
@@ -107,10 +122,11 @@ function Bind(body){
  const parsed=ParseKey(body.publicKey);if(body.deviceId!==parsed.deviceId)Fail('DESKTOP_DEVICE_MISMATCH',403);return parsed;
 }
 function Canonical(value){return ['GAME-DESKTOP-V2',value.action,value.challengeId,value.nonce,value.requestId,value.deviceId,value.payloadHash,String(value.expiresAt)].join('\n');}
-function Prune(){const at=now();for(const [id,c]of challenges)if(c.expiresAt+CHALLENGE_MS<=at)challenges.delete(id);for(const [id,r]of verifyReceipts)if(r.until<=at)verifyReceipts.delete(id);}
+function Prune(){const at=deadline.Now();for(const [id,c]of challenges)if(deadline.Expired(c,at))challenges.delete(id);for(const [id,r]of verifyReceipts)if(deadline.Expired(r,at))verifyReceipts.delete(id);}
+function RequireChallenge(c){if(deadline.Expired(c))Fail('DESKTOP_CHALLENGE_EXPIRED',401);}
 function Challenge(body){
  Available();const parsed=Bind(body);if(!/^[a-f0-9]{128}$/.test(body.payloadHash||''))Fail('INPUT_INVALID');Prune();if(challenges.size>=10000)Fail('DESKTOP_CAPACITY',503);
- const value={challengeId:crypto.randomBytes(24).toString('base64url'),nonce:crypto.randomBytes(32).toString('base64url'),action:body.action,requestId:body.requestId,deviceId:parsed.deviceId,publicKey:parsed.publicKey,payloadHash:body.payloadHash,expiresAt:now()+CHALLENGE_MS,used:false};challenges.set(value.challengeId,value);
+ const value={challengeId:crypto.randomBytes(24).toString('base64url'),nonce:crypto.randomBytes(32).toString('base64url'),action:body.action,requestId:body.requestId,deviceId:parsed.deviceId,publicKey:parsed.publicKey,payloadHash:body.payloadHash,...deadline.After(CHALLENGE_MS),used:false};challenges.set(value.challengeId,value);
  return {challengeId:value.challengeId,nonce:value.nonce,expiresAt:value.expiresAt,canonical:Canonical(value)};
 }
 function Payload(body){
@@ -127,23 +143,56 @@ function Activation(p,deviceId){const digest=hash(p.activationToken),row=Object.
 function SessionBinding(row,bootstrap){const expected=row.bootstrapSessionId||require('./desktopBootstrap').LicenseActivity(row.id)?.sessionId;if(!expected||expected!==bootstrap.sessionId)Fail('BOOTSTRAP_LICENSE_MISMATCH',403);}
 function Result(row,leaseExpiresAt=0){return {licenseId:row.id,status:Status(row),deviceId:row.deviceId,label:row.label,issuedAt:row.issuedAt,activatedAt:row.activatedAt||0,expiresAt:row.expiresAt,leaseExpiresAt,serverTime:now(),revision:DB().revision};}
 function Lease(row,appVersion){const leaseExpiresAt=Math.min(now()+LEASE_MS,row.expiresAt||Number.MAX_SAFE_INTEGER);seen.set(row.id,{at:now(),leaseExpiresAt,appVersion:appVersion||row.appVersion||''});return leaseExpiresAt;}
-function BootstrapResult(result,payload,deviceId,action){const row=DB().licenses[result.licenseId];require('./desktopBootstrap').TouchLicense(payload.bootstrapSessionId,payload.bootstrapSessionToken,deviceId,row,action,{leaseExpiresAt:result.leaseExpiresAt||0,appVersion:payload.appVersion||''});if(action==='verify')try{require('../web/webEvents').BroadcastEvent({time:now(),type:'DESKTOP_LICENSE_VERIFIED',detail:JSON.stringify({id:row.id,deviceId:row.deviceId,status:Status(row)})});}catch(_){}return result;}
-function Activity(action,row){try{require('../storage/audit').LogEvent('DESKTOP_LICENSE_'+action,JSON.stringify({id:row.id,deviceId:row.deviceId,status:Status(row)}));}catch(_){console.error('DESKTOP_LICENSE_AUDIT_FAILED:',action);}}
+function Operation(receiptKey,fingerprint){return {operationId:hash('GAME-LICENSE-OP-V1\n'+receiptKey+'\n'+fingerprint),operationRevision:DB().revision+1};}
+function AddAuditIntent(receipt,row,actor){
+ const operationId=receipt.operationId||receipt.auditOperationId,operationRevision=receipt.operationRevision||receipt.auditOperationRevision;
+ receipt.auditEvent={id:hash('GAME-LICENSE-AUDIT-V1\n'+operationId),type:receipt.action==='redeem'?'DESKTOP_LICENSE_USED':receipt.action==='release'?'DESKTOP_LICENSE_RELEASED':'DESKTOP_LICENSE_OPERATION_COMMITTED',detail:{operationId,operationRevision,action:receipt.action,id:row.id,deviceId:row.deviceId||'',status:Status(row),...(actor?{actor:String(actor).slice(0,120)}:{})}};
+}
+function DrainAudit(){
+ let delivered=0;
+ for(const receipt of Object.values(DB().receipts)){
+  const intent=receipt.auditEvent;if(intent===undefined)continue;
+  const operationId=receipt.operationId||receipt.auditOperationId,operationRevision=receipt.operationRevision||receipt.auditOperationRevision;
+  if(!Plain(intent)||!Plain(intent.detail)||!/^[a-f0-9]{64}$/.test(operationId||'')||intent.id!==hash('GAME-LICENSE-AUDIT-V1\n'+operationId)||intent.detail.operationId!==operationId||intent.detail.operationRevision!==operationRevision||!Number.isSafeInteger(operationRevision)||operationRevision<1||operationRevision>DB().revision||!['DESKTOP_LICENSE_USED','DESKTOP_LICENSE_RELEASED','DESKTOP_LICENSE_OPERATION_COMMITTED'].includes(intent.type))Fail('DESKTOP_STORAGE_INVALID',503);
+  const ackKey='AUDIT:'+intent.id,ack=DB().receipts[ackKey];
+  if(ack){if(ack.auditAckFor!==intent.id||!Number.isSafeInteger(ack.sequence)||ack.sequence<1||!/^[A-F0-9]{64}$/.test(ack.hash||''))Fail('DESKTOP_STORAGE_INVALID',503);continue;}
+  let result;try{result=require('../storage/audit').AppendOperationEvent(intent.id,intent.type,intent.detail);}catch(_){Fail('STORAGE_SAVE_FAILED',503);}
+  if(!result.ok)Fail('STORAGE_SAVE_FAILED',503);
+  Atomic(()=>{DB().receipts[ackKey]={auditAckFor:intent.id,sequence:result.sequence,hash:result.hash,at:now()};});
+  delivered++;
+ }
+ return delivered;
+}
+function ReconcileOperations(){const result=require('./desktopBootstrap').ReconcileLicenseOperations(DB());return {...result,auditRecovered:DrainAudit()};}
+function BootstrapResult(result,payload,deviceId,action,operation={}){
+ const row=DB().licenses[result.licenseId],replay=action==='verify'&&operation.projected===true;
+ require('./desktopBootstrap').TouchLicense(payload.bootstrapSessionId,payload.bootstrapSessionToken,deviceId,row,action,{leaseExpiresAt:result.leaseExpiresAt||0,appVersion:payload.appVersion||'',...(replay?{replay:true}:{}),...(action==='verify'&&operation.originalAt?{originalAt:operation.originalAt,originalExpiresAt:operation.leaseExpiresAt}:{}),...(operation.operationId?{operationId:operation.operationId,operationRevision:operation.operationRevision}:{})});
+ if(action==='verify'){
+  // This mutable marker belongs only to a process-local verify receipt. Durable
+  // redeem/release receipts stay immutable in the append-only journal.
+  operation.projected=true;
+  if(!replay)try{require('../web/webEvents').BroadcastEvent({time:now(),type:'DESKTOP_LICENSE_VERIFIED',detail:JSON.stringify({id:row.id,deviceId:row.deviceId,status:Status(row)})});}catch(_){}
+ }
+ if(operation.operationId)DrainAudit();return result;
+}
 function Execute(body){
- Available();const parsed=Bind(body),c=challenges.get(body.challengeId);if(!c||c.expiresAt<=now())Fail('DESKTOP_CHALLENGE_EXPIRED',401);
+ Available();Prune();const parsed=Bind(body);requestProtocol.Purpose('license.'+body.action);const c=challenges.get(body.challengeId);RequireChallenge(c);
  if(['action','requestId','deviceId','publicKey'].some(k=>body[k]!==c[k]))Fail('DESKTOP_PROOF_INVALID',401);
  const {payload,payloadHash}=Payload(body);if(payloadHash!==c.payloadHash)Fail('DESKTOP_PROOF_INVALID',401);
  if(typeof body.signature!=='string'||body.signature.length!==344||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('DESKTOP_PROOF_INVALID',401);
  const signature=Buffer.from(body.signature,'base64');if(signature.length!==256||signature.toString('base64')!==body.signature||!crypto.verify('sha256',Buffer.from(Canonical(c),'utf8'),{key:parsed.key,padding:crypto.constants.RSA_PKCS1_PADDING},signature))Fail('DESKTOP_PROOF_INVALID',401);
+ // Recheck after signature verification and again before any authorization mutation.
+ RequireChallenge(c);
  const receiptKey=body.deviceId+':'+body.requestId,receipt=DB().receipts[receiptKey]||verifyReceipts.get(receiptKey),fingerprint=hash(body.action+'|'+payloadHash);
  const bootstrap=require('./desktopBootstrap').Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release',machineId:payload.machineId,hashVersion:3,binarySha512:payload.binarySha512,binaryCrc64:payload.binaryCrc64,codeSha512:payload.codeSha512,codeCrc64:payload.codeCrc64,securityIntent:body.action==='overlay'?'verify':body.action,securityBinding:require('./desktopSecurityAuthority').Binding(body.requestId,payloadHash)});
+ RequireChallenge(c);
  if(body.action==='overlay'){const row=Activation(payload,body.deviceId);Active(row);SessionBinding(row,bootstrap);const result=require('./desktopOverlay').Prepare(bootstrap,row,body.requestId,fingerprint);c.used=true;return result;}
  if(receipt){
   if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
   const row=DB().licenses[receipt.licenseId];if(!row||row.deviceId!==body.deviceId)Fail('DESKTOP_ACTIVATION_INVALID',401);SessionBinding(row,bootstrap);
   if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
-  if(body.action==='release'){if(row.status!=='RELEASED'&&!row.releasedAt)Active(row);c.used=true;return BootstrapResult({...Result(row),released:true},payload,body.deviceId,body.action);}
-  Active(row);c.used=true;return BootstrapResult({...Result(row,receipt.leaseExpiresAt),...(body.action==='redeem'?{activationToken:Token(row)}:{})},payload,body.deviceId,body.action);
+  if(body.action==='release'){if(row.status!=='RELEASED'&&!row.releasedAt)Active(row);c.used=true;return BootstrapResult({...Result(row),released:true},payload,body.deviceId,body.action,receipt);}
+  Active(row);c.used=true;return BootstrapResult({...Result(row,receipt.leaseExpiresAt),...(body.action==='redeem'?{activationToken:Token(row)}:{})},payload,body.deviceId,body.action,receipt);
  }
  if(c.used)Fail('DESKTOP_REQUEST_REUSED',409);
  let result;
@@ -164,19 +213,19 @@ function Execute(body){
    // Re-check inside the same synchronous durable transaction. Even an already
    // claimed parallel A/B session cannot consume a second key on this PC.
    machinePolicy.AssertAllowed(payload.machineId,bootstrap.machinePolicyGeneration);
+   RequireChallenge(c);
    Object.assign(row,{status:'USED',consumed:true,activationVersion:2,bootstrapSessionId:bootstrap.sessionId,machineId:payload.machineId,machinePolicyGeneration:bootstrap.machinePolicyGeneration,hashVersion:3,binarySha512:payload.binarySha512,binaryCrc64:payload.binaryCrc64,codeSha512:payload.codeSha512,codeCrc64:payload.codeCrc64,deviceId:parsed.deviceId,publicKey:parsed.publicKey,deviceName:payload.deviceName||'',appVersion:payload.appVersion||'',activatedAt:now(),activationNonce:crypto.randomBytes(24).toString('hex')});row.tokenHash=hash(Token(row));
-   const leaseExpiresAt=Math.min(now()+LEASE_MS,row.expiresAt||Number.MAX_SAFE_INTEGER);DB().receipts[receiptKey]={fingerprint,licenseId:row.id,action:body.action,leaseExpiresAt,at:now()};
+   const leaseExpiresAt=Math.min(now()+LEASE_MS,row.expiresAt||Number.MAX_SAFE_INTEGER);DB().receipts[receiptKey]={fingerprint,licenseId:row.id,action:body.action,leaseExpiresAt,at:now(),...Operation(receiptKey,fingerprint)};AddAuditIntent(DB().receipts[receiptKey],row);
    return {...Result(row,leaseExpiresAt),activationToken:Token(row)};
   });
-  Activity('USED',DB().licenses[result.licenseId]);
  }else{
   const row=Activation(payload,body.deviceId);Active(row);SessionBinding(row,bootstrap);
   if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
   if(body.action==='verify'){
-   const leaseExpiresAt=Lease(row,payload.appVersion);result=Result(row,leaseExpiresAt);verifyReceipts.set(receiptKey,{fingerprint,licenseId:row.id,leaseExpiresAt,until:now()+CHALLENGE_MS*2});
-  }else{result=Atomic(()=>{row.status='USED';row.releasedAt=now();row.reason='Windows 앱에서 연결 해제';DB().receipts[receiptKey]={fingerprint,licenseId:row.id,action:body.action,leaseExpiresAt:0,at:now()};return {...Result(row),released:true};});Activity('RELEASED',row);}
+   RequireChallenge(c);const leaseExpiresAt=Lease(row,payload.appVersion);result=Result(row,leaseExpiresAt);verifyReceipts.set(receiptKey,{fingerprint,licenseId:row.id,leaseExpiresAt,originalAt:now(),projected:false,...deadline.After(CHALLENGE_MS*2)});
+  }else{result=Atomic(()=>{RequireChallenge(c);row.status='USED';row.releasedAt=now();row.reason='Windows 앱에서 연결 해제';DB().receipts[receiptKey]={fingerprint,licenseId:row.id,action:body.action,leaseExpiresAt:0,at:now(),...Operation(receiptKey,fingerprint)};AddAuditIntent(DB().receipts[receiptKey],row);return {...Result(row),released:true};});}
  }
- c.used=true;result.revision=DB().revision;if(body.action==='redeem')seen.set(result.licenseId,{at:now(),leaseExpiresAt:result.leaseExpiresAt,appVersion:payload.appVersion||''});return BootstrapResult(result,payload,body.deviceId,body.action);
+ c.used=true;result.revision=DB().revision;if(body.action==='redeem')seen.set(result.licenseId,{at:now(),leaseExpiresAt:result.leaseExpiresAt,appVersion:payload.appVersion||''});return BootstrapResult(result,payload,body.deviceId,body.action,DB().receipts[receiptKey]||verifyReceipts.get(receiptKey));
 }
 function RetireRuntime(row){for(const [id,value]of challenges)if(value.deviceId===row.deviceId)challenges.delete(id);for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);if(row.licenseId)seen.delete(row.licenseId);}
-module.exports={RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
+module.exports={DrainAudit,ReconcileOperations,RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};

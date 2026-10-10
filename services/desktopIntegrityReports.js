@@ -2,11 +2,14 @@
 // Server-resident diagnostics. Signatures prove possession of the current
 // session key, not truthful execution or hardware attestation on an owned PC.
 const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),config=require('../config/config');
+const deadline=require('./desktopDeadline');
+const requestProtocol=require('./desktopRequestProtocol');
+const receipts=requestProtocol.CreateReceipts({conflict:'INTEGRITY_REPORT_REQUEST_REUSED'});
 const DIR=path.join(config.DATA_DIR,'desktop-integrity-reports'),FILE=path.join(DIR,'reports.json'),KEY=path.join(DIR,'authority.key');
 const MAX_PAYLOAD=24576,MAX_REPORTS=512,MAX_PENDING=1024,TTL=30000;
 const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000,O:120000};
 const DEFAULT_MODULES=['ntdll.dll','kernel32.dll','kernelbase.dll'];
-const OVERLAY_START_REASONS=new Set(['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED']);
+const OVERLAY_START_REASONS=new Set(['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_CIPHER_FAILED','HANDOFF_DELEGATION_INVALID','HANDOFF_BOOTSTRAP_INVALID','HANDOFF_CHILD_BINDING_INVALID','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED']);
 let secret,loaded=false,revision=0,records=[],baselines=[],observations=[],pending=new Map(),rates=new Map();
 let policy={enabled:false,requireExtendedHashes:false,requiredModules:DEFAULT_MODULES.slice(),revision:0,updatedAt:0,actor:''};
 const snapshots=new Map(),finishedSnapshots=new Map();
@@ -90,20 +93,36 @@ function Record(input){
 }
 function Auth(body){return require('./desktopBootstrap').AuthenticateIntegrityReport(body);}
 const AUTH_FIELDS=['stage','action','sessionId','sessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64'];
-function Prune(){const at=Date.now();for(const [id,c] of pending)if(c.expiresAt<=at)pending.delete(id);for(const [id,r] of rates)if(r.until<=at)rates.delete(id);for(const [id,until] of finishedSnapshots)if(until<=at)finishedSnapshots.delete(id);for(const [id,snapshot] of snapshots)if(snapshot.expiresAt<=at){snapshots.delete(id);finishedSnapshots.set(id,at+900000);Record({...snapshot.fields,status:'CLIENT_DIAGNOSTIC',check:'MODULE_SNAPSHOT',reason:'SNAPSHOT_TIMEOUT',snapshotId:snapshot.snapshotId,snapshotStatus:'TIMED_OUT',snapshotFinal:true,snapshotReasons:['INCOMPLETE_SNAPSHOT'],strictPolicyRevision:snapshot.policyRevision});}}
+function Prune(){const clock=deadline.Now(),at=clock.wall;for(const [id,c] of pending)if(deadline.Expired(c,clock))pending.delete(id);for(const [id,r] of rates)if(r.until<=at)rates.delete(id);for(const [id,until] of finishedSnapshots)if(until<=at)finishedSnapshots.delete(id);for(const [id,snapshot] of snapshots)if(snapshot.expiresAt<=at){snapshots.delete(id);finishedSnapshots.set(id,at+900000);Record({...snapshot.fields,status:'CLIENT_DIAGNOSTIC',check:'MODULE_SNAPSHOT',reason:'SNAPSHOT_TIMEOUT',snapshotId:snapshot.snapshotId,snapshotStatus:'TIMED_OUT',snapshotFinal:true,snapshotReasons:['INCOMPLETE_SNAPSHOT'],strictPolicyRevision:snapshot.policyRevision});}}
 function Challenge(body){
  Keys(body,AUTH_FIELDS);const row=Auth(body),context=row.reportContextId||row.sessionId;Prune();const at=Date.now(),rate=rates.get(context)||{until:at+60000,count:0};
  if(rate.count>=256||pending.size>=MAX_PENDING||rates.size>=4096&&!rates.has(context))Fail('INTEGRITY_REPORT_RATE_LIMIT',429);rate.count++;rates.set(context,rate);
- const report={reportId:crypto.randomBytes(24).toString('hex'),nonce:crypto.randomBytes(24).toString('hex'),expiresAt:at+TTL,sessionId:context};pending.set(report.reportId,report);return {reportId:report.reportId,nonce:report.nonce,expiresAt:report.expiresAt};
+ const report={reportId:crypto.randomBytes(24).toString('hex'),nonce:crypto.randomBytes(24).toString('hex'),...deadline.After(TTL),sessionId:context};pending.set(report.reportId,report);return {reportId:report.reportId,nonce:report.nonce,expiresAt:report.expiresAt};
 }
 function Canonical(sessionId,challenge,payload){return ['GAME-INTEGRITY-REPORT-V2',sessionId,challenge.reportId,challenge.nonce,String(challenge.expiresAt),sha(payload)].join('\n');}
+function ReceiptBinding(row){Load();return requestProtocol.Fingerprint('report.submit',{artifactId:row.integrityArtifact?.id,policy:Policy(),authorityRevision:require('./desktopSecurityAuthority').Policy().revision,operationsRevision:require('./desktopSecurityOperations').Revision(),baselines:baselines.slice().sort((a,b)=>a.id.localeCompare(b.id))});}
 function Submit(body){
- Keys(body,[...AUTH_FIELDS,'reportId','payload','signature']);const row=Auth(body),context=row.reportContextId||row.sessionId;Prune();const challenge=pending.get(body.reportId);
+ Keys(body,[...AUTH_FIELDS,'reportId','payload','signature']);
+ const receipt=receipts.get(body.reportId,'report.submit',body);
+ if(receipt){
+  // Only the exact previously signed request may recover a terminal denial.
+  // Retained credential hashes cannot authorize measurements or fresh grants.
+  const current=receipt.response.terminate===true?require('./desktopBootstrap').AuthenticateIntegrityReceipt(body):Auth(body);
+  if((current.reportContextId||current.sessionId)!==receipt.meta.context||current.publicKey!==receipt.meta.publicKey)Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);
+  if(!receipt.response.terminate&&ReceiptBinding(current)!==receipt.meta.binding)Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);
+  return receipt.response;
+ }
+ const row=Auth(body),context=row.reportContextId||row.sessionId;Prune();const challenge=pending.get(body.reportId);
  if(!challenge||challenge.sessionId!==context)Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);pending.delete(body.reportId);
  const payload=Payload(body.payload);if(typeof body.signature!=='string'||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
  const bytes=Buffer.from(body.signature,'base64'),key=require('./desktopLicenses').ParseKey(row.publicKey).key;
  if(bytes.length!==256||bytes.toString('base64')!==body.signature||!crypto.verify('sha256',Buffer.from(Canonical(context,challenge,body.payload),'utf8'),{key,padding:crypto.constants.RSA_PKCS1_PADDING},bytes))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
+ // Parsing and native signature verification can cross the issued deadline.
+ if(deadline.Expired(challenge))Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);
  const artifact=row.integrityArtifact;if(!artifact)Fail('INTEGRITY_REPORT_BASELINE_UNAVAILABLE',503);
+ const binding=ReceiptBinding(row);
+ if(deadline.Expired(challenge))Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);
+ function Complete(response){receipts.put(body.reportId,'report.submit',body,response,{context,publicKey:row.publicKey,binding});return response;}
  const fields={stage:row.stage||'B',machineId:row.machineId,sessionId:row.sessionId,flowId:row.id,artifactId:artifact.id,check:payload.check,reason:payload.reason,hashVersion:payload.hashVersion};
  let result;
  if(payload.check==='OVERLAY_START'){
@@ -111,12 +130,12 @@ function Submit(body){
   result=Record({...fields,status:'CLIENT_DIAGNOSTIC',trusted:false});
   require('../storage/audit').LogEvent('DESKTOP_OVERLAY_START_FAILED',JSON.stringify({reportId:result.id,stage:'B',flowId:row.id,sessionId:row.sessionId,machineId:row.machineId,reason:payload.reason,source:'SIGNED_CLIENT_REPORT',attested:false}));
   // Receipt only: do not refresh, invalidate or grant execution authority.
-  return {accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false};
+  return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
  if(payload.own?.status==='READ_ERROR'&&require('./desktopSecurityAuthority').UsesAuthority(row,row.stage||'B')){
   require('./desktopSecurityAuthority').Invalidate(row,row.stage||'B','MEASUREMENT_UNAVAILABLE');
   result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason:'MEASUREMENT_UNAVAILABLE',trusted:false});
-  return {accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false};
+  return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
  if(payload.own){const own=payload.own,crcComparison=require('./desktopCrcPolicy').Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
   const rejectionReason=own.status==='READ_ERROR'?'MEASUREMENT_FAILED':!crcComparison.matched?crcComparison.reason:own.codeSha512!==artifact.codeSha512||own.codeCrc64!==artifact.codeCrc64?'CODE_HASH_MISMATCH':codeComparison.mismatch?'CODE_EXTENDED_HASH_MISMATCH':fileComparison.mismatch?'FILE_EXTENDED_HASH_MISMATCH':require('./desktopSecurityAuthority').Policy().requireCompleteCrcLayers&&!crcComparison.complete?'CRC_COVERAGE_INCOMPLETE':'';
@@ -126,13 +145,13 @@ function Submit(body){
   const extendedHashesVerified=fileExtendedVerified&&codeExtendedVerified,unverifiedExtended=payload.hashVersion===3&&matches&&!extendedHashesVerified;
   if(!matches)require('./desktopBootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_'+rejectionReason},'INTEGRITY_REPORT');
   result=Record({...fields,check:'OWN_CODE',status:matches?unverifiedExtended?'CLIENT_DIAGNOSTIC':'VERIFIED':'REJECTED',reason:matches?unverifiedExtended?'EXTENDED_BASELINE_UNAVAILABLE':'BASELINE_MATCH':rejectionReason,trusted:true,extendedHashesVerified,fileExtendedVerified,codeExtendedVerified,crcComparison,expectedSha512:artifact.codeSha512,observedSha512:own.codeSha512,expectedCrc64:artifact.codeCrc64,observedCrc64:own.codeCrc64,expectedXxh3_128:artifact.codeXxh3_128,observedXxh3_128:own.codeXxh3_128,expectedBlake3:artifact.codeBlake3,observedBlake3:own.codeBlake3,expectedFileXxh3_128:artifact.fileXxh3_128,observedFileXxh3_128:own.fileXxh3_128,expectedFileBlake3:artifact.fileBlake3,observedFileBlake3:own.fileBlake3});
-  if(!matches){return {accepted:true,status:'REJECTED',reportId:result.id,terminate:true};}
+  if(!matches){return Complete({accepted:true,status:'REJECTED',reportId:result.id,terminate:true});}
  }
  if(payload.check==='MODULE_INVENTORY'){Load();if(payload.modules.map(module=>CompareModule(module,payload.hashVersion)).some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){require('./desktopBootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_KNOWN_MODULE_CODE_MISMATCH'},'INTEGRITY_REPORT');result=Record({...fields,status:'CLIENT_DIAGNOSTIC',modules:payload.modules,trusted:false});}else result=AcceptSnapshot(row,fields,payload); }
- if(result.status==='REJECTED'){return {accepted:true,status:result.status,reportId:result.id,terminate:true};}
- return {accepted:true,status:result.status,reportId:result.id,terminate:false};
+ if(result.status==='REJECTED'){return Complete({accepted:true,status:result.status,reportId:result.id,terminate:true});}
+ return Complete({accepted:true,status:result.status,reportId:result.id,terminate:false});
 }
-function Execute(body){if(!Plain(body))Fail('INTEGRITY_REPORT_INVALID');if(body.action==='challenge')return Challenge(body);if(body.action==='submit')return Submit(body);Fail('INTEGRITY_REPORT_INVALID');}
+function Execute(body){if(!Plain(body))Fail('INTEGRITY_REPORT_INVALID');if(body.action==='challenge'){requestProtocol.Purpose('report.challenge');return Challenge(body);}if(body.action==='submit'){requestProtocol.Purpose('report.submit');return Submit(body);}Fail('INTEGRITY_REPORT_INVALID');}
 function List(query={}){Load();const machineId=String(query.machineId||''),sessionId=String(query.sessionId||'');if(machineId&&!/^[A-F0-9]{64}$/.test(machineId)||sessionId&&!/^[-A-Za-z0-9_]{1,100}$/.test(sessionId))Fail('INTEGRITY_REPORT_INVALID');return {items:records.filter(row=>(!machineId||row.machineId===machineId)&&(!sessionId||row.sessionId===sessionId)).slice(-100).reverse(),revision,serverTime:Date.now(),scope:'SHA-512, CRC64-ECMA, XXH3-128 and BLAKE3 comparisons cover files, executable sections and registered DLL export tables. Measurements are client-reported, not hardware attestation.',policy:Policy(),attested:false,limit:100};}
 function CompareModule(row,hashVersion=3){
  const baseline=baselines.find(b=>b.hashVersion===3&&b.name.toLowerCase()===row.name.toLowerCase()&&b.fileSha512===row.fileSha512);
@@ -218,5 +237,5 @@ function RequireSnapshot(row,stage){
  if(!reason)return;RevokeSnapshot(row,reason);Record({stage,sessionId:row.sessionId,flowId:row.id,machineId:row.machineId,check:'MODULE_POLICY',status:'REJECTED',reason,trusted:true,strictPolicyRevision:policy.revision});Fail(reason,403);
 }
 
-function RetireContext(row){const ids=new Set([row.id,row.sessionId]);for(const [id,value]of pending)if(ids.has(value.sessionId))pending.delete(id);for(const id of ids)rates.delete(id);for(const id of snapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))snapshots.delete(id);for(const id of finishedSnapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))finishedSnapshots.delete(id);}
+function RetireContext(row){const ids=new Set([row.id,row.sessionId]);for(const [id,value]of pending)if(ids.has(value.sessionId))pending.delete(id);receipts.deleteWhere((meta,response)=>ids.has(meta.context)&&!response.terminate);for(const id of ids)rates.delete(id);for(const id of snapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))snapshots.delete(id);for(const id of finishedSnapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))finishedSnapshots.delete(id);}
 module.exports={RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};

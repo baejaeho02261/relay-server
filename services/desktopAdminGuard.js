@@ -6,7 +6,7 @@ const state=require('../core/state');
 const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
 function IsMutation(pathname) {
-  return /^\/api\/production\/(?:dual-policy|passkeys\/revoke)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all)$/.test(pathname);
+  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|ci-signers|ci-evidence|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
 }
 function Identities() {
   const text=process.env.DESKTOP_APPROVER_IDENTITIES_JSON||'{}';
@@ -26,13 +26,21 @@ function MarkVerified(session,credentialId){session.passkeyCredentialId=credenti
 // change other applications' optional global two-person policy or stored keys.
 function SingleOperatorPath(pathname) {
   return typeof pathname==='string' && (pathname.startsWith('/api/desktop/bootstrap/') || pathname.startsWith('/api/desktop/workspace/') ||
-    pathname==='/api/production/passkeys/revoke');
+    pathname==='/api/production/passkeys/revoke' || pathname==='/api/production/passkeys/register/begin' || pathname==='/api/production/passkeys/register/finish');
+}
+function ReauthenticationRequired(pathname) {
+  return process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1' && IsMutation(pathname);
 }
 function CheckSession(session, pathname='') {
   if(!session||session.role!=='admin'||typeof session.id!=='string'||!session.id)
     return {ok:false,status:403,reason:'ADMIN_REQUIRED'};
+  const webAuth=require('../web/webAuth');
+  if(webAuth.IsManagedSession(session)&&!webAuth.IsSessionActive(session))
+    return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
   if(Object.hasOwn(session,'expiresAt')&&(!Number.isSafeInteger(session.expiresAt)||session.expiresAt<=Date.now()))
     return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
+  if(ReauthenticationRequired(pathname)&&!require('../web/webAuth').HasRecentAuthentication(session))
+    return {ok:false,status:428,reason:'ADMIN_REAUTH_REQUIRED'};
   if(!pathname||SingleOperatorPath(pathname))return {ok:true,mode:'SINGLE_ADMIN'};
   if(StepUpRequired()&&!Recent(session))return {ok:false,status:428,reason:'SECURITY_ADMIN_STEP_UP_REQUIRED'};
   if(DualRequired()&&!Identity(session))return {ok:false,status:428,reason:'SECURITY_ADMIN_IDENTITY_REQUIRED'};
@@ -40,7 +48,9 @@ function CheckSession(session, pathname='') {
 }
 function Status(){return {mode:'SINGLE_ADMIN',stepUpRequired:false,dualApprovalRequired:false,
   identityConfigurationValid:true,provisionedPrincipalCount:0,stepUpLifetimeMs:0,
-  identitySource:'EXISTING_ADMIN_SESSION',humanIdentityProof:false};}
+  identitySource:'EXISTING_ADMIN_SESSION',humanIdentityProof:false,
+  recentReauthenticationRequired:process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1',
+  reauthenticationLifetimeMs:require('../web/webAuth').REAUTH_MS};}
 function Begin(session,req){const check=CheckSession(session);return check.ok?{ok:false,reason:'SECURITY_DESKTOP_PASSKEY_NOT_USED'}:check;}
 function Finish(session,req,body){return Begin(session,req);}
 function SinglePermit(session,method,path,body){
@@ -88,4 +98,4 @@ function Authorize(session,method,path,body,ticketId){
   }
   return{ok:false,status:428,reason:used.reason};
 }
-module.exports={SingleOperatorPath,ConsumeSingleAuthorization,ProvisionedCredential,IsMutation,Identity,Recent,MarkVerified,CheckSession,Status,Begin,Finish,Summary,Authorize};
+module.exports={ReauthenticationRequired,SingleOperatorPath,ConsumeSingleAuthorization,ProvisionedCredential,IsMutation,Identity,Recent,MarkVerified,CheckSession,Status,Begin,Finish,Summary,Authorize};

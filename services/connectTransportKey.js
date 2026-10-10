@@ -27,7 +27,7 @@ function Load(){
  let privateKey;try{privateKey=crypto.createPrivateKey(fs.readFileSync(KEY_FILE));}catch(_){throw Error('CONNECT_SERVER_KEY_INVALID');}
  if(privateKey.asymmetricKeyType!=='rsa'||privateKey.asymmetricKeyDetails?.modulusLength!==2048)throw Error('CONNECT_SERVER_KEY_INVALID');
  if(process.platform!=='win32')fs.chmodSync(KEY_FILE,0o600);
- const publicKey=crypto.createPublicKey(privateKey),blob=PublicBlob(publicKey),keyId=crypto.createHash('sha256').update(blob).digest('hex');
+ const publicKey=crypto.createPublicKey(privateKey);require('./desktopKeyPurposes').Reserve(publicKey,'SERVER_TRANSPORT');const blob=PublicBlob(publicKey),keyId=crypto.createHash('sha256').update(blob).digest('hex');
  if(fs.existsSync(ID_FILE)){const marker=fs.lstatSync(ID_FILE);if(!marker.isFile()||marker.isSymbolicLink()||marker.size!==65||fs.readFileSync(ID_FILE,'utf8')!==keyId+'\n')throw Error('CONNECT_SERVER_KEY_CHANGED');}
  else try{Publish(ID_FILE,keyId+'\n');}catch(error){if(error.code!=='EEXIST'||fs.readFileSync(ID_FILE,'utf8')!==keyId+'\n')throw error;}
  cached={privateKey,publicKey,keyId,serverPublicKey:blob.toString('base64')};return cached;

@@ -3,6 +3,9 @@
 // NOT hardware attestation and never replace the existing license/session gate.
 const crypto = require('node:crypto');
 const { performance } = require('node:perf_hooks');
+const deadline = require('./desktopDeadline');
+const requestProtocol = require('./desktopRequestProtocol');
+const receipts = requestProtocol.CreateReceipts({ conflict: 'SECURITY_REQUEST_REUSED' });
 const store = require('./desktopBootstrapStore');
 const DOMAIN = 'GAME-AUTHORITY-V2';
 const RELEASE_DOMAIN = 'GAME-RELEASE-APPROVAL-V2';
@@ -76,6 +79,7 @@ function VerifyApproval(artifact, policy) {
   if (!approval) return !policy.requireReleaseSignature;
   if (!plain(approval) || typeof approval.keyId !== 'string' || typeof approval.signature !== 'string' || !/^[A-Za-z0-9+/]{86}==$/.test(approval.signature)) return false;
   const signer = policy.trustedReleaseKeys.find(x => x.keyId === approval.keyId);
+  if(signer)require('./desktopKeyPurposes').Assert(signer.publicKey,'RELEASE_APPROVAL');
   if (!signer || !require('./desktopSecurityOperations').SignerAllowed(approval.keyId) || Buffer.from(approval.signature, 'base64').toString('base64') !== approval.signature) return false;
   try { return crypto.verify(null, Buffer.from(ReleaseCanonical(artifact.component, artifact.version, artifact.sha512)), signer.publicKey, Buffer.from(approval.signature, 'base64')); }
   catch (_) { return false; }
@@ -134,7 +138,9 @@ function ProposedPolicy(body) {
   if (body.expectedRevision !== old.revision) Fail('SECURITY_POLICY_CONFLICT', 409);
   if (body.expectedOperationsRevision !== undefined && body.expectedOperationsRevision !== require('./desktopSecurityOperations').Revision()) Fail('SECURITY_OPERATIONS_CONFLICT',409);
   const patch = { ...body }; delete patch.expectedRevision; delete patch.expectedOperationsRevision;
-  return ValidatePolicy({ ...old, ...patch, revision: old.revision + 1 });
+  const next = ValidatePolicy({ ...old, ...patch, revision: old.revision + 1 });
+  require('./desktopSecurityOperations').AssertReleaseKeyPurpose(next.trustedReleaseKeys);
+  return next;
 }
 function PreviewPolicy(body) {
   const next=ProposedPolicy(body),db=store.Load(),at=Date.now(),ops=require('./desktopSecurityOperations');
@@ -172,19 +178,21 @@ function SetPolicy(body, actor) {
   }
   require('./desktopSecurityOperations').AuditIntent('POLICY_CHANGED',actor);
   store.Atomic(state=>{
-    state.securityAuthorityPolicy=next;
+    const purposesChanged=require('./desktopSecurityOperations').RememberReleaseKeys(state,next.trustedReleaseKeys);
+    const rolloutChanged=!!state.securityOperations?.rollout.enabled;
     // A global policy commit ends the explicit build-scoped pilot, atomically.
-    if(state.securityOperations?.rollout.enabled) {
+    if(rolloutChanged) {
       state.securityOperations.rollout={enabled:false,artifactKeys:[],patch:{}};
-      state.securityOperations.revision++;
     }
+    if(purposesChanged||rolloutChanged)state.securityOperations.revision++;
+    state.securityAuthorityPolicy=next;
   });
   InvalidateAll();
   Audit('POLICY','POLICY_CHANGED',null,{revision:next.revision,actor});
   return Policy();
 }
-function InvalidateAll() { pending.clear(); decisions.clear(); }
-function RetireContext(row,stage){const context=Context(row,stage);for(const [id,value]of pending)if(value.context===context)pending.delete(id);for(const id of decisions.keys())if(id.startsWith(context+':'))decisions.delete(id);rates.delete(context);observations.delete(context);}
+function InvalidateAll() { pending.clear(); decisions.clear(); receipts.clear(); }
+function RetireContext(row,stage){const context=Context(row,stage);for(const [id,value]of pending)if(value.context===context)pending.delete(id);for(const id of decisions.keys())if(id.startsWith(context+':'))decisions.delete(id);receipts.deleteWhere(meta=>meta.context===context);rates.delete(context);observations.delete(context);}
 function Context(row, stage) { return stage + ':' + (stage === 'A' ? row.id : row.sessionId); }
 function Binding(operationId, payloadHash) { return sha(operationId + '|' + payloadHash); }
 function RowArtifact(row, stage) {
@@ -192,9 +200,9 @@ function RowArtifact(row, stage) {
   return db.artifacts[stage === 'A' ? db.launchers[row.launcherId]?.artifactId : row.releaseId];
 }
 function Prune() {
-  const at = Date.now(), tick = performance.now();
-  for (const [id, item] of pending) if (item.expiresAt <= at || item.deadline <= tick) pending.delete(id);
-  for (const [id, item] of decisions) if (item.expiresAt <= at || item.deadline <= tick) decisions.delete(id);
+  const clock = deadline.Now(), at = clock.wall, tick = clock.tick;
+  for (const [id, item] of pending) if (deadline.Expired(item, clock)) pending.delete(id);
+  for (const [id, item] of decisions) if (deadline.Expired(item, clock)) decisions.delete(id);
   for (const [id, item] of rates) if (item.deadline <= tick) rates.delete(id);
   for (const [id,item] of observations) if(at-item.at>600000) observations.delete(id);
 }
@@ -216,8 +224,7 @@ function Challenge(body) {
   if([...pending.values()].filter(x=>x.context===context&&x.intent===body.intent&&x.binding===body.binding).length>=2) Fail('SECURITY_OBSERVATION_BUSY',429);
   rates.set(context, rate);
   const item = { challengeId: crypto.randomBytes(24).toString('hex'), nonce: crypto.randomBytes(24).toString('hex'),
-    epoch, sequence: ++sequence, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), expiresAt: Date.now() + policy.challengeMs,
-    deadline: performance.now() + policy.challengeMs, context, stage: body.stage, intent: body.intent, binding: body.binding };
+    epoch, sequence: ++sequence, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), ...deadline.After(policy.challengeMs), context, stage: body.stage, intent: body.intent, binding: body.binding };
   pending.set(item.challengeId, item);
   return { version: 1, challengeId: item.challengeId, nonce: item.nonce, epoch, sequence: item.sequence,
     revision: item.revision, expiresAt: item.expiresAt, dynamicCode: policy.dynamicCode };
@@ -256,25 +263,43 @@ function Evaluate(value, baseline, policy, artifact) {
 function Submit(body) {
   Fields(body, [...AUTH_FIELDS, 'challengeId', 'payload', 'signature']);
   const row = Authenticate(body), artifact=RowArtifact(row,body.stage), policy = require('./desktopSecurityOperations').EffectivePolicy(Policy(),artifact); Prune();
+  const receipt = receipts.get(body.challengeId, 'authority.submit', body);
+  if (receipt) {
+    const current = decisions.get(receipt.meta.id);
+    // Recovery is a copy of the original response, never a new measurement or
+    // lease. A newer result, changed policy, or retired context wins.
+    if (!current || current.sequence !== receipt.response.sequence || current.revision !== policy.revision || current.operationsRevision !== require('./desktopSecurityOperations').Revision()) Fail('SECURITY_CHALLENGE_INVALID', 401);
+    return receipt.response;
+  }
   const challenge = pending.get(body.challengeId), context = Context(row, body.stage);
   if (!challenge || challenge.context !== context || challenge.intent !== body.intent || challenge.binding !== body.binding || challenge.revision !== policy.revision || challenge.operationsRevision!==require('./desktopSecurityOperations').Revision()) Fail('SECURITY_CHALLENGE_INVALID', 401);
   const value = Payload(body.payload);
-  if (typeof body.signature !== 'string' || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature)) Fail('SECURITY_SIGNATURE_INVALID', 401);
+  if (typeof body.signature !== 'string' || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature) || Buffer.from(body.signature, 'base64').toString('base64') !== body.signature) Fail('SECURITY_SIGNATURE_INVALID', 401);
   const key = require('./desktopLicenses').ParseKey(row.publicKey).key;
   if (!crypto.verify('sha256', Buffer.from(Canonical(body, challenge, body.payload)), { key, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(body.signature, 'base64'))) Fail('SECURITY_SIGNATURE_INVALID', 401);
   pending.delete(body.challengeId);
+  // Verification may cross a deadline. Both server clocks must still permit
+  // consumption; client timestamps never extend this one-use capability.
+  if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
   const id = context + ':' + body.intent + ':' + body.binding, old = decisions.get(id);
-  if (old && old.sequence >= challenge.sequence) Fail('SECURITY_OBSERVATION_REPLAY', 409);
+  if (challenge.superseded || old && old.sequence >= challenge.sequence) Fail('SECURITY_OBSERVATION_REPLAY', 409);
   if (!old && decisions.size >= 4096) Fail('SECURITY_CAPACITY', 503);
   const result = Evaluate(value, row.integrityArtifact, policy, artifact);
+  if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
   if(observations.size>=4096&&!observations.has(context)) observations.delete(observations.keys().next().value);
   observations.set(context,{at:Date.now(),stage:body.stage,sessionId:body.sessionId,artifactId:artifact.id,value:{...value},baseline:Object.fromEntries(['hashVersion','sha512','crc64','codeSha512','codeCrc64','codeXxh3_128','codeBlake3','crcLayers'].map(k=>[k,row.integrityArtifact[k]]))});
   const decision = { ...result, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), sequence: challenge.sequence,
-    expiresAt: Date.now() + policy.freshnessMs, deadline: performance.now() + policy.freshnessMs };
+    ...deadline.After(policy.freshnessMs) };
   decisions.set(id, decision);
+  // A decision can expire before an older challenge (freshnessMs may be less
+  // than challengeMs). Retain the ordering rejection on that pending challenge
+  // itself so pruning the newer decision cannot revive an older measurement.
+  for (const item of pending.values()) if (item.context === context && item.intent === body.intent && item.binding === body.binding && item.sequence < challenge.sequence) item.superseded = true;
   Audit('OBSERVATION', result.reason, {...row,stage:body.stage}, { sequence: challenge.sequence, revision: policy.revision, intent: body.intent });
-  return { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: result.status === 'PASS' || policy.mode === 'observe',
+  const response = { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: result.status === 'PASS' || policy.mode === 'observe',
     sequence: challenge.sequence, expiresAt: decision.expiresAt, attested: false };
+  receipts.put(body.challengeId, 'authority.submit', body, response, { context, id }, { ttlMs: policy.freshnessMs });
+  return response;
 }
 function RequireFresh(row, stage, intent, binding) {
   const artifact = RowArtifact(row, stage), policy = require('./desktopSecurityOperations').EffectivePolicy(Policy(),artifact); RequireArtifact(artifact);
@@ -293,13 +318,14 @@ function Invalidate(row, stage, reason) {
   const prefix = Context(row, stage) + ':';
   for (const id of decisions.keys()) if (id.startsWith(prefix)) decisions.delete(id);
   for (const [id, item] of pending) if (item.context === Context(row, stage)) pending.delete(id);
+  receipts.deleteWhere(meta=>meta.context===Context(row,stage));
   Audit('INVALIDATED', reason, { ...row, stage });
 }
 function Execute(body) {
   if (!plain(body)) Fail('SECURITY_INPUT_INVALID', 400);
   require('./desktopBootstrap').EnsureSecurityAvailable();
-  if (body.action === 'challenge') return Challenge(body);
-  if (body.action === 'submit') return Submit(body);
+  if (body.action === 'challenge') { requestProtocol.Purpose('authority.challenge'); return Challenge(body); }
+  if (body.action === 'submit') { requestProtocol.Purpose('authority.submit'); return Submit(body); }
   Fail('SECURITY_INPUT_INVALID', 400);
 }
 function ActivationObservations(policy, artifactIds) {
