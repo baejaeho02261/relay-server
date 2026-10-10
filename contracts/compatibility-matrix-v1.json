@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "id": "WIN-01",
+      "area": "Actual A/B/O build",
+      "status": "NOT_RUN",
+      "environment": "RAD Studio 13.1 Win64 + declared SDK/Node toolchain",
+      "procedure": "Run the existing Windows CI build, native-probes, sdk-probe and ABI comparison stages from an unchanged copied source tree.",
+      "acceptance": "A/B/O compile/link; actual compiler/SDK/Node hashes recorded; no stale DCU or probe code in final products.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-02",
+      "area": "Three-way PE interpretation",
+      "status": "NOT_RUN",
+      "environment": "Compiled PeCorpusProbe.exe",
+      "procedure": "Run node GameWeb/scripts/test-hardening-pe-corpus.js --native PATH_TO_PeCorpusProbe.exe",
+      "acceptance": "All 28 server/BAT/Delphi accept/reject results agree; accepted file/code digests agree; malformed pdata rejected without checker anchor.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-03",
+      "area": "File positions and aliases",
+      "status": "NOT_RUN",
+      "environment": "Local NTFS; existing HardeningContractsProbe",
+      "procedure": "Run tests/Build_NativeProbes_Win64.bat. Compare supplied/duplicate file positions while another reader moves the alias offset.",
+      "acceptance": "Pinned measurement is stable and does not change the alias synchronous offset; errors retain distinct statuses.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-04",
+      "area": "Rename/parent/reparse",
+      "status": "NOT_RUN",
+      "environment": "NTFS; Developer Mode or symlink privilege",
+      "procedure": "Execute rename, replacement, parent replacement and reparse branches of HardeningContractsProbe.",
+      "acceptance": "Original pinned object remains measured; reparse node rejected. Privilege SKIP is not PASS.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-05",
+      "area": "Kernel I/O faults and shutdown",
+      "status": "NOT_RUN",
+      "environment": "Dedicated test storage/driver fault-injection environment",
+      "procedure": "Inject read delay, read error, storage removal and cancellation races; close Overlay at each point.",
+      "acceptance": "No released OVERLAPPED buffer/object use; finite admission; read/deadline/cancel states remain distinct. Observe and report any shutdown overrun rather than force terminating a thread.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-06",
+      "area": "DPI and monitor movement",
+      "status": "NOT_RUN",
+      "environment": "Windows multi-monitor 100/125/150/200% scales",
+      "procedure": "Move authorized window between monitors; change scale/resolution while dragging and while pointer down.",
+      "acceptance": "Drawing, screen/client transforms and hit-test agree; suggested bounds applied; mouse state released when interrupted.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-07",
+      "area": "Focus, minimize and RDP",
+      "status": "NOT_RUN",
+      "environment": "Windows local/RDP switch, locked/unlocked desktop",
+      "procedure": "Alt-Tab/minimize/restore, remote attach/detach and display change during interaction.",
+      "acceptance": "No stuck buttons, stale device input, unauthorized redisplay or use-after-free; lease expiry still closes UI.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-08",
+      "area": "Device loss/OOM/Resize",
+      "status": "NOT_RUN",
+      "environment": "Intel/AMD/NVIDIA supported GPU and WARP baseline",
+      "procedure": "Exercise device removed/reset/hung, allocation failure and Resize failure paths in a test harness.",
+      "acceptance": "Correct failure category and fail-closed shutdown; no automatic recreation after invalid/expired authorization.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-09",
+      "area": "Mitigation compatibility",
+      "status": "NOT_RUN",
+      "environment": "Each supported Windows build/GPU/driver combination",
+      "procedure": "Observe set attempt + GetProcessMitigationPolicy for A/B/O; then separately test optional dynamic-code prohibition. Keep strict-handle/image policy diagnostic until validated.",
+      "acceptance": "Record actual query flags/errors and app/ImGui/TLS functionality; unsupported or incompatible policies do not become falsely reported enabled.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-10",
+      "area": "CFG final artifacts",
+      "status": "NOT_RUN",
+      "environment": "Final A/B/O built by supported compiler, Windows runtime",
+      "procedure": "Run Audit_Final_Artifacts.bat A.exe B.exe O.exe; inspect compiler support, metadata and supported negative indirect-call test harness.",
+      "acceptance": "Audit hashes match approved A/B/O. Valid GFIDs/guard metadata plus actual compiler/runtime proof; structural PASS alone is not whole-callsite proof.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "WIN-11",
+      "area": "Global MSBuild/DCU pollution",
+      "status": "NOT_RUN",
+      "environment": "Actual CodeGear MSBuild",
+      "procedure": "Run tests/Test-BuildIsolation.ps1 using actual msbuild, then clean product rebuild with current RAD defaults.",
+      "acceptance": "All external test/probe define/options/search/output/root-DCU negatives rejected; valid product build accepted; probe and product outputs cannot mix.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "NET-01",
+      "area": "TLS deadlines and strict pin",
+      "status": "NOT_RUN",
+      "environment": "Windows client + isolated test server",
+      "procedure": "Delay DNS/connect/handshake/response, cancel each phase, present unknown cert, send late authenticated reply.",
+      "acceptance": "One common request deadline; no late lease refresh, pin bypass or leaked security owner. Residual resolver/IO work is resource-owned and bounded.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "NET-02",
+      "area": "Whole server regression / fair load",
+      "status": "NOT_RUN",
+      "environment": "Supported Node version + exact npm lock + native SQLite addon",
+      "procedure": "npm ci --engine-strict, npm test; stress authenticated renewals alongside bounded invalid auth/PE/upload workload.",
+      "acceptance": "All 79 suites pass in the real dependency environment; queue limits/stream limits hold; observe renewal latency/failure ratios and reject overload instead of unbounded queues.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "OPS-01",
+      "area": "Policy activation and legacy rollout",
+      "status": "NOT_RUN",
+      "environment": "Isolated staging copy; never operating keys/data",
+      "procedure": "Inspect reauth, requireManifest, requireCiEvidence, minimumSecurityVersion and legacy measurement rollout before approving a new A/B/O set.",
+      "acceptance": "No assumption that opt-in features are already enabled. Preserve current single-admin model; explicitly resolve critical-only versus broad mutation reauth scope.",
+      "mandatoryBeforeProduction": true
+    },
+    {
+      "id": "OPS-02",
+      "area": "Pin rotation future v5 design",
+      "status": "NOT_RUN",
+      "environment": "New separately approved protocol implementation only",
+      "procedure": "Review the next-pin envelope/antirollback/overlap scenarios in hardening-contracts-v1.json. Current v4 has no online rollover.",
+      "acceptance": "No unknown-certificate autoaccept; current v4 remains strict. Do not advertise automatic rollover as implemented.",
+      "mandatoryBeforeProduction": true
+    }
+  ],
+  "defaultEnforcement": "No additional blanket mitigation enforcement enabled without passing relevant Windows/GPU rows."
+}

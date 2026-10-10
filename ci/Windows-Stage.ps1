@@ -20,13 +20,14 @@ try {
  switch ($Kind) {
   'dependencies' {
    Set-Location -LiteralPath $web
-   Run-Checked (Get-Command npm.cmd).Source @('ci','--ignore-scripts','--no-audit','--no-fund')
+   Run-Checked (Get-Command npm.cmd).Source @('ci','--engine-strict','--ignore-scripts','--no-audit','--no-fund')
    Run-Checked (Get-Command npm.cmd).Source @('rebuild','better-sqlite3','--build-from-source')
   }
   'build' {
    foreach($name in @('dcc64.exe','bcc64.exe','brcc32.exe')){if(-not(Test-Path -LiteralPath (Join-Path $env:BDS ('bin\'+$name)))){throw 'CI_RAD_CLASSIC_TOOLS_REQUIRED'}}
    if(-not(Test-Path -LiteralPath (Join-Path $env:BDS 'include\windows\sdk\d3d11.h'))){throw 'CI_RAD_SDK_HEADERS_REQUIRED'}
    $msbuild=(Get-Command msbuild.exe -CommandType Application -ErrorAction Stop).Source
+   Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $native 'tests\Test-BuildIsolation.ps1'),'-NativeRoot',$native,'-MsBuildPath',$msbuild)
    foreach($project in @('GameLauncher','GameConnect','GameOverlay')){Run-Checked $msbuild @(($project+'.dproj'),'/t:Rebuild','/p:Config=Release','/p:Platform=Win64','/m:1','/nr:false','/nologo','/v:minimal')}
    $paths=@{A='launcher';B='client';O='overlay'}
    foreach($role in @('A','B','O')){
@@ -39,8 +40,18 @@ try {
    $imgui=$Matches[1];$dcc=(Get-Item -LiteralPath (Join-Path $env:BDS 'bin\dcc64.exe')).VersionInfo.FileVersion;$bcc=(Get-Item -LiteralPath (Join-Path $env:BDS 'bin\bcc64.exe')).VersionInfo.FileVersion
    if(-not $env:WindowsSDKVersion){throw 'CI_WINDOWS_SDK_VERSION_REQUIRED'}
    @{delphi="dcc64 $dcc";cpp="classic bcc64 ELF $bcc";windowsSdk=$env:WindowsSDKVersion.TrimEnd('\');imgui=$imgui}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $Output 'toolchain.json') -Encoding utf8NoBOM
+   $observed=[ordered]@{version=1;node=(& $node --version);nodeSha512=(Get-FileHash -LiteralPath $node -Algorithm SHA512).Hash.ToLowerInvariant();windowsBuild=[Environment]::OSVersion.Version.ToString();windowsSdk=$env:WindowsSDKVersion;imgui=$imgui;files=[ordered]@{}}
+   foreach($name in @('dcc64.exe','bcc64.exe','brcc32.exe')){$observed.files[$name]=(Get-FileHash -LiteralPath (Join-Path $env:BDS ('bin\'+$name)) -Algorithm SHA512).Hash.ToLowerInvariant()}
+   foreach($name in @('package.json','package-lock.json')){$observed.files[$name]=(Get-FileHash -LiteralPath (Join-Path $web $name) -Algorithm SHA512).Hash.ToLowerInvariant()}
+   foreach($name in @('imgui\vendor\imgui.h','imgui\bridge\game_imgui_bridge.cpp','imgui\bridge\game_imgui_dx11.cpp')){$observed.files[$name]=(Get-FileHash -LiteralPath (Join-Path $native $name) -Algorithm SHA512).Hash.ToLowerInvariant()}
+   $observed|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $Output 'observed-build-inputs.json') -Encoding utf8NoBOM
+   Write-Output ('ACTUAL_BUILD_INPUTS '+($observed|ConvertTo-Json -Depth 8 -Compress))
+
   }
-  'normalize' { Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $native 'imgui\bridge\Normalize-PE-Unwind.ps1'),'-ImagePath',(Join-Path $Output 'O.exe')) }
+  'normalize' {
+   Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $native 'imgui\bridge\Normalize-PE-Unwind.ps1'),'-ImagePath',(Join-Path $Output 'O.exe'))
+   Run-Checked $node @((Join-Path $web 'tools\audit-final-artifacts.js'),(Join-Path $Output 'A.exe'),(Join-Path $Output 'B.exe'),(Join-Path $Output 'O.exe'),(Join-Path $Output 'final-artifact-audit.json'))
+  }
   'approve' { $arguments=@((Join-Path $PSScriptRoot 'ci-artifacts.js'),'prepare',$Output,$KeyFile,$Version,[string]$SecurityVersion,(Join-Path $Output 'toolchain.json'),(Join-Path $web 'maintenance\source-manifest.json'));if($PolicyFile){$arguments+=$PolicyFile};Run-Checked $node $arguments }
   'native-probes' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_NativeProbes_Win64.bat')+'"')) }
   'sdk-probe' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_NativeAbi_SDK_Win64.bat')+'"')) }

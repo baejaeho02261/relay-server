@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "date": "2026-10-10",
+  "nativeStatus": "SOURCE_MODIFIED_WINDOWS_NOT_COMPILED_OR_EXECUTED",
+  "normalization": {
+    "name": "PE64-CODE-V1",
+    "hashVersion": 3,
+    "validationRevision": 2,
+    "file": "All raw bytes including non-code/certificate/overlay bytes participate in whole-file hashes. This is not the mapped image digest.",
+    "code": "Immutable executable sections ordered by RVA. Digest prefix is GAME-CODE-V1 followed by NUL. Protected span is VirtualSize when nonzero, otherwise SizeOfRawData; section bounds validate max(span, rawSize). Copy min(rawSize, span), zero-fill the remainder. Writable sections are not normalized immutable code.",
+    "relocation": "Only supported HIGHLOW/DIR64 entries with bounded, non-overlapping operands. Native verifies the expected loader adjustment before clearing relocation operand bytes. Unsupported/malformed relocation entries are rejected; normalized operands are zero.",
+    "imports": "Mutable IAT is not conflated with whole immutable code assurance. Existing API readonly/target/module checks remain separate. Import directory content is not silently stripped from the whole-file hash.",
+    "pdata": "Validate exception-directory range, bounded 12-byte runtime records, order/nonoverlap, executable function extent and aligned raw non-executable unwind location even without a checker anchor. Existing anchor-to-runtime-range coverage remains separate. This is not a complete Windows unwinder semantic proof.",
+    "exports": "EAT/export coverage is a separate optional measurement with explicit status. FULL module-file/code coverage never implies every export was measured.",
+    "headers": "SelfImageHeaders measures its bounded approved header ranges, not all mapped image memory.",
+    "compatibility": "Previously accepted malformed PE may now be rejected. Publish server, BAT and native validators together; run the 28-case corpus with the compiled Delphi probe before release. No actual deployed files were tested here."
+  },
+  "fileOwnership": {
+    "synchronousPosition": "IntegrityHashHandle and pinned readers use ReOpenFile plus explicit OVERLAPPED offsets, not SetFilePointer on the supplied/duplicate handle. Same original FILE_OBJECT stays pinned before name unlink/replacement.",
+    "defaults": {
+      "maximumFileBytes": 67108864,
+      "measurementMilliseconds": 30000,
+      "chunkBytes": 65536,
+      "maximumOutstandingReads": 8,
+      "waitPollMilliseconds": 25
+    },
+    "status": [
+      "MEASURED",
+      "FILE_CHANGED",
+      "READ_ERROR",
+      "COVERAGE_INSUFFICIENT",
+      "CANCELLED",
+      "DEADLINE_EXCEEDED"
+    ],
+    "limits": "Cancellation is cooperative. CancelIoEx is a request, not proof of completion. Detached operations own buffer/event/handle until completion. Resource-exhaustion drain and uninterruptible metadata calls can exceed deadline. No thread termination/free-before-completion."
+  },
+  "measurementBundle": {
+    "planVersion": 1,
+    "fields": [
+      "measurementStartedTick",
+      "measurementFinishedTick",
+      "measurementPlanVersion",
+      "moduleGenerationStable",
+      "snapshotId",
+      "batchIndex",
+      "batchCount",
+      "coverage"
+    ],
+    "coverage": [
+      "FULL",
+      "PARTIAL",
+      "SAMPLED"
+    ],
+    "legacy": "Missing new metadata is a legacy-compatible path, not evidence of the new coherent FULL plan.",
+    "generationLimit": "Before/after module-handle enumeration can miss unload/reload ABA. Client reports are not complete runtime attestation. FULL means mandatory scopes of this plan, not every optional EAT layer/all process memory."
+  },
+  "pinRotationReview": {
+    "status": "DESIGN_REVIEW_ONLY_ONLINE_ROLLOVER_NOT_IMPLEMENTED_OR_ENABLED",
+    "currentProfileVersion": 4,
+    "current": "Exact leaf certificate DER SHA-256; retain the 8-field v4 profile and manual TLS rotation/new trusted profile delivery. No arbitrary second pin, unknown-certificate acceptance or downgrade fallback.",
+    "futureDesign": [
+      "A new versioned profile/envelope is required. Next pin must be delivered over the current pinned connection and authenticated with a purpose-separated server authority signature; changing pinned identity through unauthenticated discovery is forbidden.",
+      "Bind current pin, next pin, endpoint host/port/site, profile revision, policy epoch, activation, overlap end and expiry. At most two pins during a bounded overlap; overlap duration must be an explicit deployment policy, never an unbounded fallback.",
+      "Store/validate monotonic revision and enforce antirollback, cross-endpoint rejection, replay deduplication and bounded wall/monotonic expiry. A backward clock jump must not extend trust indefinitely.",
+      "Require recent administrator reauthentication and an approved release/key-rotation record to schedule a rotation; keep communication, release and CI key roles separate.",
+      "After overlap expiry reject the old pin. Failed refresh, restored old profile, missing current trust, concurrent versions or invalid signature must fail closed or require a newly authenticated launcher/profile, not autoaccept.",
+      "Before implementation test old/new transition, expiry during request, response loss, rollback, endpoint mix, revoked signing key, clock changes and client restarts on Windows. These are NOT_RUN here."
+    ],
+    "whyNotEnabled": "Native current profile has one exact pin. Silent protocol expansion would break the existing approved A/B/O wire contract; the requirement requested review of a transition design, not unverified automatic acceptance."
+  },
+  "networkAndWork": {
+    "requestBudgetMs": 10000,
+    "authLane": {
+      "workers": 2,
+      "queueLimit": 32
+    },
+    "peLane": {
+      "workers": 1,
+      "queueLimit": 1
+    },
+    "upload": {
+      "exeBytes": 67108864,
+      "dllBytes": 33554432,
+      "concurrency": 1,
+      "deadlineMs": 120000
+    },
+    "offloaded": "RSA-OAEP unwrap, AES-GCM authenticated decrypt/strict JSON, PE hashes/normalization/capabilities. Private key passes as structured-cloned KeyObject; no second store writer.",
+    "notOffloaded": "Existing device signature checks inside single-writer authorization/receipt transactions remain synchronous. This is bounded admission/fairness improvement, not complete per-session CPU scheduling or DDoS protection.",
+    "metrics": "Connection count, auth latency, lane capacity/active/queued/rejected, identified verify+overlayVerify failure ratio. The last ratio excludes failures before a request is identified as renewal."
+  },
+  "overlay": {
+    "states": [
+      "CREATED",
+      "AUTHORIZED",
+      "VISIBLE",
+      "TRANSFERRED",
+      "CLOSING",
+      "CLOSED"
+    ],
+    "shutdownBudgetMs": 5000,
+    "hardShutdownBound": false,
+    "shutdown": "Stop admission, signal cancellation, join worker safely, then reset after join and send Close only with remaining budget. WaitFor cannot safely guarantee a hard limit for unresponsive OS calls. Record overrun; never force terminate or free a running owner.",
+    "renewal": "Use remaining lease, recent verification duration and a 30-second ceiling. A reply received after expiry never revives authorization.",
+    "graphics": "Classify device removed/reset/hung, OOM and resize failures; no automatic device recreation, fail closed.",
+    "dpi": "PerMonitorV2, suggested WM_DPICHANGED rectangle, common render/hit-test scale and focus/minimize/display input release. Actual Windows multi-monitor/RDP/GPU behavior unverified."
+  },
+  "buildAndMitigations": {
+    "sourceGuard": "Release role-specific evaluated MSBuild property checks and fresh DCU directories; root DCU/CFG and foreign test/probe define/options/output rejected. Actual CodeGear execution unverified.",
+    "cfg": "Final PE structural evidence is distinct from compiler call-site coverage and actual runtime enforcement. Flag-only checks are insufficient. Record compiler files/version/hash and Windows query results separately.",
+    "policies": "Set success/error and actual GetProcessMitigationPolicy observations are separate. Preserve existing opt-in dynamic prohibit; no untested blanket strict-handle/image-loading/ACG enforcement."
+  },
+  "primaryReferences": [
+    {
+      "topic": "DuplicateHandle shared file position",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle"
+    },
+    {
+      "topic": "ReOpenFile handle semantics",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-reopenfile"
+    },
+    {
+      "topic": "CancelIoEx does not wait for completion",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex"
+    },
+    {
+      "topic": "WM_DPICHANGED rectangle",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged"
+    },
+    {
+      "topic": "CFG compile/runtime evidence",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/secbp/control-flow-guard"
+    },
+    {
+      "topic": "Actual mitigation observation",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocessmitigationpolicy"
+    },
+    {
+      "topic": "MSBuild property evaluation",
+      "url": "https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-properties"
+    },
+    {
+      "topic": "Worker ownership and KeyObject clone",
+      "url": "https://nodejs.org/api/worker_threads.html"
+    }
+  ]
+}

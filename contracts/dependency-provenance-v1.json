@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "basis": "Exact versions and bytes from supplied project; no online upgrade or vulnerability audit completed.",
+  "requiredNodeRange": "^22.22.2 || ^24.15.0 || >=26.0.0",
+  "localNodeUsed": "v22.16.0",
+  "localNodeIsNotSupportedForFullDependencyTree": true,
+  "npmLockSha512": "5bec3a978ebfb6d26ae2be2f0835470304ee77cb4a8757dc456e2bb85363dbfd31232af4d5ef04b85041121fac8f3fa7099fbd4e62c32519bd01ffe4f42c9893",
+  "dependencies": {
+    "dependencies": {
+      "better-sqlite3": "13.0.3",
+      "jpeg-js": "0.4.4",
+      "jsqr": "1.4.0",
+      "pngjs": "7.0.0",
+      "qrcode": "1.5.4",
+      "web-push": "3.6.7"
+    },
+    "optionalDependencies": {
+      "geoip-lite": "1.4.10"
+    },
+    "devDependencies": {
+      "@noble/hashes": "1.8.0",
+      "hash-wasm": "4.12.0",
+      "jsdom": "30.0.1"
+    }
+  },
+  "imguiVersion": "1.93.0 WIP",
+  "imguiVersionNumber": "19298",
+  "vendorFiles": {
+    "GameConnect_Win64/imgui/vendor/LICENSE.txt": "fff7ca4d8984277931e6e377563e42441b252836a5a0d6ab60879db92d37202b20877fe3c3602e13938b1d40838a199133ad444959a9f58f54094001493877b4",
+    "GameConnect_Win64/imgui/vendor/backends/imgui_impl_dx11.cpp": "8757571319fee3d43878243daf6f3e17b81a4799114899accfb8c3e922c439107e01af7ca5f97dcd0c4d0788c11419fd79119612cd97606dec77bb24c85b3e63",
+    "GameConnect_Win64/imgui/vendor/backends/imgui_impl_dx11.h": "b0f0aab2d60759e8ef44370eb8e4d37b8edb95584a0f373c6ff66bd282e959185ef295b3b69e73bcf42ce3d1065dd4c6a55c672271e39bcf58537a573a21170a",
+    "GameConnect_Win64/imgui/vendor/imconfig.h": "cc4d2f15043f9b50de77a863c89211cd8121aec3c934e605bac6aad4a831f84671d38c3a6493781b63a603b2684672eaa1aff48a5ddb42caea3a4add562353bd",
+    "GameConnect_Win64/imgui/vendor/imgui.cpp": "2eda9318e51c725c9ed115a44783cecd8c1f9623b7d226a3452c7b390c71b1e14f14a131783af1679af281d7a76c5042b4e90cd58b83d63d9bef5392c978ae65",
+    "GameConnect_Win64/imgui/vendor/imgui.h": "1c254a2ae46e596ad27150ffaa984186dbba7b5b2a25beeb79164ebe1b164ebb56723cba8bf6a429346f562ebdaa723d455b4228ddfaeb0309cfb2513f32a70c",
+    "GameConnect_Win64/imgui/vendor/imgui_draw.cpp": "a30f2e931b9fe8fca621ea84433278c1cbd7910cf86dd2821aeca7f1664f30b249c892bce516394ec15a8865b44a8d46b0521951be7e33fea47f16ce3ad4b591",
+    "GameConnect_Win64/imgui/vendor/imgui_internal.h": "e7ea5d8fa3e208b9d9e9394ac01a4db9089dab612d39cc91233bac0fbc56ca247862a92439c48154d2ff1b31479fa21b17aaaabd2512dee4c925d7c65dc0b3c4",
+    "GameConnect_Win64/imgui/vendor/imgui_tables.cpp": "c5bd5fcbe744f24e9776f681b96a0957f4e655aa69059073c9a00034ac923a99a2c78f2b0d406343d6af09bdecde0472a9e1910001ebcd000d2ae88f0920fffb",
+    "GameConnect_Win64/imgui/vendor/imgui_widgets.cpp": "dbbfbcb04eb95020579ec431a561257f37188b4a4165b11acba30dc1e380d9b8643e168371a659ad065d9ae031a66bc9ce4617374fc6fc8a955afaf14339fe0f",
+    "GameConnect_Win64/imgui/vendor/imstb_rectpack.h": "f475740158ea0f2b2fb194b7f564ec2a64caa10fdadee47249f8572b755e6a8b6b36d3a05297c67074b7e0018c68920d7686885c0be81980b802fe7bd036b435",
+    "GameConnect_Win64/imgui/vendor/imstb_textedit.h": "e5b40b44c014a5994fa15b02a8d4fd9e7c19cc055b40f7eb6d54f35dc466216f778405997eaabcee8dc28df4795008ec9b8a95b8a6ce871e25ff5c749bf23430",
+    "GameConnect_Win64/imgui/vendor/imstb_truetype.h": "79f8dc75f18c26fd2d1cdfe91a4762d156902af3e5cf912a75808433a5cd1220f94db7715e9837f7a69daa20050963ef8f05eda2f70e1b89f4f123ad718868e0"
+  },
+  "bridgeFiles": {
+    "GameConnect_Win64/imgui/bridge/Audit-Object.ps1": "3c8c66ac30f9b5f49225c6b347f6b8bc8d8536154382ced58455fb1247553f0580aa70071852610535d41199d0bc81177fc062bbd19fd32b71d42a4df4e7a7b6",
+    "GameConnect_Win64/imgui/bridge/Normalize-PE-Unwind.ps1": "32ef92147f596b90db359278d7a3649ef0c78f7a83555f7bf8e1d24536ec289675136a31e442a5517f504009097af584bb15edb41c69fc2a34d7df5639a3a121",
+    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp": "a85b4b4f03cf7529d4c50a4dd3ad4180ee3179a64252b0af31c4e0d101a92fa5860c5f109c1bafe1497ea7e2bb9a2ec23bae9c973cf0ca60c5b0ed2d5bd53533",
+    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.h": "5feda1b6fcc7418f0bd93ec48d769df2eed6be53727ecf1565715c6ece23f4a315852f0fccb4030d4c633517111049a15a5b05c3da9b2b12e7f09926490e016c",
+    "GameConnect_Win64/imgui/bridge/game_imgui_config.h": "4a5511b355772c8f5fd3f1c679933015d1a04362e8c23143ca498aec11de57cdf3e2f484bc52e94752a633bc5e8a26868e5c57147297fc5966a7e9b50f076af5",
+    "GameConnect_Win64/imgui/bridge/game_imgui_dx11.cpp": "c1ce4d34ad3ce4ea15a0d573212c6bb3fe2a6a59e6551baa344366c5a6f2b8fa9e0857d903c064e9cc778696887f766e7712ee4387846eefc025773b80748f4c",
+    "GameConnect_Win64/imgui/bridge/game_imgui_guard.h": "1fd46ff20e7ece410e83b50feb59b85155bb2c9fb0e46af8d70856df67d3c31e48cda34771fdb89dbaac47a51024249d283cd404e0925b08570c662cd532429b"
+  },
+  "compilerAndSdk": "Exact installed executable hashes and versions recorded by Windows-Stage.ps1 only when it actually runs. Not fabricated for this Linux review.",
+  "regressionAfterSecurityUpdate": "Update explicit dependency/SDK/compiler/bridge provenance, regenerate source manifest, run all 79 server groups, actual native/SDK/ABI/PE corpus and applicable Windows compatibility rows. Do not reuse old CI PASS."
+}

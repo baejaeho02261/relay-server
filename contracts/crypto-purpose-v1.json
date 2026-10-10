@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "hashVersion": 3,
+  "policy": "Do not infer replaceability from an algorithm name. Authentication and measurement have separate authorities.",
+  "purposes": [
+    {
+      "purpose": "file and normalized code measurement",
+      "algorithms": [
+        "SHA-512",
+        "BLAKE3-256",
+        "XXH3-128",
+        "CRC-64/ECMA and role-specific CRC-LAYERS-V1"
+      ],
+      "authority": "public measurements; signatures/MAC/server authorization remain required",
+      "implementation": [
+        "Game.Hashes",
+        "Game.CrcLayers",
+        "extendedHashes",
+        "crcLayers"
+      ]
+    },
+    {
+      "purpose": "release and Windows CI evidence",
+      "algorithms": [
+        "Ed25519"
+      ],
+      "domains": [
+        "GAME-RELEASE-APPROVAL-V2",
+        "GAME-DEPLOYMENT-MANIFEST-V1",
+        "GAME-CI-ATTESTATION-V1"
+      ],
+      "keys": "release approval and CI attestation MUST be different"
+    },
+    {
+      "purpose": "device and challenge authentication",
+      "algorithms": [
+        "RSA-2048 PKCS1-v1_5 with SHA-256"
+      ],
+      "domains": [
+        "GAME-AUTHORITY-V2",
+        "GAME-INTEGRITY-REPORT-V2",
+        "existing purpose-bound desktopRequestProtocol domains"
+      ],
+      "note": "Retain protocol algorithms and exact signed bytes; no bulk SHA-256 replacement."
+    },
+    {
+      "purpose": "transport key wrapping and AEAD",
+      "algorithms": [
+        "RSA-OAEP-SHA-256",
+        "AES-256-GCM"
+      ],
+      "protocol": "GAME-CONNECT-4",
+      "note": "Whole-request deadline and replay protection are independent of AEAD."
+    },
+    {
+      "purpose": "TLS certificate pin",
+      "algorithms": [
+        "SHA-256 of exact leaf DER"
+      ],
+      "profileVersion": 4,
+      "note": "Not an SPKI pin. Unknown certificates never auto-accepted."
+    },
+    {
+      "purpose": "store authentication",
+      "algorithms": [
+        "HMAC-SHA-256",
+        "context-derived BLAKE3 keyed MAC"
+      ],
+      "note": "Preserve stored envelope versions and migrations. Fixed-size MACs use constant-time content comparisons."
+    },
+    {
+      "purpose": "token/session identifiers",
+      "algorithms": [
+        "existing random identifiers and server-side digest bindings"
+      ],
+      "note": "Identifiers do not substitute for possession of a secret or a purpose-bound signature."
+    }
+  ]
+}
