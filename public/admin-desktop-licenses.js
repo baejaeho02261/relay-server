@@ -10,6 +10,7 @@ let desktopRenderedStatus = null;
 let desktopLicenseRows = new Map();
 let desktopLicenseActionPending = false;
 let desktopPendingIssue = null;
+let desktopPendingRevoke = null;
 let desktopPendingLauncher = null;
 let desktopBootstrap = null;
 let desktopIntegrityPolicy = null;
@@ -109,6 +110,7 @@ async function renderDesktopLicenses(silent = false) {
   if (!roleIsAdmin()) { content.innerHTML='<div class="empty">관리자만 라이선스를 관리할 수 있습니다.</div>'; return; }
   const requestedQuery=desktopLicenseQuery,requestedStatus=desktopLicenseStatus,generation=++desktopListGeneration;
   desktopWorkflowOwner();
+  if(desktopPendingRevoke&&desktopPendingRevoke.owner!==session?.csrf)desktopPendingRevoke=null;
   const query = new URLSearchParams({q:requestedQuery,page:String(desktopLicensePage),pageSize:'25'});
   if (desktopLicenseStatus !== 'ALL') query.set('status', desktopLicenseStatus);
   const owner = session?.csrf;
@@ -143,7 +145,7 @@ async function renderDesktopLicenses(silent = false) {
     <div id="desktop-tabpanel-licenses" class="desktop-tab-panel" role="tabpanel" aria-labelledby="desktop-tab-licenses" data-desktop-tab-panel="licenses" ${desktopLicenseTab==='licenses'?'':'hidden'}>
     <section class="desktop-hero"><div class="desktop-platform" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M4 8h32v21H4zM13 35h14M20 29v6M9 13h8v5H9zM21 13h10v5H21zM9 21h8v4H9zM21 21h10v4H21z"/></svg></div><div><span class="desktop-eyebrow">WINDOWS 64-BIT</span><h3>한 번 실행하고, 서버에서 인증</h3><p>무작위 이름으로 발급한 실행기가 프로그램을 받아 연결합니다. 새 사용자용 B는 입력창·관리 안내 없이 실행합니다. 관리자가 사용 전 라이선스를 A에 연결하면 기존 서명·기기·무결성 확인 후 서버에서 승인합니다. 실행 상태·원인·후속 조치는 이 웹에서 확인합니다.</p></div><button type="button" id="desktop-license-create" class="primary">+ 라이선스 발급</button></section>
     <div class="desktop-stats" aria-label="필터와 무관한 전체 라이선스 상태">${Object.entries(desktopStatusLabels).map(([status,label])=>`<button type="button" class="desktop-stat${desktopLicenseStatus===status?' selected':''}" data-desktop-status="${status}"><span>${label}</span><strong>${countLabel(status)}</strong></button>`).join('')}</div>
-    <div class="actions"><button type="button" data-desktop-action="deployment-wizard">새 버전 배포</button><button type="button" data-desktop-action="workspace">서버 통계 · 일괄 작업 · 저장공간</button><button type="button" data-desktop-action="security-operations">서버 보안 · 배포 운영</button></div>
+    <div class="actions">${desktopPendingRevoke?'<button type="button" data-desktop-action="revoke-retry">이전 폐기 결과 확인</button>':''}<button type="button" data-desktop-action="deployment-wizard">새 버전 배포</button><button type="button" data-desktop-action="workspace">서버 통계 · 일괄 작업 · 저장공간</button><button type="button" data-desktop-action="security-operations">서버 보안 · 배포 운영</button></div>
     ${desktopPanelMarkup(['bootstrap'],desktopBootstrapMarkup(desktopBootstrap))}
     ${desktopPanelMarkup(['machines'],desktopMachineListMarkup(machineData))}
     <section class="section-card desktop-license-list"><div class="section-head"><div><h3>Windows 라이선스</h3><p class="small-note" id="desktop-license-result-summary">전체 ${totalLabel}개 · 검색 결과 ${filteredCount.toLocaleString()}개${filtered?` · 필터 적용: ${esc(desktopStatusLabels[desktopLicenseStatus]||'전체 상태')}${desktopLicenseQuery?' · 검색어 '+esc(desktopLicenseQuery):''}`:' · 전체 보기'} · 위 상태 수치는 전체 기준</p></div><div class="actions"><span class="small-note" id="desktop-license-updated">자동 갱신 · ${desktopDate(data.serverTime)}</span></div></div>
@@ -246,7 +248,7 @@ async function showDesktopArtifactUpload(component) {
   if(!roleIsAdmin()||!session)throw Error('관리자만 실행 파일을 등록할 수 있습니다.');
   if(!['A','B','O'].includes(component))throw Error('등록할 구성 요소를 확인해주세요.');
   const owner=session.csrf,maxBytes=desktopBootstrap?.limits?.maxArtifactBytes||67108864;
-  const promise=openModal({title:component+' 실행 파일 등록',message:component==='A'?'일회용 A 발급에 사용할 Windows64 실행기 템플릿을 등록합니다.':component==='O'?'인증된 B를 통해 발급할 Windows64 Overlay 후보를 등록합니다.':'A가 내려받을 사용자용 Windows64 B 후보를 등록합니다. 운영 게시 전에는 현재 버전이 바뀌지 않습니다.',html:`<label>실행 파일 (.exe)<input id="desktop-artifact-file" type="file" accept=".exe,application/octet-stream"></label><p class="small-note">최대 ${Math.floor(maxBytes/1048576)}MB · 등록은 후보 저장만 수행하며 현재 운영 A/B/O는 바꾸지 않습니다.</p><label>공개 배포 승인 (.approval.json, 선택)<input id="desktop-artifact-approval" type="file" accept=".json,application/json"></label><p class="small-note">개인키를 업로드하지 마세요. 후보 등록 후 서버 보안 · 배포 운영에서 A/B/O를 검증하고 게시하세요.</p><p id="desktop-artifact-status" role="status" aria-live="polite"></p>`,fields:[{name:'version',label:'버전',value:desktopBootstrap?.artifacts?.[component]?.version||'1.0.0'}],confirmLabel:'후보 등록'});
+  const promise=openModal({title:component+' 실행 파일 등록',message:component==='A'?'일회용 A 발급에 사용할 Windows64 실행기 템플릿을 등록합니다.':component==='O'?'인증된 B를 통해 발급할 Windows64 Overlay 후보를 등록합니다.':'A가 내려받을 사용자용 Windows64 B 후보를 등록합니다. 운영 게시 전에는 현재 버전이 바뀌지 않습니다.',html:`<label>실행 파일 (.exe)<input id="desktop-artifact-file" type="file" accept=".exe,application/octet-stream"></label><p class="small-note">최대 ${Math.floor(maxBytes/1048576)}MB · 등록은 후보 저장만 수행하며 현재 운영 A/B/O는 바꾸지 않습니다.</p><label>공개 배포 승인 (.approval.json, 선택)<input id="desktop-artifact-approval" type="file" accept=".json,application/json"></label><p class="small-note">개인키를 업로드하지 마세요. 후보 등록 후 서버 보안 · 배포 운영에서 A/B/O를 검증하고 게시하세요.</p><label>사전 등록 배포 명세 ID (선택, 명세 강제 정책이면 필수)<input id="desktop-artifact-manifest" type="text" maxlength="128" autocomplete="off"></label><p class="small-note">명세를 먼저 계획 등록하고 같은 ID로 A/B/O를 순서대로 등록할 수 있습니다. 서버가 각 파일의 최종 해시와 역할을 확인합니다.</p><p id="desktop-artifact-status" role="status" aria-live="polite"></p>`,fields:[{name:'version',label:'버전',value:desktopBootstrap?.artifacts?.[component]?.version||'1.0.0'}],confirmLabel:'후보 등록'});
   const fileInput=document.getElementById('desktop-artifact-file'),versionInput=modalBody.querySelector('[data-modal-field="version"]'),status=document.getElementById('desktop-artifact-status'),finish=modalConfirm.onclick;
   let uploaded=false,busy=false;
   modalConfirm.onclick=async()=>{
@@ -267,7 +269,9 @@ async function showDesktopArtifactUpload(component) {
       if(!session||session.csrf!==owner)return;
       busy=true;modalConfirm.disabled=true;fileInput.disabled=true;versionInput.disabled=true;
       status.textContent='실행 파일을 업로드하고 서버에서 검증하고 있습니다.';
-      const query=new URLSearchParams({component,version,fileName:file.name});
+      const releaseManifestId=document.getElementById('desktop-artifact-manifest').value.trim();
+      if(releaseManifestId&&!/^[a-f0-9]{128}$/.test(releaseManifestId))throw Error('배포 명세 ID는 소문자 16진수 128자리여야 합니다.');
+      const query=new URLSearchParams({component,version,fileName:file.name,...(releaseManifestId?{releaseManifestId}:{})});
       await api('/api/desktop/bootstrap/artifacts?'+query,{method:'POST',rawBody:file,headers});
       uploaded=true;
       if(session?.csrf===owner&&document.getElementById('desktop-artifact-file')===fileInput&&!modalEl.classList.contains('hidden')){toast(component+' 후보를 등록했습니다. 서버 보안 · 배포 운영에서 A/B/O를 게시하세요.');finish();}
@@ -323,7 +327,8 @@ async function handleDesktopLicenseAction(event) {
   if(!action)return false;if(!roleIsAdmin())throw Error('관리자만 사용할 수 있습니다.');
   if(desktopLicenseActionPending)return true;
   const row=action==='machine-unblock'?desktopMachineRows.get(target.dataset.desktopMachine):action==='session-revoke'?desktopBootstrapSessions.get(target.dataset.id):desktopLicenseRows.get(target.dataset.id);
-  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','workspace','deployment-wizard','retry-panels'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
+  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','workspace','deployment-wizard','retry-panels','revoke-retry'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
+  const actionOwner=session?.csrf;
   desktopLicenseActionPending=true;target.disabled=true;
   try{
     if(action==='retry-panels'){for(const x of desktopPanels.values())if(x.error)x.at=0;await renderCurrent();return true;}
@@ -341,9 +346,23 @@ async function handleDesktopLicenseAction(event) {
       await api('/api/desktop/bootstrap/sessions/'+encodeURIComponent(row.id)+'/revoke',{method:'POST',body:{reason:desktopReason(values.reason)}});toast('실행 인증을 폐기했습니다.');desktopInvalidatePanels('bootstrap');await renderCurrent();return true;
     }
     if(action==='detail'){await showDesktopUnifiedDetail(row.id);return true;}
-    if(action==='revoke'){
-      const values=await openModal({title:'라이선스 폐기',message:`${row.label||desktopDisplayId(row.id)}\n이 라이선스의 인증을 종료합니다. 사용 기록은 유지되며 되돌릴 수 없습니다.`,fields:[{name:'reason',label:'폐기 사유 (3~300자)',type:'textarea',value:''}],danger:true,confirmLabel:'폐기'});
-      if(!values)return true;await api('/api/desktop/licenses/'+encodeURIComponent(row.id)+'/revoke',{method:'POST',body:{reason:desktopReason(values.reason)}});toast('라이선스를 폐기했습니다.');desktopInvalidatePanels('bootstrap','machines');await renderCurrent();return true;
+    if(action==='revoke'||action==='revoke-retry'){
+      if(desktopPendingRevoke&&desktopPendingRevoke.owner!==actionOwner)desktopPendingRevoke=null;
+      if(desktopPendingRevoke){
+        const pending=desktopPendingRevoke;
+        const confirm=await openModal({title:'이전 폐기 결과 확인',message:`${pending.label}\n응답을 받지 못한 폐기 요청의 결과를 같은 요청으로 확인합니다.`,confirmLabel:'결과 다시 확인'});
+        if(!confirm||!roleIsAdmin()||session?.csrf!==pending.owner)return true;
+      }else{
+        if(!row)return true;
+        const values=await openModal({title:'라이선스 폐기',message:`${row.label||desktopDisplayId(row.id)}\n이 라이선스의 인증을 종료합니다. 사용 기록은 유지되며 되돌릴 수 없습니다.`,fields:[{name:'reason',label:'폐기 사유 (3~300자)',type:'textarea',value:''}],danger:true,confirmLabel:'폐기'});
+        if(!values||!roleIsAdmin()||session?.csrf!==actionOwner)return true;
+        desktopPendingRevoke={owner:actionOwner,label:row.label||desktopDisplayId(row.id),url:'/api/desktop/licenses/'+encodeURIComponent(row.id)+'/revoke',body:{requestVersion:2,requestId:crypto.randomUUID(),reason:desktopReason(values.reason)}};
+      }
+      const pending=desktopPendingRevoke;
+      try{await api(pending.url,{method:'POST',body:pending.body});}catch(error){if(error.status&&error.status<500&&desktopPendingRevoke===pending)desktopPendingRevoke=null;throw error;}
+      if(desktopPendingRevoke===pending)desktopPendingRevoke=null;
+      if(!roleIsAdmin()||session?.csrf!==pending.owner)return true;
+      toast('라이선스를 폐기했습니다.');desktopInvalidatePanels('bootstrap','machines');await renderCurrent();return true;
     }
     if(action==='create'||action==='reissue'){
       if(desktopPendingIssue && desktopPendingIssue.owner !== session.csrf) desktopPendingIssue=null;
@@ -351,13 +370,13 @@ async function handleDesktopLicenseAction(event) {
         const pending=desktopPendingIssue;
         const confirm=await openModal({title:'이전 발급 결과 확인',message:'응답을 받지 못한 발급 요청이 있습니다. 중복 발급 없이 동일한 요청의 결과를 다시 확인합니다.',confirmLabel:'결과 다시 확인'});
         if(!confirm)return true;
-        if(!session||session.csrf!==pending.owner)return true;
-        const data=await api(pending.url,{method:'POST',body:pending.body});desktopPendingIssue=null;if(!session||session.csrf!==pending.owner)return true;await showDesktopLicenseReceipt(data);await renderCurrent();return true;
+        if(!roleIsAdmin()||session?.csrf!==pending.owner)return true;
+        let data;try{data=await api(pending.url,{method:'POST',body:pending.body});}catch(error){if(error.status&&error.status<500&&desktopPendingIssue===pending)desktopPendingIssue=null;throw error;}desktopPendingIssue=null;if(!session||session.csrf!==pending.owner)return true;await showDesktopLicenseReceipt(data);await renderCurrent();return true;
       }
       const replacement=action==='reissue';
       const values=await openModal({title:replacement?'기존 키를 폐기하고 새 키 발급':'Windows 라이선스 발급',message:replacement?'기존 라이선스는 즉시 폐기됩니다. 사용 이력을 초기화하지 않고 별개의 키를 새로 발급합니다.':'기간 선택 없이 한 번만 등록할 수 있는 Windows64 라이선스를 발급합니다. 등록 즉시 사용됨으로 처리되며 재사용할 수 없습니다.',fields:desktopIssueFields(row?.label||'',replacement),danger:replacement,confirmLabel:replacement?'교체 발급':'발급'});
-      if(!values)return true;const body=desktopIssueBody(values);if(replacement)body.reason=desktopReason(values.reason);
-      body.requestId=crypto.randomUUID();
+      if(!values||!roleIsAdmin()||session?.csrf!==actionOwner)return true;const body=desktopIssueBody(values);if(replacement)body.reason=desktopReason(values.reason);
+      body.requestVersion=2;body.requestId=crypto.randomUUID();
       desktopPendingIssue={owner:session.csrf,url:'/api/desktop/licenses'+(replacement?'/'+encodeURIComponent(row.id)+'/reissue':''),body};
       const owner=session.csrf;
       let data;try{data=await api(desktopPendingIssue.url,{method:'POST',body});}catch(error){if(error.status && error.status<500)desktopPendingIssue=null;throw error;}

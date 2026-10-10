@@ -25,6 +25,14 @@ async function loginWithPasskey(){
   session={role:done.role,csrf:done.csrf,expiresAt:done.expiresAt};showApp();
 }
 
+async function reauthenticateWithPasskey(){
+  if(!window.PublicKeyCredential||!navigator.credentials)throw new Error('이 브라우저는 WebAuthn 패스키를 지원하지 않습니다.');
+  const begin=await api('/api/session/reauthenticate/passkey/begin',{method:'POST',body:{},reauthRetried:true});
+  const credential=await navigator.credentials.get({publicKey:normalizePublicKeyOptions(begin.publicKey)});
+  const response=credential.response;
+  await api('/api/session/reauthenticate/passkey/finish',{method:'POST',body:{challengeId:begin.challengeId,credentialId:pkEncode(credential.rawId),clientDataJSON:pkEncode(response.clientDataJSON),authenticatorData:pkEncode(response.authenticatorData),signature:pkEncode(response.signature)},reauthRetried:true});
+}
+
 async function renderProductionHardening(){
   if(!roleIsAdmin()){content.innerHTML="<div class=\"empty\">접근 권한 없음</div>";return;}
   const d=await api('/api/production'),c=d.compatibility,t=d.transport,u=d.updates,s=d.slo;

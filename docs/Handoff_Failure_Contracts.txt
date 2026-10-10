@@ -1,0 +1,118 @@
+A -> B -> O V3: 권한, 실패, 응답 소실 및 종료 규약
+2026-10-10 / 1~5단계 보완 소스
+
+범위와 전제
+- 이 문서는 V3 소스의 구현 규약입니다. Windows 실행 성공 보고가 아닙니다.
+- A/B/O는 각각 독립된 일시 서명키와 DeviceID를 사용합니다. MachineID는 유지합니다.
+- O의 키는 부모 B의 서명키가 아니며, O 세션 토큰은 B 세션 토큰이 아닙니다.
+- A 발급은 관리자 웹의 관리자 세션/정책으로만 허용합니다. 데스크톱 O 자격은
+  관리자 웹 권한을 만들지 않습니다. 라이선스 소비는 B flow/session/device에 결속됩니다.
+- O는 부모 B가 소비한 라이선스와 해당 실행에 결속됩니다. O가 그 라이선스를
+  복원하거나 다른 KEY를 대신 소비하는 기능은 없습니다.
+- 키/토큰/평문 컨텍스트는 실행 중 메모리에서만 사용합니다. 프로세스 재시작 후
+  이전 요청을 복원하지 않으며, 새 실행은 기존 PC 정책과 일회용 KEY 정책을 따릅니다.
+
+프로토콜 경계
+- GAME-CONNECT-4, hashVersion=3 및 기존 서명 canonical 바이트는 유지합니다.
+- 로컬 IPC와 역할별 위임은 V3입니다. GAME-HANDOFF-V3는 PE 호환성 표식일 뿐
+  보안 PASS나 하드웨어 증명이 아닙니다. A/B/O 세대가 섞이면 거절합니다.
+- 기존 all-legacy 배포/실행은 이전 규약으로 처리합니다. V3 흐름을 legacy claim으로
+  낮추거나 legacy 흐름에 V3 필드를 섞는 요청은 거절합니다.
+- O의 최종 소유권 이전 응답 handoffVersion=1은 별도 기존 규약으로 유지합니다.
+- 내부 purpose/receipt 명세: services/desktopRequestProtocol.js.
+
+실패별 처리
+
+1) A의 begin/download/finish 응답 소실
+   동일한 요청/키/티켓으로 정해진 전송 오류에만 재시도합니다. begin의 requestId는
+   유지하고, 다운로드는 같은 오프셋/고정 파일을 요청합니다. finish 재시도는 새로운
+   handoff 수명을 발급하지 않습니다. 인증 거절/응답 스키마 오류는 자동 재시도하지 않습니다.
+
+2) B claim 전 자식 생성/파이프/키 결속 실패
+   A는 자신이 만든 정확한 자식만 종료 대상으로 처리하고 소유한 파일/핸들을 정리합니다.
+   A의 downloadTicket으로 자기 flow에 abort를 요청합니다. 실패한 실행을 승인 상태로
+   되돌리지 않습니다. 서버 접근 불가 시 서버 만료가 최종 권한을 제한합니다.
+
+3) B claim은 확정됐으나 모든 응답이 소실
+   B는 동일한 child key/nonce/delegation/signature/body로 claim을 최대 2회 요청합니다.
+   서버 복구 한도는 min(handoffExpiresAt, claimedAt + 30초)입니다. 다른 자식 키 또는
+   다른 측정 내용은 같은 claim의 복구가 아닙니다. B가 sessionToken을 끝내 받지 못해도
+   A의 자기 flow abort가 B 권한을 종료할 수 있습니다. KEY 소비를 복구하지 않습니다.
+
+4) B의 O 준비(Prepare) 응답 소실
+   B는 원래 prepare requestId를 로컬 작업 동안 유지하며 동일 execute body와 서명을
+   재전송합니다. 서버는 현재 B/라이선스/권한을 다시 확인한 뒤 같은 PREPARED O만 반환합니다.
+   원래 요청 ID로 다른 payload를 보내면 거절합니다.
+   모든 응답이 소실돼 overlayId를 모르는 경우에도 아래 PREPARE 범위 취소가 가능합니다.
+
+5) O 다운로드/finish/claim 실패 또는 O claim 이후 READY 전 종료
+   B는 overlayId를 알면 OVERLAY 범위, 모르면 원래 requestId의 PREPARE 범위로 취소합니다.
+   이 취소에는 B의 유효한 동일 실행 자격과 별도 부모 서명이 필요합니다.
+   PREPARE가 서버에 아직 도달하지 않았더라도 취소 장벽을 영구 상태에 기록합니다.
+   따라서 지연된 원래 Prepare가 취소 이후 O를 생성할 수 없습니다.
+   O sessionToken을 확보한 자식은 자기 finally의 Close도 최선으로 수행합니다.
+   서버에 이미 claim된 O라도 부모가 최종 이전을 확정하기 전에는 부모 취소가 가능합니다.
+
+6) O의 첫 승인된 표시 프레임 전 실패
+   native READY는 O claim만으로 신호되지 않습니다. O의 승인/서버 검증과 최초 정상
+   표시 프레임 이후 신호합니다. READY 전 실패는 부모 인계 성공으로 처리하지 않습니다.
+   부모 취소는 해당 O의 nonce와 실행 권한을 퇴역시키며 B의 라이선스를 되살리지 않습니다.
+
+7) 이전 Commit이 확정됐으나 응답 소실
+   B는 동일 commit 서명/body를 재시도합니다. 그래도 불명확하면 같은 부모의 서명된
+   overlayAbort 조회가 30초 범위의 퇴역 부모 receipt를 검증해 TRANSFERRED를 확인할 수 있습니다.
+   이 경우 O를 닫거나 B를 복원하지 않습니다. native는 검증된 TRANSFERRED 응답을
+   인계 성공으로 처리합니다. 인증된 복구 기한이 지나면 구 부모 자격으로 확인할 수 없습니다.
+
+8) B 종료/abort/만료/철회
+   V3에서는 동일한 Bootstrap 저장소 트랜잭션으로 아직 이전되지 않은 자기 O도 퇴역합니다.
+   정상적으로 O 이전이 완료되어 닫힌 B의 일반 정리는 O를 종료하지 않습니다.
+   관리자의 부모 철회는 이전된 O의 권한에도 적용됩니다.
+   legacy의 기존 반환 코드/종료 동작은 유지합니다.
+
+9) O 종료/Close 응답 소실
+   O는 자기 세션만 닫습니다. 동일 요청 재시도는 권한/수명/측정을 새로 발급하지 않습니다.
+   V3 Close/Abort의 종결 확인은 retiredAt부터 30초 이내로 제한합니다.
+   이미 닫힌 상태를 확인하는 것은 라이선스, 세션 또는 이전 실행을 복구하는 동작이 아닙니다.
+
+부모 취소 요청 V3
+  action = overlayAbort
+  handoffVersion = 3
+  parentSessionId, parentSessionToken, signature
+  overlayId 또는 prepareRequestId 중 정확히 하나
+
+서명 원문 (LF로 연결)
+  GAME-OVERLAY-ABORT-V3
+  parentSessionId
+  OVERLAY 또는 PREPARE
+  overlayId 또는 prepareRequestId
+
+응답 필드 (4개)
+  handoffVersion, parentSessionId, overlayId, status
+  status: CLOSED / REVOKED / EXPIRED / TRANSFERRED / NOT_PREPARED
+  NOT_PREPARED는 PREPARE 범위에만 사용하며 overlayId는 빈 문자열입니다.
+  NOT_PREPARED도 취소 장벽이 기록된 결과입니다. 이후 늦은 Prepare를 허용하지 않습니다.
+  같은 취소 요청의 복구는 30초이고 다른 범위/ID/서명으로 바꾸면 같은 receipt가 아닙니다.
+  이미 최종 이전된 O의 TRANSFERRED 확인은 두 범위 모두 허용하되 같은 부모/자식 결속과
+  부모 서명 및 별도 이전 receipt 기한을 재검증하며 상태를 변경하지 않습니다.
+
+재시도 제한
+- begin/chunk/finish: 최대 3회, native 작업의 기존 전체 다운로드 마감도 유지합니다.
+- B claim/close/abort, O chunk/finish/claim/commit/close/abort: 최대 2회.
+- O 준비 execute는 동일 challenge/requestId/payload/signature로 최대 2회.
+- B/O의 짧은 재시도 작업은 전체 15초 예산을 전송 계층에 전달합니다.
+- 네트워크 실패만 재시도합니다. 서버 거절·잘못된 서명·잘못된 응답은 재시도하지 않습니다.
+- 인증 재평가는 매번 수행합니다. 복구 응답 때문에 이미 만료/철회된 권한이 연장되지 않습니다.
+- 연결 불가, 프로세스 강제 종료, OS 파일 잠금은 즉시 원격 종료/파일 삭제 성공을 보장하지 않습니다.
+  서버 만료, 유효한 부모 종료, 다음 서버 시작의 저장소 검증이 남은 권한을 제한합니다.
+
+검증 구분
+- scripts/test-handoff-delegation.js: 독립 키/역할/잘못된 부모/정확한 claim 복구/구세대 호환.
+- scripts/test-handoff-recovery.js: 실제 서버 모듈·RSA·저장소로 준비 응답 소실, 취소 선행,
+  지연 요청 차단, 재시작 후 취소 장벽, claim 전/후/READY 이전 서버 상태, 이전 응답 소실,
+  부모 종료의 자식 퇴역, 정확한 만료 경계, 교차 목적 서명 및 O 권한 오용을 검사합니다.
+  관리자 발급 시험은 실제 관리자 route 함수에 비관리자 O 인증 문맥을 전달하는 행동 시험입니다.
+- 서버 합성 상태 시험을 Windows UI 첫 프레임/실제 파이프/프로세스 종료 실측으로 부르지 않습니다.
+- Windows용 HandoffCryptoProbe, DeviceSecurityHandoffProbe, HandoffPipeProbe를 포함합니다.
+  이 환경에서 Windows 실행은 하지 않았습니다. 실제 A->B->O, 파이프 중단, 자식 조기 종료,
+  READY 대기 중 종료 및 D3D11 표시 검증은 Windows에서 수행해야 합니다.

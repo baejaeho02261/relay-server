@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'security-v4-95';
+const WEB_UI_REVISION = 'security-v4-97';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -173,8 +173,29 @@ function toast(message, error = false) {
 
 function readableApiError(code) {
   if(code==='HISTORY_CHANGED')return '다른 곳에서 내용이 변경되었습니다. 최신 상태를 불러온 뒤 다시 시도해주세요.';
+  if (code === 'LOGIN_RATE_LIMITED') return '로그인 시도가 많습니다. 잠시 후 다시 시도하세요.';
+  if (code === 'ADMIN_REAUTH_REQUIRED') return '최근 인증이 필요합니다. 다시 로그인하거나 재인증 후 시도하세요.';
+  if (code === 'ADMIN_SESSION_CAPACITY') return '관리자 세션 한도에 도달했습니다. 사용하지 않는 세션을 해제한 뒤 시도하세요.';
+  if (code === 'REAUTH_FAILED') return '재인증에 실패했습니다. 관리자 인증정보를 확인하세요.';
+  if (code === 'ADMIN_HTTPS_REQUIRED') return 'HTTPS 연결과 서버의 신뢰 프록시 설정을 확인하세요.';
   if (code === 'PERMISSIONS_REQUIRED') return '기기의 필수 권한을 모두 허용한 뒤 다시 승인해주세요.';
   return uiError(code);
+}
+let adminReauthenticationPending = null;
+async function requestAdminReauthentication() {
+  if (adminReauthenticationPending) return adminReauthenticationPending;
+  adminReauthenticationPending = (async () => {
+    const values = await openModal({title:'관리자 재인증',message:'이 중요 작업은 최근 인증이 필요합니다. 패스키를 선택하면 비밀번호는 입력하지 않아도 됩니다.',fields:[
+      {name:'method',label:'인증 방식',type:'select',value:'password',options:[{value:'password',label:'관리자 비밀번호'},{value:'passkey',label:'등록된 패스키'}]},
+      {name:'password',label:'현재 관리자 비밀번호',type:'password',maxLength:4096,inputmode:'text',autocomplete:'current-password'}
+    ],confirmLabel:'재인증'});
+    if (!values) throw new Error('재인증을 취소했습니다. 작업은 적용되지 않았습니다.');
+    try {
+      if (values.method === 'passkey') await reauthenticateWithPasskey();
+      else await api('/api/session/reauthenticate',{method:'POST',body:{password:values.password},reauthRetried:true});
+    } finally { values.password = ''; }
+  })();
+  try { return await adminReauthenticationPending; } finally { adminReauthenticationPending = null; }
 }
 async function api(url, options = {}) {
   const method = String(options.method || 'GET').toUpperCase();
@@ -197,6 +218,10 @@ async function api(url, options = {}) {
       throw new Error(`INVALID_API_RESPONSE [${method} ${url}]`);
     }
   }
+  if (response.status === 428 && data?.error === 'ADMIN_REAUTH_REQUIRED' && !options.reauthRetried) {
+    await requestAdminReauthentication();
+    return api(url, {...options, reauthRetried:true});
+  }
   if (response.status === 401) {
     showLogin();
     throw new Error('로그인이 만료되었습니다.');
@@ -216,6 +241,7 @@ function showLogin() {
   if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();
   session = null;
   if (typeof desktopPendingIssue !== 'undefined') desktopPendingIssue = null;
+  if (typeof desktopPendingRevoke !== 'undefined') desktopPendingRevoke = null;
   if (typeof desktopPendingLauncher !== 'undefined') desktopPendingLauncher = null;
   if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
   if (eventSource) { eventSource.close(); eventSource = null; }

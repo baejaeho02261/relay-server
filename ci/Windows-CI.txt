@@ -1,0 +1,122 @@
+Windows A/B/O CI 실행 및 증거 생성 — phase 1–5
+
+이 디렉터리는 실행 가능한 CI runner와 실제 A→B→O 데스크톱 통합 harness입니다.
+이번 Linux 작업 환경에는 RAD Studio, Windows, D3D11이 없으므로 Windows 실행은
+미검증입니다. portable regression의 PASS는 합성 PE/합성 stage 결과를 사용한
+JavaScript 및 실제 서버 서비스 검증입니다. Windows 빌드 성공으로 표시하지 않습니다.
+
+1. 전용 Windows runner 준비
+- Windows 10/11 x64, 로그인된 대화형 데스크톱 및 사용 가능한 D3D11 그래픽 장치.
+  Session 0 서비스로 실행하면 통합 시험을 거부합니다. RDP 종료/화면 잠금 등의
+  그래픽 상태 변화로 통합 시험이 실패할 수 있습니다. 전용 격리 계정을 사용하세요.
+- RAD Studio 13.1 licensed 설치, classic Win64 dcc64.exe/bcc64.exe ELF,
+  brcc32.exe, MSBuild, BDS\include\windows\sdk\d3d11.h 포함 C++ SDK.
+  Delphi-only 설치 또는 bcc64x/COFF로 대체하면 안 됩니다.
+- PowerShell 7 x64, Node.js >=22.14 (N-API >=10), npm, OpenSSL 실행 파일.
+- Visual Studio Build Tools x64 Native Tools 환경(cl.exe/INCLUDE/LIB) 및 Windows SDK.
+  해당 환경을 로드한 셸에서 interactive GitHub runner를 시작합니다.
+  MSVC는 독립 SDK ABI 비교와 better-sqlite3 빌드에 사용합니다.
+- GitHub Actions runner 최신 지원 버전. checkout/upload-artifact는 공급자 릴리스의
+  전체 commit SHA로 고정되어 있습니다. npm package-lock도 검토 대상입니다.
+- 새 임시 디렉터리와 약 8GiB 이하 Job 메모리, 설치 도구 및 dependency 설치 공간.
+  실행 시간/로그/자식 프로세스 제한을 초과하면 FAIL입니다.
+
+2. 키와 검토된 정책
+- EXE 승인용 Ed25519 개인키와 CI 증거용 Ed25519 개인키를 분리합니다.
+  기존 서버 transport/TLS 키와도 재사용하지 마세요. 서버가 목적 충돌을 검사합니다.
+- 로컬 실행은 -ReleaseKeyFile, -CiKeyFile로 PEM 파일을 전달할 수 있습니다.
+- workflow는 보호된 environment windows-release-ci의 두 secret을 사용합니다:
+  GAME_RELEASE_APPROVAL_KEY_B64 = EXE 승인 PEM 바이트의 Base64
+  GAME_CI_ATTESTATION_KEY_B64 = 별도 CI 서명 PEM 바이트의 Base64
+  개인키 값은 인수/로그/업로드 결과에 넣지 않습니다. 빌드 성공 후에만 ACL 제한
+  임시 파일로 복사하고, 모든 하위 프로세스는 명시적 환경 allowlist를 받습니다.
+- -PolicyFile은 관리자에게 검토받은 전체 server authority policy JSON입니다.
+  revision을 포함한 정확한 snapshot이 필요하며 EXE 승인 공개키가 등록되어 있어야
+  합니다. mode=enforce, readonly API, complete CRC, release signature 필수입니다.
+  정책의 최저 버전/폐기 hash/CFG/ACG 설정도 실제 native 시험에 그대로 적용됩니다.
+- PolicyFile을 생략하면 revision=1의 엄격한 로컬 fixture 정책을 생성합니다.
+  이 경우 생성 manifest는 동일한 정책 digest인 서버에서만 계획 등록 가능합니다.
+  운영 배포용 CI에는 실제 검토된 정책 snapshot을 반드시 공급하세요.
+  운영 정책이 변경되었다면 새 계획 등록 전에 정책/manifest를 다시 맞춰야 합니다.
+- 서버에 CI 공개키를 별도로 등록하고 유효기간/ACTIVE 상태를 설정해야 합니다.
+  ci-public-key.pem은 공개키일 뿐 서버 신뢰 등록을 자동으로 수행하지 않습니다.
+
+3. 로컬 실행 예 (프로젝트 루트에서, x64 Native Tools + PowerShell 7)
+
+  $env:BDS = 'C:\Program Files (x86)\Embarcadero\Studio\37.0'
+  ./GameWeb/ci/Invoke-WindowsCI.ps1 `
+    -OutputDirectory 'C:\CI-Outputs\release-99-unique' `
+    -Version '99.0.0' -SecurityVersion 99 -RunId 'local-99-unique' `
+    -ReleaseKeyFile 'C:\CI-Keys\release-approval.pem' `
+    -CiKeyFile 'C:\CI-Keys\ci-attestation.pem' `
+    -PolicyFile 'C:\CI-Policy\reviewed-policy.json'
+
+OutputDirectory는 존재하면 안 됩니다. DATA_DIR나 운영 서버 경로를 인수로 받지
+않습니다. 기존 Create_Approval/Check_Approval BAT 파일은 수정하거나 호출 방식을
+변경하지 않았습니다. 이 CI는 동일한 approval canonical/signature 규격을 사용합니다.
+
+4. 실제 실행 순서
+- PowerShell AST parse + C# helper compile, 인수 quoting/환경 격리/exit code/
+  실제 자식 Job 소속/종료 회수 self-test 6건.
+- source-manifest v2 SHA-512 파일 allowlist만 새 private 디렉터리에 복사.
+  누락, 변조, 경로 이동, symlink를 거부하고 기존 EXE/DCU를 재사용하지 않습니다.
+  소스 수정 후에는 프로젝트의 source-manifest를 정식 갱신해야 합니다.
+- npm ci --ignore-scripts 후 pinned better-sqlite3의 native build.
+- A/B/O Win64 Release Rebuild, classic ImGui bridge 생성, O 최종 PE 정규화.
+- 최종 EXE 바이트의 승인 JSON 생성, 정확한 policy/source/toolchain/각 EXE hash를
+  묶은 immutable release manifest 생성. 시험 후 EXE 재수정은 보고서 생성을 거부.
+- 모든 native probes의 실제 실행, MSVC Windows SDK probe 생성, Delphi↔SDK ABI 비교.
+- 별도 loopback TLS 서버 및 신규 DATA_DIR 생성. 실제 authority/license/handoff/
+  release governance 서비스를 사용해 manifest 계획→각 A/B/O cohort 업로드→등록
+  →활성화. 하나의 임시 라이선스와 개인화된 A를 발급합니다.
+- 실제 A 실행, 소유 Job 내 B의 서버 CLAIMED + 콘솔 확인 후 라이선스 키를 일반
+  콘솔 입력으로 전달. 키 입력 전 빈 콘솔도 정상입니다. 인증 우회 hook은 없습니다.
+- O 서버 승인/transfer와 실제 visible window, A/B exit code=0, A/B 파일 삭제,
+  B 세션 retirement를 모두 관측. O가 이후 2초간 생존함을 확인하고 자신의 창에
+  WM_CLOSE 전달. O exit code=0, 서버 O CLOSED/retired까지 확인합니다.
+- 저장된 로그 목록의 실제 SHA-512 및 결과를 보고서로 묶고 별도 CI 키로 서명.
+  nativeBuild/apiProbe/integration PASS는 실제 해당 단계들의 exit code 0과 추가
+  통합 관측이 모두 충족된 경우에만 생성합니다. 수동 PASS 입력은 없습니다.
+  시험 실패/미실행은 FAIL/NOT_RUN으로 보존하며 최종 프로세스 exit code는 실패입니다.
+
+5. 격리, 제한, 결과 파일
+- 프로세스는 suspended CreateProcess + 명시적 상속 handle list로 생성하고 Job에
+  넣은 뒤 실행합니다. Job은 최대64개 프로세스/8GiB, 종료 시 최대5초 자식 drain.
+  단계별 2–20분 timeout, 로그64MiB 제한, 전체 workflow 60분 제한입니다.
+- 콘솔/window 제어는 현재 Job에 속함을 retained process handle로 확인한 B/O만
+  대상으로 합니다. 외부 프로세스 메모리 접근이나 injection을 사용하지 않습니다.
+- 운영 DATA_DIR, 관리자 credential, 실사용 PC 차단/라이선스 데이터에 접근하지
+  않습니다. 실제 PC 지문 및 임시 키/토큰을 포함한 private fixture 데이터는
+  종료 시 삭제하고 업로드 대상에 넣지 않습니다. cleanup 실패는 결과 FAIL입니다.
+- public 결과: A/B/O.exe, *.approval.json, manifest.json, policy.json, spec.json,
+  source-manifest.json, toolchain.json, runner-results.json, integration-result.json,
+  report.json, logs-index.json, ci-evidence.json, ci-public-key.pem, bounded stage logs.
+  fixture의 raw server/application 로그 및 license 입력은 공개 로그에 복사하지 않습니다.
+- report/sign 로그는 자기참조를 피하려고 logs-index의 hash 대상에서 제외합니다.
+  logsSha512는 저장된 logs-index.json 파일 바이트의 SHA-512입니다. 파일별 hash를
+  확인한 후 이 digest와 서명 statement를 비교하세요. 미서명 runner-results의
+  signed 상태 등을 서명된 CI statement 대신 신뢰하면 안 됩니다.
+- CI 결과는 신뢰한 CI 실행 주체의 서명 증거이며 하드웨어 attestation이 아닙니다.
+  self-hosted runner 계정/호스트가 침해된 경우를 증명으로 배제하지 않습니다.
+
+6. GitHub provider workflow (파일만 제공, 원격 등록/배포 없음)
+- .github/workflows/windows-ci.yml: workflow_dispatch, 검토된 default branch만 실행,
+  fork 배제, contents:read, checkout credential 저장 안 함, concurrent 실행 1개.
+- self-hosted label: game-rad131-interactive, Windows, X64.
+- 보호 environment windows-release-ci에 위 secret과 다음 variable 설정:
+  GAME_BDS_ROOT: RAD Studio 경로
+  GAME_CI_POLICY_FILE: runner의 검토된 public policy JSON 파일 경로
+- environment 승인/branch restriction과 runner group 접근을 저장소 관리자가 설정합니다.
+  pull_request나 fork checkout에는 서명 키를 제공하지 않습니다.
+- 결과 업로드는 명시된 public 경로만, 보존14일. 기존 output directory를 재사용하지
+  않도록 run_id/run_attempt별 새 경로를 사용합니다.
+- 이 workflow는 배포하지 않습니다. 결과를 검토한 뒤 관리자 웹에서 manifest 계획,
+  동일 A/B/O 및 각각의 approval 업로드, manifest 등록, CI 공개키/증거 등록,
+  후보 게시를 진행하세요. 실제 activation은 기존 서버 정책 검사를 그대로 거칩니다.
+
+7. 현재 검증 범위
+  node GameWeb/scripts/test-windows-ci.js
+  21개 portable regression: 실제 파일 hash/snapshot/Ed25519/정책검증/production
+  계획-등록-활성화 API 및 FAIL/NOT_RUN 보존. 합성 PE와 합성 실행결과만 사용합니다.
+  별도의 YAML parse와 JS syntax 검사가 가능합니다. PowerShell AST/C# helper 및
+  Win64 probe/실제 A/B/O/D3D11 시험 결과는 Windows runner를 실행한 뒤 확인합니다.
