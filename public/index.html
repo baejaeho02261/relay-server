@@ -3,29 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="light">
-  <meta name="theme-color" content="#20232a">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#171b24">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
-  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
+  <link rel="alternate icon" type="image/x-icon" href="/icons/favicon.ico">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <title>Game 관리자</title>
-  <link rel="stylesheet" href="/admin.css?v=5.0.1-security-v4-97">
-  <link rel="stylesheet" href="/admin-theme.css?v=5.0.1-security-v4-97">
-  <link rel="stylesheet" href="/admin-navigation.css?v=5.0.1-security-v4-97">
-  <link rel="stylesheet" href="/admin-appearance.css?v=5.0.1-security-v4-97">
-  <link rel="stylesheet" href="/admin-controls.css?v=5.0.1-security-v4-97">
-  <link rel="stylesheet" href="/admin-workspace.css?v=5.0.1-security-v4-97">
-  <link rel="stylesheet" href="/admin-desktop.css?v=5.0.1-security-v4-97">
-  <script src="/admin-controls.js?v=5.0.1-security-v4-97"></script>
-  <script src="/admin-appearance.js?v=5.0.1-security-v4-97"></script>
+  <link rel="stylesheet" href="/admin.css?v=5.0.1-console-v4-98">
+  <link rel="stylesheet" href="/admin-theme.css?v=5.0.1-console-v4-98">
+  <link rel="stylesheet" href="/admin-navigation.css?v=5.0.1-console-v4-98">
+  <link rel="stylesheet" href="/admin-appearance.css?v=5.0.1-console-v4-98">
+  <link rel="stylesheet" href="/admin-controls.css?v=5.0.1-console-v4-98">
+  <link rel="stylesheet" href="/admin-workspace.css?v=5.0.1-console-v4-98">
+  <link rel="stylesheet" href="/admin-desktop.css?v=5.0.1-console-v4-98">
+  <script src="/admin-controls.js?v=5.0.1-console-v4-98"></script>
+  <script src="/admin-appearance.js?v=5.0.1-console-v4-98"></script>
 </head>
 <body>
   <section id="login-screen" class="login-screen">
     <div class="login-card">
       <img class="brand-mark" src="/icons/game.svg" alt="Game">
+      <span class="login-eyebrow">OPERATIONS CONSOLE</span>
       <h1>Game 관리자</h1>
       <p class="muted">Windows 라이선스와 서버를 한곳에서 관리하세요.</p>
       <form id="login-form" autocomplete="off">
@@ -48,12 +50,8 @@
 
   <div id="app" class="app hidden">
     <aside class="sidebar" id="main-menu">
-      <div class="sidebar-brand">
-        <img class="brand-mark small" src="/icons/game.svg" alt="Game">
-        <div><strong>Game</strong><span>Windows License Console</span></div>
-      </div>
       <div class="nav-search"><svg class="nav-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="nav-filter" type="search" placeholder="기능 검색" aria-label="관리 기능 검색" autocomplete="off"></div>
-      <nav id="nav">
+      <nav id="nav" aria-label="관리 메뉴">
         <details class="nav-group" open><summary>Windows 라이선스</summary><div class="nav-items">
           <button data-view="desktop-licenses" data-admin-only class="active">라이선스 관리</button>
           <button data-view="dashboard">운영 대시보드</button>
@@ -99,7 +97,7 @@
       </div>
     </aside>
 
-    <main class="main">
+    <main class="main" id="main-content">
       <header class="topbar">
         <button id="menu-toggle" type="button" aria-controls="main-menu" aria-expanded="false" aria-label="메뉴 열기">메뉴</button>
         <div class="page-heading">
@@ -136,32 +134,32 @@
     </div>
   </div>
 
-  <script src="/admin-i18n.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-navigation.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-monitoring.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-terminal.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-traffic.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-danger.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-access.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-reports.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-devices.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-deployment.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-security.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-operations.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-actions-access.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-actions-operations.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-actions-traffic.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-actions-devices.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-actions-policy.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-actions-system.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-modal.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-device-actions.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-desktop-licenses.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-desktop-security.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-desktop-workflow.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-actions.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-palette.js?v=5.0.1-security-v4-97" defer></script>
-  <script src="/admin-pages-production.js?v=5.0.1-security-v4-97" defer></script>
+  <script src="/admin-i18n.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-navigation.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-monitoring.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-terminal.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-traffic.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-danger.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-access.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-reports.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-devices.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-deployment.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-security.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-operations.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-actions-access.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-actions-operations.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-actions-traffic.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-actions-devices.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-actions-policy.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-actions-system.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-modal.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-device-actions.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-desktop-licenses.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-desktop-security.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-desktop-workflow.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-actions.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-palette.js?v=5.0.1-console-v4-98" defer></script>
+  <script src="/admin-pages-production.js?v=5.0.1-console-v4-98" defer></script>
 </body>
 </html>

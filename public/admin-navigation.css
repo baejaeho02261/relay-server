@@ -1,16 +1,6 @@
-/* FIX12: Explicit flex sizing prevents open details rows from being clipped.
-   The main navigation and long category lists both remain scrollable. */
-.sidebar { height:100vh; height:100dvh; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:contain; }
-.sidebar-brand,.nav-search,.sidebar-footer { flex:0 0 auto; }
-#nav { display:flex; flex-direction:column; flex:1 0 120px; height:auto; min-height:120px; overflow-y:auto; overflow-x:hidden; gap:8px; overscroll-behavior-y:contain; scrollbar-gutter:stable; }
-.nav-group { flex:0 0 auto; min-height:min-content; overflow:visible; }
-.nav-items { display:flex; flex-direction:column; max-height:clamp(160px,36dvh,340px); overflow-y:auto; overflow-x:hidden; overscroll-behavior-y:auto; scrollbar-gutter:stable; touch-action:pan-y; }
-.nav-items>button { flex-shrink:0; min-height:40px; }
-.nav-items:focus-visible { outline:2px solid #a8baff; outline-offset:-2px; border-radius:8px; }
-#nav,.nav-items,.sidebar { scrollbar-width:thin; scrollbar-color:#697382 #20232a; }
-.nav-items::-webkit-scrollbar { width:7px; }
-.nav-items::-webkit-scrollbar-thumb { background:#697382; border-radius:6px; }
-.nav-group summary { border-radius:8px; }
-@media(min-width:901px) { #nav { flex:1 1 0; } }
-@media(max-width:900px) { #nav { flex:1 1 0; min-height:100px; }.nav-items { max-height:34dvh; } }
-@media(max-height:460px) { #nav { flex:0 0 auto; overflow:visible; }.sidebar { overflow-y:auto; }.nav-items { max-height:150px; } }
+/* Navigation is one scrollable list; expanded groups never nest scrollbars. */
+#nav,.sidebar { overscroll-behavior-y:contain; scrollbar-width:thin; scrollbar-color:#465570 #171b24; }
+.sidebar #nav::-webkit-scrollbar { width:5px; }.sidebar #nav::-webkit-scrollbar-track { background:transparent; }.sidebar #nav::-webkit-scrollbar-thumb { background:#465570; border:0; border-radius:5px; }
+.nav-items>button { flex-shrink:0; }.nav-items:focus-visible { outline:2px solid #91afff; outline-offset:2px; border-radius:8px; }
+.nav-filter-hidden { display:none!important; }
+@media(max-height:400px) { .app .sidebar { overflow-y:auto; }.sidebar #nav { flex:0 0 auto; overflow:visible; }.sidebar-footer { margin-top:15px; } }

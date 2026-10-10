@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'security-v4-97';
+const WEB_UI_REVISION = 'console-v4-98';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -185,12 +185,14 @@ let adminReauthenticationPending = null;
 async function requestAdminReauthentication() {
   if (adminReauthenticationPending) return adminReauthenticationPending;
   adminReauthenticationPending = (async () => {
-    const values = await openModal({title:'관리자 재인증',message:'이 중요 작업은 최근 인증이 필요합니다. 패스키를 선택하면 비밀번호는 입력하지 않아도 됩니다.',fields:[
+    const owner = session?.csrf;
+    const values = await openModal({isolated:true,title:'관리자 재인증',message:'이 중요 작업은 최근 인증이 필요합니다. 패스키를 선택하면 비밀번호는 입력하지 않아도 됩니다.',fields:[
       {name:'method',label:'인증 방식',type:'select',value:'password',options:[{value:'password',label:'관리자 비밀번호'},{value:'passkey',label:'등록된 패스키'}]},
       {name:'password',label:'현재 관리자 비밀번호',type:'password',maxLength:4096,inputmode:'text',autocomplete:'current-password'}
     ],confirmLabel:'재인증'});
     if (!values) throw new Error('재인증을 취소했습니다. 작업은 적용되지 않았습니다.');
     try {
+      if (!owner || session?.csrf !== owner) throw new Error('로그인 상태가 변경되어 재인증을 취소했습니다.');
       if (values.method === 'passkey') await reauthenticateWithPasskey();
       else await api('/api/session/reauthenticate',{method:'POST',body:{password:values.password},reauthRetried:true});
     } finally { values.password = ''; }
@@ -198,6 +200,8 @@ async function requestAdminReauthentication() {
   try { return await adminReauthenticationPending; } finally { adminReauthenticationPending = null; }
 }
 async function api(url, options = {}) {
+  const requestSession = session?.csrf;
+  const requestModalAlive = typeof captureAdminModalOwner === 'function' ? captureAdminModalOwner() : null;
   const method = String(options.method || 'GET').toUpperCase();
   const headers = { Accept: 'application/json', ...(options.headers || {}) };
   if (session && !['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = session.csrf;
@@ -219,7 +223,9 @@ async function api(url, options = {}) {
     }
   }
   if (response.status === 428 && data?.error === 'ADMIN_REAUTH_REQUIRED' && !options.reauthRetried) {
+    if (!requestSession || session?.csrf !== requestSession || requestModalAlive && !requestModalAlive()) throw new Error('작업 화면 또는 로그인 상태가 변경되어 재인증 요청을 취소했습니다.');
     await requestAdminReauthentication();
+    if (session?.csrf !== requestSession || requestModalAlive && !requestModalAlive()) throw new Error('작업 화면 또는 로그인 상태가 변경되어 작업을 취소했습니다.');
     return api(url, {...options, reauthRetried:true});
   }
   if (response.status === 401) {
@@ -238,6 +244,7 @@ async function api(url, options = {}) {
 }
 
 function showLogin() {
+  if (typeof closeAdminModals === 'function') closeAdminModals();
   if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();
   session = null;
   if (typeof desktopPendingIssue !== 'undefined') desktopPendingIssue = null;

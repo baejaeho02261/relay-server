@@ -4,7 +4,7 @@
 async function showDesktopSecurityOperations() {
   if(!roleIsAdmin()||!session)throw Error('관리자 로그인을 확인해주세요.');
   const owner=session.csrf,base='/api/desktop/bootstrap/security-operations';
-  let data=await api('/api/desktop/bootstrap/security-authority'),policyPreview='',pairPreview='',rolloutPreview='',busy=false,closed=false;
+  let data=await api('/api/desktop/bootstrap/security-authority'),policyPreview='',pairPreview=null,rolloutPreview='',busy=false,closed=false;
   let recoveryPreview=null,recoveryDraft='',recoveryRequestId='';
   let activationState=(await api(base+'/activation')).status,activationPreview=null;
   if(!roleIsAdmin()||session?.csrf!==owner)return;
@@ -16,12 +16,40 @@ async function showDesktopSecurityOperations() {
   const checkbox=(id,label,value)=>`<label><input type="checkbox" id="${id}" ${value?'checked':''}> ${esc(label)}</label>`;
   const input=(id,label,value,type='text')=>`<label>${esc(label)}<input id="${id}" type="${type}" value="${esc(value??'')}" autocomplete="off"></label>`;
   const button=(action,label)=>`<button type="button" data-security-action="${action}">${label}</button>`;
+  const sections=()=>Array.from(root.children).filter(x=>x.tagName==='DETAILS');
+  const reasonText=reason=>({
+    SECURITY_RELEASE_MIXED_MANIFEST:'선택한 A/B/O의 명세 ID가 다르거나 누락되었습니다. 같은 명세로 등록한 세 후보를 선택하세요.',
+    SECURITY_RELEASE_MANIFEST_NOT_REGISTERED:'계획 등록만 완료된 명세입니다. 아래 명세 영역에서 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.',
+    SECURITY_RELEASE_MANIFEST_REQUIRED:'선택한 후보에 등록된 배포 명세가 필요합니다.',
+    SECURITY_RELEASE_MANIFEST_INVALID:'명세 내용 또는 ID가 유효하지 않습니다. 생성 도구의 원본 JSON을 확인하세요.',
+    SECURITY_MANIFEST_ARTIFACT_MISMATCH:'명세의 파일과 선택한 후보가 다릅니다. 승인 처리까지 끝난 최종 EXE와 명세를 확인하세요.'
+  }[reason]||reason);
+  function publishReady(){return !!pairPreview&&pairPreview.policyRevision===data.policy.revision&&pairPreview.operationsRevision===data.operations.operations.revision&&pairPreview.selection===JSON.stringify(pairBody());}
+  function reportStatus(message,state='success',sectionIndex=-1){
+    for(const el of [node('security-status'),sections()[sectionIndex]?.querySelector(':scope > .security-section-status')])if(el){el.hidden=false;el.textContent=message;el.dataset.state=state;}
+  }
+  function updatePairStatus(message){
+    const ready=publishReady(),view=node('sec-pair-status');
+    node('sec-activate').disabled=busy||!ready;
+    if(view){view.dataset.state=ready?'ready':'pending';view.textContent=message||(ready?'조합 검증을 통과했습니다. 선택한 A/B/O를 운영 게시할 수 있습니다.':'선택한 A/B/O 조합을 먼저 검증해주세요.');}
+    const rows=data.operations.candidates,governance=data.operations.operations.releaseGovernance||{};
+    const selected=Object.entries(pairBody()).map(([key,id])=>({component:key[0].toUpperCase(),candidate:rows.find(row=>row.id===id)}));
+    node('sec-candidate-summary').innerHTML=selected.map(({component,candidate})=>`<div><strong>${component}</strong> ${candidate?`<span>${esc(candidate.id)}</span><small>명세 ${esc(candidate.deploymentManifestId?candidate.deploymentManifestId.slice(0,20)+'…':'미연결')}</small>`:'<span>선택 안 함</span>'}</div>`).join('');
+    const ids=selected.filter(x=>x.candidate).map(x=>x.candidate.deploymentManifestId||''),stage=node('sec-release-stage');
+    const common=ids.length&&ids[0]&&ids.every(id=>id===ids[0])?ids[0]:'';
+    const record=common&&governance.manifests?.[common];
+    if(record){const registered=(record.registration||'REGISTERED')==='REGISTERED';stage.dataset.state=registered?'REGISTERED':'PLANNED';stage.textContent=registered?'명세 등록 완료 · REGISTERED — 다음 단계: 조합 검증':'명세 계획 등록 · PLANNED — 다음 단계: 같은 JSON으로 세 파일 확인 후 명세 등록 완료';}
+    else{stage.dataset.state='pending';stage.textContent=ids.some(Boolean)?'선택한 후보의 명세 연결을 확인하세요. 조합 검증에서 서버가 최종 판정합니다.':'명세 미연결 — 현재 서버의 명세 요구 조건은 조합 검증에서 확인합니다.';}
+  }
   function render(){
     if(!alive())return;
     const p=data.policy,box=data.operations,s=box.operations,active=box.active,rows=box.candidates;
+    const previous=node('sec-a')?pairBody():null,opened=sections().map(x=>x.open);
+    const selected=component=>{const id=previous?previous[component.toLowerCase()+'Id']:active[component]||'';return rows.some(x=>x.component===component&&x.id===id)?id:'';};
     const g=s.releaseGovernance||{requireManifest:false,requireCiEvidence:false,minimumSecurityVersion:0,manifests:{},ciKeys:{},ciEvidence:{}};
-    const choices=component=>rows.filter(x=>!component||x.component===component).map(a=>[a.id,`${a.component} ${a.version} · ${a.sha512.slice(0,12)}${a.active?' · 운영 중':' · 후보'}`]);
-    policyPreview='';pairPreview='';rolloutPreview='';activationPreview=null;recoveryPreview=null;
+    const choices=component=>rows.filter(x=>!component||x.component===component).map(a=>[a.id,`${a.component} · ${a.version} · 후보 ${a.id} · 명세 ${a.deploymentManifestId?a.deploymentManifestId.slice(0,12)+'…':'미연결'}${a.active?' · 운영 중':''}`]);
+    policyPreview='';rolloutPreview='';activationPreview=null;recoveryPreview=null;
+    if(pairPreview&&(pairPreview.policyRevision!==p.revision||pairPreview.operationsRevision!==s.revision))pairPreview=null;
     root.innerHTML=`<p class="small-note">정책·검사 기준·승인·배포 이력은 서버에 저장합니다. 이 화면은 메모리에서만 초안을 유지합니다. 시험 기록은 운영자 확인 자료이며 하드웨어 실행 증명이 아닙니다.</p>
       <div class="actions">${button('refresh','새로고침')}</div>
       <p id="security-status" role="status" aria-live="polite"></p>
@@ -52,8 +80,9 @@ async function showDesktopSecurityOperations() {
       <label>시험 정책 (4개 필드만 허용)<textarea id="sec-rollout-patch" rows="4">${esc(JSON.stringify(Object.keys(s.rollout.patch).length?s.rollout.patch:{mode:p.mode,requireReadonlyApi:p.requireReadonlyApi,dynamicCode:p.dynamicCode,requireCfg:p.requireCfg},null,2))}</textarea></label><div class="actions">${button('preview-rollout','시험 적용 영향 미리보기')}${button('save-rollout','미리본 시험 적용 / 종료')}</div><pre id="sec-rollout-preview" class="desktop-security-result"></pre></details>
       <details><summary>배포 후보 · A/B/O 동시 게시 · 검증된 이전 조합으로 전환</summary>
       <p class="small-note">기존 A/B/O 파일 등록 버튼은 후보만 등록합니다. 이 화면에서 조합을 선택해 운영 게시합니다. 이전 조합도 현재 서명·철회·시험 정책을 통과해야 합니다.</p>
-      <div class="desktop-security-grid"><label>A${select('sec-a',choices('A'),active.A||'')}</label><label>B${select('sec-b',choices('B'),active.B||'')}</label><label>O${select('sec-o',[['','오버레이 사용 안 함'],...choices('O')],active.O||'')}</label></div>
-      <div class="actions">${button('preview-pair','조합 검증')}${button('activate','검증한 A/B/O 조합 운영 게시')}</div><pre id="sec-pair-preview" class="desktop-security-result"></pre>
+      <div class="desktop-security-grid"><label>A${select('sec-a',[['','A 후보 선택'],...choices('A')],selected('A'))}</label><label>B${select('sec-b',[['','B 후보 선택'],...choices('B')],selected('B'))}</label><label>O${select('sec-o',[['','오버레이 사용 안 함'],...choices('O')],selected('O'))}</label></div>
+      <div id="sec-candidate-summary" class="security-candidate-summary"></div><p id="sec-release-stage" class="security-release-stage"></p>
+      <div class="actions">${button('preview-pair','조합 검증')}<button type="button" id="sec-activate" data-security-action="activate" disabled>검증한 A/B/O 조합 운영 게시</button></div><p id="sec-pair-status" class="security-pair-status" role="status" aria-live="polite"></p><pre id="sec-pair-preview" class="desktop-security-result"></pre>
       <label>시험 결과 JSON (Windows 수집 도구 결과 또는 운영자 확인 자료)<input type="file" id="sec-evidence-file" accept=".json,application/json"></label>${button('record-evidence','선택 A/B/O에 시험 결과 기록')}
       <p class="small-note">nativeBuild · apiProbe · integration은 PASS / FAIL / NOT_RUN을 구분합니다. 실제 실행하지 않은 항목을 PASS로 표시하지 마세요.</p>
       <pre class="desktop-security-result">${esc(JSON.stringify(s.activations.slice(-10).reverse(),null,2))}</pre></details>
@@ -62,12 +91,14 @@ async function showDesktopSecurityOperations() {
       <div class="desktop-security-grid">${checkbox('sec-manifest-required','하나의 A/B/O 배포 명세 요구',g.requireManifest)}${checkbox('sec-ci-required','전용 CI 서명 PASS 요구',g.requireCiEvidence)}${input('sec-security-floor','최소 보안 배포 버전 (올린 뒤 낮출 수 없음)',g.minimumSecurityVersion,'number')}</div>
       ${button('save-release-governance','명세·CI·보안 버전 조건 저장')}
       <p class="small-note">CI 요구 또는 보안 버전 하한을 사용할 때는 명세 요구도 켜야 합니다. 현재 운영 조합이 통과해야 저장됩니다. 먼저 새 명세·증거를 준비하고 조합을 게시한 뒤 하한을 올리세요.</p>
-      <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
+      <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">내려받은 deployment-policy.json을 BAT가 있는 GameWeb/tools 폴더에 저장하세요. 현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
+      <p class="small-note">① 명세 계획 등록 → ② 같은 명세 ID로 A/B/O 후보 등록 → ③ 세 파일 확인 후 명세 등록 완료 → ④ 조합 검증·운영 게시</p>
       <label>배포 명세 JSON (release-provenance.js manifest 출력)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
       <label>CI 증거 JSON (release-provenance.js sign 출력)<input type="file" id="sec-ci-file" accept=".json,application/json"></label>${button('record-ci','CI 서명 증거 검증·등록')}
       <label>새 CI 공개키 JSON (release-provenance.js public-key 출력 · 개인키 금지)<input type="file" id="sec-ci-key-file" accept=".json,application/json"></label>${button('record-ci-key','CI 전용 공개키 등록')}
       <p class="small-note">ACTIVE는 새 CI 증거를 허용합니다. RETIRING은 기존 증거만 유지하며 REVOKED는 기존 증거도 무효화합니다. 키 철회는 복원할 수 없으며 현재 실행에도 영향을 줍니다. 키 유효기간은 발급 후 변경하지 않습니다.</p>
       ${Object.values(g.ciKeys).map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('ci-signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],k.state)}<button type="button" data-security-action="ci-signer" data-key="${esc(k.keyId)}">CI 키 상태 저장</button></div>`).join('')||'<p>등록된 CI 키가 없습니다.</p>'}
+      <div class="security-manifest-list">${Object.entries(g.manifests).map(([id,r])=>`<article class="security-manifest-card"><div><strong>${esc(r.manifest.releaseName)}</strong><span class="security-manifest-state" data-state="${esc(r.registration||'REGISTERED')}">${(r.registration||'REGISTERED')==='REGISTERED'?'등록 완료 · REGISTERED':'계획 등록 · PLANNED'}</span></div><code>${esc(id)}</code><p>${(r.registration||'REGISTERED')==='REGISTERED'?'후보를 선택하고 조합 검증을 진행하세요.':'A/B/O 후보 등록 후 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.'}</p></article>`).join('')||'<p class="empty">등록된 배포 명세가 없습니다.</p>'}</div>
       <pre class="desktop-security-result">${esc(JSON.stringify(Object.entries(g.manifests).map(([id,r])=>({manifestId:id,releaseName:r.manifest.releaseName,securityVersion:r.manifest.securityVersion,handoffVersion:r.manifest.handoffVersion,recordedAt:r.recordedAt,registration:r.registration||'REGISTERED',latestCi:g.ciEvidence[id]?{keyId:g.ciEvidence[id].envelope.keyId,statement:g.ciEvidence[id].envelope.statement}:null})),null,2))}</pre><p class="small-note">위 목록은 저장 기록입니다. 현재 유효성은 [조합 검증]에서 키 상태와 정책을 다시 검사합니다.</p></details>
       <details><summary>긴급 복구 · 승인한 조합으로 전환</summary><p class="small-note">위 A/B/O 선택을 대상으로 복구 내용을 준비한 뒤 명시적으로 승인·적용합니다. 보안 버전 하한·서명·CI·실제 파일 검증을 그대로 적용하며 낮은 버전 예외 통과는 없습니다. 계획은 현재 정책/운영 revision에 결속되고 5분 후 만료됩니다.</p>
       ${input('sec-recovery-reason','복구 사유','')}<div class="actions">${button('prepare-recovery','선택 조합의 복구 내용 준비')}<button type="button" id="sec-recovery-apply" data-security-action="apply-recovery" disabled>준비한 복구 승인·적용</button></div><pre id="sec-recovery-preview" class="desktop-security-result"></pre>
@@ -76,19 +107,24 @@ async function showDesktopSecurityOperations() {
       <details><summary>서명 키 전환 · 철회</summary><p class="small-note">ACTIVE: 신규 서명 배포 허용. RETIRING: 기존 배포 검증만 허용. REVOKED: 기존 배포도 거절하며 복원 불가. 현재 운영 키 철회는 세션 작업을 막을 수 있습니다.</p>
       ${p.trustedReleaseKeys.map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],s.signerStates[k.keyId]?.state||'ACTIVE')}<button type="button" data-security-action="signer" data-key="${esc(k.keyId)}">상태 저장</button></div>`).join('')||'<p>등록된 신뢰 서명자가 없습니다.</p>'}</details>
       <details><summary>최근 빌드별 관측 슬롯 수 · 보안 진단</summary><p class="small-note">최근 10분 클라이언트 보고값입니다. 서버가 실행 상태의 정직성을 증명하거나 정상 기준으로 자동 등록하지 않습니다.</p><pre class="desktop-security-result">${esc(JSON.stringify(data.recentBuildObservations,null,2))}</pre><pre class="desktop-security-result">${esc(JSON.stringify(data.events.slice(0,40),null,2))}</pre></details>`;
+    sections().forEach((section,index)=>{if(index<opened.length)section.open=opened[index];const status=document.createElement('p');status.className='security-section-status';status.hidden=true;status.setAttribute('role','status');status.setAttribute('aria-live','polite');section.append(status);});
     fillContract();
+    if(!publishReady())pairPreview=null;
+    if(pairPreview)node('sec-pair-preview').textContent=JSON.stringify(pairPreview.result,null,2);
+    updatePairStatus();
   }
   function fillContract(){const id=node('sec-contract-artifact')?.value,c=data.operations.candidates.find(x=>x.id===id)?.contract;node('sec-min-slots').value=c?.minApiSlots??'';node('sec-max-slots').value=c?.maxApiSlots??'';}
   function policyBody(){return{expectedRevision:data.policy.revision,expectedOperationsRevision:data.operations.operations.revision,mode:node('sec-mode').value,dynamicCode:node('sec-dynamic').value,freshnessMs:Number(node('sec-fresh').value),challengeMs:Number(node('sec-challenge').value),minVersionA:node('sec-min-a').value.trim(),minVersionB:node('sec-min-b').value.trim(),minVersionO:node('sec-min-o').value.trim(),enforceLegacy:node('sec-legacy').checked,requireReadonlyApi:node('sec-readonly').checked,requireCfg:node('sec-cfg').checked,requireReleaseSignature:node('sec-signature').checked,trustedReleaseKeys:JSON.parse(node('sec-keys').value),revokedSha512:node('sec-revoked').value.split(/\s+/).filter(Boolean)};}
   function pairBody(){return{aId:node('sec-a').value,bId:node('sec-b').value,oId:node('sec-o').value};}
   async function reload(){const next=await api('/api/desktop/bootstrap/security-authority'),activation=await api(base+'/activation');if(alive()){data=next;activationState=activation.status;render();}}
-  root.addEventListener('change',event=>{if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
+  root.addEventListener('change',event=>{if(['sec-a','sec-b','sec-o'].includes(event.target.id)){pairPreview=null;recoveryPreview=null;node('sec-recovery-apply').disabled=true;node('sec-pair-preview').textContent='';updatePairStatus('선택이 변경되었습니다. 이 A/B/O 조합을 다시 검증해주세요.');}if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
   root.addEventListener('click',async event=>{
     const target=event.target.closest('[data-security-action]');if(!target||busy||!alive())return;
     const action=target.dataset.securityAction,revision=data.operations.operations.revision;
-    busy=true;target.disabled=true;node('security-status').textContent='서버에서 처리하고 있습니다.';
+    const sectionIndex=sections().indexOf(target.closest('details'));
+    busy=true;target.disabled=true;reportStatus('서버에서 처리하고 있습니다.','busy',sectionIndex);updatePairStatus(node('sec-pair-status').textContent);
     try{
-      let changed=false;
+      let changed=false,successMessage='',statusState='success';
       if(action==='refresh')await reload();
       else if(action==='check-enable-all'){
         const profile=node('sec-enable-profile').value;
@@ -124,10 +160,15 @@ async function showDesktopSecurityOperations() {
         }
       }else if(action==='preview-pair'){
         const body=pairBody(),out=await api(base+'/preview-pair',{method:'POST',body});
-        if(alive()){pairPreview=out.preview.eligible?JSON.stringify(body):'';node('sec-pair-preview').textContent=JSON.stringify(out.preview,null,2);}
+        if(alive()){
+          const current=JSON.stringify(body)===JSON.stringify(pairBody())&&out.preview.policyRevision===data.policy.revision&&out.preview.operationsRevision===data.operations.operations.revision;
+          pairPreview=current&&out.preview.eligible?{selection:JSON.stringify(body),policyRevision:out.preview.policyRevision,operationsRevision:out.preview.operationsRevision,result:out.preview}:null;
+          if(current){statusState=out.preview.eligible?'success':'error';node('sec-pair-preview').textContent=JSON.stringify(out.preview,null,2);successMessage=out.preview.eligible?'조합 검증을 통과했습니다. 이제 운영 게시할 수 있습니다.':(out.preview.reasons||[]).map(reasonText).join('\n')||'서버에서 조합을 승인하지 않았습니다.';updatePairStatus(successMessage);node('sec-pair-status').dataset.state=out.preview.eligible?'ready':'blocked';}
+          else {statusState='error';successMessage='검사 중 선택 또는 서버 revision이 변경되었습니다. 현재 조합을 다시 검증해주세요.';updatePairStatus(successMessage);}
+        }
       }else if(action==='activate'){
-        const pair=pairBody();if(JSON.stringify(pair)!==pairPreview)throw Error('선택한 A/B/O 조합을 먼저 검증해주세요.');
-        await api(base+'/activate',{method:'POST',body:{expectedRevision:revision,expectedPolicyRevision:data.policy.revision,...pair}});changed=true;
+        const pair=pairBody();if(!publishReady())throw Error('선택한 A/B/O 조합을 먼저 검증해주세요.');
+        await api(base+'/activate',{method:'POST',body:{expectedRevision:revision,expectedPolicyRevision:data.policy.revision,...pair}});changed=true;successMessage='서버에 반영했습니다. 선택한 A/B/O 조합이 운영 게시되었습니다.';
       }else if(action==='record-evidence'){
         const file=node('sec-evidence-file').files?.[0];if(!file||file.size>65536)throw Error('64KiB 이하의 시험 결과 JSON을 선택해주세요.');
         const report=JSON.parse(await file.text());if(!alive())return;
@@ -141,6 +182,7 @@ async function showDesktopSecurityOperations() {
         if(action==='record-manifest'||action==='plan-manifest'){
           if(!value||!value.manifest||typeof value.manifestId!=='string'||Object.keys(value).sort().join(',')!=='manifest,manifestId')throw Error('명세 생성 도구의 원본 JSON을 선택해주세요.');
           await api(base+(action==='plan-manifest'?'/plan-release':'/release-manifests'),{method:'POST',body:{expectedRevision:revision,manifestId:value.manifestId,manifest:value.manifest}});
+          successMessage=action==='plan-manifest'?'명세 계획 등록(PLANNED)을 완료했습니다. 같은 명세 ID로 A/B/O 후보를 등록한 뒤 [세 파일 확인 후 명세 등록 완료]를 진행하세요.':'명세 등록 완료(REGISTERED). A/B/O 선택은 유지됩니다. 조합 검증 후 운영 게시하세요.';
         }else if(action==='record-ci')await api(base+'/ci-evidence',{method:'POST',body:{expectedRevision:revision,envelope:value}});
         else {
           if(!value||Object.keys(value).sort().join(',')!=='keyId,notAfter,notBefore,publicKey,state')throw Error('CI 공개키 도구의 원본 JSON을 선택해주세요. 개인키는 등록하지 않습니다.');
@@ -164,10 +206,15 @@ async function showDesktopSecurityOperations() {
         await api(base+'/signers',{method:'POST',body:{expectedRevision:revision,keyId:target.dataset.key,state:node('signer-'+target.dataset.key).value}});changed=true;
       }
       if(changed&&alive())await reload();
-      if(alive())node('security-status').textContent=changed?'서버에 반영했습니다. 이전 임시 판정은 새 검사를 요구합니다.':'처리했습니다.';
-    }catch(error){if(/SECURITY_.*(?:CONFLICT|PAIR_CHANGED|PREVIEW_CHANGED)/.test(error.code||error.message||''))activationPreview=null;if(alive())node('security-status').textContent=(error.message||'처리하지 못했습니다.')+(error.code?' · 오류 코드: '+error.code:'')+' · 로그인 만료면 다시 로그인하세요. 충돌 또는 적용 내용 변경이면 새로고침 후 [적용 내용 확인]을 다시 누르세요.';}
-    finally{busy=false;if(target.isConnected)target.disabled=false;if(alive())node('sec-enable-all-button').disabled=!activationPreview?.ready;}
+      if(alive())reportStatus(successMessage||(changed?'서버에 반영했습니다. 이전 임시 판정은 새 검사를 요구합니다.':'처리했습니다.'),statusState,sectionIndex);
+    }catch(error){
+      if(/SECURITY_.*(?:CONFLICT|PAIR_CHANGED|PREVIEW_CHANGED)/.test(error.code||error.message||'')){activationPreview=null;pairPreview=null;}
+      if(alive())reportStatus((error.code&&reasonText(error.code)!==error.code?reasonText(error.code):error.message||'처리하지 못했습니다.')+(error.code?' · 오류 코드: '+error.code:''),'error',sectionIndex);
+    }finally{
+      busy=false;if(target.isConnected)target.disabled=false;
+      if(alive()){node('sec-enable-all-button').disabled=!activationPreview?.ready;node('sec-activate').disabled=!publishReady();}
+    }
   });
   render();
-  try{await done;}finally{closed=true;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';pairPreview='';rolloutPreview='';if(root.isConnected)root.replaceChildren();}
+  try{await done;}finally{closed=true;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';pairPreview=null;rolloutPreview='';if(root.isConnected)root.replaceChildren();}
 }
