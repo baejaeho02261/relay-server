@@ -1,0 +1,1502 @@
+[
+  {
+    "file": "GameWeb/admin/adminHandler.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/admin/auth.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/ci/ci-artifacts.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/ci/fixture-services.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/ci/windows-fixture.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/config/config.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/core/connection.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/core/lifecycle.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/core/state.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/core/utils.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/identity/identityManager.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/license/licenseManager.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-actions-access.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-actions-devices.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-actions-operations.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-actions-policy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-actions-system.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-actions-traffic.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-actions.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-appearance.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-controls.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-desktop-licenses.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-desktop-security.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-desktop-workflow.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-device-actions.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-i18n.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-modal.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-navigation.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-access.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-danger.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-deployment.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-devices.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-monitoring.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-operations.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-production.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-reports.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-security.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-pages-traffic.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-palette.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin-terminal.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/admin.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/service-worker.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/public/ui-refresh.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/relay/ackManager.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/relay/clientConnectPacket.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/relay/heartbeat.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/relay/notifications.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/relay/serverHandler.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/check-connect-project.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/check-extended-hash-assets.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/check-modules.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/check-web-ui.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/crc-pe-fixture.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/crc-test-fixture.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/desktop-bootstrap-fixture.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/regression.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-admin-modal-isolation.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-connect-deployment.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-connect-tls.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-crc-checker-ranges.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-crc-layers.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-crc-release-eligibility.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-admin-ui.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-audit-append.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-audit-outbox.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-bootstrap.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-code-integrity.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-connect.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-deadlines.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-extended-integrity.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-http.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-integrity-policy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-integrity-reports.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-license-migration.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-license-recovery.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-licenses.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-machine-policy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-overlay.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-pe-exports.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-request-receipts.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-retirement.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-single-writer.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-desktop-workspace.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-extended-hashes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-handoff-completion-contract.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-handoff-delegation.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-handoff-native-contract.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-handoff-recovery.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-hardening-measurement.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-hardening-pe-corpus.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-hardening-protocol.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-hardening-work-queue.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-history-outcomes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-integrity-display.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-integrity-rejection-reasons.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-key-console.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-key-purposes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-native-code-contract.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-native-crc-metadata-contract.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-native-report-budget.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-overlay-admin-ui.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-overlay-imgui.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-overlay-parent-sharing.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-overlay-start-diagnostics.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-overlay-transfer.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-overlay-web-policy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-release-governance-complete.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-release-provenance-ui.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-release-provenance.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-release-tools-split.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-activation.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-admin.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-authority.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-evidence.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-native-contract.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-operations.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-tools.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-v4.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-security-wire.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-sqlite-driver.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-web-auth-hardening.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-web-ui-cache.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-windows-ci.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/test-workspace-http.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/scripts/tls-request-fixture.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/server.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/adminActivity.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/configHistory.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/connectEndpoint.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/connectTls.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/connectTransportKey.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/crcLayers.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/dailyHealth.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/dashboard.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopAdminGuard.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopBootstrap.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopBootstrapStore.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopConnect.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopCpuWorker.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopCrcPolicy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopDeadline.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopHandoffDelegation.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopIntegrity.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopIntegrityReports.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopJournal.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopJournalHead.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopKeyPurposes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopLicenses.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopMachinePolicy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopMode.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopOperationsErrors.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopOverlay.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopPeCache.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopPeExports.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopReleaseProvenance.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopRequestProtocol.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopRuntimeDiagnostics.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopSecurityActivation.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopSecurityAuthority.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopSecurityEvents.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopSecurityOperations.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopSingleWriter.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopStorageSpace.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopWorkQueue.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopWorkspace.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/desktopWorkspaceStore.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/deviceAuth.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/deviceControl.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/deviceEnrollment.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/deviceRegistry.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/deviceSecretRotation.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/drainMonitor.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/eventSequence.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/extendedHashes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/featureFlags.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/haCoordinator.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/historyCleanup.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/incidentCenter.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/integrityCheck.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/licenseMonitor.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/maintenance.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/mitigationContract.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/networkSecurity.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/notificationCenter.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/passkeyAuth.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/peCapabilities.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/pePreflight.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/privilegedApproval.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/processorCenter.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/productionCenter.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/productionState.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/protocolReadiness.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/pushManager.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/reconnectMonitor.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/releaseManager.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/requestTrace.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/retiredLegacy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/securityDashboard.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/serviceLifecycle.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/statistics.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/storageMigration.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/strictJson.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/systemHealth.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/transportSecurity.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/updateSupervisor.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/_blake.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/_md.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/_u64.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/blake2.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/blake3.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/crypto.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/cryptoNode.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/vendor/noble-hashes-1.8.0/utils.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/services/versionPolicy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/storage/audit.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/storage/backup.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/storage/database.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/storage/licenseArchive.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/storage/licenseSnapshot.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/storage/sqliteDatabase.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/storage/sqliteSchema.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/audit-final-artifacts.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/audit-release-capabilities.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/load-simulator.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/record-release-tests.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/release-provenance.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/release-tools.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/sign-release-approval.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/sqlite-import.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/tools/tls-rotate.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/apiContext.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/desktopApi.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/deploymentRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/desktopBootstrapRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/desktopLicenseRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/desktopSecurityRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/desktopWorkspaceRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/deviceRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/historyRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/infrastructureRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/productionRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/reportRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/systemRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/routes/trafficRoutes.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/uiBundle.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/webApi.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/webAuth.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/webAuthPolicy.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/webEvents.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  },
+  {
+    "file": "GameWeb/web/webServer.js",
+    "exitCode": 0,
+    "status": "PASS",
+    "diagnostic": ""
+  }
+]

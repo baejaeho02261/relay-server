@@ -1,0 +1,791 @@
+{
+  "version": 1,
+  "basisFile": "세부목록(1).txt",
+  "basisSha512": "2fdad28d3620d9c59d948cfe520bc154e42eff7fde726832912dc704e5343fb8f7405a491c69b21c7c058f5c9f7911032729a2fa3d80602237c520f4d84fb69f",
+  "requirementCount": 59,
+  "requirements6to10Count": 29,
+  "allWindowsTestsPassed": false,
+  "rows": [
+    {
+      "section": 1,
+      "sectionTitle": "1. 관리자 웹 인증 — 가장 먼저",
+      "originalRequirement": "신뢰 프록시 제한: 현재 전달받은 X-Forwarded-For, X-Forwarded-Proto를 사용하는 경로가 있습니다. 지정한 프록시에서 온 헤더만 인정하고, 직접 접속은 실제 소켓 주소·TLS 상태를 사용하도록 강화합니다.",
+      "id": "1.1",
+      "status": "기존 구현 유지 · 인증 단위검사 통과",
+      "sourceLocations": [
+        "web/webAuth.js",
+        "web/webAuthPolicy.js"
+      ],
+      "implementationAndLimitations": "신뢰 프록시 목록에 없는 직접 접속은 소켓/TLS 정보를 사용한다. 실제 배포 프록시·WAF 설정은 확인하지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 1,
+      "sectionTitle": "1. 관리자 웹 인증 — 가장 먼저",
+      "originalRequirement": "로그인 시도 제한: 로그인 경로 자체의 실패 제한을 보완합니다. 주소·계정 역할·전역 한도를 함께 적용하고, 공격자가 다른 관리자를 쉽게 영구 잠그는 정책은 피합니다.",
+      "id": "1.2",
+      "status": "기존 구현 유지 · 인증 단위검사 통과",
+      "sourceLocations": [
+        "web/webAuth.js",
+        "web/webAuthPolicy.js"
+      ],
+      "implementationAndLimitations": "주소·역할·전역 로그인 실패 제한과 만료형 제한을 유지했다. 실 서비스 부하 및 분산 공격 시험은 미실행이다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 1,
+      "sectionTitle": "1. 관리자 웹 인증 — 가장 먼저",
+      "originalRequirement": "절대 세션 수명: 현재 활동 시 만료가 연장되는 구조에 최대 수명을 추가합니다. 계속 요청한다고 관리자 세션이 무기한 유지되지 않게 합니다.",
+      "id": "1.3",
+      "status": "기존 구현 유지 · 인증 단위검사 통과",
+      "sourceLocations": [
+        "web/webAuth.js"
+      ],
+      "implementationAndLimitations": "절대 수명과 idle 수명, 단조시계 경계를 유지한다. 기존 기본 절대 수명은 12시간이며 운영 환경 값은 미확인이다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 1,
+      "sectionTitle": "1. 관리자 웹 인증 — 가장 먼저",
+      "originalRequirement": "중요 작업만 재인증: 신뢰 서명키 변경, 보호 정책 완화, 운영 A/B/O 교체에는 최근 재인증을 요구합니다. 현재 단일 관리자 운영은 유지하면서 적용할 수 있습니다.",
+      "id": "1.4",
+      "status": "설정 의존 · 요구 범위 차이 확인",
+      "sourceLocations": [
+        "services/desktopAdminGuard.js"
+      ],
+      "implementationAndLimitations": "DESKTOP_ADMIN_REAUTH_REQUIRED=1일 때만 재인증을 강제한다. 현재 IsMutation 범위는 중요 작업만보다 넓다. 자동 활성화하거나 범위를 임의 변경하지 않았다. 이 항목은 운영 강제 완료로 볼 수 없다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 1,
+      "sectionTitle": "1. 관리자 웹 인증 — 가장 먼저",
+      "originalRequirement": "세션 일괄 폐기: 관리자 자격증명 변경·분실·침해 신고 시 기존 세션을 확실히 무효화합니다.",
+      "id": "1.5",
+      "status": "기존 구현 유지 · 인증 단위검사 통과",
+      "sourceLocations": [
+        "web/webAuth.js"
+      ],
+      "implementationAndLimitations": "RevokeAllSessions 및 자격/세션 상태 검사 경로를 유지한다. 침해 대응 운영 훈련을 수행한 것은 아니다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 1,
+      "sectionTitle": "1. 관리자 웹 인증 — 가장 먼저",
+      "originalRequirement": "권한별 실패 시험: 화면에서 버튼을 숨기는 수준을 넘어, 조회 전용 계정이 수정 API를 직접 요청해도 거절되는지 검사합니다.",
+      "id": "1.6",
+      "status": "기존 구현 유지 · 일부 단위검사 통과",
+      "sourceLocations": [
+        "services/desktopAdminGuard.js",
+        "web/routes/desktopBootstrapRoutes.js"
+      ],
+      "implementationAndLimitations": "서버 권한 검사와 readonly 직접 호출 거부 검사를 유지한다. test-security-admin 통과, 실제 HTTP 통합 묶음은 SQLite 의존성 때문에 완료하지 못했다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 2,
+      "sectionTitle": "2. 서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "originalRequirement": "만료 검사 공통화: 이번에 강화한 단조시계·벽시계·서명 검증 직후 만료 확인을 다른 Challenge 경로에도 적용합니다.",
+      "id": "2.1",
+      "status": "기존 구현 소스 재확인 · 통합 미검증",
+      "sourceLocations": [
+        "services/desktopDeadline.js",
+        "services/desktopSecurityAuthority.js",
+        "services/desktopIntegrityReports.js"
+      ],
+      "implementationAndLimitations": "서명된 벽시계 만료와 프로세스 단조시계 마감을 유지한다. 관련 저장소 통합 검사는 의존성 부재로 차단되었다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 2,
+      "sectionTitle": "2. 서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "originalRequirement": "용도 혼용 방지: 발급·다운로드·라이선스·보고·종료용 요청의 역할과 서명 domain을 명시하고, 다른 용도의 정상 서명을 가져와도 거절하도록 공통 시험을 둡니다.",
+      "id": "2.2",
+      "status": "기존 구현 소스 재확인",
+      "sourceLocations": [
+        "services/desktopRequestProtocol.js"
+      ],
+      "implementationAndLimitations": "용도별 서명 domain/역할/receipt 계약을 유지한다. GAME-AUTHORITY-V2와 GAME-INTEGRITY-REPORT-V2를 혼동하지 않도록 암호 규격표에도 실제 상수를 기록했다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 2,
+      "sectionTitle": "2. 서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "originalRequirement": "재시도 규약 통일: 동일 요청의 정상 재시도는 기존 결과를 반환하고, 같은 요청 ID로 다른 내용을 보내면 거절합니다. 이미 있는 receipt 구조를 관련 작업 전체에 일관되게 적용하는 방향입니다.",
+      "id": "2.3",
+      "status": "기존 구현 소스 재확인 · 통합 미검증",
+      "sourceLocations": [
+        "services/desktopRequestProtocol.js",
+        "services/desktopBootstrap.js"
+      ],
+      "implementationAndLimitations": "같은 요청과 같은 내용의 재시도, 같은 ID와 다른 내용의 충돌 거부 규약을 유지한다. 모든 경로의 동시 장애 재현은 미실행이다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 2,
+      "sectionTitle": "2. 서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "originalRequirement": "여러 저장소의 작업 연결: 라이선스 소비, 실행 상태 갱신, 감사 기록에 같은 작업 ID를 사용합니다. 중간 장애 후 어느 단계까지 확정됐는지 재조정할 수 있어야 합니다.",
+      "id": "2.4",
+      "status": "기존 구현 소스 재확인 · 통합 미검증",
+      "sourceLocations": [
+        "services/desktopLicenses.js",
+        "services/desktopBootstrap.js"
+      ],
+      "implementationAndLimitations": "라이선스 operation ID, 실행 상태 연결, 감사 outbox 재조정 경로를 유지한다. 실제 다중 파일/저장소 장애 복구를 실행하지 못했다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 2,
+      "sectionTitle": "2. 서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "originalRequirement": "중복 서버 실행 차단: 현재 데스크톱 저장소는 단일 작성자를 전제로 합니다. 같은 데이터 디렉터리를 두 프로세스가 동시에 열지 못하도록 OS 수준의 독점 잠금을 추가하는 것이 좋습니다.",
+      "id": "2.5",
+      "status": "기존 OS 잠금 유지 · 로컬 실행 차단 확인",
+      "sourceLocations": [
+        "services/desktopSingleWriter.js"
+      ],
+      "implementationAndLimitations": "SQLite EXCLUSIVE OS 잠금을 우회하지 않았다. better-sqlite3 부재 때 DESKTOP_WRITER_LOCK_UNAVAILABLE로 중단된다. 실제 두 프로세스 잠금 경쟁 성공 증거는 이번 실행에 없다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 2,
+      "sectionTitle": "2. 서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "originalRequirement": "HA 오인 방지: 현재 데스크톱 경로는 HA를 거부합니다. 향후 다중 서버를 지원하려면 단순 복제 외에, 오래된 서버가 계속 쓰지 못하게 하는 별도의 쓰기 권한 통제가 필요합니다.",
+      "id": "2.6",
+      "status": "기존 HA 거부 유지",
+      "sourceLocations": [
+        "services/desktopSingleWriter.js"
+      ],
+      "implementationAndLimitations": "HA_ENABLED 경로의 단일 작성자 요구를 유지한다. 복제·fencing·다중 작성자 지원을 새로 제공하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 3,
+      "sectionTitle": "3. A→B→O Handoff — 키 노출 범위 축소",
+      "originalRequirement": "구성요소별 독립 키: 현재 전달하는 임시 개인키 대신 B와 O가 각각 새 키를 만들고, 서버가 부모 승인과 자식 공개키를 연결하는 다음 버전 구조를 검토합니다.",
+      "id": "3.1",
+      "status": "기존 v3 구현 소스 재확인 · Windows 미검증",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Handoff.pas",
+        "GameConnect_Win64/Game.Security.pas"
+      ],
+      "implementationAndLimitations": "자식 독립 키와 부모 승인/자식 공개키 결속을 유지한다. Windows 실제 A→B→O 인계를 실행하지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 3,
+      "sectionTitle": "3. A→B→O Handoff — 키 노출 범위 축소",
+      "originalRequirement": "권한 범위 제한: O에 필요한 권한만 이전하고, O의 키나 토큰으로 A 발급·B 라이선스 소비 같은 다른 작업을 수행하지 못하게 합니다.",
+      "id": "3.2",
+      "status": "기존 구현 소스 재확인 · 서버 통합 미검증",
+      "sourceLocations": [
+        "services/desktopBootstrap.js",
+        "services/desktopRequestProtocol.js"
+      ],
+      "implementationAndLimitations": "역할별 인계와 작업 범위 제한을 유지한다. O 권한으로 다른 역할 작업 거부의 전체 통합 검사는 차단되었다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 3,
+      "sectionTitle": "3. A→B→O Handoff — 키 노출 범위 축소",
+      "originalRequirement": "개인키 내보내기 제한: 현 구조를 유지하는 동안에는 내보내기를 특정 Handoff에 결속하고 중복 호출·불필요한 사본 생성을 제한합니다. 실패 후 재시도 규칙을 먼저 정해야 합니다.",
+      "id": "3.3",
+      "status": "기존 비공개 키 비전달 구조로 대체됨",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Security.pas",
+        "GameConnect_Win64/Game.Handoff.Crypto.pas"
+      ],
+      "implementationAndLimitations": "현재 공개키 export 경로를 확인했다. 요구 문서의 임시 개인키 전달을 더 강화하는 대신 이미 적용된 독립 키 구조를 유지한다. 개인키 사본을 새로 만들지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 3,
+      "sectionTitle": "3. A→B→O Handoff — 키 노출 범위 축소",
+      "originalRequirement": "인증된 IPC 암호화: 암호화 Handoff를 추가한다면 상대 인증·키 합의·재사용 방지까지 함께 설계합니다. 고정키나 임시 XOR을 덧붙이는 방식은 피합니다.",
+      "id": "3.4",
+      "status": "기존 인증된 Handoff 유지 · Windows 미검증",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Handoff.Crypto.pas",
+        "GameConnect_Win64/Game.Handoff.pas"
+      ],
+      "implementationAndLimitations": "현재 인증·암호화·nonce 결속을 유지한다. 고정키/XOR 방식으로 교체하지 않았다. 프로세스 메모리 접근 자체를 방어한다는 주장은 하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 3,
+      "sectionTitle": "3. A→B→O Handoff — 키 노출 범위 축소",
+      "originalRequirement": "환경 변수 상속 축소: 현재 자식은 부모 환경을 상속합니다. 운영에 필요한 환경만 전달해 개발용 비밀값이나 불필요한 설정이 O까지 이어지지 않도록 합니다.",
+      "id": "3.5",
+      "status": "기존 allowlist 유지 · 소스 검사 통과",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Handoff.pas"
+      ],
+      "implementationAndLimitations": "ChildEnvironment 허용 목록과 Windows 필수 환경 전달을 유지한다. 임의 개발 환경/비밀값 전체 상속을 다시 도입하지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 3,
+      "sectionTitle": "3. A→B→O Handoff — 키 노출 범위 축소",
+      "originalRequirement": "인계 실패 규약: 서버 claim 전 실패, claim 후 응답 소실, READY 전 종료를 각각 구분합니다. 어느 경우에 재시도하고 어느 경우에 새 실행이 필요한지 명확해야 합니다.",
+      "id": "3.6",
+      "status": "기존 실패 규약 유지 · 일부 소스 검사 통과",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Handoff.pas",
+        "services/desktopBootstrap.js"
+      ],
+      "implementationAndLimitations": "claim 전/후, READY 및 완료 경계별 기존 상태·재시도 계약을 유지한다. 실제 응답 소실·부모 종료의 Windows 장애 주입은 미실행이다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 4,
+      "sectionTitle": "4. 배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "originalRequirement": "불변 배포 ID: A/B/O 최종 해시, 소스 해시, 컴파일러·SDK 버전, 정책 버전을 하나의 배포 기록으로 묶습니다.",
+      "id": "4.1",
+      "status": "기존 구현 + 실제 CI 관측 강화 · 설정 의존",
+      "sourceLocations": [
+        "services/desktopReleaseProvenance.js",
+        "ci/Windows-Stage.ps1"
+      ],
+      "implementationAndLimitations": "A/B/O·소스·정책·도구 버전 결속을 유지하고 실제 compiler/Node/bridge/lock SHA-512 관측을 추가했다. requireManifest 기본 false이므로 운영 강제를 가정하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 4,
+      "sectionTitle": "4. 배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "originalRequirement": "CI 서명 증빙: 관리자가 입력한 PASS와 실제 Windows 시험 시스템이 서명한 PASS를 구분합니다. 현재 운영자가 기록하는 증거에 추가할 수 있습니다.",
+      "id": "4.2",
+      "status": "기존 서명 증빙 유지 · CI 실행 미검증",
+      "sourceLocations": [
+        "services/desktopReleaseProvenance.js",
+        "ci/ci-artifacts.js"
+      ],
+      "implementationAndLimitations": "수동 PASS와 GAME-CI-ATTESTATION-V1 서명 증빙을 구분한다. requireCiEvidence 기본 false이다. 이번 로컬 결과로 Windows PASS 증빙을 발급하지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 4,
+      "sectionTitle": "4. 배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "originalRequirement": "서명 역할 분리: 실행 파일 승인키, 테스트 증빙키, 서버 통신키를 각각 다른 목적으로 관리합니다.",
+      "id": "4.3",
+      "status": "기존 역할 분리 유지",
+      "sourceLocations": [
+        "services/desktopReleaseProvenance.js",
+        "services/desktopSecurityAuthority.js"
+      ],
+      "implementationAndLimitations": "승인 서명·CI 증빙·통신 용도를 분리한 기존 검사를 유지했다. 운영 키를 새로 만들거나 바꾸지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 4,
+      "sectionTitle": "4. 배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "originalRequirement": "키 교체·폐기 훈련: 새 키 배포, 구키 폐기, 교체 중 실패, 기존 정당한 실행의 처리까지 시험합니다.",
+      "id": "4.4",
+      "status": "기존 훈련/복구 경로 유지 · 훈련 미실행",
+      "sourceLocations": [
+        "services/desktopReleaseProvenance.js",
+        "tools/"
+      ],
+      "implementationAndLimitations": "키 회전·구키 거부·복구 승인 관련 도구/시험을 유지한다. 실제 운영 키 교체나 폐기 훈련을 수행한 것은 아니다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 4,
+      "sectionTitle": "4. 배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "originalRequirement": "구버전 복귀 제한: 정상 서명이 있는 오래된 빌드라도 최소 보안 버전 아래로 내려가지 못하게 합니다. 긴급 복구는 별도의 승인된 절차로 둡니다.",
+      "id": "4.5",
+      "status": "기존 기능 유지 · 최소 버전 정책 설정 필요",
+      "sourceLocations": [
+        "services/desktopReleaseProvenance.js"
+      ],
+      "implementationAndLimitations": "minimumSecurityVersion 기본 0, requireManifest 기본 false이다. 정책이 활성화된 조건의 downgrade/recovery 분기는 존재하지만 운영에서 이미 막힌다고 단정할 수 없다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 4,
+      "sectionTitle": "4. 배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "originalRequirement": "배포 묶음 검증: 같은 표시 버전의 다른 O나, 서로 다른 릴리스의 A/B/O를 섞는 실수를 등록 단계에서 명확히 차단합니다.",
+      "id": "4.6",
+      "status": "기존 혼합 방지 유지 · 최종 audit 연결 추가",
+      "sourceLocations": [
+        "services/desktopReleaseProvenance.js",
+        "ci/ci-artifacts.js",
+        "tools/audit-final-artifacts.js"
+      ],
+      "implementationAndLimitations": "등록된 A/B/O 결속을 유지하고 Windows CI의 최종 audit 해시와 승인 대상 해시를 비교한다. legacy CI fixture는 audit가 없을 수 있고 실제 Windows stage는 이를 생성한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 5,
+      "sectionTitle": "5. 네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "originalRequirement": "ABI 비교 자동화: Windows SDK의 C/C++ sizeof/offsetof 결과와 Delphi 선언을 비교합니다. TLS 외에 CNG·프로세스 생성·파일 정보 구조체까지 확대합니다.",
+      "id": "5.1",
+      "status": "기존 ABI 비교 유지 · 추가 측정 구조 활용",
+      "sourceLocations": [
+        "GameConnect_Win64/tests/Win64AbiContract.inc",
+        "GameConnect_Win64/tests/TlsAbiContract.inc"
+      ],
+      "implementationAndLimitations": "SDK/Delphi sizeof·offset 검사를 보존했다. OVERLAPPED를 포함한 비교 코드는 있으나 Windows SDK 및 dcc64 실행은 미검증이다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 5,
+      "sectionTitle": "5. 네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "originalRequirement": "포인터 수명 계약: API 포인터의 인코딩 여부뿐 아니라 대상 모듈의 수명, 호출 규약, 인자 크기와 소유권을 관리합니다.",
+      "id": "5.2",
+      "status": "기존 계약 + 잔여 I/O 수명 보완",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Api.Pointer.pas",
+        "GameConnect_Win64/Game.Measurement.pas"
+      ],
+      "implementationAndLimitations": "모듈/읽기 전용 API arena를 EXE 프로세스 수명까지 보존해 잔여 I/O drain이 종료된 객체를 참조하지 않게 했다. DLL hot-unload 지원으로 해석하면 안 된다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 5,
+      "sectionTitle": "5. 네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "originalRequirement": "초기화 완료 조건: A/B/O별 필수 API·리소스·자가 진단 목록을 만들고, 누락된 상태에서 세션을 생성하지 못하게 합니다.",
+      "id": "5.3",
+      "status": "기존 시작 게이트 갱신 · 소스 검사 통과",
+      "sourceLocations": [
+        "GameConnect_Win64/tests/generate-startup-contracts.py",
+        "GameConnect_Win64/tests/test-startup-contracts.py"
+      ],
+      "implementationAndLimitations": "새 API를 A/B/O 의존성 폐쇄와 정체성 목록에 반영했다. 171/196/216 슬롯의 정적 목록이며 실제 프로세스 자가 진단 통과가 아니다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 5,
+      "sectionTitle": "5. 네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "originalRequirement": "객체 종료 순서: 신규 작업 차단 → 진행 중 작업 합류 → 키·핸들 해제 순서를 보안 객체 전반에 명시합니다.",
+      "id": "5.4",
+      "status": "기존 순서 유지 + Overlay/요청 종료 보완",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Overlay.pas",
+        "GameConnect_Win64/Game.Overlay.Client.pas",
+        "GameConnect_Win64/GameConnectTransport.pas"
+      ],
+      "implementationAndLimitations": "신규 작업 차단→취소/합류→해제 순서를 적용한다. 소유 객체를 먼저 해제하거나 스레드를 강제 종료하지 않는다. 일부 OS 대기는 협조적 예산을 넘을 수 있다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 5,
+      "sectionTitle": "5. 네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "originalRequirement": "중간 문자열 축소: JSON 복제와 ToJSON 임시 문자열처럼 민감값의 추가 사본이 생기는 경로를 줄입니다. 직렬화 결과와 서명 내용은 그대로 유지해야 합니다.",
+      "id": "5.5",
+      "status": "기존 최소 복사 경로 유지 · 일부 보완",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Security.pas",
+        "services/strictJson.js",
+        "services/desktopCpuWorker.js"
+      ],
+      "implementationAndLimitations": "서명 canonical bytes와 기존 알고리즘을 유지한다. 비교용 임시 Buffer는 지운다. Delphi/JS 런타임의 모든 문자열 사본이 제거됐다는 보장은 하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 5,
+      "sectionTitle": "5. 네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "originalRequirement": "C ABI 오류 격리: Delphi와 ImGui C++ 사이로 예외가 넘어가지 않도록 하고, 실패 출력과 반환 상태를 일정하게 유지합니다.",
+      "id": "5.6",
+      "status": "기존 ABI 격리 유지 · Linux 핵심 검사 통과",
+      "sourceLocations": [
+        "GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp",
+        "GameConnect_Win64/imgui/tests/test_bridge.cpp"
+      ],
+      "implementationAndLimitations": "예외/반환 상태/소유권을 유지하고 DPI export를 같은 C ABI 계약에 추가했다. 실제 ImGui core의 91개 검사는 통과했으나 Windows D3D11은 미실행이다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 6,
+      "sectionTitle": "6. 파일·PE 검사 — 검사기 간 해석 차이 제거",
+      "originalRequirement": "공통 PE 시험 자료: Delphi·서버·승인 BAT가 같은 정상·손상 파일에 대해 일치하는 결과를 내는지 검사합니다.",
+      "id": "6.1",
+      "status": "구현 · 서버/BAT 실행 통과 · Delphi 미실행",
+      "sourceLocations": [
+        "contracts/pe-corpus-v1.json",
+        "scripts/generate-pe-corpus.py",
+        "scripts/test-hardening-pe-corpus.js",
+        "GameConnect_Win64/tests/PeCorpusProbe.dpr"
+      ],
+      "implementationAndLimitations": "공통 정상/손상 28종, Python 독립 기준, 서버/BAT preflight 결과를 대조했다. native probe도 같은 bytes를 읽도록 연결했다. 3개 실행체 모두의 실제 일치는 Windows 실행 전에는 확정할 수 없다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 6,
+      "sectionTitle": "6. 파일·PE 검사 — 검사기 간 해석 차이 제거",
+      "originalRequirement": "정규화 규약 고정: 디스크 파일과 적재 이미지의 차이, relocation, import, .pdata 처리 범위를 버전별로 문서화합니다.",
+      "id": "6.2",
+      "status": "규약 문서화 · 기존 정상 digest 유지",
+      "sourceLocations": [
+        "contracts/hardening-contracts-v1.json",
+        "services/desktopIntegrity.js",
+        "GameConnect_Win64/Game.CodeIntegrity.pas"
+      ],
+      "implementationAndLimitations": "PE64-CODE-V1/hashVersion3의 raw file·immutable executable·relocation·import·pdata·EAT·header 범위를 구분했다. 구조 거부 규칙 강화는 검증 revision2로 기록하며 기존 정상 파일의 정규화 digest를 임의 변경하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 6,
+      "sectionTitle": "6. 파일·PE 검사 — 검사기 간 해석 차이 제거",
+      "originalRequirement": "파일 위치 소유권: IntegrityHashHandle이 파일 위치를 변경하는 계약을 명확히 합니다. 복제 핸들과 원본 핸들을 동시에 읽는 경우도 검사해야 합니다.",
+      "id": "6.3",
+      "status": "구현 · Windows probe 추가, 미실행",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Measurement.pas",
+        "GameConnect_Win64/Game.Integrity.pas",
+        "GameConnect_Win64/tests/HardeningContractsProbe.dpr"
+      ],
+      "implementationAndLimitations": "ReOpenFile+OVERLAPPED 독립 위치로 읽고 원본/duplicate의 동기 파일 위치를 건드리지 않는다. 동시에 duplicate를 읽는 probe를 추가했다. DuplicateHandle만으로 위치가 분리된다고 가정하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 6,
+      "sectionTitle": "6. 파일·PE 검사 — 검사기 간 해석 차이 제거",
+      "originalRequirement": "측정 예산: 일반 파일 해싱에도 최대 크기·시간·취소 조건을 전달해 느린 저장소 때문에 종료가 오래 걸리지 않게 합니다.",
+      "id": "6.4",
+      "status": "구현 · 협조적 예산 · Windows 미검증",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Measurement.pas",
+        "GameConnect_Win64/Game.Integrity.pas",
+        "GameConnect_Win64/Game.ModuleInventory.pas"
+      ],
+      "implementationAndLimitations": "handle/file overload에 크기·절대 마감·취소를 전달하고 64KiB 읽기와 제한된 pending I/O drain을 적용한다. 커널 metadata/취소 완료가 무한히 지연되는 환경의 hard realtime 종료 보장은 아니다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 6,
+      "sectionTitle": "6. 파일·PE 검사 — 검사기 간 해석 차이 제거",
+      "originalRequirement": "기존 파일 고정의 검증 확대: 현재 핸들 고정 구조에 파일 이름 변경, 상위 경로 교체, reparse point, 읽기 도중 오류 시험을 추가합니다.",
+      "id": "6.5",
+      "status": "probe 추가 · 실제 Windows 장애 시험 미실행",
+      "sourceLocations": [
+        "GameConnect_Win64/tests/HardeningContractsProbe.dpr"
+      ],
+      "implementationAndLimitations": "파일명/상위 경로 교체 후 pinned object 유지, reparse 거부, 읽기 handle 오류, 내용 변경 시험을 추가했다. symlink 권한이 없으면 명시적 SKIP이며 실제 저속 드라이버/스토리지 장애 주입은 별도 필요하다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 6,
+      "sectionTitle": "6. 파일·PE 검사 — 검사기 간 해석 차이 제거",
+      "originalRequirement": "오류 상태 구분: 파일이 바뀐 경우, 읽지 못한 경우, 측정 범위가 부족한 경우를 각각 다른 결과로 유지합니다.",
+      "id": "6.6",
+      "status": "구현 · 계층별 결과 보존",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Measurement.pas",
+        "GameConnect_Win64/Game.ModuleInventory.pas",
+        "services/desktopIntegrityReports.js"
+      ],
+      "implementationAndLimitations": "FILE_CHANGED/READ_ERROR/COVERAGE_INSUFFICIENT/CANCELLED/DEADLINE_EXCEEDED를 분리했다. 예산·읽기 실패를 정상 digest나 FULL 성공으로 바꾸지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 7,
+      "sectionTitle": "7. 해시·CRC — 독립성의 실질적 강화",
+      "originalRequirement": "용도별 암호 규격표: 측정·서명·키 래핑·인증서 pin·토큰 식별에 사용하는 알고리즘과 버전을 구분합니다. 남아 있는 SHA-256을 이름만 보고 일괄 교체하지 않게 합니다.",
+      "id": "7.1",
+      "status": "규격표 추가 · 알고리즘 일괄 교체 없음",
+      "sourceLocations": [
+        "contracts/crypto-purpose-v1.json"
+      ],
+      "implementationAndLimitations": "측정, Ed25519 승인/CI, RSA-SHA256 서명, RSA-OAEP/AES-GCM, leaf DER SHA256 pin, 저장소 MAC을 분리했다. 실제 protocol domain 상수를 기록했고 SHA-256을 이름만 보고 교체하지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 7,
+      "sectionTitle": "7. 해시·CRC — 독립성의 실질적 강화",
+      "originalRequirement": "기준 생성과 측정 구현의 독립 비교: 같은 코드의 같은 오류가 기준값과 측정값 양쪽에 들어가는 것을 방지합니다.",
+      "id": "7.2",
+      "status": "구현 · 독립 기준 실행 통과 · Delphi 비교 미실행",
+      "sourceLocations": [
+        "scripts/generate-pe-corpus.py",
+        "scripts/test-hardening-pe-corpus.js",
+        "scripts/test-native-code-contract.js"
+      ],
+      "implementationAndLimitations": "Python hashlib SHA-512와 독립 bitwise CRC 기준을 Node 서버/BAT와 비교한다. 기존 BLAKE3/XXH3 참조 벡터도 유지한다. 모든 구현이 독립이라는 주장이나 아직 안 돌린 Delphi 비교의 PASS는 하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 7,
+      "sectionTitle": "7. 해시·CRC — 독립성의 실질적 강화",
+      "originalRequirement": "부분 결과 처리: 필수 측정 실패를 다른 성공 결과로 덮지 않고, 실패한 계층과 범위를 그대로 보고합니다.",
+      "id": "7.3",
+      "status": "구현 · 보고 검증 실행 통과",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.ModuleInventory.pas",
+        "services/desktopIntegrityReports.js"
+      ],
+      "implementationAndLimitations": "필수 계층 실패·미측정 이유를 남기며 다른 digest가 성공했다고 전체 검증을 성공 처리하지 않는다. 기존 CRC 레이어의 PARTIAL/UNAVAILABLE 표현을 유지한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 7,
+      "sectionTitle": "7. 해시·CRC — 독립성의 실질적 강화",
+      "originalRequirement": "측정 묶음의 일관성: 측정 시작·종료, 모듈 목록 세대, 측정 계획 버전을 묶어 서로 다른 시점의 결과를 무심코 합치지 않도록 합니다.",
+      "id": "7.4",
+      "status": "구현 · 보고 검증 실행 통과 · 관측 한계 명시",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.ModuleInventory.pas",
+        "GameConnect_Win64/Game.Api.pas",
+        "services/desktopIntegrityReports.js"
+      ],
+      "implementationAndLimitations": "시작/종료 tick·계획 version·전후 module generation 일치·snapshot/batch 결속을 추가했다. 전후 목록이 같아도 중간 unload/reload ABA는 탐지하지 못할 수 있으며 하드웨어 attestation이 아니다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 7,
+      "sectionTitle": "7. 해시·CRC — 독립성의 실질적 강화",
+      "originalRequirement": "표본 검사와 전체 검사 구분: 성능 때문에 표본 측정을 쓰더라도 전체 검증 완료처럼 표시하지 않습니다.",
+      "id": "7.5",
+      "status": "구현 · FULL/PARTIAL/SAMPLED 분리",
+      "sourceLocations": [
+        "services/desktopIntegrityReports.js",
+        "scripts/test-hardening-measurement.js"
+      ],
+      "implementationAndLimitations": "SAMPLED/PARTIAL을 FULL 완료로 표시하지 않는다. FULL은 명시한 계획의 필수 범위이며 모든 메모리/모든 선택적 export 검증을 뜻하지 않는다. 이전 metadata 없는 보고는 호환 경로로 별도 취급한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 7,
+      "sectionTitle": "7. 해시·CRC — 독립성의 실질적 강화",
+      "originalRequirement": "비밀값 비교 분리: MAC·토큰 같은 비밀 관련 비교와 공개 파일 digest 비교의 요구사항을 구분합니다.",
+      "id": "7.6",
+      "status": "구현 · 비밀 비교와 공개 digest 구분",
+      "sourceLocations": [
+        "services/strictJson.js",
+        "services/desktopIntegrityReports.js"
+      ],
+      "implementationAndLimitations": "동일 길이 저장소 MAC에는 timingSafeEqual과 임시 Buffer 삭제를 사용한다. 공개 파일 digest의 일반 비교와 구분한다. 전체 서버 모든 문자열 비교를 재작성한 것은 아니다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 8,
+      "sectionTitle": "8. 네트워크·TLS — 실패와 갱신 상황까지 설계",
+      "originalRequirement": "인증서 pin 교체 절차: 현재 신뢰로 인증된 차기 pin과 제한된 전환 기간을 지원하는 방안을 검토합니다. 알 수 없는 인증서를 자동 수용하면 안 됩니다.",
+      "id": "8.1",
+      "status": "전환 설계 검토 완료 · 자동 pin rollover 미구현/비활성",
+      "sourceLocations": [
+        "contracts/hardening-contracts-v1.json",
+        "GameConnect_Win64/Game.Tls.pas",
+        "tools/tls-rotate.js"
+      ],
+      "implementationAndLimitations": "현행 v4 단일 leaf DER SHA256 검증과 수동 프로필 교체를 유지한다. 현재 신뢰로 인증된 next-pin·endpoint 결속·만료·antirollback·최대 2개 pin 설계를 문서화했다. 모르는 인증서를 자동 수용하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 8,
+      "sectionTitle": "8. 네트워크·TLS — 실패와 갱신 상황까지 설계",
+      "originalRequirement": "전체 요청 시간 예산: DNS·연결·TLS·송수신에 각각 시간을 더하는 방식 대신 전체 작업의 공통 마감을 전달합니다.",
+      "id": "8.2",
+      "status": "구현 · 공통 마감 연결 · Windows 미검증",
+      "sourceLocations": [
+        "GameConnect_Win64/GameConnectTransport.pas",
+        "services/desktopConnect.js"
+      ],
+      "implementationAndLimitations": "기본 10초 공통 deadline을 준비/DNS/접속/TLS/송수신/복호화·최종 확인에 전달한다. DNS 자원 소유 worker 제한과 취소를 적용한다. 각 단계에 10초씩 더하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 8,
+      "sectionTitle": "8. 네트워크·TLS — 실패와 갱신 상황까지 설계",
+      "originalRequirement": "비싼 요청의 공정한 처리: RSA 검증·PE 해싱·업로드가 정상 세션의 갱신을 밀어내지 않도록 동시 작업 수와 연산 비용을 제한합니다.",
+      "id": "8.3",
+      "status": "구현 · 실제 암호 작업 queue 검사 통과",
+      "sourceLocations": [
+        "services/desktopWorkQueue.js",
+        "services/desktopCpuWorker.js",
+        "services/desktopPeCache.js"
+      ],
+      "implementationAndLimitations": "RSA-OAEP/AES-GCM 요청 처리와 PE 계산을 제한 worker lane으로 옮기고 queue·deadline·admission을 제한했다. 권한/receipt 단일 작성자 구간의 device 서명 검증은 여전히 동기이다. 모든 RSA 검증을 비동기화했다고 주장하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 8,
+      "sectionTitle": "8. 네트워크·TLS — 실패와 갱신 상황까지 설계",
+      "originalRequirement": "대상별 업로드 한도: EXE와 DLL 등 대상에 맞는 한도를 실제 스트림 수신 단계부터 적용합니다.",
+      "id": "8.4",
+      "status": "구현 · chunk/중단/오류 검사 통과",
+      "sourceLocations": [
+        "web/routes/desktopBootstrapRoutes.js",
+        "scripts/test-hardening-measurement.js"
+      ],
+      "implementationAndLimitations": "EXE 64MiB, DLL 32MiB 한도를 수신 chunk부터 적용하고 Content-Length·content encoding·동시 업로드·수신 마감을 검사한다. 대형 배포 파일/실제 HTTP 흐름은 전체 의존성 설치 후 재검사해야 한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 8,
+      "sectionTitle": "8. 네트워크·TLS — 실패와 갱신 상황까지 설계",
+      "originalRequirement": "프로토콜 입력 엄격화: 중복 필드, 잘못된 UTF-8, 정수 범위 초과, 알 수 없는 중요 필드를 일관되게 처리합니다.",
+      "id": "8.5",
+      "status": "구현 · 서버 입력 검사 통과 · Delphi 미실행",
+      "sourceLocations": [
+        "services/strictJson.js",
+        "GameConnect_Win64/Game.ProtocolJson.pas",
+        "services/mitigationContract.js"
+      ],
+      "implementationAndLimitations": "escaped-name 중복 필드, 잘못된 UTF8/UTF16, 안전 정수 초과, 복잡도, 알 수 없는 중요 필드를 거부한다. 외부 connect/서명 보고/프로필 경로에 연결했고 내부 저장용 JSON clone 전부를 교체하지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 8,
+      "sectionTitle": "8. 네트워크·TLS — 실패와 갱신 상황까지 설계",
+      "originalRequirement": "과부하 관측: 연결 수뿐 아니라 인증 처리 지연, 대기열 길이, 갱신 실패 비율을 관리 화면에서 확인할 수 있게 합니다.",
+      "id": "8.6",
+      "status": "구현 · 관리자 bundle 검사 통과 · 실제 운영 미관측",
+      "sourceLocations": [
+        "services/desktopConnect.js",
+        "services/desktopWorkQueue.js",
+        "public/"
+      ],
+      "implementationAndLimitations": "연결 수, 인증 지연, worker/queue 부하, 갱신 실패율을 runtimeLoad로 노출한다. 비율의 분모는 식별되어 dispatch된 갱신 요청이며 모든 pre-auth 거부를 포함하는 전역 SLO가 아니다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 9,
+      "sectionTitle": "9. Overlay·ImGui·D3D11 — 승인과 화면 수명을 일치",
+      "originalRequirement": "명시적 상태 전이: 생성·승인·표시·인계 완료·종료 중·종료 상태와 허용 전이를 정의합니다.",
+      "id": "9.1",
+      "status": "구현 · 모든 상태 전이 probe 추가 · Windows 미실행",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Overlay.State.pas",
+        "GameConnect_Win64/Game.Overlay.pas",
+        "GameConnect_Win64/tests/HardeningContractsProbe.dpr"
+      ],
+      "implementationAndLimitations": "Created/Authorized/Visible/Transferred/Closing/Closed와 허용 36개 조합을 명시했다. Closing 이후 새 승인으로 복귀할 수 없다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 9,
+      "sectionTitle": "9. Overlay·ImGui·D3D11 — 승인과 화면 수명을 일치",
+      "originalRequirement": "남은 lease에 맞춘 갱신: 고정 간격뿐 아니라 남은 승인 시간과 최근 검사 소요 시간을 반영합니다. 만료 후 늦은 응답을 받아들이는 변경은 하지 않습니다.",
+      "id": "9.2",
+      "status": "구현 · 만료 후 늦은 응답 수용 금지 유지",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Overlay.State.pas",
+        "GameConnect_Win64/Game.Overlay.pas"
+      ],
+      "implementationAndLimitations": "남은 lease의 절반·최근 검사 시간의 2배+1초 margin·최대 30초 간격으로 갱신 시점을 정한다. 이미 만료된 응답이 lease를 되살리지 못하게 유지한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 9,
+      "sectionTitle": "9. Overlay·ImGui·D3D11 — 승인과 화면 수명을 일치",
+      "originalRequirement": "UI 스레드 소유권 확인: ImGui·창·D3D 자원이 지정된 UI 스레드에서만 조작되도록 계약을 실제 검사로 보완합니다.",
+      "id": "9.3",
+      "status": "구현 · Linux core 소유권 검사 통과 · GPU 미검증",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Overlay.Renderer.pas",
+        "GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp"
+      ],
+      "implementationAndLimitations": "창/Renderer/ImGui의 owner thread 검사를 적용하고 DPI setter도 해당 계약을 지킨다. D3D11 실제 resource 조작은 Windows에서 별도 확인해야 한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 9,
+      "sectionTitle": "9. Overlay·ImGui·D3D11 — 승인과 화면 수명을 일치",
+      "originalRequirement": "종료 전체의 시간 예산: 작업 합류와 Close 요청을 포함해 종료가 어디서 얼마나 기다리는지 통제합니다. 객체를 먼저 해제하거나 스레드를 강제로 끊는 방식은 피합니다.",
+      "id": "9.4",
+      "status": "구현 · 5초 협조적 종료 예산 · hard bound 아님",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Overlay.pas",
+        "GameConnect_Win64/Game.Overlay.Client.pas",
+        "GameConnect_Win64/GameConnectTransport.pas"
+      ],
+      "implementationAndLimitations": "신규 작업 차단→통신/측정 취소→작업 합류→남은 시간으로 Close 순서이다. 안전성을 위해 Worker.WaitFor를 강제 중단하지 않으므로 OS가 반환하지 않으면 5초를 초과할 수 있고 이를 실패/미검증으로 남긴다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 9,
+      "sectionTitle": "9. Overlay·ImGui·D3D11 — 승인과 화면 수명을 일치",
+      "originalRequirement": "그래픽 장애 분류: 장치 소실·메모리 부족·Resize 실패를 구분합니다. 재생성을 허용한다면 유효한 승인 안에서 제한된 횟수만 수행합니다.",
+      "id": "9.5",
+      "status": "구현 · 실패 시 닫기 · 자동 재생성 없음",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Overlay.Renderer.pas",
+        "GameConnect_Win64/Game.Overlay.State.pas"
+      ],
+      "implementationAndLimitations": "device removed/reset/hung, OOM, Resize 실패를 구분한다. 유효 승인 내 재생성은 선택 사항이므로 이번에는 자동 재생성을 넣지 않고 fail-closed 종료한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 9,
+      "sectionTitle": "9. Overlay·ImGui·D3D11 — 승인과 화면 수명을 일치",
+      "originalRequirement": "DPI·포커스 시험: 다중 모니터, 배율 변경, 최소화, 원격 데스크톱 전환에서도 표시 위치와 hit-test가 일치하고 입력이 눌린 채 남지 않아야 합니다.",
+      "id": "9.6",
+      "status": "코드 수정 + 시험 matrix · 실제 Windows 미실행",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.Overlay.Renderer.pas",
+        "GameConnect_Win64/GameOverlay.manifest",
+        "contracts/compatibility-matrix-v1.json"
+      ],
+      "implementationAndLimitations": "DPI 변경 시 권장 사각형, draw/hit-test 같은 배율, focus/minimize/display 전환 입력 해제를 적용했다. 다중 모니터/배율/RDP/GPU 장치 소실 시험은 실행하지 않았다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 10,
+      "sectionTitle": "10. OS 보호·빌드 설정 — 실제 산출물로 확인",
+      "originalRequirement": "완화 정책 적용 결과 확인: 설정 요청 성공뿐 아니라 실제 적용 상태를 계속 구분합니다.",
+      "id": "10.1",
+      "status": "구현 · 설정 결과/조회 결과 분리 · Windows 미검증",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.ProcessMitigations.pas",
+        "services/mitigationContract.js"
+      ],
+      "implementationAndLimitations": "setter 성공/오류와 dynamic-code/CFG/strict-handle/image-load의 실제 query 성공·flags·오류를 분리한다. 서명 evidence에 선택적 진단을 붙여 legacy 호환을 유지한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 10,
+      "sectionTitle": "10. OS 보호·빌드 설정 — 실제 산출물로 확인",
+      "originalRequirement": "정책별 호환성 표: ACG·이미지 로딩 제한·엄격한 핸들 검사 등을 Windows·GPU 환경별로 검증한 뒤 선택적으로 강제합니다.",
+      "id": "10.2",
+      "status": "호환성 matrix 추가 · 새 강제 정책 비활성",
+      "sourceLocations": [
+        "contracts/compatibility-matrix-v1.json",
+        "GameConnect_Win64/Game.ProcessMitigations.pas"
+      ],
+      "implementationAndLimitations": "원래 opt-in dynamic prohibit 외 추가 정책을 무조건 켜지 않았다. Windows/GPU/ACG/엄격 핸들/이미지 정책 조합은 NOT_RUN 상태이며 확인 후 선택적으로 강제해야 한다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 10,
+      "sectionTitle": "10. OS 보호·빌드 설정 — 실제 산출물로 확인",
+      "originalRequirement": "CFG 산출물 검사: 설정 이름만 확인하지 말고, 컴파일러 지원과 최종 EXE의 실제 계측·메타데이터를 검사합니다. CFG는 컴파일과 실행 환경이 함께 관여합니다. Microsoft Learn",
+      "id": "10.3",
+      "status": "구현 · 합성 PE 검사 통과 · 실제 EXE/CFG 미검증",
+      "sourceLocations": [
+        "services/peCapabilities.js",
+        "tools/audit-final-artifacts.js",
+        "tools/Audit_Final_Artifacts.bat",
+        "ci/Windows-Stage.ps1"
+      ],
+      "implementationAndLimitations": "load-config/GFID/check-pointer/guard flags/정렬/유효 executable target를 검사한다. 실제 최종 A/B/O audit와 CI 승인 hash를 연결했다. 메타데이터가 있어도 모든 간접 호출 CFG 계측·runtime 강제를 증명하지 않는다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 10,
+      "sectionTitle": "10. OS 보호·빌드 설정 — 실제 산출물로 확인",
+      "originalRequirement": "시험용 빌드 완전 분리: 테스트 define뿐 아니라 외부 MSBuild 인수와 재사용 DCU까지 검사합니다. 제품 빌드와 probe 출력 디렉터리도 분리합니다.",
+      "id": "10.4",
+      "status": "구현 · MSBuild 부정 시험 추가 · Windows 미실행",
+      "sourceLocations": [
+        "GameConnect_Win64/Game.BuildIsolation.targets",
+        "GameConnect_Win64/tests/Test-BuildIsolation.ps1",
+        "GameConnect_Win64/*.dproj"
+      ],
+      "implementationAndLimitations": "평가된 외부 define/추가 DCC 인수/검색 경로/output override/root DCU를 검사하고 역할별 DCU를 비운다. probe와 제품 output을 분리했다. 실제 RAD Studio/MSBuild 환경 호환은 미검증이다.",
+      "windowsRuntimeVerified": false
+    },
+    {
+      "section": 10,
+      "sectionTitle": "10. OS 보호·빌드 설정 — 실제 산출물로 확인",
+      "originalRequirement": "의존성 고정: ImGui 원본 버전, bridge 변경, 컴파일러·SDK·Node 의존성을 기록하고 보안 업데이트 때 같은 회귀 검사를 실행합니다.",
+      "id": "10.5",
+      "status": "기존 lock exact pin + 관측 기록 추가",
+      "sourceLocations": [
+        "package.json",
+        "package-lock.json",
+        "contracts/dependency-provenance-v1.json",
+        "ci/Windows-Stage.ps1"
+      ],
+      "implementationAndLimitations": "제공된 lock의 버전을 정확 고정하고 ImGui/bridge/source hash를 기록한다. 실제 compiler/SDK/Node hash는 Windows CI가 관측한다. npm 최신 보안 audit와 Windows 재빌드는 수행하지 않았다.",
+      "windowsRuntimeVerified": false
+    }
+  ]
+}

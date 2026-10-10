@@ -1,1 +1,351 @@
-<!doctype html><html lang="ko"><meta charset="utf-8"><title>소스 검증</title><style>body{font:16px/1.8 system-ui;max-width:800px;margin:60px auto;padding:24px;color:#252b36}code{background:#eef1f5;padding:3px 6px}</style><h1>빌드 및 배포 도구</h1><p>GameWeb/tools에서 기능별 BAT를 실행합니다. Prepare_ImGui는 ImGui 오브젝트 준비, Create_Spec은 규격 작성, Create_Approval과 Check_Approval은 실행 파일 승인과 확인, Create_Release_Manifest와 Check_Release_Manifest는 배포 명세 생성과 확인을 담당합니다.</p><p>spec.json, deployment-policy.json, release-manifest.json과 승인 JSON은 BAT와 같은 tools 폴더에서 관리합니다. 정책은 관리자 화면에서 현재 정책을 내보내 사용합니다. 배포 명세는 승인 처리가 끝난 최종 A/B/O 파일로 생성합니다.</p><p>GameLauncher.dproj, GameConnect.dproj, GameOverlay.dproj를 RAD Studio에서 Release / Win64로 빌드합니다. Overlay는 Dear ImGui / D3D11입니다. Windows 네이티브 빌드 및 실행 여부를 포함한 검증 결과는 <a href="review.json">review.json</a>에 기록합니다.</p><p><code>npm test</code>는 GameWeb에서, <code>python GameWeb/scripts/verify-source.py</code>는 소스 루트에서 실행합니다. source-manifest.json은 파일 일치 확인용이며 발행자 서명을 대신하지 않습니다.</p></html>
+<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>6–10 소스 변경 및 검증 결과</title><style>body{font-family:system-ui,"Malgun Gothic",sans-serif;max-width:1140px;margin:36px auto;padding:0 24px;line-height:1.65;color:#17202a;background:#fff}h1{font-size:30px}h2{margin-top:38px;border-bottom:2px solid #253d55;padding-bottom:8px}h3{margin-top:24px}small,.muted{color:#576573}table{width:100%;border-collapse:collapse;font-size:14px;margin:16px 0}td,th{padding:12px;border:1px solid #d7dee6;text-align:left;vertical-align:top}th{background:#edf2f6}.notice{background:#fff5dd;border-left:5px solid #b77a00;padding:18px}.metric{display:inline-block;padding:12px 22px;margin:4px;border:1px solid #cad5df;border-radius:8px}code{font-size:13px;overflow-wrap:anywhere}details{margin:14px 0;padding:12px;background:#f7f9fb}summary{cursor:pointer;font-weight:600}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}nav a{margin-right:16px}a{color:#14558c}@media print{body{margin:0;max-width:none}details{display:block}tr{break-inside:avoid}}</style><body>
+<p class="muted">2026-10-10 · 제공된 전체 ZIP 기준 · 운영 데이터/키/배포 변경 없음</p><h1>6–10 소스 변경 및 1–5 재확인 결과</h1>
+<div class="notice"><strong>수정한 전체 소스이며, Windows 빌드·운영 승인 완료본이 아닙니다.</strong><br>기존 75개 PASS 기록은 이전 제공본의 기록입니다. 이번에는 등록된 79개 검사 묶음 중 28개 통과, 51개 의존성 차단입니다. Delphi·Windows SDK·D3D11·실제 GPU 검사는 실행하지 않았습니다.</div>
+<p>원문 1–10의 59개 세부 항목을 빠짐없이 아래에 대응했습니다. 그중 6–10은 29개입니다. 각 항목의 코드 반영, 설계 검토만 수행한 부분, 실행된 검사, 설정 의존성과 미검증 범위를 구분했습니다.</p>
+<nav><a href="#tests">실행 결과</a><a href="#limits">중요 제한</a><a href="#requirements">59개 요구 대응</a><a href="#contracts">상세 규약</a><a href="#windows">Windows 시험표</a><a href="#commands">재실행</a></nav>
+<h2 id="tests">실제 실행 결과</h2><div class="metric"><strong>28 / 79</strong><br>검사 묶음 통과</div><div class="metric"><strong>51 / 79</strong><br>필수 의존성 차단</div><div class="metric"><strong>250 / 250</strong><br>JS 문법 검사</div><div class="metric"><strong>91</strong><br>ImGui core 검사 통과</div>
+<p>추가로 프로젝트 XML 7개, Delphi 클래스 선언 순서 31개, A/B/O 시작 계약, 관리자 UI 47개 파일 bundle 검사가 통과했습니다. 이는 Delphi 컴파일·실제 브라우저 화면·Windows D3D 실행의 대체 증거가 아닙니다. 공통 PE 28종은 Python 기준과 서버/BAT 코드에서 비교했으며 Delphi 실행 비교는 남아 있습니다.</p>
+<p>차단된 51개는 원래 비정상 종료 코드를 그대로 보존했습니다. 일부 HTTP 시험은 SQLite 단일 작성자 잠금 진입 실패로 중단됐고, 사전 검사에서 better-sqlite3 부재를 확인했습니다. 현재 환경은 Node v22.16.0이며 전체 lock의 지원 범위보다 낮습니다. npm 저장소 DNS 접근도 실패했습니다.</p>
+<p class="muted">별도 combined bridge/guard 컴파일·실행 시도는 도구 실행 한도 안에 완료되지 않아 PASS에 포함하지 않았습니다. 분리한 실제 production guard header 시험은 통과했습니다. 원본 로그는 ZIP의 GameWeb/maintenance/verification에 있습니다.</p>
+<h2 id="limits">운영 반영 전 반드시 구분할 내용</h2>
+<p><strong>1~5 설정:</strong> 재인증은 <code>DESKTOP_ADMIN_REAUTH_REQUIRED=1</code>일 때 적용되고 현재 범위는 중요 작업만보다 넓습니다. 배포 manifest/CI 증빙 강제도 기본 비활성이며 최소 보안 버전은 기본 0입니다. 코드를 보존했지만 이러한 조건을 운영에서 이미 강제한다고 표시하지 않았습니다.</p>
+<p><strong>pin 전환:</strong> 현재 v4 단일 pin과 엄격한 인증서 검증을 유지했습니다. 인증된 차기 pin 전환은 새 프로필/서명/제한된 중첩 기간/antirollback 설계 검토로 남겼으며 자동 rollover 기능이 구현·활성화된 것은 아닙니다.</p>
+<p><strong>종료 시간:</strong> 공통 요청 10초·기본 측정 30초·Overlay 종료 5초는 협조적 예산입니다. OS가 반환하지 않는 I/O/metadata/worker 합류까지 강제로 끊는 hard timeout은 아닙니다. 안전한 합류 전에 객체나 OVERLAPPED 메모리를 해제하지 않습니다.</p>
+<p><strong>측정/CFG:</strong> FULL은 명시된 필수 범위이지 모든 프로세스 메모리/선택적 export 검사 완료가 아닙니다. 전후 모듈 목록으로 ABA를 완전히 탐지하지는 못합니다. CFG 구조 메타데이터만으로 모든 간접 호출 계측 및 Windows runtime 강제를 입증하지 않습니다.</p>
+<p><strong>연산 공정성:</strong> 비싼 RSA unwrap/AEAD/PE 계산을 worker와 queue로 제한했지만 기존 single-writer 권한/receipt 구간의 device 서명 검증은 동기 방식으로 남습니다. 새 OS 정책 일괄 강제나 GPU 자동 재생성은 넣지 않았습니다.</p>
+<h2 id="requirements">원문 요구사항 59개 대응</h2>
+<h3>1. 관리자 웹 인증 — 가장 먼저</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>1.1</td><td>신뢰 프록시 제한: 현재 전달받은 X-Forwarded-For, X-Forwarded-Proto를 사용하는 경로가 있습니다. 지정한 프록시에서 온 헤더만 인정하고, 직접 접속은 실제 소켓 주소·TLS 상태를 사용하도록 강화합니다.</td><td><strong>기존 구현 유지 · 인증 단위검사 통과</strong><p>신뢰 프록시 목록에 없는 직접 접속은 소켓/TLS 정보를 사용한다. 실제 배포 프록시·WAF 설정은 확인하지 않았다.</p><code>web/webAuth.js · web/webAuthPolicy.js</code></td></tr>
+<tr><td>1.2</td><td>로그인 시도 제한: 로그인 경로 자체의 실패 제한을 보완합니다. 주소·계정 역할·전역 한도를 함께 적용하고, 공격자가 다른 관리자를 쉽게 영구 잠그는 정책은 피합니다.</td><td><strong>기존 구현 유지 · 인증 단위검사 통과</strong><p>주소·역할·전역 로그인 실패 제한과 만료형 제한을 유지했다. 실 서비스 부하 및 분산 공격 시험은 미실행이다.</p><code>web/webAuth.js · web/webAuthPolicy.js</code></td></tr>
+<tr><td>1.3</td><td>절대 세션 수명: 현재 활동 시 만료가 연장되는 구조에 최대 수명을 추가합니다. 계속 요청한다고 관리자 세션이 무기한 유지되지 않게 합니다.</td><td><strong>기존 구현 유지 · 인증 단위검사 통과</strong><p>절대 수명과 idle 수명, 단조시계 경계를 유지한다. 기존 기본 절대 수명은 12시간이며 운영 환경 값은 미확인이다.</p><code>web/webAuth.js</code></td></tr>
+<tr><td>1.4</td><td>중요 작업만 재인증: 신뢰 서명키 변경, 보호 정책 완화, 운영 A/B/O 교체에는 최근 재인증을 요구합니다. 현재 단일 관리자 운영은 유지하면서 적용할 수 있습니다.</td><td><strong>설정 의존 · 요구 범위 차이 확인</strong><p>DESKTOP_ADMIN_REAUTH_REQUIRED=1일 때만 재인증을 강제한다. 현재 IsMutation 범위는 중요 작업만보다 넓다. 자동 활성화하거나 범위를 임의 변경하지 않았다. 이 항목은 운영 강제 완료로 볼 수 없다.</p><code>services/desktopAdminGuard.js</code></td></tr>
+<tr><td>1.5</td><td>세션 일괄 폐기: 관리자 자격증명 변경·분실·침해 신고 시 기존 세션을 확실히 무효화합니다.</td><td><strong>기존 구현 유지 · 인증 단위검사 통과</strong><p>RevokeAllSessions 및 자격/세션 상태 검사 경로를 유지한다. 침해 대응 운영 훈련을 수행한 것은 아니다.</p><code>web/webAuth.js</code></td></tr>
+<tr><td>1.6</td><td>권한별 실패 시험: 화면에서 버튼을 숨기는 수준을 넘어, 조회 전용 계정이 수정 API를 직접 요청해도 거절되는지 검사합니다.</td><td><strong>기존 구현 유지 · 일부 단위검사 통과</strong><p>서버 권한 검사와 readonly 직접 호출 거부 검사를 유지한다. test-security-admin 통과, 실제 HTTP 통합 묶음은 SQLite 의존성 때문에 완료하지 못했다.</p><code>services/desktopAdminGuard.js · web/routes/desktopBootstrapRoutes.js</code></td></tr>
+</tbody></table>
+<h3>2. 서버 Challenge·라이선스 — 모든 경로의 규칙 통일</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>2.1</td><td>만료 검사 공통화: 이번에 강화한 단조시계·벽시계·서명 검증 직후 만료 확인을 다른 Challenge 경로에도 적용합니다.</td><td><strong>기존 구현 소스 재확인 · 통합 미검증</strong><p>서명된 벽시계 만료와 프로세스 단조시계 마감을 유지한다. 관련 저장소 통합 검사는 의존성 부재로 차단되었다.</p><code>services/desktopDeadline.js · services/desktopSecurityAuthority.js · services/desktopIntegrityReports.js</code></td></tr>
+<tr><td>2.2</td><td>용도 혼용 방지: 발급·다운로드·라이선스·보고·종료용 요청의 역할과 서명 domain을 명시하고, 다른 용도의 정상 서명을 가져와도 거절하도록 공통 시험을 둡니다.</td><td><strong>기존 구현 소스 재확인</strong><p>용도별 서명 domain/역할/receipt 계약을 유지한다. GAME-AUTHORITY-V2와 GAME-INTEGRITY-REPORT-V2를 혼동하지 않도록 암호 규격표에도 실제 상수를 기록했다.</p><code>services/desktopRequestProtocol.js</code></td></tr>
+<tr><td>2.3</td><td>재시도 규약 통일: 동일 요청의 정상 재시도는 기존 결과를 반환하고, 같은 요청 ID로 다른 내용을 보내면 거절합니다. 이미 있는 receipt 구조를 관련 작업 전체에 일관되게 적용하는 방향입니다.</td><td><strong>기존 구현 소스 재확인 · 통합 미검증</strong><p>같은 요청과 같은 내용의 재시도, 같은 ID와 다른 내용의 충돌 거부 규약을 유지한다. 모든 경로의 동시 장애 재현은 미실행이다.</p><code>services/desktopRequestProtocol.js · services/desktopBootstrap.js</code></td></tr>
+<tr><td>2.4</td><td>여러 저장소의 작업 연결: 라이선스 소비, 실행 상태 갱신, 감사 기록에 같은 작업 ID를 사용합니다. 중간 장애 후 어느 단계까지 확정됐는지 재조정할 수 있어야 합니다.</td><td><strong>기존 구현 소스 재확인 · 통합 미검증</strong><p>라이선스 operation ID, 실행 상태 연결, 감사 outbox 재조정 경로를 유지한다. 실제 다중 파일/저장소 장애 복구를 실행하지 못했다.</p><code>services/desktopLicenses.js · services/desktopBootstrap.js</code></td></tr>
+<tr><td>2.5</td><td>중복 서버 실행 차단: 현재 데스크톱 저장소는 단일 작성자를 전제로 합니다. 같은 데이터 디렉터리를 두 프로세스가 동시에 열지 못하도록 OS 수준의 독점 잠금을 추가하는 것이 좋습니다.</td><td><strong>기존 OS 잠금 유지 · 로컬 실행 차단 확인</strong><p>SQLite EXCLUSIVE OS 잠금을 우회하지 않았다. better-sqlite3 부재 때 DESKTOP_WRITER_LOCK_UNAVAILABLE로 중단된다. 실제 두 프로세스 잠금 경쟁 성공 증거는 이번 실행에 없다.</p><code>services/desktopSingleWriter.js</code></td></tr>
+<tr><td>2.6</td><td>HA 오인 방지: 현재 데스크톱 경로는 HA를 거부합니다. 향후 다중 서버를 지원하려면 단순 복제 외에, 오래된 서버가 계속 쓰지 못하게 하는 별도의 쓰기 권한 통제가 필요합니다.</td><td><strong>기존 HA 거부 유지</strong><p>HA_ENABLED 경로의 단일 작성자 요구를 유지한다. 복제·fencing·다중 작성자 지원을 새로 제공하지 않는다.</p><code>services/desktopSingleWriter.js</code></td></tr>
+</tbody></table>
+<h3>3. A→B→O Handoff — 키 노출 범위 축소</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>3.1</td><td>구성요소별 독립 키: 현재 전달하는 임시 개인키 대신 B와 O가 각각 새 키를 만들고, 서버가 부모 승인과 자식 공개키를 연결하는 다음 버전 구조를 검토합니다.</td><td><strong>기존 v3 구현 소스 재확인 · Windows 미검증</strong><p>자식 독립 키와 부모 승인/자식 공개키 결속을 유지한다. Windows 실제 A→B→O 인계를 실행하지 않았다.</p><code>GameConnect_Win64/Game.Handoff.pas · GameConnect_Win64/Game.Security.pas</code></td></tr>
+<tr><td>3.2</td><td>권한 범위 제한: O에 필요한 권한만 이전하고, O의 키나 토큰으로 A 발급·B 라이선스 소비 같은 다른 작업을 수행하지 못하게 합니다.</td><td><strong>기존 구현 소스 재확인 · 서버 통합 미검증</strong><p>역할별 인계와 작업 범위 제한을 유지한다. O 권한으로 다른 역할 작업 거부의 전체 통합 검사는 차단되었다.</p><code>services/desktopBootstrap.js · services/desktopRequestProtocol.js</code></td></tr>
+<tr><td>3.3</td><td>개인키 내보내기 제한: 현 구조를 유지하는 동안에는 내보내기를 특정 Handoff에 결속하고 중복 호출·불필요한 사본 생성을 제한합니다. 실패 후 재시도 규칙을 먼저 정해야 합니다.</td><td><strong>기존 비공개 키 비전달 구조로 대체됨</strong><p>현재 공개키 export 경로를 확인했다. 요구 문서의 임시 개인키 전달을 더 강화하는 대신 이미 적용된 독립 키 구조를 유지한다. 개인키 사본을 새로 만들지 않는다.</p><code>GameConnect_Win64/Game.Security.pas · GameConnect_Win64/Game.Handoff.Crypto.pas</code></td></tr>
+<tr><td>3.4</td><td>인증된 IPC 암호화: 암호화 Handoff를 추가한다면 상대 인증·키 합의·재사용 방지까지 함께 설계합니다. 고정키나 임시 XOR을 덧붙이는 방식은 피합니다.</td><td><strong>기존 인증된 Handoff 유지 · Windows 미검증</strong><p>현재 인증·암호화·nonce 결속을 유지한다. 고정키/XOR 방식으로 교체하지 않았다. 프로세스 메모리 접근 자체를 방어한다는 주장은 하지 않는다.</p><code>GameConnect_Win64/Game.Handoff.Crypto.pas · GameConnect_Win64/Game.Handoff.pas</code></td></tr>
+<tr><td>3.5</td><td>환경 변수 상속 축소: 현재 자식은 부모 환경을 상속합니다. 운영에 필요한 환경만 전달해 개발용 비밀값이나 불필요한 설정이 O까지 이어지지 않도록 합니다.</td><td><strong>기존 allowlist 유지 · 소스 검사 통과</strong><p>ChildEnvironment 허용 목록과 Windows 필수 환경 전달을 유지한다. 임의 개발 환경/비밀값 전체 상속을 다시 도입하지 않았다.</p><code>GameConnect_Win64/Game.Handoff.pas</code></td></tr>
+<tr><td>3.6</td><td>인계 실패 규약: 서버 claim 전 실패, claim 후 응답 소실, READY 전 종료를 각각 구분합니다. 어느 경우에 재시도하고 어느 경우에 새 실행이 필요한지 명확해야 합니다.</td><td><strong>기존 실패 규약 유지 · 일부 소스 검사 통과</strong><p>claim 전/후, READY 및 완료 경계별 기존 상태·재시도 계약을 유지한다. 실제 응답 소실·부모 종료의 Windows 장애 주입은 미실행이다.</p><code>GameConnect_Win64/Game.Handoff.pas · services/desktopBootstrap.js</code></td></tr>
+</tbody></table>
+<h3>4. 배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>4.1</td><td>불변 배포 ID: A/B/O 최종 해시, 소스 해시, 컴파일러·SDK 버전, 정책 버전을 하나의 배포 기록으로 묶습니다.</td><td><strong>기존 구현 + 실제 CI 관측 강화 · 설정 의존</strong><p>A/B/O·소스·정책·도구 버전 결속을 유지하고 실제 compiler/Node/bridge/lock SHA-512 관측을 추가했다. requireManifest 기본 false이므로 운영 강제를 가정하지 않는다.</p><code>services/desktopReleaseProvenance.js · ci/Windows-Stage.ps1</code></td></tr>
+<tr><td>4.2</td><td>CI 서명 증빙: 관리자가 입력한 PASS와 실제 Windows 시험 시스템이 서명한 PASS를 구분합니다. 현재 운영자가 기록하는 증거에 추가할 수 있습니다.</td><td><strong>기존 서명 증빙 유지 · CI 실행 미검증</strong><p>수동 PASS와 GAME-CI-ATTESTATION-V1 서명 증빙을 구분한다. requireCiEvidence 기본 false이다. 이번 로컬 결과로 Windows PASS 증빙을 발급하지 않았다.</p><code>services/desktopReleaseProvenance.js · ci/ci-artifacts.js</code></td></tr>
+<tr><td>4.3</td><td>서명 역할 분리: 실행 파일 승인키, 테스트 증빙키, 서버 통신키를 각각 다른 목적으로 관리합니다.</td><td><strong>기존 역할 분리 유지</strong><p>승인 서명·CI 증빙·통신 용도를 분리한 기존 검사를 유지했다. 운영 키를 새로 만들거나 바꾸지 않았다.</p><code>services/desktopReleaseProvenance.js · services/desktopSecurityAuthority.js</code></td></tr>
+<tr><td>4.4</td><td>키 교체·폐기 훈련: 새 키 배포, 구키 폐기, 교체 중 실패, 기존 정당한 실행의 처리까지 시험합니다.</td><td><strong>기존 훈련/복구 경로 유지 · 훈련 미실행</strong><p>키 회전·구키 거부·복구 승인 관련 도구/시험을 유지한다. 실제 운영 키 교체나 폐기 훈련을 수행한 것은 아니다.</p><code>services/desktopReleaseProvenance.js · tools/</code></td></tr>
+<tr><td>4.5</td><td>구버전 복귀 제한: 정상 서명이 있는 오래된 빌드라도 최소 보안 버전 아래로 내려가지 못하게 합니다. 긴급 복구는 별도의 승인된 절차로 둡니다.</td><td><strong>기존 기능 유지 · 최소 버전 정책 설정 필요</strong><p>minimumSecurityVersion 기본 0, requireManifest 기본 false이다. 정책이 활성화된 조건의 downgrade/recovery 분기는 존재하지만 운영에서 이미 막힌다고 단정할 수 없다.</p><code>services/desktopReleaseProvenance.js</code></td></tr>
+<tr><td>4.6</td><td>배포 묶음 검증: 같은 표시 버전의 다른 O나, 서로 다른 릴리스의 A/B/O를 섞는 실수를 등록 단계에서 명확히 차단합니다.</td><td><strong>기존 혼합 방지 유지 · 최종 audit 연결 추가</strong><p>등록된 A/B/O 결속을 유지하고 Windows CI의 최종 audit 해시와 승인 대상 해시를 비교한다. legacy CI fixture는 audit가 없을 수 있고 실제 Windows stage는 이를 생성한다.</p><code>services/desktopReleaseProvenance.js · ci/ci-artifacts.js · tools/audit-final-artifacts.js</code></td></tr>
+</tbody></table>
+<h3>5. 네이티브 API·메모리 — 호출 경계의 안전성 확대</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>5.1</td><td>ABI 비교 자동화: Windows SDK의 C/C++ sizeof/offsetof 결과와 Delphi 선언을 비교합니다. TLS 외에 CNG·프로세스 생성·파일 정보 구조체까지 확대합니다.</td><td><strong>기존 ABI 비교 유지 · 추가 측정 구조 활용</strong><p>SDK/Delphi sizeof·offset 검사를 보존했다. OVERLAPPED를 포함한 비교 코드는 있으나 Windows SDK 및 dcc64 실행은 미검증이다.</p><code>GameConnect_Win64/tests/Win64AbiContract.inc · GameConnect_Win64/tests/TlsAbiContract.inc</code></td></tr>
+<tr><td>5.2</td><td>포인터 수명 계약: API 포인터의 인코딩 여부뿐 아니라 대상 모듈의 수명, 호출 규약, 인자 크기와 소유권을 관리합니다.</td><td><strong>기존 계약 + 잔여 I/O 수명 보완</strong><p>모듈/읽기 전용 API arena를 EXE 프로세스 수명까지 보존해 잔여 I/O drain이 종료된 객체를 참조하지 않게 했다. DLL hot-unload 지원으로 해석하면 안 된다.</p><code>GameConnect_Win64/Game.Api.Pointer.pas · GameConnect_Win64/Game.Measurement.pas</code></td></tr>
+<tr><td>5.3</td><td>초기화 완료 조건: A/B/O별 필수 API·리소스·자가 진단 목록을 만들고, 누락된 상태에서 세션을 생성하지 못하게 합니다.</td><td><strong>기존 시작 게이트 갱신 · 소스 검사 통과</strong><p>새 API를 A/B/O 의존성 폐쇄와 정체성 목록에 반영했다. 171/196/216 슬롯의 정적 목록이며 실제 프로세스 자가 진단 통과가 아니다.</p><code>GameConnect_Win64/tests/generate-startup-contracts.py · GameConnect_Win64/tests/test-startup-contracts.py</code></td></tr>
+<tr><td>5.4</td><td>객체 종료 순서: 신규 작업 차단 → 진행 중 작업 합류 → 키·핸들 해제 순서를 보안 객체 전반에 명시합니다.</td><td><strong>기존 순서 유지 + Overlay/요청 종료 보완</strong><p>신규 작업 차단→취소/합류→해제 순서를 적용한다. 소유 객체를 먼저 해제하거나 스레드를 강제 종료하지 않는다. 일부 OS 대기는 협조적 예산을 넘을 수 있다.</p><code>GameConnect_Win64/Game.Overlay.pas · GameConnect_Win64/Game.Overlay.Client.pas · GameConnect_Win64/GameConnectTransport.pas</code></td></tr>
+<tr><td>5.5</td><td>중간 문자열 축소: JSON 복제와 ToJSON 임시 문자열처럼 민감값의 추가 사본이 생기는 경로를 줄입니다. 직렬화 결과와 서명 내용은 그대로 유지해야 합니다.</td><td><strong>기존 최소 복사 경로 유지 · 일부 보완</strong><p>서명 canonical bytes와 기존 알고리즘을 유지한다. 비교용 임시 Buffer는 지운다. Delphi/JS 런타임의 모든 문자열 사본이 제거됐다는 보장은 하지 않는다.</p><code>GameConnect_Win64/Game.Security.pas · services/strictJson.js · services/desktopCpuWorker.js</code></td></tr>
+<tr><td>5.6</td><td>C ABI 오류 격리: Delphi와 ImGui C++ 사이로 예외가 넘어가지 않도록 하고, 실패 출력과 반환 상태를 일정하게 유지합니다.</td><td><strong>기존 ABI 격리 유지 · Linux 핵심 검사 통과</strong><p>예외/반환 상태/소유권을 유지하고 DPI export를 같은 C ABI 계약에 추가했다. 실제 ImGui core의 91개 검사는 통과했으나 Windows D3D11은 미실행이다.</p><code>GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp · GameConnect_Win64/imgui/tests/test_bridge.cpp</code></td></tr>
+</tbody></table>
+<h3>6. 파일·PE 검사 — 검사기 간 해석 차이 제거</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>6.1</td><td>공통 PE 시험 자료: Delphi·서버·승인 BAT가 같은 정상·손상 파일에 대해 일치하는 결과를 내는지 검사합니다.</td><td><strong>구현 · 서버/BAT 실행 통과 · Delphi 미실행</strong><p>공통 정상/손상 28종, Python 독립 기준, 서버/BAT preflight 결과를 대조했다. native probe도 같은 bytes를 읽도록 연결했다. 3개 실행체 모두의 실제 일치는 Windows 실행 전에는 확정할 수 없다.</p><code>contracts/pe-corpus-v1.json · scripts/generate-pe-corpus.py · scripts/test-hardening-pe-corpus.js · GameConnect_Win64/tests/PeCorpusProbe.dpr</code></td></tr>
+<tr><td>6.2</td><td>정규화 규약 고정: 디스크 파일과 적재 이미지의 차이, relocation, import, .pdata 처리 범위를 버전별로 문서화합니다.</td><td><strong>규약 문서화 · 기존 정상 digest 유지</strong><p>PE64-CODE-V1/hashVersion3의 raw file·immutable executable·relocation·import·pdata·EAT·header 범위를 구분했다. 구조 거부 규칙 강화는 검증 revision2로 기록하며 기존 정상 파일의 정규화 digest를 임의 변경하지 않는다.</p><code>contracts/hardening-contracts-v1.json · services/desktopIntegrity.js · GameConnect_Win64/Game.CodeIntegrity.pas</code></td></tr>
+<tr><td>6.3</td><td>파일 위치 소유권: IntegrityHashHandle이 파일 위치를 변경하는 계약을 명확히 합니다. 복제 핸들과 원본 핸들을 동시에 읽는 경우도 검사해야 합니다.</td><td><strong>구현 · Windows probe 추가, 미실행</strong><p>ReOpenFile+OVERLAPPED 독립 위치로 읽고 원본/duplicate의 동기 파일 위치를 건드리지 않는다. 동시에 duplicate를 읽는 probe를 추가했다. DuplicateHandle만으로 위치가 분리된다고 가정하지 않는다.</p><code>GameConnect_Win64/Game.Measurement.pas · GameConnect_Win64/Game.Integrity.pas · GameConnect_Win64/tests/HardeningContractsProbe.dpr</code></td></tr>
+<tr><td>6.4</td><td>측정 예산: 일반 파일 해싱에도 최대 크기·시간·취소 조건을 전달해 느린 저장소 때문에 종료가 오래 걸리지 않게 합니다.</td><td><strong>구현 · 협조적 예산 · Windows 미검증</strong><p>handle/file overload에 크기·절대 마감·취소를 전달하고 64KiB 읽기와 제한된 pending I/O drain을 적용한다. 커널 metadata/취소 완료가 무한히 지연되는 환경의 hard realtime 종료 보장은 아니다.</p><code>GameConnect_Win64/Game.Measurement.pas · GameConnect_Win64/Game.Integrity.pas · GameConnect_Win64/Game.ModuleInventory.pas</code></td></tr>
+<tr><td>6.5</td><td>기존 파일 고정의 검증 확대: 현재 핸들 고정 구조에 파일 이름 변경, 상위 경로 교체, reparse point, 읽기 도중 오류 시험을 추가합니다.</td><td><strong>probe 추가 · 실제 Windows 장애 시험 미실행</strong><p>파일명/상위 경로 교체 후 pinned object 유지, reparse 거부, 읽기 handle 오류, 내용 변경 시험을 추가했다. symlink 권한이 없으면 명시적 SKIP이며 실제 저속 드라이버/스토리지 장애 주입은 별도 필요하다.</p><code>GameConnect_Win64/tests/HardeningContractsProbe.dpr</code></td></tr>
+<tr><td>6.6</td><td>오류 상태 구분: 파일이 바뀐 경우, 읽지 못한 경우, 측정 범위가 부족한 경우를 각각 다른 결과로 유지합니다.</td><td><strong>구현 · 계층별 결과 보존</strong><p>FILE_CHANGED/READ_ERROR/COVERAGE_INSUFFICIENT/CANCELLED/DEADLINE_EXCEEDED를 분리했다. 예산·읽기 실패를 정상 digest나 FULL 성공으로 바꾸지 않는다.</p><code>GameConnect_Win64/Game.Measurement.pas · GameConnect_Win64/Game.ModuleInventory.pas · services/desktopIntegrityReports.js</code></td></tr>
+</tbody></table>
+<h3>7. 해시·CRC — 독립성의 실질적 강화</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>7.1</td><td>용도별 암호 규격표: 측정·서명·키 래핑·인증서 pin·토큰 식별에 사용하는 알고리즘과 버전을 구분합니다. 남아 있는 SHA-256을 이름만 보고 일괄 교체하지 않게 합니다.</td><td><strong>규격표 추가 · 알고리즘 일괄 교체 없음</strong><p>측정, Ed25519 승인/CI, RSA-SHA256 서명, RSA-OAEP/AES-GCM, leaf DER SHA256 pin, 저장소 MAC을 분리했다. 실제 protocol domain 상수를 기록했고 SHA-256을 이름만 보고 교체하지 않았다.</p><code>contracts/crypto-purpose-v1.json</code></td></tr>
+<tr><td>7.2</td><td>기준 생성과 측정 구현의 독립 비교: 같은 코드의 같은 오류가 기준값과 측정값 양쪽에 들어가는 것을 방지합니다.</td><td><strong>구현 · 독립 기준 실행 통과 · Delphi 비교 미실행</strong><p>Python hashlib SHA-512와 독립 bitwise CRC 기준을 Node 서버/BAT와 비교한다. 기존 BLAKE3/XXH3 참조 벡터도 유지한다. 모든 구현이 독립이라는 주장이나 아직 안 돌린 Delphi 비교의 PASS는 하지 않는다.</p><code>scripts/generate-pe-corpus.py · scripts/test-hardening-pe-corpus.js · scripts/test-native-code-contract.js</code></td></tr>
+<tr><td>7.3</td><td>부분 결과 처리: 필수 측정 실패를 다른 성공 결과로 덮지 않고, 실패한 계층과 범위를 그대로 보고합니다.</td><td><strong>구현 · 보고 검증 실행 통과</strong><p>필수 계층 실패·미측정 이유를 남기며 다른 digest가 성공했다고 전체 검증을 성공 처리하지 않는다. 기존 CRC 레이어의 PARTIAL/UNAVAILABLE 표현을 유지한다.</p><code>GameConnect_Win64/Game.ModuleInventory.pas · services/desktopIntegrityReports.js</code></td></tr>
+<tr><td>7.4</td><td>측정 묶음의 일관성: 측정 시작·종료, 모듈 목록 세대, 측정 계획 버전을 묶어 서로 다른 시점의 결과를 무심코 합치지 않도록 합니다.</td><td><strong>구현 · 보고 검증 실행 통과 · 관측 한계 명시</strong><p>시작/종료 tick·계획 version·전후 module generation 일치·snapshot/batch 결속을 추가했다. 전후 목록이 같아도 중간 unload/reload ABA는 탐지하지 못할 수 있으며 하드웨어 attestation이 아니다.</p><code>GameConnect_Win64/Game.ModuleInventory.pas · GameConnect_Win64/Game.Api.pas · services/desktopIntegrityReports.js</code></td></tr>
+<tr><td>7.5</td><td>표본 검사와 전체 검사 구분: 성능 때문에 표본 측정을 쓰더라도 전체 검증 완료처럼 표시하지 않습니다.</td><td><strong>구현 · FULL/PARTIAL/SAMPLED 분리</strong><p>SAMPLED/PARTIAL을 FULL 완료로 표시하지 않는다. FULL은 명시한 계획의 필수 범위이며 모든 메모리/모든 선택적 export 검증을 뜻하지 않는다. 이전 metadata 없는 보고는 호환 경로로 별도 취급한다.</p><code>services/desktopIntegrityReports.js · scripts/test-hardening-measurement.js</code></td></tr>
+<tr><td>7.6</td><td>비밀값 비교 분리: MAC·토큰 같은 비밀 관련 비교와 공개 파일 digest 비교의 요구사항을 구분합니다.</td><td><strong>구현 · 비밀 비교와 공개 digest 구분</strong><p>동일 길이 저장소 MAC에는 timingSafeEqual과 임시 Buffer 삭제를 사용한다. 공개 파일 digest의 일반 비교와 구분한다. 전체 서버 모든 문자열 비교를 재작성한 것은 아니다.</p><code>services/strictJson.js · services/desktopIntegrityReports.js</code></td></tr>
+</tbody></table>
+<h3>8. 네트워크·TLS — 실패와 갱신 상황까지 설계</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>8.1</td><td>인증서 pin 교체 절차: 현재 신뢰로 인증된 차기 pin과 제한된 전환 기간을 지원하는 방안을 검토합니다. 알 수 없는 인증서를 자동 수용하면 안 됩니다.</td><td><strong>전환 설계 검토 완료 · 자동 pin rollover 미구현/비활성</strong><p>현행 v4 단일 leaf DER SHA256 검증과 수동 프로필 교체를 유지한다. 현재 신뢰로 인증된 next-pin·endpoint 결속·만료·antirollback·최대 2개 pin 설계를 문서화했다. 모르는 인증서를 자동 수용하지 않는다.</p><code>contracts/hardening-contracts-v1.json · GameConnect_Win64/Game.Tls.pas · tools/tls-rotate.js</code></td></tr>
+<tr><td>8.2</td><td>전체 요청 시간 예산: DNS·연결·TLS·송수신에 각각 시간을 더하는 방식 대신 전체 작업의 공통 마감을 전달합니다.</td><td><strong>구현 · 공통 마감 연결 · Windows 미검증</strong><p>기본 10초 공통 deadline을 준비/DNS/접속/TLS/송수신/복호화·최종 확인에 전달한다. DNS 자원 소유 worker 제한과 취소를 적용한다. 각 단계에 10초씩 더하지 않는다.</p><code>GameConnect_Win64/GameConnectTransport.pas · services/desktopConnect.js</code></td></tr>
+<tr><td>8.3</td><td>비싼 요청의 공정한 처리: RSA 검증·PE 해싱·업로드가 정상 세션의 갱신을 밀어내지 않도록 동시 작업 수와 연산 비용을 제한합니다.</td><td><strong>구현 · 실제 암호 작업 queue 검사 통과</strong><p>RSA-OAEP/AES-GCM 요청 처리와 PE 계산을 제한 worker lane으로 옮기고 queue·deadline·admission을 제한했다. 권한/receipt 단일 작성자 구간의 device 서명 검증은 여전히 동기이다. 모든 RSA 검증을 비동기화했다고 주장하지 않는다.</p><code>services/desktopWorkQueue.js · services/desktopCpuWorker.js · services/desktopPeCache.js</code></td></tr>
+<tr><td>8.4</td><td>대상별 업로드 한도: EXE와 DLL 등 대상에 맞는 한도를 실제 스트림 수신 단계부터 적용합니다.</td><td><strong>구현 · chunk/중단/오류 검사 통과</strong><p>EXE 64MiB, DLL 32MiB 한도를 수신 chunk부터 적용하고 Content-Length·content encoding·동시 업로드·수신 마감을 검사한다. 대형 배포 파일/실제 HTTP 흐름은 전체 의존성 설치 후 재검사해야 한다.</p><code>web/routes/desktopBootstrapRoutes.js · scripts/test-hardening-measurement.js</code></td></tr>
+<tr><td>8.5</td><td>프로토콜 입력 엄격화: 중복 필드, 잘못된 UTF-8, 정수 범위 초과, 알 수 없는 중요 필드를 일관되게 처리합니다.</td><td><strong>구현 · 서버 입력 검사 통과 · Delphi 미실행</strong><p>escaped-name 중복 필드, 잘못된 UTF8/UTF16, 안전 정수 초과, 복잡도, 알 수 없는 중요 필드를 거부한다. 외부 connect/서명 보고/프로필 경로에 연결했고 내부 저장용 JSON clone 전부를 교체하지 않았다.</p><code>services/strictJson.js · GameConnect_Win64/Game.ProtocolJson.pas · services/mitigationContract.js</code></td></tr>
+<tr><td>8.6</td><td>과부하 관측: 연결 수뿐 아니라 인증 처리 지연, 대기열 길이, 갱신 실패 비율을 관리 화면에서 확인할 수 있게 합니다.</td><td><strong>구현 · 관리자 bundle 검사 통과 · 실제 운영 미관측</strong><p>연결 수, 인증 지연, worker/queue 부하, 갱신 실패율을 runtimeLoad로 노출한다. 비율의 분모는 식별되어 dispatch된 갱신 요청이며 모든 pre-auth 거부를 포함하는 전역 SLO가 아니다.</p><code>services/desktopConnect.js · services/desktopWorkQueue.js · public/</code></td></tr>
+</tbody></table>
+<h3>9. Overlay·ImGui·D3D11 — 승인과 화면 수명을 일치</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>9.1</td><td>명시적 상태 전이: 생성·승인·표시·인계 완료·종료 중·종료 상태와 허용 전이를 정의합니다.</td><td><strong>구현 · 모든 상태 전이 probe 추가 · Windows 미실행</strong><p>Created/Authorized/Visible/Transferred/Closing/Closed와 허용 36개 조합을 명시했다. Closing 이후 새 승인으로 복귀할 수 없다.</p><code>GameConnect_Win64/Game.Overlay.State.pas · GameConnect_Win64/Game.Overlay.pas · GameConnect_Win64/tests/HardeningContractsProbe.dpr</code></td></tr>
+<tr><td>9.2</td><td>남은 lease에 맞춘 갱신: 고정 간격뿐 아니라 남은 승인 시간과 최근 검사 소요 시간을 반영합니다. 만료 후 늦은 응답을 받아들이는 변경은 하지 않습니다.</td><td><strong>구현 · 만료 후 늦은 응답 수용 금지 유지</strong><p>남은 lease의 절반·최근 검사 시간의 2배+1초 margin·최대 30초 간격으로 갱신 시점을 정한다. 이미 만료된 응답이 lease를 되살리지 못하게 유지한다.</p><code>GameConnect_Win64/Game.Overlay.State.pas · GameConnect_Win64/Game.Overlay.pas</code></td></tr>
+<tr><td>9.3</td><td>UI 스레드 소유권 확인: ImGui·창·D3D 자원이 지정된 UI 스레드에서만 조작되도록 계약을 실제 검사로 보완합니다.</td><td><strong>구현 · Linux core 소유권 검사 통과 · GPU 미검증</strong><p>창/Renderer/ImGui의 owner thread 검사를 적용하고 DPI setter도 해당 계약을 지킨다. D3D11 실제 resource 조작은 Windows에서 별도 확인해야 한다.</p><code>GameConnect_Win64/Game.Overlay.Renderer.pas · GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp</code></td></tr>
+<tr><td>9.4</td><td>종료 전체의 시간 예산: 작업 합류와 Close 요청을 포함해 종료가 어디서 얼마나 기다리는지 통제합니다. 객체를 먼저 해제하거나 스레드를 강제로 끊는 방식은 피합니다.</td><td><strong>구현 · 5초 협조적 종료 예산 · hard bound 아님</strong><p>신규 작업 차단→통신/측정 취소→작업 합류→남은 시간으로 Close 순서이다. 안전성을 위해 Worker.WaitFor를 강제 중단하지 않으므로 OS가 반환하지 않으면 5초를 초과할 수 있고 이를 실패/미검증으로 남긴다.</p><code>GameConnect_Win64/Game.Overlay.pas · GameConnect_Win64/Game.Overlay.Client.pas · GameConnect_Win64/GameConnectTransport.pas</code></td></tr>
+<tr><td>9.5</td><td>그래픽 장애 분류: 장치 소실·메모리 부족·Resize 실패를 구분합니다. 재생성을 허용한다면 유효한 승인 안에서 제한된 횟수만 수행합니다.</td><td><strong>구현 · 실패 시 닫기 · 자동 재생성 없음</strong><p>device removed/reset/hung, OOM, Resize 실패를 구분한다. 유효 승인 내 재생성은 선택 사항이므로 이번에는 자동 재생성을 넣지 않고 fail-closed 종료한다.</p><code>GameConnect_Win64/Game.Overlay.Renderer.pas · GameConnect_Win64/Game.Overlay.State.pas</code></td></tr>
+<tr><td>9.6</td><td>DPI·포커스 시험: 다중 모니터, 배율 변경, 최소화, 원격 데스크톱 전환에서도 표시 위치와 hit-test가 일치하고 입력이 눌린 채 남지 않아야 합니다.</td><td><strong>코드 수정 + 시험 matrix · 실제 Windows 미실행</strong><p>DPI 변경 시 권장 사각형, draw/hit-test 같은 배율, focus/minimize/display 전환 입력 해제를 적용했다. 다중 모니터/배율/RDP/GPU 장치 소실 시험은 실행하지 않았다.</p><code>GameConnect_Win64/Game.Overlay.Renderer.pas · GameConnect_Win64/GameOverlay.manifest · contracts/compatibility-matrix-v1.json</code></td></tr>
+</tbody></table>
+<h3>10. OS 보호·빌드 설정 — 실제 산출물로 확인</h3><table><thead><tr><th style="width:6%">항목</th><th style="width:31%">원문</th><th>실제 처리·검증·제한</th></tr></thead><tbody>
+<tr><td>10.1</td><td>완화 정책 적용 결과 확인: 설정 요청 성공뿐 아니라 실제 적용 상태를 계속 구분합니다.</td><td><strong>구현 · 설정 결과/조회 결과 분리 · Windows 미검증</strong><p>setter 성공/오류와 dynamic-code/CFG/strict-handle/image-load의 실제 query 성공·flags·오류를 분리한다. 서명 evidence에 선택적 진단을 붙여 legacy 호환을 유지한다.</p><code>GameConnect_Win64/Game.ProcessMitigations.pas · services/mitigationContract.js</code></td></tr>
+<tr><td>10.2</td><td>정책별 호환성 표: ACG·이미지 로딩 제한·엄격한 핸들 검사 등을 Windows·GPU 환경별로 검증한 뒤 선택적으로 강제합니다.</td><td><strong>호환성 matrix 추가 · 새 강제 정책 비활성</strong><p>원래 opt-in dynamic prohibit 외 추가 정책을 무조건 켜지 않았다. Windows/GPU/ACG/엄격 핸들/이미지 정책 조합은 NOT_RUN 상태이며 확인 후 선택적으로 강제해야 한다.</p><code>contracts/compatibility-matrix-v1.json · GameConnect_Win64/Game.ProcessMitigations.pas</code></td></tr>
+<tr><td>10.3</td><td>CFG 산출물 검사: 설정 이름만 확인하지 말고, 컴파일러 지원과 최종 EXE의 실제 계측·메타데이터를 검사합니다. CFG는 컴파일과 실행 환경이 함께 관여합니다. Microsoft Learn</td><td><strong>구현 · 합성 PE 검사 통과 · 실제 EXE/CFG 미검증</strong><p>load-config/GFID/check-pointer/guard flags/정렬/유효 executable target를 검사한다. 실제 최종 A/B/O audit와 CI 승인 hash를 연결했다. 메타데이터가 있어도 모든 간접 호출 CFG 계측·runtime 강제를 증명하지 않는다.</p><code>services/peCapabilities.js · tools/audit-final-artifacts.js · tools/Audit_Final_Artifacts.bat · ci/Windows-Stage.ps1</code></td></tr>
+<tr><td>10.4</td><td>시험용 빌드 완전 분리: 테스트 define뿐 아니라 외부 MSBuild 인수와 재사용 DCU까지 검사합니다. 제품 빌드와 probe 출력 디렉터리도 분리합니다.</td><td><strong>구현 · MSBuild 부정 시험 추가 · Windows 미실행</strong><p>평가된 외부 define/추가 DCC 인수/검색 경로/output override/root DCU를 검사하고 역할별 DCU를 비운다. probe와 제품 output을 분리했다. 실제 RAD Studio/MSBuild 환경 호환은 미검증이다.</p><code>GameConnect_Win64/Game.BuildIsolation.targets · GameConnect_Win64/tests/Test-BuildIsolation.ps1 · GameConnect_Win64/*.dproj</code></td></tr>
+<tr><td>10.5</td><td>의존성 고정: ImGui 원본 버전, bridge 변경, 컴파일러·SDK·Node 의존성을 기록하고 보안 업데이트 때 같은 회귀 검사를 실행합니다.</td><td><strong>기존 lock exact pin + 관측 기록 추가</strong><p>제공된 lock의 버전을 정확 고정하고 ImGui/bridge/source hash를 기록한다. 실제 compiler/SDK/Node hash는 Windows CI가 관측한다. npm 최신 보안 audit와 Windows 재빌드는 수행하지 않았다.</p><code>package.json · package-lock.json · contracts/dependency-provenance-v1.json · ci/Windows-Stage.ps1</code></td></tr>
+</tbody></table>
+<h2 id="contracts">상세 규약과 변경 경계</h2><p>이 규약은 소스의 실제 범위와 제한을 설명합니다. 자동 pin 전환, 완전한 메모리 증명, 모든 OS 호출의 강제 시간 제한을 이미 제공한다는 뜻이 아닙니다.</p>
+<details open><summary>normalization</summary><pre>{
+  &quot;name&quot;: &quot;PE64-CODE-V1&quot;,
+  &quot;hashVersion&quot;: 3,
+  &quot;validationRevision&quot;: 2,
+  &quot;file&quot;: &quot;All raw bytes including non-code/certificate/overlay bytes participate in whole-file hashes. This is not the mapped image digest.&quot;,
+  &quot;code&quot;: &quot;Immutable executable sections ordered by RVA. Digest prefix is GAME-CODE-V1 followed by NUL. Protected span is VirtualSize when nonzero, otherwise SizeOfRawData; section bounds validate max(span, rawSize). Copy min(rawSize, span), zero-fill the remainder. Writable sections are not normalized immutable code.&quot;,
+  &quot;relocation&quot;: &quot;Only supported HIGHLOW/DIR64 entries with bounded, non-overlapping operands. Native verifies the expected loader adjustment before clearing relocation operand bytes. Unsupported/malformed relocation entries are rejected; normalized operands are zero.&quot;,
+  &quot;imports&quot;: &quot;Mutable IAT is not conflated with whole immutable code assurance. Existing API readonly/target/module checks remain separate. Import directory content is not silently stripped from the whole-file hash.&quot;,
+  &quot;pdata&quot;: &quot;Validate exception-directory range, bounded 12-byte runtime records, order/nonoverlap, executable function extent and aligned raw non-executable unwind location even without a checker anchor. Existing anchor-to-runtime-range coverage remains separate. This is not a complete Windows unwinder semantic proof.&quot;,
+  &quot;exports&quot;: &quot;EAT/export coverage is a separate optional measurement with explicit status. FULL module-file/code coverage never implies every export was measured.&quot;,
+  &quot;headers&quot;: &quot;SelfImageHeaders measures its bounded approved header ranges, not all mapped image memory.&quot;,
+  &quot;compatibility&quot;: &quot;Previously accepted malformed PE may now be rejected. Publish server, BAT and native validators together; run the 28-case corpus with the compiled Delphi probe before release. No actual deployed files were tested here.&quot;
+}</pre></details>
+<details open><summary>fileOwnership</summary><pre>{
+  &quot;synchronousPosition&quot;: &quot;IntegrityHashHandle and pinned readers use ReOpenFile plus explicit OVERLAPPED offsets, not SetFilePointer on the supplied/duplicate handle. Same original FILE_OBJECT stays pinned before name unlink/replacement.&quot;,
+  &quot;defaults&quot;: {
+    &quot;maximumFileBytes&quot;: 67108864,
+    &quot;measurementMilliseconds&quot;: 30000,
+    &quot;chunkBytes&quot;: 65536,
+    &quot;maximumOutstandingReads&quot;: 8,
+    &quot;waitPollMilliseconds&quot;: 25
+  },
+  &quot;status&quot;: [
+    &quot;MEASURED&quot;,
+    &quot;FILE_CHANGED&quot;,
+    &quot;READ_ERROR&quot;,
+    &quot;COVERAGE_INSUFFICIENT&quot;,
+    &quot;CANCELLED&quot;,
+    &quot;DEADLINE_EXCEEDED&quot;
+  ],
+  &quot;limits&quot;: &quot;Cancellation is cooperative. CancelIoEx is a request, not proof of completion. Detached operations own buffer/event/handle until completion. Resource-exhaustion drain and uninterruptible metadata calls can exceed deadline. No thread termination/free-before-completion.&quot;
+}</pre></details>
+<details open><summary>measurementBundle</summary><pre>{
+  &quot;planVersion&quot;: 1,
+  &quot;fields&quot;: [
+    &quot;measurementStartedTick&quot;,
+    &quot;measurementFinishedTick&quot;,
+    &quot;measurementPlanVersion&quot;,
+    &quot;moduleGenerationStable&quot;,
+    &quot;snapshotId&quot;,
+    &quot;batchIndex&quot;,
+    &quot;batchCount&quot;,
+    &quot;coverage&quot;
+  ],
+  &quot;coverage&quot;: [
+    &quot;FULL&quot;,
+    &quot;PARTIAL&quot;,
+    &quot;SAMPLED&quot;
+  ],
+  &quot;legacy&quot;: &quot;Missing new metadata is a legacy-compatible path, not evidence of the new coherent FULL plan.&quot;,
+  &quot;generationLimit&quot;: &quot;Before/after module-handle enumeration can miss unload/reload ABA. Client reports are not complete runtime attestation. FULL means mandatory scopes of this plan, not every optional EAT layer/all process memory.&quot;
+}</pre></details>
+<details open><summary>pinRotationReview</summary><pre>{
+  &quot;status&quot;: &quot;DESIGN_REVIEW_ONLY_ONLINE_ROLLOVER_NOT_IMPLEMENTED_OR_ENABLED&quot;,
+  &quot;currentProfileVersion&quot;: 4,
+  &quot;current&quot;: &quot;Exact leaf certificate DER SHA-256; retain the 8-field v4 profile and manual TLS rotation/new trusted profile delivery. No arbitrary second pin, unknown-certificate acceptance or downgrade fallback.&quot;,
+  &quot;futureDesign&quot;: [
+    &quot;A new versioned profile/envelope is required. Next pin must be delivered over the current pinned connection and authenticated with a purpose-separated server authority signature; changing pinned identity through unauthenticated discovery is forbidden.&quot;,
+    &quot;Bind current pin, next pin, endpoint host/port/site, profile revision, policy epoch, activation, overlap end and expiry. At most two pins during a bounded overlap; overlap duration must be an explicit deployment policy, never an unbounded fallback.&quot;,
+    &quot;Store/validate monotonic revision and enforce antirollback, cross-endpoint rejection, replay deduplication and bounded wall/monotonic expiry. A backward clock jump must not extend trust indefinitely.&quot;,
+    &quot;Require recent administrator reauthentication and an approved release/key-rotation record to schedule a rotation; keep communication, release and CI key roles separate.&quot;,
+    &quot;After overlap expiry reject the old pin. Failed refresh, restored old profile, missing current trust, concurrent versions or invalid signature must fail closed or require a newly authenticated launcher/profile, not autoaccept.&quot;,
+    &quot;Before implementation test old/new transition, expiry during request, response loss, rollback, endpoint mix, revoked signing key, clock changes and client restarts on Windows. These are NOT_RUN here.&quot;
+  ],
+  &quot;whyNotEnabled&quot;: &quot;Native current profile has one exact pin. Silent protocol expansion would break the existing approved A/B/O wire contract; the requirement requested review of a transition design, not unverified automatic acceptance.&quot;
+}</pre></details>
+<details open><summary>networkAndWork</summary><pre>{
+  &quot;requestBudgetMs&quot;: 10000,
+  &quot;authLane&quot;: {
+    &quot;workers&quot;: 2,
+    &quot;queueLimit&quot;: 32
+  },
+  &quot;peLane&quot;: {
+    &quot;workers&quot;: 1,
+    &quot;queueLimit&quot;: 1
+  },
+  &quot;upload&quot;: {
+    &quot;exeBytes&quot;: 67108864,
+    &quot;dllBytes&quot;: 33554432,
+    &quot;concurrency&quot;: 1,
+    &quot;deadlineMs&quot;: 120000
+  },
+  &quot;offloaded&quot;: &quot;RSA-OAEP unwrap, AES-GCM authenticated decrypt/strict JSON, PE hashes/normalization/capabilities. Private key passes as structured-cloned KeyObject; no second store writer.&quot;,
+  &quot;notOffloaded&quot;: &quot;Existing device signature checks inside single-writer authorization/receipt transactions remain synchronous. This is bounded admission/fairness improvement, not complete per-session CPU scheduling or DDoS protection.&quot;,
+  &quot;metrics&quot;: &quot;Connection count, auth latency, lane capacity/active/queued/rejected, identified verify+overlayVerify failure ratio. The last ratio excludes failures before a request is identified as renewal.&quot;
+}</pre></details>
+<details open><summary>overlay</summary><pre>{
+  &quot;states&quot;: [
+    &quot;CREATED&quot;,
+    &quot;AUTHORIZED&quot;,
+    &quot;VISIBLE&quot;,
+    &quot;TRANSFERRED&quot;,
+    &quot;CLOSING&quot;,
+    &quot;CLOSED&quot;
+  ],
+  &quot;shutdownBudgetMs&quot;: 5000,
+  &quot;hardShutdownBound&quot;: false,
+  &quot;shutdown&quot;: &quot;Stop admission, signal cancellation, join worker safely, then reset after join and send Close only with remaining budget. WaitFor cannot safely guarantee a hard limit for unresponsive OS calls. Record overrun; never force terminate or free a running owner.&quot;,
+  &quot;renewal&quot;: &quot;Use remaining lease, recent verification duration and a 30-second ceiling. A reply received after expiry never revives authorization.&quot;,
+  &quot;graphics&quot;: &quot;Classify device removed/reset/hung, OOM and resize failures; no automatic device recreation, fail closed.&quot;,
+  &quot;dpi&quot;: &quot;PerMonitorV2, suggested WM_DPICHANGED rectangle, common render/hit-test scale and focus/minimize/display input release. Actual Windows multi-monitor/RDP/GPU behavior unverified.&quot;
+}</pre></details>
+<details open><summary>buildAndMitigations</summary><pre>{
+  &quot;sourceGuard&quot;: &quot;Release role-specific evaluated MSBuild property checks and fresh DCU directories; root DCU/CFG and foreign test/probe define/options/output rejected. Actual CodeGear execution unverified.&quot;,
+  &quot;cfg&quot;: &quot;Final PE structural evidence is distinct from compiler call-site coverage and actual runtime enforcement. Flag-only checks are insufficient. Record compiler files/version/hash and Windows query results separately.&quot;,
+  &quot;policies&quot;: &quot;Set success/error and actual GetProcessMitigationPolicy observations are separate. Preserve existing opt-in dynamic prohibit; no untested blanket strict-handle/image-loading/ACG enforcement.&quot;
+}</pre></details>
+<h2 id="windows">미실행 Windows·운영 호환성 시험표</h2><table><tr><th>시험</th><th>환경 및 절차</th><th>합격 조건</th></tr>
+<tr><td><strong>WIN-01</strong><br>Actual A/B/O build<br>NOT_RUN</td><td>RAD Studio 13.1 Win64 + declared SDK/Node toolchain<p>Run the existing Windows CI build, native-probes, sdk-probe and ABI comparison stages from an unchanged copied source tree.</p></td><td>A/B/O compile/link; actual compiler/SDK/Node hashes recorded; no stale DCU or probe code in final products.</td></tr>
+<tr><td><strong>WIN-02</strong><br>Three-way PE interpretation<br>NOT_RUN</td><td>Compiled PeCorpusProbe.exe<p>Run node GameWeb/scripts/test-hardening-pe-corpus.js --native PATH_TO_PeCorpusProbe.exe</p></td><td>All 28 server/BAT/Delphi accept/reject results agree; accepted file/code digests agree; malformed pdata rejected without checker anchor.</td></tr>
+<tr><td><strong>WIN-03</strong><br>File positions and aliases<br>NOT_RUN</td><td>Local NTFS; existing HardeningContractsProbe<p>Run tests/Build_NativeProbes_Win64.bat. Compare supplied/duplicate file positions while another reader moves the alias offset.</p></td><td>Pinned measurement is stable and does not change the alias synchronous offset; errors retain distinct statuses.</td></tr>
+<tr><td><strong>WIN-04</strong><br>Rename/parent/reparse<br>NOT_RUN</td><td>NTFS; Developer Mode or symlink privilege<p>Execute rename, replacement, parent replacement and reparse branches of HardeningContractsProbe.</p></td><td>Original pinned object remains measured; reparse node rejected. Privilege SKIP is not PASS.</td></tr>
+<tr><td><strong>WIN-05</strong><br>Kernel I/O faults and shutdown<br>NOT_RUN</td><td>Dedicated test storage/driver fault-injection environment<p>Inject read delay, read error, storage removal and cancellation races; close Overlay at each point.</p></td><td>No released OVERLAPPED buffer/object use; finite admission; read/deadline/cancel states remain distinct. Observe and report any shutdown overrun rather than force terminating a thread.</td></tr>
+<tr><td><strong>WIN-06</strong><br>DPI and monitor movement<br>NOT_RUN</td><td>Windows multi-monitor 100/125/150/200% scales<p>Move authorized window between monitors; change scale/resolution while dragging and while pointer down.</p></td><td>Drawing, screen/client transforms and hit-test agree; suggested bounds applied; mouse state released when interrupted.</td></tr>
+<tr><td><strong>WIN-07</strong><br>Focus, minimize and RDP<br>NOT_RUN</td><td>Windows local/RDP switch, locked/unlocked desktop<p>Alt-Tab/minimize/restore, remote attach/detach and display change during interaction.</p></td><td>No stuck buttons, stale device input, unauthorized redisplay or use-after-free; lease expiry still closes UI.</td></tr>
+<tr><td><strong>WIN-08</strong><br>Device loss/OOM/Resize<br>NOT_RUN</td><td>Intel/AMD/NVIDIA supported GPU and WARP baseline<p>Exercise device removed/reset/hung, allocation failure and Resize failure paths in a test harness.</p></td><td>Correct failure category and fail-closed shutdown; no automatic recreation after invalid/expired authorization.</td></tr>
+<tr><td><strong>WIN-09</strong><br>Mitigation compatibility<br>NOT_RUN</td><td>Each supported Windows build/GPU/driver combination<p>Observe set attempt + GetProcessMitigationPolicy for A/B/O; then separately test optional dynamic-code prohibition. Keep strict-handle/image policy diagnostic until validated.</p></td><td>Record actual query flags/errors and app/ImGui/TLS functionality; unsupported or incompatible policies do not become falsely reported enabled.</td></tr>
+<tr><td><strong>WIN-10</strong><br>CFG final artifacts<br>NOT_RUN</td><td>Final A/B/O built by supported compiler, Windows runtime<p>Run Audit_Final_Artifacts.bat A.exe B.exe O.exe; inspect compiler support, metadata and supported negative indirect-call test harness.</p></td><td>Audit hashes match approved A/B/O. Valid GFIDs/guard metadata plus actual compiler/runtime proof; structural PASS alone is not whole-callsite proof.</td></tr>
+<tr><td><strong>WIN-11</strong><br>Global MSBuild/DCU pollution<br>NOT_RUN</td><td>Actual CodeGear MSBuild<p>Run tests/Test-BuildIsolation.ps1 using actual msbuild, then clean product rebuild with current RAD defaults.</p></td><td>All external test/probe define/options/search/output/root-DCU negatives rejected; valid product build accepted; probe and product outputs cannot mix.</td></tr>
+<tr><td><strong>NET-01</strong><br>TLS deadlines and strict pin<br>NOT_RUN</td><td>Windows client + isolated test server<p>Delay DNS/connect/handshake/response, cancel each phase, present unknown cert, send late authenticated reply.</p></td><td>One common request deadline; no late lease refresh, pin bypass or leaked security owner. Residual resolver/IO work is resource-owned and bounded.</td></tr>
+<tr><td><strong>NET-02</strong><br>Whole server regression / fair load<br>NOT_RUN</td><td>Supported Node version + exact npm lock + native SQLite addon<p>npm ci --engine-strict, npm test; stress authenticated renewals alongside bounded invalid auth/PE/upload workload.</p></td><td>All 79 suites pass in the real dependency environment; queue limits/stream limits hold; observe renewal latency/failure ratios and reject overload instead of unbounded queues.</td></tr>
+<tr><td><strong>OPS-01</strong><br>Policy activation and legacy rollout<br>NOT_RUN</td><td>Isolated staging copy; never operating keys/data<p>Inspect reauth, requireManifest, requireCiEvidence, minimumSecurityVersion and legacy measurement rollout before approving a new A/B/O set.</p></td><td>No assumption that opt-in features are already enabled. Preserve current single-admin model; explicitly resolve critical-only versus broad mutation reauth scope.</td></tr>
+<tr><td><strong>OPS-02</strong><br>Pin rotation future v5 design<br>NOT_RUN</td><td>New separately approved protocol implementation only<p>Review the next-pin envelope/antirollback/overlap scenarios in hardening-contracts-v1.json. Current v4 has no online rollover.</p></td><td>No unknown-certificate autoaccept; current v4 remains strict. Do not advertise automatic rollover as implemented.</td></tr>
+</table><h2 id="commands">재실행과 파일 위치</h2>
+<p>Windows CI 스크립트에는 기존 승인·정책·작업 디렉터리 등 필수 인수가 있으므로 기존 호출 방식을 유지해야 합니다. 아래 npm test는 첫 실패에서 중단하는 정식 회귀 gate이며 별도 review-regression.py는 전부 실행해 차단/실패를 기록하는 진단용입니다.</p>
+<pre>cd GameWeb
+npm ci --engine-strict
+npm test
+
+# 독립 진단 실행; 하나라도 실패/차단되면 종료 코드는 0이 아님
+python scripts/review-regression.py --output PATH_TO_REVIEW_OUTPUT
+
+# Windows / RAD Studio 환경에서
+GameConnect_Win64\tests\Build_NativeProbes_Win64.bat
+
+# 최종 A/B/O 생성 후에만 실행
+GameWeb\tools\Audit_Final_Artifacts.bat A.exe B.exe O.exe
+
+# 압축 해제한 전체 소스 일관성 확인
+python GameWeb/scripts/verify-source.py</pre>
+<p><code>GameWeb/maintenance/review.json</code>: 이번 결과 · <code>review-prior-delivery.json</code>: 이전 기록(미재현 표시) · <code>requirements-review.json</code>: 원문 59개 대응 · <code>verification/</code>: 실제 로그 · <code>GameWeb/contracts/</code>: 정규화·암호·호환성·의존성 규약.</p>
+<h2>전체 회귀 결과 목록</h2><table><tr><th>검사 묶음</th><th>상태</th><th>실제 종료 코드</th></tr>
+<tr><td><code>test-key-console.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-history-outcomes.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-desktop-workspace.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-workspace-http.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-security-activation.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-web-auth-hardening.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-desktop-deadlines.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-single-writer.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-license-recovery.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-handoff-delegation.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-release-provenance.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-handoff-native-contract.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-release-provenance-ui.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-release-tools-split.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-admin-modal-isolation.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-audit-append.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-desktop-audit-outbox.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-request-receipts.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-handoff-recovery.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-handoff-completion-contract.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-key-purposes.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-release-governance-complete.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-windows-ci.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-security-operations.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-security-admin.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-security-evidence.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-security-native-contract.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-security-authority.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-security-tools.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-security-wire.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>check-modules.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>check-web-ui.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>check-connect-project.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-extended-hashes.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-security-v4.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-desktop-overlay.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-overlay-transfer.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-overlay-start-diagnostics.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-overlay-parent-sharing.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-overlay-imgui.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-overlay-web-policy.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-crc-layers.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-crc-checker-ranges.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-desktop-extended-integrity.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-extended-integrity.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-sqlite-driver.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-connect-tls.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-pe-exports.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-native-report-budget.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-desktop-integrity-policy.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-integrity-policy.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-machine-policy.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-machine-policy.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-licenses.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-licenses.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-license-migration.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-license-migration.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-bootstrap.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-bootstrap.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-code-integrity.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-native-code-contract.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-native-crc-metadata-contract.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-crc-release-eligibility.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-integrity-reports.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-integrity-rejection-reasons.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-integrity-reports.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-retirement.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-http.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-connect-deployment.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-connect.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-connect.js --sqlite</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-desktop-admin-ui.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-integrity-display.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-overlay-admin-ui.js</code></td><td>BLOCKED_DEPENDENCY</td><td>1</td></tr>
+<tr><td><code>test-web-ui-cache.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-hardening-protocol.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-hardening-work-queue.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-hardening-measurement.js</code></td><td>PASS</td><td>0</td></tr>
+<tr><td><code>test-hardening-pe-corpus.js</code></td><td>PASS</td><td>0</td></tr>
+</table><h2>출처와 재현 범위</h2><p>요구사항 원문: 세부목록(1).txt. 구현/검사 기준: 제공된 Game_Full_ImGui_D3D11(1).zip 및 이번 수정본. API 계약은 Microsoft/Node 공식 문서와 대조했습니다. 의존성 버전은 외부 최신 버전을 추정하지 않고 제공된 lock을 사용했습니다.</p><pre>[
+  {
+    &quot;topic&quot;: &quot;DuplicateHandle shared file position&quot;,
+    &quot;url&quot;: &quot;https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle&quot;
+  },
+  {
+    &quot;topic&quot;: &quot;ReOpenFile handle semantics&quot;,
+    &quot;url&quot;: &quot;https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-reopenfile&quot;
+  },
+  {
+    &quot;topic&quot;: &quot;CancelIoEx does not wait for completion&quot;,
+    &quot;url&quot;: &quot;https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex&quot;
+  },
+  {
+    &quot;topic&quot;: &quot;WM_DPICHANGED rectangle&quot;,
+    &quot;url&quot;: &quot;https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged&quot;
+  },
+  {
+    &quot;topic&quot;: &quot;CFG compile/runtime evidence&quot;,
+    &quot;url&quot;: &quot;https://learn.microsoft.com/en-us/windows/win32/secbp/control-flow-guard&quot;
+  },
+  {
+    &quot;topic&quot;: &quot;Actual mitigation observation&quot;,
+    &quot;url&quot;: &quot;https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocessmitigationpolicy&quot;
+  },
+  {
+    &quot;topic&quot;: &quot;MSBuild property evaluation&quot;,
+    &quot;url&quot;: &quot;https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-properties&quot;
+  },
+  {
+    &quot;topic&quot;: &quot;Worker ownership and KeyObject clone&quot;,
+    &quot;url&quot;: &quot;https://nodejs.org/api/worker_threads.html&quot;
+  }
+]</pre><p class="muted">원본 파일 삭제 없음. 테스트가 만든 임시 authority.json 및 불완전한 node_modules는 제거했고, 운영 서버·키·데이터를 변경하지 않았습니다. 본 검증은 소스 일관성 및 제한된 실행 증거이며 Windows 빌드 또는 운영 승인 서명이 아닙니다.</p></body></html>

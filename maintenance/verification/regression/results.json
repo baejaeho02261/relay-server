@@ -1,0 +1,606 @@
+[
+  {
+    "suite": "test-key-console.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.46,
+    "log": "01-test-key-console.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-history-outcomes.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.13,
+    "log": "02-test-history-outcomes.js.log"
+  },
+  {
+    "suite": "test-desktop-workspace.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.52,
+    "log": "03-test-desktop-workspace.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-workspace-http.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.22,
+    "log": "04-test-workspace-http.js.log",
+    "blocker": "Required better-sqlite3 absent in preflight; OS single-writer admission failed. Lock was not bypassed."
+  },
+  {
+    "suite": "test-security-activation.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.12,
+    "log": "05-test-security-activation.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-web-auth-hardening.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.24,
+    "log": "06-test-web-auth-hardening.js.log"
+  },
+  {
+    "suite": "test-desktop-deadlines.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.53,
+    "log": "07-test-desktop-deadlines.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-single-writer.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.07,
+    "log": "08-test-desktop-single-writer.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-license-recovery.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.07,
+    "log": "09-test-desktop-license-recovery.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-handoff-delegation.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.53,
+    "log": "10-test-handoff-delegation.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-release-provenance.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.15,
+    "log": "11-test-release-provenance.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-handoff-native-contract.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.05,
+    "log": "12-test-handoff-native-contract.js.log"
+  },
+  {
+    "suite": "test-release-provenance-ui.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.03,
+    "log": "13-test-release-provenance-ui.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-release-tools-split.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.21,
+    "log": "14-test-release-tools-split.js.log"
+  },
+  {
+    "suite": "test-admin-modal-isolation.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.03,
+    "log": "15-test-admin-modal-isolation.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-audit-append.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.06,
+    "log": "16-test-desktop-audit-append.js.log"
+  },
+  {
+    "suite": "test-desktop-audit-outbox.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.08,
+    "log": "17-test-desktop-audit-outbox.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-request-receipts.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.52,
+    "log": "18-test-desktop-request-receipts.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-handoff-recovery.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.64,
+    "log": "19-test-handoff-recovery.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-handoff-completion-contract.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.04,
+    "log": "20-test-handoff-completion-contract.js.log"
+  },
+  {
+    "suite": "test-key-purposes.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.6,
+    "log": "21-test-key-purposes.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-release-governance-complete.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.07,
+    "log": "22-test-release-governance-complete.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-windows-ci.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.1,
+    "log": "23-test-windows-ci.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-security-operations.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.53,
+    "log": "24-test-security-operations.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-security-admin.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.09,
+    "log": "25-test-security-admin.js.log"
+  },
+  {
+    "suite": "test-security-evidence.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.05,
+    "log": "26-test-security-evidence.js.log"
+  },
+  {
+    "suite": "test-security-native-contract.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.04,
+    "log": "27-test-security-native-contract.js.log"
+  },
+  {
+    "suite": "test-security-authority.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.51,
+    "log": "28-test-security-authority.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-security-tools.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.88,
+    "log": "29-test-security-tools.js.log"
+  },
+  {
+    "suite": "test-security-wire.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.51,
+    "log": "30-test-security-wire.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "check-modules.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 7.24,
+    "log": "31-check-modules.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "check-web-ui.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.05,
+    "log": "32-check-web-ui.js.log"
+  },
+  {
+    "suite": "check-connect-project.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.05,
+    "log": "33-check-connect-project.js.log"
+  },
+  {
+    "suite": "test-extended-hashes.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.03,
+    "log": "34-test-extended-hashes.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-security-v4.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.23,
+    "log": "35-test-security-v4.js.log"
+  },
+  {
+    "suite": "test-desktop-overlay.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.59,
+    "log": "36-test-desktop-overlay.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-overlay-transfer.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.34,
+    "log": "37-test-overlay-transfer.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-overlay-start-diagnostics.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.46,
+    "log": "38-test-overlay-start-diagnostics.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-overlay-parent-sharing.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.03,
+    "log": "39-test-overlay-parent-sharing.js.log"
+  },
+  {
+    "suite": "test-overlay-imgui.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.06,
+    "log": "40-test-overlay-imgui.js.log"
+  },
+  {
+    "suite": "test-overlay-web-policy.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.12,
+    "log": "41-test-overlay-web-policy.js.log"
+  },
+  {
+    "suite": "test-crc-layers.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.13,
+    "log": "42-test-crc-layers.js.log"
+  },
+  {
+    "suite": "test-crc-checker-ranges.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.08,
+    "log": "43-test-crc-checker-ranges.js.log"
+  },
+  {
+    "suite": "test-desktop-extended-integrity.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.69,
+    "log": "44-test-desktop-extended-integrity.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-extended-integrity.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.72,
+    "log": "45-test-desktop-extended-integrity.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-sqlite-driver.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.08,
+    "log": "46-test-sqlite-driver.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-connect-tls.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.27,
+    "log": "47-test-connect-tls.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-pe-exports.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.07,
+    "log": "48-test-desktop-pe-exports.js.log"
+  },
+  {
+    "suite": "test-native-report-budget.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.03,
+    "log": "49-test-native-report-budget.js.log"
+  },
+  {
+    "suite": "test-desktop-integrity-policy.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.54,
+    "log": "50-test-desktop-integrity-policy.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-integrity-policy.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.79,
+    "log": "51-test-desktop-integrity-policy.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-machine-policy.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.78,
+    "log": "52-test-desktop-machine-policy.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-machine-policy.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 1.32,
+    "log": "53-test-desktop-machine-policy.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-licenses.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.61,
+    "log": "54-test-desktop-licenses.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-licenses.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.8,
+    "log": "55-test-desktop-licenses.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-license-migration.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.74,
+    "log": "56-test-desktop-license-migration.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-license-migration.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.85,
+    "log": "57-test-desktop-license-migration.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-bootstrap.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.65,
+    "log": "58-test-desktop-bootstrap.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-bootstrap.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.89,
+    "log": "59-test-desktop-bootstrap.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-code-integrity.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.08,
+    "log": "60-test-desktop-code-integrity.js.log"
+  },
+  {
+    "suite": "test-native-code-contract.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.1,
+    "log": "61-test-native-code-contract.js.log"
+  },
+  {
+    "suite": "test-native-crc-metadata-contract.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.08,
+    "log": "62-test-native-crc-metadata-contract.js.log"
+  },
+  {
+    "suite": "test-crc-release-eligibility.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.45,
+    "log": "63-test-crc-release-eligibility.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-integrity-reports.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.47,
+    "log": "64-test-desktop-integrity-reports.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-integrity-rejection-reasons.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.47,
+    "log": "65-test-integrity-rejection-reasons.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-integrity-reports.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.3,
+    "log": "66-test-desktop-integrity-reports.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-retirement.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.2,
+    "log": "67-test-desktop-retirement.js.log",
+    "blocker": "Required better-sqlite3 absent in preflight; OS single-writer admission failed. Lock was not bypassed."
+  },
+  {
+    "suite": "test-desktop-http.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.17,
+    "log": "68-test-desktop-http.js.log",
+    "blocker": "Required better-sqlite3 absent in preflight; OS single-writer admission failed. Lock was not bypassed."
+  },
+  {
+    "suite": "test-connect-deployment.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.18,
+    "log": "69-test-connect-deployment.js.log",
+    "blocker": "Required better-sqlite3 absent in preflight; OS single-writer admission failed. Lock was not bypassed."
+  },
+  {
+    "suite": "test-desktop-connect.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.92,
+    "log": "70-test-desktop-connect.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-connect.js --sqlite",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.78,
+    "log": "71-test-desktop-connect.js-sqlite.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-desktop-admin-ui.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.04,
+    "log": "72-test-desktop-admin-ui.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-integrity-display.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.03,
+    "log": "73-test-integrity-display.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-overlay-admin-ui.js",
+    "status": "BLOCKED_DEPENDENCY",
+    "exitCode": 1,
+    "seconds": 0.03,
+    "log": "74-test-overlay-admin-ui.js.log",
+    "blocker": "Module/compiler unavailable; see raw log."
+  },
+  {
+    "suite": "test-web-ui-cache.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.12,
+    "log": "75-test-web-ui-cache.js.log"
+  },
+  {
+    "suite": "test-hardening-protocol.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.04,
+    "log": "76-test-hardening-protocol.js.log"
+  },
+  {
+    "suite": "test-hardening-work-queue.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.46,
+    "log": "77-test-hardening-work-queue.js.log"
+  },
+  {
+    "suite": "test-hardening-measurement.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.08,
+    "log": "78-test-hardening-measurement.js.log"
+  },
+  {
+    "suite": "test-hardening-pe-corpus.js",
+    "status": "PASS",
+    "exitCode": 0,
+    "seconds": 0.1,
+    "log": "79-test-hardening-pe-corpus.js.log"
+  }
+]

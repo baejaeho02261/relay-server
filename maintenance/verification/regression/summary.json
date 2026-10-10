@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "node": "v22.16.0",
+  "platform": "posix",
+  "timeoutSecondsPerSuite": 45,
+  "dependencies": {
+    "better-sqlite3": {
+      "available": false,
+      "exitCode": 1,
+      "diagnostic": "MODULE_NOT_FOUND"
+    },
+    "jsdom": {
+      "available": false,
+      "exitCode": 1,
+      "diagnostic": "MODULE_NOT_FOUND"
+    },
+    "hash-wasm": {
+      "available": false,
+      "exitCode": 1,
+      "diagnostic": "MODULE_NOT_FOUND"
+    }
+  },
+  "registeredSuites": 79,
+  "counts": {
+    "BLOCKED_DEPENDENCY": 51,
+    "PASS": 28
+  },
+  "allSuitesPassed": false,
+  "meaning": "Independent diagnostic run. Raw nonzero exits retained. BLOCKED is not PASS. Native Windows not implied."
+}

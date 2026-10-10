@@ -1,111 +1,105 @@
 {
   "releaseDate": "2026-10-10",
-  "scope": "Function-specific release BAT tools, colocated operational JSON, admin UI redesign, icons and modal lifecycle",
-  "uiRevision": "console-v4-98",
+  "scope": "Preserve supplied source; implement 6–10 with explicit contract/design/test limits; source recheck 1–5.",
+  "basisFile": "Game_Full_ImGui_D3D11(1).zip",
+  "basisSha512": "7b26452409d1d4b255d935df27254d49e9980f1a28392a3a1d65aadf3e46be690ae4f4b7d0aaa5b910e38a34cc08ea2e2534d7d2fc1d921007af529f481bf463",
   "operatingDataModified": false,
   "operatingDeploymentPerformed": false,
+  "windowsBuildExecuted": false,
+  "productionApprovalGranted": false,
+  "prior75Pass": "Inherited original review archived in review-prior-delivery.json. Not the result of this delivery.",
   "verification": {
     "serverRegression": {
+      "version": 1,
+      "node": "v22.16.0",
+      "platform": "posix",
+      "timeoutSecondsPerSuite": 45,
+      "dependencies": {
+        "better-sqlite3": {
+          "available": false,
+          "exitCode": 1,
+          "diagnostic": "MODULE_NOT_FOUND"
+        },
+        "jsdom": {
+          "available": false,
+          "exitCode": 1,
+          "diagnostic": "MODULE_NOT_FOUND"
+        },
+        "hash-wasm": {
+          "available": false,
+          "exitCode": 1,
+          "diagnostic": "MODULE_NOT_FOUND"
+        }
+      },
+      "registeredSuites": 79,
+      "counts": {
+        "BLOCKED_DEPENDENCY": 51,
+        "PASS": 28
+      },
+      "allSuitesPassed": false,
+      "meaning": "Independent diagnostic run. Raw nonzero exits retained. BLOCKED is not PASS. Native Windows not implied."
+    },
+    "javascriptSyntax": {
+      "checkedFiles": 250,
+      "pass": 250
+    },
+    "projectXmlSyntax": {
+      "checkedFiles": 7,
+      "pass": 7
+    },
+    "pascalClassDeclarations": {
+      "status": "PASS_SOURCE_ONLY",
+      "classes": 31,
+      "notACompiler": true
+    },
+    "startupContracts": {
+      "status": "PASS_SOURCE_ONLY",
+      "A": 171,
+      "B": 196,
+      "O": 216
+    },
+    "imguiCoreLinux": {
       "status": "PASS",
-      "command": "npm test",
-      "suiteCount": 75,
-      "suites": [
-        "test-key-console.js",
-        "test-history-outcomes.js",
-        "test-desktop-workspace.js",
-        "test-workspace-http.js",
-        "test-security-activation.js",
-        "test-web-auth-hardening.js",
-        "test-desktop-deadlines.js",
-        "test-desktop-single-writer.js",
-        "test-desktop-license-recovery.js",
-        "test-handoff-delegation.js",
-        "test-release-provenance.js",
-        "test-handoff-native-contract.js",
-        "test-release-provenance-ui.js",
-        "test-release-tools-split.js",
-        "test-admin-modal-isolation.js",
-        "test-desktop-audit-append.js",
-        "test-desktop-audit-outbox.js",
-        "test-desktop-request-receipts.js",
-        "test-handoff-recovery.js",
-        "test-handoff-completion-contract.js",
-        "test-key-purposes.js",
-        "test-release-governance-complete.js",
-        "test-windows-ci.js",
-        "test-security-operations.js",
-        "test-security-admin.js",
-        "test-security-evidence.js",
-        "test-security-native-contract.js",
-        "test-security-authority.js",
-        "test-security-tools.js",
-        "test-security-wire.js",
-        "check-modules.js",
-        "check-web-ui.js",
-        "check-connect-project.js",
-        "test-extended-hashes.js",
-        "test-security-v4.js",
-        "test-desktop-overlay.js",
-        "test-overlay-transfer.js",
-        "test-overlay-start-diagnostics.js",
-        "test-overlay-parent-sharing.js",
-        "test-overlay-imgui.js",
-        "test-overlay-web-policy.js",
-        "test-crc-layers.js",
-        "test-crc-checker-ranges.js",
-        "test-desktop-extended-integrity.js",
-        "test-desktop-extended-integrity.js --sqlite",
-        "test-sqlite-driver.js",
-        "test-connect-tls.js",
-        "test-desktop-pe-exports.js",
-        "test-native-report-budget.js",
-        "test-desktop-integrity-policy.js",
-        "test-desktop-integrity-policy.js --sqlite",
-        "test-desktop-machine-policy.js",
-        "test-desktop-machine-policy.js --sqlite",
-        "test-desktop-licenses.js",
-        "test-desktop-licenses.js --sqlite",
-        "test-desktop-license-migration.js",
-        "test-desktop-license-migration.js --sqlite",
-        "test-desktop-bootstrap.js",
-        "test-desktop-bootstrap.js --sqlite",
-        "test-desktop-code-integrity.js",
-        "test-native-code-contract.js",
-        "test-native-crc-metadata-contract.js",
-        "test-crc-release-eligibility.js",
-        "test-desktop-integrity-reports.js",
-        "test-integrity-rejection-reasons.js",
-        "test-desktop-integrity-reports.js --sqlite",
-        "test-desktop-retirement.js",
-        "test-desktop-http.js",
-        "test-connect-deployment.js",
-        "test-desktop-connect.js",
-        "test-desktop-connect.js --sqlite",
-        "test-desktop-admin-ui.js",
-        "test-integrity-display.js",
-        "test-overlay-admin-ui.js",
-        "test-web-ui-cache.js"
-      ]
+      "checks": 91,
+      "command": "clang++ -std=c++17 -O1 -pthread -DGAME_IMGUI_PORTABLE_TEST game_imgui_bridge.cpp test_bridge.cpp; run executable",
+      "gpuRuntimeExecuted": false
     },
-    "windowsNativeBuild": {
-      "status": "NOT_RUN",
-      "reason": "Windows/RAD Studio unavailable in this environment"
+    "imguiGuardHeaderLinux": {
+      "status": "PASS",
+      "scope": "Standalone production guard header; ABI bytes, abort/retry, nested and 16-thread publication"
     },
-    "windowsBatPowerShellExecution": {
-      "status": "NOT_RUN",
-      "reason": "Node helper and static source contracts tested; Windows execution required"
+    "supplementaryCombinedGuardExperiment": {
+      "status": "DID_NOT_COMPLETE_WITHIN_TOOL_LIMIT",
+      "scope": "Additional combined bridge/guard compile/test command; no completed result retained. Not included among passes or the 79 registered server suites."
     },
-    "browserVisual": {
-      "status": "NOT_COMPLETED",
-      "reason": "Cloud browser could not reach local preview; local Chromium unavailable. DOM behavior and UI bundle checks passed."
+    "peCorpus": {
+      "status": "PASS_PORTABLE_ONLY",
+      "cases": 28,
+      "preflightComparisons": 56,
+      "nativeExecuted": false,
+      "independentOracle": "Python SHA512/bitwise CRC64"
+    },
+    "adminUi": {
+      "status": "PASS_BUNDLE_INTEGRITY",
+      "files": 47,
+      "revision": "console-v4-98",
+      "browserUiRuntimeExecuted": false
     }
   },
-  "changes": [
-    "Separate Prepare_ImGui, Create_Spec, Create_Release_Manifest, Check_Release_Manifest BATs",
-    "Operational JSON defaults to GameWeb/tools; canonical source inventory remains in maintenance and is copied byte-for-byte beside BATs",
-    "Removed unused Finalize_Overlay and Build_Win64 and redundant text guides; vendor licenses/provenance retained",
-    "Redesigned admin theme, controls and navigation; removed sidebar branding; replaced web and native icons",
-    "Preserved deployment selections and separated reauthentication modal lifecycle"
+  "limits": [
+    "51 of 79 registered groups did not complete because required dependencies are unavailable. Raw nonzero exits and module preflight are retained. No SQLite lock bypass or test pass fabrication.",
+    "Linux Node v22.16.0 is below the exact full dependency tree engine range. npm registry DNS was unavailable; npm install/audit could not complete. Empty install directories removed.",
+    "Delphi/Windows SDK compilation, MSBuild global-property runtime, actual A/B/O/PE-CFG checks, D3D11/GPU/DPI/RDP/slow-I/O faults remain NOT_RUN.",
+    "Online next-pin rollover is design review only; strict current v4 pinning remains. Additional blanket OS mitigations and GPU recreation are not enabled.",
+    "Cooperative request/measurement/shutdown budgets do not make an unresponsive kernel operation hard real-time. Objects are retained until safe completion.",
+    "Reauthentication is opt-in and its existing mutation scope is broader than critical-only. Release manifest/CI evidence and minimum security version are configurable, not presumed enforced.",
+    "Module generation observation can miss ABA, FULL is only the declared plan scope, and client reports are not complete process attestation."
   ],
-  "releasePreparation": "Rebuild and approve final A/B/O bytes before generating a new manifest. Old manifests do not describe this source package."
+  "reproduction": [
+    "Use a Node version satisfying GameWeb/package.json engines, install exact package-lock dependencies including the native better-sqlite3 addon, then npm test.",
+    "For non-fail-fast diagnostics: python GameWeb/scripts/review-regression.py --output REVIEW_DIRECTORY. It returns nonzero if any suite is blocked/fails.",
+    "Windows: GameConnect_Win64/tests/Build_NativeProbes_Win64.bat; actual SDK probe and Compare-NativeAbi.ps1; existing GameWeb/ci/Invoke-WindowsCI.ps1 with its required staged inputs.",
+    "Post-build only: GameWeb/tools/Audit_Final_Artifacts.bat A.exe B.exe O.exe. Output final-artifact-audit.json is beside the BAT and existing output is not overwritten.",
+    "Delivery consistency: python GameWeb/scripts/verify-source.py from extracted source. This is not a Windows compile or publisher signature."
+  ]
 }

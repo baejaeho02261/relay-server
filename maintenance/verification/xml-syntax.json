@@ -1,0 +1,30 @@
+[
+  {
+    "file": "GameConnect_Win64/Game.BuildIsolation.targets",
+    "status": "PASS"
+  },
+  {
+    "file": "GameConnect_Win64/GameConnect.dproj",
+    "status": "PASS"
+  },
+  {
+    "file": "GameConnect_Win64/GameConnect.manifest",
+    "status": "PASS"
+  },
+  {
+    "file": "GameConnect_Win64/GameLauncher.dproj",
+    "status": "PASS"
+  },
+  {
+    "file": "GameConnect_Win64/GameLauncher.manifest",
+    "status": "PASS"
+  },
+  {
+    "file": "GameConnect_Win64/GameOverlay.dproj",
+    "status": "PASS"
+  },
+  {
+    "file": "GameConnect_Win64/GameOverlay.manifest",
+    "status": "PASS"
+  }
+]
