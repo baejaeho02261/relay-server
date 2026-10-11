@@ -3,6 +3,9 @@
 <style>body{margin:40px auto;max-width:880px;padding:0 22px;background:#11151c;color:#e5eaf3;font:16px/1.8 system-ui,sans-serif}h1{font-size:30px}h2{margin-top:36px;font-size:21px}code{color:#9dc5ff;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #303946}small{color:#a8b3c3}.note{padding:16px 20px;border-left:3px solid #8cbcff;background:#1a2230}li{margin:10px 0}</style>
 <h1>Game 배포 순서</h1>
 <p>이 압축의 <code>GameConnect_Win64</code>와 <code>GameWeb</code>를 같은 상위 폴더에 풉니다. 이전 패치 파일을 섞지 않습니다. 기존 서버의 운영 데이터·환경 설정·키는 백업하고 보존합니다.</p>
+<p class="note">새 폴더를 CI 전용으로 사용하세요. CI 실행 전 이 폴더의 프로젝트를 IDE에서 저장하거나 소스를 수정하지 않습니다. CI가 검증한 소스를 별도 작업 폴더에 복사하여 직접 빌드합니다. IDE에서 개발할 때는 별도 복사본을 사용합니다.</p>
+<p><code>GameConnectResources.res</code>, <code>GameLauncherResources.res</code>, <code>GameOverlayResources.res</code>는 빌드 생성물입니다. 편의상 동봉하지만 소스 해시 비교·CI 복사 대상에서 제외합니다. 원본 <code>.rc</code>·<code>.manifest</code>·아이콘·라이선스는 계속 해시로 검증하며, CI는 검토된 <code>brcc32.exe</code>로 리소스를 새로 생성한 뒤 검사합니다.</p>
+<p>서버 초기화는 로컬 소스 해시 오류의 해결 단계가 아닙니다. 서버를 새로 구성했다면 기존 개인키를 보존하고 EXE 승인 공개키와 CI 공개키를 새 서버에 다시 등록한 뒤, 그 서버의 현재 배포 정책을 새로 내보내세요. 예전 서버의 정책 JSON·배포 명세·증빙을 새 실행 결과와 섞지 않습니다.</p>
 <p class="note">운영 게시에는 실제 Windows 빌드·API 검사·A→B→O 실행 검증의 CI 서명이 필요합니다. IDE 빌드 성공이나 수동 PASS 입력만으로 이 조건을 충족하지 않습니다.</p>
 <h2>1. 도구와 입력 준비</h2>
 <p>Windows x64 로그인 세션에서 PowerShell 7 x64, 프로젝트가 지원하는 Node.js x64, RAD Studio classic Win64 도구, Microsoft C++/Windows SDK, Python 3 및 OpenSSL을 준비합니다. Python은 서버의 SQLite 네이티브 모듈 빌드에 필요합니다. C++ Build Tools의 <b>x64 Native Tools 명령 프롬프트</b>를 사용하고 <code>BDS</code>를 실제 RAD Studio 경로로 설정합니다. RAD Studio SDK 헤더와 MSVC SDK는 각각 필요합니다.</p>
