@@ -1,4 +1,6 @@
 'use strict';
+const measurementPlan=require('./measurementPlanContract');
+const measurementStatus=require('./measurementStatus');
 // Server-resident diagnostics. Signatures prove possession of the current
 // session key, not truthful execution or hardware attestation on an owned PC.
 const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),config=require('../config/config');
@@ -10,6 +12,9 @@ const MAX_PAYLOAD=24576,MAX_REPORTS=512,MAX_PENDING=1024,TTL=30000;
 const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000,O:120000};
 const DEFAULT_MODULES=['ntdll.dll','kernel32.dll','kernelbase.dll'];
 const OVERLAY_START_REASONS=new Set(['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_CIPHER_FAILED','HANDOFF_DELEGATION_INVALID','HANDOFF_BOOTSTRAP_INVALID','HANDOFF_CHILD_BINDING_INVALID','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED']);
+function Anchor(){return require('./desktopJournalHead').Create(FILE+'.head',secret,'DESKTOP_INTEGRITY');}
+function Mark(data,raw){return {seq:data.revision,hash:crypto.createHash('sha256').update(raw).digest('hex')};}
+let poisoned=false;
 let secret,loaded=false,revision=0,records=[],baselines=[],observations=[],pending=new Map(),rates=new Map();
 let policy={enabled:false,requireExtendedHashes:false,requiredModules:DEFAULT_MODULES.slice(),revision:0,updatedAt:0,actor:''};
 const snapshots=new Map(),finishedSnapshots=new Map();
@@ -22,23 +27,30 @@ function ExtendedDigest(value,size){if(value===''||value===null||value===undefin
 const EXTENDED_FIELDS=['fileXxh3_128','fileBlake3','codeXxh3_128','codeBlake3','exportTableXxh3_128','exportTableBlake3'];
 function HasExtendedPair(row,prefix){return typeof row[prefix+'Xxh3_128']==='string'&&/^[a-f0-9]{32}$/.test(row[prefix+'Xxh3_128'])&&typeof row[prefix+'Blake3']==='string'&&/^[a-f0-9]{64}$/.test(row[prefix+'Blake3']);}
 function ExtendedComparison(row,baseline,prefix){const fields=[prefix+'Xxh3_128',prefix+'Blake3'];return {mismatch:fields.some(key=>row[key]&&baseline[key]&&row[key]!==baseline[key]),verified:HasExtendedPair(row,prefix)&&HasExtendedPair(baseline,prefix)&&fields.every(key=>row[key]===baseline[key])};}
+function AuditBinding(machineId){return /^[A-F0-9]{64}$/.test(machineId||'')?require('./desktopDeviceRegistry').BindingId(machineId):'';}
 function Identifier(value){if(value===undefined||value==='')return '';if(typeof value!=='string'||!/^[-A-Za-z0-9_]{1,100}$/.test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}
 function Token(value){if(typeof value!=='string'||!/^[-A-Z0-9_]{1,64}$/.test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}
 function ReadFile(file){const st=fs.lstatSync(file);if(st.isSymbolicLink()||!st.isFile())throw Error('INTEGRITY_REPORT_STORAGE_INVALID');return fs.readFileSync(file);}
 function Mac(payload){return crypto.createHmac('sha256',secret).update('GAME-INTEGRITY-REPORTS-V1\n'+JSON.stringify(payload)).digest('hex');}
 function Blake3Mac(payload){const h=require('./extendedHashes'),key=h.Blake3DeriveKey('GameConnect.Server.IntegrityReports.Store.v2',secret);const bytes=Buffer.from(JSON.stringify(payload));try{return h.Blake3Keyed(key,bytes).toString('hex');}finally{key.fill(0);bytes.fill(0);}}
 function Load(){
- if(loaded)return;let created=false;fs.mkdirSync(DIR,{recursive:true,mode:0o700});
+ if(poisoned)throw Error('INTEGRITY_REPORT_RESTART_REQUIRED');if(loaded)return;let created=false;fs.mkdirSync(DIR,{recursive:true,mode:0o700});
  if(!fs.existsSync(KEY)){created=true;if(fs.existsSync(FILE))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');const fd=fs.openSync(KEY,'wx',0o600);try{fs.writeFileSync(fd,crypto.randomBytes(32));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
  if(!created&&!fs.existsSync(FILE))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
  secret=ReadFile(KEY);if(secret.length!==32)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
- if(fs.existsSync(FILE)){const envelope=JSON.parse(ReadFile(FILE));const data=envelope?.data;if(!data||![1,2].includes(data.version)||!Number.isSafeInteger(data.revision)||!Array.isArray(data.records)||data.records.length>MAX_REPORTS||!require('./strictJson').SecretEqual(envelope.mac,Mac(data))||data.version===2&&!require('./strictJson').SecretEqual(envelope.blake3Mac,Blake3Mac(data)))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');revision=data.revision;records=data.records;observations=data.observations||[];if(!Array.isArray(observations)||observations.length>4096)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');baselines=data.baselines||[];if(!Array.isArray(baselines)||baselines.length>256)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');if(data.policy){try{ValidatePolicy(data.policy,true);}catch(_){throw Error('INTEGRITY_REPORT_STORAGE_INVALID');}policy={requireExtendedHashes:false,...data.policy};}for(const row of records)if(row.snapshotFinal&&row.snapshotId)finishedSnapshots.set(SnapshotKey(row.stage,row.stage==='A'?row.flowId:row.sessionId,row.snapshotId),row.at+900000);}
+ if(fs.existsSync(FILE)){const raw=ReadFile(FILE),envelope=require('./strictJson').Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});const data=envelope?.data;if(!data||![1,2].includes(data.version)||!Number.isSafeInteger(data.revision)||!Array.isArray(data.records)||data.records.length>MAX_REPORTS||!require('./strictJson').SecretEqual(envelope.mac,Mac(data))||data.version===2&&!require('./strictJson').SecretEqual(envelope.blake3Mac,Blake3Mac(data)))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');Anchor().Open(Mark(data,raw),!fs.existsSync(FILE+'.head'));revision=data.revision;records=data.records;observations=data.observations||[];if(!Array.isArray(observations)||observations.length>4096)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');baselines=data.baselines||[];if(!Array.isArray(baselines)||baselines.length>256)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');if(data.policy){try{ValidatePolicy(data.policy,true);}catch(_){throw Error('INTEGRITY_REPORT_STORAGE_INVALID');}policy={requireExtendedHashes:false,...data.policy};}for(const row of records)if(row.snapshotFinal&&row.snapshotId)finishedSnapshots.set(SnapshotKey(row.stage,row.stage==='A'?row.flowId:row.sessionId,row.snapshotId),row.at+900000);}
  if(created)Save([]);loaded=true;
 }
 function Save(next){
- const data={version:2,revision:revision+1,records:next,baselines,policy,observations},tmp=FILE+'.'+crypto.randomBytes(8).toString('hex')+'.tmp',fd=fs.openSync(tmp,'wx',0o600);
- try{fs.writeFileSync(fd,JSON.stringify({data,mac:Mac(data),blake3Mac:Blake3Mac(data)}));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
- try{fs.renameSync(tmp,FILE);if(process.platform!=='win32'){const dir=fs.openSync(DIR,'r');try{fs.fsyncSync(dir);}finally{fs.closeSync(dir);}}}catch(error){try{fs.unlinkSync(tmp);}catch(_){}throw error;}
+ if(poisoned)throw Error('INTEGRITY_REPORT_RESTART_REQUIRED');
+ const data={version:2,revision:revision+1,records:next,baselines,policy,observations};
+ const raw=Buffer.from(JSON.stringify({data,mac:Mac(data),blake3Mac:Blake3Mac(data)})),nextHead=Mark(data,raw);let previous,published=false;
+ try{
+  if(fs.existsSync(FILE)){const before=ReadFile(FILE),old=require('./strictJson').Parse(before,{maxBytes:64*1024*1024,maxNodes:4000000});previous=Mark(old.data,before);Anchor().Prepare(previous,nextHead);}
+  require('./durableFile').Atomic(FILE,raw,{createOnly:!previous});published=true;
+  if(previous)Anchor().Settle(nextHead);else Anchor().Open(nextHead,true);
+ }catch(error){if(published||error.published)poisoned=true;else if(previous)try{Anchor().Open(previous);}catch(_){poisoned=true;}throw error;}
+ finally{raw.fill(0);}
  revision=data.revision;records=next;
 }
 function Module(row,hashVersion=3){
@@ -56,21 +68,23 @@ function Module(row,hashVersion=3){
 }
 function Payload(text){
  if(typeof text!=='string'||Buffer.byteLength(text,'utf8')>MAX_PAYLOAD)Fail('INTEGRITY_REPORT_INVALID');let p;try{p=require('./strictJson').Parse(text);}catch(_){Fail('INTEGRITY_REPORT_INVALID');}
- Keys(p,['version','hashVersion','check','reason','own','modules','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust','crcLayers','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage']);
+ Keys(p,['version','hashVersion','check','reason','own','modules','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust','crcLayers','ownMeasurement','measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage']);
  if(p.version!==1||p.hashVersion!==3||!['OWN_IMAGE','MODULE_INVENTORY','OVERLAY_START'].includes(p.check))Fail('INTEGRITY_REPORT_INVALID');Token(p.reason);
  if(p.check==='OVERLAY_START'){
   // A failed startup is a signed client diagnostic, never hash evidence or an
   // authority observation. Do not accept client-supplied paths or free text.
   Keys(p,['version','hashVersion','check','reason']);if(!OVERLAY_START_REASONS.has(p.reason))Fail('INTEGRITY_REPORT_INVALID');return p;
  }
- if(p.own){Keys(p.own,['codeSha512','codeCrc64','status','fileXxh3_128','fileBlake3','codeXxh3_128','codeBlake3']);if(!['MEASURED','READ_ERROR'].includes(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,codeSha512:Digest(p.own.codeSha512,128),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh3_128')?32:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha512||!own.codeCrc64||p.hashVersion===3&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
+ if(p.own){Keys(p.own,['codeSha512','codeCrc64','status','fileXxh3_128','fileBlake3','codeXxh3_128','codeBlake3']);if(!measurementStatus.IsStatus(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,codeSha512:Digest(p.own.codeSha512,128),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh3_128')?32:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha512||!own.codeCrc64||p.hashVersion===3&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
  if(p.check==='OWN_IMAGE'&&!p.own)Fail('INTEGRITY_REPORT_INVALID');
- if(p.own?.status==='MEASURED'&&!require('./desktopCrcPolicy').Validate(p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
+ if((p.own?.status==='MEASURED'||p.crcLayers!==undefined)&&!require('./desktopCrcPolicy').Validate(p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
+ if(p.ownMeasurement!==undefined&&!measurementPlan.ValidateOwnMetadata(p.ownMeasurement,p.own?.status,p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
  if(p.modules!==undefined&&(!Array.isArray(p.modules)||p.modules.length>16))Fail('INTEGRITY_REPORT_INVALID');p.modules=(p.modules||[]).map(row=>Module(row,p.hashVersion));
  if(p.check==='MODULE_INVENTORY'){
+  if(p.measurementContract!==undefined&&p.measurementContract!==measurementPlan.CONTRACT)Fail('INTEGRITY_REPORT_INVALID');
   if(p.measurementPlanVersion!==undefined){
    if(p.measurementPlanVersion!==1||!Number.isSafeInteger(p.measurementStartedTick)||!Number.isSafeInteger(p.measurementFinishedTick)||p.measurementStartedTick<0||p.measurementFinishedTick<p.measurementStartedTick||p.measurementFinishedTick-p.measurementStartedTick>60000||typeof p.moduleGenerationStable!=='boolean'||!['FULL','PARTIAL','SAMPLED'].includes(p.coverage)||p.complete&&!p.moduleGenerationStable||p.coverage==='FULL'&&(!p.complete||p.truncated||p.measuredModules!==p.totalModules))Fail('INTEGRITY_REPORT_INVALID');
-  }else if(['measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'].some(k=>p[k]!==undefined))Fail('INTEGRITY_REPORT_INVALID');
+  }else if(['measurementContract','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'].some(k=>p[k]!==undefined))Fail('INTEGRITY_REPORT_INVALID');
   Identifier(p.snapshotId);if(!p.snapshotId||!Number.isInteger(p.batchIndex)||!Number.isInteger(p.batchCount)||p.batchCount<1||p.batchCount>MAX_BATCHES||p.batchIndex<0||p.batchIndex>=p.batchCount||typeof p.complete!=='boolean'||typeof p.truncated!=='boolean'||!Number.isInteger(p.totalModules)||p.totalModules<0||p.totalModules>65535||!Number.isInteger(p.measuredModules)||p.measuredModules<0||p.measuredModules>MAX_MODULES)Fail('INTEGRITY_REPORT_INVALID');
  }
  return p;
@@ -83,15 +97,16 @@ function Record(input){
  if(input.check==='OWN_CODE')for(const field of ['fileExtendedVerified','codeExtendedVerified'])record[field]=input.hashVersion===3&&input[field]===true;
  if(input.modules){record.modules=input.modules.map(row=>Module(row,record.hashVersion)).map(row=>CompareModule(row,record.hashVersion));if(record.modules.some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){record.status='REJECTED';record.reason='KNOWN_MODULE_CODE_MISMATCH';record.source='SERVER_COMPARISON';}}
  if(input.crcComparison)record.crcComparison=input.crcComparison;
- for(const key of ['snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','snapshotStatus','snapshotReceivedBatches','snapshotReasons','snapshotFinal','strictPolicyRevision','requiredModuleResults','duplicateModuleNames','duplicateModuleCount','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'])if(input[key]!==undefined)record[key]=input[key];
+ for(const key of ['ownMeasurement','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','snapshotStatus','snapshotReceivedBatches','snapshotReasons','snapshotFinal','strictPolicyRevision','planAssurance','requiredMeasurementPlanVersion','requiredModuleResults','duplicateModuleNames','duplicateModuleCount','measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'])if(input[key]!==undefined)record[key]=input[key];
+ if(input.measurementStatus!==undefined){if(!measurementStatus.IsStatus(input.measurementStatus))Fail('INTEGRITY_REPORT_INVALID');record.measurementStatus=input.measurementStatus;}
  // Repeated successes update a bounded current observation; retain rejection
  // evidence even during frequent authentication and inventory collection.
  const next=records.filter(row=>!(record.status==='VERIFIED'&&row.status==='VERIFIED'&&row.sessionId===record.sessionId&&row.stage===record.stage&&row.check===record.check));next.push(record);
  if(next.length>MAX_REPORTS){const index=next.findIndex((row,i)=>i<next.length-1&&row.status!=='REJECTED');next.splice(index>=0?index:0,1);}
  const previousObservations=observations;
- if(record.snapshotFinal){observations=observations.filter(row=>row.at>Date.now()-900000&&!(row.stage===record.stage&&row.sessionId===record.sessionId&&row.flowId===record.flowId));if(observations.length>=4096){observations=previousObservations;Fail('INTEGRITY_SNAPSHOT_LIMIT',429);}observations.push({at:record.at,stage:record.stage,sessionId:record.sessionId,flowId:record.flowId,snapshotId:record.snapshotId,snapshotStatus:record.snapshotStatus,strictPolicyRevision:record.strictPolicyRevision});}
+ if(record.snapshotFinal){observations=observations.filter(row=>row.at>Date.now()-900000&&!(row.stage===record.stage&&row.sessionId===record.sessionId&&row.flowId===record.flowId));if(observations.length>=4096){observations=previousObservations;Fail('INTEGRITY_SNAPSHOT_LIMIT',429);}observations.push({at:record.at,stage:record.stage,sessionId:record.sessionId,flowId:record.flowId,snapshotId:record.snapshotId,snapshotStatus:record.snapshotStatus,strictPolicyRevision:record.strictPolicyRevision,measurementPlanVersion:record.measurementPlanVersion||0,planAssurance:record.planAssurance||'LEGACY_UNVERSIONED',coverage:record.coverage||'UNSPECIFIED'});}
  try{Save(next);}catch(error){observations=previousObservations;throw error;}
- if(record.status==='REJECTED')require('../storage/audit').LogEvent('DESKTOP_INTEGRITY_REJECTED',JSON.stringify({reportId:record.id,stage:record.stage,check:record.check,reason:record.reason,sessionId:record.sessionId,machineId:record.machineId}));
+ if(record.status==='REJECTED')require('../storage/audit').LogEvent('DESKTOP_INTEGRITY_REJECTED',JSON.stringify({reportId:record.id,stage:record.stage,check:record.check,reason:record.reason,sessionId:record.sessionId,bindingId:AuditBinding(record.machineId)}));
  return record;
 }
 function Auth(body){return require('./desktopBootstrap').AuthenticateIntegrityReport(body);}
@@ -117,9 +132,9 @@ function Submit(body){
  }
  const row=Auth(body),context=row.reportContextId||row.sessionId;Prune();const challenge=pending.get(body.reportId);
  if(!challenge||challenge.sessionId!==context)Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);pending.delete(body.reportId);
- const payload=Payload(body.payload);if(typeof body.signature!=='string'||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
+ const payload=Payload(body.payload);try{measurementPlan.Assert(payload,row.integrityArtifact);}catch(error){Fail(error.message,400);}if(typeof body.signature!=='string'||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
  const bytes=Buffer.from(body.signature,'base64'),key=require('./desktopLicenses').ParseKey(row.publicKey).key;
- if(bytes.length!==256||bytes.toString('base64')!==body.signature||!crypto.verify('sha256',Buffer.from(Canonical(context,challenge,body.payload),'utf8'),{key,padding:crypto.constants.RSA_PKCS1_PADDING},bytes))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
+ if(bytes.length!==256||bytes.toString('base64')!==body.signature||!require('./desktopProofWork').Verify(row.publicKey,Canonical(context,challenge,body.payload),body.signature))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
  // Parsing and native signature verification can cross the issued deadline.
  if(deadline.Expired(challenge))Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);
  const artifact=row.integrityArtifact;if(!artifact)Fail('INTEGRITY_REPORT_BASELINE_UNAVAILABLE',503);
@@ -131,23 +146,24 @@ function Submit(body){
  if(payload.check==='OVERLAY_START'){
   if(fields.stage!=='B')Fail('INTEGRITY_REPORT_INVALID');
   result=Record({...fields,status:'CLIENT_DIAGNOSTIC',trusted:false});
-  require('../storage/audit').LogEvent('DESKTOP_OVERLAY_START_FAILED',JSON.stringify({reportId:result.id,stage:'B',flowId:row.id,sessionId:row.sessionId,machineId:row.machineId,reason:payload.reason,source:'SIGNED_CLIENT_REPORT',attested:false}));
+  require('../storage/audit').LogEvent('DESKTOP_OVERLAY_START_FAILED',JSON.stringify({reportId:result.id,stage:'B',flowId:row.id,sessionId:row.sessionId,bindingId:AuditBinding(row.machineId),reason:payload.reason,source:'SIGNED_CLIENT_REPORT',attested:false}));
   // Receipt only: do not refresh, invalidate or grant execution authority.
   return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
- if(payload.own?.status==='READ_ERROR'&&require('./desktopSecurityAuthority').UsesAuthority(row,row.stage||'B')){
-  require('./desktopSecurityAuthority').Invalidate(row,row.stage||'B','MEASUREMENT_UNAVAILABLE');
-  result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason:'MEASUREMENT_UNAVAILABLE',trusted:false});
+ if(measurementStatus.IsFailure(payload.own?.status)&&require('./desktopSecurityAuthority').UsesAuthority(row,row.stage||'B')){
+  const reason=measurementStatus.FailureReason(payload.own.status);
+  require('./desktopSecurityAuthority').Invalidate(row,row.stage||'B',reason);
+  result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,crcComparison:require('./desktopCrcPolicy').Compare(payload.crcLayers,artifact.crcLayers),trusted:false});
   return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
- if(payload.own){const own=payload.own,crcComparison=require('./desktopCrcPolicy').Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
-  const rejectionReason=own.status==='READ_ERROR'?'MEASUREMENT_FAILED':!crcComparison.matched?crcComparison.reason:own.codeSha512!==artifact.codeSha512||own.codeCrc64!==artifact.codeCrc64?'CODE_HASH_MISMATCH':codeComparison.mismatch?'CODE_EXTENDED_HASH_MISMATCH':fileComparison.mismatch?'FILE_EXTENDED_HASH_MISMATCH':require('./desktopSecurityAuthority').Policy().requireCompleteCrcLayers&&!crcComparison.complete?'CRC_COVERAGE_INCOMPLETE':'';
+ if(payload.own){if(payload.ownMeasurement)fields.ownMeasurement=payload.ownMeasurement;const own=payload.own,crcComparison=require('./desktopCrcPolicy').Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
+  const rejectionReason=measurementStatus.IsFailure(own.status)?(own.status==='READ_ERROR'?'MEASUREMENT_FAILED':own.status):!crcComparison.matched?crcComparison.reason:own.codeSha512!==artifact.codeSha512||own.codeCrc64!==artifact.codeCrc64?'CODE_HASH_MISMATCH':codeComparison.mismatch?'CODE_EXTENDED_HASH_MISMATCH':fileComparison.mismatch?'FILE_EXTENDED_HASH_MISMATCH':require('./desktopSecurityAuthority').Policy().requireCompleteCrcLayers&&!crcComparison.complete?'CRC_COVERAGE_INCOMPLETE':'';
   const matches=!rejectionReason,fileExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&fileComparison.verified,codeExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&codeComparison.verified;
   // Pair equality is an independent observation, not an overall execution PASS.
   // Incomplete CRC coverage must not turn matching file/code hashes into failures.
   const extendedHashesVerified=fileExtendedVerified&&codeExtendedVerified,unverifiedExtended=payload.hashVersion===3&&matches&&!extendedHashesVerified;
   if(!matches)require('./desktopBootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_'+rejectionReason},'INTEGRITY_REPORT');
-  result=Record({...fields,check:'OWN_CODE',status:matches?unverifiedExtended?'CLIENT_DIAGNOSTIC':'VERIFIED':'REJECTED',reason:matches?unverifiedExtended?'EXTENDED_BASELINE_UNAVAILABLE':'BASELINE_MATCH':rejectionReason,trusted:true,extendedHashesVerified,fileExtendedVerified,codeExtendedVerified,crcComparison,expectedSha512:artifact.codeSha512,observedSha512:own.codeSha512,expectedCrc64:artifact.codeCrc64,observedCrc64:own.codeCrc64,expectedXxh3_128:artifact.codeXxh3_128,observedXxh3_128:own.codeXxh3_128,expectedBlake3:artifact.codeBlake3,observedBlake3:own.codeBlake3,expectedFileXxh3_128:artifact.fileXxh3_128,observedFileXxh3_128:own.fileXxh3_128,expectedFileBlake3:artifact.fileBlake3,observedFileBlake3:own.fileBlake3});
+  result=Record({...fields,check:'OWN_CODE',measurementStatus:own.status,status:matches?unverifiedExtended?'CLIENT_DIAGNOSTIC':'VERIFIED':'REJECTED',reason:matches?unverifiedExtended?'EXTENDED_BASELINE_UNAVAILABLE':'BASELINE_MATCH':rejectionReason,trusted:true,extendedHashesVerified,fileExtendedVerified,codeExtendedVerified,crcComparison,expectedSha512:artifact.codeSha512,observedSha512:own.codeSha512,expectedCrc64:artifact.codeCrc64,observedCrc64:own.codeCrc64,expectedXxh3_128:artifact.codeXxh3_128,observedXxh3_128:own.codeXxh3_128,expectedBlake3:artifact.codeBlake3,observedBlake3:own.codeBlake3,expectedFileXxh3_128:artifact.fileXxh3_128,observedFileXxh3_128:own.fileXxh3_128,expectedFileBlake3:artifact.fileBlake3,observedFileBlake3:own.fileBlake3});
   if(!matches){return Complete({accepted:true,status:'REJECTED',reportId:result.id,terminate:true});}
  }
  if(payload.check==='MODULE_INVENTORY'){Load();if(payload.modules.map(module=>CompareModule(module,payload.hashVersion)).some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){require('./desktopBootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_KNOWN_MODULE_CODE_MISMATCH'},'INTEGRITY_REPORT');result=Record({...fields,status:'CLIENT_DIAGNOSTIC',modules:payload.modules,trusted:false});}else result=AcceptSnapshot(row,fields,payload); }
@@ -196,14 +212,14 @@ function SetPolicy(value,actor){
 function SnapshotKey(stage,context,id){return stage+':'+context+':'+id;}
 function RevokeSnapshot(row,reason){require('./desktopBootstrap').Revoke(row.sessionId,{reason},'INTEGRITY_REPORT');}
 function SnapshotConflict(row,key,reason){
- const snapshot=snapshots.get(key);snapshots.delete(key);finishedSnapshots.set(key,Date.now()+900000);if(policy.enabled)RevokeSnapshot(row,reason);
- if(snapshot)Record({...snapshot.fields,check:'MODULE_SNAPSHOT',status:policy.enabled?'REJECTED':'CLIENT_DIAGNOSTIC',reason,snapshotId:snapshot.snapshotId,snapshotStatus:policy.enabled?'COMPLETE_REJECTED':'INCOMPLETE',snapshotFinal:true,complete:false,snapshotReasons:[reason],strictPolicyRevision:snapshot.policyRevision});
+ const snapshot=snapshots.get(key),required=policy.enabled||measurementPlan.Required(row.integrityArtifact)===1;snapshots.delete(key);finishedSnapshots.set(key,Date.now()+900000);if(required)RevokeSnapshot(row,reason);
+ if(snapshot)Record({...snapshot.fields,check:'MODULE_SNAPSHOT',status:required?'REJECTED':'CLIENT_DIAGNOSTIC',reason,snapshotId:snapshot.snapshotId,snapshotStatus:required?'COMPLETE_REJECTED':'INCOMPLETE',snapshotFinal:true,complete:false,snapshotReasons:[reason],strictPolicyRevision:snapshot.policyRevision});
  Fail(reason,409);
 }
 function AcceptSnapshot(row,fields,payload){
  Load();const stage=row.stage||'B',context=row.reportContextId||row.sessionId,key=SnapshotKey(stage,context,payload.snapshotId);
  if(finishedSnapshots.has(key))Fail('INTEGRITY_SNAPSHOT_REPLAY',409);
- const metadata=JSON.stringify([payload.hashVersion,payload.batchCount,payload.complete,payload.truncated,payload.totalModules,payload.measuredModules,payload.scope||'',payload.trust||'',payload.measurementPlanVersion??null,payload.measurementStartedTick??null,payload.measurementFinishedTick??null,payload.moduleGenerationStable??null,payload.coverage??null]);
+ const metadata=JSON.stringify([payload.hashVersion,payload.batchCount,payload.complete,payload.truncated,payload.totalModules,payload.measuredModules,payload.scope||'',payload.trust||'',payload.measurementContract??null,payload.measurementPlanVersion??null,payload.measurementStartedTick??null,payload.measurementFinishedTick??null,payload.moduleGenerationStable??null,payload.coverage??null]);
  let snapshot=snapshots.get(key);
  if(!snapshot){
   if(snapshots.size>=128||finishedSnapshots.size>=8192||[...snapshots.values()].filter(s=>s.context===context).length>=2)Fail('INTEGRITY_SNAPSHOT_LIMIT',429);
@@ -219,26 +235,31 @@ function AcceptSnapshot(row,fields,payload){
   }snapshot.names.add(name);} 
  if(snapshot.modules.length+payload.modules.length>MAX_MODULES)SnapshotConflict(row,key,'INTEGRITY_SNAPSHOT_LIMIT');
  snapshot.modules.push(...payload.modules);snapshot.batches.set(payload.batchIndex,true);
- const final=snapshot.batches.size===payload.batchCount,base={...fields,...Object.fromEntries(['measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'].filter(k=>payload[k]!==undefined).map(k=>[k,payload[k]])),status:'CLIENT_DIAGNOSTIC',modules:payload.modules,snapshotId:payload.snapshotId,batchIndex:payload.batchIndex,batchCount:payload.batchCount,complete:false,truncated:payload.truncated,totalModules:payload.totalModules,measuredModules:payload.measuredModules,strictPolicyRevision:snapshot.policyRevision,snapshotReceivedBatches:snapshot.batches.size,duplicateModuleNames:[...snapshot.duplicateNames],duplicateModuleCount:snapshot.duplicateCount,trusted:false};
+ const final=snapshot.batches.size===payload.batchCount,base={...fields,...Object.fromEntries(['measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'].filter(k=>payload[k]!==undefined).map(k=>[k,payload[k]])),planAssurance:measurementPlan.Assurance(payload),requiredMeasurementPlanVersion:measurementPlan.Required(row.integrityArtifact),status:'CLIENT_DIAGNOSTIC',modules:payload.modules,snapshotId:payload.snapshotId,batchIndex:payload.batchIndex,batchCount:payload.batchCount,complete:false,truncated:payload.truncated,totalModules:payload.totalModules,measuredModules:payload.measuredModules,strictPolicyRevision:snapshot.policyRevision,snapshotReceivedBatches:snapshot.batches.size,duplicateModuleNames:[...snapshot.duplicateNames],duplicateModuleCount:snapshot.duplicateCount,trusted:false};
  if(!final)return Record({...base,snapshotStatus:'RECEIVING',snapshotReasons:[]});
  snapshots.delete(key);finishedSnapshots.set(key,Date.now()+900000);
- const reasons=[];if(payload.measurementPlanVersion!==undefined&&(!payload.moduleGenerationStable||payload.coverage==='SAMPLED'))reasons.push('MEASUREMENT_GENERATION_INCOMPLETE');const moduleRows=snapshot.modules.map(module=>CompareModule(module,payload.hashVersion)),actualMeasured=moduleRows.filter(m=>m.fileSha512&&m.fileCrc64&&m.codeSha512&&m.codeCrc64&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.codeStatus)).length;
+ const reasons=[];if(measurementPlan.Required(row.integrityArtifact)&&!measurementPlan.Complete(payload))reasons.push('MEASUREMENT_PLAN_INCOMPLETE');if(payload.measurementPlanVersion!==undefined&&(!payload.moduleGenerationStable||payload.coverage==='SAMPLED'))reasons.push('MEASUREMENT_GENERATION_INCOMPLETE');const moduleRows=snapshot.modules.map(module=>CompareModule(module,payload.hashVersion)),actualMeasured=moduleRows.filter(m=>m.fileSha512&&m.fileCrc64&&m.codeSha512&&m.codeCrc64&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.codeStatus)).length;
  if(!payload.complete||payload.truncated||payload.scope!=='current-process'||payload.trust!=='client-reported')reasons.push('INCOMPLETE_SNAPSHOT');
  if(snapshot.modules.length!==payload.totalModules||actualMeasured!==payload.measuredModules||payload.totalModules<1)reasons.push('INVALID_SNAPSHOT_COUNTS');
  const requiredModuleResults=policy.requiredModules.map(name=>{const module=moduleRows.find(m=>m.name.toLowerCase()===name);let reason='BASELINE_MATCH';if(!module)reason='REQUIRED_MODULE_MISSING';else if(!module.fileSha512||!module.codeSha512||['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(module.status)||['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(module.codeStatus))reason='REQUIRED_MODULE_READ_FAILED';else if(module.serverComparison==='REGISTERED_BASELINE_MISMATCH')reason='REQUIRED_MODULE_CODE_MISMATCH';else if(module.serverComparison!=='MATCH_REGISTERED_BASELINE'||!module.exportTableVerified)reason='REQUIRED_MODULE_UNVERIFIED';else if(policy.requireExtendedHashes&&!module.extendedHashesVerified)reason='REQUIRED_MODULE_EXTENDED_UNVERIFIED';if(policy.enabled&&reason!=='BASELINE_MATCH')reasons.push(reason);return {name,reason,baselineId:module?.baselineId||'',extendedHashesVerified:module?.extendedHashesVerified===true};});
- const unique=[...new Set(reasons)],accepted=unique.length===0,reject=policy.enabled&&!accepted;
+ const unique=[...new Set(reasons)],accepted=unique.length===0,reject=(policy.enabled||measurementPlan.Required(row.integrityArtifact)>0)&&!accepted;
  if(reject)RevokeSnapshot(row,'INTEGRITY_'+unique[0]);
- return Record({...base,check:'MODULE_SNAPSHOT',status:reject?'REJECTED':policy.enabled&&accepted?'VERIFIED':'CLIENT_DIAGNOSTIC',reason:accepted?'BASELINE_MATCH':unique[0],complete:accepted,snapshotStatus:accepted?'COMPLETE_PASS':policy.enabled?'COMPLETE_REJECTED':'INCOMPLETE',snapshotFinal:true,snapshotReasons:unique,requiredModuleResults,extendedHashesVerified:payload.hashVersion===3&&requiredModuleResults.every(item=>item.reason==='BASELINE_MATCH'&&item.extendedHashesVerified)});
+ return Record({...base,check:'MODULE_SNAPSHOT',status:reject?'REJECTED':policy.enabled&&accepted?'VERIFIED':'CLIENT_DIAGNOSTIC',reason:accepted?'BASELINE_MATCH':unique[0],complete:accepted,snapshotStatus:accepted?'COMPLETE_PASS':reject?'COMPLETE_REJECTED':'INCOMPLETE',snapshotFinal:true,snapshotReasons:unique,requiredModuleResults,extendedHashesVerified:payload.hashVersion===3&&requiredModuleResults.every(item=>item.reason==='BASELINE_MATCH'&&item.extendedHashesVerified)});
 }
 // Called only after bootstrap authentication. A fresh complete server-assembled
 // inventory is required when the administrator has explicitly armed policy.
 // A signed client measurement still cannot attest an uncompromised verifier.
 function RequireSnapshot(row,stage){
- Load();if(!policy.enabled)return;
+ Load();const db=require('./desktopBootstrapStore').Load(),artifact=db.artifacts[stage==='A'?db.launchers[row.launcherId]?.artifactId:row.releaseId],requiredPlan=measurementPlan.Required(artifact);if(!policy.enabled&&!requiredPlan)return;
  const candidates=observations.filter(item=>item.stage===stage&&item.sessionId===row.sessionId&&item.flowId===row.id).sort((a,b)=>b.at-a.at),last=candidates[0];
- let reason='';if(!last)reason='INTEGRITY_SNAPSHOT_REQUIRED';else if(last.strictPolicyRevision!==policy.revision)reason='INTEGRITY_SNAPSHOT_POLICY_CHANGED';else if(last.snapshotStatus!=='COMPLETE_PASS')reason='INTEGRITY_SNAPSHOT_REQUIRED';else if(Date.now()-last.at>FRESHNESS[stage]||last.at>Date.now()+1000)reason='INTEGRITY_SNAPSHOT_STALE';
+ let reason='';if(!last)reason='INTEGRITY_SNAPSHOT_REQUIRED';else if(last.strictPolicyRevision!==policy.revision)reason='INTEGRITY_SNAPSHOT_POLICY_CHANGED';else if(requiredPlan&&(last.measurementPlanVersion!==requiredPlan||last.planAssurance!=='COHERENT_PLAN_V1'||last.coverage!=='FULL'))reason='INTEGRITY_MEASUREMENT_PLAN_REQUIRED';else if(last.snapshotStatus!=='COMPLETE_PASS')reason='INTEGRITY_SNAPSHOT_REQUIRED';else if(Date.now()-last.at>FRESHNESS[stage]||last.at>Date.now()+1000)reason='INTEGRITY_SNAPSHOT_STALE';
  if(!reason)return;RevokeSnapshot(row,reason);Record({stage,sessionId:row.sessionId,flowId:row.id,machineId:row.machineId,check:'MODULE_POLICY',status:'REJECTED',reason,trusted:true,strictPolicyRevision:policy.revision});Fail(reason,403);
 }
 
 function RetireContext(row){const ids=new Set([row.id,row.sessionId]);for(const [id,value]of pending)if(ids.has(value.sessionId))pending.delete(id);receipts.deleteWhere((meta,response)=>ids.has(meta.context)&&!response.terminate);for(const id of ids)rates.delete(id);for(const id of snapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))snapshots.delete(id);for(const id of finishedSnapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))finishedSnapshots.delete(id);}
-module.exports={RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};
+function InvalidateVolatile(){pending.clear();rates.clear();receipts.clear();snapshots.clear();finishedSnapshots.clear();}
+function ProofTasks(body){
+ if(body.action!=='submit')return [];const challenge=pending.get(body.reportId);if(!challenge)return [];
+ const row=Auth(body);return [require('./desktopProofWork').Job(row.publicKey,Canonical(row.reportContextId||row.sessionId,challenge,body.payload),body.signature)];
+}
+module.exports={ProofTasks,InvalidateVolatile,RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};

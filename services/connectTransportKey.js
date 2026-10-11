@@ -18,7 +18,7 @@ function Publish(file,value){
   fs.linkSync(temporary,file);SyncDirectory();
  }finally{if(fd!==undefined)fs.closeSync(fd);try{fs.unlinkSync(temporary);}catch(_){}}
 }
-function Load(){
+function Original(){
  if(cached)return cached;
  const hasKey=fs.existsSync(KEY_FILE),hasId=fs.existsSync(ID_FILE);
  if(!hasKey&&hasId)throw Error('CONNECT_SERVER_KEY_MISSING');
@@ -32,9 +32,11 @@ function Load(){
  else try{Publish(ID_FILE,keyId+'\n');}catch(error){if(error.code!=='EEXIST'||fs.readFileSync(ID_FILE,'utf8')!==keyId+'\n')throw error;}
  cached={privateKey,publicKey,keyId,serverPublicKey:blob.toString('base64')};return cached;
 }
+function Load(){return require('./desktopTransportRotation').Active(Original());}
+function Resolve(keyId){return require('./desktopTransportRotation').Resolve(keyId,Original());}
 function Profile(){
  const {host,port,ready}=require('./connectEndpoint').Resolve();
  if(!ready)require('./desktopLicenses').Fail('CONNECT_PUBLIC_ENDPOINT_REQUIRED',503);
  const identity=Load();return {version:4,protocol:'GAME-CONNECT-4',host,port,serverKeyId:identity.keyId,serverPublicKey:identity.serverPublicKey,...require('./connectTls').Public()};
 }
-module.exports={Load,Profile,PublicBlob,KEY_FILE,ID_FILE};
+module.exports={Load,Original,Resolve,Profile,PublicBlob,KEY_FILE,ID_FILE};

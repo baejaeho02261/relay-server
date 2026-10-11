@@ -6,11 +6,12 @@ const state=require('../core/state');
 const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
 function IsMutation(pathname) {
-  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|ci-signers|ci-evidence|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
+  if(/^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint)$/.test(pathname))return true;
+  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|ci-signers|ci-evidence|mitigation-profiles|tls-pin-transition|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
 }
 function Identities() {
   const text=process.env.DESKTOP_APPROVER_IDENTITIES_JSON||'{}';
-  let map;try{map=JSON.parse(text);}catch(_){return null;}
+  let map;try{map=require('./strictJson').Parse(text,{maxBytes:65536});}catch(_){return null;}
   if(!map||Array.isArray(map)||Object.getPrototypeOf(map)!==Object.prototype||Object.keys(map).length>128)return null;
   if(Object.entries(map).some(([k,v])=>!/^[A-F0-9]{24}$/.test(k)||typeof v!=='string'||!/^[A-Za-z0-9][A-Za-z0-9_.@-]{0,127}$/.test(v)))return null;
   return map;
@@ -28,10 +29,23 @@ function SingleOperatorPath(pathname) {
   return typeof pathname==='string' && (pathname.startsWith('/api/desktop/bootstrap/') || pathname.startsWith('/api/desktop/workspace/') ||
     pathname==='/api/production/passkeys/revoke' || pathname==='/api/production/passkeys/register/begin' || pathname==='/api/production/passkeys/register/finish');
 }
-function ReauthenticationRequired(pathname) {
-  return process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1' && IsMutation(pathname);
+// Mandatory trust-changing operations. Candidate uploads, read-only previews,
+// release planning and normal launcher/license operations are NOT step-up gates.
+// Replacing trust policy/measurement baselines, publishing an execution cohort,
+// changing evidence used by live authorization and recovery always are.
+function CriticalMutation(pathname) {
+  if (typeof pathname !== 'string') return false;
+  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) ||
+    /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|module-baselines)$/.test(pathname) ||
+    /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|ci-signers|ci-evidence|mitigation-profiles|tls-pin-transition|recovery\/(?:prepare|apply))$/.test(pathname) ||
+    /^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint)$/.test(pathname);
 }
-function CheckSession(session, pathname='') {
+function ReauthenticationRequired(pathname, method = 'POST') {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(String(method).toUpperCase())) return false;
+  // The legacy flag may extend the gate; 0/unset can never disable its floor.
+  return CriticalMutation(pathname) || process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1' && IsMutation(pathname);
+}
+function CheckSession(session, pathname='', method='POST') {
   if(!session||session.role!=='admin'||typeof session.id!=='string'||!session.id)
     return {ok:false,status:403,reason:'ADMIN_REQUIRED'};
   const webAuth=require('../web/webAuth');
@@ -39,7 +53,7 @@ function CheckSession(session, pathname='') {
     return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
   if(Object.hasOwn(session,'expiresAt')&&(!Number.isSafeInteger(session.expiresAt)||session.expiresAt<=Date.now()))
     return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
-  if(ReauthenticationRequired(pathname)&&!require('../web/webAuth').HasRecentAuthentication(session))
+  if(ReauthenticationRequired(pathname,method)&&!require('../web/webAuth').HasRecentAuthentication(session))
     return {ok:false,status:428,reason:'ADMIN_REAUTH_REQUIRED'};
   if(!pathname||SingleOperatorPath(pathname))return {ok:true,mode:'SINGLE_ADMIN'};
   if(StepUpRequired()&&!Recent(session))return {ok:false,status:428,reason:'SECURITY_ADMIN_STEP_UP_REQUIRED'};
@@ -49,7 +63,9 @@ function CheckSession(session, pathname='') {
 function Status(){return {mode:'SINGLE_ADMIN',stepUpRequired:false,dualApprovalRequired:false,
   identityConfigurationValid:true,provisionedPrincipalCount:0,stepUpLifetimeMs:0,
   identitySource:'EXISTING_ADMIN_SESSION',humanIdentityProof:false,
-  recentReauthenticationRequired:process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1',
+  recentReauthenticationRequired:true,
+  reauthenticationScope:process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1'?'ALL_DECLARED_MUTATIONS':'CRITICAL_MUTATIONS',
+  criticalReauthenticationMandatory:true,
   reauthenticationLifetimeMs:require('../web/webAuth').REAUTH_MS};}
 function Begin(session,req){const check=CheckSession(session);return check.ok?{ok:false,reason:'SECURITY_DESKTOP_PASSKEY_NOT_USED'}:check;}
 function Finish(session,req,body){return Begin(session,req);}
@@ -62,7 +78,7 @@ function SinglePermit(session,method,path,body){
 function ConsumeSingleAuthorization(ticket,session,method,path,body){
   const grant=ticket&&singleAuthorizations.get(ticket);
   if(grant)singleAuthorizations.delete(ticket);
-  return !!grant&&CheckSession(session,path).ok&&grant.session===session&&grant.id===session.id&&
+  return !!grant&&CheckSession(session,path,method).ok&&grant.session===session&&grant.id===session.id&&
     grant.method===method&&grant.path===path&&grant.expiresAt>Date.now()&&
     grant.digest===require('./privilegedApproval').Digest(method,path,body);
 }
@@ -79,7 +95,7 @@ function Summary(path,body){
   return out;
 }
 function Authorize(session,method,path,body,ticketId){
-  const check=CheckSession(session,path);if(!check.ok)return check;
+  const check=CheckSession(session,path,method);if(!check.ok)return check;
   if(path==='/api/desktop/bootstrap/security-operations/enable-all'){
     try{require('./desktopSecurityActivation').CheckRequest(body,session);}
     catch(e){return{ok:false,status:e.desktopError?e.status:503,reason:e.desktopError?e.message:'SECURITY_ACTIVATION_CHECK_FAILED'};}
@@ -98,4 +114,4 @@ function Authorize(session,method,path,body,ticketId){
   }
   return{ok:false,status:428,reason:used.reason};
 }
-module.exports={ReauthenticationRequired,SingleOperatorPath,ConsumeSingleAuthorization,ProvisionedCredential,IsMutation,Identity,Recent,MarkVerified,CheckSession,Status,Begin,Finish,Summary,Authorize};
+module.exports={CriticalMutation,ReauthenticationRequired,SingleOperatorPath,ConsumeSingleAuthorization,ProvisionedCredential,IsMutation,Identity,Recent,MarkVerified,CheckSession,Status,Begin,Finish,Summary,Authorize};

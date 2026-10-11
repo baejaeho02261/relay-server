@@ -2,7 +2,7 @@
 const tls=require('node:tls'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require('./desktopLicenses'),identity=require('./connectTransportKey');
 const PROTOCOL='GAME-CONNECT-4',MAX_FRAME=65536,MAX_CLEAR=32768,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
-const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),rates=new Map(),activeByIp=new Map();
+const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),pendingReplays=new Set(),rates=new Map(),activeByIp=new Map();
 const work=require('./desktopWorkQueue'),{performance}=require('node:perf_hooks');
 let active=0,lastPrune=0,listener=null;
 const rawDeadlines=new Map();
@@ -12,17 +12,24 @@ function Plain(value){return !!value&&typeof value==='object'&&!Array.isArray(va
 function Prune(){const at=Date.now();if(at-lastPrune<1000)return;lastPrune=at;for(const [id,until]of seen)if(until<=at)seen.delete(id);for(const [id,row]of rates)if(row.until<=at)rates.delete(id);}
 function Rate(key,limit){let row=rates.get(key);if(!row||row.until<=Date.now()){row={until:Date.now()+60000,count:0};rates.set(key,row);}if(rates.size>12000||++row.count>limit)throw Error('CONNECT_RATE_LIMIT');}
 function Base64(value,min,max=min){if(typeof value!=='string'||value.length>Math.ceil(max/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(value))throw Error('CONNECT_FRAME_INVALID');const bytes=Buffer.from(value,'base64');if(bytes.length<min||bytes.length>max||bytes.toString('base64')!==value)throw Error('CONNECT_FRAME_INVALID');return bytes;}
-async function Open(frame,budgetMs){
+async function Open(frame,budgetMs,peerKey=''){
  if(!Plain(frame)||Object.keys(frame).sort().join(',')!=='ciphertext,keyId,nonce,requestId,tag,v,wrappedKey'||frame.v!==1||!/^([a-f0-9]{64})$/.test(frame.keyId||'')||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(frame.requestId||''))throw Error('CONNECT_FRAME_INVALID');
- const server=identity.Load();if(frame.keyId!==server.keyId)throw Error('CONNECT_PIN_MISMATCH');
- const transportId=frame.requestId.toLowerCase();if(seen.has(transportId))throw Error('CONNECT_REPLAY');if(seen.size>=MAX_REPLAYS)throw Error('CONNECT_CAPACITY');
+ const server=identity.Resolve(frame.keyId);
+ Prune();const transportId=frame.requestId.toLowerCase();
+ if(seen.has(transportId)||pendingReplays.has(transportId))throw Error('CONNECT_REPLAY');
+ if(seen.size+pendingReplays.size>=MAX_REPLAYS)throw Error('CONNECT_CAPACITY');
  const wrappedKey=Base64(frame.wrappedKey,256),nonce=Base64(frame.nonce,12),ciphertext=Base64(frame.ciphertext,1,MAX_CLEAR),tag=Base64(frame.tag,16);
- // Reserve before awaiting: concurrent copies cannot enter the RSA queue.
- seen.set(transportId,Date.now()+REPLAY_MS);
+ // A reservation blocks concurrent copies but is NOT an authenticated replay.
+ // Queue rejection, timeout, bad RSA/GCM and invalid clear JSON all release it.
+ pendingReplays.add(transportId);
  let value;
- try{value=await work.auth.run({kind:'open',privateKey:server.privateKey,wrappedKey,nonce,ciphertext,tag,aad:Aad('REQUEST',frame.requestId,server.keyId)},budgetMs);
-  return {key:Buffer.from(value.key),nonce,requestId:frame.requestId,keyId:server.keyId,payload:value.payload};
- }finally{value?.key?.fill(0);}
+ try{value=await work.auth.run({kind:'open',privateKey:server.privateKey,wrappedKey,nonce,ciphertext,tag,aad:Aad('REQUEST',frame.requestId,server.keyId)},budgetMs,{key:peerKey});
+  const opened={key:Buffer.from(value.key),nonce,requestId:frame.requestId,keyId:server.keyId,payload:value.payload};
+  // Retain authenticated envelopes even if business authorization later fails.
+  // Removing those entries would allow an authenticated request to be replayed.
+  seen.set(transportId,Date.now()+REPLAY_MS);
+  return opened;
+ }finally{pendingReplays.delete(transportId);value?.key?.fill(0);}
 
 }
 function Seal(opened,result){
@@ -30,14 +37,21 @@ function Seal(opened,result){
  const cipher=crypto.createCipheriv('aes-256-gcm',opened.key,nonce,{authTagLength:16});cipher.setAAD(Aad('RESPONSE',opened.requestId,opened.keyId));
  const clear=Buffer.from(JSON.stringify(result),'utf8');try{if(clear.length>MAX_RESPONSE_CLEAR)throw Error('CONNECT_RESPONSE_TOO_LARGE');const ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);return {v:1,requestId:opened.requestId,nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};}finally{clear.fill(0);opened.key.fill(0);}
 }
-function Dispatch(opened){
- const payload=opened.payload;
+async function Dispatch(opened,absoluteDeadline){
+ const payload=opened.payload;let devicePrepared;
  try{
-  if(!Plain(payload)||Object.keys(payload).sort().join(',')!=='body,operation'||!Plain(payload.body)||!['challenge','execute','bootstrap','report','security'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
+  if(!Plain(payload)||!['body,operation','body,operation,tlsPinVersion'].includes(Object.keys(payload).sort().join(','))||(payload.tlsPinVersion!==undefined&&payload.tlsPinVersion!==1)||!Plain(payload.body)||!['challenge','execute','bootstrap','report','security','device'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
   require('./desktopRequestProtocol').Resolve(payload.operation,payload.body.action);
   if(typeof payload.body.deviceId==='string')Rate('DEVICE:'+payload.body.deviceId.slice(0,100),40);
-  const data=payload.operation==='security'?require('./desktopSecurityAuthority').Execute(payload.body):payload.operation==='report'?require('./desktopIntegrityReports').Execute(payload.body):payload.operation==='bootstrap'?require('./desktopBootstrap').Execute(payload.body):payload.operation==='challenge'?desktop.Challenge(payload.body):desktop.Execute(payload.body);return {ok:true,data};
- }catch(error){const code=error.desktopError?error.message:error.message==='CONNECT_RATE_LIMIT'?'DESKTOP_RATE_LIMIT':'INPUT_INVALID';require('./desktopRuntimeDiagnostics').Record(payload?.operation,payload?.body,code);return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}
+  // A retired server certificate must not authorize side effects, including
+  // callers that did not request a transition offer. Check again after queued
+  // proof work: waiting cannot extend the authenticated certificate window.
+  const pinTransition=require('./desktopTlsPinTransition');pinTransition.Offer();
+  if(payload.operation==='device')devicePrepared=await require('./desktopDeviceIdentity').PrepareTpm(payload.body,absoluteDeadline);
+  const execute=()=>{require('./desktopTransportRotation').AssertUse(opened.keyId,payload);pinTransition.Offer();return payload.operation==='device'?require('./desktopDeviceIdentity').Handle(payload.body,devicePrepared):payload.operation==='security'?require('./desktopSecurityAuthority').Execute(payload.body):payload.operation==='report'?require('./desktopIntegrityReports').Execute(payload.body):payload.operation==='bootstrap'?require('./desktopBootstrap').Execute(payload.body):payload.operation==='challenge'?desktop.Challenge(payload.body):desktop.Execute(payload.body);};
+  const proofWork=require('./desktopProofWork'),jobs=proofWork.Prepare(payload.operation,payload.body);
+  const data=await proofWork.Run(jobs,execute,{deadline:absoluteDeadline,key:String(payload.body.sessionId||payload.body.flowId||payload.body.deviceId||'').slice(0,160),renewal:work.IsRenewal(payload.operation,payload.body.action)||payload.operation==='security'&&payload.body.intent==='verify'});return {ok:true,data};
+ }catch(error){const code=error.desktopError?error.message:['CONNECT_RATE_LIMIT','WORK_QUEUE_BUSY'].includes(error.message)?'DESKTOP_RATE_LIMIT':['CONNECT_DEADLINE','WORK_DEADLINE'].includes(error.message)?'CONNECT_DEADLINE':'INPUT_INVALID';require('./desktopRuntimeDiagnostics').Record(payload?.operation,payload?.body,code);return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}finally{devicePrepared?.secret?.fill(0);}
 }
 function Accept(socket){
  let buffer=Buffer.alloc(0),complete=false;
@@ -51,8 +65,8 @@ function Accept(socket){
   // One LF-delimited JSON request is accepted. CRLF from ReadLn clients is
   // supported; a second frame or trailing bytes are never pipelined.
   if(end!==buffer.length-1)return socket.destroy();
-  let opened;try{const raw=buffer.subarray(0,end);opened=await Open(require('./strictJson').Parse(raw,{maxBytes:MAX_FRAME}),absoluteDeadline-performance.now());if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const result=Dispatch(opened);if(['verify','overlayVerify'].includes(opened.payload?.body?.action))work.Renewal(result.ok);if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const response=Seal(opened,result),wire=JSON.stringify(response)+'\n';if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');socket.end(wire);}
-  catch(_){opened?.key.fill(0);socket.destroy();}
+  let opened,renewalRecorded=false;try{const raw=buffer.subarray(0,end);opened=await Open(require('./strictJson').Parse(raw,{maxBytes:MAX_FRAME}),absoluteDeadline-performance.now(),String(socket.remoteAddress||'UNKNOWN'));if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const result=await Dispatch(opened,absoluteDeadline);if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');if(opened.payload.tlsPinVersion===1){const plan=require('./desktopTlsPinTransition').Offer();if(plan)result.tlsPinPlan=plan;}const response=Seal(opened,result),wire=JSON.stringify(response)+'\n';if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');socket.end(wire);work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,result.ok);renewalRecorded=true;}
+  catch(_){if(opened&&!renewalRecorded)work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,false);opened?.key.fill(0);socket.destroy();}
  });
 }
 function CreateServer(){

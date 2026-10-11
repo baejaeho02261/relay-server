@@ -30,7 +30,7 @@ function ReservePurpose(cert){const leaf=new crypto.X509Certificate(cert);return
 function AssertPurpose(cert){const leaf=new crypto.X509Certificate(cert);return require('./desktopKeyPurposes').Assert(leaf.publicKey,'SERVER_TLS');}
 function Pointer(bytes){
  const text=bytes.toString('utf8');if(/^[a-f0-9]{64}\n$/.test(text))return {legacy:true,fingerprint:text.trim(),directory:DIR};
- let value;try{value=JSON.parse(text);}catch(_){Fail('CONNECT_TLS_IDENTITY_INVALID');}
+ let value;try{value=require('./strictJson').Parse(bytes,{maxBytes:512});}catch(_){Fail('CONNECT_TLS_IDENTITY_INVALID');}
  if(!value||Object.keys(value).sort().join(',')!=='fingerprint,generation,version'||value.version!==2||!/^[a-f0-9]{48}$/.test(value.generation)||!/^[a-f0-9]{64}$/.test(value.fingerprint))Fail('CONNECT_TLS_IDENTITY_INVALID');
  return {legacy:false,fingerprint:value.fingerprint,generation:value.generation,directory:path.join(DIR,value.generation)};
 }

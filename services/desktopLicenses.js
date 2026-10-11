@@ -8,11 +8,11 @@ const challenges=new Map(),seen=new Map(),verifyReceipts=new Map();
 let authorityLoaded=false;
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const now=()=>Date.now();
-const messages={DESKTOP_SINGLE_USE_ONLY:'라이선스는 기간제 없이 1회용으로만 발급할 수 있습니다.',INPUT_INVALID:'입력 내용을 확인해 주세요.',HTTPS_REQUIRED:'HTTPS 서버 주소를 사용해 주세요.',DESKTOP_BROWSER_FORBIDDEN:'Windows 앱에서 다시 요청해 주세요.',DESKTOP_KEY_INVALID:'라이선스 키를 확인해 주세요.',DESKTOP_KEY_USED:'이미 사용한 라이선스 키입니다.',DESKTOP_REVOKED:'관리자가 이 라이선스를 해지했습니다.',DESKTOP_RELEASED:'연결 해제된 라이선스입니다. 새 키가 필요합니다.',DESKTOP_EXPIRED:'라이선스가 만료되었습니다.',DESKTOP_DEVICE_MISMATCH:'라이선스가 연결된 Windows 기기에서 실행해 주세요.',DESKTOP_ACTIVATION_INVALID:'인증 정보를 확인할 수 없습니다. 라이선스를 다시 확인해 주세요.',DESKTOP_PROOF_INVALID:'기기 서명을 확인하지 못했습니다.',DESKTOP_CHALLENGE_EXPIRED:'인증 요청이 만료되었습니다. 다시 시도해 주세요.',DESKTOP_REQUEST_REUSED:'요청 번호가 다른 작업에 사용되었습니다.',DESKTOP_RATE_LIMIT:'요청이 많습니다. 잠시 후 다시 시도해 주세요.',DESKTOP_CAPACITY:'인증 요청이 많습니다. 잠시 후 다시 시도해 주세요.',SERVICE_DISABLED:'서비스가 일시 중지되었습니다.',STORAGE_SAVE_FAILED:'저장하지 못했습니다. 같은 요청으로 다시 시도해 주세요.'};
+const messages={CONNECT_NEW_LAUNCHER_REQUIRED:'서버 연결 설정이 변경되었습니다. 새 A를 발급받아 실행하세요.',CONNECT_PIN_RETIRED:'기존 서버 연결 키의 사용 기간이 종료되었습니다. 새 A로 실행하세요.',DESKTOP_SINGLE_USE_ONLY:'라이선스는 기간제 없이 1회용으로만 발급할 수 있습니다.',INPUT_INVALID:'입력 내용을 확인해 주세요.',HTTPS_REQUIRED:'HTTPS 서버 주소를 사용해 주세요.',DESKTOP_BROWSER_FORBIDDEN:'Windows 앱에서 다시 요청해 주세요.',DESKTOP_KEY_INVALID:'라이선스 키를 확인해 주세요.',DESKTOP_KEY_USED:'이미 사용한 라이선스 키입니다.',DESKTOP_REVOKED:'관리자가 이 라이선스를 해지했습니다.',DESKTOP_RELEASED:'연결 해제된 라이선스입니다. 새 키가 필요합니다.',DESKTOP_EXPIRED:'라이선스가 만료되었습니다.',DESKTOP_DEVICE_MISMATCH:'라이선스가 연결된 Windows 기기에서 실행해 주세요.',DESKTOP_ACTIVATION_INVALID:'인증 정보를 확인할 수 없습니다. 라이선스를 다시 확인해 주세요.',DESKTOP_PROOF_INVALID:'기기 서명을 확인하지 못했습니다.',DESKTOP_CHALLENGE_EXPIRED:'인증 요청이 만료되었습니다. 다시 시도해 주세요.',DESKTOP_REQUEST_REUSED:'요청 번호가 다른 작업에 사용되었습니다.',DESKTOP_RATE_LIMIT:'요청이 많습니다. 잠시 후 다시 시도해 주세요.',DESKTOP_CAPACITY:'인증 요청이 많습니다. 잠시 후 다시 시도해 주세요.',SERVICE_DISABLED:'서비스가 일시 중지되었습니다.',STORAGE_SAVE_FAILED:'저장하지 못했습니다. 같은 요청으로 다시 시도해 주세요.'};
 Object.assign(messages,require('./desktopBootstrap').messages,{DESKTOP_MACHINE_INVALID:'PC 식별 정보를 확인하지 못했습니다.',DESKTOP_MACHINE_BLOCKED:'이 PC는 이미 사용되었습니다. 관리자가 차단을 해제해야 새로 사용할 수 있습니다.',DESKTOP_MACHINE_AUTOMATIC_ONLY:'PC 차단은 라이선스 사용 시 자동 적용됩니다. 관리자는 해제만 할 수 있습니다.',DESKTOP_MACHINE_SESSION_REVOKED:'PC 정책 변경으로 이전 연결이 종료되었습니다. 새 프로그램으로 시작해 주세요.',DESKTOP_BINARY_INVALID:'등록된 실행 파일과 일치하지 않습니다.'});
 function Fail(code,status=400){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
 function Empty(){return {schema:1,revision:0,signingSecret:'',licenses:{},receipts:{}};}
-function DB(){if(!authorityLoaded)Import(undefined);return state.desktopLicenses||(state.desktopLicenses=Empty());}
+function DB(){require('./desktopJournal').AssertHealthy();if(!authorityLoaded)Import(undefined);return state.desktopLicenses||(state.desktopLicenses=Empty());}
 function Plain(value){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype;}
 function Import(value){
  const journal=require('./desktopJournal').Load();
@@ -33,14 +33,49 @@ function Import(value){
  state.desktopLicenses=structuredClone(value);authorityLoaded=true;challenges.clear();seen.clear();verifyReceipts.clear();
 }
 function Available(){if(!state.serviceEnabled||state.maintenanceMode||!require('./haCoordinator').CanAcceptTraffic())Fail('SERVICE_DISABLED',503);}
-function Atomic(fn){
+function Atomic(fn,commitOptions){
  if(!require('./haCoordinator').CanAcceptTraffic())Fail('SERVICE_DISABLED',503);const previous=structuredClone(DB());
  let committed=false;
- try{const result=fn();DB().revision++;require('./desktopJournal').Commit(previous,DB());committed=true;
+ try{const result=fn();DB().revision++;require('./desktopJournal').Commit(previous,DB(),commitOptions);committed=true;
   // The journal has committed. A failed JSON/SQLite mirror must never roll a
   // consumed key back to AVAILABLE; the next start recovers from the journal.
   if(!require('../storage/database').SaveDatabase())console.error('DESKTOP_MIRROR_SAVE_FAILED: durable journal commit retained');return result;}
  catch(error){if(!committed)state.desktopLicenses=previous;if(error.desktopError)throw error;Fail('STORAGE_SAVE_FAILED',503);}
+}
+// An authenticated full-state marker is committed before rotating the active
+// journal. Response loss cannot unconsume a key; a failed rotation needs restart.
+function CreateCheckpoint(body,actor='ADMIN'){
+ if(!Plain(body)||Object.keys(body).some(k=>!['requestId','expectedRevision'].includes(k))||!/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId||'')||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)Fail('INPUT_INVALID');
+ const key='CHECKPOINT:'+hash(actor+'\n'+body.requestId),fingerprint=hash(JSON.stringify({expectedRevision:body.expectedRevision})),old=DB().receipts[key];
+ const journal=require('./desktopJournal');
+ const requireIdle=()=>{const executionState=require('./desktopBootstrapStore').Load();if([Object.values(executionState.flows),Object.values(executionState.overlays||{})].flat().some(r=>!['CLOSED','REVOKED','EXPIRED'].includes(r.status)))Fail('DESKTOP_CHECKPOINT_ACTIVE_EXECUTIONS',409);};
+ if(old){
+  if(old.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
+  let progress=journal.CheckpointStatus(old.revision);
+  if(progress.resumable){requireIdle();progress=journal.Rotate();}
+  try{ReconcileCheckpoints();}catch(_){console.error('JOURNAL_CHECKPOINT_AUDIT_PENDING');}
+  return {duplicate:true,committed:true,revision:old.revision,...progress,journal:journal.Status()};
+ }
+ if(DB().revision!==body.expectedRevision)Fail('DESKTOP_REVISION_CONFLICT',409);
+ requireIdle();
+ const audit=require('./desktopOperationAudit'),op=audit.Begin('JOURNAL_CHECKPOINT',actor,{revision:DB().revision});
+ try{
+  Atomic(()=>{const receipt={fingerprint,revision:DB().revision+1,operationId:op.operationId,at:Date.now(),checkpointIntent:op.intent};DB().receipts[key]=receipt;},{fullSnapshot:true});
+ }catch(e){audit.Failed(op,e);throw e;}
+ const rotated=require('./desktopJournal').Rotate();
+ // The checkpoint operation itself is recoverable from the durable receipt.
+ try{ReconcileCheckpoints();}catch(_){console.error('JOURNAL_CHECKPOINT_AUDIT_PENDING');}
+ return {committed:true,revision:DB().revision,...rotated};
+}
+function ReconcileCheckpoints(){
+ let repaired=0;const audit=require('../storage/audit');
+ for(const [key,r]of Object.entries(DB().receipts))if(key.startsWith('CHECKPOINT:')){
+  if(!Plain(r)||!Number.isSafeInteger(r.revision)||r.revision<1||r.revision>DB().revision||!/^[a-f0-9]{64}$/.test(r.operationId||'')||r.checkpointIntent?.operationId!==r.operationId||r.checkpointIntent?.phase!=='INTENT')Fail('DESKTOP_STORAGE_INVALID',503);
+  const intent=audit.AppendOperationEvent(r.checkpointIntent.auditEventId,'DESKTOP_SERVER_OPERATION',r.checkpointIntent);
+  const commit=audit.AppendOperationEvent(hash(r.operationId+'\nCHECKPOINT_COMMITTED'),'DESKTOP_JOURNAL_CHECKPOINT',{operationId:r.operationId,phase:'COMMITTED',revision:r.revision});
+  if(!intent.ok||!commit.ok)Fail('STORAGE_SAVE_FAILED',503);
+  if(intent.duplicate!==true||commit.duplicate!==true)repaired++;
+ }return repaired;
 }
 function Status(row){if(row.status==='REVOKED')return row.status;if(row.expiresAt&&row.expiresAt<=now())return 'EXPIRED';return row.consumed?'USED':'AVAILABLE';}
 function Public(row){const current=seen.get(row.id),durable=require('./desktopBootstrap').LicenseActivity(row.id),machine=row.machineId?machinePolicy.Public(row.machineId):null,machineSessionRevoked=!!machine&&(row.machinePolicyGeneration!==machine.generation||machine.blocked&&!(machine.source==='SINGLE_USE'&&machine.allowedSessionId===row.bootstrapSessionId)),active=Status(row)==='USED'&&!row.releasedAt&&row.status!=='RELEASED'&&!machineSessionRevoked;return {id:row.id,displayId:row.id.replace(/^DL-/,''),label:row.label,status:Status(row),issuedAt:row.issuedAt,activatedAt:row.activatedAt||0,expiresAt:row.expiresAt,consumed:row.consumed,deviceId:row.deviceId||'',deviceName:row.deviceName||'',machineId:row.machineId||'',machineBlocked:!!machine?.blocked,machinePolicy:machine,machineSessionRevoked,binarySha512:row.binarySha512||'',binaryCrc64:row.binaryCrc64||'',codeSha512:row.codeSha512||'',codeCrc64:row.codeCrc64||'',appVersion:current?.appVersion||durable?.appVersion||row.appVersion||'',lastVerifiedAt:Math.max(current?.at||0,durable?.lastVerifiedAt||0,row.activatedAt||0),leaseExpiresAt:active?Math.max(current?.leaseExpiresAt||0,durable?.leaseExpiresAt||0):0,bootstrapSessionId:row.bootstrapSessionId||durable?.sessionId||'',revokedAt:row.revokedAt||0,releasedAt:row.releasedAt||0,reason:row.reason||''};}
@@ -78,9 +113,9 @@ function NewRow(body,actor){
 function Detail(id){const row=DB().licenses[id];if(!row)Fail('DESKTOP_KEY_INVALID',404);return {license:Public(row)};}
 function AdminReceipt(action,id,body,actor,fn){
  if(!Plain(body))Fail('INPUT_INVALID');
- let requestId;try{requestId=requestProtocol.RequestId(body);}catch(_){Fail('INPUT_INVALID');}
+ let requestId;try{requestId=requestProtocol.RequestId(body,{legacy:false});}catch(_){Fail('INPUT_INVALID');}
  requestProtocol.Purpose('admin.license.'+action);
- const key=requestId?'ADMIN:'+hash(String(actor))+':'+requestId:'LEGACY_ADMIN:'+crypto.randomBytes(24).toString('hex');
+ const key='ADMIN:'+hash(String(actor))+':'+requestId;
  // Keep the legacy fingerprint bytes so existing durable receipts still work.
  const fingerprint=hash(JSON.stringify({action,id,body})),old=DB().receipts[key];
  if(old){
@@ -130,7 +165,7 @@ function Challenge(body){
  return {challengeId:value.challengeId,nonce:value.nonce,expiresAt:value.expiresAt,canonical:Canonical(value)};
 }
 function Payload(body){
- const raw=body.payloadJSON??body.payloadJson;if(typeof raw!=='string'||Buffer.byteLength(raw,'utf8')>4096)Fail('INPUT_INVALID');let p;try{p=JSON.parse(raw);}catch(_){Fail('INPUT_INVALID');}
+ const raw=body.payloadJSON??body.payloadJson;if(typeof raw!=='string'||Buffer.byteLength(raw,'utf8')>4096)Fail('INPUT_INVALID');let p;try{p=require('./strictJson').Parse(raw,{maxBytes:4096});}catch(_){Fail('INPUT_INVALID');}
  if(!Plain(p))Fail('INPUT_INVALID');const fields=body.action==='redeem'?['licenseKey','deviceName','appVersion','bootstrapSessionId','bootstrapSessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64']:['activationToken','appVersion','bootstrapSessionId','bootstrapSessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64'];if(Object.keys(p).some(k=>!fields.includes(k)))Fail('INPUT_INVALID');
  machinePolicy.Validate(p.machineId);if(!/^[a-f0-9]{128}$/.test(p.binarySha512||'')||!/^[A-F0-9]{16}$/.test(p.binaryCrc64||''))Fail('DESKTOP_BINARY_INVALID',403);
  if(!/^[a-f0-9]{128}$/.test(p.codeSha512||'')||!/^[A-F0-9]{16}$/.test(p.codeCrc64||''))Fail('DESKTOP_BINARY_INVALID',403);
@@ -146,24 +181,26 @@ function Lease(row,appVersion){const leaseExpiresAt=Math.min(now()+LEASE_MS,row.
 function Operation(receiptKey,fingerprint){return {operationId:hash('GAME-LICENSE-OP-V1\n'+receiptKey+'\n'+fingerprint),operationRevision:DB().revision+1};}
 function AddAuditIntent(receipt,row,actor){
  const operationId=receipt.operationId||receipt.auditOperationId,operationRevision=receipt.operationRevision||receipt.auditOperationRevision;
- receipt.auditEvent={id:hash('GAME-LICENSE-AUDIT-V1\n'+operationId),type:receipt.action==='redeem'?'DESKTOP_LICENSE_USED':receipt.action==='release'?'DESKTOP_LICENSE_RELEASED':'DESKTOP_LICENSE_OPERATION_COMMITTED',detail:{operationId,operationRevision,action:receipt.action,id:row.id,deviceId:row.deviceId||'',status:Status(row),...(actor?{actor:String(actor).slice(0,120)}:{})}};
+ receipt.auditEvent={id:hash('GAME-LICENSE-AUDIT-V1\n'+operationId),type:receipt.action==='redeem'?'DESKTOP_LICENSE_USED':receipt.action==='release'?'DESKTOP_LICENSE_RELEASED':'DESKTOP_LICENSE_OPERATION_COMMITTED',detail:{operationId,operationRevision,action:receipt.action,id:row.id,deviceId:row.deviceId||'',status:Status(row),...(actor?{actorHash:hash(String(actor))}:{})}};
 }
-function DrainAudit(){
+function DrainAudit({reconcile=false}={}){
  let delivered=0;
  for(const receipt of Object.values(DB().receipts)){
   const intent=receipt.auditEvent;if(intent===undefined)continue;
   const operationId=receipt.operationId||receipt.auditOperationId,operationRevision=receipt.operationRevision||receipt.auditOperationRevision;
   if(!Plain(intent)||!Plain(intent.detail)||!/^[a-f0-9]{64}$/.test(operationId||'')||intent.id!==hash('GAME-LICENSE-AUDIT-V1\n'+operationId)||intent.detail.operationId!==operationId||intent.detail.operationRevision!==operationRevision||!Number.isSafeInteger(operationRevision)||operationRevision<1||operationRevision>DB().revision||!['DESKTOP_LICENSE_USED','DESKTOP_LICENSE_RELEASED','DESKTOP_LICENSE_OPERATION_COMMITTED'].includes(intent.type))Fail('DESKTOP_STORAGE_INVALID',503);
   const ackKey='AUDIT:'+intent.id,ack=DB().receipts[ackKey];
-  if(ack){if(ack.auditAckFor!==intent.id||!Number.isSafeInteger(ack.sequence)||ack.sequence<1||!/^[A-F0-9]{64}$/.test(ack.hash||''))Fail('DESKTOP_STORAGE_INVALID',503);continue;}
+  if(ack){if(ack.auditAckFor!==intent.id||!Number.isSafeInteger(ack.sequence)||ack.sequence<1||!/^[A-F0-9]{64}$/.test(ack.hash||''))Fail('DESKTOP_STORAGE_INVALID',503);if(!reconcile)continue;}
   let result;try{result=require('../storage/audit').AppendOperationEvent(intent.id,intent.type,intent.detail);}catch(_){Fail('STORAGE_SAVE_FAILED',503);}
   if(!result.ok)Fail('STORAGE_SAVE_FAILED',503);
-  Atomic(()=>{DB().receipts[ackKey]={auditAckFor:intent.id,sequence:result.sequence,hash:result.hash,at:now()};});
-  delivered++;
+  if(!ack)Atomic(()=>{DB().receipts[ackKey]={auditAckFor:intent.id,sequence:result.sequence,hash:result.hash,at:now()};});
+  // Reconcile revalidates acknowledged events too. A verified duplicate is not
+  // a repaired/missing event, while recovering its absent ACK still is work.
+  if(!ack||result.duplicate!==true)delivered++;
  }
  return delivered;
 }
-function ReconcileOperations(){const result=require('./desktopBootstrap').ReconcileLicenseOperations(DB());return {...result,auditRecovered:DrainAudit()};}
+function ReconcileOperations(){const result=require('./desktopBootstrap').ReconcileLicenseOperations(DB());return {...result,auditRecovered:DrainAudit({reconcile:true}),checkpointAuditRecovered:ReconcileCheckpoints()};}
 function BootstrapResult(result,payload,deviceId,action,operation={}){
  const row=DB().licenses[result.licenseId],replay=action==='verify'&&operation.projected===true;
  require('./desktopBootstrap').TouchLicense(payload.bootstrapSessionId,payload.bootstrapSessionToken,deviceId,row,action,{leaseExpiresAt:result.leaseExpiresAt||0,appVersion:payload.appVersion||'',...(replay?{replay:true}:{}),...(action==='verify'&&operation.originalAt?{originalAt:operation.originalAt,originalExpiresAt:operation.leaseExpiresAt}:{}),...(operation.operationId?{operationId:operation.operationId,operationRevision:operation.operationRevision}:{})});
@@ -180,7 +217,7 @@ function Execute(body){
  if(['action','requestId','deviceId','publicKey'].some(k=>body[k]!==c[k]))Fail('DESKTOP_PROOF_INVALID',401);
  const {payload,payloadHash}=Payload(body);if(payloadHash!==c.payloadHash)Fail('DESKTOP_PROOF_INVALID',401);
  if(typeof body.signature!=='string'||body.signature.length!==344||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('DESKTOP_PROOF_INVALID',401);
- const signature=Buffer.from(body.signature,'base64');if(signature.length!==256||signature.toString('base64')!==body.signature||!crypto.verify('sha256',Buffer.from(Canonical(c),'utf8'),{key:parsed.key,padding:crypto.constants.RSA_PKCS1_PADDING},signature))Fail('DESKTOP_PROOF_INVALID',401);
+ const signature=Buffer.from(body.signature,'base64');if(signature.length!==256||signature.toString('base64')!==body.signature||!require('./desktopProofWork').Verify(parsed.publicKey,Canonical(c),body.signature))Fail('DESKTOP_PROOF_INVALID',401);
  // Recheck after signature verification and again before any authorization mutation.
  RequireChallenge(c);
  const receiptKey=body.deviceId+':'+body.requestId,receipt=DB().receipts[receiptKey]||verifyReceipts.get(receiptKey),fingerprint=hash(body.action+'|'+payloadHash);
@@ -229,3 +266,12 @@ function Execute(body){
 }
 function RetireRuntime(row){for(const [id,value]of challenges)if(value.deviceId===row.deviceId)challenges.delete(id);for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);if(row.licenseId)seen.delete(row.licenseId);}
 module.exports={DrainAudit,ReconcileOperations,RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
+
+module.exports.InvalidateVolatile=function(){challenges.clear();seen.clear();verifyReceipts.clear();};
+module.exports.CreateCheckpoint=CreateCheckpoint;
+function ProofTasks(body){
+ const c=challenges.get(body.challengeId);if(!c)return [];
+ const parsed=Bind(body);return [require('./desktopProofWork').Job(parsed.publicKey,Canonical(c),body.signature)];
+}
+module.exports.ReconcileCheckpoints=ReconcileCheckpoints;
+module.exports.ProofTasks=ProofTasks;

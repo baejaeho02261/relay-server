@@ -40,4 +40,11 @@ function ValidateIdentity(row){
  if(delegated){if(!/^[A-F0-9]{64}$/.test(row.childNonce)||row.deviceId===row.parentDeviceId||!/^[a-f0-9]{128}$/.test(row.delegatedClaimFingerprint||'')||!Number.isSafeInteger(row.delegatedClaimRecoveryUntil)||row.delegatedClaimRecoveryUntil<row.claimedAt||row.delegatedClaimRecoveryUntil>Math.min(row.handoffExpiresAt||row.expiresAt,row.claimedAt+30000))throw Error('HANDOFF_STORE_INVALID');}
  else if(row.deviceId!==row.parentDeviceId||row.publicKey!==row.parentPublicKey||row.delegatedClaimFingerprint!==undefined||row.delegatedClaimRecoveryUntil!==undefined||row.status==='CLAIMED')throw Error('HANDOFF_STORE_INVALID');
 }
-module.exports={VERSION,MARKER,FIELDS,ArtifactVersion,Version,RequirePair,Canonical,Parent,Check,Fingerprint,ValidateIdentity};
+function ProofTasks(row,body,role,canonical){
+ const work=require('./desktopProofWork');
+ if(Version(row)!==VERSION)return [work.Job(row.publicKey,canonical,body.signature)];
+ const child=require('./desktopLicenses').ParseKey(body.childPublicKey),parent=Parent(row);
+ return [work.Job(parent.publicKey,Canonical('DELEGATION',role,canonical,child.deviceId,body.childNonce),body.delegationSignature),
+  work.Job(child.publicKey,Canonical('CLAIM',role,canonical,child.deviceId,body.childNonce),body.signature)];
+}
+module.exports={ProofTasks,VERSION,MARKER,FIELDS,ArtifactVersion,Version,RequirePair,Canonical,Parent,Check,Fingerprint,ValidateIdentity};

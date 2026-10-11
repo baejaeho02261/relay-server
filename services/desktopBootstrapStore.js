@@ -6,7 +6,10 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const config=require('../config/config');
 const DIR=path.join(config.DATA_DIR,'desktop-bootstrap'),FILE=path.join(DIR,'authority.json');
-let current,poisoned=false;
+let current,poisoned=false,commitCallbacks;
+const HEAD=FILE+'.head';
+function Anchor(value){return require('./desktopJournalHead').Create(HEAD,Buffer.from(value.secret,'hex'),'DESKTOP_BOOTSTRAP');}
+function Mark(value,raw){return {seq:value.revision,hash:crypto.createHash('sha256').update(raw).digest('hex')};}
 // Read-only compatibility with schema 1 authority. Historical bytes are explicit
 // migration constants, never the protocol or HMAC domain for new capabilities.
 const LEGACY_PROTOCOL=Buffer.from('4d4f41504c41592d434f4e4e4543542d31','hex').toString('ascii');
@@ -25,13 +28,24 @@ function Machine(x){return typeof x==='string'&&/^[A-F0-9]{64}$/.test(x);}
 function Invalid(){throw Error('BOOTSTRAP_STORAGE_INVALID');}
 function TokenHash(secret,domain,id,nonce,legacy=false){return crypto.createHash('sha256').update(crypto.createHmac('sha256',Buffer.from(secret,'hex')).update([legacy?LEGACY_TOKEN_DOMAIN:'GAME-A80',domain,id,nonce].join('|')).digest('base64url')).digest('hex');}
 function Load(){
+ if(poisoned)throw Error('BOOTSTRAP_STORAGE_RESTART_REQUIRED');
  if(current)return current;
  if(config.HA_ENABLED)throw Error('BOOTSTRAP_SINGLE_WRITER_REQUIRED');
  fs.mkdirSync(DIR,{recursive:true,mode:0o700});
  if(fs.existsSync(FILE)){
   const stat=fs.lstatSync(FILE);if(!stat.isFile()||stat.isSymbolicLink())throw Error('BOOTSTRAP_STORAGE_INVALID');
-  let value;try{value=JSON.parse(fs.readFileSync(FILE,'utf8'));}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
+  let value,raw;try{raw=require('./durableFile').ReadRegular(FILE);value=require('./strictJson').Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
   if(!Plain(value)||![1,2,3,4,5].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
+
+  Anchor(value).Open(Mark(value,raw),!fs.existsSync(HEAD));
+  if(value.transportKeyRotation!==undefined)require('./desktopTransportRotation').Validate(value.transportKeyRotation);
+  if(value.mitigationProfiles!==undefined)require('./desktopMitigationProfiles').ValidateStore(value.mitigationProfiles);
+  if(value.tlsPinTransition!==undefined)require('./desktopTlsPinTransition').Validate(value.tlsPinTransition);
+  if(value.serverRecovery!==undefined)require('./desktopRecovery').Validate(value);
+  if(value.serverAuditOutbox!==undefined)require('./desktopOperationAudit').Validate(value.serverAuditOutbox);
+  if(value.deviceRegistry!==undefined)require('./desktopDeviceRegistry').Validate(value.deviceRegistry);
+  if(value.deviceIdentity!==undefined)require('./desktopDeviceIdentity').Validate(value.deviceIdentity);
+  if(value.orphanQuarantine!==undefined)require('./desktopOrphanFiles').Validate(value.orphanQuarantine);
 
   if(value.schema<5){
    // Old native binaries have a different signed transcript and digest schema.
@@ -57,7 +71,7 @@ function Load(){
   if(value.securityOperations!==undefined){try{require('./desktopSecurityOperations').ValidateState(value.securityOperations);}catch(_){Invalid();}}
   if(value.securityActivation!==undefined){try{require('./desktopSecurityActivation').ValidateRecord(value.securityActivation);}catch(_){Invalid();}}
   if(value.securityAuthorityPolicy!==undefined){try{require('./desktopSecurityAuthority').ValidatePolicy(value.securityAuthorityPolicy);}catch(_){Invalid();}}
-  for(const artifact of Object.values(value.artifacts)){if(artifact.authorityVersion!==undefined&&![0,1].includes(artifact.authorityVersion)||artifact.compiledCfg!==undefined&&typeof artifact.compiledCfg!=='boolean')Invalid();}
+  for(const artifact of Object.values(value.artifacts)){if(artifact.tlsPinVersion!==undefined&&![0,1].includes(artifact.tlsPinVersion))Invalid();if(artifact.ownMeasurementVersion!==undefined&&![0,1].includes(artifact.ownMeasurementVersion))Invalid();if(artifact.measurementPlanVersion!==undefined&&![0,1].includes(artifact.measurementPlanVersion))Invalid();if(artifact.authorityVersion!==undefined&&![0,1].includes(artifact.authorityVersion)||artifact.compiledCfg!==undefined&&typeof artifact.compiledCfg!=='boolean')Invalid();}
   const legacy=false,upgrade=false,previousProtocol='',previousVersion=0;
   for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||!ExtendedFields(row)||row.id!==id||!['A','B','O'].includes(row.component)||row.hashVersion!==3||![1,3].includes(require('./desktopHandoffDelegation').Version(row))||row.protocol!==PROTOCOL||!['xxh3_128','codeXxh3_128','blake3','codeBlake3'].every(k=>typeof row[k]==='string')||!require('./desktopCrcPolicy').Validate(row.crcLayers)||!StrongDigest(row.sha512)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&(!Crc(row.crc64)||!StrongDigest(row.codeSha512)||!Crc(row.codeCrc64)||row.codeAlgorithm!=='PE64-CODE-V1'))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
   for(const row of Object.values(value.artifacts))if(row.deploymentManifestId!==undefined){
@@ -109,23 +123,33 @@ function Load(){
  return current;
 }
 function Write(value,initial=false){
- const temporary=FILE+'.'+crypto.randomBytes(12).toString('hex')+'.tmp';let fd,published=false;
+ const bytes=Buffer.from(JSON.stringify(value)),next=Mark(value,bytes);let previous,previousValue,published=false;
  try{
-  fd=fs.openSync(temporary,'wx',0o600);fs.writeFileSync(fd,JSON.stringify(value));fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
-  if(initial){fs.linkSync(temporary,FILE);fs.unlinkSync(temporary);}else fs.renameSync(temporary,FILE);
-  published=true;SyncDir();
+  if(bytes.length>64*1024*1024)throw Error('BOOTSTRAP_STORAGE_CAPACITY');
+  if(!initial){const raw=require('./durableFile').ReadRegular(FILE);previousValue=require('./strictJson').Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});previous=Mark(previousValue,raw);if(previousValue.secret!==value.secret||next.seq!==previous.seq+1)throw Error('BOOTSTRAP_STORAGE_SEQUENCE_INVALID');Anchor(previousValue).Prepare(previous,next);}
+  require('./durableFile').Atomic(FILE,bytes,{createOnly:initial});published=true;
+  if(initial)Anchor(value).Open(next,true);else Anchor(value).Settle(next);
  }catch(error){
-  // Once rename succeeds, never allow a retry against rolled-back RAM. A
-  // directory-fsync error has an uncertain durable outcome and needs restart.
-  if(published)poisoned=true;
+  if(published||error.published)poisoned=true;
+  else if(previous)try{Anchor(previousValue).Open(previous);}catch(_){poisoned=true;}
   throw error;
- }finally{if(fd!==undefined)try{fs.closeSync(fd);}catch(_){}try{fs.unlinkSync(temporary);}catch(_){} }
+ }finally{bytes.fill(0);}
+}
+// In-memory cleanup that would reset a live capability's monotonic bound must
+// follow its durable terminal state. These callbacks are non-throwing cleanup;
+// a failed mutation/write drops the queue without changing existing bounds.
+function AfterCommit(callback){
+ if(typeof callback!=='function')throw Error('BOOTSTRAP_COMMIT_CALLBACK_INVALID');
+ if(commitCallbacks)commitCallbacks.push(callback);else callback();
 }
 function Atomic(fn){
  if(poisoned)throw Error('BOOTSTRAP_STORAGE_RESTART_REQUIRED');
- const before=Load(),next=structuredClone(before),result=fn(next);
- next.revision=before.revision+1;
- try{Write(next);current=next;}catch(error){if(poisoned)current=next;throw error;}
+ const before=Load(),next=structuredClone(before),previousCallbacks=commitCallbacks,callbacks=[];let result;
+ commitCallbacks=callbacks;
+ try{result=fn(next);next.revision=before.revision+1;Write(next);current=next;}
+ catch(error){if(poisoned){current=next;error.authorityMayBeCommitted=true;}throw error;}
+ finally{commitCallbacks=previousCallbacks;}
+ for(const callback of callbacks)callback();
  return result;
 }
 function ArtifactPath(id){if(!Identifier(id,'DA'))throw Error('BOOTSTRAP_ARTIFACT_INVALID');return path.join(DIR,id+'.exe');}
@@ -134,4 +158,4 @@ function PublishBytes(id,bytes){
  try{fd=fs.openSync(tmp,'wx',0o600);fs.writeFileSync(fd,bytes);fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;fs.linkSync(tmp,file);fs.unlinkSync(tmp);SyncDir();}
  finally{if(fd!==undefined)try{fs.closeSync(fd);}catch(_){}try{fs.unlinkSync(tmp);}catch(_){} }
 }
-module.exports={DIR,Load,Atomic,ArtifactPath,PublishBytes};
+module.exports={DIR,Load,Atomic,AfterCommit,ArtifactPath,PublishBytes};
