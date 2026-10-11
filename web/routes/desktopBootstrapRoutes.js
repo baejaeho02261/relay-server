@@ -1,15 +1,16 @@
 'use strict';
 const bootstrap=require('../../services/desktopBootstrap');
 const {RequireAdmin,Json,ApiError}=require('../apiContext');
+const {UploadError}=require('../../services/desktopPeCache');
 let uploadPending=false;
 function ErrorResponse(res,error){const code=error.desktopError?error.message:'BOOTSTRAP_INPUT_INVALID';Json(res,error.desktopError?error.status:400,{ok:false,error:code,reason:code,problem:require('../../services/desktopOperationsErrors').Explain(code),message:bootstrap.messages[code]||require('../../services/desktopLicenses').messages[code]||'실행 파일 요청을 처리하지 못했습니다.'});}
 function ReadBytes(req,maximum){
  if(!Number.isSafeInteger(maximum)||maximum<1||maximum>bootstrap.MAX_ARTIFACT_BYTES)return Promise.reject(Error('BOOTSTRAP_INPUT_INVALID'));
  return new Promise((resolve,reject)=>{
-  let done=false,size=0;const chunks=[],timer=setTimeout(()=>finish(Error('BOOTSTRAP_UPLOAD_TIMEOUT')),120000);timer.unref();
+  let done=false,size=0;const chunks=[],timer=setTimeout(()=>finish(UploadError('BOOTSTRAP_UPLOAD_TIMEOUT')),120000);timer.unref();
   function finish(error){if(done)return;done=true;clearTimeout(timer);if(error){chunks.length=0;req.resume();reject(error);}else resolve(Buffer.concat(chunks,size));}
   req.on('data',chunk=>{if(done)return;size+=chunk.length;if(size>maximum){const error=Error('BOOTSTRAP_ARTIFACT_TOO_LARGE');error.desktopError=true;error.status=413;return finish(error);}chunks.push(chunk);});
-  req.once('end',()=>finish());req.once('error',finish);req.once('aborted',()=>finish(Error('BOOTSTRAP_UPLOAD_ABORTED')));
+  req.once('end',()=>finish());req.once('error',finish);req.once('aborted',()=>finish(UploadError('BOOTSTRAP_UPLOAD_ABORTED')));
  });
 }
 // Raw PE uploads must be dispatched before the shared JSON-body parser. The
@@ -55,6 +56,7 @@ async function Handle({method,pathname,url,body,req,res,session,desktopAuthoriza
  if(!RequireAdmin(res,session))return true;
  const actor=String(session.role||'ADMIN')+':'+String(session.id||'');
  try{
+  if(['GET','HEAD'].includes(method))require('../../services/desktopOperationAudit').RecordAccess('ADMIN_BOOTSTRAP_READ','ADMIN:'+session.id);
   if(await require('./desktopSecurityRoutes').Handle({method,pathname,url,body,req,res,session,desktopAuthorization}))return true;
   if(pathname==='/api/desktop/bootstrap/security-authority'&&method==='GET'){Json(res,200,{ok:true,...require('../../services/desktopSecurityAuthority').List()});return true;}
   if(pathname==='/api/desktop/bootstrap/security-authority'&&method==='POST'){if(!require('../webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}if(!require('../../services/haCoordinator').CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}Json(res,200,{ok:true,policy:require('../../services/desktopSecurityAuthority').SetPolicy(body,actor)});return true;}

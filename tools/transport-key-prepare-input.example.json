@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "dataDirectory": "C:\\GameServer\\data",
+  "actor": "REPLACE_WITH_OPERATOR_ID",
+  "request": {
+    "requestId": "REPLACE_WITH_UNIQUE_REQUEST_ID",
+    "expectedRevision": 0
+  }
+}

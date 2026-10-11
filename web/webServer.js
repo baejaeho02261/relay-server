@@ -207,7 +207,7 @@ async function RequestHandler(req, res) {
         const limited = CheckLoginAttempt(req, body.role);
         if (!limited.ok) { AuthFailure(res, limited); return; }
         const result = require('../services/passkeyAuth').LoginBegin(body.role, req);
-        if (!result.ok) ApiError(res, 400, result.reason); else Json(res, 200, result);
+        if (!result.ok) ApiError(res, result.status || 400, result.reason); else Json(res, 200, result);
         return;
     }
 

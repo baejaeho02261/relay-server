@@ -7,6 +7,8 @@ async function Handle({ method, pathname, url, body, req, res, session }) {
         const query = url.searchParams.get('query') || '';
         const type = url.searchParams.get('type') || 'ALL';
         const since = Number(url.searchParams.get('since') || 0);
+        try { require('../../services/desktopOperationAudit').RecordAccess('ADMIN_AUDIT_READ','ADMIN:'+session.id); }
+        catch (_) { ApiError(res,503,'SERVER_AUDIT_UNAVAILABLE');return true; }
         Json(res, 200, { ok: true, events: AuditSearch(query, type, since).slice().reverse() });
         return true;
     }
@@ -39,7 +41,10 @@ async function Handle({ method, pathname, url, body, req, res, session }) {
         const file = path.basename(DecodePart(match[1]));
         const action = match[2];
         if (action === 'restore') {
-            const result = RestoreBackup(file);
+            const auth = require('../webAuth');
+            if (!auth.ValidateCsrf(req, session)) { ApiError(res, 403, 'CSRF_FAILED'); return true; }
+            if (!auth.HasRecentAuthentication(session)) { ApiError(res, 428, 'ADMIN_REAUTH_REQUIRED'); return true; }
+            const result = RestoreBackup(file, session);
             if (!result.ok) { ApiError(res, 400, result.reason); return true; }
             Json(res, 200, { ok: true, ...result });
             return true;
@@ -60,6 +65,8 @@ async function Handle({ method, pathname, url, body, req, res, session }) {
         if (!RequireAdmin(res, session)) return true;
         const query = url.searchParams.get('query') || '';
         const limit = Number(url.searchParams.get('limit') || 300);
+        try { require('../../services/desktopOperationAudit').RecordAccess('ADMIN_ACTIVITY_READ','ADMIN:'+session.id); }
+        catch (_) { ApiError(res,503,'SERVER_AUDIT_UNAVAILABLE');return true; }
         Json(res, 200, { ok: true, activities: ListAdminActivity(query, limit) });
         return true;
     }

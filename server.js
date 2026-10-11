@@ -24,6 +24,7 @@ const http = require('http');
 const config = require('./config/config');
 // Acquire before loading any service that can create keys, migrate storage,
 // save state or open a listener. The lock remains held through shutdown writes.
+require('./services/desktopStorageAcl').Check();
 require('./services/desktopSingleWriter').Acquire(config.DATA_DIR, { haEnabled: config.HA_ENABLED });
 const { EnsureDirs } = require('./core/utils');
 const { LoadRecentAudit } = require('./storage/audit');
@@ -38,11 +39,29 @@ const { StartWebAdmin } = require('./web/webServer');
 const { HOST, HEALTH_PORT, WEB_ADMIN_PORT, WEB_ADMIN_VERSION, DATA_DIR, AUTO_BACKUP_INTERVAL_MS } = config;
 
 EnsureDirs();
-LoadDatabase();
+// Never silently initialize a missing configured witness from a restored backup.
+require('./services/desktopRecoveryWitness').Get();
+// Authenticate every independent authority before mirror recovery or audit
+// reconciliation can write, and before any listener accepts a session. A stale
+// integrity/policy store must not remain undetected until its first HTTP request.
+require('./services/desktopLicenses').DB();
 require('./services/desktopMachinePolicy').Load();
+require('./services/desktopBootstrapStore').Load();
+require('./services/desktopIntegrityReports').Policy();
+require('./services/desktopWorkspaceStore').Load();
+LoadDatabase();
 LoadRecentAudit();
+if (!require('./storage/audit').VerifyAuditChain().ok) throw Error('AUDIT_CHAIN_UNAVAILABLE');
+require('./services/desktopAuditRetention').Cleanup();
+require('./services/desktopMachinePolicy').ReconcileAudit();
 // Recovery emits audit events: restore the authoritative chain head first.
 require('./services/desktopLicenses').ReconcileOperations();
+require('./services/desktopBootstrapStore').Load();
+require('./services/desktopOperationAudit').Drain({reconcile:true});
+require('./services/desktopStorageMaintenance').Status();
+require('./services/desktopAuditArchive').Cleanup();
+require('./services/desktopOrphanFiles').RecoverPending();
+require('./services/desktopDeviceRegistry').Prune();
 require('./services/haCoordinator').Start();
 console.log('Game Windows License Service');
 console.log('Web Admin:', WEB_ADMIN_VERSION, 'HTTP Port:', WEB_ADMIN_PORT);
@@ -83,9 +102,19 @@ setInterval(() => {
     require('./services/passkeyAuth').Cleanup();
 }, 1000);
 
-setInterval(() => require('./services/productionCenter').RetentionApply('SCHEDULED'), 24 * 60 * 60 * 1000).unref();
+setInterval(() => {
+    try { require('./services/productionCenter').RetentionApply('SCHEDULED'); }
+    catch (_) { console.error('SERVER_RETENTION_PENDING'); }
+}, 24 * 60 * 60 * 1000).unref();
 
-setInterval(() => SaveDatabase(), 30000);
+setInterval(() => { require('./services/desktopOperationAudit').BestEffortDrain();
+    try { require('./services/desktopOperationAudit').Compact({minimum:4096}); } catch (_) { console.error('SERVER_AUDIT_COMPACTION_PENDING'); }
+    SaveDatabase(); }, 30000);
+// Retention is enforced server-side; no client clock controls deletion.
+setInterval(() => {
+    try { require('./services/desktopDeviceRegistry').Prune(); }
+    catch (_) { console.error('DEVICE_PROOF_RETENTION_PENDING'); }
+}, 60 * 60 * 1000).unref();
 setInterval(() => CreateBackup('auto'), AUTO_BACKUP_INTERVAL_MS);
 
 process.on('SIGINT', Shutdown);

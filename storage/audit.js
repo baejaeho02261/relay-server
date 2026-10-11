@@ -20,6 +20,8 @@ function AuditFileForTime(ms) {
     return path.join(AUDIT_DIR, `audit-${yyyy}-${mm}-${dd}.jsonl`);
 }
 
+function EventFingerprint(type, detail) { return EventHash('', 0, 0, SafeField(type), SafeField(detail)); }
+
 function EventHash(previousHash, sequence, time, type, detail) {
     return crypto.createHash('sha256')
         .update(`${previousHash}|${sequence}|${time}|${type}|${detail}`, 'utf8')
@@ -49,6 +51,7 @@ function LogEvent(type, detail, options = {}) {
     event.hash = EventHash(event.previousHash, event.sequence, event.time, event.type, event.detail);
     let fd, beforeSize;
     try {
+        if (chain.lastError) { const error=Error('audit chain unavailable');error.code='AUDIT_CHAIN_UNAVAILABLE';throw error; }
         if (poisoned) { const error = Error('audit rollback failed'); error.code = 'AUDIT_RESTART_REQUIRED'; throw error; }
         fd = fs.openSync(AuditFileForTime(event.time), 'a', 0o600);
         beforeSize = fs.fstatSync(fd).size;
@@ -94,22 +97,31 @@ function LogEvent(type, detail, options = {}) {
 function LoadRecentAudit() {
     try {
         events.length = 0; operationIndex = new Map(); indexLoaded = false;
+        fs.mkdirSync(AUDIT_DIR, { recursive:true, mode:0o700 });
+        const directory = fs.lstatSync(AUDIT_DIR);
+        if (!directory.isDirectory() || directory.isSymbolicLink()) throw Error('AUDIT_PATH_INVALID');
         const files = fs.readdirSync(AUDIT_DIR)
             .filter(x => /^audit-\d{4}-\d{2}-\d{2}\.jsonl$/.test(x))
             .sort();
         const loaded = [];
-        const chainAnchor = String(state.production.auditChain.anchor || '').toUpperCase();
+        const retention = require('../services/desktopAuditRetention');
+        const checkpoint = retention.Read();
+        const chainAnchor = checkpoint.sequence ? checkpoint.anchor : String(state.production.auditChain.anchor || '').toUpperCase();
+        operationIndex = new Map(Object.entries(checkpoint.operations));
         let expectedPrevious = chainAnchor;
-        let verifiedCount = 0;
+        let verifiedCount = checkpoint.sequence;
         let lastError = '';
         for (const file of files) {
             const filename=path.join(AUDIT_DIR,file);
-            const raw=fs.readFileSync(filename,'utf8'),lines=raw.split(/\r?\n/);
+            const allBytes = require('../services/durableFile').ReadRegular(filename, 256*1024*1024);
+            const retainedBytes = retention.StripPrefix(file, allBytes, checkpoint);
+            const retiredBytes = allBytes.length-retainedBytes.length;
+            const raw=retainedBytes.toString('utf8'),lines=raw.split(/\r?\n/);
             for (let lineIndex=0;lineIndex<lines.length;lineIndex++) {
                 const line=lines[lineIndex],unterminated=file===files.at(-1)&&lineIndex===lines.length-1&&raw&&!raw.endsWith('\n');
                 function RepairTail(complete){
                     const fd=fs.openSync(filename,'r+');
-                    try{if(complete)fs.writeSync(fd,'\n',Buffer.byteLength(raw));else fs.ftruncateSync(fd,Buffer.byteLength(raw.slice(0,raw.lastIndexOf('\n')+1)));fs.fsyncSync(fd);}
+                    try{if(complete)fs.writeSync(fd,'\n',retiredBytes+Buffer.byteLength(raw));else fs.ftruncateSync(fd,retiredBytes+Buffer.byteLength(raw.slice(0,raw.lastIndexOf('\n')+1)));fs.fsyncSync(fd);}
                     finally{fs.closeSync(fd);}
                 }
                 if (!line.trim()) continue;
@@ -125,7 +137,7 @@ function LoadRecentAudit() {
                     // starts only at the first row carrying chain metadata.
                     if (normalized.sequence && normalized.hash) {
                         const computed = EventHash(normalized.previousHash, normalized.sequence, normalized.time, normalized.type, normalized.detail);
-                        if (normalized.previousHash !== expectedPrevious || computed !== normalized.hash) {
+                        if (normalized.previousHash !== expectedPrevious || computed !== normalized.hash || (verifiedCount > 0 && normalized.sequence !== verifiedCount + 1)) {
                             if (!lastError) lastError = `${file}:${normalized.sequence}`;
                         } else {
                             expectedPrevious = normalized.hash;
@@ -197,22 +209,13 @@ function AuditSearch(query, type, sinceMs) {
     }).slice(-MAX_SEARCH_RESULTS);
 }
 
-function ClearAudit() {
+function ClearAudit(actor = 'ADMIN') {
     const removedMemory = events.length;
-    events.length = 0;
-    let removedFiles = 0;
-    try {
-        for (const file of fs.readdirSync(AUDIT_DIR)) {
-            if (!/^audit-\d{4}-\d{2}-\d{2}\.jsonl$/.test(file)) continue;
-            try { fs.unlinkSync(path.join(AUDIT_DIR, file)); removedFiles++; } catch (_) {}
-        }
-    } catch (_) {}
-    state.production.auditChain = { anchor: '', head: '', count: 0, verifiedAt: Now(), lastError: '' };
-    operationIndex.clear(); indexLoaded = true;
-    return { removedMemory, removedFiles };
+    return { ...require('../services/desktopAuditRetention').Apply({ clear:true, actor }), removedMemory };
 }
 
 module.exports = {
+    EventFingerprint,
     AppendOperationEvent,
     WriteHealth,
     AuditFileForTime,

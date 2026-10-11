@@ -4,14 +4,10 @@
 const fs=require('node:fs'),crypto=require('node:crypto');
 const p=require('../services/desktopReleaseProvenance');
 function Read(file,max=65536) {
-  const fd=fs.openSync(file,'r');try{
-    const before=fs.fstatSync(fd);if(!before.isFile()||before.size<1||before.size>max)throw Error('PROVENANCE_INPUT_INVALID');
-    const data=fs.readFileSync(fd),after=fs.fstatSync(fd);
-    if(data.length!==before.size||after.size!==before.size||after.mtimeMs!==before.mtimeMs||after.ctimeMs!==before.ctimeMs)throw Error('PROVENANCE_FILE_CHANGED');
-    return data;
-  }finally{fs.closeSync(fd);}
+ try{return require('../services/boundedArtifactRead').Read(file,max);}
+ catch(error){if(error.message==='AUDIT_FILE_CHANGED')throw Error('PROVENANCE_FILE_CHANGED');if(/^AUDIT_FILE_/.test(error.message))throw Error('PROVENANCE_INPUT_INVALID');throw error;}
 }
-function Json(file) {return JSON.parse(Read(file).toString('utf8').replace(/^\uFEFF/,''));}
+function Json(file) {const bytes=Read(file),bom=bytes.length>=3&&bytes[0]===239&&bytes[1]===187&&bytes[2]===191;return require('../services/strictJson').Parse(bom?bytes.subarray(3):bytes,{maxBytes:65536});}
 function FileHash(file,max) {
   const fd=fs.openSync(file,'r'),buffer=Buffer.alloc(65536);try{
     const before=fs.fstatSync(fd);if(!before.isFile()||before.size<1||before.size>max)throw Error('PROVENANCE_INPUT_INVALID');
@@ -32,8 +28,8 @@ function LoadManifest(file) {
 function PrivateKey(file) {const bytes=Read(file,16384);let key;try{key=crypto.createPrivateKey(bytes);}finally{bytes.fill(0);}if(key.asymmetricKeyType!=='ed25519')throw Error('CI_ED25519_KEY_REQUIRED');return key;}
 function Sign(manifestFile,reportFile,keyFile,runId) {
   const r=LoadManifest(manifestFile),report=Json(reportFile),m=r.manifest;
-  if(!report||report.version!==1||['A','B','O'].some(k=>report[k.toLowerCase()+'Sha512']!==m.artifacts[k])||report.sourceManifestSha512!==m.sourceManifestSha512)throw Error('CI_REPORT_MANIFEST_MISMATCH');
-  const statement=p.ValidateStatement({version:1,purpose:p.CI_DOMAIN,manifestId:r.manifestId,runId,issuedAt:Date.now(),nativeBuild:report.nativeBuild,apiProbe:report.apiProbe,integration:report.integration,logsSha512:report.logsSha512});
+  if(!report||![1,2].includes(report.version)||['A','B','O'].some(k=>report[k.toLowerCase()+'Sha512']!==m.artifacts[k])||report.sourceManifestSha512!==m.sourceManifestSha512)throw Error('CI_REPORT_MANIFEST_MISMATCH');
+  const statement=p.ValidateStatement({version:report.version,...(report.version===2?{buildInputSha512:report.buildInputSha512,compatibilitySha512:report.compatibilitySha512}:{}),purpose:p.CI_DOMAIN,manifestId:r.manifestId,runId,issuedAt:Date.now(),nativeBuild:report.nativeBuild,apiProbe:report.apiProbe,integration:report.integration,logsSha512:report.logsSha512});
   const key=PrivateKey(keyFile),publicKey=crypto.createPublicKey(key);
   return p.ValidateEnvelope({keyId:p.KeyId(publicKey),statement,signature:crypto.sign(null,Buffer.from(p.Canonical(statement)),key).toString('base64')});
 }

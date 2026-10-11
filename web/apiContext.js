@@ -115,31 +115,7 @@ function RequireOperation(res, session, operation) {
 }
 
 
-async function ReadJsonBody(req, maxBytes = 128 * 1024) {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        let size = 0;
-        req.on('data', chunk => {
-            size += chunk.length;
-            if (size > maxBytes) {
-                reject(new Error('BODY_TOO_LARGE'));
-                req.destroy();
-                return;
-            }
-            chunks.push(chunk);
-        });
-        req.on('end', () => {
-            if (!chunks.length) { resolve({}); return; }
-            try {
-                const text = Buffer.concat(chunks).toString('utf8');
-                resolve(text ? JSON.parse(text) : {});
-            } catch (_) {
-                reject(new Error('INVALID_JSON'));
-            }
-        });
-        req.on('error', reject);
-    });
-}
+const {ReadJsonBody}=require('./readJsonBody');
 
 function BuildDashboard() {
     let available = 0;

@@ -47,14 +47,27 @@ function CreateBackup(reason) {
     }
 }
 
-function RestoreBackup(fileName) {
+function RestoreBackup(fileName, session) {
+    const auth = require('../web/webAuth');
+    if (!auth.IsAdmin(session) || !auth.HasRecentAuthentication(session))
+        return { ok: false, reason: 'BACKUP_RESTORE_REQUIRES_WEB_REAUTH' };
     const safe = path.basename(String(fileName || ''));
     const file = path.join(BACKUP_DIR, safe);
     if (!fs.existsSync(file)) return { ok: false, reason: 'NOT_FOUND' };
     const data = TryLoadJson(file);
     if (!data) return { ok: false, reason: 'INVALID_DATA' };
     const pre = CreateBackup('pre_restore');
-    if (!ImportDatabaseObject(data)) return { ok: false, reason: 'INVALID_DATA' };
+    if (!pre) return { ok: false, reason: 'PRE_RESTORE_BACKUP_FAILED' };
+    let recovery;
+    try {
+        const authority = require('../services/desktopRecovery');
+        recovery = authority.Apply({ requestId: crypto.randomUUID(), expectedEpoch: authority.Epoch(), reasonCode: 'BACKUP_RESTORE' }, 'ADMIN:' + session.id);
+    } catch (_) { return { ok: false, reason: 'BACKUP_SESSION_FENCE_FAILED' }; }
+    // An ordinary mirror restore must not resurrect revoked passkeys or rewind
+    // the current audit-chain head / production security controls.
+    const retainedControl = require('../services/productionState').ExportPersisted();
+    if (!ImportDatabaseObject({ ...data, productionControl: retainedControl }))
+        return { ok: false, reason: 'INVALID_DATA', sessionEpoch: recovery.epoch };
     requestHistory.clear();
     pendingRequests.clear();
     state.requestTraces.clear();
@@ -62,10 +75,10 @@ function RestoreBackup(fileName) {
     kickedServers.clear();
     kickedClients.clear();
     require('../services/retiredLegacy').Service('requestRecovery').RebuildQueueRuntime();
-    SaveDatabase();
+    if (!SaveDatabase()) return { ok: false, reason: 'BACKUP_RESTORE_SAVE_FAILED', sessionEpoch: recovery.epoch };
     LogEvent('BACKUP_RESTORE', safe);
     setTimeout(() => ForceReconnectAll('DATABASE_RESTORED'), 250);
-    return { ok: true, fileName: safe, preRestore: pre };
+    return { ok: true, fileName: safe, preRestore: pre, sessionEpoch: recovery.epoch, currentSessionRevoked: true, desktopAuthorityRestoredFromMirror: false, productionSecurityControlRetained: true };
 }
 
 module.exports = {

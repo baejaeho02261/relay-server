@@ -43,7 +43,22 @@
     "test:security-evidence": "node scripts/test-security-evidence.js",
     "test:security-native-contract": "node scripts/test-security-native-contract.js",
     "test:release:tools": "node scripts/test-release-tools-split.js",
-    "test:admin:modal": "node scripts/test-admin-modal-isolation.js"
+    "test:admin:modal": "node scripts/test-admin-modal-isolation.js",
+    "test:passkey": "node scripts/test-passkey-lifetime.js",
+    "test:network:lifecycle": "node scripts/test-network-lifecycle-upgrade.js",
+    "test:server:state": "node scripts/test-server-state-ui.js",
+    "test:review:runner": "python scripts/test-review-runner.py",
+    "verify:source": "python scripts/verify-source.py",
+    "test:queue:observability": "node scripts/test-work-queue-observability.js",
+    "test:authority:remaining": "node scripts/test-remaining-auth-protocol.js",
+    "test:transport:rotation": "node scripts/test-transport-key-rotation.js",
+    "test:measurement:bundle": "node scripts/test-remaining-own-measurement.js",
+    "test:device:identity": "node scripts/test-desktop-device-identity.js",
+    "test:storage:retention": "node scripts/test-storage-retention-remaining.js",
+    "test:build:inputs": "node scripts/test-build-input-lock.js",
+    "test:mitigation:profiles": "node scripts/test-mitigation-profiles.js",
+    "test:device:handoff": "node scripts/test-device-identity-handoff.js",
+    "test:ci:profile:fixture": "node scripts/test-ci-profile-fixture.js"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

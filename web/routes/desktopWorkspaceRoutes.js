@@ -13,6 +13,7 @@ async function Handle({method,pathname,url,body,req,res,session}){
  }
  const actor='ADMIN:'+session.id;
  try{
+  if(['GET','HEAD'].includes(method))require('../../services/desktopOperationAudit').RecordAccess('ADMIN_WORKSPACE_READ','ADMIN:'+session.id);
   const detail=/^\/api\/desktop\/workspace\/licenses\/((?:DL-)?[A-F0-9]{24})(?:\/(metadata))?$/.exec(pathname);
   const job=/^\/api\/desktop\/workspace\/jobs\/([a-f0-9]{32})\/(retry|cancel|export)$/.exec(pathname);
   let data;
