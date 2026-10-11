@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "revision": 1,
+  "revision": 0,
   "mode": "enforce",
   "enforceLegacy": false,
   "freshnessMs": 45000,
@@ -13,12 +13,7 @@
   "minVersionB": "0",
   "minVersionO": "0",
   "requireReleaseSignature": false,
-  "trustedReleaseKeys": [
-    {
-      "keyId": "37d4e9317fc607a3f1b3c756244ed77329dd2151351aed20711ba55dbdc8672c",
-      "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA3HTTgwMGhMpVAJ3t7up5mMQJyeWXSnV5jVl0oriYkAM=\n-----END PUBLIC KEY-----\n"
-    }
-  ],
+  "trustedReleaseKeys": [],
   "revokedSha512": [],
   "revokedLegacySha256": []
 }

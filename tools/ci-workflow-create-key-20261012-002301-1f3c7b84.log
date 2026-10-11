@@ -1,0 +1,27 @@
+**********************
+PowerShell 기록 시작
+시작 시간: 20261012002301
+사용자 이름: DESKTOP-QT0PNH6\Administrator
+실행 사용자: DESKTOP-QT0PNH6\Administrator
+구성 이름: 
+컴퓨터: DESKTOP-QT0PNH6 (Microsoft Windows NT 10.0.19045.0)
+호스트 애플리케이션: C:\Program Files\PowerShell\7\pwsh.dll -NoLogo -NoProfile -ExecutionPolicy Bypass -File C:\Users\Administrator\Downloads\GameConnect_GameWeb_Clean_CI\GameWeb\tools\ci-workflow.ps1 -Action create-key
+프로세스 ID: 19452
+PSVersion: 7.6.6
+PSEdition: Core
+GitCommitId: 7.6.6
+OS: Microsoft Windows 10.0.19045
+Platform: Win32NT
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1, 6.0, 7.0
+PSRemotingProtocolVersion: 2.4
+SerializationVersion: 1.1.0.1
+WSManStackVersion: 3.0
+**********************
+Log: C:\Users\Administrator\Downloads\GameConnect_GameWeb_Clean_CI\GameWeb\tools\ci-workflow-create-key-20261012-002301-1f3c7b84.log
+PS>TerminatingError(): "Source package is incomplete. Restore the COMPLETE matching GameWeb package; do not mix versions. Missing: C:\Users\Administrator\Downloads\GameConnect_GameWeb_Clean_CI\GameWeb\services\boundedArtifactRead.js"
+ERROR: Source package is incomplete. Restore the COMPLETE matching GameWeb package; do not mix versions. Missing: C:\Users\Administrator\Downloads\GameConnect_GameWeb_Clean_CI\GameWeb\services\boundedArtifactRead.js
+Log: C:\Users\Administrator\Downloads\GameConnect_GameWeb_Clean_CI\GameWeb\tools\ci-workflow-create-key-20261012-002301-1f3c7b84.log
+**********************
+PowerShell 기록 끝
+종료 시간: 20261012002301
+**********************
