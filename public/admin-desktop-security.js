@@ -13,14 +13,20 @@ async function showDesktopSecurityOperations() {
   const alive=()=>!closed&&root.isConnected&&session?.csrf===owner&&roleIsAdmin();
   const node=id=>root.querySelector('#'+id);
   const select=(id,items,value)=>`<select id="${id}">${items.map(([v,label])=>`<option value="${esc(v)}" ${v===value?'selected':''}>${esc(label)}</option>`).join('')}</select>`;
-  const checkbox=(id,label,value)=>`<label><input type="checkbox" id="${id}" ${value?'checked':''}> ${esc(label)}</label>`;
+  const checkbox=(id,label,value,locked=false)=>`<label><input type="checkbox" id="${id}" ${value?'checked':''} ${locked?'disabled aria-disabled="true"':''}> ${esc(label)}</label>`;
   const input=(id,label,value,type='text')=>`<label>${esc(label)}<input id="${id}" type="${type}" value="${esc(value??'')}" autocomplete="off"></label>`;
   const button=(action,label)=>`<button type="button" data-security-action="${action}">${label}</button>`;
   const sections=()=>Array.from(root.children).filter(x=>x.tagName==='DETAILS');
   const reasonText=reason=>({
+    INTEGRITY_MEASUREMENT_BUILD_UPGRADE_REQUIRED:'A/B/O를 새 측정 규격으로 모두 다시 빌드·검증해 등록하세요.',
+    TLS_PIN_ACTIVE_BUILD_UPGRADE_REQUIRED:'현재 운영 A/B/O 모두 새 pin 전환 규격을 지원해야 합니다.',
+    TLS_PIN_GENERATION_CONFLICT:'pin 전환 세대가 바뀌었습니다. 새로고침 후 확인하세요.',
+    TLS_PIN_TRANSITION_NOT_FINISHED:'이전 전환이 종료되고 새 인증서가 활성화된 뒤 다음 전환을 등록하세요.',
     SECURITY_RELEASE_MIXED_MANIFEST:'선택한 A/B/O의 명세 ID가 다르거나 누락되었습니다. 같은 명세로 등록한 세 후보를 선택하세요.',
     SECURITY_RELEASE_MANIFEST_NOT_REGISTERED:'계획 등록만 완료된 명세입니다. 아래 명세 영역에서 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.',
     SECURITY_RELEASE_MANIFEST_REQUIRED:'선택한 후보에 등록된 배포 명세가 필요합니다.',
+    SECURITY_CI_EVIDENCE_REQUIRED:'해당 명세에 전용 CI 키로 서명한 nativeBuild/API/integration PASS가 필요합니다. 수동 PASS는 대체할 수 없습니다.',
+    SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시의 명세·CI 서명·최소 보안 버전 조건을 해제할 수 없습니다.',
     SECURITY_RELEASE_MANIFEST_INVALID:'명세 내용 또는 ID가 유효하지 않습니다. 생성 도구의 원본 JSON을 확인하세요.',
     SECURITY_MANIFEST_ARTIFACT_MISMATCH:'명세의 파일과 선택한 후보가 다릅니다. 승인 처리까지 끝난 최종 EXE와 명세를 확인하세요.'
   }[reason]||reason);
@@ -47,6 +53,10 @@ async function showDesktopSecurityOperations() {
     const previous=node('sec-a')?pairBody():null,opened=sections().map(x=>x.open);
     const selected=component=>{const id=previous?previous[component.toLowerCase()+'Id']:active[component]||'';return rows.some(x=>x.component===component&&x.id===id)?id:'';};
     const g=s.releaseGovernance||{requireManifest:false,requireCiEvidence:false,minimumSecurityVersion:0,manifests:{},ciKeys:{},ciEvidence:{}};
+    const publication=box.productionPublication;
+    const pinState=data.tlsPinTransition||{enabled:false,generation:0};
+    const publicationFloor=Math.max(1,publication?.requirements?.minimumSecurityVersion||g.minimumSecurityVersion||0);
+    const legacyRuntime=publication?.legacyRuntimePolicy??(!g.requireManifest||!g.requireCiEvidence||g.minimumSecurityVersion<1);
     const choices=component=>rows.filter(x=>!component||x.component===component).map(a=>[a.id,`${a.component} · ${a.version} · 후보 ${a.id} · 명세 ${a.deploymentManifestId?a.deploymentManifestId.slice(0,12)+'…':'미연결'}${a.active?' · 운영 중':''}`]);
     policyPreview='';rolloutPreview='';activationPreview=null;recoveryPreview=null;
     if(pairPreview&&(pairPreview.policyRevision!==p.revision||pairPreview.operationsRevision!==s.revision))pairPreview=null;
@@ -71,6 +81,12 @@ async function showDesktopSecurityOperations() {
       <label>철회할 파일 SHA-512 (한 줄에 하나)<textarea id="sec-revoked" rows="3">${esc(p.revokedSha512.join('\n'))}</textarea></label>
       <div class="actions">${button('preview-policy','영향 미리보기')}${button('save-policy','미리본 정책 적용')}</div><pre id="sec-policy-preview" class="desktop-security-result"></pre>
       <p class="small-note">전역 정책 적용은 진행 중인 빌드별 시험 적용을 종료합니다. 연결되지 않은 PC의 호환성은 판정하지 않습니다.</p></details>
+      <details><summary>Windows · GPU 호환성별 완화 정책</summary>
+      <p class="small-note">전용 CI 키로 서명된 실제 Windows 시험과 동일한 빌드·OS·GPU 조합에만 적용합니다. 기본값은 기존 정책을 유지합니다. 환경 보고는 하드웨어 증명이 아니며, CFG 메타데이터만으로 실제 호출부 보호를 인정하지 않습니다.</p>
+      <label>호환성 시험 증빙 JSON<input id="sec-mitigation-evidence" type="file" accept=".json,application/json"></label>
+      ${checkbox('sec-mitigation-enabled','검증된 조합에 프로필 사용',true)}
+      ${button('save-mitigation-profile','서명 증빙 확인 후 프로필 저장')}
+      <pre>${esc(JSON.stringify(data.mitigationProfiles||{profiles:[]},null,2))}</pre></details>
       <details><summary>빌드별 검사 규격 · 단계적 적용</summary><label>검사 규격 대상${select('sec-contract-artifact',choices(),rows[0]?.id||'')}</label>
       <div class="desktop-security-grid">${input('sec-min-slots','최소 API 슬롯 수 (실제 probe 결과 기준)','','number')}${input('sec-max-slots','최대 API 슬롯 수','','number')}</div>
       ${button('save-contract','이 빌드 규격 저장')}<p class="small-note">V1의 자기 이미지·API 저장·완화 정책 3개 검사와 기존 10필드 응답을 사용합니다. 슬롯 수를 추정값으로 자동 등록하지 않습니다.</p>
@@ -87,12 +103,13 @@ async function showDesktopSecurityOperations() {
       <p class="small-note">nativeBuild · apiProbe · integration은 PASS / FAIL / NOT_RUN을 구분합니다. 실제 실행하지 않은 항목을 PASS로 표시하지 마세요.</p>
       <pre class="desktop-security-result">${esc(JSON.stringify(s.activations.slice(-10).reverse(),null,2))}</pre></details>
       <details><summary>배포 명세 · CI 서명 증거 · 최소 보안 버전</summary>
-      <p class="small-note">기본값은 선택 적용입니다. 명세는 최종 A/B/O 파일·소스 목록·도구 버전·정책·인계 규격을 하나의 ID로 묶습니다. 명세 입력과 CI 서명은 실제 Windows 실행을 자동 증명하지 않습니다. CI 전용 공개키만 등록하며 개인키는 업로드하지 마세요.</p>
-      <div class="desktop-security-grid">${checkbox('sec-manifest-required','하나의 A/B/O 배포 명세 요구',g.requireManifest)}${checkbox('sec-ci-required','전용 CI 서명 PASS 요구',g.requireCiEvidence)}${input('sec-security-floor','최소 보안 배포 버전 (올린 뒤 낮출 수 없음)',g.minimumSecurityVersion,'number')}</div>
-      ${button('save-release-governance','명세·CI·보안 버전 조건 저장')}
-      <p class="small-note">CI 요구 또는 보안 버전 하한을 사용할 때는 명세 요구도 켜야 합니다. 현재 운영 조합이 통과해야 저장됩니다. 먼저 새 명세·증거를 준비하고 조합을 게시한 뒤 하한을 올리세요.</p>
+      <p class="small-note">새 운영 게시에는 명세·전용 CI 서명 PASS·보안 버전 1 이상이 필수이며 끌 수 없습니다. 명세는 최종 A/B/O 파일·소스 목록·도구 버전·정책·인계 규격을 하나의 ID로 묶습니다. 명세 입력과 CI 서명은 실제 Windows 실행을 자동 증명하지 않습니다. CI 전용 공개키만 등록하며 개인키는 업로드하지 마세요.</p>
+      <div class="desktop-security-grid">${checkbox('sec-manifest-required','하나의 A/B/O 배포 명세 필수',true,true)}${checkbox('sec-ci-required','전용 CI 서명 PASS 필수',true,true)}${input('sec-security-floor','최소 보안 배포 버전 (1 이상 · 낮출 수 없음)',publicationFloor,'number')}</div>
+      ${button('save-release-governance','현재 조합에 강화 정책 적용')}
+      <p id="sec-runtime-governance" class="small-note">${legacyRuntime?'기존 실행: 과거 저장 정책 유지. 신규 게시 성공 시 기존 실행에도 강화된 명세·CI 정책이 적용되므로 증빙 없는 구 실행은 거절될 수 있습니다.':'기존 실행에도 명세·CI·최소 보안 버전 정책이 적용되어 있습니다.'}</p>
+      <p class="small-note">현재 운영 조합도 검증을 통과해야 이 조건을 저장할 수 있습니다. 기존 조합에 증빙이 없으면 검증된 새 A/B/O를 준비해 게시하세요. 게시 성공 시 조합과 강화 정책을 함께 저장하며, 실패 시 기존 운영 조합을 바꾸지 않습니다.</p>
       <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">내려받은 deployment-policy.json을 BAT가 있는 GameWeb/tools 폴더에 저장하세요. 현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
-      <p class="small-note">① 명세 계획 등록 → ② 같은 명세 ID로 A/B/O 후보 등록 → ③ 세 파일 확인 후 명세 등록 완료 → ④ 조합 검증·운영 게시</p>
+      <p class="small-note">① 명세 계획 등록 → ② 같은 명세 ID로 A/B/O 후보 등록 → ③ 세 파일 확인 후 명세 등록 완료 → ④ 전용 CI 공개키·서명 결과 등록 → ⑤ 조합 검증·운영 게시</p>
       <label>배포 명세 JSON (release-provenance.js manifest 출력)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
       <label>CI 증거 JSON (release-provenance.js sign 출력)<input type="file" id="sec-ci-file" accept=".json,application/json"></label>${button('record-ci','CI 서명 증거 검증·등록')}
       <label>새 CI 공개키 JSON (release-provenance.js public-key 출력 · 개인키 금지)<input type="file" id="sec-ci-key-file" accept=".json,application/json"></label>${button('record-ci-key','CI 전용 공개키 등록')}
@@ -107,8 +124,16 @@ async function showDesktopSecurityOperations() {
       <details><summary>서명 키 전환 · 철회</summary><p class="small-note">ACTIVE: 신규 서명 배포 허용. RETIRING: 기존 배포 검증만 허용. REVOKED: 기존 배포도 거절하며 복원 불가. 현재 운영 키 철회는 세션 작업을 막을 수 있습니다.</p>
       ${p.trustedReleaseKeys.map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],s.signerStates[k.keyId]?.state||'ACTIVE')}<button type="button" data-security-action="signer" data-key="${esc(k.keyId)}">상태 저장</button></div>`).join('')||'<p>등록된 신뢰 서명자가 없습니다.</p>'}</details>
       <details><summary>최근 빌드별 관측 슬롯 수 · 보안 진단</summary><p class="small-note">최근 10분 클라이언트 보고값입니다. 서버가 실행 상태의 정직성을 증명하거나 정상 기준으로 자동 등록하지 않습니다.</p><pre class="desktop-security-result">${esc(JSON.stringify(data.recentBuildObservations,null,2))}</pre><pre class="desktop-security-result">${esc(JSON.stringify(data.events.slice(0,40),null,2))}</pre></details>
-      <details><summary>통신·측정 작업 부하</summary><p class="small-note">새로고침 시점의 프로세스 누적 지표입니다. 인증과 PE 작업은 별도 제한 대기열을 사용합니다. 갱신 실패율은 서버에 도달해 처리한 verify 요청 기준이며 끊긴 클라이언트 전체를 포함하지 않습니다.</p><pre class="desktop-security-result">${esc(JSON.stringify(data.runtimeLoad||{status:'UNAVAILABLE'},null,2))}</pre></details>`;
+      <details><summary>인증서 pin 전환 · 사전 공지</summary>
+      <p class="small-note">서버를 중지하고 Prepare_TLS_Pin.bat로 새 인증서를 준비한 뒤 서버를 다시 시작하세요. 현재 A/B/O 모두 새 pin 규격을 지원해야 합니다. 계획은 최근 재인증 후 등록하며, 공지된 기간은 취소·연장할 수 없습니다.</p>
+      <pre class="desktop-security-result">${esc(JSON.stringify(pinState,null,2))}</pre>
+      <div class="desktop-security-grid">${input('sec-pin-generation','준비된 stagedGeneration (48자리 소문자 hex)','')}${input('sec-pin-start','전환 시작 · UTC ISO 시각',new Date(Date.now()+600000).toISOString())}${input('sec-pin-end','구 pin 종료 · UTC ISO 시각',new Date(Date.now()+4200000).toISOString())}</div>
+      ${checkbox('sec-pin-confirm','전환 기간 안에 Activate_TLS_Pin.bat를 실행하고, 계획을 받지 못한 기존 A는 새로 발급해야 함을 확인했습니다.',false)}
+      <div class="actions">${button('schedule-pin','확인한 pin 전환 계획 등록')}</div>
+      <p class="small-note">클라이언트 신뢰 상태는 메모리와 인증된 Handoff에만 유지합니다. 이 버튼은 서버 인증서를 즉시 바꾸지 않으며, 로컬의 모든 재시작에 대한 영구 복귀 방지를 보장하지 않습니다.</p></details>
+      <details><summary>통신·측정 작업 부하</summary><p class="small-note">새로고침 시점의 프로세스 누적 지표입니다. 봉투 복호화·일반 서명·갱신 서명·PE 작업은 별도 제한 대기열을 사용합니다. 서명 검증 뒤 현재 세션과 기한을 재검사합니다. shutdown은 서버가 받은 클라이언트 진단이며 실제 종료 완료 증명이 아닙니다. 갱신 실패율은 서버에 도달해 처리한 verify 요청 기준이며 끊긴 클라이언트 전체를 포함하지 않습니다.</p><pre class="desktop-security-result">${esc(JSON.stringify(data.runtimeLoad||{status:'UNAVAILABLE'},null,2))}</pre></details>`;
     sections().forEach((section,index)=>{if(index<opened.length)section.open=opened[index];const status=document.createElement('p');status.className='security-section-status';status.hidden=true;status.setAttribute('role','status');status.setAttribute('aria-live','polite');section.append(status);});
+    node('sec-security-floor').min=String(publicationFloor);
     fillContract();
     if(!publishReady())pairPreview=null;
     if(pairPreview)node('sec-pair-preview').textContent=JSON.stringify(pairPreview.result,null,2);
@@ -145,6 +170,10 @@ async function showDesktopSecurityOperations() {
       }else if(action==='save-policy'){
         const body=policyBody();if(JSON.stringify(body)!==policyPreview)throw Error('현재 편집 내용으로 영향 미리보기를 먼저 실행해주세요.');
         await api('/api/desktop/bootstrap/security-authority',{method:'POST',body});changed=true;
+      }else if(action==='save-mitigation-profile'){
+        const file=node('sec-mitigation-evidence').files[0];if(!file||file.size>65536)throw Error('서명된 호환성 증빙 JSON을 선택하세요.');
+        const envelope=JSON.parse(await file.text());if(!alive())return;
+        await api(base+'/mitigation-profiles',{method:'POST',body:{requestId:crypto.randomUUID(),envelope,enabled:node('sec-mitigation-enabled').checked,expectedOperationsRevision:data.operations.operations.revision}});changed=true;
       }else if(action==='save-controls'){
         await api(base+'/controls',{method:'POST',body:{expectedRevision:revision,requireBuildContract:node('sec-contract-required').checked,requireTestEvidence:node('sec-tests-required').checked}});changed=true;
       }else if(action==='save-contract'){
@@ -174,8 +203,14 @@ async function showDesktopSecurityOperations() {
         const file=node('sec-evidence-file').files?.[0];if(!file||file.size>65536)throw Error('64KiB 이하의 시험 결과 JSON을 선택해주세요.');
         const report=JSON.parse(await file.text());if(!alive())return;
         await api(base+'/test-evidence',{method:'POST',body:{expectedRevision:revision,...pairBody(),report}});changed=true;
+      }else if(action==='schedule-pin'){
+        const stagedGeneration=node('sec-pin-generation').value.trim(),start=node('sec-pin-start').value.trim(),end=node('sec-pin-end').value.trim();
+        if(!node('sec-pin-confirm').checked)throw Error('전환 운영 조건을 확인해주세요.');
+        if(!/^[a-f0-9]{48}$/.test(stagedGeneration)||![start,end].every(t=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(t)&&Number.isSafeInteger(Date.parse(t))))throw Error('준비한 세대와 UTC ISO 시각을 확인해주세요.');
+        await api(base+'/tls-pin-transition',{method:'POST',body:{expectedGeneration:data.tlsPinTransition?.generation||0,stagedGeneration,notBefore:Date.parse(start),oldNotAfter:Date.parse(end)}});changed=true;
+        successMessage='pin 전환 계획을 등록했습니다. 공지한 기간 안에 서버를 중지하고 Activate_TLS_Pin.bat를 실행해야 합니다.';
       }else if(action==='save-release-governance'){
-        await api(base+'/release-governance',{method:'POST',body:{expectedRevision:revision,requireManifest:node('sec-manifest-required').checked,requireCiEvidence:node('sec-ci-required').checked,minimumSecurityVersion:Number(node('sec-security-floor').value)}});changed=true;
+        await api(base+'/release-governance',{method:'POST',body:{expectedRevision:revision,requireManifest:true,requireCiEvidence:true,minimumSecurityVersion:Number(node('sec-security-floor').value)}});changed=true;
       }else if(action==='plan-manifest'||action==='record-manifest'||action==='record-ci'||action==='record-ci-key'){
         const inputId=(action==='record-manifest'||action==='plan-manifest')?'sec-manifest-file':action==='record-ci'?'sec-ci-file':'sec-ci-key-file';
         const file=node(inputId).files?.[0];if(!file||file.size>65536)throw Error('64KiB 이하의 공개 JSON 파일을 선택해주세요.');

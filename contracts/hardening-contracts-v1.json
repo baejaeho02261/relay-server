@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "date": "2026-10-10",
+  "date": "2026-10-11",
   "nativeStatus": "SOURCE_MODIFIED_WINDOWS_NOT_COMPILED_OR_EXECUTED",
   "normalization": {
     "name": "PE64-CODE-V1",
@@ -37,6 +37,7 @@
   "measurementBundle": {
     "planVersion": 1,
     "fields": [
+      "measurementContract",
       "measurementStartedTick",
       "measurementFinishedTick",
       "measurementPlanVersion",
@@ -51,22 +52,30 @@
       "PARTIAL",
       "SAMPLED"
     ],
-    "legacy": "Missing new metadata is a legacy-compatible path, not evidence of the new coherent FULL plan.",
-    "generationLimit": "Before/after module-handle enumeration can miss unload/reload ABA. Client reports are not complete runtime attestation. FULL means mandatory scopes of this plan, not every optional EAT layer/all process memory."
+    "legacy": "Pre-migration artifact only: missing metadata remains explicit LEGACY_UNVERSIONED. Tagless v1 is PLAN_V1_COMPATIBLE, never the required COHERENT_PLAN_V1. Baseline-disabled policy does not waive new artifact coherence/complete-FULL gate.",
+    "generationLimit": "Before/after module-handle enumeration can miss unload/reload ABA. Client reports are not complete runtime attestation. FULL means mandatory scopes of this plan, not every optional EAT layer/all process memory.",
+    "artifactRequirement": "GAME-MEASUREMENT-PLAN-V1 declaration inside initialized approved PE section -> persisted artifact capability; new production A/B/O publication requires v1. Required artifacts cannot omit/legacy-fallback metadata. This declaration is not execution attestation."
   },
   "pinRotationReview": {
-    "status": "DESIGN_REVIEW_ONLY_ONLINE_ROLLOVER_NOT_IMPLEMENTED_OR_ENABLED",
-    "currentProfileVersion": 4,
-    "current": "Exact leaf certificate DER SHA-256; retain the 8-field v4 profile and manual TLS rotation/new trusted profile delivery. No arbitrary second pin, unknown-certificate acceptance or downgrade fallback.",
-    "futureDesign": [
-      "A new versioned profile/envelope is required. Next pin must be delivered over the current pinned connection and authenticated with a purpose-separated server authority signature; changing pinned identity through unauthenticated discovery is forbidden.",
-      "Bind current pin, next pin, endpoint host/port/site, profile revision, policy epoch, activation, overlap end and expiry. At most two pins during a bounded overlap; overlap duration must be an explicit deployment policy, never an unbounded fallback.",
-      "Store/validate monotonic revision and enforce antirollback, cross-endpoint rejection, replay deduplication and bounded wall/monotonic expiry. A backward clock jump must not extend trust indefinitely.",
-      "Require recent administrator reauthentication and an approved release/key-rotation record to schedule a rotation; keep communication, release and CI key roles separate.",
-      "After overlap expiry reject the old pin. Failed refresh, restored old profile, missing current trust, concurrent versions or invalid signature must fail closed or require a newly authenticated launcher/profile, not autoaccept.",
-      "Before implementation test old/new transition, expiry during request, response loss, rollback, endpoint mix, revoked signing key, clock changes and client restarts on Windows. These are NOT_RUN here."
-    ],
-    "whyNotEnabled": "Native current profile has one exact pin. Silent protocol expansion would break the existing approved A/B/O wire contract; the requirement requested review of a transition design, not unverified automatic acceptance."
+    "status": "IMPLEMENTED_OPT_IN_NATIVE_WINDOWS_NOT_EXECUTED",
+    "profileVersion": 4,
+    "extension": "tlsPinVersion=1 request; authenticated tlsPinPlan reply; optional flat string tlsPinState in authenticated Handoff profile",
+    "authentication": "Current exact pinned TLS plus existing request-bound AES-256-GCM; server RSA keyId and host/port/name binding. Not a detached policy-signature format. Unknown leaf cert never accepted.",
+    "limits": {
+      "leadMs": 604800000,
+      "minimumOverlapMs": 60000,
+      "maximumOverlapMs": 86400000,
+      "maxGenerations": 64
+    },
+    "activation": "Prepare_TLS_Pin stages server-only private key; recent admin auth schedules immutable plan; Activate_TLS_Pin requires stopped server and native single-writer lock. Certificate activation is explicit, not hot/automatic. New plans cannot silently cancel an announced generation.",
+    "antirollback": "Server generation/retired history; in-RAM wall/monotonic floor and authenticated Handoff history. Fresh old A restart without the learned state is not a durable client rollback checkpoint. Missed transition requires a new trusted A. Full server rollback defense still depends on configured independent recovery witness.",
+    "compatibility": "Server first, then newly compiled A/B/O; all active selected artifacts must advertise pin v1 before scheduling. Scheduled deployments refuse unsupported runtime/publish cohorts. Pin feature is unconfigured until administrator explicitly schedules.",
+    "notRun": [
+      "Delphi compilation",
+      "SChannel transition handshake",
+      "actual stopped-server native-lock maintenance",
+      "clock/restart/response-loss Windows integration"
+    ]
   },
   "networkAndWork": {
     "requestBudgetMs": 10000,
@@ -84,9 +93,20 @@
       "concurrency": 1,
       "deadlineMs": 120000
     },
-    "offloaded": "RSA-OAEP unwrap, AES-GCM authenticated decrypt/strict JSON, PE hashes/normalization/capabilities. Private key passes as structured-cloned KeyObject; no second store writer.",
-    "notOffloaded": "Existing device signature checks inside single-writer authorization/receipt transactions remain synchronous. This is bounded admission/fairness improvement, not complete per-session CPU scheduling or DDoS protection.",
-    "metrics": "Connection count, auth latency, lane capacity/active/queued/rejected, identified verify+overlayVerify failure ratio. The last ratio excludes failures before a request is identified as renewal."
+    "offloaded": "RSA-OAEP unwrap, AES-GCM/strict JSON, desktop device RSA proof verification, PE normalization/hashes. Exact transcript result map followed by original synchronous current-authority recheck and mutation. No worker stores, leases or grant output.",
+    "notOffloaded": "Key parsing, current-state checks, store commits and some filesystem calls remain on server event loop. Internal offline callers and admin passkey EC verification remain synchronous. Finite lanes/key caps improve isolation, not hard end-to-end latency/DDoS guarantees.",
+    "metrics": "Connection count, auth latency, lane capacity/active/queued/rejected, identified verify+overlayVerify failure ratio. The last ratio excludes failures before a request is identified as renewal.",
+    "proofLane": {
+      "workers": 1,
+      "queueLimit": 16,
+      "perKeyLimit": 2
+    },
+    "renewalProofLane": {
+      "workers": 1,
+      "queueLimit": 16,
+      "perKeyLimit": 2
+    },
+    "strictInputs": "Passkey signed clientData uses fatal UTF-8, duplicate rejection and bounded canonical base64url. Original bytes hashed for signature, non-critical WebAuthn extensions allowed, unsupported security bindings rejected. Binary assertion fields and outer accepted field set bounded."
   },
   "overlay": {
     "states": [
@@ -99,7 +119,7 @@
     ],
     "shutdownBudgetMs": 5000,
     "hardShutdownBound": false,
-    "shutdown": "Stop admission, signal cancellation, join worker safely, then reset after join and send Close only with remaining budget. WaitFor cannot safely guarantee a hard limit for unresponsive OS calls. Record overrun; never force terminate or free a running owner.",
+    "shutdown": "5000ms total accounting, 1000ms reserved Close, completion TEvent checked before unbounded safe WaitFor drain. Join overrun exits unsuccessfully and reports bounded best-effort authenticated client diagnostic if Close still has budget. No forced thread termination/free-before-exit. Unresponsive OS/I/O can still exceed the budget.",
     "renewal": "Use remaining lease, recent verification duration and a 30-second ceiling. A reply received after expiry never revives authorization.",
     "graphics": "Classify device removed/reset/hung, OOM and resize failures; no automatic device recreation, fail closed.",
     "dpi": "PerMonitorV2, suggested WM_DPICHANGED rectangle, common render/hit-test scale and focus/minimize/display input release. Actual Windows multi-monitor/RDP/GPU behavior unverified."
@@ -107,7 +127,8 @@
   "buildAndMitigations": {
     "sourceGuard": "Release role-specific evaluated MSBuild property checks and fresh DCU directories; root DCU/CFG and foreign test/probe define/options/output rejected. Actual CodeGear execution unverified.",
     "cfg": "Final PE structural evidence is distinct from compiler call-site coverage and actual runtime enforcement. Flag-only checks are insufficient. Record compiler files/version/hash and Windows query results separately.",
-    "policies": "Set success/error and actual GetProcessMitigationPolicy observations are separate. Preserve existing opt-in dynamic prohibit; no untested blanket strict-handle/image-loading/ACG enforcement."
+    "policies": "Set success/error and actual GetProcessMitigationPolicy observations are separate. Preserve existing opt-in dynamic prohibit; no untested blanket strict-handle/image-loading/ACG enforcement.",
+    "finalArtifact": "Bounded explicit-offset read; all resource languages for RT_MANIFEST/1 must equal current source bytes; CFG check/dispatch slots mapped and GFID targets raw-backed immutable code. Windows XML parser disables DTD and validates DPI separately. CI approval requires same final-artifact audit hashes, not flags alone."
   },
   "primaryReferences": [
     {

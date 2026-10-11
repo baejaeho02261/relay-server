@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "basis": "Exact versions and bytes from supplied project; no online upgrade or vulnerability audit completed.",
+  "basis": "Exact supplied dependency versions retained; bridge-tool hashes refreshed after 1-14 review fixes. No dependency security update/vulnerability audit performed.",
   "requiredNodeRange": "^22.22.2 || ^24.15.0 || >=26.0.0",
   "localNodeUsed": "v22.16.0",
   "localNodeIsNotSupportedForFullDependencyTree": true,
@@ -41,14 +41,16 @@
     "GameConnect_Win64/imgui/vendor/imstb_truetype.h": "79f8dc75f18c26fd2d1cdfe91a4762d156902af3e5cf912a75808433a5cd1220f94db7715e9837f7a69daa20050963ef8f05eda2f70e1b89f4f123ad718868e0"
   },
   "bridgeFiles": {
-    "GameConnect_Win64/imgui/bridge/Audit-Object.ps1": "3c8c66ac30f9b5f49225c6b347f6b8bc8d8536154382ced58455fb1247553f0580aa70071852610535d41199d0bc81177fc062bbd19fd32b71d42a4df4e7a7b6",
+    "GameConnect_Win64/imgui/bridge/Audit-Object.ps1": "06aebc70f68cdfb859f74f469f8b7e34596803077b3094a783175398c907ff6ed38d92b44695a01baf6154feb1bedec9121679d46f3f98599fc61cf4f8fb24c0",
     "GameConnect_Win64/imgui/bridge/Normalize-PE-Unwind.ps1": "32ef92147f596b90db359278d7a3649ef0c78f7a83555f7bf8e1d24536ec289675136a31e442a5517f504009097af584bb15edb41c69fc2a34d7df5639a3a121",
-    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp": "a85b4b4f03cf7529d4c50a4dd3ad4180ee3179a64252b0af31c4e0d101a92fa5860c5f109c1bafe1497ea7e2bb9a2ec23bae9c973cf0ca60c5b0ed2d5bd53533",
-    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.h": "5feda1b6fcc7418f0bd93ec48d769df2eed6be53727ecf1565715c6ece23f4a315852f0fccb4030d4c633517111049a15a5b05c3da9b2b12e7f09926490e016c",
+    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.cpp": "e5a7c24a3d5af8310525e2a76a4275a17e5010d5d11db5621904e9b07f65d3ae5f62a4d60eaaedeb815fa07a689f8ddb40d0830c97daa8e18c944c1687c6e816",
+    "GameConnect_Win64/imgui/bridge/game_imgui_bridge.h": "3215445517a3f973d34dffb6ac2c4c08b6f0687c236c30f3eb1686aaa6177d0930caab285d113ef9df83fda685bffc6abd9b06b154a8045aa3ec722826cc96c1",
     "GameConnect_Win64/imgui/bridge/game_imgui_config.h": "4a5511b355772c8f5fd3f1c679933015d1a04362e8c23143ca498aec11de57cdf3e2f484bc52e94752a633bc5e8a26868e5c57147297fc5966a7e9b50f076af5",
-    "GameConnect_Win64/imgui/bridge/game_imgui_dx11.cpp": "c1ce4d34ad3ce4ea15a0d573212c6bb3fe2a6a59e6551baa344366c5a6f2b8fa9e0857d903c064e9cc778696887f766e7712ee4387846eefc025773b80748f4c",
-    "GameConnect_Win64/imgui/bridge/game_imgui_guard.h": "1fd46ff20e7ece410e83b50feb59b85155bb2c9fb0e46af8d70856df67d3c31e48cda34771fdb89dbaac47a51024249d283cd404e0925b08570c662cd532429b"
+    "GameConnect_Win64/imgui/bridge/game_imgui_dx11.cpp": "9766ba2b227761768da4486b572f0d90c9aea3639a08654bb3ef2c363f0e221cc66e9c53774fd8238a7734bb661c4feb0d789c61faada09f445fe17e516f36be",
+    "GameConnect_Win64/imgui/bridge/game_imgui_guard.h": "1fd46ff20e7ece410e83b50feb59b85155bb2c9fb0e46af8d70856df67d3c31e48cda34771fdb89dbaac47a51024249d283cd404e0925b08570c662cd532429b",
+    "GameConnect_Win64/imgui/bridge/Assert-OverlayManifest.ps1": "b96b0b4d1f92ad497ba16384219157993244f6d314541bd378112fc4e682cfc8612cbba400003d9d3b0b7ceb3aaa820f227acd6601744f860d6e845e47dc1f13",
+    "GameConnect_Win64/imgui/bridge/game_imgui_arena.h": "1826d99923c50adf160c0fdd8fd2c1a832ab4f03e1e74cb2636b87151b64d3d52270489af22b00af615caf7ec3379fc054ebf47e9cfb51f29541d363713afa92"
   },
   "compilerAndSdk": "Exact installed executable hashes and versions recorded by Windows-Stage.ps1 only when it actually runs. Not fabricated for this Linux review.",
-  "regressionAfterSecurityUpdate": "Update explicit dependency/SDK/compiler/bridge provenance, regenerate source manifest, run all 79 server groups, actual native/SDK/ABI/PE corpus and applicable Windows compatibility rows. Do not reuse old CI PASS."
+  "regressionAfterSecurityUpdate": "Regenerate source/dependency manifests, run all registered suites including completion 6-10 and actual Windows native/ABI/PE corpus, TLS rotation, GPU/DPI and final build/CI approval. Do not reuse historical or synthetic PASS."
 }

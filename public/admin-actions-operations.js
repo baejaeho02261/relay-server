@@ -53,9 +53,9 @@ async function handleOperationsAction(event) {
       if(!v)return true; await api('/api/system/service/stop',{method:'POST',body:{}}); toast('서비스가 종료되었습니다.'); resetServiceUi(); switchView('system'); await renderCurrent(); return true;
     }
     if (event.target.id === 'danger-backup-restore') {
-      const file=document.getElementById('danger-backup-file').value; const v=await openModal({title:"백업 복원",message:`${file} 로 데이터베이스를 복원합니다. 현재 연결이 재설정될 수 있습니다.`,danger:true,confirmLabel:"복원"}); if(!v)return true;
+      const file=document.getElementById('danger-backup-file').value; const v=await openModal({title:"백업 복원",message:`${file} 로 데이터베이스를 복원합니다. 기존 A/B/O와 관리자 세션이 폐기되며, 사용한 라이선스는 복원되지 않습니다.`,danger:true,confirmLabel:"복원"}); if(!v)return true;
       const verify=await api(`/api/backups/${encodeURIComponent(file)}/verify`); if(!verify.verification.ok) throw new Error('BACKUP_VERIFY_FAILED');
-      await api(`/api/backups/${encodeURIComponent(file)}/restore`,{method:'POST',body:{}}); toast("백업 복원 완료"); await renderDangerZone(); return true;
+      await api(`/api/backups/${encodeURIComponent(file)}/restore`,{method:'POST',body:{}}); toast("백업 복원 완료. 관리자 세션이 폐기되어 다시 로그인해야 합니다."); showLogin(); return true;
     }
     if (event.target.id === 'danger-backup-delete') {
       const file=document.getElementById('danger-backup-file').value; const v=await openModal({title:"백업 삭제",message:`${file} 백업 파일을 삭제합니다.`,danger:true,confirmLabel:"삭제"}); if(!v)return true;

@@ -4,13 +4,14 @@ param(
  [Parameter(Mandatory)][ValidatePattern('^\d+(?:\.\d+){0,3}$')][string]$Version,
  [ValidateRange(1,2147483647)][int]$SecurityVersion=1,
  [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9_.-]{1,100}$')][string]$RunId,
+ [Parameter(Mandatory)][string]$BuildInputLockFile,
  [string]$BdsRoot=$env:BDS,[string]$ReleaseKeyFile,[string]$CiKeyFile,[string]$PolicyFile
 )
 # All outputs are observations of actual subprocesses, never operator PASS input.
 . (Join-Path $PSScriptRoot 'CiCommon.ps1')
 $private=$null;$output=$null;$work=$null;$exit=1;$active=$null
 $results=@{version=1;runId=$RunId;windowsExecuted=$true;stages=[ordered]@{};nativeBuild='NOT_RUN';apiProbe='NOT_RUN';integration='NOT_RUN';signed=$false}
-foreach($name in @('self-test','snapshot','dependencies','build','normalize','approve','native-probes','sdk-probe','abi-compare','integration','report','sign')){$results.stages[$name]=@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
+foreach($name in @('self-test','snapshot','dependencies','build-inputs','build','build-inputs-after','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','integration','profile-integration-observe','profile-integration-prohibit','report','sign')){$results.stages[$name]=@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
 function Save-Results {if($output){Write-CiJson (Join-Path $output 'runner-results.json') $results}}
 function Invoke-CiCommand([string]$Name,[string]$Exe,[string[]]$Arguments,[string]$Directory,[int]$Seconds) {
  $watch=[Diagnostics.Stopwatch]::StartNew();$job=$null;$record=$results.stages[$Name]
@@ -37,6 +38,7 @@ function Invoke-CiCommand([string]$Name,[string]$Exe,[string[]]$Arguments,[strin
 function Stage([string]$Kind,[int]$Seconds=600,[string]$Key='') {
  $stageArgs=@('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $work 'GameWeb\ci\Windows-Stage.ps1'),'-Kind',$Kind,'-WorkRoot',$work,'-Output',$output,'-Version',$Version,'-SecurityVersion',[string]$SecurityVersion,'-RunId',$RunId)
  if($Key){$stageArgs+=@('-KeyFile',$Key)}
+ if($Kind -in @('build-inputs','build-inputs-after')){$stageArgs+=@('-BuildInputLockFile',(Join-Path $private 'reviewed-build-inputs.json'))}
  if($Kind -eq 'approve' -and $PolicyFile){$stageArgs+=@('-PolicyFile',(Join-Path $private 'reviewed-policy.json'))}
  Invoke-CiCommand $Kind (Join-Path $PSHOME 'pwsh.exe') $stageArgs $work $Seconds
 }
@@ -66,8 +68,13 @@ try {
  if($PolicyFile){$p=Get-Item -LiteralPath $PolicyFile;if($p.PSIsContainer -or $p.Length -gt 65536 -or ($p.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_POLICY_FILE_INVALID'};[IO.File]::Copy($p.FullName,(Join-Path $private 'reviewed-policy.json'),$false)}
  Invoke-CiCommand 'snapshot' $node @((Join-Path $source 'GameWeb\ci\ci-artifacts.js'),'snapshot',$source,$work) $source 120
  Copy-Item -LiteralPath (Join-Path $work 'GameWeb\maintenance\source-manifest.json') -Destination (Join-Path $output 'source-manifest.json')
+ if(-not(Test-Path -LiteralPath $BuildInputLockFile -PathType Leaf)){throw 'CI_REVIEWED_BUILD_INPUT_LOCK_REQUIRED'}
+ $lock=Get-Item -LiteralPath $BuildInputLockFile;if($lock.Length -gt 32MB -or ($lock.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_BUILD_INPUT_LOCK_INVALID'}
+ [IO.File]::Copy($lock.FullName,(Join-Path $private 'reviewed-build-inputs.json'),$false)
  Stage 'dependencies' 900
+ Stage 'build-inputs' 600
  Stage 'build' 1200
+ Stage 'build-inputs-after' 600
  Stage 'normalize' 120
  # Keys are materialized only after source verification and a successful clean
  # native build. Child environments never inherit CI tokens/secrets.
@@ -76,7 +83,7 @@ try {
  Stage 'approve' 120 $releaseKey
  $results.nativeBuild='PASS';Save-Results
  $probeFailed=$false
- foreach($kind in @('native-probes','sdk-probe','abi-compare')){try{Stage $kind 600}catch{$probeFailed=$true;break}}
+ foreach($kind in @('native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare')){try{Stage $kind 600}catch{$probeFailed=$true;break}}
  $results.apiProbe=if($probeFailed){'FAIL'}else{'PASS'};Save-Results
  try {
   Invoke-CiCommand 'integration' (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $work 'GameWeb\ci\Integration-Control.ps1'),'-WorkRoot',$work,'-Output',$output,'-PrivateRoot',$private,'-Version',$Version) $work 300
@@ -85,6 +92,23 @@ try {
   $results.integration='PASS'
  } catch {$results.integration='FAIL';$results.stages.integration.outcome='FAIL'}
  Save-Results
+ # Each enabled cohort starts a fresh private server and real A/B/O execution.
+ # Unsupported native observations remain unsupported, not a fabricated pass.
+ if($results.integration -eq 'PASS' -and $results.apiProbe -eq 'PASS') {
+  $matrix=Read-CiJson (Join-Path $output 'compatibility-observations.json')
+  $basePolicy=Read-CiJson (Join-Path $output 'policy.json')
+  foreach($mode in @('observe','prohibit')) {
+   $candidate=@($matrix.rows|Where-Object{$_.mode -eq $mode -and $_.status -eq 'PASS'})
+   if($candidate.Count -ne 2 -or ($basePolicy.dynamicCode -eq 'prohibit' -and $mode -eq 'observe')){continue}
+   $name='profile-integration-'+$mode
+   try {
+    Invoke-CiCommand $name (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $work 'GameWeb\ci\Integration-Control.ps1'),'-WorkRoot',$work,'-Output',$output,'-PrivateRoot',$private,'-Version',$Version,'-MitigationMode',$mode) $work 300
+    $details=Read-CiJson (Join-Path $output ('integration-profile-'+$mode+'-result.json'))
+    if($details.outcome -ne 'PASS' -or $details.mitigationMode -ne $mode -or @($details.profiledAuthorityStages).Count -ne 3 -or @('A','B','O').Where({$details.profiledAuthorityStages -notcontains $_}).Count -ne 0){throw 'CI_PROFILE_INTEGRATION_RESULT_INVALID'}
+   } catch {$results.stages[$name].outcome='FAIL';$results.stages[$name].error='CI_PROFILE_INTEGRATION_FAILED'}
+   Save-Results
+  }
+ }
  Stage 'report' 120
  Stage 'sign' 120 $ciKey
  $results.signed=$true

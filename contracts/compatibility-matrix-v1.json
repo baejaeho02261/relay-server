@@ -115,7 +115,7 @@
       "status": "NOT_RUN",
       "environment": "Supported Node version + exact npm lock + native SQLite addon",
       "procedure": "npm ci --engine-strict, npm test; stress authenticated renewals alongside bounded invalid auth/PE/upload workload.",
-      "acceptance": "All 79 suites pass in the real dependency environment; queue limits/stream limits hold; observe renewal latency/failure ratios and reject overload instead of unbounded queues.",
+      "acceptance": "All currently registered suites (88 at this revision) pass in the real dependency environment; queue limits/stream limits hold; observe renewal latency/failure ratios and reject overload instead of unbounded queues.",
       "mandatoryBeforeProduction": true
     },
     {
@@ -123,19 +123,31 @@
       "area": "Policy activation and legacy rollout",
       "status": "NOT_RUN",
       "environment": "Isolated staging copy; never operating keys/data",
-      "procedure": "Inspect reauth, requireManifest, requireCiEvidence, minimumSecurityVersion and legacy measurement rollout before approving a new A/B/O set.",
-      "acceptance": "No assumption that opt-in features are already enabled. Preserve current single-admin model; explicitly resolve critical-only versus broad mutation reauth scope.",
+      "procedure": "Verify critical-operation reauthentication and mandatory new-publication manifest/CI/version floor from completion 1-5; publish the upgraded v1 measurement A/B/O cohort and check legacy-to-required report transition.",
+      "acceptance": "Critical reauth cannot be disabled by an environment flag. New publication requires actual CI and v1 measurement declarations. Existing legacy runtime remains explicit until approved transition; no claim of uninterrupted upgrade.",
       "mandatoryBeforeProduction": true
     },
     {
       "id": "OPS-02",
-      "area": "Pin rotation future v5 design",
+      "area": "Opt-in pin-window v1 real deployment test",
       "status": "NOT_RUN",
-      "environment": "New separately approved protocol implementation only",
-      "procedure": "Review the next-pin envelope/antirollback/overlap scenarios in hardening-contracts-v1.json. Current v4 has no online rollover.",
-      "acceptance": "No unknown-certificate autoaccept; current v4 remains strict. Do not advertise automatic rollover as implemented.",
+      "environment": "Newly compiled A/B/O, managed server TLS identity, actual native single-writer lock",
+      "procedure": "Run Prepare_TLS_Pin with stopped server, start and authenticate admin scheduling, stop and Activate_TLS_Pin during overlap, restart. Test actual SChannel handshakes and late replies before/during/after transition.",
+      "acceptance": "Only current authenticated-channel plan accepted. Unknown/retired pins rejected in learned state; no plan extension. Explicit offline certificate activation; fresh old A without learned RAM state may need a new trusted launcher. No durable local checkpoint or zero-downtime claim.",
       "mandatoryBeforeProduction": true
     }
   ],
-  "defaultEnforcement": "No additional blanket mitigation enforcement enabled without passing relevant Windows/GPU rows."
+  "defaultEnforcement": "No additional blanket mitigation enforcement enabled without passing relevant Windows/GPU rows.",
+  "completion6To10": {
+    "windowsExecuted": false,
+    "probeAdded": "TlsPinWindowProbe",
+    "runner": "Test_Native_6-10.bat",
+    "mandatoryAdditionalScenarios": [
+      "Actual SChannel old/next pin before/during/after overlap and delayed response",
+      "Clock backward/forward and A/B/O restart with/without learned state",
+      "Offline real native-writer lock activation, publication failure/restart",
+      "5s phase budget with OS I/O delay and GPU close races"
+    ],
+    "allPriorWindowsRowsRetainNOT_RUN": true
+  }
 }

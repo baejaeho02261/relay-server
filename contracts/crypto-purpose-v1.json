@@ -74,6 +74,14 @@
         "existing random identifiers and server-side digest bindings"
       ],
       "note": "Identifiers do not substitute for possession of a secret or a purpose-bound signature."
+    },
+    {
+      "purpose": "authenticated TLS next-pin plan",
+      "algorithms": [
+        "existing exact leaf SHA-256 pin",
+        "existing request-bound AES-256-GCM over GAME-CONNECT-4"
+      ],
+      "binding": "generation/endpoint/keyId/current/next/window; delivered after current TLS and AEAD checks. No independent detached-signature algorithm added. RAM-only antirollback, fresh-old-profile limitation explicit."
     }
   ]
 }

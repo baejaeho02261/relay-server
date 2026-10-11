@@ -1,12 +1,13 @@
-param([Parameter(Mandatory)][string]$WorkRoot,[Parameter(Mandatory)][string]$Output,[Parameter(Mandatory)][string]$PrivateRoot,[Parameter(Mandatory)][string]$Version)
+param([Parameter(Mandatory)][string]$WorkRoot,[Parameter(Mandatory)][string]$Output,[Parameter(Mandatory)][string]$PrivateRoot,[Parameter(Mandatory)][string]$Version,[ValidateSet('','observe','prohibit')][string]$MitigationMode='')
 . (Join-Path $PSScriptRoot 'CiCommon.ps1')
 $server=$null;$apps=$null;$bProcess=$null;$oProcess=$null;$success=$false;$result=@{version=1;outcome='FAIL';ready=$false;licenseConsumed=$false;overlayFirstFrame=$false;parentTransferred=$false;parentExited=$false;parentFilesDeleted=$false;overlayClosed=$false;serverSessionClosed=$false}
 try {
  Write-Output 'CI_INTEGRATION_BEGIN (real Release EXEs, local production TLS services)'
  if (-not [Environment]::UserInteractive -or [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) { throw 'CI_INTERACTIVE_WINDOWS_SESSION_REQUIRED' }
- $run=Join-Path $PrivateRoot 'integration';New-CiPrivateDirectory $run
+ $cohort=if($MitigationMode){'integration-profile-'+$MitigationMode}else{'integration'}
+ $run=Join-Path $PrivateRoot $cohort;New-CiPrivateDirectory $run
  $environment=Get-CiEnvironment $run;$node=(Get-Command node.exe).Source;$web=Join-Path $WorkRoot 'GameWeb'
- $server=[GameCi.WindowsJob]::Start($node,@((Join-Path $web 'ci\windows-fixture.js'),$run,$Output,$Version),$web,$environment,(Join-Path $run 'server.log'))
+ $server=[GameCi.WindowsJob]::Start($node,@((Join-Path $web 'ci\windows-fixture.js'),$run,$Output,$Version,$MitigationMode),$web,$environment,(Join-Path $run 'server.log'))
  $clock=[Diagnostics.Stopwatch]::StartNew()
  do {
   if($server.HasExited){throw 'CI_FIXTURE_EXITED'}
@@ -19,6 +20,7 @@ try {
  do {
   if($server.HasExited){throw 'CI_FIXTURE_EXITED'}
   $status=Read-CiJson (Join-Path $run 'status.json')
+  if($MitigationMode){if(-not $status.mitigationProfile.enabled -or $status.mitigationProfile.mode -ne $MitigationMode){throw 'CI_PROFILE_NOT_ACTIVE'};$result.mitigationMode=$MitigationMode;$result.profiledAuthorityStages=@($status.mitigationProfile.authorityStages)}
   if(-not $status.ready){throw 'CI_FIXTURE_RUNTIME_FAILED'}
   $ids=@($apps.ProcessIds())
   if($bId -eq 0 -and $status.flowStatus -eq 'CLAIMED') {
@@ -42,7 +44,7 @@ try {
   }
   if($closed -and $ids -notcontains $oId){if(-not $oProcess.HasExited -or $oProcess.ExitCode -ne 0){throw 'CI_OVERLAY_EXIT_CODE'};$result.overlayClosed=$true}
   if($status.overlayStatus -eq 'CLOSED' -and $status.retiredOverlay){$result.serverSessionClosed=$true}
-  if($result.licenseConsumed -and $result.overlayFirstFrame -and $result.parentTransferred -and $result.parentExited -and $result.parentFilesDeleted -and $result.overlayClosed -and $result.serverSessionClosed){$success=$true;break}
+  if($result.licenseConsumed -and $result.overlayFirstFrame -and $result.parentTransferred -and $result.parentExited -and $result.parentFilesDeleted -and $result.overlayClosed -and $result.serverSessionClosed){if($MitigationMode -and (@($result.profiledAuthorityStages).Count -ne 3 -or @('A','B','O').Where({$result.profiledAuthorityStages -notcontains $_}).Count -ne 0)){throw 'CI_PROFILE_AUTHORITY_OBSERVATION_MISSING'};$success=$true;break}
   if($clock.Elapsed.TotalSeconds -gt 180){throw 'CI_NATIVE_INTEGRATION_TIMEOUT'}
   if($ids.Count -eq 0 -and -not $closed){throw 'CI_NATIVE_EARLY_EXIT'}
   Start-Sleep -Milliseconds 100
@@ -57,6 +59,7 @@ try {
  Write-Output $result.error
 } finally {
  foreach($job in @($apps,$server)){if($job){try{$job.Dispose()}catch{$success=$false;$result.outcome='FAIL';$result.error='CI_JOB_CLEANUP_FAILED'}}};foreach($process in @($bProcess,$oProcess)){if($process){try{$process.Dispose()}catch{$success=$false;$result.outcome='FAIL';$result.error='CI_HANDLE_CLEANUP_FAILED'}}}
- Write-CiJson (Join-Path $Output 'integration-result.json') $result
+ $resultName=if($MitigationMode){'integration-profile-'+$MitigationMode+'-result.json'}else{'integration-result.json'}
+ Write-CiJson (Join-Path $Output $resultName) $result
 }
 if($success){exit 0}else{exit 1}
