@@ -1,7 +1,7 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
- SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:['운영 게시의 필수 검증을 해제할 수 없습니다.','새 운영 게시에는 A/B/O 명세, 전용 CI 서명 PASS, 보안 버전 1 이상이 필요합니다.','기존 실행을 임의로 바꾸지 않습니다. 검증된 조합을 준비해 게시하거나 현재 운영 조합의 증빙을 보완하세요.','deploy'],
+ SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:['운영 게시의 필수 검증을 해제할 수 없습니다.','새 운영 게시에는 A/B/O 명세, 전용 CI 서명 PASS, 보안 버전 1 이상이 필요합니다.','서버 보안·배포 운영의 Windows CI 안내를 따라 같은 시험 출력의 명세·A/B/O·CI 증거를 등록하고 조합 검증 후 게시하세요. 현재 조합의 강화 정책 저장은 기존 증빙까지 준비된 뒤 진행합니다.','deploy'],
  ADMIN_REAUTH_REQUIRED:['중요 변경에 최근 재인증이 필요합니다.','변경을 적용하지 않았습니다.','현재 관리자 비밀번호 또는 등록된 패스키로 재인증한 뒤 다시 시도하세요.','login'],
  FILE_CHANGED:['측정 중 파일 변경이 보고됐습니다.','변경된 측정을 성공으로 처리하지 않았습니다.','등록된 원본과 실제 파일을 비교하고 새 실행으로 확인하세요.','security'],
  COVERAGE_INSUFFICIENT:['측정 범위가 부족합니다.','측정 용량 또는 검사 범위 제한으로 완료하지 못했습니다.','측정 대상 크기와 해당 배포의 검사 범위를 확인하세요.','security'],
@@ -27,7 +27,7 @@ const rows={
  SECURITY_RELEASE_MANIFEST_CONFLICT:['이미 등록된 파일 조합의 명세는 변경할 수 없습니다.','동일한 A/B/O 해시를 다른 보안 버전이나 도구 정보로 다시 등록할 수 없습니다.','등록된 명세를 사용하거나 새 빌드 조합을 생성하세요.','deploy'],
  SECURITY_MANIFEST_ARTIFACT_MISMATCH:['배포 명세와 등록 파일의 규격이 다릅니다.','파일 해시·구성요소·프로토콜·인계 버전 중 하나가 일치하지 않습니다.','승인 도구 처리까지 끝난 최종 A/B/O로 명세를 다시 생성하세요.','deploy'],
  SECURITY_MANIFEST_POLICY_MISMATCH:['명세 작성 당시 정책과 현재 정책이 다릅니다.','정책 스냅샷 해시가 현재 서버 정책과 일치하지 않습니다.','현재 정책 JSON을 다시 내려받아 명세를 생성하세요.','security'],
- SECURITY_CI_EVIDENCE_REQUIRED:['유효한 CI 서명 시험 결과가 필요합니다.','운영자 입력 PASS는 CI 서명을 대신하지 않으며 철회·실패·미실행 결과는 통과하지 않습니다.','전용 CI 키의 상태와 해당 명세의 실제 시험 결과를 확인하세요.','security'],
+ SECURITY_CI_EVIDENCE_REQUIRED:['유효한 CI 서명 시험 결과가 필요합니다.','운영자 입력 PASS는 CI 서명을 대신하지 않으며 철회·실패·미실행 결과는 통과하지 않습니다.','배포 명세 영역의 Windows CI 순서로 실행하세요. 같은 ci-runs 실행 폴더의 manifest.json·A/B/O·ci-evidence.json을 등록하고, 새 증거 등록에는 유효한 ACTIVE CI 키를 사용하고 조합을 다시 검증하세요.','security'],
  SECURITY_CI_KEY_PURPOSE_CONFLICT:['CI 키와 실행 파일 승인키를 분리해야 합니다.','같은 공개키를 두 용도로 등록할 수 없습니다.','CI 전용 Ed25519 공개키를 등록하세요. 개인키는 CI 서명 환경에만 보관합니다.','security'],
  SECURITY_CI_SIGNER_NOT_ACTIVE:['CI 키가 새 증거 등록을 허용하지 않습니다.','키가 유효기간 밖이거나 전환·철회 상태입니다.','유효한 ACTIVE 상태의 CI 키로 생성한 시험 증거를 사용하세요.','security'],
  SECURITY_CI_SIGNATURE_INVALID:['CI 시험 증거의 서명을 검증하지 못했습니다.','서명·키·시각·용도 중 하나가 유효하지 않습니다.','원본 CI 결과와 등록한 전용 공개키를 확인하세요.','security'],
