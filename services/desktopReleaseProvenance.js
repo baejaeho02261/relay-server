@@ -1,7 +1,8 @@
 'use strict';
 // Deployment identity and CI evidence are separate from executable approval.
 // This verifies a trusted CI signer's claim, not hardware attestation or proof
-// that a compiler/test runner actually ran. All enforcement is opt-in.
+// that a compiler/test runner actually ran. Version-1 stored runtime policy is
+// readable unchanged; NEW production publication has a mandatory policy floor.
 const crypto = require('node:crypto');
 const HASH = /^[a-f0-9]{128}$/, KEY = /^[a-f0-9]{64}$/;
 const MANIFEST_DOMAIN = 'GAME-DEPLOYMENT-MANIFEST-V1';
@@ -14,7 +15,22 @@ function Text(value, max = 160) { if (typeof value !== 'string' || !value.trim()
 function Time(value) { return Number.isSafeInteger(value) && value > 0; }
 function Stable(value) { if (Array.isArray(value)) return '[' + value.map(Stable).join(',') + ']'; if (plain(value)) return '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + Stable(value[k])).join(',') + '}'; return JSON.stringify(value); }
 const Hash = value => crypto.createHash('sha512').update(value).digest('hex');
+function ValidateRequestReceipt(r){if(!plain(r)||Object.keys(r).sort().join(',')!=='actorHash,expectedRevision,fingerprint'||!HASH.test(r.actorHash)||!HASH.test(r.fingerprint)||!Number.isSafeInteger(r.expectedRevision)||r.expectedRevision<0)Fail('SECURITY_RELEASE_GOVERNANCE_INVALID');}
 function Defaults() { return { version:1, requireManifest:false, requireCiEvidence:false, minimumSecurityVersion:0, manifests:{}, ciKeys:{}, ciEvidence:{}, releaseKeyIds:[], recoveryPlans:{} }; }
+// Never read this floor from an HTTP body or an environment variable. Keeping
+// legacy stored flags separate allows pre-upgrade sessions to remain unchanged
+// until an operator atomically publishes a fully verified replacement cohort.
+function PublicationPolicy(g) {
+  ValidateState(g);
+  return {...g, requireManifest:true, requireCiEvidence:true,
+    minimumSecurityVersion:Math.max(1, g.minimumSecurityVersion)};
+}
+function PublicationRequirements(g) {
+  const p = PublicationPolicy(g);
+  return {requireManifest:true, requireCiEvidence:true,
+    minimumSecurityVersion:p.minimumSecurityVersion, evidenceTrust:'TRUSTED_CI_SIGNATURE',
+    manualPassSufficient:false, scope:'NEW_PRODUCTION_PUBLICATION', hardwareAttested:false};
+}
 function ValidateManifest(m) {
   Fields(m, ['version','releaseName','securityVersion','protocol','hashVersion','handoffVersion','sourceManifestSha512','policySha512','toolchain','artifacts']);
   if (m.version !== 1 || m.protocol !== 'GAME-CONNECT-4' || m.hashVersion !== 3 || ![1,3].includes(m.handoffVersion) || !Number.isSafeInteger(m.securityVersion) || m.securityVersion < 1 || !HASH.test(m.sourceManifestSha512) || !HASH.test(m.policySha512)) Fail('SECURITY_RELEASE_MANIFEST_INVALID');
@@ -37,8 +53,8 @@ function ValidateKey(k) {
   Text(k.changedBy); return k;
 }
 function ValidateStatement(s) {
-  Fields(s, ['version','purpose','manifestId','runId','issuedAt','nativeBuild','apiProbe','integration','logsSha512']);
-  if (s.version !== 1 || s.purpose !== CI_DOMAIN || !HASH.test(s.manifestId) || !HASH.test(s.logsSha512) || !Time(s.issuedAt) || ['nativeBuild','apiProbe','integration'].some(k => !OUTCOMES.includes(s[k]))) Fail('SECURITY_CI_EVIDENCE_INVALID');
+  Fields(s, ['version','purpose','manifestId','runId','issuedAt','nativeBuild','apiProbe','integration','logsSha512',...(s?.version===2?['buildInputSha512','compatibilitySha512']:[])]);
+  if (![1,2].includes(s.version) || s.version===2&&(!HASH.test(s.buildInputSha512)||!HASH.test(s.compatibilitySha512)) || s.purpose !== CI_DOMAIN || !HASH.test(s.manifestId) || !HASH.test(s.logsSha512) || !Time(s.issuedAt) || ['nativeBuild','apiProbe','integration'].some(k => !OUTCOMES.includes(s[k]))) Fail('SECURITY_CI_EVIDENCE_INVALID');
   Text(s.runId); return s;
 }
 function Canonical(s) { ValidateStatement(s); return CI_DOMAIN + '\n' + Stable(s); }
@@ -56,13 +72,14 @@ function ValidateState(g) {
   for (const [k,max] of [['manifests',256],['ciKeys',32],['ciEvidence',256],['recoveryPlans',100]]) if (!plain(g[k]) || Object.keys(g[k]).length > max) Fail('SECURITY_RELEASE_GOVERNANCE_INVALID');
   const pairs = new Set();
   for (const [id,r] of Object.entries(g.manifests)) {
-    if(!plain(r)||Object.keys(r).some(k=>!['manifest','recordedAt','recordedBy','registration'].includes(k))||!['manifest','recordedAt','recordedBy'].every(k=>Object.hasOwn(r,k))||r.registration!==undefined&&!['PLANNED','REGISTERED'].includes(r.registration))Fail('SECURITY_RELEASE_MANIFEST_INVALID');
+    if(!plain(r)||Object.keys(r).some(k=>!['manifest','recordedAt','recordedBy','registration','planReceipt','registerReceipt'].includes(k))||!['manifest','recordedAt','recordedBy'].every(k=>Object.hasOwn(r,k))||r.registration!==undefined&&!['PLANNED','REGISTERED'].includes(r.registration))Fail('SECURITY_RELEASE_MANIFEST_INVALID');
+    for(const key of ['planReceipt','registerReceipt'])if(r[key]!==undefined)ValidateRequestReceipt(r[key]);
     if (!HASH.test(id) || ManifestId(r.manifest) !== id || !Time(r.recordedAt)) Fail('SECURITY_RELEASE_MANIFEST_INVALID');
     Text(r.recordedBy); const pair = Tuple(r.manifest.artifacts); if (pairs.has(pair)) Fail('SECURITY_RELEASE_MANIFEST_CONFLICT'); pairs.add(pair);
   }
   for (const [id,k] of Object.entries(g.ciKeys)) { ValidateKey(k); if (id !== k.keyId || g.releaseKeyIds.includes(id)) Fail('SECURITY_CI_SIGNER_INVALID'); }
   for (const [id,r] of Object.entries(g.ciEvidence)) {
-    Fields(r,['envelope','recordedAt','recordedBy','evidenceType']); ValidateEnvelope(r.envelope);
+    if(!plain(r)||Object.keys(r).some(k=>!['envelope','recordedAt','recordedBy','evidenceType','requestReceipt'].includes(k))||!['envelope','recordedAt','recordedBy','evidenceType'].every(k=>Object.hasOwn(r,k)))Fail('SECURITY_CI_EVIDENCE_INVALID');if(r.requestReceipt!==undefined)ValidateRequestReceipt(r.requestReceipt); ValidateEnvelope(r.envelope);
     if (id !== r.envelope.statement.manifestId || !g.manifests[id] || !g.ciKeys[r.envelope.keyId] || !Time(r.recordedAt) || r.evidenceType !== 'CI_SIGNED_VERIFIED') Fail('SECURITY_CI_EVIDENCE_INVALID');
     Text(r.recordedBy);
   }
@@ -101,4 +118,4 @@ function Evaluate(g,a,b,o,releaseKeys=[]) {
   else if (g.requireCiEvidence && (!ciVerified || ['nativeBuild','apiProbe','integration'].some(k => record.envelope.statement[k] !== 'PASS'))) reason='SECURITY_CI_EVIDENCE_REQUIRED';
   return {manifestId,securityVersion:manifest?.securityVersion || 0,reason,evidenceType:ciVerified?'CI_SIGNED_VERIFIED':manifest?'OPERATOR_RECORDED':'NONE',ciOutcomes:ciVerified?{nativeBuild:record.envelope.statement.nativeBuild,apiProbe:record.envelope.statement.apiProbe,integration:record.envelope.statement.integration}:null,hardwareAttested:false};
 }
-module.exports={ValidateRecovery,Defaults,ValidateState,ValidateManifest,ManifestId,PolicyDigest,KeyId,PublicKey,ValidateKey,ValidateStatement,ValidateEnvelope,Canonical,VerifyEnvelope,Evaluate,FindManifest,Tuple,Stable,CI_DOMAIN};
+module.exports={PublicationPolicy,PublicationRequirements,ValidateRecovery,Defaults,ValidateState,ValidateManifest,ManifestId,PolicyDigest,KeyId,PublicKey,ValidateKey,ValidateStatement,ValidateEnvelope,Canonical,VerifyEnvelope,Evaluate,FindManifest,Tuple,Stable,CI_DOMAIN};

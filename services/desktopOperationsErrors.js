@@ -1,6 +1,16 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:['운영 게시의 필수 검증을 해제할 수 없습니다.','새 운영 게시에는 A/B/O 명세, 전용 CI 서명 PASS, 보안 버전 1 이상이 필요합니다.','기존 실행을 임의로 바꾸지 않습니다. 검증된 조합을 준비해 게시하거나 현재 운영 조합의 증빙을 보완하세요.','deploy'],
+ ADMIN_REAUTH_REQUIRED:['중요 변경에 최근 재인증이 필요합니다.','변경을 적용하지 않았습니다.','현재 관리자 비밀번호 또는 등록된 패스키로 재인증한 뒤 다시 시도하세요.','login'],
+ FILE_CHANGED:['측정 중 파일 변경이 보고됐습니다.','변경된 측정을 성공으로 처리하지 않았습니다.','등록된 원본과 실제 파일을 비교하고 새 실행으로 확인하세요.','security'],
+ COVERAGE_INSUFFICIENT:['측정 범위가 부족합니다.','측정 용량 또는 검사 범위 제한으로 완료하지 못했습니다.','측정 대상 크기와 해당 배포의 검사 범위를 확인하세요.','security'],
+ CANCELLED:['측정이 취소됐습니다.','취소된 결과를 성공으로 처리하지 않았습니다.','종료 요청 여부와 같은 시각의 실행 기록을 확인하세요.','security'],
+ DEADLINE_EXCEEDED:['측정 시간이 초과됐습니다.','제한 시간 안에 측정을 완료하지 못했습니다.','저장소 지연과 당시 시스템 부하를 확인하세요.','security'],
+ BOOTSTRAP_UPLOAD_TIMEOUT:['업로드 또는 PE 검사 시간이 초과됐습니다.','배포 후보 등록을 완료하지 않았습니다.','연결과 서버 처리 부하를 확인한 뒤 다시 업로드하세요.','deploy'],
+ BOOTSTRAP_UPLOAD_ABORTED:['업로드 연결이 중단됐습니다.','불완전한 파일을 배포 후보로 등록하지 않았습니다.','연결 상태를 확인하고 원본 파일을 다시 업로드하세요.','deploy'],
+ BOOTSTRAP_UPLOAD_CHANGED:['검사 도중 업로드 버퍼가 변경됐습니다.','검사값과 등록 대상이 달라 후보 등록을 중단했습니다.','서버의 해당 오류를 확인한 뒤 새 요청으로 업로드하세요.','deploy'],
+ BOOTSTRAP_PE_ANALYSIS_FAILED:['서버 PE 검사 작업을 완료하지 못했습니다.','내부 작업 오류를 파일 형식 오류로 단정하지 않았습니다.','서버 작업 큐와 실행 로그를 확인하세요.','deploy'],
  SECURITY_CANDIDATE_MANIFEST_REQUIRED:['업로드 전에 배포 명세를 계획 등록해야 합니다.','현재 정책은 각 EXE 후보의 명세 ID 선언을 요구합니다.','서버 보안 · 배포 운영에서 최종 A/B/O 명세를 계획 등록한 뒤 같은 ID로 순서대로 업로드하세요.','deploy'],
  SECURITY_RELEASE_MANIFEST_NOT_REGISTERED:['배포 명세의 후보 등록이 아직 완료되지 않았습니다.','PLANNED 상태는 실행 승인이 아닙니다.','선언한 A/B/O 세 파일을 모두 올리고 [세 파일 확인 후 명세 등록 완료]를 실행하세요.','deploy'],
  SECURITY_KEY_PURPOSE_CONFLICT:['같은 키를 다른 보안 용도로 사용할 수 없습니다.','서버 통신·TLS·EXE 승인·CI 서명의 공개키 지문 용도가 충돌합니다.','해당 용도 전용 키를 사용하세요. 기존 용도 이력을 삭제해 재사용하지 마세요.','security'],

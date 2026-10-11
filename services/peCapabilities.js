@@ -28,10 +28,13 @@ function PeCapabilities(bytes){
   if((flags&0x500)!==0x500)bad('CFG_INSTRUMENTATION_FLAGS');
   const check=bytes.readBigUInt64LE(lc.at+112),tableVA=bytes.readBigUInt64LE(lc.at+128),n=bytes.readBigUInt64LE(lc.at+136);
   if(!check||!tableVA||n===0n||n>1000000n)bad('CFG_TABLE_MISSING');
-  rawAt(toRva(check),8);const stride=4+((flags>>>28)&15),total=Number(n)*stride,entries=rawAt(toRva(tableVA),total);
+  const checkSlot=rawAt(toRva(check),8),dispatch=bytes.readBigUInt64LE(lc.at+120);
+  if(!(checkSlot.s.flags&0x40000000))bad('CFG_CHECK_SLOT_UNREADABLE');
+  if(dispatch)rawAt(toRva(dispatch),8);
+  const stride=4+((flags>>>28)&15),total=Number(n)*stride,entries=rawAt(toRva(tableVA),total);
   if(entries.s.flags&0x80000000)bad('CFG_TABLE_WRITABLE');
-  let previous=-1;for(let i=0;i<Number(n);i++){const target=bytes.readUInt32LE(entries.at+i*stride);if(target<=previous)bad('CFG_TARGET_ORDER');previous=target;const s=sections.find(s=>target>=s.rva&&target<s.rva+s.span);if(!s||!(s.flags&0x20000000)||(s.flags&0x80000000))bad('CFG_TARGET_NOT_IMMUTABLE_CODE');}
-  cfg={...cfg,status:'STRUCTURALLY_VALID',instrumentedMetadata:true,functionCount:Number(n),reason:'',guardFlags:flags};
+  let previous=-1;for(let i=0;i<Number(n);i++){const target=bytes.readUInt32LE(entries.at+i*stride);if(target<=previous)bad('CFG_TARGET_ORDER');previous=target;const s=sections.find(s=>target>=s.rva&&target<s.rva+s.rawSize);if(!s||!(s.flags&0x20000000)||(s.flags&0x80000000))bad('CFG_TARGET_NOT_IMMUTABLE_CODE');}
+  cfg={...cfg,status:'STRUCTURALLY_VALID',instrumentedMetadata:true,functionCount:Number(n),reason:'',guardFlags:flags,checkSlotWritable:!!(checkSlot.s.flags&0x80000000),dispatchSlotPresent:dispatch!==0n};
  }catch(error){cfg={...cfg,status:'INVALID',reason:error.message};}
  return {authorityVersion,compiledCfg:cfg.instrumentedMetadata,cfg};
 }

@@ -8,7 +8,7 @@ function Record(operation,body,code){
   let context;
   if(operation==='execute'){
    const raw=body.payloadJSON??body.payloadJson;if(typeof raw!=='string'||Buffer.byteLength(raw)>4096)return;
-   const p=JSON.parse(raw);context={stage:'B',sessionId:p.bootstrapSessionId,sessionToken:p.bootstrapSessionToken,machineId:p.machineId};
+   const p=require('./strictJson').Parse(raw,{maxBytes:4096});context={stage:'B',sessionId:p.bootstrapSessionId,sessionToken:p.bootstrapSessionToken,machineId:p.machineId};
   }else if(operation==='bootstrap'&&['chunk','finish'].includes(body.action))context={stage:'A',sessionId:body.flowId,sessionToken:body.downloadTicket};
   else if(operation==='bootstrap')context={stage:'B',sessionId:body.sessionId,sessionToken:body.sessionToken};
   else context={stage:body.stage||'B',sessionId:body.sessionId,sessionToken:body.sessionToken,machineId:body.machineId};

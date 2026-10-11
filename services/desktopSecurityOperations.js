@@ -72,19 +72,19 @@ function CheckRevision(body, policyRequired = false) {
 }
 function AuditDetails(value={}){const out={};if(/^[A-F0-9]{24}$/.test(value.recoveryId||''))out.recoveryId=value.recoveryId;for(const k of ['manifestId','reasonSha512'])if(HASH.test(value[k]||''))out[k]=value[k];return out;}
 function AuditIntent(kind, actor, details={}) {
-  const result = require('../storage/audit').LogEvent('DESKTOP_SECURITY_CHANGE_INTENT',JSON.stringify({kind,actor:Actor(actor),...AuditDetails(details)}),{durable:true});
+  const result = require('../storage/audit').LogEvent('DESKTOP_SECURITY_CHANGE_INTENT',JSON.stringify({kind,actorHash:crypto.createHash('sha256').update(Actor(actor)).digest('hex'),...AuditDetails(details)}),{durable:true});
   if (!result || result.ok !== true) Fail('SECURITY_AUDIT_UNAVAILABLE',503);
 }
 function Commit(next, actor, kind, apply, details={}) {
-  ValidateState(next); AuditIntent(kind,actor,details);
-  store.Atomic(db => {
+  ValidateState(next);
+  require('./desktopOperationAudit').Run('SECURITY_'+kind,actor,{revision:next.revision},db => {
     const before = db.securityOperations || Defaults();
     if (next.revision !== before.revision+1) Fail('SECURITY_OPERATIONS_CONFLICT',409);
     db.securityOperations = next;
     if (apply) apply(db);
   });
   require('./desktopSecurityAuthority').InvalidateAll();
-  require('../storage/audit').LogEvent('DESKTOP_SECURITY_OPERATIONS',JSON.stringify({kind,revision:next.revision,actor:Actor(actor),...AuditDetails(details)}));
+  require('../storage/audit').LogEvent('DESKTOP_SECURITY_OPERATIONS',JSON.stringify({kind,revision:next.revision,actorHash:crypto.createHash('sha256').update(Actor(actor)).digest('hex'),...AuditDetails(details)}));
   return State();
 }
 function SignerState(keyId) { return State().signerStates[keyId]?.state || 'ACTIVE'; }
@@ -166,31 +166,34 @@ function Overlay(id) {
 function SelectedOverlay(body) { return Overlay(Object.hasOwn(body,'oId')?body.oId:store.Load().active.O||''); }
 function RequirePairEvidence(a,b,s=State(),o=null) { const e=s.pairEvidence[PairKey(a,b,o)];if(!e||['nativeBuild','apiProbe','integration'].some(k=>e[k]!=='PASS')) Fail('SECURITY_TEST_EVIDENCE_REQUIRED',409);return e; }
 function RequireRuntimePair(a,b,o=null) {
+  if(store.Load().tlsPinTransition&&[a,b,o].filter(Boolean).some(row=>row.tlsPinVersion!==1))Fail('TLS_PIN_ACTIVE_BUILD_UPGRADE_REQUIRED',409);
   if(new Set([a,b,o].filter(Boolean).map(row=>row.handoffVersion||1)).size>1)Fail('BOOTSTRAP_HANDOFF_VERSION_MISMATCH',409);
   const state=State();const release=ReleaseView(a,b,o,state);if(release.reason)Fail(release.reason,409);if(!state.requireTestEvidence)return;
   if(!a||!b||a.component!=='A'||b.component!=='B'||o&&o.component!=='O')Fail('SECURITY_RELEASE_PAIR_INVALID',409);
   RequirePairEvidence(a,b,state,o);
 }
-function PreviewPair(body) {
-  Fields(body,['aId','bId','oId'],['aId','bId']); const [a,b]=Pair(body.aId,body.bId),o=SelectedOverlay(body),s=State(),auth=require('./desktopSecurityAuthority'),p=auth.Policy();
+function PreviewPair(body, production = false) {
+  Fields(body,['aId','bId','oId'],['aId','bId']); const [a,b]=Pair(body.aId,body.bId),o=SelectedOverlay(body),s=production?PublicationState():State(),auth=require('./desktopSecurityAuthority'),p=auth.Policy();
   const selectedRows=[a,b,...(o?[o]:[])];
   const reasons=selectedRows.map(row=>auth.ArtifactReason(row,p)||ArtifactReason(row,s)).filter(Boolean);
+  if(production&&selectedRows.some(row=>row.measurementPlanVersion!==1))reasons.push('INTEGRITY_MEASUREMENT_BUILD_UPGRADE_REQUIRED');
+  if(store.Load().tlsPinTransition&&selectedRows.some(row=>row.tlsPinVersion!==1))reasons.push('TLS_PIN_ACTIVE_BUILD_UPGRADE_REQUIRED');
   if(new Set(selectedRows.map(row=>row.handoffVersion||1)).size!==1)reasons.push('BOOTSTRAP_HANDOFF_VERSION_MISMATCH');
   const e=s.pairEvidence[PairKey(a,b,o)]||null;
   const release=ReleaseView(a,b,o,s);if(release.reason)reasons.push(release.reason);
   if(s.requireTestEvidence&&(!e||['nativeBuild','apiProbe','integration'].some(k=>e[k]!=='PASS'))) reasons.push('SECURITY_TEST_EVIDENCE_REQUIRED');
   return {aId:a.id,bId:b.id,oId:o?.id||'',aSha512:a.sha512,bSha512:b.sha512,oSha512:o?.sha512||'',eligible:!reasons.length,reasons,policyRevision:p.revision,operationsRevision:s.revision,testEvidence:e,release,hardwareAttested:false};
 }
-function ActivatePair(body,actor,recoveryId='') {
+function ActivatePair(body,actor,recoveryId='',production=false) {
   Fields(body,['expectedRevision','expectedPolicyRevision','aId','bId','oId'],['expectedRevision','expectedPolicyRevision','aId','bId']);CheckRevision(body,true);
   const selected={aId:body.aId,bId:body.bId,...(Object.hasOwn(body,'oId')?{oId:body.oId}:{})};
-  const view=PreviewPair(selected); if(!view.eligible) Fail(view.reasons[0],409);
+  const view=PreviewPair(selected,production); if(!view.eligible) Fail(view.reasons[0],409);
   const [a,b]=Pair(body.aId,body.bId),o=Overlay(view.oId),db=store.Load(),boot=require('./desktopBootstrap');
   // Re-read bytes just before the atomic pointer swap, not the upload's old result.
   boot.ReadArtifactBytes(a);boot.ReadArtifactBytes(b);if(o)boot.ReadArtifactBytes(o);
-  const s=State();s.revision++;s.activations.push({at:Date.now(),actor:Actor(actor),aId:a.id,bId:b.id,aSha512:a.sha512,bSha512:b.sha512,previousA:db.active.A||'',previousB:db.active.B||'',...(o||db.active.O?{oId:o?.id||'',oSha512:o?.sha512||'',previousO:db.active.O||''}:{}),policyRevision:body.expectedPolicyRevision,operationsRevision:s.revision,...(view.release.manifestId?{manifestId:view.release.manifestId}:{}),...(recoveryId?{recoveryId}:{})});s.activations=s.activations.slice(-100);
+  const s=production?PublicationState():State();s.revision++;s.activations.push({at:Date.now(),actor:Actor(actor),aId:a.id,bId:b.id,aSha512:a.sha512,bSha512:b.sha512,previousA:db.active.A||'',previousB:db.active.B||'',...(o||db.active.O?{oId:o?.id||'',oSha512:o?.sha512||'',previousO:db.active.O||''}:{}),policyRevision:body.expectedPolicyRevision,operationsRevision:s.revision,...(view.release.manifestId?{manifestId:view.release.manifestId}:{}),...(recoveryId?{recoveryId}:{})});s.activations=s.activations.slice(-100);
   if(recoveryId){const plan=s.releaseGovernance.recoveryPlans[recoveryId];if(!plan||plan.status!=='PREPARED')Fail('SECURITY_RECOVERY_INVALID');plan.status='APPLIED';plan.appliedAt=Date.now();}
-  Commit(s,actor,recoveryId?'RECOVERY_ACTIVATED':'PAIR_ACTIVATED',next=>{next.active={A:a.id,B:b.id,...(o?{O:o.id}:{})};},recoveryId?{recoveryId,manifestId:view.release.manifestId,reasonSha512:sha512(s.releaseGovernance.recoveryPlans[recoveryId].reason)}:{});return PreviewPair({aId:a.id,bId:b.id,oId:o?.id||''});
+  Commit(s,actor,recoveryId?'RECOVERY_ACTIVATED':'PAIR_ACTIVATED',next=>{next.active={A:a.id,B:b.id,...(o?{O:o.id}:{})};},recoveryId?{recoveryId,manifestId:view.release.manifestId,reasonSha512:sha512(s.releaseGovernance.recoveryPlans[recoveryId].reason)}:{});return PreviewPair({aId:a.id,bId:b.id,oId:o?.id||''},production);
 }
 
 function ReserveKnownKeyPurposes(db){
@@ -224,18 +227,20 @@ function SetReleaseGovernance(body,actor) {
   if(g.minimumSecurityVersion<State().releaseGovernance.minimumSecurityVersion)Fail('SECURITY_RELEASE_FLOOR_IRREVERSIBLE',409);
   provenance.ValidateState(g);ValidateActive(s);s.revision++;return Commit(s,actor,'RELEASE_GOVERNANCE_CHANGED');
 }
+function RegistrationReceipt(body,actor){return {actorHash:sha512(Actor(actor)),expectedRevision:body.expectedRevision,fingerprint:sha512(provenance.Stable(body))};}
+function RegistrationRetry(receipt,body,actor){const value=RegistrationReceipt(body,actor);return receipt&&receipt.actorHash===value.actorHash&&receipt.expectedRevision===value.expectedRevision&&receipt.fingerprint===value.fingerprint;}
 function RecordReleaseManifest(body,actor,planning=false) {
-  Fields(body,['expectedRevision','manifest','manifestId'],['expectedRevision','manifest']);CheckRevision(body);
+  Fields(body,['expectedRevision','manifest','manifestId'],['expectedRevision','manifest']);if(!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)Fail('SECURITY_OPERATIONS_CONFLICT',409);
   const m=structuredClone(provenance.ValidateManifest(body.manifest)),id=provenance.ManifestId(m),s=State(),g=s.releaseGovernance,db=store.Load();
   if(Object.hasOwn(body,'manifestId')&&body.manifestId!==id)Fail('SECURITY_RELEASE_MANIFEST_INVALID');
-  const existing=g.manifests[id];if(existing&&(planning||existing.registration!=='PLANNED'))return s; // Content-addressed immutable retry.
+  const existing=g.manifests[id];if(existing&&(planning||existing.registration!=='PLANNED')){if(!RegistrationRetry(existing[planning?'planReceipt':'registerReceipt'],body,actor))CheckRevision(body);return s;}CheckRevision(body); // Content-addressed immutable retry.
   if(!existing&&Object.values(g.manifests).some(r=>provenance.Tuple(r.manifest.artifacts)===provenance.Tuple(m.artifacts)))Fail('SECURITY_RELEASE_MANIFEST_CONFLICT',409);
   if(!planning)for(const k of ['A','B','O']){
     const a=Object.values(db.artifacts).find(a=>a.component===k&&a.sha512===m.artifacts[k]&&(!existing||existing.registration!=='PLANNED'||a.deploymentManifestId===id));
     if(!a||a.protocol!==m.protocol||a.hashVersion!==m.hashVersion||(a.handoffVersion||1)!==m.handoffVersion)Fail('SECURITY_MANIFEST_ARTIFACT_MISMATCH',409);
   }
   if(!existing&&m.policySha512!==provenance.PolicyDigest(require('./desktopSecurityAuthority').Policy()))Fail('SECURITY_MANIFEST_POLICY_MISMATCH',409);
-  g.manifests[id]={manifest:m,recordedAt:existing?.recordedAt||Date.now(),recordedBy:existing?.recordedBy||Actor(actor),registration:planning?'PLANNED':'REGISTERED'};s.revision++;return Commit(s,actor,planning?'RELEASE_MANIFEST_PLANNED':'RELEASE_MANIFEST_REGISTERED');
+  g.manifests[id]={manifest:m,recordedAt:existing?.recordedAt||Date.now(),recordedBy:existing?.recordedBy||Actor(actor),registration:planning?'PLANNED':'REGISTERED',...(existing?.planReceipt?{planReceipt:existing.planReceipt}:{}),[planning?'planReceipt':'registerReceipt']:RegistrationReceipt(body,actor)};s.revision++;return Commit(s,actor,planning?'RELEASE_MANIFEST_PLANNED':'RELEASE_MANIFEST_REGISTERED');
 }
 function SetCiSigner(body,actor) {
   Fields(body,['expectedRevision','keyId','state','publicKey','notBefore','notAfter'],['expectedRevision','keyId','state']);CheckRevision(body);
@@ -253,15 +258,15 @@ function SetCiSigner(body,actor) {
   return Commit(s,actor,'CI_SIGNER_'+body.state);
 }
 function RecordCiEvidence(body,actor) {
-  Fields(body,['expectedRevision','envelope']);CheckRevision(body);
+  Fields(body,['expectedRevision','envelope']);if(!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)Fail('SECURITY_OPERATIONS_CONFLICT',409);
   const e=structuredClone(provenance.ValidateEnvelope(body.envelope)),s=State(),g=s.releaseGovernance,k=g.ciKeys[e.keyId],now=Date.now();
   if(!g.manifests[e.statement.manifestId])Fail('SECURITY_RELEASE_MANIFEST_REQUIRED',409);
   if(!k||k.state!=='ACTIVE'||now<k.notBefore||now>k.notAfter)Fail('SECURITY_CI_SIGNER_NOT_ACTIVE',409);
   if(e.statement.issuedAt>now+300000||!provenance.VerifyEnvelope(e,k,require('./desktopSecurityAuthority').Policy().trustedReleaseKeys))Fail('SECURITY_CI_SIGNATURE_INVALID',409);
   const old=g.ciEvidence[e.statement.manifestId];
-  if(old&&provenance.Stable(old.envelope)===provenance.Stable(e))return s;
+  if(old&&provenance.Stable(old.envelope)===provenance.Stable(e)){if(!RegistrationRetry(old.requestReceipt,body,actor))CheckRevision(body);return s;}CheckRevision(body);
   if(old&&e.statement.issuedAt<=old.envelope.statement.issuedAt)Fail('SECURITY_CI_EVIDENCE_STALE',409);
-  g.ciEvidence[e.statement.manifestId]={envelope:e,recordedAt:now,recordedBy:Actor(actor),evidenceType:'CI_SIGNED_VERIFIED'};s.revision++;return Commit(s,actor,'CI_EVIDENCE_VERIFIED');
+  g.ciEvidence[e.statement.manifestId]={envelope:e,recordedAt:now,recordedBy:Actor(actor),evidenceType:'CI_SIGNED_VERIFIED',requestReceipt:RegistrationReceipt(body,actor)};s.revision++;return Commit(s,actor,'CI_EVIDENCE_VERIFIED');
 }
 
 
@@ -277,28 +282,56 @@ function ValidateCandidateArtifact(artifact,deploymentManifestId=''){
   return deploymentManifestId;
 }
 function RecoveryProjection(id,r){return {recoveryId:id,...structuredClone(r),requiresExplicitApply:r.status==='PREPARED',bypassesSecurityFloor:false};}
-function PrepareRecovery(body,actor){
+function PrepareRecovery(body,actor,production=false){
   Fields(body,['expectedRevision','expectedPolicyRevision','requestId','aId','bId','oId','reason']);
   if(typeof body.requestId!=='string'||!/^[a-zA-Z0-9_-]{16,80}$/.test(body.requestId))Fail('SECURITY_RECOVERY_INVALID');
   const reason=Text(body.reason,500),selection={aId:body.aId,bId:body.bId,oId:body.oId},who=Actor(actor),fingerprint=sha512(provenance.Stable({selection,reason,policyRevision:body.expectedPolicyRevision})),s=State();
   const prior=Object.entries(s.releaseGovernance.recoveryPlans).find(([,r])=>r.requestId===body.requestId&&r.preparedBy===who);
   if(prior){if(prior[1].fingerprint!==fingerprint)Fail('SECURITY_RECOVERY_REQUEST_REUSED',409);return RecoveryProjection(...prior);}
-  CheckRevision(body,true);const preview=PreviewPair(selection);if(!preview.eligible)Fail(preview.reasons[0],409);
+  CheckRevision(body,true);const preview=PreviewPair(selection,production);if(!preview.eligible)Fail(preview.reasons[0],409);
   const db=store.Load(),id=crypto.randomBytes(12).toString('hex').toUpperCase(),at=Date.now();
   s.revision++;const r={version:1,requestId:body.requestId,fingerprint,preparedBy:who,reason,createdAt:at,expiresAt:at+300000,preparedRevision:s.revision,policyRevision:body.expectedPolicyRevision,selection,previous:{A:db.active.A||'',B:db.active.B||'',O:db.active.O||''},manifestId:preview.release.manifestId,status:'PREPARED',appliedAt:0};
   provenance.ValidateRecovery(id,r);s.releaseGovernance.recoveryPlans[id]=r;Commit(s,actor,'RECOVERY_PREPARED',undefined,{recoveryId:id,manifestId:r.manifestId,reasonSha512:sha512(reason)});return RecoveryProjection(id,r);
 }
-function ApplyRecovery(body,actor){
+function ApplyRecovery(body,actor,production=false){
   Fields(body,['expectedRevision','expectedPolicyRevision','recoveryId']);
   const r=State().releaseGovernance.recoveryPlans[body.recoveryId];
   if(!r||r.preparedBy!==Actor(actor)||body.expectedRevision!==r.preparedRevision||body.expectedPolicyRevision!==r.policyRevision)Fail('SECURITY_RECOVERY_INVALID',409);
   if(r.status==='APPLIED')return {...RecoveryProjection(body.recoveryId,r),replayed:true,activeUnchanged:true};
   CheckRevision(body,true);if(Date.now()<r.createdAt||Date.now()>=r.expiresAt)Fail('SECURITY_RECOVERY_EXPIRED',409);
   const active=store.Load().active;if(['A','B','O'].some(k=>(active[k]||'')!==r.previous[k]))Fail('SECURITY_RECOVERY_ACTIVE_CHANGED',409);
-  const result=ActivatePair({expectedRevision:body.expectedRevision,expectedPolicyRevision:body.expectedPolicyRevision,...r.selection},actor,body.recoveryId);
+  const result=ActivatePair({expectedRevision:body.expectedRevision,expectedPolicyRevision:body.expectedPolicyRevision,...r.selection},actor,body.recoveryId,production);
   return {recoveryId:body.recoveryId,applied:true,replayed:false,bypassesSecurityFloor:false,preview:result};
 }
 
+// Production entry points. Do not route an HTTP request to the version-1
+// compatibility helpers above. Isolated CI provisioning must run BEFORE it can
+// sign its own integration result, so its fixture uses the historical helpers
+// in a private empty data directory; it never issues a fabricated CI PASS.
+function PublicationState(s=State()) {
+  return {...s, releaseGovernance:provenance.PublicationPolicy(s.releaseGovernance)};
+}
+function PreviewProductionPair(body) { return PreviewPair(body,true); }
+function ActivateProductionPair(body,actor) { return ActivatePair(body,actor,'',true); }
+function PrepareProductionRecovery(body,actor) { return PrepareRecovery(body,actor,true); }
+function ApplyProductionRecovery(body,actor) { return ApplyRecovery(body,actor,true); }
+function SetProductionGovernance(body,actor) {
+  Fields(body,['expectedRevision','requireManifest','requireCiEvidence','minimumSecurityVersion'],['expectedRevision']);
+  if (['requireManifest','requireCiEvidence'].some(k=>Object.hasOwn(body,k)&&body[k]!==true) ||
+      Object.hasOwn(body,'minimumSecurityVersion')&&(!Number.isSafeInteger(body.minimumSecurityVersion)||body.minimumSecurityVersion<1))
+    Fail('SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED',409);
+  const minimum=provenance.PublicationPolicy(State().releaseGovernance).minimumSecurityVersion;
+  return SetReleaseGovernance({expectedRevision:body.expectedRevision,requireManifest:true,
+    requireCiEvidence:true,minimumSecurityVersion:body.minimumSecurityVersion??minimum},actor);
+}
+function ProductionStatus(s=State()) {
+  const g=s.releaseGovernance,requirements=provenance.PublicationRequirements(g);
+  return {requirements, runtime:{requireManifest:g.requireManifest,requireCiEvidence:g.requireCiEvidence,
+    minimumSecurityVersion:g.minimumSecurityVersion},
+    legacyRuntimePolicy:!g.requireManifest||!g.requireCiEvidence||g.minimumSecurityVersion<1,
+    transition:'VERIFIED_COHORT_AND_RUNTIME_POLICY_COMMITTED_ATOMICALLY',
+    failedPublicationLeavesActiveUnchanged:true, readOnly:true};
+}
 function Stage(component,version,bytes,approval,actor,releaseManifestId='') {
   AuditIntent('ARTIFACT_STAGE',actor);
   if(approval && !SignerAllowed(approval.keyId,true)) Fail('SECURITY_SIGNER_NOT_ACTIVE',409);
@@ -306,9 +339,9 @@ function Stage(component,version,bytes,approval,actor,releaseManifestId='') {
 }
 function List() {
   const s=State(),db=store.Load();
-  return {operations:s,active:{...db.active},auditHealth:require('../storage/audit').WriteHealth(),
+  return {operations:s,productionPublication:ProductionStatus(s),active:{...db.active},auditHealth:require('../storage/audit').WriteHealth(),
     adminProtection:require('./desktopAdminGuard').Status(),
     storage:'SERVER_ONLY',keyPurposes:require('./desktopKeyPurposes').Summary(),testEvidenceTrust:'OPERATOR_RECORDED_NOT_ATTESTATION',ciEvidenceTrust:'TRUSTED_CI_SIGNATURE_NOT_HARDWARE_ATTESTATION',policySha512:provenance.PolicyDigest(require('./desktopSecurityAuthority').Policy()),
     candidates:Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,createdAt:a.createdAt,deploymentManifestId:a.deploymentManifestId||'',active:db.active[a.component]===a.id,contract:s.contracts[BuildKey(a)]||null}))};
 }
-module.exports={ReserveKnownKeyPurposes,PlanReleaseManifest,ValidateCandidateArtifact,PrepareRecovery,ApplyRecovery,RememberReleaseKeys,AssertReleaseKeyPurpose,SetReleaseGovernance,RecordReleaseManifest,SetCiSigner,RecordCiEvidence,ReleaseView,Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};
+module.exports={PublicationState,PreviewProductionPair,ActivateProductionPair,PrepareProductionRecovery,ApplyProductionRecovery,SetProductionGovernance,ProductionStatus,ReserveKnownKeyPurposes,PlanReleaseManifest,ValidateCandidateArtifact,PrepareRecovery,ApplyRecovery,RememberReleaseKeys,AssertReleaseKeyPurpose,SetReleaseGovernance,RecordReleaseManifest,SetCiSigner,RecordCiEvidence,ReleaseView,Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};

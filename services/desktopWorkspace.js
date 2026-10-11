@@ -9,7 +9,7 @@ const bootstrap=require('./desktopBootstrap');
 const bootStore=require('./desktopBootstrapStore');
 const space=require('./desktopStorageSpace');
 const plans=new Map();
-let runner=false,timer,summary={asOf:0,pending:true};
+let runner=false,timer,scheduledPump,summary={asOf:0,pending:true};
 function Fail(code,status=400){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
 function Plain(x){return !!x&&Object.getPrototypeOf(x)===Object.prototype;}
 function Fields(x,allowed,required=allowed){if(!Plain(x)||Object.keys(x).some(k=>!allowed.includes(k))||required.some(k=>!Object.hasOwn(x,k)))Fail('INPUT_INVALID');}
@@ -17,6 +17,7 @@ function Text(x,max){if(typeof x!=='string'||x.length>max||/[\x00-\x08\x0b-\x1f\
 function MetadataInput(x){Fields(x,['note','tags']);const note=Text(x.note,500);if(!Array.isArray(x.tags)||x.tags.length>10)Fail('INPUT_INVALID');return{note,tags:[...new Set(x.tags.map(t=>Text(t,30)).filter(Boolean))]};}
 function Meta(id){return db.Load().metadata[id]||{revision:0,note:'',tags:[]};}
 function Actor(session){return 'ADMIN:'+String(session.id);}
+function Atomic(kind,actor,fn){return db.Atomic(fn,{kind,actor});}
 function Audit(kind,actor){require('./desktopSecurityOperations').AuditIntent('WORKSPACE_'+kind,actor);}
 function Query(query={}){
  const page=Number(query.page||0),pageSize=Number(query.pageSize||25),q=String(query.q||'').trim().toLowerCase();
@@ -55,13 +56,13 @@ function Detail(id){
 function SaveMetadata(id,body,actor){
  Fields(body,['expectedRevision','note','tags']);licenses.Detail(id);const value=MetadataInput({note:body.note,tags:body.tags});
  if(body.expectedRevision!==Meta(id).revision)Fail('WORKSPACE_CONFLICT',409);
- Audit('METADATA',actor);db.Atomic(next=>{const old=next.metadata[id]?.revision||0;if(old!==body.expectedRevision)Fail('WORKSPACE_CONFLICT',409);next.metadata[id]={...value,revision:old+1,updatedAt:Date.now(),updatedBy:actor};});return Meta(id);
+ Audit('METADATA',actor);Atomic('WORKSPACE_SAVE_METADATA',actor,next=>{const old=next.metadata[id]?.revision||0;if(old!==body.expectedRevision)Fail('WORKSPACE_CONFLICT',409);next.metadata[id]={...value,revision:old+1,updatedAt:Date.now(),updatedBy:actor};});return Meta(id);
 }
 function SaveReleaseNote(body,actor){
  Fields(body,['aId','bId','oId','note'],['aId','bId','note']);const b=bootStore.Load();
  const oId=Object.hasOwn(body,'oId')?body.oId:b.active.O||'';
  if(b.artifacts[body.aId]?.component!=='A'||b.artifacts[body.bId]?.component!=='B'||typeof oId!=='string'||oId&&b.artifacts[oId]?.component!=='O')Fail('INPUT_INVALID');
- const note=Text(body.note,1000);Audit('RELEASE_NOTE',actor);db.Atomic(next=>{next.releaseNotes||={};next.releaseNotes[body.aId+':'+body.bId+(oId?':'+oId:'')]={note,updatedAt:Date.now(),updatedBy:actor};});return{saved:true};
+ const note=Text(body.note,1000);Audit('RELEASE_NOTE',actor);Atomic('WORKSPACE_SAVE_RELEASE_NOTE',actor,next=>{next.releaseNotes||={};next.releaseNotes[body.aId+':'+body.bId+(oId?':'+oId:'')]={note,updatedAt:Date.now(),updatedBy:actor};});return{saved:true};
 }
 function RefreshSummary(){
  const b=bootStore.Load(),all=Object.values(b.flows),since=Date.now()-7*86400000,flows=all.filter(f=>f.createdAt>=since),issued=Object.values(b.launchers).filter(l=>l.issuedAt>=since);
@@ -106,7 +107,7 @@ function Submit(body,session){
  if(plan.kind==='METADATA')for(const i of plan.items)if(Meta(i.id).revision!==i.expectedRevision)Fail('WORKSPACE_CONFLICT',409);
  const actor=Actor(session);Audit(plan.kind,actor);const id=crypto.randomBytes(16).toString('hex');
  const job={id,kind:plan.kind,status:'QUEUED',createdAt:Date.now(),createdBy:actor,items:plan.items.map(input=>({status:'PENDING',input}))};
- db.Atomic(next=>{next.jobs[id]=job;next.receipts[receiptKey]={planId:body.planId,jobId:id};});plans.delete(body.planId);Schedule();return ProjectJob(job);
+ Atomic('WORKSPACE_SUBMIT',actor,next=>{next.jobs[id]=job;next.receipts[receiptKey]={planId:body.planId,jobId:id};});plans.delete(body.planId);Schedule();return ProjectJob(job);
 }
 function DoItem(job,index){
  const item=job.items[index],input=item.input,actor='WORKSPACE_JOB:'+job.id;
@@ -114,7 +115,7 @@ function DoItem(job,index){
  if(job.kind==='METADATA'){
   const previous=Meta(input.id);if(previous.lastJob===job.id+':'+index)return {id:input.id,metadata:previous};
   if(previous.revision!==input.expectedRevision)Fail('WORKSPACE_CONFLICT',409);licenses.Detail(input.id);
-  db.Atomic(next=>{next.metadata[input.id]={note:input.note,tags:input.tags,revision:previous.revision+1,updatedAt:Date.now(),updatedBy:job.createdBy,lastJob:job.id+':'+index};});return{id:input.id,metadata:Meta(input.id)};
+  Atomic('WORKSPACE_DO_ITEM',actor,next=>{next.metadata[input.id]={note:input.note,tags:input.tags,revision:previous.revision+1,updatedAt:Date.now(),updatedBy:job.createdBy,lastJob:job.id+':'+index};});return{id:input.id,metadata:Meta(input.id)};
  }
  if(job.kind==='EXPORT'){const l=licenses.Detail(input.id).license;return{id:l.id,label:l.label,status:l.status,issuedAt:l.issuedAt,lastVerifiedAt:l.lastVerifiedAt||0,appVersion:l.appVersion||'',metadata:Meta(l.id)};}
  if(job.kind==='CLEANUP')return space.DeleteCandidate(input.id,input.sha512);
@@ -125,18 +126,18 @@ function Pump(){
  try{
   const job=Object.values(db.Load().jobs).find(j=>['QUEUED','RUNNING'].includes(j.status));if(!job)return;
   const index=job.items.findIndex(x=>['PENDING','RUNNING'].includes(x.status));
-  if(index<0){db.Atomic(next=>{const j=next.jobs[job.id];j.status=j.items.some(x=>x.status==='FAILED')?'PARTIAL':'DONE';j.updatedAt=Date.now();});return;}
-  db.Atomic(next=>{next.jobs[job.id].status='RUNNING';next.jobs[job.id].items[index].status='RUNNING';});
+  if(index<0){Atomic('WORKSPACE_PUMP',job.createdBy,next=>{const j=next.jobs[job.id];j.status=j.items.some(x=>x.status==='FAILED')?'PARTIAL':'DONE';j.updatedAt=Date.now();});return;}
+  Atomic('WORKSPACE_PUMP',job.createdBy,next=>{next.jobs[job.id].status='RUNNING';next.jobs[job.id].items[index].status='RUNNING';});
   let result,error='';try{result=DoItem(job,index);}catch(e){error=e.desktopError?e.message:'WORKSPACE_ITEM_FAILED';}
   // Saving failure leaves RUNNING for idempotent retry after server restart.
-  db.Atomic(next=>{const j=next.jobs[job.id],i=j.items[index];i.status=error?'FAILED':'DONE';if(result)i.result=result;if(error)i.error=error;j.updatedAt=Date.now();if(!j.items.some(x=>['PENDING','RUNNING'].includes(x.status)))j.status=j.items.some(x=>x.status==='FAILED')?'PARTIAL':'DONE';});
+  Atomic('WORKSPACE_PUMP',job.createdBy,next=>{const j=next.jobs[job.id],i=j.items[index];i.status=error?'FAILED':'DONE';if(result)i.result=result;if(error)i.error=error;j.updatedAt=Date.now();if(!j.items.some(x=>['PENDING','RUNNING'].includes(x.status)))j.status=j.items.some(x=>x.status==='FAILED')?'PARTIAL':'DONE';});
  }catch(e){console.error('WORKSPACE_WORKER_FAILED',e.desktopError?e.message:'INTERNAL');}
  finally{runner=false;}
 }
-function Schedule(){setImmediate(Pump);}
-function Retry(id,actor){const j=db.Load().jobs[id];if(!j)Fail('NOT_FOUND',404);if(!['DONE','PARTIAL'].includes(j.status))Fail('WORKSPACE_CONFLICT',409);if(j.status==='DONE')return ProjectJob(j);Audit('RETRY',actor);db.Atomic(next=>{const row=next.jobs[id];for(const i of row.items)if(i.status==='FAILED'){i.status='PENDING';delete i.error;}row.status='QUEUED';});Schedule();return ProjectJob(db.Load().jobs[id]);}
-function Cancel(id,actor){const j=db.Load().jobs[id];if(!j)Fail('NOT_FOUND',404);Audit('CANCEL',actor);db.Atomic(next=>{if(['QUEUED','RUNNING'].includes(next.jobs[id].status))next.jobs[id].status='CANCELLED';});return ProjectJob(db.Load().jobs[id]);}
+function Schedule(){if(scheduledPump)return;scheduledPump=setImmediate(()=>{scheduledPump=undefined;Pump();});}
+function Retry(id,actor){const j=db.Load().jobs[id];if(!j)Fail('NOT_FOUND',404);if(!['DONE','PARTIAL'].includes(j.status))Fail('WORKSPACE_CONFLICT',409);if(j.status==='DONE')return ProjectJob(j);Audit('RETRY',actor);Atomic('WORKSPACE_RETRY',actor,next=>{const row=next.jobs[id];for(const i of row.items)if(i.status==='FAILED'){i.status='PENDING';delete i.error;}row.status='QUEUED';});Schedule();return ProjectJob(db.Load().jobs[id]);}
+function Cancel(id,actor){const j=db.Load().jobs[id];if(!j)Fail('NOT_FOUND',404);Audit('CANCEL',actor);Atomic('WORKSPACE_CANCEL',actor,next=>{if(['QUEUED','RUNNING'].includes(next.jobs[id].status))next.jobs[id].status='CANCELLED';});return ProjectJob(db.Load().jobs[id]);}
 function Export(id){const j=db.Load().jobs[id];if(!j||j.kind!=='EXPORT')Fail('NOT_FOUND',404);if(!['DONE','PARTIAL'].includes(j.status))Fail('WORKSPACE_CONFLICT',409);return{jobId:j.id,generatedAt:j.updatedAt,items:j.items.filter(i=>i.status==='DONE').map(i=>i.result),failed:j.items.filter(i=>i.status==='FAILED').map(i=>({id:i.input.id,error:i.error}))};}
 function Start(){if(timer)return;db.Load();timer=setInterval(()=>{Pump();if(Date.now()-summary.asOf>10000)try{RefreshSummary();}catch(e){summary={...summary,error:'WORKSPACE_SUMMARY_UNAVAILABLE'};}},250);timer.unref();Schedule();space.Scan().catch(()=>{});}
-function Stop(){if(timer)clearInterval(timer);timer=undefined;}
+function Stop(){if(timer)clearInterval(timer);timer=undefined;if(scheduledPump)clearImmediate(scheduledPump);scheduledPump=undefined;}
 module.exports={Query,Detail,SaveMetadata,SaveReleaseNote,Summary,RefreshSummary,Preview,Submit,Jobs,Retry,Cancel,Export,Start,Stop,Pump,Meta,Fail};

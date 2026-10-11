@@ -6,6 +6,10 @@ function Save() { return require('../storage/database').SaveDatabase(); }
 
 function Clean(scope, actor = 'admin') {
     scope = String(scope || '').trim().toUpperCase();
+    const valid = ['ALL', 'REQUEST_TRACES', 'CONFIG', 'DAILY_REPORTS', 'SERVER_HISTORY', 'CLIENT_HISTORY', 'NOTIFICATIONS', 'AUDIT'];
+    if (!valid.includes(scope)) return { ok: false, reason: 'INVALID_HISTORY_SCOPE' };
+    const audit=require('./desktopOperationAudit'),operation=audit.Begin('ADMIN_HISTORY_CLEAN',actor,{reasonCode:scope});
+    try {
     const result = {};
     if (scope === 'ALL' || scope === 'REQUEST_TRACES') result.requestTraces = require('./requestTrace').ClearHistory();
     if (scope === 'ALL' || scope === 'CONFIG') result.config = require('./configHistory').ClearHistory(actor);
@@ -29,12 +33,12 @@ function Clean(scope, actor = 'admin') {
         require('./notificationCenter').ClearNotifications();
         result.notifications = { removed };
     }
-    const valid = ['ALL', 'REQUEST_TRACES', 'CONFIG', 'DAILY_REPORTS', 'SERVER_HISTORY', 'CLIENT_HISTORY', 'NOTIFICATIONS', 'AUDIT'];
-    if (!valid.includes(scope)) return { ok: false, reason: 'INVALID_HISTORY_SCOPE' };
-    Save();
-    if (scope === 'ALL' || scope === 'AUDIT') result.audit = require('../storage/audit').ClearAudit();
-    console.log('[ADMIN]', `HISTORY_CLEAN ${scope} BY ${actor}`);
+    if(Save()===false)throw Error('HISTORY_STORAGE_SAVE_FAILED');
+    if (scope === 'ALL' || scope === 'AUDIT') result.audit = require('../storage/audit').ClearAudit(actor);
+    audit.CommitExternal(operation);
+    console.log('[ADMIN]', 'HISTORY_CLEAN '+scope);
     return { ok: true, scope, result };
+    } catch(error) {audit.Failed(operation,error);throw error;}
 }
 
 module.exports = { Clean };

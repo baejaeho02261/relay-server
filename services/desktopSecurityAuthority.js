@@ -1,4 +1,5 @@
 'use strict';
+const measurementStatus=require('./measurementStatus');
 // Server-owned policy and short-lived decisions. Signed client observations are
 // NOT hardware attestation and never replace the existing license/session gate.
 const crypto = require('node:crypto');
@@ -163,7 +164,7 @@ function SetPolicy(body, actor) {
     if(artifact) { const reason=ArtifactReason(artifact,next)||require('./desktopSecurityOperations').ArtifactReason(artifact);if(reason) Fail(reason,409); }
   }
   require('./desktopSecurityOperations').AuditIntent('POLICY_CHANGED',actor);
-  store.Atomic(state=>{
+  require('./desktopOperationAudit').Run('SECURITY_AUTHORITY_POLICY',actor,{revision:next.revision},state=>{
     const purposesChanged=require('./desktopSecurityOperations').RememberReleaseKeys(state,next.trustedReleaseKeys);
     const rolloutChanged=!!state.securityOperations?.rollout.enabled;
     // A global policy commit ends the explicit build-scoped pilot, atomically.
@@ -199,21 +200,24 @@ function Authenticate(body) {
       typeof body.machineId !== 'string' || !/^[A-F0-9]{64}$/.test(body.machineId) ||
       typeof body.binding !== 'string' || !/^[a-f0-9]{128}$/.test(body.binding)) Fail('SECURITY_INPUT_INVALID', 400);
   const row = require('./desktopBootstrap').AuthenticateIntegrityReport(body);
+  require('./desktopDeviceIdentity').AssertSession(row,body.stage);
   RequireArtifact(RowArtifact(row, body.stage));
   return row;
 }
 function Challenge(body) {
-  Fields(body, AUTH_FIELDS);
+  Fields(body, [...AUTH_FIELDS,'mitigationProfileVersion','mitigationEnvironment']);
+  if(body.mitigationProfileVersion!==undefined&&body.mitigationProfileVersion!==1||body.mitigationEnvironment!==undefined&&body.mitigationProfileVersion!==1)Fail('SECURITY_INPUT_INVALID',400);
   const row = Authenticate(body), policy = require('./desktopSecurityOperations').EffectivePolicy(Policy(),RowArtifact(row,body.stage)), context = Context(row, body.stage);
+  const mitigationProfile=require('./desktopMitigationProfiles').Select(RowArtifact(row,body.stage),body.mitigationEnvironment,policy);
   Prune(); const rate = rates.get(context) || { count: 0, deadline: performance.now() + 60000 };
   if (++rate.count > 40 || pending.size >= 1024 || rates.size >= 4096 && !rates.has(context)) Fail('SECURITY_RATE_LIMIT', 429);
   if([...pending.values()].filter(x=>x.context===context&&x.intent===body.intent&&x.binding===body.binding).length>=2) Fail('SECURITY_OBSERVATION_BUSY',429);
   rates.set(context, rate);
   const item = { challengeId: crypto.randomBytes(24).toString('hex'), nonce: crypto.randomBytes(24).toString('hex'),
-    epoch, sequence: ++sequence, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), ...deadline.After(policy.challengeMs), context, stage: body.stage, intent: body.intent, binding: body.binding };
+    mitigationProfile, epoch, sequence: ++sequence, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), ...deadline.After(policy.challengeMs), context, stage: body.stage, intent: body.intent, binding: body.binding };
   pending.set(item.challengeId, item);
   return { version: 1, challengeId: item.challengeId, nonce: item.nonce, epoch, sequence: item.sequence,
-    revision: item.revision, expiresAt: item.expiresAt, dynamicCode: policy.dynamicCode };
+    revision: item.revision, expiresAt: item.expiresAt, dynamicCode: mitigationProfile?.dynamicCode||policy.dynamicCode, ...(mitigationProfile?{mitigationProfile}: {}) };
 }
 function Canonical(body, challenge, payload) {
   return [DOMAIN, body.stage, body.sessionId, body.intent, body.binding, challenge.challengeId,
@@ -223,20 +227,22 @@ function Canonical(body, challenge, payload) {
 function Payload(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail('SECURITY_INPUT_INVALID', 400);
   let value; try { value = require('./strictJson').Parse(text); } catch (_) { Fail('SECURITY_INPUT_INVALID', 400); }
-  Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg', 'mitigationDiagnostics']);
-  if (value.hashVersion !== 3 || value.version !== 1 || !['MEASURED', 'READ_ERROR'].includes(value.measurement) ||
+  Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg', 'mitigationDiagnostics', 'ownMeasurement']);
+  if (value.hashVersion !== 3 || value.version !== 1 || !measurementStatus.IsStatus(value.measurement) ||
       typeof value.apiSealed !== 'boolean' || !Number.isInteger(value.apiSlots) || value.apiSlots < 0 || value.apiSlots > 1024 ||
       !['UNAVAILABLE', 'ALLOWED', 'PROHIBITED'].includes(value.dynamicCode) || !['UNAVAILABLE', 'DISABLED', 'ENABLED'].includes(value.cfg)) Fail('SECURITY_INPUT_INVALID', 400);
   if(value.mitigationDiagnostics!==undefined){try{require('./mitigationContract').Validate(value.mitigationDiagnostics,value.dynamicCode,value.cfg);}catch(_){Fail('SECURITY_INPUT_INVALID',400);}}
-  for (const k of ['fileSha512', 'codeSha512']) if (typeof value[k] !== 'string' || !(value.measurement === 'READ_ERROR' && value[k] === '') && !/^[a-f0-9]{128}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
-  for (const k of ['fileCrc64', 'codeCrc64']) if (typeof value[k] !== 'string' || !(value.measurement === 'READ_ERROR' && value[k] === '') && !/^[A-F0-9]{16}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
+  for (const k of ['fileSha512', 'codeSha512']) if (typeof value[k] !== 'string' || !(measurementStatus.IsFailure(value.measurement) && value[k] === '') && !/^[a-f0-9]{128}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
+  for (const k of ['fileCrc64', 'codeCrc64']) if (typeof value[k] !== 'string' || !(measurementStatus.IsFailure(value.measurement) && value[k] === '') && !/^[A-F0-9]{16}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
   if(value.measurement==='MEASURED'&&!require('./desktopCrcPolicy').Validate(value.crcLayers))Fail('SECURITY_INPUT_INVALID',400);
-  for(const [key,length] of [['codeXxh3_128',32],['codeBlake3',64]])if(typeof value[key]!=='string'||!(value.measurement==='READ_ERROR'&&value[key]==='')&&!new RegExp('^[a-f0-9]{'+length+'}$').test(value[key]))Fail('SECURITY_INPUT_INVALID',400);
+  for(const [key,length] of [['codeXxh3_128',32],['codeBlake3',64]])if(typeof value[key]!=='string'||!(measurementStatus.IsFailure(value.measurement)&&value[key]==='')&&!new RegExp('^[a-f0-9]{'+length+'}$').test(value[key]))Fail('SECURITY_INPUT_INVALID',400);
+  if(value.ownMeasurement!==undefined)require('./measurementPlanContract').ValidateOwnMetadata(value.ownMeasurement,value.measurement,value.crcLayers);
   return value;
 }
 function Evaluate(value, baseline, policy, artifact) {
+  if(artifact?.ownMeasurementVersion===1)require('./measurementPlanContract').AssertOwn({check:'OWN_IMAGE',own:{status:value.measurement},ownMeasurement:value.ownMeasurement},artifact);
   if(value.hashVersion!==3||baseline.hashVersion!==3)return {status:'INDETERMINATE',reason:'HASH_VERSION_MISMATCH'};
-  if (value.measurement !== 'MEASURED') return { status: 'INDETERMINATE', reason: 'MEASUREMENT_UNAVAILABLE' };
+  if (value.measurement !== 'MEASURED') return { status: 'INDETERMINATE', reason: measurementStatus.FailureReason(value.measurement) };
   if (value.fileSha512 !== baseline.sha512 || value.fileCrc64 !== baseline.crc64 || value.codeSha512 !== baseline.codeSha512 || value.codeCrc64 !== baseline.codeCrc64 || value.codeXxh3_128!==baseline.codeXxh3_128 || value.codeBlake3!==baseline.codeBlake3) return { status: 'MISMATCH', reason: 'IMAGE_DIGEST_MISMATCH' };
   const crcComparison=require('./desktopCrcPolicy').Compare(value.crcLayers,baseline.crcLayers);
   if(!crcComparison.matched)return {status:'MISMATCH',reason:crcComparison.reason,crcComparison};
@@ -256,15 +262,16 @@ function Submit(body) {
     // Recovery is a copy of the original response, never a new measurement or
     // lease. A newer result, changed policy, or retired context wins.
     if (!current || current.sequence !== receipt.response.sequence || current.revision !== policy.revision || current.operationsRevision !== require('./desktopSecurityOperations').Revision()) Fail('SECURITY_CHALLENGE_INVALID', 401);
+    require('./desktopMitigationProfiles').RequireCurrent(current.mitigationProfile,artifact);
     return receipt.response;
   }
   const challenge = pending.get(body.challengeId), context = Context(row, body.stage);
   if (!challenge || challenge.context !== context || challenge.intent !== body.intent || challenge.binding !== body.binding || challenge.revision !== policy.revision || challenge.operationsRevision!==require('./desktopSecurityOperations').Revision()) Fail('SECURITY_CHALLENGE_INVALID', 401);
   const value = Payload(body.payload);
-  if(value.mitigationDiagnostics && value.mitigationDiagnostics.requestedMode!==policy.dynamicCode)Fail('SECURITY_INPUT_INVALID',400);
+  if(value.mitigationDiagnostics && value.mitigationDiagnostics.requestedMode!==(challenge.mitigationProfile?.dynamicCode||policy.dynamicCode))Fail('SECURITY_INPUT_INVALID',400);
   if (typeof body.signature !== 'string' || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature) || Buffer.from(body.signature, 'base64').toString('base64') !== body.signature) Fail('SECURITY_SIGNATURE_INVALID', 401);
   const key = require('./desktopLicenses').ParseKey(row.publicKey).key;
-  if (!crypto.verify('sha256', Buffer.from(Canonical(body, challenge, body.payload)), { key, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(body.signature, 'base64'))) Fail('SECURITY_SIGNATURE_INVALID', 401);
+  if (!require('./desktopProofWork').Verify(row.publicKey,Canonical(body,challenge,body.payload),body.signature)) Fail('SECURITY_SIGNATURE_INVALID', 401);
   pending.delete(body.challengeId);
   // Verification may cross a deadline. Both server clocks must still permit
   // consumption; client timestamps never extend this one-use capability.
@@ -272,18 +279,25 @@ function Submit(body) {
   const id = context + ':' + body.intent + ':' + body.binding, old = decisions.get(id);
   if (challenge.superseded || old && old.sequence >= challenge.sequence) Fail('SECURITY_OBSERVATION_REPLAY', 409);
   if (!old && decisions.size >= 4096) Fail('SECURITY_CAPACITY', 503);
-  const result = Evaluate(value, row.integrityArtifact, policy, artifact);
+  require('./desktopMitigationProfiles').RequireCurrent(challenge.mitigationProfile,artifact);
+  const profileReason=require('./desktopMitigationProfiles').Check(challenge.mitigationProfile,value.mitigationDiagnostics);
+  if(profileReason)Fail(profileReason,403);
+  const result = Evaluate(value, row.integrityArtifact, challenge.mitigationProfile?{...policy,dynamicCode:challenge.mitigationProfile.dynamicCode,requireCfg:policy.requireCfg||challenge.mitigationProfile.requireCfg}:policy, artifact);
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
   if(observations.size>=4096&&!observations.has(context)) observations.delete(observations.keys().next().value);
   observations.set(context,{at:Date.now(),stage:body.stage,sessionId:body.sessionId,artifactId:artifact.id,value:{...value},baseline:Object.fromEntries(['hashVersion','sha512','crc64','codeSha512','codeCrc64','codeXxh3_128','codeBlake3','crcLayers'].map(k=>[k,row.integrityArtifact[k]]))});
-  const decision = { ...result, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), sequence: challenge.sequence,
+  Audit('OBSERVATION', result.reason, {...row,stage:body.stage}, { sequence: challenge.sequence, revision: policy.revision, intent: body.intent });
+  // Synchronous durable audit can consume the remaining authorization budget.
+  // Recheck before publishing either a fresh decision or a reusable receipt.
+  if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
+  require('./desktopMitigationProfiles').RequireCurrent(challenge.mitigationProfile,artifact);
+  const decision = { ...result, mitigationProfile:challenge.mitigationProfile, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), sequence: challenge.sequence,
     ...deadline.After(policy.freshnessMs) };
   decisions.set(id, decision);
   // A decision can expire before an older challenge (freshnessMs may be less
   // than challengeMs). Retain the ordering rejection on that pending challenge
   // itself so pruning the newer decision cannot revive an older measurement.
   for (const item of pending.values()) if (item.context === context && item.intent === body.intent && item.binding === body.binding && item.sequence < challenge.sequence) item.superseded = true;
-  Audit('OBSERVATION', result.reason, {...row,stage:body.stage}, { sequence: challenge.sequence, revision: policy.revision, intent: body.intent });
   const response = { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: result.status === 'PASS' || policy.mode === 'observe',
     sequence: challenge.sequence, expiresAt: decision.expiresAt, attested: false };
   receipts.put(body.challengeId, 'authority.submit', body, response, { context, id }, { ttlMs: policy.freshnessMs });
@@ -291,13 +305,23 @@ function Submit(body) {
 }
 function RequireFresh(row, stage, intent, binding) {
   const artifact = RowArtifact(row, stage), policy = require('./desktopSecurityOperations').EffectivePolicy(Policy(),artifact); RequireArtifact(artifact);
-  if (policy.mode !== 'enforce') return;
+  if (policy.mode !== 'enforce') {const existing=decisions.get(Context(row,stage)+':'+intent+':'+binding);require('./desktopMitigationProfiles').RequireCurrent(existing?.mitigationProfile,artifact);return;}
   Prune(); const item = decisions.get(Context(row, stage) + ':' + intent + ':' + binding);
+  require('./desktopMitigationProfiles').RequireCurrent(item?.mitigationProfile,artifact);
   let code = '';
   if (!item || item.revision !== policy.revision || item.operationsRevision!==require('./desktopSecurityOperations').Revision()) code = 'SECURITY_FRESH_OBSERVATION_REQUIRED';
   else if (item.status === 'MISMATCH') code = 'SECURITY_OBSERVATION_MISMATCH';
   else if (item.status !== 'PASS') code = 'SECURITY_OBSERVATION_INDETERMINATE';
   if (code) { Audit('HOLD', code, { ...row, stage }, { revision: policy.revision, intent }); Fail(code); }
+}
+function RenewalIdentity(row, stage, intent, binding) {
+  RequireFresh(row,stage,intent,binding);Prune();
+  const item=decisions.get(Context(row,stage)+':'+intent+':'+binding), policy=require('./desktopSecurityOperations').EffectivePolicy(Policy(),RowArtifact(row,stage));
+  // Observe mode can tolerate a measurement verdict, never an absent nonce or
+  // a reused lease grant. Existing native clients already submit observations.
+  if(!item||deadline.Expired(item)||item.revision!==policy.revision||item.operationsRevision!==require('./desktopSecurityOperations').Revision())Fail('SECURITY_FRESH_OBSERVATION_REQUIRED');
+  require('./desktopMitigationProfiles').RequireCurrent(item.mitigationProfile,RowArtifact(row,stage));
+  return {id:epoch+':'+item.sequence,expiresAt:item.expiresAt};
 }
 function UsesAuthority(row, stage) {
   return Policy().enforceLegacy || RowArtifact(row, stage)?.hashVersion === 3;
@@ -347,10 +371,14 @@ function List() {
     signaturePresent: !!row.releaseApproval, signatureValid: !!row.releaseApproval && VerifyApproval(row, policy),
     signerKeyId: row.releaseApproval?.keyId || '', policyReason: ArtifactReason(row, policy)
   }));
-  return { runtimeLoad:require('./desktopWorkQueue').Snapshot(), policy, releases, recentBuildObservations:RecentBuildObservations(), operations:require('./desktopSecurityOperations').List(), events: events.slice().reverse(), pendingCount: pending.size,
+  return { mitigationProfiles:require('./desktopMitigationProfiles').Status(), tlsPinTransition:require('./desktopTlsPinTransition').Status(), runtimeLoad:require('./desktopWorkQueue').Snapshot(), policy, releases, recentBuildObservations:RecentBuildObservations(), operations:require('./desktopSecurityOperations').List(), events: events.slice().reverse(), pendingCount: pending.size,
     decisionCount: decisions.size, attested: false,
     persistence: 'policy and audit: server; fresh decisions: server RAM only' };
 }
-module.exports = { RetireContext, ActivationObservations, PreviewRollout, PreviewPolicy, ArtifactReason, InvalidateAll, DOMAIN, RELEASE_DOMAIN, Defaults, ValidatePolicy, Policy, SetPolicy, List,
-  Binding, Canonical, Payload, Evaluate, Execute, RequireFresh, RequireArtifact, PublishMetadata,
+function ProofTasks(body){
+ if(body.action!=='submit')return [];const challenge=pending.get(body.challengeId);if(!challenge)return [];
+ const row=Authenticate(body);return [require('./desktopProofWork').Job(row.publicKey,Canonical(body,challenge,body.payload),body.signature)];
+}
+module.exports = {ProofTasks, RetireContext, ActivationObservations, PreviewRollout, PreviewPolicy, ArtifactReason, InvalidateAll, DOMAIN, RELEASE_DOMAIN, Defaults, ValidatePolicy, Policy, SetPolicy, List,
+  Binding, Canonical, Payload, Evaluate, Execute, RequireFresh, RenewalIdentity, RequireArtifact, PublishMetadata,
   ReleaseCanonical, PeCapabilities, VerifyApproval, VersionAtLeast, UsesAuthority, Invalidate };

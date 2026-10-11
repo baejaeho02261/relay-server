@@ -6,8 +6,9 @@
 // network-filesystem fencing protocol. Every server sharing DATA_DIR must use it.
 const fs = require('node:fs'), path = require('node:path');
 const NAME = '.desktop-single-writer.sqlite';
+function CreateLock(){
 let held;
-function Acquire(directory, { haEnabled = false } = {}) {
+return function Acquire(directory, { haEnabled = false } = {}) {
   if (haEnabled) throw Error('DESKTOP_SINGLE_WRITER_REQUIRED');
   // The pinned native addon requires N-API 10; reject before loading it.
   if (Number(process.versions.napi) < 10) throw Error('SQLITE_REQUIRES_NODE_22_14_OR_NEWER_NAPI10');
@@ -38,4 +39,6 @@ function Acquire(directory, { haEnabled = false } = {}) {
     const failure = Error('DESKTOP_WRITER_LOCK_UNAVAILABLE'); failure.cause = error; throw failure;
   }
 }
-module.exports = { Acquire, NAME };
+}
+const Acquire=CreateLock(),AcquireWitness=CreateLock();
+module.exports = { Acquire, AcquireWitness, NAME };

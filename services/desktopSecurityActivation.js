@@ -87,7 +87,7 @@ function Targets(profile) {
 }
 function Preview(profile, session) {
   Profile(profile);
-  if (!require('./desktopAdminGuard').CheckSession(session,PATH).ok) Fail('ADMIN_REQUIRED',403);
+  if (!require('./desktopAdminGuard').CheckSession(session,PATH,'GET').ok) Fail('ADMIN_REQUIRED',403);
   const auth=require('./desktopSecurityAuthority'),ops=require('./desktopSecurityOperations');
   const db=store.Load(),p=auth.Policy(),s=ops.State(),record=Record();
   const target=Targets(profile),issues=[],pending=[];
@@ -154,7 +154,7 @@ function Preview(profile, session) {
   return {profile,ready:unique.length===0,issues:unique,pending,plan,target:targetView,
     current:Status(),recentObservations:samples,readOnly:true,observationsAreNotAttestation:true,
     approvalRequiredBeforeFirstActivation:false,adminMode:'SINGLE_ADMIN',
-    warning:'기존 관리자 로그인과 CSRF 검증으로 적용합니다. 준비되지 않은 추가 보호는 별도 표시하며 기존 필수 정책은 자동으로 끄지 않습니다. 라이선스·키·정리 경로는 유지합니다.'};
+    warning:'중요 변경은 현재 관리자 세션의 최근 재인증과 CSRF 검증 후 적용합니다. 준비되지 않은 추가 보호는 별도 표시하며 기존 필수 정책은 자동으로 끄지 않습니다. 라이선스·키·정리 경로는 유지합니다.'};
 }
 function CheckRequest(body,session) {
   if (!(Exact(body,REQUEST_FIELDS)||Exact(body,OVERLAY_REQUEST_FIELDS))) Fail('SECURITY_ACTIVATION_INPUT_INVALID',400);
@@ -195,7 +195,7 @@ function Apply(body,session,ticket) {
     adminMode:'SINGLE_ADMIN',profile:body.profile,activatedAt:Date.now(),activatedBy:actor,
     aSha512:body.aSha512,bSha512:body.bSha512,...(body.oId?{oSha512:body.oSha512}:{}),targetHash:body.targetHash});
   ops.AuditIntent('SINGLE_ADMIN_ENABLE_'+body.profile,actor);
-  store.Atomic(db=>{
+  require('./desktopOperationAudit').Run('SECURITY_ACTIVATION',actor,{revision:activation.revision},db=>{
     if((db.securityAuthorityPolicy||auth.Defaults()).revision!==body.expectedPolicyRevision||
       (db.securityOperations||ops.Defaults()).revision!==body.expectedOperationsRevision||
       (db.securityActivation?.revision||0)!==body.expectedActivationRevision||

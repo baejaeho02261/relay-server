@@ -183,6 +183,8 @@ function EvaluateAnomalies() {
 }
 
 function RetentionApply(actor='SCHEDULED') {
+    const operationAudit=require('./desktopOperationAudit'),operation=operationAudit.Begin('SERVER_HISTORY_RETENTION',actor);
+    try {
     const p=state.production.retentionPolicy, now=Now(), removed={incidents:0,diagnostics:0,updates:0,chaos:0,auditFiles:0,releaseArtifacts:0};
     const keep=(rows,days,key)=>{const cutoff=now-days*86400000,kept=rows.filter(x=>Number(x.lastAt||x.createdAt||x.updatedAt||x.at)>=cutoff);removed[key]=rows.length-kept.length;return kept;};
     state.production.incidents=keep(state.production.incidents,p.incidentDays,'incidents');
@@ -190,12 +192,15 @@ function RetentionApply(actor='SCHEDULED') {
     state.production.chaosRuns=keep(state.production.chaosRuns,p.chaosDays,'chaos');
     const updateCutoff=now-p.updateDays*86400000;
     for(const [key,item] of Array.from(state.production.updateTransactions))if(Number(item.updatedAt)<updateCutoff){state.production.updateTransactions.delete(key);removed.updates++;}
-    const auditCutoff=new Date(now-p.auditDays*86400000).toISOString().slice(0,10);
-    try{for(const file of fs.readdirSync(config.AUDIT_DIR).sort()){const m=file.match(/^audit-(\d{4}-\d{2}-\d{2})\.jsonl$/);if(m&&m[1]<auditCutoff){const full=path.join(config.AUDIT_DIR,file);try{const lines=fs.readFileSync(full,'utf8').trim().split(/\r?\n/);for(let i=lines.length-1;i>=0;i--){try{const row=JSON.parse(lines[i]);if(/^[0-9A-F]{64}$/i.test(String(row.hash||''))){state.production.auditChain.anchor=String(row.hash).toUpperCase();break;}}catch(_){}}}catch(_){}fs.unlinkSync(full);removed.auditFiles++;}}}catch(_){}
+    const auditRetention=require('./desktopAuditRetention').Apply({days:p.auditDays,actor});
+    removed.auditFiles=auditRetention.removedFiles;
+    require('./desktopAuditArchive').PruneUnreferenced();
     try{const manager=require('./releaseManager'),referenced=new Set();for(const root of state.releaseCatalog.values()){let item=root,depth=0;while(item&&depth++<10){if(item.fileName)referenced.add(item.fileName);item=item.previous;}}for(const file of fs.readdirSync(manager.RELEASE_DIR)){const full=path.join(manager.RELEASE_DIR,file);const st=fs.statSync(full);if(st.isFile()&&!referenced.has(file)&&st.mtimeMs<updateCutoff){fs.unlinkSync(full);removed.releaseArtifacts++;}}}catch(_){}
     state.production.retentionPolicy.lastAppliedAt=now;state.production.retentionPolicy.lastAppliedBy=SafeField(actor);
-    if(Object.values(removed).some(Boolean)) require('../storage/database').SaveDatabase();
+    if(require('../storage/database').SaveDatabase()===false)throw Error('RETENTION_STORAGE_SAVE_FAILED');
+    operationAudit.CommitExternal(operation,{count:Object.values(removed).reduce((a,b)=>a+b,0)});
     return {ok:true,removed,policy:{...p}};
+    } catch(error) {operationAudit.Failed(operation,error);throw error;}
 }
 
 function SetRetention(input,actor){

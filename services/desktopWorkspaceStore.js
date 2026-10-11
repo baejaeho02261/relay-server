@@ -22,28 +22,45 @@ function Validate(v) {
   }
   return v;
 }
+function Mark(value,bytes){return {revision:value.revision,sha512:crypto.createHash('sha512').update(bytes).digest('hex')};}
+function Same(a,b){return a?.revision===b?.revision&&a?.sha512===b?.sha512;}
+function Journal(){const j=require('./desktopBootstrapStore').Load().workspaceJournal;if(!j)return null;
+ const valid=x=>x&&Number.isSafeInteger(x.revision)&&x.revision>=0&&/^[a-f0-9]{128}$/.test(x.sha512||'');
+ if(j.version!==1||!valid(j.current)||j.pending&&(!valid(j.pending.mark)||j.pending.mark.revision!==j.current.revision+1))Fail();
+ if(j.pending)require('./desktopOperationAudit').ValidateOperation(j.pending.operation);return j;
+}
 function Load() {
-  if(poisoned)Fail('WORKSPACE_RESTART_REQUIRED');
-  if(current)return current;
-  try{
-    if(!fs.existsSync(FILE))return current=Empty();
-    const st=fs.lstatSync(FILE);if(!st.isFile()||st.isSymbolicLink()||st.size>32*1024*1024)Fail();
-    return current=Validate(JSON.parse(fs.readFileSync(FILE,'utf8')));
-  }catch(e){if(e.desktopError)throw e;Fail();}
+ if(poisoned)Fail('WORKSPACE_RESTART_REQUIRED');if(current)return current;
+ try {
+  const bytes=fs.existsSync(FILE)?require('./durableFile').ReadRegular(FILE,32*1024*1024):Buffer.from(JSON.stringify(Empty())),value=Validate(require('./strictJson').Parse(bytes,{maxBytes:32*1024*1024,maxNodes:2000000})),mark=Mark(value,bytes),journal=Journal(),store=require('./desktopBootstrapStore');
+  if(!journal)store.Atomic(db=>{db.workspaceJournal={version:1,current:mark};});
+  else if(journal.pending){
+   const committed=Same(mark,journal.pending.mark);if(!committed&&!Same(mark,journal.current))Fail('WORKSPACE_ROLLBACK_DETECTED');
+   store.Atomic(db=>{db.workspaceJournal={version:1,current:mark};require('./desktopOperationAudit').Attach(db,journal.pending.operation,{revision:mark.revision},committed?'COMMITTED':'FAILED');});
+  }else if(!Same(mark,journal.current))Fail('WORKSPACE_ROLLBACK_DETECTED');
+  return current=value;
+ }catch(e){if(e.desktopError)throw e;Fail();}
 }
 function Write(value){
-  fs.mkdirSync(DIR,{recursive:true,mode:0o700});
-  const tmp=path.join(DIR,'.workspace-'+crypto.randomBytes(12).toString('hex')+'.tmp');let fd,published=false;
-  try{
-    fd=fs.openSync(tmp,'wx',0o600);fs.writeFileSync(fd,JSON.stringify(value));fs.fsyncSync(fd);fs.closeSync(fd);fd=undefined;
-    fs.renameSync(tmp,FILE);published=true;
-    if(process.platform!=='win32'){const dir=fs.openSync(DIR,'r');try{fs.fsyncSync(dir);}finally{fs.closeSync(dir);}}
-  }catch(e){if(published)poisoned=true;Fail(published?'WORKSPACE_RESTART_REQUIRED':'WORKSPACE_SAVE_FAILED');}
-  finally{if(fd!==undefined)try{fs.closeSync(fd);}catch(_){}try{fs.unlinkSync(tmp);}catch(_){} }
+ fs.mkdirSync(DIR,{recursive:true,mode:0o700});const stat=fs.lstatSync(DIR);if(!stat.isDirectory()||stat.isSymbolicLink())Fail();
+ const bytes=Buffer.from(JSON.stringify(value));if(bytes.length>32*1024*1024)Fail('WORKSPACE_STORAGE_LIMIT');
+ try{require('./durableFile').Atomic(FILE,bytes);}catch(e){if(e.published)poisoned=true;Fail(poisoned?'WORKSPACE_RESTART_REQUIRED':'WORKSPACE_SAVE_FAILED');}finally{bytes.fill(0);}
 }
-function Atomic(fn){
-  if(!require('./haCoordinator').CanAcceptTraffic())Fail('RELAY_STANDBY_READ_ONLY');
-  const prev=Load(),next=structuredClone(prev),result=fn(next);next.revision=prev.revision+1;Validate(next);
-  try{Write(next);current=next;}catch(e){if(poisoned)current=next;throw e;}return result;
+function Atomic(fn,{kind='WORKSPACE_CHANGE',actor='SERVER'}={}){
+ if(!require('./haCoordinator').CanAcceptTraffic())Fail('RELAY_STANDBY_READ_ONLY');
+ const previous=Load(),next=structuredClone(previous),result=fn(next);next.revision=previous.revision+1;Validate(next);
+ const store=require('./desktopBootstrapStore'),audit=require('./desktopOperationAudit'),before=Journal().current,bytes=Buffer.from(JSON.stringify(next)),mark=Mark(next,bytes);bytes.fill(0);
+ if(Object.keys(store.Load().serverAuditOutbox||{}).length>=99990)Fail('SERVER_AUDIT_OUTBOX_CAPACITY');
+ const operation=audit.Begin(kind,actor,{revision:next.revision});
+ try {
+  store.Atomic(db=>{if(!Same(db.workspaceJournal.current,before)||db.workspaceJournal.pending)Fail('WORKSPACE_CONFLICT');db.workspaceJournal.pending={mark,operation};});
+  Write(next);current=next;
+  store.Atomic(db=>{db.workspaceJournal={version:1,current:mark};audit.Attach(db,operation,{revision:next.revision});});
+ }catch(error){
+  if(current===next||poisoned){poisoned=true;audit.Failed(operation,{message:'WORKSPACE_RESTART_REQUIRED'});Fail('WORKSPACE_RESTART_REQUIRED');}
+  try{store.Atomic(db=>{if(db.workspaceJournal?.pending?.operation.operationId===operation.operationId){db.workspaceJournal={version:1,current:before};audit.Attach(db,operation,{revision:previous.revision},'FAILED');}});}catch(_){poisoned=true;}
+  audit.BestEffortDrain();if(poisoned)Fail('WORKSPACE_RESTART_REQUIRED');throw error;
+ }
+ audit.BestEffortDrain();return result;
 }
 module.exports={Load,Atomic,DIR,FILE,Validate};
