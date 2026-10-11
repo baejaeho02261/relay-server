@@ -15,7 +15,42 @@ try{
  assert.throws(()=>workflow.externalKeyPath(root,path.join(root,'secret.pem')),/OUTSIDE_SOURCE/);
  const ciFile=path.join(keys,'ci.pem'),releaseFile=path.join(keys,'release.pem');workflow.createKey(root,ciFile);workflow.createKey(root,releaseFile);assert.throws(()=>workflow.createKey(root,ciFile),e=>e.code==='EEXIST');
  const recordFile=path.join(dir,'ci-public-key.json');workflow.exportKey(root,ciFile,recordFile);assert.throws(()=>workflow.exportKey(root,ciFile,recordFile),e=>e.code==='EEXIST');const record=JSON.parse(fs.readFileSync(recordFile)),ci=crypto.createPrivateKey(fs.readFileSync(ciFile)),release=crypto.createPrivateKey(fs.readFileSync(releaseFile)),releasePub=crypto.createPublicKey(release);
- const sourceFile=path.join(root,'GameWeb/maintenance/source-manifest.json');fs.writeFileSync(path.join(root,'GameWeb/example.js'),'');fs.writeFileSync(sourceFile,JSON.stringify({version:2,algorithm:'sha512',files:{'GameWeb/example.js':sha('')}}));assert.equal(workflow.verifySource(root),1);fs.writeFileSync(path.join(root,'GameWeb/example.js'),'tampered');assert.throws(()=>workflow.verifySource(root),/SOURCE_HASH_MISMATCH/);fs.writeFileSync(path.join(root,'GameWeb/example.js'),'');fs.copyFileSync(sourceFile,path.join(out,'source-manifest.json'));
+ const sourceFile=path.join(root,'GameWeb/maintenance/source-manifest.json');
+ const trackedSources={
+  'GameWeb/example.js':'',
+  'GameWeb/services/desktopDeadline.js':'deadline source fixture',
+  'GameConnect_Win64/Game.Measurement.pas':'measurement source fixture'
+ };
+ fs.writeFileSync(path.join(root,'GameWeb/example.js'),'');
+ fs.writeFileSync(sourceFile,JSON.stringify({version:2,algorithm:'sha512',files:Object.fromEntries(Object.entries(trackedSources).map(([name,contents])=>[name,sha(contents)]))}));
+ // One diagnosis must name both missing tracked files, including a missing
+ // intermediate directory, before attempting to load policy dependencies.
+ assert.throws(()=>workflow.verifySource(root),error=>{
+  assert.match(error.message,/^CI_SOURCE_FILES_MISSING:/);
+  assert.ok(error.message.includes('GameWeb/services/desktopDeadline.js'));
+  assert.ok(error.message.includes('GameConnect_Win64/Game.Measurement.pas'));
+  assert.ok(!error.message.includes('GameWeb/example.js'),'Present files must not be reported missing');
+  assert.ok(!error.message.includes('ENOENT'),'Show actionable relative source paths');
+  return true;
+ });
+ assert.throws(()=>workflow.prerequisites(root,path.join(root,'GameWeb/tools')),error=>{
+  assert.match(error.message,/^CI_SOURCE_FILES_MISSING:/);
+  assert.ok(error.message.includes('GameWeb/services/desktopDeadline.js'));
+  assert.ok(error.message.includes('GameConnect_Win64/Game.Measurement.pas'));
+  return true;
+ });
+ for(const [name,contents]of Object.entries(trackedSources)){const full=path.join(root,name);fs.mkdirSync(path.dirname(full),{recursive:true});fs.writeFileSync(full,contents);}
+ assert.equal(workflow.verifySource(root),3);
+ fs.writeFileSync(path.join(root,'GameWeb/example.js'),'tampered');assert.throws(()=>workflow.verifySource(root),/SOURCE_HASH_MISMATCH/);fs.writeFileSync(path.join(root,'GameWeb/example.js'),'');
+ const missingModule=Object.assign(new Error("Cannot find module './desktopDeadline'\nRequire stack:\n- C:\\PRIVATE\\ci-private.pem"),{code:'MODULE_NOT_FOUND'});
+ const diagnostic=workflow.formatError(missingModule);
+ assert.match(diagnostic,/MODULE_NOT_FOUND/);assert.ok(diagnostic.includes('./desktopDeadline'));
+ assert.ok(!diagnostic.includes('Require stack'));assert.ok(!diagnostic.includes('PRIVATE'));assert.ok(!diagnostic.includes('ci-private.pem'));
+ const unsafeModule=Object.assign(new Error("Cannot find module './desktopDeadline\nPRIVATE_SECRET\x1b[31m'\nRequire stack:"),{code:'MODULE_NOT_FOUND'});
+ const unsafeDiagnostic=workflow.formatError(unsafeModule);assert.match(unsafeDiagnostic,/MODULE_NOT_FOUND/);assert.ok(!unsafeDiagnostic.includes('PRIVATE_SECRET'));assert.ok(!/[\x00-\x1f\x7f]/.test(unsafeDiagnostic));
+ const privateError=Object.assign(new Error('PRIVATE_SECRET -----BEGIN PRIVATE KEY-----'),{code:'ERR_INVALID_ARG_VALUE'});
+ assert.ok(!workflow.formatError(privateError).includes('PRIVATE_SECRET'));
+ fs.copyFileSync(sourceFile,path.join(out,'source-manifest.json'));
  const policy={version:1,trustedReleaseKeys:[{keyId:p.KeyId(releasePub),publicKey:releasePub.export({type:'spki',format:'pem'}).toString()}]};write('policy.json',policy);
  for(const r of ['A','B','O'])fs.writeFileSync(path.join(out,r+'.exe'),'fixture bytes '+r);
  const manifest={version:1,releaseName:'Windows CI 1.0.0',securityVersion:97,protocol:'GAME-CONNECT-4',hashVersion:3,handoffVersion:3,sourceManifestSha512:sha(fs.readFileSync(sourceFile)),policySha512:p.PolicyDigest(policy),toolchain:{delphi:'fixture',cpp:'fixture',windowsSdk:'fixture',imgui:'fixture'},artifacts:Object.fromEntries(['A','B','O'].map(r=>[r,sha(fs.readFileSync(path.join(out,r+'.exe')))]))};write('manifest.json',{manifestId:p.ManifestId(manifest),manifest});
