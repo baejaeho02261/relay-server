@@ -34,8 +34,20 @@ try {
    foreach($name in @('dcc64.exe','bcc64.exe','brcc32.exe')){if(-not(Test-Path -LiteralPath (Join-Path $env:BDS ('bin\'+$name)))){throw 'CI_RAD_CLASSIC_TOOLS_REQUIRED'}}
    if(-not(Test-Path -LiteralPath (Join-Path $env:BDS 'include\windows\sdk\d3d11.h'))){throw 'CI_RAD_SDK_HEADERS_REQUIRED'}
    $msbuild=(Get-Command msbuild.exe -CommandType Application -ErrorAction Stop).Source
+   # A snapshot contains immutable resource inputs, never local compiled RES
+   # caches. Rebuild all three with the reviewed compiler before Delphi runs.
+   $projects=@('GameLauncher','GameConnect','GameOverlay')
+   foreach($project in $projects){
+    if(Test-Path -LiteralPath (Join-Path $native ($project+'Resources.res'))){throw 'CI_GENERATED_RESOURCE_IN_SNAPSHOT'}
+   }
    Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $native 'tests\Test-BuildIsolation.ps1'),'-NativeRoot',$native,'-MsBuildPath',$msbuild)
-   foreach($project in @('GameLauncher','GameConnect','GameOverlay')){Run-Checked $msbuild @(($project+'.dproj'),'/t:Rebuild','/p:Config=Release','/p:Platform=Win64','/m:1','/nr:false','/nologo','/v:minimal')}
+   foreach($project in $projects){
+    Run-Checked (Join-Path $env:BDS 'bin\brcc32.exe') @(('-fo'+$project+'Resources.res'),($project+'.rc'))
+    $resource=Get-Item -LiteralPath (Join-Path $native ($project+'Resources.res')) -ErrorAction Stop
+    if($resource.PSIsContainer -or $resource.Length -le 32){throw 'CI_RESOURCE_BUILD_INVALID'}
+    Run-Checked $msbuild @(($project+'.dproj'),'/t:Rebuild','/p:Config=Release','/p:Platform=Win64','/m:1','/nr:false','/nologo','/v:minimal')
+   }
+   Run-Checked $node @((Join-Path $web 'scripts\check-connect-project.js'))
    $paths=@{A='launcher';B='client';O='overlay'}
    foreach($role in @('A','B','O')){
     $files=@(Get-ChildItem -LiteralPath (Join-Path $native ('Win64\Release\'+$paths[$role])) -Filter '*.exe' -File)
