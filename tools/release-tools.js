@@ -160,6 +160,8 @@ async function promptSpec(home) {
 }
 async function promptFiles(home) {
   const p = locations(home), files = [], q = questions();
+  console.log('Manual manifest tools do not execute Windows CI or create CI-signed PASS evidence.');
+  console.log('For production publication, use Run_Windows_CI.bat and its unchanged manifest.json + A/B/O + ci-evidence.json bundle.');
   console.log('Select the same FINAL EXEs used by Create_Approval and Check_Approval.');
   console.log('Random filenames are normal. Paste Explorer Copy as path; do not rename EXEs.');
   try {

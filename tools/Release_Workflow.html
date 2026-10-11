@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Game 배포 순서</title>
+<style>body{margin:40px auto;max-width:880px;padding:0 22px;background:#11151c;color:#e5eaf3;font:16px/1.8 system-ui,sans-serif}h1{font-size:30px}h2{margin-top:36px;font-size:21px}code{color:#9dc5ff;overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}td,th{padding:12px;text-align:left;border-bottom:1px solid #303946}small{color:#a8b3c3}.note{padding:16px 20px;border-left:3px solid #8cbcff;background:#1a2230}li{margin:10px 0}</style>
+<h1>Game 배포 순서</h1>
+<p>이 압축의 <code>GameConnect_Win64</code>와 <code>GameWeb</code>를 같은 상위 폴더에 풉니다. 이전 패치 파일을 섞지 않습니다. 기존 서버의 운영 데이터·환경 설정·키는 백업하고 보존합니다.</p>
+<p class="note">운영 게시에는 실제 Windows 빌드·API 검사·A→B→O 실행 검증의 CI 서명이 필요합니다. IDE 빌드 성공이나 수동 PASS 입력만으로 이 조건을 충족하지 않습니다.</p>
+<h2>1. 도구와 입력 준비</h2>
+<p>Windows x64 로그인 세션에서 PowerShell 7 x64, 프로젝트가 지원하는 Node.js x64, RAD Studio classic Win64 도구, Microsoft C++/Windows SDK, Python 3 및 OpenSSL을 준비합니다. Python은 서버의 SQLite 네이티브 모듈 빌드에 필요합니다. C++ Build Tools의 <b>x64 Native Tools 명령 프롬프트</b>를 사용하고 <code>BDS</code>를 실제 RAD Studio 경로로 설정합니다. RAD Studio SDK 헤더와 MSVC SDK는 각각 필요합니다.</p>
+<table><tr><th>순서</th><th>실행 / 입력</th><th>결과</th></tr>
+<tr><td>1</td><td><code>Create_Spec.bat</code></td><td><code>tools/spec.json</code>. releaseName은 1.0.0 같은 실제 A/B/O 숫자 버전, securityVersion은 서버 최솟값 이상.</td></tr>
+<tr><td>2</td><td>관리자 웹에서 현재 배포 정책 내보내기</td><td><code>tools/deployment-policy.json</code>. 사용할 EXE 승인 공개키가 이 정책에 등록되어 있어야 합니다.</td></tr>
+<tr><td>3</td><td><code>Observe_Build_Inputs.bat</code></td><td><code>tools/observed-build-inputs.json</code>. 도구·SDK·라이브러리의 실제 파일 기록.</td></tr>
+<tr><td>4</td><td>신뢰하는 설치본과 입력을 검토한 후 <code>Approve_Build_Inputs.bat</code></td><td>검토한 inputSha512를 직접 입력하여 <code>tools/reviewed-build-inputs.json</code> 생성. 관측값을 자동으로 승인하지 않습니다.</td></tr>
+<tr><td>5</td><td><code>Create_CI_Key.bat</code></td><td>EXE 승인키와 다른 CI 전용 Ed25519 키 생성. 기존 CI 키를 사용할 때는 생성 단계를 생략합니다. 개인키는 소스 폴더 밖에 보관합니다.</td></tr>
+<tr><td>6</td><td><code>Export_CI_Public_Key.bat</code></td><td><code>tools/ci-public-key.json</code>. 관리자 웹의 CI 공개키 등록에 사용할 공개 정보만 포함합니다.</td></tr>
+<tr><td>7</td><td><code>Check_Environment.bat</code></td><td>필수 도구·입력·소스 누락 확인. 준비 검사는 Windows 통합 시험 PASS가 아닙니다.</td></tr></table>
+<p>생성 도구는 기존 JSON·키를 덮어쓰지 않습니다. 새 배포를 준비할 때는 이전 배포의 파일을 별도로 보관합니다. 정책·소스·도구가 바뀌면 그 변경에 맞게 입력 기록과 증빙을 새로 준비합니다.</p>
+<h2>2. 실제 빌드와 실행 검증</h2>
+<ol><li><code>Run_Windows_CI.bat</code>을 실행하고 BDS, 기존 EXE 승인 개인키, CI 개인키 경로를 입력합니다.</li>
+<li>도구가 새 <code>tools/ci-runs/&lt;실행 ID&gt;</code> 폴더를 만들고 별도 복사본에서 A/B/O 빌드, 정규화, 승인, 네이티브 검사, 실제 실행과 종료를 검증합니다. 창이 나타나는 통합 시험이므로 로그인 세션을 유지합니다.</li>
+<li>실패하면 화면에 나온 단계와 해당 실행 폴더의 <code>runner-results.json</code>, <code>logs</code>를 확인합니다. FAIL/NOT_RUN을 PASS로 수정하지 않습니다.</li>
+<li>성공한 폴더를 <code>Check_CI_Output.bat</code>으로 검사합니다. 로컬 서명·파일 일치 검사 후에도 서버에 공개키와 증빙을 등록해야 합니다.</li></ol>
+<p class="note">CI가 생성한 명세와 A/B/O를 그대로 사용합니다. 이 EXE를 다시 빌드·정규화하거나 수동 <code>Create_Release_Manifest.bat</code>으로 다른 명세를 만들면 기존 CI 서명과의 연결이 바뀝니다.</p>
+<h2>3. 관리자 웹 등록</h2>
+<ol><li><code>tools/ci-public-key.json</code>으로 CI 공개키를 등록합니다. 개인키는 업로드하지 않습니다.</li>
+<li>성공한 같은 CI 실행 폴더의 <code>manifest.json</code>을 계획 등록합니다.</li>
+<li>같은 폴더의 <code>A.exe</code>, <code>B.exe</code>, <code>O.exe</code>와 각각 <code>A.approval.json</code>, <code>B.approval.json</code>, <code>O.approval.json</code>을 같은 명세 ID·실행 버전으로 후보 등록합니다.</li>
+<li>명세 등록을 완료하고 같은 폴더의 <code>ci-evidence.json</code>을 등록합니다. 필요한 빌드별 정책을 적용할 때는 같은 실행에서 생성된 <code>mitigation-*.json</code>도 해당 화면에서 등록합니다.</li>
+<li>해당 A/B/O를 선택해 조합을 다시 검증하고 운영 게시합니다. 서버 정책 revision이 달라졌다면 현재 정책으로 CI를 다시 실행합니다.</li></ol>
+<h2>도구 구분</h2>
+<p><code>Prepare_ImGui.bat</code>는 C++ 객체 준비, <code>Create_Approval.bat</code>와 <code>Check_Approval.bat</code>는 개별 EXE 승인 도구입니다. <code>Test_Native_*.bat</code>·<code>Test_Server_*.bat</code>는 개별 진단입니다. 이 도구들만 실행해도 CI 게시 증빙이 만들어지는 것은 아닙니다. TLS·저장소·복구 BAT는 해당 운영 작업이 필요할 때만 별도로 실행합니다.</p>
+<p><code>SECURITY_CI_EVIDENCE_REQUIRED</code>: 같은 명세의 유효한 CI 서명 및 3개 PASS를 확인합니다.<br><code>SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED</code>: 필수 게시 조건을 끄거나 최소 보안 버전을 1 미만으로 저장한 요청입니다. 명세·증빙을 준비해 게시합니다.</p>
+<small>이 패키지의 정적·Node 검사는 실제 Windows/RAD Studio/TPM/GPU 실행의 대체 증빙이 아닙니다. 실제 결과는 사용자 Windows CI 실행에서 생성됩니다.</small>
+</html>
