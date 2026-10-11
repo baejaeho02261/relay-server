@@ -115,18 +115,18 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
   });
   let first,proof,token;
   await Check('One-time registration and lost-response retry over fresh encrypted channels',async()=>{
-   first=desktop.Create({label:'첫 Windows'},'TEST');proof=await Proof(a,'redeem',{licenseKey:first.licenseKey,deviceName:'한글 Windows PC',appVersion:'1.0'});const result=await Round('execute',proof);assert.equal(result.ok,true);token=result.data.activationToken;assert.equal(result.data.deviceId,a.deviceId);assert.equal(result.data.status,'USED');assert.ok(result.data.leaseExpiresAt>Date.now());
+   first=desktop.Create({requestId:require('node:crypto').randomUUID(),label:'첫 Windows'},'TEST');proof=await Proof(a,'redeem',{licenseKey:first.licenseKey,deviceName:'한글 Windows PC',appVersion:'1.0'});const result=await Round('execute',proof);assert.equal(result.ok,true);token=result.data.activationToken;assert.equal(result.data.deviceId,a.deviceId);assert.equal(result.data.status,'USED');assert.ok(result.data.leaseExpiresAt>Date.now());
    const retry=await Round('execute',proof);assert.equal(retry.data.activationToken,token);const repeated=await Call(a,'redeem',JSON.parse(proof.payloadJSON),proof.requestId);assert.equal(repeated.data.activationToken,token);
    assert.equal((await Call(b,'redeem',{licenseKey:first.licenseKey})).error,'DESKTOP_KEY_USED');
   });
   await Check('Independent PCs hold independent licenses and cannot borrow activation tokens',async()=>{
-   const second=desktop.Create({label:'두 번째 Windows'},'TEST'),tokenB=(await Call(b,'redeem',{licenseKey:second.licenseKey})).data.activationToken;
+   const second=desktop.Create({requestId:require('node:crypto').randomUUID(),label:'두 번째 Windows'},'TEST'),tokenB=(await Call(b,'redeem',{licenseKey:second.licenseKey})).data.activationToken;
    assert.equal((await Call(a,'verify',{activationToken:token})).ok,true);assert.equal((await Call(b,'verify',{activationToken:tokenB})).ok,true);const owner=bootstrapFixture.Session(b,tokenB);assert.equal((await Call(b,'verify',{activationToken:token,bootstrapSessionId:owner.sessionId,bootstrapSessionToken:owner.sessionToken})).error,'DESKTOP_DEVICE_MISMATCH');
    const fake=await Proof(a,'verify',{activationToken:token});fake.signature=Buffer.alloc(256).toString('base64');assert.equal((await Round('execute',fake)).error,'DESKTOP_PROOF_INVALID');
   });
   await Check('Service stop and revoke are enforced by the server on encrypted requests',async()=>{
    const pending=await Proof(a,'verify',{activationToken:token});state.serviceEnabled=false;try{assert.equal((await Round('execute',pending)).error,'SERVICE_DISABLED');}finally{state.serviceEnabled=true;}
-   desktop.Revoke(first.license.id,{reason:'TCP 검증 해지'},'TEST');assert.equal((await Call(a,'verify',{activationToken:token})).error,'DESKTOP_REVOKED');assert.equal((await Round('execute',proof)).error,'DESKTOP_REVOKED');
+   desktop.Revoke(first.license.id,{requestId:require('node:crypto').randomUUID(),reason:'TCP 검증 해지'},'TEST');assert.equal((await Call(a,'verify',{activationToken:token})).error,'DESKTOP_REVOKED');assert.equal((await Round('execute',proof)).error,'DESKTOP_REVOKED');
   });
   await Check('Absolute deadline closes incomplete frames even during trickle traffic',async()=>{
    const started=Date.now();await new Promise((resolve,reject)=>{const socket=tls.connect({host:'127.0.0.1',port,servername:profile.tlsServerName,rejectUnauthorized:false,minVersion:'TLSv1.2'});let timer,reply='';const deadline=setTimeout(()=>{socket.destroy();reject(Error('Absolute TCP deadline missing'));},transport.DEADLINE_MS+3000);socket.on('secureConnect',()=>{socket.write(' ');timer=setInterval(()=>socket.write(' '),500);});socket.on('data',data=>{reply+=data.toString();});socket.on('error',()=>{});socket.on('close',()=>{clearTimeout(deadline);clearInterval(timer);try{assert.equal(reply,'');resolve();}catch(error){reject(error);}});});assert.ok(Date.now()-started>=transport.DEADLINE_MS-500);

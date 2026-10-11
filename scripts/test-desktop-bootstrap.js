@@ -118,20 +118,20 @@ Check('Storage failure and tampered published artifact never consume an unused l
  assert.equal(bootstrap.Overview().launchers.find(row=>row.id===issue.launcherId).status,'AVAILABLE');const retry=bootstrap.Execute(body);assert.ok(retry.flowId);assert.equal(bootstrap.Execute(body).flowId,retry.flowId);
 });
 Check('License journal commit survives bootstrap linkage failure and exact proof repairs it',()=>{
- const isolated=Device(),running=fixture.Session(isolated,'two-store-failure'),key=licenses.Create({label:'Durable cross-store recovery'},'TEST'),payload={licenseKey:key.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken},proof=LicenseProof(isolated,'redeem',payload),store=require('../services/desktopBootstrapStore'),atomic=store.Atomic;
+ const isolated=Device(),running=fixture.Session(isolated,'two-store-failure'),key=licenses.Create({requestId:crypto.randomUUID(),label:'Durable cross-store recovery'},'TEST'),payload={licenseKey:key.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken},proof=LicenseProof(isolated,'redeem',payload),store=require('../services/desktopBootstrapStore'),atomic=store.Atomic;
  store.Atomic=()=>{throw Error('TEST_BOOTSTRAP_LINKAGE_WRITE_FAILURE');};try{Reject(()=>licenses.Execute(proof),/^STORAGE_SAVE_FAILED$/);}finally{store.Atomic=atomic;}
  const committed=licenses.DB().licenses[key.license.id];assert.equal(committed.consumed,true);assert.equal(committed.status,'USED');assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,'');
  const recovered=licenses.Execute(proof);assert.equal(recovered.status,'USED');assert.equal(sha256(recovered.activationToken),committed.tokenHash);assert.equal(licenses.Execute(proof).activationToken,recovered.activationToken);assert.equal(bootstrap.Overview().sessions.find(row=>row.id===running.sessionId).licenseId,key.license.id);
  Reject(()=>licenses.Execute(LicenseProof(isolated,'redeem',payload)),/^DESKTOP_KEY_USED$/);
 });
 Check('License consumption requires signed, current, same-device B session',()=>{
- const key=licenses.Create({label:'B session gate'},'TEST'),payload={licenseKey:key.licenseKey,deviceName:'부트스트랩 테스트',appVersion:'80.0.0'};
+ const key=licenses.Create({requestId:crypto.randomUUID(),label:'B session gate'},'TEST'),payload={licenseKey:key.licenseKey,deviceName:'부트스트랩 테스트',appVersion:'80.0.0'};
  Reject(()=>licenses.Execute(LicenseProof(a,'redeem',payload)));assert.equal(licenses.DB().licenses[key.license.id].consumed,false);
  Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:'invalid'})));assert.equal(licenses.DB().licenses[key.license.id].consumed,false);
  Reject(()=>licenses.Execute(LicenseProof(b,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})));assert.equal(licenses.DB().licenses[key.license.id].consumed,false);
  const activated=licenses.Execute(LicenseProof(a,'redeem',{...payload,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken}));assert.equal(activated.status,'USED');assert.equal(activated.deviceId,a.deviceId);
  const proof=LicenseProof(a,'verify',{activationToken:activated.activationToken,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken});assert.equal(licenses.Execute(proof).status,'USED');
- const different=licenses.Create({label:'Must remain unused'},'TEST');Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{licenseKey:different.licenseKey,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);assert.equal(licenses.DB().licenses[different.license.id].consumed,false);
+ const different=licenses.Create({requestId:crypto.randomUUID(),label:'Must remain unused'},'TEST');Reject(()=>licenses.Execute(LicenseProof(a,'redeem',{licenseKey:different.licenseKey,bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken})),/^BOOTSTRAP_LICENSE_MISMATCH$/);assert.equal(licenses.DB().licenses[different.license.id].consumed,false);
  Reject(()=>fixture.Session(a,'attempt-activation-reuse'),/^DESKTOP_MACHINE_BLOCKED$/);
  const oldSnapshot=database.BuildDatabaseObject();bootstrap.Execute({action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken});Reject(()=>Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>licenses.Execute(proof),/^(BOOTSTRAP_SESSION_CLOSED|DESKTOP_CHALLENGE_EXPIRED)$/);
  database.ImportDatabaseObject(oldSnapshot);Reject(()=>Gate(session.sessionId,session.sessionToken,a.deviceId),/^BOOTSTRAP_SESSION_CLOSED$/);const retry=Restart(claimBody);assert.equal(retry.ok,false);assert.equal(retry.error,'BOOTSTRAP_SESSION_CLOSED');
@@ -205,7 +205,7 @@ Check('Server verifies its stored B bytes again before finish and claim',()=>{
 });
 Check('Machine blocks deny bootstrap and unblocking cannot revive prior sessions',()=>{
  const device=Device(),pending=fixture.Begin(device);fixture.Download(pending.begin);const completed=fixture.Finish(device,pending.begin),running=fixture.Claim(device,pending.begin,completed),policy=require('../services/desktopMachinePolicy'),evidence=fixture.Evidence(device,running);
- const license=licenses.Create({label:'Automatic one use lock'},'TEST');licenses.Execute(LicenseProof(device,'redeem',{licenseKey:license.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken}));
+ const license=licenses.Create({requestId:crypto.randomUUID(),label:'Automatic one use lock'},'TEST');licenses.Execute(LicenseProof(device,'redeem',{licenseKey:license.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken}));
  assert.equal(policy.Public(device.machineId).blocked,true);assert.equal(policy.Public(device.machineId).source,'SINGLE_USE');
  assert.ok(fixture.Gate(device,running));
  bootstrap.Execute({action:'close',sessionId:running.sessionId,sessionToken:running.sessionToken});

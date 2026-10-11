@@ -2,13 +2,13 @@
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
-// A forgotten per-suite override must never fall back to operating/source data.
-const suiteData = fs.mkdtempSync(path.join(os.tmpdir(), 'game-full-regression-'));
-process.env.DATA_DIR = suiteData;
-process.env.HA_ENABLED = '0';
-process.on('exit', () => fs.rmSync(suiteData, {recursive:true,force:true}));
 const checks = [
   ['test-key-console.js'], ['test-history-outcomes.js'],
+  ['test-passkey-lifetime.js'], ['test-network-lifecycle-upgrade.js'], ['test-server-state-ui.js'],
+  ['test-work-queue-observability.js'],
+  ['test-remaining-auth-protocol.js'], ['test-transport-key-rotation.js'],
+  ['test-remaining-own-measurement.js'], ['test-desktop-device-identity.js'], ['test-device-identity-handoff.js'],
+  ['test-storage-retention-remaining.js'], ['test-build-input-lock.js'], ['test-mitigation-profiles.js'], ['test-ci-profile-fixture.js'],
   ['test-desktop-workspace.js'], ['test-workspace-http.js'],
   ['test-security-activation.js'],
   ['test-web-auth-hardening.js'], ['test-desktop-deadlines.js'], ['test-desktop-single-writer.js'],
@@ -33,8 +33,14 @@ const checks = [
   ['test-desktop-retirement.js'], ['test-desktop-http.js'], ['test-connect-deployment.js'],
   ['test-desktop-connect.js'], ['test-desktop-connect.js', '--sqlite'],
   ['test-desktop-admin-ui.js'], ['test-integrity-display.js'], ['test-overlay-admin-ui.js'], ['test-web-ui-cache.js'],
-  ['test-hardening-protocol.js'], ['test-hardening-work-queue.js'], ['test-hardening-measurement.js'], ['test-hardening-pe-corpus.js']
+  ['test-hardening-protocol.js'], ['test-hardening-work-queue.js'], ['test-hardening-measurement.js'], ['test-hardening-pe-corpus.js'], ['test-review-corrections.js'], ['test-server-storage-11-14.js'], ['test-independent-contracts-14.js'], ['test-production-boundaries-1-5.js'], ['test-native-abi-field-contract.js'],
+  ['test-completion-protocol-6-10.js'], ['test-completion-measurement-6-10.js'], ['test-completion-artifacts-6-10.js'], ['test-completion-pin-6-10.js']
 ];
+module.exports=checks;
+if(require.main===module){
+ const suiteData=fs.mkdtempSync(path.join(os.tmpdir(),'game-full-regression-'));
+ process.env.DATA_DIR=suiteData;process.env.HA_ENABLED='0';
+ process.on('exit',()=>fs.rmSync(suiteData,{recursive:true,force:true}));
 for (const [name, ...args] of checks) {
   const result = spawnSync(process.execPath, [path.join(__dirname, name), ...args], {
     cwd: path.resolve(__dirname, '..'), stdio: 'inherit', timeout: 120000
@@ -43,4 +49,6 @@ for (const [name, ...args] of checks) {
   if (result.status !== 0 || result.error) process.exit(result.status || 1);
   console.log('SUITE PASS '+[name,...args].join(' '));
 }
-console.log('WINDOWS LICENSE REGRESSION PASS: '+checks.length+' suites');
+console.log('SERVER / SOURCE REGRESSION PASS: '+checks.length+' suites');
+
+}

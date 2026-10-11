@@ -35,14 +35,14 @@ try {
   for (const bad of [undefined, {}, { expiresAt: 100, deadline: NaN }, { expiresAt: Infinity, deadline: 200 }]) assert.equal(deadlines.Expired(bad), true);
   for (const invalid of [0, -1, NaN, Infinity, 1.5]) assert.throws(() => deadlines.After(invalid), /DESKTOP_DEADLINE_INVALID/);
   for (const kind of ['wall', 'monotonic']) {
-    const device = f.Device(), issued = licenses.Create({ label: 'deadline-' + kind }, 'TEST');
+    const device = f.Device(), issued = licenses.Create({requestId:require('node:crypto').randomUUID(), label: 'deadline-' + kind }, 'TEST');
     const proof = LicenseProof(device, issued.licenseKey), revision = licenses.DB().revision;
     CrossDeadline(() => licenses.Execute(proof.body), kind === 'wall' ? proof.challenge.expiresAt : Date.now() - 1000,
       kind === 'monotonic' ? licenses.CHALLENGE_MS + 1 : 0, 'DESKTOP_CHALLENGE_EXPIRED');
     assert.equal(licenses.DB().licenses[issued.license.id].consumed, false); assert.equal(licenses.DB().revision, revision);
   }
   // A slow downstream gate must not leave the nonce unchecked at consumption.
-  const device = f.Device(), issued = licenses.Create({ label: 'gate-boundary' }, 'TEST'), proof = LicenseProof(device, issued.licenseKey);
+  const device = f.Device(), issued = licenses.Create({requestId:require('node:crypto').randomUUID(), label: 'gate-boundary' }, 'TEST'), proof = LicenseProof(device, issued.licenseKey);
   const bootstrap = require('../services/desktopBootstrap'), gate = bootstrap.Gate, now = Date.now;
   try {
     bootstrap.Gate = function(...args) { const row = Reflect.apply(gate, this, args); Date.now = () => proof.challenge.expiresAt; return row; };

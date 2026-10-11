@@ -4,7 +4,26 @@ A blocked test is NEVER a PASS. Uses only temporary non-operating DATA_DIRs.
 Usage: python GameWeb/scripts/review-regression.py --output OUTPUT_DIRECTORY
 """
 from __future__ import annotations
-import argparse, ast, collections, json, os, pathlib, shutil, subprocess, tempfile, time
+import argparse, collections, json, os, pathlib, shutil, subprocess, tempfile, time
+
+
+def registered_checks(root: pathlib.Path) -> list[list[str]]:
+    """Read the registry's public export without invoking its main-only runner."""
+    result = subprocess.run(
+        ['node', '-e', "process.stdout.write(JSON.stringify(require('./scripts/regression.js')))"],
+        cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        timeout=10, check=True)
+    checks = json.loads(result.stdout)
+    if not isinstance(checks, list) or not checks or len(checks) > 1000:
+        raise ValueError('Invalid regression registry')
+    for check in checks:
+        if (not isinstance(check, list) or not check or
+                any(not isinstance(x, str) or '\0' in x for x in check)):
+            raise ValueError('Invalid registered regression entry')
+        script = pathlib.Path(check[0])
+        if script.name != check[0] or script.suffix != '.js' or not (root / 'scripts' / script).is_file():
+            raise ValueError('Invalid registered regression script')
+    return checks
 
 
 def main() -> int:
@@ -17,8 +36,7 @@ def main() -> int:
     root = pathlib.Path(__file__).resolve().parents[1]
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    source = (root / 'scripts/regression.js').read_text(encoding='utf-8')
-    checks = ast.literal_eval(source.split('const checks = ', 1)[1].split('\nfor (const', 1)[0].rstrip().rstrip(';'))
+    checks = registered_checks(root)
     def node(*arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(['node', *arguments], cwd=root, text=True,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=10)
@@ -33,7 +51,8 @@ def main() -> int:
         if not isinstance(check, list) or not check or any(not isinstance(x, str) for x in check):
             raise ValueError('Invalid registered regression entry')
         data = tempfile.mkdtemp(prefix='game-delivery-review-')
-        env = {**os.environ, 'DATA_DIR': data, 'HA_ENABLED': '0', 'STORAGE_ENGINE': 'json'}
+        env = {**os.environ, 'DATA_DIR': data, 'HA_ENABLED': '0', 'STORAGE_ENGINE': 'json',
+               'DESKTOP_RECOVERY_WITNESS_DIR': '', 'DESKTOP_RECOVERY_WITNESS_REQUIRED': '0'}
         started = time.monotonic()
         try:
             process = subprocess.run(['node', str(root / 'scripts' / check[0]), *check[1:]],
