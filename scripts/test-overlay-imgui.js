@@ -91,6 +91,14 @@ check('Host callback layout is versioned and checked before static-object creati
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
   inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'game_imgui_create(Pointer(Window), @Host, Result)'], 'Host validation');
   assert.equal((pascal.match(/\{\$L\s+'[^']+'\}/g) || []).length, 2);
+  const objectLinks = [...pascal.matchAll(/\{\$L\s+'[^']+'\}/g)];
+  const firstExternal = pascal.indexOf('function game_imgui_create(');
+  const initialization = pascal.indexOf('\ninitialization\n');
+  assert(firstExternal >= 0 && initialization > firstExternal);
+  for (const link of objectLinks) {
+    assert(link.index < firstExternal && link.index < initialization,
+      'Native object must be registered before external declarations; moving $L into initialization causes dcc64 E2065');
+  }
   assert.match(pascal, /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}\s*\{\$L 'game_imgui_fault_test\.o'\}\s*\{\$ELSE\}\s*\{\$L 'game_imgui_bridge\.o'\}\s*\{\$ENDIF\}/);
   assert.match(read('Game.Metadata.inc'), /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}[\s\S]*?\{\$MESSAGE FATAL/);
   assert.match(pascal, /\{\$L\s+'game_imgui_bridge\.o'\}/);
