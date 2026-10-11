@@ -15,8 +15,10 @@ function New-CiPrivateDirectory([string]$Path) {
     [IO.File]::WriteAllText((Join-Path $Path 'ci-owned-marker'),'GAME_WINDOWS_CI_V1')
 }
 function Get-CiEnvironment([string]$PrivateTemp) {
+    # Preserve only the explicit node-gyp Python selectors accepted by preflight.
+    # Other npm settings and CI/release secrets remain excluded.
     $clean = @{}
-    foreach ($name in @('SystemRoot','windir','ComSpec','PATH','PATHEXT','OS','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE','USERPROFILE','APPDATA','LOCALAPPDATA','ProgramData','ProgramFiles','ProgramFiles(x86)','ProgramW6432','BDS','BDSCOMMONDIR','VisualStudioVersion','VSINSTALLDIR','VCINSTALLDIR','VCToolsInstallDir','WindowsSdkDir','WindowsSDKVersion','UniversalCRTSdkDir','UCRTVersion','INCLUDE','LIB','LIBPATH')) {
+    foreach ($name in @('SystemRoot','windir','ComSpec','PATH','PATHEXT','OS','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE','USERPROFILE','APPDATA','LOCALAPPDATA','ProgramData','ProgramFiles','ProgramFiles(x86)','ProgramW6432','BDS','BDSCOMMONDIR','VisualStudioVersion','VSINSTALLDIR','VCINSTALLDIR','VCToolsInstallDir','WindowsSdkDir','WindowsSDKVersion','UniversalCRTSdkDir','UCRTVersion','INCLUDE','LIB','LIBPATH','NODE_GYP_FORCE_PYTHON','npm_config_python','PYTHON')) {
         $value = [Environment]::GetEnvironmentVariable($name)
         if ($null -ne $value) { $clean[$name] = $value }
     }

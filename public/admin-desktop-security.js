@@ -25,8 +25,8 @@ async function showDesktopSecurityOperations() {
     SECURITY_RELEASE_MIXED_MANIFEST:'선택한 A/B/O의 명세 ID가 다르거나 누락되었습니다. 같은 명세로 등록한 세 후보를 선택하세요.',
     SECURITY_RELEASE_MANIFEST_NOT_REGISTERED:'계획 등록만 완료된 명세입니다. 아래 명세 영역에서 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.',
     SECURITY_RELEASE_MANIFEST_REQUIRED:'선택한 후보에 등록된 배포 명세가 필요합니다.',
-    SECURITY_CI_EVIDENCE_REQUIRED:'해당 명세에 전용 CI 키로 서명한 nativeBuild/API/integration PASS가 필요합니다. 수동 PASS는 대체할 수 없습니다.',
-    SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시의 명세·CI 서명·최소 보안 버전 조건을 해제할 수 없습니다.',
+    SECURITY_CI_EVIDENCE_REQUIRED:'배포 증빙 미충족: 아래 배포 명세 영역의 Windows CI 순서대로 실행하고, 같은 실행 폴더의 manifest.json·A/B/O·ci-evidence.json을 등록하세요. 등록된 전용 CI 키의 유효한 nativeBuild/API/integration PASS가 필요합니다.',
+    SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시의 필수 조건은 유지됩니다. 아래 Windows CI 순서로 검증된 조합과 증빙을 준비해 게시하세요. 현재 조합에 강화 정책 적용은 기존 조합의 증빙이 모두 준비된 뒤 사용합니다.',
     SECURITY_RELEASE_MANIFEST_INVALID:'명세 내용 또는 ID가 유효하지 않습니다. 생성 도구의 원본 JSON을 확인하세요.',
     SECURITY_MANIFEST_ARTIFACT_MISMATCH:'명세의 파일과 선택한 후보가 다릅니다. 승인 처리까지 끝난 최종 EXE와 명세를 확인하세요.'
   }[reason]||reason);
@@ -109,10 +109,16 @@ async function showDesktopSecurityOperations() {
       <p id="sec-runtime-governance" class="small-note">${legacyRuntime?'기존 실행: 과거 저장 정책 유지. 신규 게시 성공 시 기존 실행에도 강화된 명세·CI 정책이 적용되므로 증빙 없는 구 실행은 거절될 수 있습니다.':'기존 실행에도 명세·CI·최소 보안 버전 정책이 적용되어 있습니다.'}</p>
       <p class="small-note">현재 운영 조합도 검증을 통과해야 이 조건을 저장할 수 있습니다. 기존 조합에 증빙이 없으면 검증된 새 A/B/O를 준비해 게시하세요. 게시 성공 시 조합과 강화 정책을 함께 저장하며, 실패 시 기존 운영 조합을 바꾸지 않습니다.</p>
       <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">내려받은 deployment-policy.json을 BAT가 있는 GameWeb/tools 폴더에 저장하세요. 현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
-      <p class="small-note">① 명세 계획 등록 → ② 같은 명세 ID로 A/B/O 후보 등록 → ③ 세 파일 확인 후 명세 등록 완료 → ④ 전용 CI 공개키·서명 결과 등록 → ⑤ 조합 검증·운영 게시</p>
-      <label>배포 명세 JSON (release-provenance.js manifest 출력)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
-      <label>CI 증거 JSON (release-provenance.js sign 출력)<input type="file" id="sec-ci-file" accept=".json,application/json"></label>${button('record-ci','CI 서명 증거 검증·등록')}
-      <label>새 CI 공개키 JSON (release-provenance.js public-key 출력 · 개인키 금지)<input type="file" id="sec-ci-key-file" accept=".json,application/json"></label>${button('record-ci-key','CI 전용 공개키 등록')}
+      <div class="small-note" id="sec-ci-workflow"><strong>Windows CI 실행부터 운영 게시까지</strong>
+      <ol><li>현재 정책을 위 버튼으로 저장해 <code>GameWeb/tools/deployment-policy.json</code>에 넣고 <code>Check_Environment.bat</code>으로 도구·소스 상태를 확인합니다. 같은 폴더의 <code>spec.json</code>에는 실제 빌드 도구 버전을 입력합니다.</li>
+      <li>CI 키가 없을 때만 <code>Create_CI_Key.bat</code>을 실행합니다. <code>Export_CI_Public_Key.bat</code>으로 생성한 <code>tools/ci-public-key.json</code>을 아래 CI 공개키 입력에 등록합니다. EXE 승인키와 CI 키는 별도로 사용하며 개인키는 업로드하지 않습니다.</li>
+      <li><code>Run_Windows_CI.bat</code>으로 빌드·시험을 실행한 뒤 <code>Check_CI_Output.bat</code>으로 완료된 출력 묶음을 확인합니다. 실패·미실행 항목은 해당 로그에서 해결한 뒤 다시 시험합니다.</li>
+      <li>확인한 <strong>같은 <code>tools/ci-runs/&lt;실행 폴더&gt;</code></strong>의 <code>manifest.json</code>을 계획 등록하고, 그 폴더의 <code>A.exe</code>·<code>B.exe</code>·<code>O.exe</code>와 각각의 승인 JSON을 같은 명세 ID로 후보 등록합니다. 이어 같은 <code>manifest.json</code>으로 명세 등록을 완료하고 <code>ci-evidence.json</code>을 등록합니다.</li>
+      <li>해당 A/B/O 후보를 선택해 <strong>조합 검증 → 운영 게시</strong>를 진행합니다. 서버는 현재 정책, 파일, CI 키 상태와 최신 증빙을 다시 확인합니다.</li></ol>
+      <p>이전 수동 빌드 EXE·명세와 CI 출력물을 섞지 마세요. 시험 후 파일·소스·정책이 달라졌다면 현재 구성으로 다시 검증합니다. 필수 조건을 끄거나 서버를 초기화해도 누락된 증빙은 생성되지 않습니다.</p></div>
+      <label>배포 명세 JSON (같은 CI 실행 폴더의 manifest.json)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
+      <label>CI 증거 JSON (같은 CI 실행 폴더의 ci-evidence.json)<input type="file" id="sec-ci-file" accept=".json,application/json"></label>${button('record-ci','CI 서명 증거 검증·등록')}
+      <label>새 CI 공개키 JSON (Export_CI_Public_Key.bat의 ci-public-key.json · 개인키 금지)<input type="file" id="sec-ci-key-file" accept=".json,application/json"></label>${button('record-ci-key','CI 전용 공개키 등록')}
       <p class="small-note">ACTIVE는 새 CI 증거를 허용합니다. RETIRING은 기존 증거만 유지하며 REVOKED는 기존 증거도 무효화합니다. 키 철회는 복원할 수 없으며 현재 실행에도 영향을 줍니다. 키 유효기간은 발급 후 변경하지 않습니다.</p>
       ${Object.values(g.ciKeys).map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('ci-signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],k.state)}<button type="button" data-security-action="ci-signer" data-key="${esc(k.keyId)}">CI 키 상태 저장</button></div>`).join('')||'<p>등록된 CI 키가 없습니다.</p>'}
       <div class="security-manifest-list">${Object.entries(g.manifests).map(([id,r])=>`<article class="security-manifest-card"><div><strong>${esc(r.manifest.releaseName)}</strong><span class="security-manifest-state" data-state="${esc(r.registration||'REGISTERED')}">${(r.registration||'REGISTERED')==='REGISTERED'?'등록 완료 · REGISTERED':'계획 등록 · PLANNED'}</span></div><code>${esc(id)}</code><p>${(r.registration||'REGISTERED')==='REGISTERED'?'후보를 선택하고 조합 검증을 진행하세요.':'A/B/O 후보 등록 후 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.'}</p></article>`).join('')||'<p class="empty">등록된 배포 명세가 없습니다.</p>'}</div>
@@ -218,11 +224,14 @@ async function showDesktopSecurityOperations() {
         if(action==='record-manifest'||action==='plan-manifest'){
           if(!value||!value.manifest||typeof value.manifestId!=='string'||Object.keys(value).sort().join(',')!=='manifest,manifestId')throw Error('명세 생성 도구의 원본 JSON을 선택해주세요.');
           await api(base+(action==='plan-manifest'?'/plan-release':'/release-manifests'),{method:'POST',body:{expectedRevision:revision,manifestId:value.manifestId,manifest:value.manifest}});
-          successMessage=action==='plan-manifest'?'명세 계획 등록(PLANNED)을 완료했습니다. 같은 명세 ID로 A/B/O 후보를 등록한 뒤 [세 파일 확인 후 명세 등록 완료]를 진행하세요.':'명세 등록 완료(REGISTERED). A/B/O 선택은 유지됩니다. 조합 검증 후 운영 게시하세요.';
-        }else if(action==='record-ci')await api(base+'/ci-evidence',{method:'POST',body:{expectedRevision:revision,envelope:value}});
-        else {
+          successMessage=action==='plan-manifest'?'명세 계획 등록(PLANNED)을 완료했습니다. 같은 명세 ID로 A/B/O 후보를 등록한 뒤 [세 파일 확인 후 명세 등록 완료]를 진행하세요.':'명세 등록 완료(REGISTERED). 같은 CI 실행 폴더의 ci-evidence.json까지 등록한 뒤 조합 검증·운영 게시하세요.';
+        }else if(action==='record-ci'){
+          await api(base+'/ci-evidence',{method:'POST',body:{expectedRevision:revision,envelope:value}});
+          successMessage='CI 서명 증거를 등록했습니다. 같은 명세의 A/B/O 후보로 조합 검증을 실행하세요. 운영 게시는 현재 정책과 키 상태를 다시 검사합니다.';
+        }else {
           if(!value||Object.keys(value).sort().join(',')!=='keyId,notAfter,notBefore,publicKey,state')throw Error('CI 공개키 도구의 원본 JSON을 선택해주세요. 개인키는 등록하지 않습니다.');
           await api(base+'/ci-signers',{method:'POST',body:{expectedRevision:revision,...value}});
+          successMessage='CI 전용 공개키를 등록했습니다. 이 키로 시험·서명한 같은 실행 폴더의 명세, A/B/O, CI 증거를 등록하세요.';
         }
         changed=true;
       }else if(action==='prepare-recovery'){
