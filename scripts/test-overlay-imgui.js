@@ -65,7 +65,7 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     assert(!pExports.has(name), 'Duplicate Pascal export ' + name);
     pExports.set(name, { result: kind === 'procedure' ? 'void' : pTypes[result], args });
   }
-  assert.equal(cExports.size, 19, 'DPI setter is the sole additive C ABI change');
+  assert.equal(cExports.size, 20, 'DPI setter and fixed-size actual GPU identity are additive C ABI extensions');
   assert.deepEqual(cExports.get('game_imgui_set_dpi'), { result: 'i32', args: ['ptr', 'f32'] });
   assert.deepEqual(pExports, cExports);
   assert.match(pascal, /TImGuiContext\s*=\s*Pointer\s*;/);
@@ -90,7 +90,9 @@ check('Host callback layout is versioned and checked before static-object creati
   assert.match(pascal, /ImGuiHostBytes\s*=\s*32;/);
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
   inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'game_imgui_create(Pointer(Window), @Host, Result)'], 'Host validation');
-  assert.equal((pascal.match(/\{\$L\s+'[^']+'\}/g) || []).length, 1);
+  assert.equal((pascal.match(/\{\$L\s+'[^']+'\}/g) || []).length, 2);
+  assert.match(pascal, /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}\s*\{\$L 'game_imgui_fault_test\.o'\}\s*\{\$ELSE\}\s*\{\$L 'game_imgui_bridge\.o'\}\s*\{\$ENDIF\}/);
+  assert.match(read('Game.Metadata.inc'), /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}[\s\S]*?\{\$MESSAGE FATAL/);
   assert.match(pascal, /\{\$L\s+'game_imgui_bridge\.o'\}/);
   assert.doesNotMatch(pascal, /external\s+'[^']+\.dll'/i);
 });
@@ -166,6 +168,18 @@ check('B readiness remains downstream of a visible Present and a fresh authority
   inOrder(authority, ['not FFailed and Assigned(FShouldClose) and not FShouldClose()', 'FFailed := True;', 'CancelInteraction;', 'SW_HIDE', 'ApiPostQuitMessage(1)'], 'Authority expiry');
 });
 
+check('Actual GPU identity and initial authority finish while the window is hidden', () => {
+  const run = method('function TOverlayWindow.Run(', 'function RunOverlayUI(');
+  inOrder(run, ['FContext := ImGuiCreate(', 'SetMitigationGpuIdentity(ImGuiGpuIdentity(FContext))',
+    'if Assigned(AuthorizeBeforeShow) then AuthorizeBeforeShow();', 'if not AuthorityValid then Exit;', 'ApiShowWindow(FWindow, SW_SHOWNORMAL)'], 'Hidden GPU authorization');
+  assert.match(run, /\{\$IFDEF GAME_APPLICATION_BUILD\}\s*if not Assigned\(AuthorizeBeforeShow\) then raise/);
+  const bridge = cleanC(read('imgui/bridge/game_imgui_bridge.cpp'));
+  const gpu = bridge.slice(bridge.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_gpu_identity('),bridge.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_last_error('));
+  inOrder(gpu,['QueryInterface(__uuidof(IDXGIDevice)', 'GetAdapter(', 'GetDesc(', 'CheckInterfaceSupport(__uuidof(IDXGIDevice)', 'game_memcpy(output,&identity,sizeof(identity));return 1;'], 'Actual selected adapter');
+  assert.doesNotMatch(gpu,/AdapterLuid|EnumAdapters|EnumDisplayDevices/);
+  assert.match(pascal,/GAME-GPU-IDENTITY-V1/);
+});
+
 check('Native Present distinguishes occlusion/failure, and portable tests can never grant readiness', () => {
   const bridge = cleanC(read('imgui/bridge/game_imgui_bridge.cpp'));
   const start = bridge.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_render_present(');
@@ -177,15 +191,40 @@ check('Native Present distinguishes occlusion/failure, and portable tests can ne
   inOrder(build, ['set "GAME_IMGUI_COMPILER=%BDS%\\bin\\bcc64.exe"', 'if not exist "%GAME_IMGUI_COMPILER%"', '"%GAME_IMGUI_COMPILER%" -c', 'Audit-Object.ps1', 'move /y "obj\\Win64\\game_imgui_bridge.pending.o" "obj\\Win64\\game_imgui_bridge.o"'], 'Validated compiler and audited static build');
 });
 
+check('GPU failure HRESULT survives the C/Pascal boundary and failed frames cannot claim readiness', () => {
+  const bridge = cleanC(read('imgui/bridge/game_imgui_bridge.cpp'));
+  const backend = cleanC(read('imgui/bridge/game_imgui_dx11.cpp'));
+  assert.match(bridge, /if \(game_imgui_dx11_error == 0\) game_imgui_dx11_error = result;/);
+  assert.match(bridge, /if\(game_imgui_dx11_failed\)return game_imgui_dx11_error<0\?game_imgui_dx11_error:-3;/);
+  assert.match(backend, /FAILED\(game_dx11_result\(bd->pd3dDevice->CreateBuffer/);
+  assert.match(backend, /game_dx11_result\(device->Map/);
+  assert.match(backend, /game_dx11_result\(bd->pd3dDevice->GetDeviceRemovedReason\(\)\)/);
+  assert.match(pascal, /CreateResult := game_imgui_create\(Pointer\(Window\), @Host, Result\);/);
+  assert.match(pascal, /OverlayGraphicsFailure\(CreateResult, 'CREATE'\)/);
+  assert.match(renderer, /OverlayGraphicsFailure\(ImGuiLastError\(FContext\), 'FRAME'\)/);
+  assert.match(bridge, /ImGui_ImplDX11_NewFrame\(\);\s*if\(game_imgui_runtime_failed\|\|game_imgui_dx11_failed\)return 0;/);
+});
+
 check('Project generates the object before Delphi, propagates failure and resolves it independently of cwd', () => {
   const project = read('GameOverlay.dproj');
   const build = read('imgui/Build_ImGui_Win64.bat');
-  const objectName = pascal.match(/\{\$L\s+'([^']+)'\}/)[1];
+  const objectName = pascal.match(/\{\$ELSE\}\s*\{\$L\s+'([^']+)'\}/)[1];
   assert.equal(path.win32.basename(objectName), objectName, 'Use the project object search path');
   const objectDir = project.match(/<DCC_ObjPath>([^;<]+);\$\(DCC_ObjPath\)<\/DCC_ObjPath>/)[1];
   assert.equal(objectDir, '$(MSBuildProjectDirectory)\\imgui\\obj\\Win64');
   assert(build.includes('if not exist "obj\\Win64\\' + objectName + '" goto failed'));
-  assert.match(project, /<PreBuildEvent>call "\$\(MSBuildProjectDirectory\)\\imgui\\Build_ImGui_Win64\.bat" "\$\(BDS\)" &amp;&amp;/);
+  const nativeTarget = project.match(/<Target Name="PrepareOverlayNative"[\s\S]*?<\/Target>/)?.[0];
+  assert(nativeTarget, 'Native preparation must be an explicit build target');
+  assert.match(project, /<BuildDependsOn>PrepareOverlayNative;/);
+  assert.match(project, /<RebuildDependsOn>PrepareOverlayNative;/);
+  assert.match(nativeTarget, /BeforeTargets="PreBuildEvent;CoreCompile"/);
+  assert.match(nativeTarget, /DependsOnTargets="ValidateProductionIsolation"/);
+  inOrder(nativeTarget, ['Build_ImGui_Win64.bat', 'GAME_OVERLAY_OBJECT_MISSING',
+    '<Delete Files=', 'brcc32.exe&quot; -fo', 'Assert-OverlayManifest.ps1',
+    '-ResourcePath', '<Move SourceFiles='], 'Native compile/resource gates');
+  const publish = project.match(/<Target Name="PublishRandomExecutable"[\s\S]*?<\/Target>/)?.[0];
+  inOrder(publish, ['Normalize-PE-Unwind.ps1', 'Assert-OverlayManifest.ps1',
+    '-ImagePath', '<Move SourceFiles='], 'Actual EXE manifest gates publication');
   assert.match(project, /<PreBuildEventIgnoreExitCode>false<\/PreBuildEventIgnoreExitCode>/);
   inOrder(build, ['DisableDelayedExpansion', 'if not "%~1"=="" set "BDS=%~1"', 'pushd "%~dp0"', 'if errorlevel 1 goto directory_failed', 'if not defined BDS', '"%GAME_IMGUI_COMPILER%" -c', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\game_imgui_bridge.pending.o" goto failed', 'Audit-Object.ps1', 'if errorlevel 1 goto failed', 'move /y', 'if errorlevel 1 goto failed', 'if not exist "obj\\Win64\\' + objectName + '" goto failed', 'exit /b 0'], 'Object generation gates');
   assert.match(build.slice(build.indexOf(':failed\n')), /exit \/b 1/);

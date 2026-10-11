@@ -87,7 +87,7 @@ check('Authority and each signed report retry share one monotonic deadline acros
  assert.ok(observe.indexOf('Clock := TStopwatch.StartNew')<observe.indexOf('for Attempt := 1 to 2'));
  assert.match(authority,/ObservationBudgetMs - Clock\.ElapsedMilliseconds/);
  assert.match(authority,/Transport\.PostJSON\('security', Body, RemainingBudget\(Clock, Cancelled\)\)/);
- assert.match(observe,/FileSHA512, FileCRC64, Clock, Cancelled\)/);
+ assert.match(observe,/FileSHA512, FileCRC64, Clock, Cancelled, OwnImage\)/);
  const retries=[api.split('function TGameApi.PostJSON(')[1].split('function TGameApi.ExecuteProof(')[0],...[bootstrap,overlay].map(s=>s.split('function ReportPost(')[1].split('procedure Send(')[0])];
  for(const retry of retries){
   const loop=retry.indexOf('for Attempt := 1 to Attempts');

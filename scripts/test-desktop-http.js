@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..');
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-desktop-http-'));
 const adminPassword = 'desktop-http-regression-admin-secret';
 const viewerPassword = 'desktop-http-regression-viewer-secret';
-const bootstrapFixture = require('./desktop-bootstrap-fixture');
+const bootstrapFixture = require('./modern-http-fixture');
 let child, base, nativeProfile, output = '', sequence = 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -143,26 +143,33 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await call(security+'/preview',previewBody,auth,{csrf:false})).status,403);
         const preview=await call(security+'/preview',previewBody,auth);assert.equal(preview.status,200);assert.equal(preview.json.preview.readOnly,true);
         const unchanged=(await call(security,undefined,auth)).json;assert.equal(unchanged.policy.revision,settings.policy.revision);
-        const pair={aId:candidates.A.id,bId:candidates.B.id},view=await call(operations+'/preview-pair',pair,auth);assert.equal(view.status,200);assert.equal(view.json.preview.eligible,true);
-        const activate={expectedRevision:settings.operations.operations.revision,expectedPolicyRevision:settings.policy.revision,...pair};
-        assert.equal((await call(operations+'/activate',activate,auth,{csrf:false})).status,403);
-        assert.equal((await call(operations+'/activate',activate,viewer)).status,403);
-        assert.equal((await call(operations+'/activate',{...activate,expectedPolicyRevision:999},auth)).status,409);
-        assert.equal((await call(operations+'/activate',activate,auth)).status,200);
-        settings=(await call(security,undefined,auth)).json;assert.deepEqual(settings.operations.active,{A:pair.aId,B:pair.bId});
-        assert.equal((await call(operations+'/activate',activate,auth)).status,409,'Stale revision cannot repeat an activation');
-        const overlayPair={...pair,oId:candidates.O.id};
+        const pair={aId:candidates.A.id,bId:candidates.B.id},overlayPair={...pair,oId:candidates.O.id};
+        const beforeProof=await call(operations+'/preview-pair',overlayPair,auth);
+        assert.equal(beforeProof.status,200);assert.equal(beforeProof.json.preview.eligible,false);
+        const unproved={expectedRevision:settings.operations.operations.revision,expectedPolicyRevision:settings.policy.revision,...overlayPair};
+        assert.equal((await call(operations+'/activate',unproved,auth,{csrf:false})).status,403);
+        assert.equal((await call(operations+'/activate',unproved,viewer)).status,403);
+        assert.equal((await call(operations+'/activate',{...unproved,expectedPolicyRevision:999},auth)).status,409);
+        assert.equal((await call(operations+'/activate',unproved,auth)).json.error,'SECURITY_RELEASE_MANIFEST_REQUIRED');
+        // Synthetic proof exists ONLY in this ephemeral test server. No real
+        // Windows execution or operator-deployable CI evidence is produced.
+        await bootstrapFixture.RegisterSyntheticRelease({call,auth,candidates,label:'SYNTHETIC HTTP CONTRACT ONLY',
+            afterManifest:async()=>assert.equal((await call(operations+'/preview-pair',overlayPair,auth)).json.preview.eligible,false)});
+        assert.equal((await call(operations+'/preview-pair',pair,auth)).json.preview.eligible,false,'A/B without manifest-bound O is no longer a production cohort');
         const overlayPreview=await call(operations+'/preview-pair',overlayPair,auth);
         assert.equal(overlayPreview.status,200);assert.equal(overlayPreview.json.preview.eligible,true);assert.equal(overlayPreview.json.preview.oId,candidates.O.id);assert.equal(overlayPreview.json.preview.oSha512,candidates.O.sha512);
         const wrongOverlay=await call(operations+'/preview-pair',{...pair,oId:candidates.B.id},auth);
         assert.equal(wrongOverlay.status,400);assert.equal(wrongOverlay.json.error,'SECURITY_RELEASE_PAIR_INVALID');
+        settings=(await call(security,undefined,auth)).json;
         const activateOverlay={expectedRevision:settings.operations.operations.revision,expectedPolicyRevision:settings.policy.revision,...overlayPair};
         assert.equal((await call(operations+'/activate',activateOverlay,auth,{csrf:false})).status,403);
         assert.equal((await call(operations+'/activate',activateOverlay,viewer)).status,403);
         const overlayActivated=await call(operations+'/activate',activateOverlay,auth);assert.equal(overlayActivated.status,200,JSON.stringify(overlayActivated.json));
         settings=(await call(security,undefined,auth)).json;assert.deepEqual(settings.operations.active,{A:pair.aId,B:pair.bId,O:candidates.O.id});
+        const runtime=settings.operations.operations.releaseGovernance;
+        assert.equal(runtime.requireManifest,true);assert.equal(runtime.requireCiEvidence,true);assert.equal(runtime.minimumSecurityVersion,1);
         assert.equal((await call(operations+'/activate',activateOverlay,auth)).status,409,'Stale revision cannot repeat an Overlay activation');
-        console.log('PASS real HTTP server operations: authenticated staging, read-only preview, CSRF, viewer rejection, atomic activation, stale revision');
+        console.log('PASS real HTTP server operations: candidate-only staging, required full cohort/CI signature, CSRF, viewer rejection, atomic policy+activation, stale revision (synthetic CI signatures, not Windows PASS)');
         const dll = bootstrapFixture.PE('B'), peOffset = dll.readUInt32LE(0x3c);
         dll.writeUInt16LE(dll.readUInt16LE(peOffset + 22) | 0x2000, peOffset + 22);
         assert.equal((await uploadBaseline(dll)).status,401);
@@ -225,8 +232,8 @@ async function bootstrapDevice(device, auth) {
         assert.equal(verify.status, 200); assert.ok(verify.json.data.leaseExpiresAt > verify.json.data.serverTime);
         const stolen = await execute(devices[loserIndex], 'verify', { activationToken: token });
         assert.equal(stolen.json.ok, false); assert.equal(stolen.json.error, 'DESKTOP_DEVICE_MISMATCH');
-        assert.equal((await call('/api/desktop/licenses/' + id + '/revoke', { reason: 'HTTP 검사 해지' }, auth, { csrf: false })).status, 403);
-        const revoked = await call('/api/desktop/licenses/' + id + '/revoke', { reason: 'HTTP 검사 해지' }, auth);
+        assert.equal((await call('/api/desktop/licenses/' + id + '/revoke', { reason: 'HTTP 검사 해지', requestId: crypto.randomUUID() }, auth, { csrf: false })).status, 403);
+        const revoked = await call('/api/desktop/licenses/' + id + '/revoke', { reason: 'HTTP 검사 해지', requestId: crypto.randomUUID() }, auth);
         assert.equal(revoked.status, 200); assert.equal(revoked.json.license.status, 'REVOKED');
         const denied = await execute(winner, 'verify', { activationToken: token });
         assert.equal(denied.json.ok, false); assert.equal(denied.json.error, 'DESKTOP_REVOKED');
@@ -234,7 +241,7 @@ async function bootstrapDevice(device, auth) {
         assert.equal(revokedReplay.json.ok, false); assert.equal(revokedReplay.json.error, 'DESKTOP_REVOKED');
 
         // PC policy is admin-only and cannot be changed without CSRF.
-        const policyKey=(await call('/api/desktop/licenses',{label:'PC policy'},auth)).json.licenseKey;
+        const policyKey=(await call('/api/desktop/licenses',{label:'PC policy',requestId:crypto.randomUUID()},auth)).json.licenseKey;
         const policyDevice=device('Policy Windows');await bootstrapDevice(policyDevice,auth);
         const registered=await execute(policyDevice,'redeem',{licenseKey:policyKey});assert.equal(registered.json.ok,true);
         const policyRoute='/api/desktop/machines/'+policyDevice.machineId;

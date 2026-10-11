@@ -26,8 +26,13 @@ def verify(root: Path) -> list[str]:
     for name in manifest.get('retiredExecutableSources',[]):
         if (root/name).exists(): problems.append('Old retired source remains: '+name)
     for p in (root/'GameConnect_Win64').rglob('*'):
-        if p.is_file() and p.suffix.lower() in {'.json','.js'} and not (p.suffix.lower()=='.json' and p.parent.name=='tests' and str(p.relative_to(root)) in manifest['files']):
-            problems.append('JSON/JS belongs under GameWeb: '+str(p.relative_to(root)))
+        if not p.is_file() or p.suffix.lower() not in {'.json','.js'}:
+            continue
+        name = p.relative_to(root).as_posix()
+        native_test_contract = (p.parent == root/'GameConnect_Win64/tests' and
+                                (p.suffix.lower() == '.json' or p.name == 'compare-native-abi.js'))
+        if not (native_test_contract and name in manifest['files']):
+            problems.append('JSON/JS belongs under GameWeb: '+name)
     return problems
 
 def main() -> int:

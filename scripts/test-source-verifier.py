@@ -18,6 +18,8 @@ with tempfile.TemporaryDirectory(prefix='source-verifier-') as tmp:
     path=root/'GameWeb/services/desktopWorkspace.js';raw=path.read_bytes();path.unlink();assert any('Missing' in e for e in v.verify(root));count+=1;path.write_bytes(raw)
     manifest=json.loads((root/'GameWeb/maintenance/source-manifest.json').read_text());old=root/manifest['retiredExecutableSources'][0];old.parent.mkdir(parents=True,exist_ok=True);old.write_text('//old');assert any('retired source' in e for e in v.verify(root));count+=1;old.unlink()
     extra=root/'GameConnect_Win64/unneeded.json';extra.write_text('{}');assert any('belongs under' in e for e in v.verify(root));count+=1;extra.unlink()
+    extra=root/'GameConnect_Win64/tests/unneeded.js';extra.write_text('// not an approved native test');assert any('belongs under' in e for e in v.verify(root));count+=1;extra.unlink()
+    mp=root/'GameWeb/maintenance/source-manifest.json';original=mp.read_bytes();data=json.loads(original);data['files'].pop('GameConnect_Win64/tests/compare-native-abi.js');mp.write_text(json.dumps(data));assert any('belongs under' in e and 'compare-native-abi.js' in e for e in v.verify(root));count+=1;mp.write_bytes(original)
     path=root/'GameWeb/services/desktopWorkspace.js';raw=path.read_bytes();path.unlink();path.symlink_to(root/'GameWeb/server.js');assert any('symlink' in e for e in v.verify(root));count+=1;path.unlink();path.write_bytes(raw)
     mp=root/'GameWeb/maintenance/source-manifest.json';data=json.loads(mp.read_text());data['files']['../outside.js']='0'*128;mp.write_text(json.dumps(data));assert any('Invalid manifest path' in e for e in v.verify(root));count+=1
 print(f'Source verifier: {count} tests passed. Temporary copies only.')

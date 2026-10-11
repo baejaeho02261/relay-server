@@ -112,6 +112,7 @@ try{
   assert.equal(a.PeCapabilities(b).compiledCfg,false,'Flags/count without guard pointers are not CFG');
   const imageBase=b.readBigUInt64LE(opt+24);
   b.writeBigUInt64LE(imageBase+0x1180n,lc+112);
+  b.writeBigUInt64LE(0n,lc+120); // absent dispatch pointer, not random fixture code bytes
   b.writeBigUInt64LE(imageBase+0x11a0n,lc+128);
   b.writeUInt32LE(0x1000,512+0x1a0);
   assert.equal(a.PeCapabilities(b).compiledCfg,true);
@@ -129,8 +130,8 @@ try{
  Test('Challenge/canonical Delphi field contract stays in sync',()=>{
   const client=path.resolve(__dirname,'../../GameConnect_Win64/Game.ServerAuthority.pas');
   const text=fs.readFileSync(client,'utf8');assert.match(text,/Challenge\.Count <> 8/);assert.match(text,/Reply\.Count <> 8/);assert.ok(text.includes(a.DOMAIN));
-  const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,15);assert.equal(new Set(fields).size,15);
-  for(const name of ['version','hashVersion','codeXxh3_128','codeBlake3','crcLayers','measurement','fileSha512','fileCrc64','codeSha512','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg','mitigationDiagnostics'])assert.ok(fields.includes(name));
+  const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,16);assert.equal(new Set(fields).size,16);
+  for(const name of ['version','hashVersion','codeXxh3_128','codeBlake3','crcLayers','measurement','fileSha512','fileCrc64','codeSha512','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg','mitigationDiagnostics','ownMeasurement'])assert.ok(fields.includes(name));
   const body={stage:'B',sessionId:'SID',intent:'verify',binding:'BIND'},c={challengeId:'CID',nonce:'NONCE',epoch:'EPOCH',sequence:7,revision:2,expiresAt:12345};
   assert.equal(a.Canonical(body,c,'{}'),[a.DOMAIN,'B','SID','verify','BIND','CID','NONCE','EPOCH','7','2','12345',sha512('{}')].join('\n'));
  });

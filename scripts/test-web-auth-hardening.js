@@ -177,10 +177,12 @@ try {
                 assert.equal((await call(route, {}, session)).status, 403, route);
         }
     });
-    await atest('Optional reauth leaves default unchanged then blocks expired freshness without consuming action', async () => {
+    await atest('Critical reauth is mandatory by default; the optional flag only extends its scope', async () => {
         now += web.REAUTH_MS + 1;
         const route = '/api/desktop/bootstrap/security-authority';
-        assert.equal(guard.Authorize(admin, 'POST', route, {}).ok, true);
+        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_REAUTH_REQUIRED');
+        assert.equal(guard.Authorize(admin, 'POST', '/api/desktop/bootstrap/security-operations/plan-release', {}).ok, true);
+        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
         process.env.DESKTOP_ADMIN_REAUTH_REQUIRED = '1';
         assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
         for(const action of ['plan-release','recovery/prepare','recovery/apply'])assert.equal((await call('/api/desktop/bootstrap/security-operations/'+action, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');

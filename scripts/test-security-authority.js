@@ -194,7 +194,7 @@ Check('Pruning a newer decision never revives an older in-flight observation', (
   }
 });
 Check('License redeem and renew are bound to exact request ID and payload', () => {
-  const key=licenses.Create({label:'server-authority-test'},'TEST');
+  const key=licenses.Create({requestId:require('node:crypto').randomUUID(),label:'server-authority-test'},'TEST');
   const requestId=crypto.randomUUID(); let proof=LeaseProof(dev,session,'redeem',requestId,{licenseKey:key.licenseKey});
   Reject(()=>licenses.Execute(proof),'SECURITY_FRESH_OBSERVATION_REQUIRED');
   const ctx=Context(dev,'B',session,'redeem',auth.Binding(requestId,proof.payloadHash)); Observe(ctx,dev);

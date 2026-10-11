@@ -31,7 +31,7 @@ if (['seed', 'recover', 'load-failure'].includes(process.argv[2])) {
     assert.equal(require('../storage/audit').VerifyAuditChain().ok, true, 'reconciliation must append to the restored audit head');
     console.log('RECOVERY_OK'); process.exit(0);
   }
-  const f = require('./desktop-bootstrap-fixture'), device = f.Device(), issued = licenses.Create({ label: 'abrupt-recovery' }, 'TEST');
+  const f = require('./desktop-bootstrap-fixture'), device = f.Device(), issued = licenses.Create({requestId:require('node:crypto').randomUUID(), label: 'abrupt-recovery' }, 'TEST');
   function Proof(action, extra) {
     const requestId = crypto.randomUUID(), payload = f.LicensePayload(device, extra, requestId), payloadJSON = JSON.stringify(payload);
     const payloadHash = crypto.createHash('sha512').update(payloadJSON).digest('hex');

@@ -55,6 +55,12 @@ try {
   assert.match(content.querySelector('summary').textContent, /불일치 · 거부/);
   assert.match(digests[1], /서버 기준 불일치/);
 
+  render({...row,ownMeasurement:{coverage:'PARTIAL',fileStatus:'MEASURED',codeStatus:'CANCELLED',crcStatus:'COVERAGE_INSUFFICIENT',imageStable:false,startedTick:100,finishedTick:125},crcComparison:{complete:false,signals:[{role:'jones',status:'FAILED',reason:'DEADLINE_EXCEEDED'}]}});
+  assert.match(content.textContent,/측정 실패/);assert.match(content.textContent,/DEADLINE_EXCEEDED/);
+  assert.match(content.querySelector('.desktop-own-measurement').textContent,/부분 측정/);
+  assert.match(content.textContent,/전후 이미지 확인 안 됨/);assert.match(content.textContent,/25 ms/);
+  assert.match(content.textContent,/하드웨어 인증이 아닙니다/);
+
   content.innerHTML = w.desktopBootstrapMarkup({ sessions: [{
     id: 'SESSION', status: 'REVOKED', codeIntegrityStatus: 'REJECTED', reason: 'INTEGRITY_CRC_COVERAGE_INCOMPLETE'
   }] });

@@ -4,14 +4,16 @@
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs');
 const os=require('node:os'),path=require('node:path'),child=require('node:child_process');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-activation-'));
-Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',WEBAUTHN_RP_ID:'localhost',WEBAUTHN_ORIGIN:'https://localhost',DESKTOP_SECURITY_STEP_UP_REQUIRED:'0',DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'29131'});
+Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',WEBAUTHN_RP_ID:'localhost',WEBAUTHN_ORIGIN:'https://localhost',DESKTOP_SECURITY_STEP_UP_REQUIRED:'0',DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'29131',ADMIN_SECRET:'synthetic-activation-admin-secret'});
 require('../core/utils').EnsureDirs();
 const state=require('../core/state'),store=require('../services/desktopBootstrapStore');
 const auth=require('../services/desktopSecurityAuthority'),ops=require('../services/desktopSecurityOperations');
 const guard=require('../services/desktopAdminGuard'),dual=require('../services/privilegedApproval');
 const activation=require('../services/desktopSecurityActivation'),boot=require('../services/desktopBootstrap');
 const audit=require('../storage/audit'),fixture=require('./desktop-bootstrap-fixture');
-const alice={id:'solo-alice',role:'admin'},bob={id:'other-session',role:'admin'};
+const webAuth=require('../web/webAuth'),adminRequest={socket:{remoteAddress:'127.0.0.1'},headers:{}};
+function administrator(){const result=webAuth.Login(adminRequest,'admin',process.env.ADMIN_SECRET);assert.equal(result.ok,true,result.code);return result.session;}
+const alice=administrator(),bob=administrator();
 let count=0,a,b,releaseKey,contexts,device;
 const test=(name,fn)=>{fn();console.log('PASS '+name);count++;};
 const reject=(fn,code)=>assert.throws(fn,e=>e.message===code,code);
@@ -20,8 +22,20 @@ const pending=(view,code)=>view.pending.some(x=>x.code===code);
 const bytes=()=>fs.readFileSync(path.join(temp,'desktop-bootstrap/authority.json'));
 const view=(profile='READY')=>activation.Preview(profile,alice);
 function signed(component,version,cfg=false){
- const data=fixture.PE(component,auth.DOMAIN+' activation '+version);
- if(cfg){const opt=data.readUInt32LE(0x3c)+24,lc=768;data.writeUInt16LE(data.readUInt16LE(opt+70)|0x4000,opt+70);data.writeUInt32LE(0x1100,opt+112+80);data.writeUInt32LE(148,opt+116+80);data.writeUInt32LE(148,lc);data.writeBigUInt64LE(1n,lc+136);data.writeUInt32LE(0x500,lc+144);}
+ let data=fixture.PE(component,auth.DOMAIN+' activation '+version);
+ if(cfg){
+  // Synthetic structurally valid CFG metadata: bounded load config, check/
+  // dispatch slots and sorted executable targets. This is not native CFG proof.
+  data=Buffer.concat([data,Buffer.alloc(512)]);
+  const opt=data.readUInt32LE(0x3c)+24,table=opt+240,base=data.readBigUInt64LE(opt+24),lc=1536;
+  data.writeUInt32LE(1024,table+40+8);data.writeUInt32LE(1024,table+40+16);
+  data.writeUInt16LE(data.readUInt16LE(opt+70)|0x4000,opt+70);
+  data.writeUInt32LE(0x2200,opt+192);data.writeUInt32LE(148,opt+196);
+  data.writeUInt32LE(148,lc);data.writeBigUInt64LE(base+0x22e0n,lc+112);
+  data.writeBigUInt64LE(base+0x22f0n,lc+120);data.writeBigUInt64LE(base+0x22c0n,lc+128);
+  data.writeBigUInt64LE(2n,lc+136);data.writeUInt32LE(0x500,lc+144);
+  data.writeUInt32LE(0x1000,1728);data.writeUInt32LE(0x1020,1732);
+ }
  const keyId=crypto.createHash('sha256').update(releaseKey.publicKey.export({type:'spki',format:'der'})).digest('hex');
  const signature=crypto.sign(null,Buffer.from(auth.ReleaseCanonical(component,version,fixture.sha512(data))),releaseKey.privateKey).toString('base64');
  return ops.Stage(component,version,data,{keyId,signature},'TEST');
@@ -45,7 +59,7 @@ function session(patch={}){
  const bc={action:'challenge',stage:'B',sessionId:out.sessionId,sessionToken:out.sessionToken,machineId:device.machineId,intent:'verify',binding:auth.Binding(crypto.randomUUID(),fixture.sha512('activation-test'))};
  assert.equal(observe(bc,patch).status,'PASS');return[ac,bc];
 }
-function permit(plan){const out=guard.Authorize(alice,'POST',activation.PATH,plan,'');assert.equal(out.ok,true,out.reason);assert.ok(out.ticket);return out.ticket;}
+function permit(plan,actor=alice){const out=guard.Authorize(actor,'POST',activation.PATH,plan,'');assert.equal(out.ok,true,out.reason);assert.ok(out.ticket);return out.ticket;}
 
 try {
  test('No automatic policy migration; single-operator mode is explicit',()=>{assert.equal(activation.Status().adminMode,'SINGLE_ADMIN');assert.equal(activation.Status().baselineEnabled,false);assert.equal(store.Load().securityActivation,undefined);assert.equal(activation.AdminEnforced(),false);});
@@ -63,11 +77,11 @@ try {
  test('Target is bound to exact current A/B IDs and hashes',()=>{const p=view().plan;reject(()=>activation.CheckRequest({...p,aSha512:'f'.repeat(128)},alice),'SECURITY_ACTIVE_PAIR_CHANGED');reject(()=>activation.CheckRequest({...p,bId:a.id},alice),'SECURITY_ACTIVE_PAIR_CHANGED');});
  test('Direct calls, client-constructed approvals and cloned grants denied',()=>{const p=view().plan;reject(()=>activation.Apply(p,alice),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');reject(()=>activation.Apply(p,alice,{mode:'SINGLE_ADMIN'}),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');const t=permit(p);reject(()=>activation.Apply(p,alice,{...t}),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');});
  test('Grant cannot be transferred to another session or a copied session object',()=>{for(const s of [bob,{...alice}]){const p=view().plan,t=permit(p);reject(()=>activation.Apply(p,s,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');}});
- test('Administrator loss and expiration invalidate a one-use grant',()=>{let p=view().plan,t=permit(p);alice.role='viewer';reject(()=>activation.Apply(p,alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');alice.role='admin';p=view().plan;t=permit(p);const now=Date.now,at=now();Date.now=()=>at+30001;try{reject(()=>activation.Apply(p,alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');}finally{Date.now=now;}});
+ test('Administrator loss and expiration invalidate a one-use grant',()=>{const lost=administrator();let p=view().plan,t=permit(p,lost);lost.role='viewer';reject(()=>activation.Apply(p,lost,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');assert.equal(webAuth.IsSessionActive(lost),false);p=view().plan;t=permit(p);const now=Date.now,at=now();Date.now=()=>at+30001;try{reject(()=>activation.Apply(p,alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');}finally{Date.now=now;}});
  test('Wrong method and modified body cannot use the server-only capability',()=>{let p=view().plan,t=guard.Authorize(alice,'GET',activation.PATH,p).ticket;reject(()=>activation.Apply(p,alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');t=permit(p);reject(()=>activation.Apply({...p,profile:'ALL'},alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');});
  let plan,ticket;
  test('Atomic store failure leaves policy and activation unchanged',()=>{plan=view().plan;ticket=permit(plan);const before=bytes(),old=fs.renameSync;fs.renameSync=(src,dst)=>{if(dst===path.join(temp,'desktop-bootstrap/authority.json'))throw Error('INJECTED_RENAME_FAILURE');return old(src,dst);};try{reject(()=>activation.Apply(plan,alice,ticket),'INJECTED_RENAME_FAILURE');}finally{fs.renameSync=old;}assert.deepEqual(bytes(),before);});
- test('READY activates baseline with one admin, without passkeys or a second operator',()=>{plan=view().plan;ticket=permit(plan);const before=structuredClone(store.Load()),out=activation.Apply(plan,alice,ticket);assert.equal(out.activated,true);assert.equal(out.current.baselineEnabled,true);assert.equal(out.current.serverEnabled,false);assert.equal(out.current.allEnabled,false);assert.equal(out.current.settings.requireBuildContract,false);assert.equal(out.current.settings.requireTestEvidence,false);assert.equal(out.current.settings.stepUpRequired,false);assert.equal(out.current.settings.dualApprovalRequired,false);assert.equal(store.Load().revision,before.revision+1);for(const k of ['secret','artifacts','active','launchers','flows','issueReceipts'])assert.deepEqual(store.Load()[k],before[k],k);assert.deepEqual(store.Load().securityOperations.contracts,{});assert.deepEqual(store.Load().securityOperations.pairEvidence,{});assert.equal(state.production.passkeyCredentials.size,0);assert.equal(state.production.privilegedApprovals.size,0);});
+ test('READY activates baseline with one admin, without passkeys or a second operator',()=>{plan=view().plan;ticket=permit(plan);const before=structuredClone(store.Load()),out=activation.Apply(plan,alice,ticket);assert.equal(out.activated,true);assert.equal(out.current.baselineEnabled,true);assert.equal(out.current.serverEnabled,false);assert.equal(out.current.allEnabled,false);assert.equal(out.current.settings.requireBuildContract,false);assert.equal(out.current.settings.requireTestEvidence,false);assert.equal(out.current.settings.stepUpRequired,false);assert.equal(out.current.settings.dualApprovalRequired,false);assert.equal(store.Load().securityAuthorityPolicy.revision,(before.securityAuthorityPolicy?.revision||0)+1);assert.equal(store.Load().securityOperations.revision,(before.securityOperations?.revision||0)+1);assert.equal(store.Load().securityActivation.revision,(before.securityActivation?.revision||0)+1);const commit=Object.values(store.Load().serverAuditOutbox||{}).filter(row=>row.event.kind==='SECURITY_ACTIVATION');assert.equal(commit.length,1);assert.equal(commit[0].acked,true);assert.equal(commit[0].event.revision,before.revision+1);assert.equal(store.Load().revision,before.revision+2,'one authority commit plus its durable audit ACK');for(const k of ['secret','artifacts','active','launchers','flows','issueReceipts'])assert.deepEqual(store.Load()[k],before[k],k);assert.deepEqual(store.Load().securityOperations.contracts,{});assert.deepEqual(store.Load().securityOperations.pairEvidence,{});assert.equal(state.production.passkeyCredentials.size,0);assert.equal(state.production.privilegedApprovals.size,0);});
  test('Record identifies SINGLE_ADMIN, not a fictional two-person approval',()=>{const r=activation.Record();assert.equal(r.version,2);assert.equal(r.adminMode,'SINGLE_ADMIN');assert.equal(r.approvedBy,undefined);assert.match(r.activatedBy,/^admin-[a-f0-9]{24}$/);assert.ok(!JSON.stringify(r).includes(alice.id));});
  test('A consumed grant cannot replay even with an otherwise matching body',()=>{reject(()=>activation.Apply(plan,alice,ticket),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');});
  test('Saved flags reload in a separate process without passkeys/mapping',()=>{const code="const a=require(process.cwd()+'/services/desktopSecurityActivation');if(a.AdminEnforced()||!a.Status().baselineEnabled||a.Status().settings.dualApprovalRequired)process.exit(3);console.log('RELOADED_SINGLE')";const r=child.spawnSync(process.execPath,['-e',code],{cwd:path.resolve(__dirname,'..'),env:process.env,encoding:'utf8'});assert.equal(r.status,0,r.stderr);assert.match(r.stdout,/RELOADED_SINGLE/);});
@@ -85,4 +99,4 @@ try {
  test('Displayed status reflects current values, not a stale activated flag',()=>{auth.SetPolicy({expectedRevision:auth.Policy().revision,mode:'observe'},'TEST_INTERNAL');assert.equal(activation.Status().baselineEnabled,false);assert.equal(activation.Status().allEnabled,false);});
  test('Audit fsync failure prevents all changes; no partial activation',()=>{plan=view().plan;ticket=permit(plan);const before=bytes(),old=fs.fsyncSync;fs.fsyncSync=()=>{throw Object.assign(Error('injected'),{code:'ENOSPC'});};try{reject(()=>activation.Apply(plan,alice,ticket),'SECURITY_AUDIT_UNAVAILABLE');}finally{fs.fsyncSync=old;}assert.deepEqual(bytes(),before);reject(()=>activation.Apply(plan,alice,ticket),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');assert.equal(audit.LogEvent('TEST_RECOVERY','synthetic injection ended',{durable:true}).errorCode,'AUDIT_RESTART_REQUIRED');const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-activation-audit-restart-'));try{fs.cpSync(temp,copy,{recursive:true,filter:source=>!path.basename(source).startsWith('.desktop-single-writer.sqlite')});const run=child.spawnSync(process.execPath,['-e',"const a=require(process.cwd()+'/storage/audit');a.LoadRecentAudit();if(!a.VerifyAuditChain().ok||!a.LogEvent('TEST_RECOVERY','fresh process',{durable:true}).ok)process.exit(9);"],{cwd:path.resolve(__dirname,'..'),env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);}finally{fs.rmSync(copy,{recursive:true,force:true});}});
  console.log(`Single-operator activation regression: ${count} passed (real services/signatures; synthetic PE and reports, not Windows execution)`);
-} finally {fs.rmSync(temp,{recursive:true,force:true});}
+} finally {webAuth.RevokeAllSessions();fs.rmSync(temp,{recursive:true,force:true});}
