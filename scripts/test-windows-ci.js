@@ -25,6 +25,33 @@ function syntheticCompatibility(){
 try{
  test('source snapshot copies only hash-verified manifest files',()=>{const root=path.join(temp,'source');fs.mkdirSync(path.join(root,'GameWeb','maintenance'),{recursive:true});fs.writeFileSync(path.join(root,'source.pas'),'unit Synthetic;');fs.writeFileSync(path.join(root,'not-allowlisted.key'),'DO NOT COPY');json(path.join(root,'GameWeb/maintenance/source-manifest.json'),{version:2,algorithm:'sha512',files:{'source.pas':hash('unit Synthetic;')}});ci.Snapshot(root,path.join(temp,'snapshot'));assert.equal(fs.readFileSync(path.join(temp,'snapshot','source.pas'),'utf8'),'unit Synthetic;');assert.equal(fs.existsSync(path.join(temp,'snapshot','not-allowlisted.key')),false);});
  test('source snapshot rejects tampered files and existing destination',()=>{const root=path.join(temp,'source');fs.writeFileSync(path.join(root,'source.pas'),'tampered');assert.throws(()=>ci.Snapshot(root,path.join(temp,'bad-snapshot')),/CI_SOURCE_HASH_MISMATCH/);assert.throws(()=>ci.Snapshot(root,path.join(temp,'snapshot')),/CI_SNAPSHOT_EXISTS/);});
+ test('generated A B O resource outputs cannot change or enter the source snapshot',()=>{
+  const root=path.join(temp,'source-generated-resources'),names=['GameLauncher','GameConnect','GameOverlay'];
+  fs.mkdirSync(path.join(root,'GameWeb','maintenance'),{recursive:true});fs.mkdirSync(path.join(root,'GameConnect_Win64'));
+  const inputs={},files={};
+  for(const name of names)for(const ext of ['rc','manifest','ico','dproj']){
+   const relative='GameConnect_Win64/'+name+'.'+ext,bytes=Buffer.from('SYNTHETIC TRACKED RESOURCE INPUT '+relative);
+   inputs[relative]=bytes;files[relative]=hash(bytes);fs.writeFileSync(path.join(root,relative),bytes);
+  }
+  const manifestFile=json(path.join(root,'GameWeb/maintenance/source-manifest.json'),{version:2,algorithm:'sha512',files});
+  const manifestBytes=fs.readFileSync(manifestFile),manifestDigest=hash(manifestBytes);let first;
+  for(const state of ['present','modified','missing']){
+   for(const name of names){
+    const resource=path.join(root,'GameConnect_Win64',name+'Resources.res');
+    if(state==='missing')fs.rmSync(resource);else fs.writeFileSync(resource,'SYNTHETIC GENERATED '+state+' '+name);
+   }
+   const destination=path.join(temp,'snapshot-generated-resources-'+state),result=ci.Snapshot(root,destination);
+   assert.equal(result.sourceManifestSha512,manifestDigest);assert.equal(result.files,Object.keys(inputs).length);
+   if(first)assert.deepEqual(result,first);else first=result;
+   assert.deepEqual(fs.readFileSync(path.join(destination,'GameWeb/maintenance/source-manifest.json')),manifestBytes);
+   for(const [relative,bytes]of Object.entries(inputs))assert.deepEqual(fs.readFileSync(path.join(destination,relative)),bytes);
+   for(const name of names)assert.equal(fs.existsSync(path.join(destination,'GameConnect_Win64',name+'Resources.res')),false);
+  }
+  // The exclusion belongs to the source manifest; tracked resource inputs still
+  // use the same strict byte verification as every other allowlisted source.
+  fs.appendFileSync(path.join(root,'GameConnect_Win64','GameOverlay.rc'),'TAMPERED');
+  assert.throws(()=>ci.Snapshot(root,path.join(temp,'snapshot-generated-resources-tampered-input')),/CI_SOURCE_HASH_MISMATCH/);
+ });
  test('snapshot rejects duplicate fields and malformed UTF-8 before publishing any directory',()=>{
   const root=path.join(temp,'source-strict');fs.mkdirSync(path.join(root,'GameWeb','maintenance'),{recursive:true});
   const file=path.join(root,'GameWeb/maintenance/source-manifest.json');
