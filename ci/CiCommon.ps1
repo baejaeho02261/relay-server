@@ -17,16 +17,18 @@ function New-CiPrivateDirectory([string]$Path) {
 function Get-CiEnvironment([string]$PrivateTemp) {
     # Preserve only the explicit node-gyp Python selectors accepted by preflight.
     # Other npm settings and CI/release secrets remain excluded.
-    $clean = @{}
+    # A Hashtable can retain PSObject-wrapped command results. Convert at this
+    # typed boundary so the C# launcher only receives actual System.String values.
+    $clean = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($name in @('SystemRoot','windir','ComSpec','PATH','PATHEXT','OS','NUMBER_OF_PROCESSORS','PROCESSOR_ARCHITECTURE','USERPROFILE','APPDATA','LOCALAPPDATA','ProgramData','ProgramFiles','ProgramFiles(x86)','ProgramW6432','BDS','BDSCOMMONDIR','VisualStudioVersion','VSINSTALLDIR','VCINSTALLDIR','VCToolsInstallDir','WindowsSdkDir','WindowsSDKVersion','UniversalCRTSdkDir','UCRTVersion','INCLUDE','LIB','LIBPATH','NODE_GYP_FORCE_PYTHON','npm_config_python','PYTHON')) {
         $value = [Environment]::GetEnvironmentVariable($name)
-        if ($null -ne $value) { $clean[$name] = $value }
+        if ($null -ne $value) { $clean[[string]$name] = [string]$value }
     }
-    $clean['TEMP']=$PrivateTemp; $clean['TMP']=$PrivateTemp
-    $clean['DATA_DIR']=(Join-Path $PrivateTemp 'never-production-data')
-    $clean['HA_ENABLED']='0'; $clean['NPM_CONFIG_USERCONFIG']=(Join-Path $PrivateTemp 'empty.npmrc')
+    $clean['TEMP']=[string]$PrivateTemp; $clean['TMP']=[string]$PrivateTemp
+    $clean['DATA_DIR']=[string](Join-Path $PrivateTemp 'never-production-data')
+    $clean['HA_ENABLED']='0'; $clean['NPM_CONFIG_USERCONFIG']=[string](Join-Path $PrivateTemp 'empty.npmrc')
     [IO.File]::WriteAllText($clean['NPM_CONFIG_USERCONFIG'],'')
-    return $clean
+    return ,$clean
 }
 function Read-CiJson([string]$File) { return Get-Content -LiteralPath $File -Raw | ConvertFrom-Json -AsHashtable }
 function Write-CiJson([string]$File,$Value) { [IO.File]::WriteAllText($File,($Value|ConvertTo-Json -Depth 16),[Text.UTF8Encoding]::new($false)) }

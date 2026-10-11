@@ -31,7 +31,22 @@ function Invoke-CiCommand([string]$Name,[string]$Exe,[string[]]$Arguments,[strin
   $record.outcome='PASS'
  } catch {
   $record.outcome='FAIL';if($null -eq $record.exitCode){$record.exitCode=-1}
-  $record.error=if($_.Exception.Message -match '^CI_[A-Z0-9_]+$'){$_.Exception.Message}else{'CI_STAGE_EXCEPTION'}
+  # Static error identifiers and numeric OS errors are safe to report. Never
+  # print arbitrary exception messages, arguments, environment values or keys.
+  $safeErrors=@('CI_STAGE_TIMEOUT','CI_LOG_LIMIT','CI_STAGE_NONZERO_EXIT','CI_STAGE_ORPHAN_PROCESS',
+   'CI_X64_REQUIRED','CI_JOB_CREATE','CI_JOB_LIMIT','CI_LOG_CREATE','CI_INPUT_CREATE',
+   'CI_HANDLE_LIST_SIZE','CI_HANDLE_LIST_INIT','CI_HANDLE_LIST_SET','CI_ENV_INVALID',
+   'CI_PROCESS_CREATE','CI_JOB_ASSIGN','CI_PROCESS_RESUME','CI_PROCESS_STATUS',
+   'CI_JOB_QUERY','CI_JOB_COUNT','CI_JOB_CLEANUP_TIMEOUT')
+  $record.error='CI_STAGE_EXCEPTION';$record.nativeErrorCode=$null
+  $exceptionCursor=$_.Exception
+  for($depth=0;$null -ne $exceptionCursor -and $depth -lt 8;$depth++) {
+   $record.exceptionType=$exceptionCursor.GetType().FullName
+   if($safeErrors -ccontains $exceptionCursor.Message){$record.error=$exceptionCursor.Message}
+   if($exceptionCursor -is [ComponentModel.Win32Exception]){$record.nativeErrorCode=[int]$exceptionCursor.NativeErrorCode}
+   $exceptionCursor=$exceptionCursor.InnerException
+  }
+  Write-Output ('CI_STAGE_DETAIL '+(@{stage=$Name;error=$record.error;exceptionType=$record.exceptionType;nativeErrorCode=$record.nativeErrorCode}|ConvertTo-Json -Compress))
   throw "CI_STAGE_FAILED_$Name"
  } finally {$cleanupFailed=$false;if($job){try{$job.Dispose()}catch{$record.outcome='FAIL';$record.error='CI_JOB_CLEANUP_FAILED';$cleanupFailed=$true}};$record.elapsedMs=[int64]$watch.Elapsed.TotalMilliseconds;Save-Results;if($cleanupFailed){throw 'CI_JOB_CLEANUP_FAILED'}}
 }

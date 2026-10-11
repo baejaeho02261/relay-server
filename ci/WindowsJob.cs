@@ -1,7 +1,6 @@
 // CI-only process ownership and ordinary console/window test control.
 // Not linked into A/B/O. No foreign-process memory access or injected code.
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -36,8 +35,23 @@ public sealed class WindowsJob : IDisposable {
     [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern bool CreateProcessW(string app,StringBuilder command,IntPtr p,IntPtr t,bool inherit,uint flags,IntPtr env,string cwd,ref SIX si,out PI pi);
     static Exception Error(string stage) {return new Win32Exception(Marshal.GetLastWin32Error(),stage);}
     static string Quote(string text) { var b=new StringBuilder("\"");int slashes=0;foreach(char c in text){if(c=='\\'){slashes++;continue;}if(c=='"'){b.Append('\\',slashes*2+1);b.Append(c);}else{b.Append('\\',slashes);b.Append(c);}slashes=0;}b.Append('\\',slashes*2);return b.Append('"').ToString(); }
-    public static WindowsJob Start(string exe,string[] args,string cwd,IDictionary environment,string log) {
+    static string EnvironmentBlock(IDictionary<string,string> environment) {
+        if(environment==null)throw new ArgumentException("CI_ENV_INVALID");
+        var vars=new SortedDictionary<string,string>(StringComparer.OrdinalIgnoreCase);
+        foreach(var pair in environment) {
+            if(String.IsNullOrEmpty(pair.Key)||pair.Key.IndexOf('=')>=0||pair.Key.IndexOf('\0')>=0||pair.Value==null||pair.Value.IndexOf('\0')>=0||vars.ContainsKey(pair.Key))throw new ArgumentException("CI_ENV_INVALID");
+            vars.Add(pair.Key,pair.Value);
+        }
+        var block=new StringBuilder();
+        foreach(var pair in vars)block.Append(pair.Key).Append('=').Append(pair.Value).Append('\0');
+        if(vars.Count==0)block.Append('\0');
+        return block.Append('\0').ToString();
+    }
+    public static WindowsJob Start(string exe,string[] args,string cwd,IDictionary<string,string> environment,string log) {
         if(IntPtr.Size!=8)throw new InvalidOperationException("CI_X64_REQUIRED");
+        // Validate before creating any handles. PowerShell converts values into
+        // the typed dictionary; no PSObject-to-string casts occur in this layer.
+        var environmentBlock=EnvironmentBlock(environment);
         var result=new WindowsJob();IntPtr attr=IntPtr.Zero,list=IntPtr.Zero,env=IntPtr.Zero,output=IntPtr.Zero,input=IntPtr.Zero;PI pi=new PI();bool initialized=false;
         try {
             result.job=CreateJobObjectW(IntPtr.Zero,null);if(result.job==IntPtr.Zero)throw Error("CI_JOB_CREATE");
@@ -50,8 +64,7 @@ public sealed class WindowsJob : IDisposable {
             attr=Marshal.AllocHGlobal(size);if(!InitializeProcThreadAttributeList(attr,1,0,ref size))throw Error("CI_HANDLE_LIST_INIT");initialized=true;
             list=Marshal.AllocHGlobal(16);Marshal.WriteIntPtr(list,output);Marshal.WriteIntPtr(list,8,input);
             if(!UpdateProcThreadAttribute(attr,0,new IntPtr(0x20002),list,new IntPtr(16),IntPtr.Zero,IntPtr.Zero))throw Error("CI_HANDLE_LIST_SET");
-            var vars=new SortedDictionary<string,string>(StringComparer.OrdinalIgnoreCase);foreach(DictionaryEntry pair in environment)vars[(string)pair.Key]=(string)pair.Value;
-            var block=new StringBuilder();foreach(var pair in vars){if(pair.Key.IndexOf('=')>=0||pair.Key.IndexOf('\0')>=0||pair.Value.IndexOf('\0')>=0)throw new ArgumentException("CI_ENV_INVALID");block.Append(pair.Key).Append('=').Append(pair.Value).Append('\0');}block.Append('\0');env=Marshal.StringToHGlobalUni(block.ToString());
+            env=Marshal.StringToHGlobalUni(environmentBlock);
             var si=new SIX();si.startup.cb=Marshal.SizeOf(typeof(SIX));si.startup.flags=0x100;si.startup.input=input;si.startup.output=output;si.startup.error=output;si.attributes=attr;
             var command=new StringBuilder(Quote(exe));foreach(var arg in args)command.Append(' ').Append(Quote(arg));
             if(!CreateProcessW(exe,command,IntPtr.Zero,IntPtr.Zero,true,0x80404,env,cwd,ref si,out pi))throw Error("CI_PROCESS_CREATE");
