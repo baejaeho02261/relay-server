@@ -84,6 +84,9 @@ try {
   const manifestRun = invoke('manifest');
   assert.equal(manifestRun.status, 0, manifestRun.stderr);
   assert.match(manifestRun.stdout, /Manifest ID:\n[a-f0-9]{128}/);
+  for (const role of ['A', 'B', 'O']) {
+    assert.ok(manifestRun.stdout.includes(role + ' output folder hint: ' + path.join(p.native, 'Win64', 'Release') + ' (' + role + '_*.exe)'));
+  }
   assert.equal(invoke('check').status, 0);
   assert.deepEqual(fs.readdirSync(home).sort(), ['deployment-policy.json', 'release-manifest.json', 'source-manifest.json', 'spec.json']);
 
