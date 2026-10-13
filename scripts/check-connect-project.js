@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../../GameConnect_Win64');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
-for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launcher'], ['GameOverlay','overlay']]) {
+for (const [name, role] of [['GameConnect', 'B'], ['GameLauncher', 'A'], ['GameOverlay','O']]) {
   const project = read(name + '.dproj');
   assert.ok(!/GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)/i.test(project), 'Probe-only hooks must not be enabled in an application project');
   assert.match(project, /<DCC_Define>GAME_APPLICATION_BUILD;/, 'Application builds must reject probe hooks');
@@ -22,8 +22,9 @@ for (const [name, role] of [['GameConnect', 'client'], ['GameLauncher', 'launche
   assert.ok(project.includes('<DCC_ConsoleTarget>false</DCC_ConsoleTarget>'));
   assert.match(project, /<Platform value="Win64">True<\/Platform>/);
   assert.match(project, /<Target Name="PublishRandomExecutable" AfterTargets="Build;Rebuild">/);
-  assert.ok(project.includes("$([System.Guid]::NewGuid().ToString('N')).exe"));
-  assert.ok(project.includes('\\$(Platform)\\$(Config)\\' + role));
+  assert.ok(project.includes("<RandomArtifactName>" + role + "_$([System.Guid]::NewGuid().ToString('N')).exe</RandomArtifactName>"));
+  assert.ok(project.includes('<RandomArtifactDirectory>$(MSBuildProjectDirectory)\\$(Platform)\\$(Config)</RandomArtifactDirectory>'));
+  assert.ok(project.includes('<DCC_DcuOutput>.\\build\\' + role + '\\$(Platform)\\$(Config)\\dcu</DCC_DcuOutput>'), 'Compiler units must remain role-isolated');
   assert.match(project, /<Move SourceFiles="\$\(CompiledArtifact\)"/);
   assert.match(project, /<Icon_MainIcon\s*\/>/);
   assert.ok(!/\.ico\b/i.test(project));

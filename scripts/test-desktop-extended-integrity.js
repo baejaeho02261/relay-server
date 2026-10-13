@@ -52,7 +52,15 @@ try{
  const strict=bContext([row]);assert.equal(submit(strict,payload([row])).status,'VERIFIED');gate(strict);assert.equal(latest(strict).extendedHashesVerified,true);
  const mixed=bContext([row]),first=payload([row],{batchCount:2,totalModules:2,measuredModules:1});submit(mixed,first);rejected('INTEGRITY_REPORT_INVALID',()=>submit(mixed,{...first,hashVersion:1,batchIndex:1,modules:[{name:'optional.dll',status:'FILE_UNAVAILABLE'}]}));assert.equal(status(mixed),'CLAIMED');
  // 1,024 measured v3 rows fit 171 six-row signed batches without relaxing 10KiB.
- const large=bContext([row]),rows=[row,...Array.from({length:1023},(_,i)=>({...row,name:'optional'+i+'.dll'}))],snapshotId=crypto.randomUUID();for(let i=0;i<171;i++){const p=payload(rows.slice(i*6,i*6+6),{snapshotId,batchIndex:i,batchCount:171,totalModules:1024,measuredModules:1024});assert.ok(Buffer.byteLength(JSON.stringify(p))<=10240);submit(large,p);}gate(large);assert.equal(latest(large).snapshotReceivedBatches,171);assert.equal(latest(large).extendedHashesVerified,true);
+ const large=bContext([row]),rows=[row,...Array.from({length:1023},(_,i)=>({...row,name:'optional'+i+'.dll'}))],snapshotId=crypto.randomUUID();
+ for(let i=0;i<171;i++){const p=payload(rows.slice(i*6,i*6+6),{snapshotId,batchIndex:i,batchCount:171,totalModules:1024,measuredModules:1024});assert.ok(Buffer.byteLength(JSON.stringify(p))<=10240);submit(large,p);}
+ gate(large);
+ // Gate can append a fresh OWN_CODE success once its ten-second reporting
+ // interval elapses. Find this exact completed inventory, not whichever audit
+ // record happens to be newest on a faster or slower build/test machine.
+ const completedSnapshot=reports.List({sessionId:id(large)}).items.find(record=>record.check==='MODULE_SNAPSHOT'&&record.snapshotId===snapshotId&&record.snapshotFinal===true);
+ assert.ok(completedSnapshot,'The completed inventory snapshot must remain recorded after the execution gate');
+ assert.equal(completedSnapshot.snapshotReceivedBatches,171);assert.equal(completedSnapshot.snapshotStatus,'COMPLETE_PASS');assert.equal(completedSnapshot.status,'VERIFIED');assert.equal(completedSnapshot.extendedHashesVerified,true);
  // Upgrade persistence preserves legacy records and policies; missing values do
  // not acquire a verification flag merely because a later baseline was uploaded.
  const saved=fs.readFileSync(reports.FILE),envelope=JSON.parse(saved);let run=restart("const r=require('../services/desktopIntegrityReports');if(!r.Policy().requireExtendedHashes||!r.Policy().baselineReady||!r.Baselines().items[0].fileBlake3)throw Error('MISSING_EXTENDED_PERSISTENCE')");assert.equal(run.status,0,run.stderr);

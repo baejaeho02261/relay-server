@@ -54,11 +54,18 @@ try{
  const policy={version:1,trustedReleaseKeys:[{keyId:p.KeyId(releasePub),publicKey:releasePub.export({type:'spki',format:'pem'}).toString()}]};write('policy.json',policy);
  for(const r of ['A','B','O'])fs.writeFileSync(path.join(out,r+'.exe'),'fixture bytes '+r);
  const manifest={version:1,releaseName:'Windows CI 1.0.0',securityVersion:97,protocol:'GAME-CONNECT-4',hashVersion:3,handoffVersion:3,sourceManifestSha512:sha(fs.readFileSync(sourceFile)),policySha512:p.PolicyDigest(policy),toolchain:{delphi:'fixture',cpp:'fixture',windowsSdk:'fixture',imgui:'fixture'},artifacts:Object.fromEntries(['A','B','O'].map(r=>[r,sha(fs.readFileSync(path.join(out,r+'.exe')))]))};write('manifest.json',{manifestId:p.ManifestId(manifest),manifest});
- fs.writeFileSync(path.join(out,'logs/build.log'),'test fixture only\n');const logIndex={version:1,files:[{name:'build.log',sha512:sha(fs.readFileSync(path.join(out,'logs/build.log')))}]};write('logs-index.json',logIndex);
+ fs.writeFileSync(path.join(out,'logs/build.log'),'test fixture only\n');
+ const emptyLog=path.join(out,'logs/empty.log');fs.writeFileSync(emptyLog,'');
+ // Silent subprocesses legitimately produce an empty log. It is still bound
+ // to the signed index; executable and other required inputs stay nonempty.
+ assert.throws(()=>provenance.FileHash(emptyLog,1024),/PROVENANCE_INPUT_INVALID/);
+ assert.equal(provenance.FileHash(emptyLog,1024,true),sha(''));
+ const logIndex={version:1,files:[{name:'build.log',sha512:sha(fs.readFileSync(path.join(out,'logs/build.log')))},{name:'empty.log',sha512:sha('')}]};write('logs-index.json',logIndex);
  const report={version:1,aSha512:manifest.artifacts.A,bSha512:manifest.artifacts.B,oSha512:manifest.artifacts.O,sourceManifestSha512:manifest.sourceManifestSha512,nativeBuild:'PASS',apiProbe:'PASS',integration:'PASS',logsSha512:sha(fs.readFileSync(path.join(out,'logs-index.json')))};write('report.json',report);
  const evidence=provenance.Sign(path.join(out,'manifest.json'),path.join(out,'report.json'),ciFile,'test-fixture');write('ci-evidence.json',evidence);fs.writeFileSync(path.join(out,'ci-public-key.pem'),record.publicKey);write('runner-results.json',{windowsExecuted:true,signed:true,nativeBuild:'PASS',apiProbe:'PASS',integration:'PASS',runId:'test-fixture'});
  for(const r of ['A','B','O'])write(r+'.approval.json',{keyId:p.KeyId(releasePub),signature:crypto.sign(null,Buffer.from(['GAME-RELEASE-APPROVAL-V2',r,'1.0.0',manifest.artifacts[r]].join('\n')),release).toString('base64')});
  assert.equal(workflow.checkOutput(out,recordFile).serverTrustChecked,false);
+ fs.writeFileSync(emptyLog,'changed');assert.throws(()=>workflow.checkOutput(out,recordFile),/LOG_HASH_MISMATCH/);fs.writeFileSync(emptyLog,'');
  fs.appendFileSync(path.join(out,'O.exe'),'changed');assert.throws(()=>workflow.checkOutput(out,recordFile),/FINAL_EXE_HASH_MISMATCH/);fs.writeFileSync(path.join(out,'O.exe'),'fixture bytes O');
  fs.appendFileSync(path.join(out,'logs/build.log'),'changed');assert.throws(()=>workflow.checkOutput(out,recordFile),/LOG_HASH_MISMATCH/);fs.writeFileSync(path.join(out,'logs/build.log'),'test fixture only\n');
  const other=crypto.generateKeyPairSync('ed25519').publicKey;fs.writeFileSync(recordFile,JSON.stringify({...record,keyId:p.KeyId(other),publicKey:other.export({type:'spki',format:'pem'}).toString()}));assert.throws(()=>workflow.checkOutput(out,recordFile),/SIGNER_RECORD/);fs.writeFileSync(recordFile,JSON.stringify(record));
