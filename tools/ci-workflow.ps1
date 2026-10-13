@@ -23,6 +23,28 @@ function Invoke-Helper([string[]]$Arguments){
  return ($text|ConvertFrom-Json)
 }
 function Require-File([string]$File,[string]$Instruction){if(-not(Test-Path -LiteralPath $File -PathType Leaf)){throw ($Instruction+' Missing: '+$File)}}
+function Show-RunFailure([string]$Directory){
+ # Report the first failed stage from this run, not a guessed dependency or a
+ # private temporary directory that the runner has already cleaned up.
+ $resultFile=Join-Path $Directory 'runner-results.json'
+ Write-Host ('FAILED run details: '+$resultFile)
+ try {
+  if(-not(Test-Path -LiteralPath $resultFile -PathType Leaf)){return}
+  if((Get-Item -LiteralPath $resultFile).Length -gt 1MB){return}
+  $details=Get-Content -LiteralPath $resultFile -Raw|ConvertFrom-Json -AsHashtable
+  $stageNames=@('self-test','snapshot','dependencies','build-inputs','build','build-inputs-after','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','integration','profile-integration-observe','profile-integration-prohibit','report','sign')
+  foreach($name in $stageNames){
+   if(-not $details.Contains('stages') -or -not $details.stages.Contains($name)){continue}
+   $stage=$details.stages[$name]
+   if($stage.outcome -ne 'FAIL'){continue}
+   Write-Host ('FIRST FAILED STAGE: '+$name)
+   if($stage.Contains('error') -and [string]$stage.error -cmatch '^CI_[A-Za-z0-9_-]{1,120}$'){Write-Host ('Stage error: '+$stage.error)}
+   Write-Host ('Open this stage log: '+(Join-Path $Directory ('logs\'+$name+'.log')))
+   break
+  }
+ } catch {Write-Host 'Could not read the stage summary; use runner-results.json and the logs folder.'}
+ finally {Write-Host ('Stage logs: '+(Join-Path $Directory 'logs'))}
+}
 function Assert-Environment {
  foreach($name in @('npm.cmd','openssl.exe','cl.exe')){
   if(-not(Get-Command $name -CommandType Application -ErrorAction SilentlyContinue)){throw ($name+' is required. Use a Visual Studio x64 Native Tools command prompt with Node.js and OpenSSL on PATH, then call this BAT.')}
@@ -95,9 +117,11 @@ try {
    $runnerArgs=@('-NoLogo','-NoProfile','-File',$runner,'-SourceRoot',$sourceRoot,'-OutputDirectory',$OutputDirectory,'-Version',[string]$spec.version,'-SecurityVersion',[string]$spec.securityVersion,'-RunId',$runId,'-BuildInputLockFile',(Join-Path $toolRoot 'reviewed-build-inputs.json'),'-BdsRoot',$script:BdsRoot,'-ReleaseKeyFile',$ReleaseKeyFile,'-CiKeyFile',$CiKeyFile,'-PolicyFile',(Join-Path $toolRoot 'deployment-policy.json'))
    & (Join-Path $PSHOME 'pwsh.exe') @runnerArgs
    $runnerExit=$LASTEXITCODE
-   if($runnerExit -ne 0){Write-Host ('FAILED run details: '+(Join-Path $OutputDirectory 'runner-results.json'));Write-Host ('Stage logs: '+(Join-Path $OutputDirectory 'logs'));throw ('Windows CI did not pass (exit '+$runnerExit+'). No publication approval is claimed. Fix the FIRST failed stage before rerunning.')}
+   if($runnerExit -ne 0){Show-RunFailure $OutputDirectory;throw ('Windows CI did not pass (exit '+$runnerExit+'). No publication approval is claimed. Fix the FIRST failed stage before rerunning.')}
    $null=Invoke-Helper @('check-output',$OutputDirectory,(Join-Path $toolRoot 'ci-public-key.json'))
    Write-Host ('Verified final files, manifest and signed evidence: '+$OutputDirectory)
+   Write-Host ('CI evidence JSON: '+(Join-Path $OutputDirectory 'ci-evidence.json'))
+   Write-Host 'A.exe, B.exe, O.exe and all three approval JSONs are in that SAME folder.'
    Write-Host 'Web order: register CI public signer; plan this run manifest.json; register THIS run A/B/O and their approval JSONs with the same manifest ID; complete manifest registration; register ci-evidence.json; inspect eligibility and publish.'
    Write-Host 'Do not rebuild, rename/reprocess with approval tools, regenerate a manifest or mix files from different runs. Server trust/policy is checked by the web server.'
   }

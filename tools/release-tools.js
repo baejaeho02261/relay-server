@@ -6,7 +6,6 @@ const readline = require('node:readline');
 const provenance = require('./release-provenance');
 const schema = require('../services/desktopReleaseProvenance');
 const ROLES = ['A', 'B', 'O'];
-const FOLDERS = ['launcher', 'client', 'overlay'];
 
 function fail(message) { throw new Error(message); }
 function readBounded(file, maximum) {
@@ -163,10 +162,11 @@ async function promptFiles(home) {
   console.log('Manual manifest tools do not execute Windows CI or create CI-signed PASS evidence.');
   console.log('For production publication, use Run_Windows_CI.bat and its unchanged manifest.json + A/B/O + ci-evidence.json bundle.');
   console.log('Select the same FINAL EXEs used by Create_Approval and Check_Approval.');
-  console.log('Random filenames are normal. Paste Explorer Copy as path; do not rename EXEs.');
+  console.log('All manual Release EXEs share GameConnect_Win64\\Win64\\Release; role prefixes are A_, B_, O_.');
+  console.log('Random filenames are normal. Select the intended build and paste Explorer Copy as path; do not rename EXEs.');
   try {
     for (let i = 0; i < ROLES.length; i++) {
-      console.log(ROLES[i] + ' output folder hint: ' + path.join(p.native, 'Win64', 'Release', FOLDERS[i]));
+      console.log(ROLES[i] + ' output folder hint: ' + path.join(p.native, 'Win64', 'Release') + ' (' + ROLES[i] + '_*.exe)');
       let value = await q.ask(ROLES[i] + ' full EXE path', s => s.length > 0);
       if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
       files.push(value);
@@ -186,7 +186,8 @@ async function main(args, home = __dirname) {
     else if (params.length === 2 && params[0] === '--from') file = createSpecFrom(home, path.resolve(params[1]));
     else fail('Usage: Create_Spec.bat [--from COMPLETED_SPEC.json]');
     console.log('SUCCESS: ' + file);
-    console.log('Save the current admin deployment-policy.json beside this BAT, then use Create_Release_Manifest.bat.');
+    console.log('Server policy: register the EXE approval public key, enable release signature enforcement, apply the policy, then export CURRENT deployment-policy.json beside this BAT.');
+    console.log('Production CI: follow Release_Workflow.html, then Check_Environment.bat -> Run_Windows_CI.bat. CI generates the final manifest and approvals.');
     return;
   }
   if (!['manifest', 'check'].includes(action) || ![0, 3, 4].includes(params.length)) fail('Usage: Create_Release_Manifest.bat [A.exe B.exe O.exe [NEW_OUTPUT.json]] or Check_Release_Manifest.bat [A.exe B.exe O.exe [MANIFEST.json]]');

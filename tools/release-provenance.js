@@ -8,9 +8,9 @@ function Read(file,max=65536) {
  catch(error){if(error.message==='AUDIT_FILE_CHANGED')throw Error('PROVENANCE_FILE_CHANGED');if(/^AUDIT_FILE_/.test(error.message))throw Error('PROVENANCE_INPUT_INVALID');throw error;}
 }
 function Json(file) {const bytes=Read(file),bom=bytes.length>=3&&bytes[0]===239&&bytes[1]===187&&bytes[2]===191;return require('../services/strictJson').Parse(bom?bytes.subarray(3):bytes,{maxBytes:65536});}
-function FileHash(file,max) {
+function FileHash(file,max,allowEmpty=false) {
   const fd=fs.openSync(file,'r'),buffer=Buffer.alloc(65536);try{
-    const before=fs.fstatSync(fd);if(!before.isFile()||before.size<1||before.size>max)throw Error('PROVENANCE_INPUT_INVALID');
+    const before=fs.fstatSync(fd);if(!before.isFile()||before.size<(allowEmpty===true?0:1)||before.size>max)throw Error('PROVENANCE_INPUT_INVALID');
     const hash=crypto.createHash('sha512');let total=0,n;
     while((n=fs.readSync(fd,buffer,0,buffer.length,null))!==0){total+=n;if(total>max||total>before.size)throw Error('PROVENANCE_FILE_CHANGED');hash.update(buffer.subarray(0,n));}
     const after=fs.fstatSync(fd);if(total!==before.size||after.size!==before.size||after.mtimeMs!==before.mtimeMs||after.ctimeMs!==before.ctimeMs)throw Error('PROVENANCE_FILE_CHANGED');return hash.digest('hex');
