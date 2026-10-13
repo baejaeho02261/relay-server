@@ -1,6 +1,21 @@
 param([Parameter(Mandatory)][string]$WorkRoot,[Parameter(Mandatory)][string]$Output,[Parameter(Mandatory)][string]$PrivateRoot,[Parameter(Mandatory)][string]$Version,[ValidateSet('','observe','prohibit')][string]$MitigationMode='')
 . (Join-Path $PSScriptRoot 'CiCommon.ps1')
 $server=$null;$apps=$null;$bProcess=$null;$oProcess=$null;$success=$false;$result=@{version=1;outcome='FAIL';ready=$false;licenseConsumed=$false;overlayFirstFrame=$false;parentTransferred=$false;parentExited=$false;parentFilesDeleted=$false;overlayClosed=$false;serverSessionClosed=$false}
+function Save-FixtureFailure {
+ # The private fixture directory is removed when the runner exits. Preserve
+ # only its bounded error identifier in the public result, never input.json,
+ # license material, server database contents or unfiltered exception text.
+ $statusFile=Join-Path $run 'status.json'
+ try {
+  if(Test-Path -LiteralPath $statusFile){
+   $failure=Read-CiJson $statusFile
+   if($failure.ContainsKey('error') -and $failure.error -is [string] -and $failure.error -cmatch '^[A-Z][A-Z0-9_]{0,99}$'){$result.fixtureError=$failure.error}
+  }
+ } catch { }
+}
+function Assert-FixtureRunning {
+ if($server.HasExited){Save-FixtureFailure;throw 'CI_FIXTURE_EXITED'}
+}
 try {
  Write-Output 'CI_INTEGRATION_BEGIN (real Release EXEs, local production TLS services)'
  if (-not [Environment]::UserInteractive -or [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) { throw 'CI_INTERACTIVE_WINDOWS_SESSION_REQUIRED' }
@@ -10,18 +25,22 @@ try {
  $server=[GameCi.WindowsJob]::Start($node,@((Join-Path $web 'ci\windows-fixture.js'),$run,$Output,$Version,$MitigationMode),$web,$environment,(Join-Path $run 'server.log'))
  $clock=[Diagnostics.Stopwatch]::StartNew()
  do {
-  if($server.HasExited){throw 'CI_FIXTURE_EXITED'}
-  if((Test-Path -LiteralPath (Join-Path $run 'input.json')) -and (Test-Path -LiteralPath (Join-Path $run 'status.json'))){$status=Read-CiJson (Join-Path $run 'status.json');if($status.ready){break};if($status.ContainsKey('error')){throw $status.error}}
+  Assert-FixtureRunning
+  if(Test-Path -LiteralPath (Join-Path $run 'status.json')){
+   $status=Read-CiJson (Join-Path $run 'status.json')
+   if($status.ContainsKey('error')){Save-FixtureFailure;throw 'CI_FIXTURE_START_FAILED'}
+   if($status.ready -and (Test-Path -LiteralPath (Join-Path $run 'input.json'))){break}
+  }
   if($clock.Elapsed.TotalSeconds -gt 60){throw 'CI_FIXTURE_TIMEOUT'};Start-Sleep -Milliseconds 100
  } while($true)
  $input=Read-CiJson (Join-Path $run 'input.json');$launcher=Assert-CiOwnedPath $input.launcher (Join-Path $run 'execution');$result.ready=$true
  $apps=[GameCi.WindowsJob]::Start($launcher,@(),(Split-Path -Parent $launcher),$environment,(Join-Path $run 'application.log'))
  $bId=[uint32]0;$oId=[uint32]0;$bPath='';$sent=$false;$closed=$false;$frameAt=0.0;$clock.Restart()
  do {
-  if($server.HasExited){throw 'CI_FIXTURE_EXITED'}
+  Assert-FixtureRunning
   $status=Read-CiJson (Join-Path $run 'status.json')
   if($MitigationMode){if(-not $status.mitigationProfile.enabled -or $status.mitigationProfile.mode -ne $MitigationMode){throw 'CI_PROFILE_NOT_ACTIVE'};$result.mitigationMode=$MitigationMode;$result.profiledAuthorityStages=@($status.mitigationProfile.authorityStages)}
-  if(-not $status.ready){throw 'CI_FIXTURE_RUNTIME_FAILED'}
+  if(-not $status.ready){Save-FixtureFailure;throw 'CI_FIXTURE_RUNTIME_FAILED'}
   $ids=@($apps.ProcessIds())
   if($bId -eq 0 -and $status.flowStatus -eq 'CLAIMED') {
    $children=@($ids|Where-Object{$_ -ne $apps.RootId})
@@ -54,8 +73,17 @@ try {
  if(-not $server.HasExited -or $server.ExitCode -ne 0){$success=$false;throw 'CI_SERVER_SHUTDOWN_FAILED'}
  $result.outcome='PASS';Write-Output 'CI_INTEGRATION_PASS'
 } catch {
- $success=$false;$result.outcome='FAIL';$code=$_.Exception.Message
- $result.error=if($code -match '^CI_[A-Z0-9_]+$'){$code}else{'CI_INTEGRATION_EXCEPTION'}
+ $success=$false;$result.outcome='FAIL';$result.error='CI_INTEGRATION_EXCEPTION';$result.nativeErrorCode=$null
+ $cause=$_.Exception
+ for($depth=0;$null -ne $cause -and $depth -lt 8;$depth++){
+  $result.exceptionType=$cause.GetType().FullName
+  if($cause.Message -match '^CI_[A-Z0-9_]+$'){$result.error=$cause.Message}
+  if($cause -is [ComponentModel.Win32Exception]){$result.nativeErrorCode=[int]$cause.NativeErrorCode}
+  $cause=$cause.InnerException
+ }
+ $detail=@{error=$result.error;exceptionType=$result.exceptionType;nativeErrorCode=$result.nativeErrorCode}
+ if($result.ContainsKey('fixtureError')){$detail.fixtureError=$result.fixtureError}
+ Write-Output ('CI_INTEGRATION_DETAIL '+($detail|ConvertTo-Json -Compress))
  Write-Output $result.error
 } finally {
  foreach($job in @($apps,$server)){if($job){try{$job.Dispose()}catch{$success=$false;$result.outcome='FAIL';$result.error='CI_JOB_CLEANUP_FAILED'}}};foreach($process in @($bProcess,$oProcess)){if($process){try{$process.Dispose()}catch{$success=$false;$result.outcome='FAIL';$result.error='CI_HANDLE_CLEANUP_FAILED'}}}

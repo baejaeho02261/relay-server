@@ -8,7 +8,14 @@ try {
  Write-Output "CI_STAGE_BEGIN $Kind"
  $native=Join-Path $WorkRoot 'GameConnect_Win64';$web=Join-Path $WorkRoot 'GameWeb';Set-Location -LiteralPath $native
  $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
- function Run-Checked([string]$File,[string[]]$Arguments) { & $File @Arguments; if ($LASTEXITCODE -ne 0) { throw 'CI_CHILD_NONZERO_EXIT' } }
+ function Run-Checked([string]$File,[string[]]$Arguments) {
+  & $File @Arguments
+  if ($LASTEXITCODE -ne 0) {
+   $failure=[InvalidOperationException]::new('CI_CHILD_NONZERO_EXIT')
+   $failure.Data['childExitCode']=[int]$LASTEXITCODE
+   throw $failure
+  }
+ }
  if ($Kind -in @('build','native-probes','overlay-contracts','device-identity')) {
   if (-not $env:BDS -or $env:BDS -match '[%&|<>^!"\r\n]') { throw 'CI_BDS_INVALID' }
   $rsvars=Join-Path $env:BDS 'bin\rsvars.bat'
@@ -48,10 +55,14 @@ try {
     Run-Checked $msbuild @(($project+'.dproj'),'/t:Rebuild','/p:Config=Release','/p:Platform=Win64','/m:1','/nr:false','/nologo','/v:minimal')
    }
    Run-Checked $node @((Join-Path $web 'scripts\check-connect-project.js'))
-   $paths=@{A='launcher';B='client';O='overlay'}
+   # Only this fresh snapshot's outputs may enter the tested bundle. Product
+   # DCUs and compiler staging remain isolated; final EXEs share one folder.
+   $finalDirectory=Join-Path $native 'Win64\Release'
+   $finalFiles=@(Get-ChildItem -LiteralPath $finalDirectory -Filter '*.exe' -File)
+   if($finalFiles.Count -ne 3){throw 'CI_BUILD_OUTPUT_COUNT'}
    foreach($role in @('A','B','O')){
-    $files=@(Get-ChildItem -LiteralPath (Join-Path $native ('Win64\Release\'+$paths[$role])) -Filter '*.exe' -File)
-    if($files.Count -ne 1 -or $files[0].Length -le 0){throw 'CI_BUILD_OUTPUT_COUNT'}
+    $files=@($finalFiles|Where-Object{$_.Name -cmatch ('^'+$role+'_[a-f0-9]{32}\.exe$')})
+    if($files.Count -ne 1 -or $files[0].Length -le 0 -or ($files[0].Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_BUILD_OUTPUT_COUNT'}
     Copy-Item -LiteralPath $files[0].FullName -Destination (Join-Path $Output ($role+'.exe')) -ErrorAction Stop
    }
    $header=Get-Content -LiteralPath (Join-Path $native 'imgui\vendor\imgui.h') -Raw
@@ -86,4 +97,19 @@ try {
   'sign' { Run-Checked $node @((Join-Path $PSScriptRoot 'ci-artifacts.js'),'sign',$Output,$KeyFile,$RunId) }
  }
  Write-Output "CI_STAGE_PASS $Kind";exit 0
-} catch { Write-Error ('CI_STAGE_FAILED '+$Kind+' (review bounded stage log)');exit 1 }
+} catch {
+ # Keep the original static failure code and child exit status. Arbitrary
+ # exception messages, arguments and environment values can contain secrets.
+ $detail=@{stage=$Kind;error='CI_STAGE_EXCEPTION';exceptionType=$_.Exception.GetType().FullName;nativeErrorCode=$null;childExitCode=$null}
+ $cause=$_.Exception
+ for($depth=0;$null -ne $cause -and $depth -lt 8;$depth++){
+  $detail.exceptionType=$cause.GetType().FullName
+  if($cause.Message -match '^CI_[A-Z0-9_]+$'){$detail.error=$cause.Message}
+  if($cause -is [ComponentModel.Win32Exception]){$detail.nativeErrorCode=[int]$cause.NativeErrorCode}
+  if($cause.Data.Contains('childExitCode')){$detail.childExitCode=[int]$cause.Data['childExitCode']}
+  $cause=$cause.InnerException
+ }
+ Write-Output ('CI_STAGE_DETAIL '+($detail|ConvertTo-Json -Compress))
+ Write-Output ('CI_STAGE_FAILED '+$Kind)
+ exit 1
+}

@@ -29,6 +29,17 @@ try {
  Require ($observed.temp -eq $dir -and $observed.tmp -eq $dir -and $observed.data -eq $environment['DATA_DIR'] -and $observed.npm -eq $environment['NPM_CONFIG_USERCONFIG'] -and $observed.pathValue -eq $environment['GAME_CI_TEST_PATH'] -and $observed.wrapped -eq $wrappedText) 'CI_ENV_ROUNDTRIP_FAILED';$count++
  $job=[GameCi.WindowsJob]::Start($exe,@('-NoProfile','-Command','exit 7'),$dir,$environment,(Join-Path $dir 'nonzero.log'));$jobs.Add($job);Wait-JobExit $job
  Require ($job.ExitCode -eq 7) 'CI_SELFTEST_NONZERO_EXIT';$count++
+ # Verify that a real stage failure keeps its original safe identifier instead
+ # of replacing it with a generic wrapper error. This creates no product build.
+ $stageWork=Join-Path $dir 'stage-failure';[IO.Directory]::CreateDirectory((Join-Path $stageWork 'GameConnect_Win64'))|Out-Null
+ $stageEnvironment=Get-CiEnvironment $stageWork;$stageEnvironment['BDS']=''
+ $stageLog=Join-Path $dir 'stage-failure.log'
+ $job=[GameCi.WindowsJob]::Start($exe,@('-NoProfile','-File',(Join-Path $PSScriptRoot 'Windows-Stage.ps1'),'-Kind','build','-WorkRoot',$stageWork,'-Output',$stageWork),$dir,$stageEnvironment,$stageLog);$jobs.Add($job);Wait-JobExit $job
+ Require ($job.ExitCode -eq 1) 'CI_SELFTEST_STAGE_FAILURE_EXIT'
+ $detailLines=@(Get-Content -LiteralPath $stageLog|Where-Object{$_.StartsWith('CI_STAGE_DETAIL ')})
+ Require ($detailLines.Count -eq 1) 'CI_SELFTEST_STAGE_DETAIL_MISSING'
+ $stageDetail=$detailLines[0].Substring('CI_STAGE_DETAIL '.Length)|ConvertFrom-Json -AsHashtable
+ Require ($stageDetail.stage -eq 'build' -and $stageDetail.error -eq 'CI_BDS_INVALID') 'CI_SELFTEST_STAGE_DETAIL_INVALID';$count++
  # A real child descendant is created inside the owned job, then job disposal
  # must remove both. No process selected outside the job is ever terminated.
  $script=Join-Path $dir 'descendant.ps1';$pidFile=Join-Path $dir 'child.json'
