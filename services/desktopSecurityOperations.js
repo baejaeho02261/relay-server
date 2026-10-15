@@ -175,7 +175,10 @@ function RequireRuntimePair(a,b,o=null) {
 function PreviewPair(body, production = false) {
   Fields(body,['aId','bId','oId'],['aId','bId']); const [a,b]=Pair(body.aId,body.bId),o=SelectedOverlay(body),s=production?PublicationState():State(),auth=require('./desktopSecurityAuthority'),p=auth.Policy();
   const selectedRows=[a,b,...(o?[o]:[])];
-  const reasons=selectedRows.map(row=>auth.ArtifactReason(row,p)||ArtifactReason(row,s)).filter(Boolean);
+  // Manual publication removes only the CI gate. Every final executable still
+  // needs its own trusted approval, even if a legacy runtime policy is optional.
+  const artifactPolicy=production?{...p,requireReleaseSignature:true}:p;
+  const reasons=selectedRows.map(row=>auth.ArtifactReason(row,artifactPolicy)||ArtifactReason(row,s)).filter(Boolean);
   if(production&&selectedRows.some(row=>row.measurementPlanVersion!==1))reasons.push('INTEGRITY_MEASUREMENT_BUILD_UPGRADE_REQUIRED');
   if(store.Load().tlsPinTransition&&selectedRows.some(row=>row.tlsPinVersion!==1))reasons.push('TLS_PIN_ACTIVE_BUILD_UPGRADE_REQUIRED');
   if(new Set(selectedRows.map(row=>row.handoffVersion||1)).size!==1)reasons.push('BOOTSTRAP_HANDOFF_VERSION_MISMATCH');
@@ -190,7 +193,8 @@ function ActivatePair(body,actor,recoveryId='',production=false) {
   const view=PreviewPair(selected,production); if(!view.eligible) Fail(view.reasons[0],409);
   const [a,b]=Pair(body.aId,body.bId),o=Overlay(view.oId),db=store.Load(),boot=require('./desktopBootstrap');
   // Re-read bytes just before the atomic pointer swap, not the upload's old result.
-  boot.ReadArtifactBytes(a);boot.ReadArtifactBytes(b);if(o)boot.ReadArtifactBytes(o);
+  const assertRelease=require('./peBuildConfiguration').AssertProductionConfiguration;
+  assertRelease(boot.ReadArtifactBytes(a));assertRelease(boot.ReadArtifactBytes(b));if(o)assertRelease(boot.ReadArtifactBytes(o));
   const s=production?PublicationState():State();s.revision++;s.activations.push({at:Date.now(),actor:Actor(actor),aId:a.id,bId:b.id,aSha512:a.sha512,bSha512:b.sha512,previousA:db.active.A||'',previousB:db.active.B||'',...(o||db.active.O?{oId:o?.id||'',oSha512:o?.sha512||'',previousO:db.active.O||''}:{}),policyRevision:body.expectedPolicyRevision,operationsRevision:s.revision,...(view.release.manifestId?{manifestId:view.release.manifestId}:{}),...(recoveryId?{recoveryId}:{})});s.activations=s.activations.slice(-100);
   if(recoveryId){const plan=s.releaseGovernance.recoveryPlans[recoveryId];if(!plan||plan.status!=='PREPARED')Fail('SECURITY_RECOVERY_INVALID');plan.status='APPLIED';plan.appliedAt=Date.now();}
   Commit(s,actor,recoveryId?'RECOVERY_ACTIVATED':'PAIR_ACTIVATED',next=>{next.active={A:a.id,B:b.id,...(o?{O:o.id}:{})};},recoveryId?{recoveryId,manifestId:view.release.manifestId,reasonSha512:sha512(s.releaseGovernance.recoveryPlans[recoveryId].reason)}:{});return PreviewPair({aId:a.id,bId:b.id,oId:o?.id||''},production);
@@ -305,9 +309,9 @@ function ApplyRecovery(body,actor,production=false){
 }
 
 // Production entry points. Do not route an HTTP request to the version-1
-// compatibility helpers above. Isolated CI provisioning must run BEFORE it can
-// sign its own integration result, so its fixture uses the historical helpers
-// in a private empty data directory; it never issues a fabricated CI PASS.
+// compatibility helpers above. Manual publication retains executable approvals,
+// registered manifest binding and the monotonic security floor. It does not
+// manufacture a Windows test result. Historical CI records remain readable.
 function PublicationState(s=State()) {
   return {...s, releaseGovernance:provenance.PublicationPolicy(s.releaseGovernance)};
 }
@@ -317,18 +321,19 @@ function PrepareProductionRecovery(body,actor) { return PrepareRecovery(body,act
 function ApplyProductionRecovery(body,actor) { return ApplyRecovery(body,actor,true); }
 function SetProductionGovernance(body,actor) {
   Fields(body,['expectedRevision','requireManifest','requireCiEvidence','minimumSecurityVersion'],['expectedRevision']);
-  if (['requireManifest','requireCiEvidence'].some(k=>Object.hasOwn(body,k)&&body[k]!==true) ||
+  if (Object.hasOwn(body,'requireManifest')&&body.requireManifest!==true ||
+      Object.hasOwn(body,'requireCiEvidence')&&body.requireCiEvidence!==false ||
       Object.hasOwn(body,'minimumSecurityVersion')&&(!Number.isSafeInteger(body.minimumSecurityVersion)||body.minimumSecurityVersion<1))
     Fail('SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED',409);
   const minimum=provenance.PublicationPolicy(State().releaseGovernance).minimumSecurityVersion;
   return SetReleaseGovernance({expectedRevision:body.expectedRevision,requireManifest:true,
-    requireCiEvidence:true,minimumSecurityVersion:body.minimumSecurityVersion??minimum},actor);
+    requireCiEvidence:false,minimumSecurityVersion:body.minimumSecurityVersion??minimum},actor);
 }
 function ProductionStatus(s=State()) {
   const g=s.releaseGovernance,requirements=provenance.PublicationRequirements(g);
   return {requirements, runtime:{requireManifest:g.requireManifest,requireCiEvidence:g.requireCiEvidence,
     minimumSecurityVersion:g.minimumSecurityVersion},
-    legacyRuntimePolicy:!g.requireManifest||!g.requireCiEvidence||g.minimumSecurityVersion<1,
+    legacyRuntimePolicy:!g.requireManifest||g.requireCiEvidence||g.minimumSecurityVersion<1,
     transition:'VERIFIED_COHORT_AND_RUNTIME_POLICY_COMMITTED_ATOMICALLY',
     failedPublicationLeavesActiveUnchanged:true, readOnly:true};
 }

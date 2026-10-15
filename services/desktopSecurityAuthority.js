@@ -20,7 +20,7 @@ function Fields(value, allowed) { if (!plain(value) || Object.keys(value).some(k
 function Defaults() {
   return { version: 1, revision: 0, mode: 'enforce', enforceLegacy: false,
     freshnessMs: 45000, challengeMs: 15000, requireReadonlyApi: true, requireCompleteCrcLayers:true,
-    dynamicCode: 'observe', requireCfg: false, minVersionA: '0', minVersionB: '0', minVersionO: '0',
+    dynamicCode: 'observe', requireCfg: false, deviceSignalsRequested: false, minVersionA: '0', minVersionB: '0', minVersionO: '0',
     requireReleaseSignature: false, trustedReleaseKeys: [], revokedSha512: [], revokedLegacySha256: [] };
 }
 function ValidatePolicy(value) {
@@ -29,11 +29,12 @@ function ValidatePolicy(value) {
   if(plain(value)&&!Object.hasOwn(value,'requireCompleteCrcLayers'))value={...value,requireCompleteCrcLayers:true};
   if(plain(value)&&!Object.hasOwn(value,'revokedLegacySha256'))value={...value,revokedLegacySha256:[]};
   if (plain(value) && !Object.hasOwn(value,'minVersionO')) value={...value,minVersionO:'0'};
+  if (plain(value) && !Object.hasOwn(value,'deviceSignalsRequested')) value={...value,deviceSignalsRequested:false};
   Fields(value, Object.keys(Defaults()));
   if (Object.keys(value).length !== Object.keys(Defaults()).length || value.version !== 1 ||
       !Number.isSafeInteger(value.revision) || value.revision < 0 || !['observe', 'enforce'].includes(value.mode) ||
       !['observe', 'prohibit'].includes(value.dynamicCode) ||
-      ['enforceLegacy', 'requireReadonlyApi', 'requireCompleteCrcLayers', 'requireCfg', 'requireReleaseSignature'].some(k => typeof value[k] !== 'boolean') ||
+      ['enforceLegacy', 'requireReadonlyApi', 'requireCompleteCrcLayers', 'requireCfg', 'requireReleaseSignature', 'deviceSignalsRequested'].some(k => typeof value[k] !== 'boolean') ||
       !Number.isInteger(value.freshnessMs) || value.freshnessMs < 5000 || value.freshnessMs > 120000 ||
       !Number.isInteger(value.challengeMs) || value.challengeMs < 5000 || value.challengeMs > 30000 ||
       ['minVersionA', 'minVersionB', 'minVersionO'].some(k => typeof value[k] !== 'string' || !/^\d{1,9}(?:\.\d{1,9}){0,3}$/.test(value[k])) ||
@@ -111,6 +112,7 @@ function PeCapabilities(bytes) {
 }
 
 function PublishMetadata(component, version, bytes, approval) {
+  require('./peBuildConfiguration').AssertProductionConfiguration(bytes);
   const row = { component, version, hashVersion:3,sha512: sha(bytes), legacyRevocationSha256:crypto.createHash('sha256').update(bytes).digest('hex'), ...PeCapabilities(bytes) };
   if (approval !== undefined) { Fields(approval, ['keyId', 'signature']); row.releaseApproval = structuredClone(approval); }
   // The CRC baseline is computed by Publish after these signature/capability
@@ -205,8 +207,9 @@ function Authenticate(body) {
   return row;
 }
 function Challenge(body) {
-  Fields(body, [...AUTH_FIELDS,'mitigationProfileVersion','mitigationEnvironment']);
+  Fields(body, [...AUTH_FIELDS,'mitigationProfileVersion','mitigationEnvironment','deviceSignalsVersion']);
   if(body.mitigationProfileVersion!==undefined&&body.mitigationProfileVersion!==1||body.mitigationEnvironment!==undefined&&body.mitigationProfileVersion!==1)Fail('SECURITY_INPUT_INVALID',400);
+  if(body.deviceSignalsVersion!==undefined&&body.deviceSignalsVersion!==1)Fail('SECURITY_INPUT_INVALID',400);
   const row = Authenticate(body), policy = require('./desktopSecurityOperations').EffectivePolicy(Policy(),RowArtifact(row,body.stage)), context = Context(row, body.stage);
   const mitigationProfile=require('./desktopMitigationProfiles').Select(RowArtifact(row,body.stage),body.mitigationEnvironment,policy);
   Prune(); const rate = rates.get(context) || { count: 0, deadline: performance.now() + 60000 };
@@ -217,7 +220,8 @@ function Challenge(body) {
     mitigationProfile, epoch, sequence: ++sequence, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), ...deadline.After(policy.challengeMs), context, stage: body.stage, intent: body.intent, binding: body.binding };
   pending.set(item.challengeId, item);
   return { version: 1, challengeId: item.challengeId, nonce: item.nonce, epoch, sequence: item.sequence,
-    revision: item.revision, expiresAt: item.expiresAt, dynamicCode: mitigationProfile?.dynamicCode||policy.dynamicCode, ...(mitigationProfile?{mitigationProfile}: {}) };
+    revision: item.revision, expiresAt: item.expiresAt, dynamicCode: mitigationProfile?.dynamicCode||policy.dynamicCode, ...(mitigationProfile?{mitigationProfile}: {}),
+    ...(policy.deviceSignalsRequested&&body.deviceSignalsVersion===1?{deviceSignalsRequested:true}:{}) };
 }
 function Canonical(body, challenge, payload) {
   return [DOMAIN, body.stage, body.sessionId, body.intent, body.binding, challenge.challengeId,
@@ -371,7 +375,7 @@ function List() {
     signaturePresent: !!row.releaseApproval, signatureValid: !!row.releaseApproval && VerifyApproval(row, policy),
     signerKeyId: row.releaseApproval?.keyId || '', policyReason: ArtifactReason(row, policy)
   }));
-  return { mitigationProfiles:require('./desktopMitigationProfiles').Status(), tlsPinTransition:require('./desktopTlsPinTransition').Status(), runtimeLoad:require('./desktopWorkQueue').Snapshot(), policy, releases, recentBuildObservations:RecentBuildObservations(), operations:require('./desktopSecurityOperations').List(), events: events.slice().reverse(), pendingCount: pending.size,
+  return { mitigationCompatibility:require('./desktopMitigationCompatibility').Status(), mitigationProfiles:require('./desktopMitigationProfiles').Status(), tlsPinTransition:require('./desktopTlsPinTransition').Status(), runtimeLoad:require('./desktopWorkQueue').Snapshot(), policy, releases, recentBuildObservations:RecentBuildObservations(), operations:require('./desktopSecurityOperations').List(), events: events.slice().reverse(), pendingCount: pending.size,
     decisionCount: decisions.size, attested: false,
     persistence: 'policy and audit: server; fresh decisions: server RAM only' };
 }

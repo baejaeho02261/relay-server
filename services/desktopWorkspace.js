@@ -51,7 +51,8 @@ function Detail(id){
   timeline.push({at:e.time||e.at||0,type:String(e.type).slice(0,80),label:baselineMatched?'서버 보안 검사 정상':e.type==='DESKTOP_RUNTIME_REQUEST_FAILED'?'서버에서 요청 거절':String(e.type).slice(0,80),reason:typeof d.reason==='string'?d.reason.slice(0,80):'',problem:!baselineMatched&&typeof d.reason==='string'?require('./desktopOperationsErrors').Explain(d.reason):null});
  }
  const histories=flows.map(f=>({flowId:f.id,sessionId:f.sessionId,launcherId:f.launcherId,status:bootstrap.SessionView(f).status,createdAt:f.createdAt,version:boot.artifacts[f.releaseId]?.version||'',binarySha512:boot.artifacts[f.releaseId]?.sha512||'',machineId:f.machineId||'',lastVerifiedAt:f.lastVerifiedAt||0}));
- return{license,metadata:Meta(id),timeline:timeline.sort((a,b)=>b.at-a.at).slice(0,150),flows:histories,timelineScope:'PERSISTED_FLOW_TIMES_AND_LAST_1000_SERVER_EVENTS',support:'APK_SUPPORT_RETIRED_NO_NEW_COLLECTION'};
+ const traceFlows=[...flows].sort((a,b)=>b.createdAt-a.createdAt).slice(0,100);
+ return{license,metadata:Meta(id),timeline:timeline.sort((a,b)=>b.at-a.at).slice(0,150),flows:histories,lifecycle:{version:1,items:traceFlows.map(f=>require('./desktopLifecycleTrace').Flow(f.id)),total:flows.length,truncated:flows.length>traceFlows.length,limit:100,scope:'SERVER_DECISIONS_AND_AUTHENTICATED_CLIENT_OBSERVATIONS'},timelineScope:'PERSISTED_FLOW_TIMES_AND_LAST_1000_SERVER_EVENTS',support:'APK_SUPPORT_RETIRED_NO_NEW_COLLECTION'};
 }
 function SaveMetadata(id,body,actor){
  Fields(body,['expectedRevision','note','tags']);licenses.Detail(id);const value=MetadataInput({note:body.note,tags:body.tags});

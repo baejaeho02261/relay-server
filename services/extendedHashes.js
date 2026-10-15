@@ -56,11 +56,21 @@ function Blake3Incremental(options={}){
  if(key!==undefined&&(Bytes(key).length!==32))throw RangeError('BLAKE3_KEY_INVALID');
  if(context!==undefined&&(typeof context!=='string'||!context.length||Buffer.byteLength(context)>1024))throw TypeError('BLAKE3_CONTEXT_INVALID');
  if(key!==undefined&&context!==undefined)throw TypeError('BLAKE3_MODE_INVALID');
- const hasher=blake3.create({dkLen:length,...(key!==undefined?{key}:{}),...(context!==undefined?{context}:{})});let done=false;
+ // Noble calls key.slice(); Node Buffer.slice() aliases the caller's bytes.
+ // Its destroy() clears IV, so borrowing a Buffer here would erase the owner's
+ // long-lived key. Give the hasher a private copy and own its whole lifetime.
+ const ownedKey=key===undefined?undefined:Buffer.from(key);let hasher,done=false;
+ try{hasher=blake3.create({dkLen:length,...(ownedKey!==undefined?{key:ownedKey}:{}),...(context!==undefined?{context}:{})});}
+ catch(error){ownedKey?.fill(0);throw error;}
+ function dispose(){try{hasher.destroy();}finally{ownedKey?.fill(0);}}
  return {
-  update(bytes){if(done)throw Error('BLAKE3_FINALIZED');hasher.update(Bytes(bytes));return this;},
-  digest(){if(done)throw Error('BLAKE3_FINALIZED');done=true;try{return Buffer.from(hasher.digest());}finally{hasher.destroy();}},
-  destroy(){done=true;hasher.destroy();}
+  update(bytes){
+   if(done)throw Error('BLAKE3_FINALIZED');
+   try{hasher.update(Bytes(bytes));return this;}
+   catch(error){done=true;dispose();throw error;}
+  },
+  digest(){if(done)throw Error('BLAKE3_FINALIZED');done=true;try{return Buffer.from(hasher.digest());}finally{dispose();}},
+  destroy(){if(!done){done=true;dispose();}}
  };
 }
 function Blake3Mode(bytes,options){const state=Blake3Incremental(options);try{return state.update(bytes).digest();}finally{state.destroy();}}

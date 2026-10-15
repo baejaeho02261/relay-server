@@ -14,6 +14,7 @@ Add('bootstrap.finish', 'GAME-A85-FINISH-V2', 'A', 'flowId', 'live exact flow; n
 Add('bootstrap.claim', 'GAME-B85-CLAIM-V2 / GAME-HANDOFF-CLAIM-V3', 'B', 'flowId', 'exact child claim; authority re-evaluated');
 Add('bootstrap.status', 'SESSION_CAPABILITY', 'B', 'sessionId', 'authenticated retained capability; projected status only; no refresh');
 Add('bootstrap.close bootstrap.abort', 'SESSION_OR_DOWNLOAD_CAPABILITY', 'A/B', 'flowId/sessionId', 'terminal acknowledgement only; V3 30 seconds');
+Add('lifecycle.challenge lifecycle.report','GAME-LIFECYCLE-REPORT-V1','A/B/O','requestId + role + target + one-use permit','signed diagnostic receipt only, <=180 seconds; never renews runtime authority');
 Add('license.redeem license.verify license.release license.overlay', 'GAME-DESKTOP-V2 + action', 'B', 'deviceId + requestId', 'redeem/release durable; verify 240 seconds; current authority');
 Add('license.challenge', 'GAME-DESKTOP-V2 + action', 'B', 'challengeId', 'new nonce; 120 second dual-clock deadline');
 Add('overlay.prepare', 'GAME-DESKTOP-V2 + overlay', 'B', 'parentSessionId + requestId', 'same prepared O; no new deadline');
@@ -33,7 +34,7 @@ function Resolve(operation, action) {
   const bootstrap={begin:'bootstrap.begin',chunk:'bootstrap.download',finish:'bootstrap.finish',claim:'bootstrap.claim',status:'bootstrap.status',close:'bootstrap.close',abort:'bootstrap.abort',overlayChunk:'overlay.download',overlayFinish:'overlay.finish',overlayClaim:'overlay.claim',overlayVerify:'overlay.verify',overlayCommit:'overlay.commit',overlayClose:'overlay.close',overlayAbort:'overlay.abort'};
   let name;
   if(operation==='device'&&['policy','challenge','complete','tpmActivate'].includes(action))name='device.'+action;
-  else if(operation==='bootstrap')name=Object.hasOwn(bootstrap,action)?bootstrap[action]:undefined;
+  else if(operation==='bootstrap')name=action==='lifecycleChallenge'?'lifecycle.challenge':action==='lifecycleReport'?'lifecycle.report':Object.hasOwn(bootstrap,action)?bootstrap[action]:undefined;
   else if(operation==='security'&&['challenge','submit'].includes(action))name='authority.'+action;
   else if(operation==='report'&&['challenge','submit'].includes(action))name='report.'+action;
   else if(['challenge','execute'].includes(operation)&&['redeem','verify','release','overlay'].includes(action))name=operation==='challenge'?'license.challenge':'license.'+action;
