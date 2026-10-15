@@ -22,10 +22,15 @@ for (const [name, role] of [['GameConnect', 'B'], ['GameLauncher', 'A'], ['GameO
   assert.ok(project.includes('<DCC_ConsoleTarget>false</DCC_ConsoleTarget>'));
   assert.match(project, /<Platform value="Win64">True<\/Platform>/);
   assert.match(project, /<Target Name="PublishRandomExecutable" AfterTargets="Build;Rebuild">/);
-  assert.ok(project.includes("<RandomArtifactName>" + role + "_$([System.Guid]::NewGuid().ToString('N')).exe</RandomArtifactName>"));
-  assert.ok(project.includes('<RandomArtifactDirectory>$(MSBuildProjectDirectory)\\$(Platform)\\$(Config)</RandomArtifactDirectory>'));
+  assert.ok(project.includes("<RandomArtifactName>" + role + "_$(Config)_$([System.Guid]::NewGuid().ToString('N')).exe</RandomArtifactName>"));
+  assert.ok(project.includes('<RandomArtifactDirectory>$(MSBuildProjectDirectory)\\bin</RandomArtifactDirectory>'));
   assert.ok(project.includes('<DCC_DcuOutput>.\\build\\' + role + '\\$(Platform)\\$(Config)\\dcu</DCC_DcuOutput>'), 'Compiler units must remain role-isolated');
   assert.match(project, /<Move SourceFiles="\$\(CompiledArtifact\)"/);
+  assert.match(project, /TreatAsLocalProperty="RandomArtifactName;RandomArtifactDirectory;CompiledArtifact"/, 'Global build properties must not redirect final artifacts');
+  for (const configuration of ['Debug', 'Release']) {
+    const finalName = project.match(/<RandomArtifactName>([^<]+)<\/RandomArtifactName>/)[1].replace('$(Config)', configuration).replace(/\$\(\[System\.Guid\]::NewGuid\(\)\.ToString\('N'\)\)/, 'a'.repeat(32));
+    assert.equal(finalName, `${role}_${configuration}_${'a'.repeat(32)}.exe`);
+  }
   assert.match(project, /<Icon_MainIcon\s*\/>/);
   assert.ok(!/\.ico\b/i.test(project));
   for (const [, file] of project.matchAll(/(?:DCCReference|None)\s+Include="([^"]+)"/g)) {
@@ -39,6 +44,8 @@ for (const [name, role] of [['GameConnect', 'B'], ['GameLauncher', 'A'], ['GameO
   assert.ok(seal >= 0 && startup > seal, 'Native startup validation must follow API sealing');
   assert.match(dpr.slice(startup), /RequireNativeStartup\(gcr(?:Launcher|Connect|Overlay)\);\s+ExitCode := Run/, 'Role-specific startup checks must precede application execution');
   assert.ok(dpr.includes('{$APPTYPE GUI}'));
+  assert.match(dpr, /function GameBuildConfiguration: LongWord; stdcall;\s*begin\s*\{\$IFDEF RELEASE\}\s*Result := 2;\s*\{\$ELSE\}\s*Result := 1;/, 'Marker value must follow the actual compiler configuration');
+  assert.match(dpr, /exports\s*\{\$IFDEF RELEASE\}\s*GameBuildConfiguration name 'GAME_BUILD_RELEASE_V1';\s*\{\$ELSE\}\s*GameBuildConfiguration name 'GAME_BUILD_DEBUG_V1';/, 'Debug must not carry the Release export marker');
   for (const [, res] of dpr.matchAll(/\{\$R\s+'([^']+)'\}/g)) {
     const bytes = fs.readFileSync(path.join(root, res));
     assert.ok(bytes.length > 32, 'Missing compiled resource: ' + res);
@@ -59,6 +66,21 @@ for (const [name, role] of [['GameConnect', 'B'], ['GameLauncher', 'A'], ['GameO
 }
 assert.ok(!fs.existsSync(path.join(root, 'GameConnect.ico')));
 const metadata = read('Game.Metadata.inc');
+assert.match(metadata, /Application build configuration cannot be both Debug and Release/);
+assert.match(metadata, /Application build configuration must define Debug or Release/);
+const isolation = read('Game.BuildIsolation.targets');
+assert.match(isolation, /Name="GameCompileSearchPathValidator" Condition="'\$\(Config\)'=='Debug' or '\$\(Config\)'=='Release'"/);
+assert.ok(isolation.includes('\\Win64\\$(Config)\\dcu'));
+assert.ok(isolation.includes('\\Win64\\$(Config)'));
+assert.ok(!isolation.includes('\\Win64\\Release'), 'Output validation must not hardcode the Release directory');
+for (const error of ['GAME_BUILD_CONFIGURATION_INVALID', 'GAME_BUILD_RELEASE_DEFINE_MISMATCH', 'GAME_BUILD_DEBUG_DEFINE_MISMATCH', 'GAME_BUILD_TEST_DEFINE_FORBIDDEN', 'GAME_BUILD_OUTPUT_OVERRIDE_FORBIDDEN']) assert.ok(isolation.includes(error));
+assert.ok(isolation.includes('Final="$(MSBuildProjectDirectory)\\bin"'));
+assert.doesNotMatch(isolation.match(/<Target Name="ValidateProductionIsolation"[^>]*>/)[0], /Condition=/, 'Validation must not be skipped through DesignTimeBuild or a configuration override');
+assert.match(read('Game.BuildSearchPaths.cs'), /rejectReparse\(canonical\(Final\)\)/, 'Shared final folder must not redirect through a junction');
+const isolationTest = read('tests/Test-BuildIsolation.ps1');
+assert.match(isolationTest, /foreach\(\$config in @\('Debug','Release'\)\)/);
+assert.match(isolationTest, /ISOLATION_OTHER_CONFIGURATION_DAMAGED/);
+assert.match(isolationTest, /ISOLATION_COMPILER_CONFIGURATION_NOT_REJECTED/);
 for (const hook of ['GAME_LICENSE_CONTRACT_TESTS', 'GAME_TLS_CONTRACT_TESTS', 'GAME_NATIVE_ABI_TESTS', 'GAME_HANDOFF_CONTRACT_TESTS']) {
   assert.ok(metadata.includes('{$IFDEF '+hook+'}'), 'Missing product guard for '+hook);
 }

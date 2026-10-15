@@ -9,6 +9,7 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-desktop-http-'));
 const adminPassword = 'desktop-http-regression-admin-secret';
 const viewerPassword = 'desktop-http-regression-viewer-secret';
 const bootstrapFixture = require('./modern-http-fixture');
+const releaseSigner = bootstrapFixture.CreateSyntheticApprovalSigner();
 let child, base, nativeProfile, output = '', sequence = 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -90,6 +91,7 @@ async function execute(device, action, payload) { return call('/api/desktop/exec
 async function upload(component, bytes, auth, csrf = true) {
     const headers = { 'Content-Type': 'application/octet-stream' };
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
+    if (['A','B','O'].includes(component)) { const approval=releaseSigner.Approval(component,'80.0.0',bytes); headers['X-Game-Release-Key-Id']=approval.keyId; headers['X-Game-Release-Signature']=approval.signature; }
     const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=Game' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
@@ -118,6 +120,9 @@ async function bootstrapDevice(device, auth) {
         }
         let auth = await login();
         nativeProfile=(await call('/api/desktop/connect-profile',undefined,auth)).json.profile;
+        const initialPolicy=(await call('/api/desktop/bootstrap/security-authority',undefined,auth)).json.policy;
+        const trustRelease=await call('/api/desktop/bootstrap/security-authority',{expectedRevision:initialPolicy.revision,requireReleaseSignature:true,trustedReleaseKeys:[releaseSigner.trustedKey]},auth);
+        assert.equal(trustRelease.status,200,JSON.stringify(trustRelease.json));
         const viewer = await login('viewer');
         for (const route of ['/api/desktop/bootstrap', '/api/desktop/bootstrap/integrity-policy', '/api/desktop/bootstrap/integrity-reports', '/api/desktop/bootstrap/module-baselines', '/api/desktop/bootstrap/launchers/LA-' + 'A'.repeat(24) + '/download']) {
             assert.equal((await call(route)).status, 401); assert.equal((await call(route, undefined, viewer)).status, 403);
@@ -151,10 +156,10 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await call(operations+'/activate',unproved,viewer)).status,403);
         assert.equal((await call(operations+'/activate',{...unproved,expectedPolicyRevision:999},auth)).status,409);
         assert.equal((await call(operations+'/activate',unproved,auth)).json.error,'SECURITY_RELEASE_MANIFEST_REQUIRED');
-        // Synthetic proof exists ONLY in this ephemeral test server. No real
-        // Windows execution or operator-deployable CI evidence is produced.
+        // Synthetic signed executables exist only in this ephemeral test server.
+        // Manual registration generates no CI key, evidence or Windows PASS.
         await bootstrapFixture.RegisterSyntheticRelease({call,auth,candidates,label:'SYNTHETIC HTTP CONTRACT ONLY',
-            afterManifest:async()=>assert.equal((await call(operations+'/preview-pair',overlayPair,auth)).json.preview.eligible,false)});
+            afterManifest:async()=>{const preview=(await call(operations+'/preview-pair',overlayPair,auth)).json.preview;assert.equal(preview.eligible,true);assert.equal(preview.release.ciOutcomes,null);assert.equal(preview.release.ciVerification,'NOT_PROVIDED');}});
         assert.equal((await call(operations+'/preview-pair',pair,auth)).json.preview.eligible,false,'A/B without manifest-bound O is no longer a production cohort');
         const overlayPreview=await call(operations+'/preview-pair',overlayPair,auth);
         assert.equal(overlayPreview.status,200);assert.equal(overlayPreview.json.preview.eligible,true);assert.equal(overlayPreview.json.preview.oId,candidates.O.id);assert.equal(overlayPreview.json.preview.oSha512,candidates.O.sha512);
@@ -167,9 +172,9 @@ async function bootstrapDevice(device, auth) {
         const overlayActivated=await call(operations+'/activate',activateOverlay,auth);assert.equal(overlayActivated.status,200,JSON.stringify(overlayActivated.json));
         settings=(await call(security,undefined,auth)).json;assert.deepEqual(settings.operations.active,{A:pair.aId,B:pair.bId,O:candidates.O.id});
         const runtime=settings.operations.operations.releaseGovernance;
-        assert.equal(runtime.requireManifest,true);assert.equal(runtime.requireCiEvidence,true);assert.equal(runtime.minimumSecurityVersion,1);
+        assert.equal(runtime.requireManifest,true);assert.equal(runtime.requireCiEvidence,false);assert.deepEqual(runtime.ciKeys,{});assert.deepEqual(runtime.ciEvidence,{});assert.equal(runtime.minimumSecurityVersion,1);
         assert.equal((await call(operations+'/activate',activateOverlay,auth)).status,409,'Stale revision cannot repeat an Overlay activation');
-        console.log('PASS real HTTP server operations: candidate-only staging, required full cohort/CI signature, CSRF, viewer rejection, atomic policy+activation, stale revision (synthetic CI signatures, not Windows PASS)');
+        console.log('PASS real HTTP server operations: candidate-only staging, required signed full cohort without CI evidence, CSRF, viewer rejection, atomic policy+activation, stale revision (synthetic signed EXEs, not Windows PASS)');
         const dll = bootstrapFixture.PE('B'), peOffset = dll.readUInt32LE(0x3c);
         dll.writeUInt16LE(dll.readUInt16LE(peOffset + 22) | 0x2000, peOffset + 22);
         assert.equal((await uploadBaseline(dll)).status,401);
@@ -259,6 +264,7 @@ async function bootstrapDevice(device, auth) {
 
         await stop(); await start(); auth = await login();
         nativeProfile=(await call('/api/desktop/connect-profile',undefined,auth)).json.profile;
+
         list = await call('/api/desktop/licenses', undefined, auth);
         assert.equal(list.status, 200); assert.equal(list.json.items.length, 3); assert.equal(list.json.items.find(item => item.id === id).status, 'REVOKED');
         assert.equal((await call('/api/desktop/licenses?status=USED', undefined, auth)).json.items.length, 1);

@@ -3,6 +3,14 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ['test-manual-verification-v3.js'], ['test-lifecycle-trace.js'],
+  ['test-server-state-read-routes.js'], ['test-server-state-dashboard-ui.js'], ['test-server-state-service-ui.js'],
+  ['test-overlay-lease-expiry.js'], ['test-native-lifecycle-contract.js'],
+  ['test-recovery-drill.js'], ['test-product-fault-tests.js'], ['test-product-fault-wire.js'],
+  ['test-native-receive-fixture.js'], ['test-product-fault-tls-proxy.js'],
+  ['test-ide-build-observation.js'], ['test-etcd-consensus-store.js'],
+  ['test-cfg-callsite-audit.js'], ['cfg-runtime-enforcement-fixture.js'], ['test-overlay-environment.js'], ['test-mitigation-compatibility.js'], ['test-crc-pe-comparison.js'],
+  ['test-pe-build-configuration.js'], ['test-manual-release-check.js'], ['test-manual-windows-tests.js'], ['test-server-capabilities.js'], ['test-manual-verification.js'], ['test-kmac256.js'], ['test-blake3-ownership.js'],
   ['test-key-console.js'], ['test-history-outcomes.js'],
   ['test-passkey-lifetime.js'], ['test-network-lifecycle-upgrade.js'], ['test-server-state-ui.js'],
   ['test-work-queue-observability.js'],

@@ -1,13 +1,23 @@
 'use strict';
 // Opt-in fixture for current publication and measurement contracts. It does not
-// change the legacy fixture used to test migration. All PEs, inventories and CI
-// statements below are synthetic data for a disposable HTTP server, never proof
+// change the legacy fixture used to test migration. All PEs and inventories
+// below are synthetic data for a disposable HTTP server, never proof
 // of a Windows build or measurements of this test machine.
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),{performance}=require('node:perf_hooks');
 const legacy=require('./desktop-bootstrap-fixture'),integrity=require('../services/desktopIntegrity');
 const measurement=require('../services/measurementPlanContract'),remoteEvidence=new Map();
 function PE(component,marker='SYNTHETIC_NOT_WINDOWS'){
  return legacy.PE(component,marker+' '+measurement.CONTRACT);
+}
+function CreateSyntheticApprovalSigner(){
+ // This ephemeral key signs only fixture bytes; it is not exported to disk or
+ // trusted by an operator deployment. The server verifies the real signature.
+ const pair=crypto.generateKeyPairSync('ed25519'),provenance=require('../services/desktopReleaseProvenance');
+ const trustedKey={keyId:provenance.KeyId(pair.publicKey),publicKey:pair.publicKey.export({type:'spki',format:'pem'}).toString()};
+ return {trustedKey,Approval(component,version,bytes){
+  const canonical=require('../services/desktopSecurityAuthority').ReleaseCanonical(component,version,legacy.sha512(bytes));
+  return {keyId:trustedKey.keyId,signature:crypto.sign(null,Buffer.from(canonical),pair.privateKey).toString('base64')};
+ }};
 }
 async function Snapshot(profile,device,context,bytes){
  const started=Math.floor(performance.now()),file=integrity.Digests(bytes),code=integrity.CodeImage(bytes);
@@ -45,7 +55,7 @@ async function RemoteObserveLicense(profile,device,session,action,requestId,payl
  return legacy.RemoteObserve(profile,device,{...context,intent:action==='overlay'?'verify':action,binding:require('../services/desktopSecurityAuthority').Binding(requestId,payloadHash)},bytes);
 }
 async function RegisterSyntheticRelease({call,auth,candidates,label,afterManifest}){
- assert(/^SYNTHETIC/.test(label),'No deployable CI evidence may be produced by this test helper');
+ assert(/^SYNTHETIC/.test(label),'This test helper registers synthetic manifests only');
  const security='/api/desktop/bootstrap/security-authority',operations='/api/desktop/bootstrap/security-operations',provenance=require('../services/desktopReleaseProvenance');
  const settings=(await call(security,undefined,auth)).json;
  for(const role of ['A','B','O']){assert.equal(candidates[role].component,role);assert.equal(candidates[role].measurementPlanVersion,1);assert.equal(candidates[role].handoffVersion,1);}
@@ -54,10 +64,6 @@ async function RegisterSyntheticRelease({call,auth,candidates,label,afterManifes
   artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,candidates[k].sha512]))};
  async function mutation(action,body){const live=(await call(security,undefined,auth)).json,result=await call(operations+'/'+action,{expectedRevision:live.operations.operations.revision,...body},auth);assert.equal(result.status,200,JSON.stringify(result.json));return result;}
  await mutation('release-manifests',{manifest});if(afterManifest)await afterManifest();
- const pair=crypto.generateKeyPairSync('ed25519'),keyId=provenance.KeyId(pair.publicKey);
- await mutation('ci-signers',{keyId,publicKey:pair.publicKey.export({type:'spki',format:'pem'}).toString(),state:'ACTIVE',notBefore:Date.now()-60000,notAfter:Date.now()+3600000});
- const statement={version:1,purpose:provenance.CI_DOMAIN,manifestId:provenance.ManifestId(manifest),runId:'SYNTHETIC-HTTP-NOT-WINDOWS',issuedAt:Date.now(),nativeBuild:'PASS',apiProbe:'PASS',integration:'PASS',logsSha512:'2'.repeat(128)};
- await mutation('ci-evidence',{envelope:{keyId,statement,signature:crypto.sign(null,Buffer.from(provenance.Canonical(statement)),pair.privateKey).toString('base64')}});
  return manifest;
 }
-module.exports={...legacy,PE,Snapshot,RemoteSession,RemoteObserveLicense,RegisterSyntheticRelease};
+module.exports={...legacy,PE,CreateSyntheticApprovalSigner,Snapshot,RemoteSession,RemoteObserveLicense,RegisterSyntheticRelease};
