@@ -3,15 +3,15 @@ const assert = require('node:assert/strict'), fs = require('node:fs'), os = requ
 const { spawn, spawnSync } = require('node:child_process');
 const root = path.resolve(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'game-writer-lock-'));
 const lock = path.join(root, 'services/desktopSingleWriter.js');
-const source = `require(${JSON.stringify(lock)}).Acquire(process.env.DATA_DIR,{haEnabled:process.env.HA_ENABLED==='1'});process.send('LOCKED');setInterval(()=>{},1000);`;
+const source = `const acquire=()=>{require(${JSON.stringify(lock)}).Acquire(process.env.DATA_DIR,{haEnabled:process.env.HA_ENABLED==='1'});process.send('LOCKED');setInterval(()=>{},1000);};if(process.env.WRITER_TEST_BARRIER==='1'){process.once('message',message=>{if(message!=='GO')process.exit(2);acquire();});process.send('READY');}else acquire();`;
 const children = new Set();
-function Start(dir) {
-  const child = spawn(process.execPath, ['-e', source], { cwd: root, env: { ...process.env, DATA_DIR: dir, HA_ENABLED: '0' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
+function Start(dir, barrier) {
+  const child = spawn(process.execPath, ['-e', source], { cwd: root, env: { ...process.env, DATA_DIR: dir, HA_ENABLED: '0', WRITER_TEST_BARRIER: barrier?'1':'0' }, stdio: ['ignore', 'pipe', 'pipe', 'ipc'] });
   children.add(child); child.once('close', () => children.delete(child));
   let stderr = ''; child.stderr.on('data', bytes => { stderr += bytes; });
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { child.kill(); reject(Error('LOCK_TEST_TIMEOUT')); }, 8000);
-    child.once('message', message => { clearTimeout(timer); assert.equal(message, 'LOCKED'); resolve(child); });
+    child.on('message', message => { if(message==='READY'&&barrier){barrier(child);return;}clearTimeout(timer); assert.equal(message, 'LOCKED'); resolve(child); });
     child.once('error', error => { clearTimeout(timer); reject(error); });
     child.once('exit', code => { clearTimeout(timer); reject(Error('LOCK_CHILD_EXIT_' + code + ':' + stderr)); });
   });
@@ -39,10 +39,25 @@ function Probe(dir, args = ['-e', source], extra = {}) {
       const alias = path.join(temp, 'alias'); fs.symlinkSync(data, alias, 'dir');
       assert.match(Probe(alias).stderr, /DESKTOP_DATA_DIR_ALREADY_IN_USE/);
     }
-    const race = await Promise.allSettled([Start(path.join(temp, 'race')), Start(path.join(temp, 'race'))]);
-    assert.equal(race.filter(result => result.status === 'fulfilled').length, 1);
-    assert.match(race.find(result => result.status === 'rejected').reason.message, /DESKTOP_DATA_DIR_ALREADY_IN_USE/);
-    await Stop(race.find(result => result.status === 'fulfilled').value, 'SIGTERM');
+    // The active owner must be rejected within a finite acquisition schedule.
+    // Allow scheduler/native-I/O overhead; the code's retry budget is checked
+    // below, not misrepresented as an unconditional wall-clock OS guarantee.
+    const timedSource=`const {performance}=require('node:perf_hooks'),lock=require(${JSON.stringify(lock)}),started=performance.now();try{lock.Acquire(process.env.DATA_DIR);process.exit(2);}catch(e){console.log(JSON.stringify({error:e.message,elapsedMs:performance.now()-started,limits:lock.ACQUIRE_LIMITS}));process.exit(1);}`;
+    const timed=Probe(data,['-e',timedSource]);assert.equal(timed.status,1,timed.stderr);
+    const bounded=JSON.parse(timed.stdout.trim());assert.equal(bounded.error,'DESKTOP_DATA_DIR_ALREADY_IN_USE');
+    assert.deepEqual(bounded.limits,{attempts:12,budgetMs:250,minBackoffMs:5,maxBackoffMs:20});
+    assert(bounded.elapsedMs<1500,'Held-owner rejection exceeded test tolerance: '+bounded.elapsedMs);
+    // Release both independent processes from an IPC barrier, covering the
+    // fresh SQLite open/read-lock upgrade race instead of a serial spawn only.
+    for(let round=0;round<24;round++){
+      const ready=[],barrier=child=>{ready.push(child);if(ready.length===2)for(const c of ready)c.send('GO');};
+      const directory=path.join(temp,'race-'+round);
+      const race=await Promise.allSettled([Start(directory,barrier),Start(directory,barrier)]);
+      const winners=race.filter(result=>result.status==='fulfilled');
+      assert.equal(winners.length,1,'Race '+round+': '+race.filter(x=>x.status==='rejected').map(x=>x.reason.message).join(' | '));
+      assert.match(race.find(result=>result.status==='rejected').reason.message,/DESKTOP_DATA_DIR_ALREADY_IN_USE/);
+      await Stop(winners[0].value,'SIGTERM');
+    }
     const independent = await Start(path.join(temp, 'independent')); await Stop(independent, 'SIGTERM');
     await Stop(first, 'SIGKILL');
     // Presence survives a crash; OS ownership does not. No stale-file removal.
@@ -53,7 +68,7 @@ function Probe(dir, args = ['-e', source], extra = {}) {
     assert.match(ha.stderr, /DESKTOP_SINGLE_WRITER_REQUIRED/); assert.equal(fs.existsSync(path.join(temp, 'ha')), false);
     const corrupt = path.join(temp, 'corrupt'); fs.mkdirSync(corrupt); fs.writeFileSync(path.join(corrupt, '.desktop-single-writer.sqlite'), 'not a SQLite database');
     const failure = Probe(corrupt); assert.equal(failure.status, 1); assert.match(failure.stderr, /DESKTOP_WRITER_LOCK_UNAVAILABLE/);
-    console.log('SINGLE WRITER PASS: separate-process exclusion, real startup/maintenance before mutation, simultaneous race, path alias, independent directory, crash/restart recovery, HA and corrupt-lock refusal.');
+    console.log('SINGLE WRITER PASS: separate-process exclusion, real startup/maintenance before mutation, 24 synchronized simultaneous races, bounded held-owner rejection, path alias, independent directory, crash/restart recovery, HA and corrupt-lock refusal.');
   } finally {
     await Promise.all([...children].map(child => Stop(child, 'SIGKILL')));
     fs.rmSync(temp, { recursive: true, force: true });

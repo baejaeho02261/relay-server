@@ -7,7 +7,7 @@ const abi=require(path.join(root,'compare-native-abi.js')),fields=abi.Contract()
 const lines=fields.map((k,i)=>k+'='+(i+1)),bytes=Buffer.from(lines.join('\n')+'\n');
 let groups=0,missingCases=0,mismatchCases=0;function test(name,fn){fn();groups++;console.log('PASS '+name);}
 function reject(fn,code){assert.throws(fn,e=>e.message===code);}
-test('5.1 independent SDK and production Delphi exporters cover all 104 field names exactly',()=>{
+test(`5.1 independent SDK and production Delphi exporters cover all ${fields.length} field names exactly`,()=>{
  const cpp=fs.readFileSync(path.join(root,'NativeAbiSdkProbe.cpp'),'utf8');
  const pas=['Win64AbiContract.inc','TlsAbiContract.inc'].map(x=>fs.readFileSync(path.join(root,x),'utf8')).join('\n');
  const actual=[...cpp.matchAll(/printf\("([A-Za-z0-9_]+\.[A-Za-z0-9_]+)=/g)].map(x=>x[1]);

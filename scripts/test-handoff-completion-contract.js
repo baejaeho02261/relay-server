@@ -36,7 +36,7 @@ check('Public key, crypto, client and handoff calls admit exactly at their outer
 });
 check('Overlay preparation keeps the same request identity and signed execute body',()=>{
  assert.match(api,/PrepareRequestID := RequestID;\s+Reply := ExecuteProof\('overlay', PayloadText, PrepareRequestID\)/);
- assert.match(api,/Result := PostJSON\('execute', ExecuteBody, Action = 'overlay'\)/);
+ assert.match(api,/Result := PostJSON\('execute', ExecuteBody, \(Action = 'overlay'\) or\s*\(Action = 'redeem'\) or \(Action = 'release'\)\)/);
  const retry=api.split('function TGameApi.PostJSON(')[1].split('function TGameApi.ExecuteProof(')[0];
  assert.ok(retry.includes('Attempts := 2'));
  assert.ok(retry.includes('Deadline := GetTickCount64 + 15000'));
