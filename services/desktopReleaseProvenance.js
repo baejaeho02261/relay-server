@@ -2,7 +2,8 @@
 // Deployment identity and CI evidence are separate from executable approval.
 // This verifies a trusted CI signer's claim, not hardware attestation or proof
 // that a compiler/test runner actually ran. Version-1 stored runtime policy is
-// readable unchanged; NEW production publication has a mandatory policy floor.
+// readable unchanged; new manual publication requires approvals and a manifest,
+// while signed CI evidence remains optional historical information.
 const crypto = require('node:crypto');
 const HASH = /^[a-f0-9]{128}$/, KEY = /^[a-f0-9]{64}$/;
 const MANIFEST_DOMAIN = 'GAME-DEPLOYMENT-MANIFEST-V1';
@@ -22,13 +23,13 @@ function Defaults() { return { version:1, requireManifest:false, requireCiEviden
 // until an operator atomically publishes a fully verified replacement cohort.
 function PublicationPolicy(g) {
   ValidateState(g);
-  return {...g, requireManifest:true, requireCiEvidence:true,
+  return {...g, requireManifest:true, requireCiEvidence:false,
     minimumSecurityVersion:Math.max(1, g.minimumSecurityVersion)};
 }
 function PublicationRequirements(g) {
   const p = PublicationPolicy(g);
-  return {requireManifest:true, requireCiEvidence:true,
-    minimumSecurityVersion:p.minimumSecurityVersion, evidenceTrust:'TRUSTED_CI_SIGNATURE',
+  return {requireManifest:true, requireCiEvidence:false, requireReleaseSignature:true,
+    minimumSecurityVersion:p.minimumSecurityVersion, evidenceTrust:'SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST',
     manualPassSufficient:false, scope:'NEW_PRODUCTION_PUBLICATION', hardwareAttested:false};
 }
 function ValidateManifest(m) {
@@ -116,6 +117,6 @@ function Evaluate(g,a,b,o,releaseKeys=[]) {
     reason=known ? 'SECURITY_RELEASE_MIXED_MANIFEST' : 'SECURITY_RELEASE_MANIFEST_REQUIRED';
   } else if (manifest && manifest.securityVersion < g.minimumSecurityVersion) reason='SECURITY_RELEASE_DOWNGRADE';
   else if (g.requireCiEvidence && (!ciVerified || ['nativeBuild','apiProbe','integration'].some(k => record.envelope.statement[k] !== 'PASS'))) reason='SECURITY_CI_EVIDENCE_REQUIRED';
-  return {manifestId,securityVersion:manifest?.securityVersion || 0,reason,evidenceType:ciVerified?'CI_SIGNED_VERIFIED':manifest?'OPERATOR_RECORDED':'NONE',ciOutcomes:ciVerified?{nativeBuild:record.envelope.statement.nativeBuild,apiProbe:record.envelope.statement.apiProbe,integration:record.envelope.statement.integration}:null,hardwareAttested:false};
+  return {manifestId,securityVersion:manifest?.securityVersion || 0,reason,evidenceType:ciVerified?'CI_SIGNED_VERIFIED':manifest?'OPERATOR_RECORDED':'NONE',ciRequired:g.requireCiEvidence,ciVerification:ciVerified?'SIGNATURE_VERIFIED':record?'INVALID_OR_REVOKED':'NOT_PROVIDED',ciOutcomes:ciVerified?{nativeBuild:record.envelope.statement.nativeBuild,apiProbe:record.envelope.statement.apiProbe,integration:record.envelope.statement.integration}:null,hardwareAttested:false};
 }
 module.exports={PublicationPolicy,PublicationRequirements,ValidateRecovery,Defaults,ValidateState,ValidateManifest,ManifestId,PolicyDigest,KeyId,PublicKey,ValidateKey,ValidateStatement,ValidateEnvelope,Canonical,VerifyEnvelope,Evaluate,FindManifest,Tuple,Stable,CI_DOMAIN};

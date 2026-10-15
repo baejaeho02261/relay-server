@@ -40,12 +40,15 @@ function Load(){
   Anchor(value).Open(Mark(value,raw),!fs.existsSync(HEAD));
   if(value.transportKeyRotation!==undefined)require('./desktopTransportRotation').Validate(value.transportKeyRotation);
   if(value.mitigationProfiles!==undefined)require('./desktopMitigationProfiles').ValidateStore(value.mitigationProfiles);
+  if(value.mitigationCompatibility!==undefined)require('./desktopMitigationCompatibility').Validate(value.mitigationCompatibility);
   if(value.tlsPinTransition!==undefined)require('./desktopTlsPinTransition').Validate(value.tlsPinTransition);
   if(value.serverRecovery!==undefined)require('./desktopRecovery').Validate(value);
   if(value.serverAuditOutbox!==undefined)require('./desktopOperationAudit').Validate(value.serverAuditOutbox);
   if(value.deviceRegistry!==undefined)require('./desktopDeviceRegistry').Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require('./desktopDeviceIdentity').Validate(value.deviceIdentity);
   if(value.orphanQuarantine!==undefined)require('./desktopOrphanFiles').Validate(value.orphanQuarantine);
+  if(value.manualVerifications!==undefined)require('./desktopManualVerification').Validate(value.manualVerifications);
+  if(value.lifecycleTrace!==undefined)require('./desktopLifecycleTrace').Validate(value.lifecycleTrace,value);
 
   if(value.schema<5){
    // Old native binaries have a different signed transcript and digest schema.
@@ -146,7 +149,7 @@ function Atomic(fn){
  if(poisoned)throw Error('BOOTSTRAP_STORAGE_RESTART_REQUIRED');
  const before=Load(),next=structuredClone(before),previousCallbacks=commitCallbacks,callbacks=[];let result;
  commitCallbacks=callbacks;
- try{result=fn(next);next.revision=before.revision+1;Write(next);current=next;}
+ try{result=fn(next);require('./desktopLifecycleTrace').ObserveTransitions(before,next);next.revision=before.revision+1;Write(next);current=next;}
  catch(error){if(poisoned){current=next;error.authorityMayBeCommitted=true;}throw error;}
  finally{commitCallbacks=previousCallbacks;}
  for(const callback of callbacks)callback();

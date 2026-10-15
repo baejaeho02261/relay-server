@@ -33,18 +33,22 @@ function Token(value){if(typeof value!=='string'||!/^[-A-Z0-9_]{1,64}$/.test(val
 function ReadFile(file){const st=fs.lstatSync(file);if(st.isSymbolicLink()||!st.isFile())throw Error('INTEGRITY_REPORT_STORAGE_INVALID');return fs.readFileSync(file);}
 function Mac(payload){return crypto.createHmac('sha256',secret).update('GAME-INTEGRITY-REPORTS-V1\n'+JSON.stringify(payload)).digest('hex');}
 function Blake3Mac(payload){const h=require('./extendedHashes'),key=h.Blake3DeriveKey('GameConnect.Server.IntegrityReports.Store.v2',secret);const bytes=Buffer.from(JSON.stringify(payload));try{return h.Blake3Keyed(key,bytes).toString('hex');}finally{key.fill(0);bytes.fill(0);}}
+// KMAC authenticates the canonical store's SHA-512 digest under a distinct
+// HKDF key/domain. Native SHA-512 bounds the JS Keccak work for large journals;
+// this versioned construction does not substitute a hash for a secret MAC.
+function KmacMac(payload){const bytes=Buffer.from(JSON.stringify(payload));let digest;try{digest=crypto.createHash('sha512').update(bytes).digest();return require('./kmac256').ServerMac(secret,digest,'GAME-INTEGRITY-REPORTS-STORE-V3');}finally{bytes.fill(0);digest?.fill(0);}}
 function Load(){
  if(poisoned)throw Error('INTEGRITY_REPORT_RESTART_REQUIRED');if(loaded)return;let created=false;fs.mkdirSync(DIR,{recursive:true,mode:0o700});
  if(!fs.existsSync(KEY)){created=true;if(fs.existsSync(FILE))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');const fd=fs.openSync(KEY,'wx',0o600);try{fs.writeFileSync(fd,crypto.randomBytes(32));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
  if(!created&&!fs.existsSync(FILE))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
  secret=ReadFile(KEY);if(secret.length!==32)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
- if(fs.existsSync(FILE)){const raw=ReadFile(FILE),envelope=require('./strictJson').Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});const data=envelope?.data;if(!data||![1,2].includes(data.version)||!Number.isSafeInteger(data.revision)||!Array.isArray(data.records)||data.records.length>MAX_REPORTS||!require('./strictJson').SecretEqual(envelope.mac,Mac(data))||data.version===2&&!require('./strictJson').SecretEqual(envelope.blake3Mac,Blake3Mac(data)))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');Anchor().Open(Mark(data,raw),!fs.existsSync(FILE+'.head'));revision=data.revision;records=data.records;observations=data.observations||[];if(!Array.isArray(observations)||observations.length>4096)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');baselines=data.baselines||[];if(!Array.isArray(baselines)||baselines.length>256)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');if(data.policy){try{ValidatePolicy(data.policy,true);}catch(_){throw Error('INTEGRITY_REPORT_STORAGE_INVALID');}policy={requireExtendedHashes:false,...data.policy};}for(const row of records)if(row.snapshotFinal&&row.snapshotId)finishedSnapshots.set(SnapshotKey(row.stage,row.stage==='A'?row.flowId:row.sessionId,row.snapshotId),row.at+900000);}
+ if(fs.existsSync(FILE)){const raw=ReadFile(FILE),envelope=require('./strictJson').Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});const data=envelope?.data;if(!data||![1,2,3].includes(data.version)||!Number.isSafeInteger(data.revision)||!Array.isArray(data.records)||data.records.length>MAX_REPORTS||!require('./strictJson').SecretEqual(envelope.mac,Mac(data))||data.version>=2&&!require('./strictJson').SecretEqual(envelope.blake3Mac,Blake3Mac(data))||data.version===3&&!require('./strictJson').SecretEqual(envelope.kmac256Mac,KmacMac(data)))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');Anchor().Open(Mark(data,raw),!fs.existsSync(FILE+'.head'));revision=data.revision;records=data.records;observations=data.observations||[];if(!Array.isArray(observations)||observations.length>4096)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');baselines=data.baselines||[];if(!Array.isArray(baselines)||baselines.length>256)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');if(data.policy){try{ValidatePolicy(data.policy,true);}catch(_){throw Error('INTEGRITY_REPORT_STORAGE_INVALID');}policy={requireExtendedHashes:false,...data.policy};}for(const row of records)if(row.snapshotFinal&&row.snapshotId)finishedSnapshots.set(SnapshotKey(row.stage,row.stage==='A'?row.flowId:row.sessionId,row.snapshotId),row.at+900000);}
  if(created)Save([]);loaded=true;
 }
 function Save(next){
  if(poisoned)throw Error('INTEGRITY_REPORT_RESTART_REQUIRED');
- const data={version:2,revision:revision+1,records:next,baselines,policy,observations};
- const raw=Buffer.from(JSON.stringify({data,mac:Mac(data),blake3Mac:Blake3Mac(data)})),nextHead=Mark(data,raw);let previous,published=false;
+ const data={version:3,revision:revision+1,records:next,baselines,policy,observations};
+ const raw=Buffer.from(JSON.stringify({data,mac:Mac(data),blake3Mac:Blake3Mac(data),kmac256Mac:KmacMac(data)})),nextHead=Mark(data,raw);let previous,published=false;
  try{
   if(fs.existsSync(FILE)){const before=ReadFile(FILE),old=require('./strictJson').Parse(before,{maxBytes:64*1024*1024,maxNodes:4000000});previous=Mark(old.data,before);Anchor().Prepare(previous,nextHead);}
   require('./durableFile').Atomic(FILE,raw,{createOnly:!previous});published=true;
@@ -66,9 +70,33 @@ function Module(row,hashVersion=3){
  if(hashVersion===3&&((result.fileSha512||result.fileCrc64)&&!HasExtendedPair(result,'file')||(result.codeSha512||result.codeCrc64)&&!HasExtendedPair(result,'code')||result.exportTableStatus==='MEASURED'&&!HasExtendedPair(result,'exportTable')))Fail('INTEGRITY_REPORT_INVALID');
  return result;
 }
+function ThreadInventory(value){
+ Keys(value,['version','status','enumerated','knownImage','unknownStart','unreadable','truncated']);
+ if(Object.keys(value).length!==7||value.version!==1||!['COMPLETE','PARTIAL','UNAVAILABLE'].includes(value.status)||typeof value.truncated!=='boolean')Fail('INTEGRITY_REPORT_INVALID');
+ for(const key of ['enumerated','knownImage','unknownStart','unreadable'])if(!Number.isInteger(value[key])||value[key]<0||value[key]>1024)Fail('INTEGRITY_REPORT_INVALID');
+ if(value.enumerated!==value.knownImage+value.unknownStart+value.unreadable||value.status==='COMPLETE'&&(value.unreadable!==0||value.truncated)||value.status==='UNAVAILABLE'&&(value.enumerated!==0||value.truncated))Fail('INTEGRITY_REPORT_INVALID');
+ // Observation only: an unknown start can be a legitimate runtime/JIT thread.
+ // These counts carry no addresses, thread IDs, or server authorization claim.
+ return {version:1,status:value.status,enumerated:value.enumerated,knownImage:value.knownImage,unknownStart:value.unknownStart,unreadable:value.unreadable,truncated:value.truncated};
+}
+function DeviceSignals(value){
+ Keys(value,['version','status','scope','algorithm','diskCount','nicCount','digest','truncated']);
+ if(Object.keys(value).length!==8||value.version!==1||!['NOT_REQUESTED','MEASURED','PARTIAL','UNAVAILABLE'].includes(value.status)||value.algorithm!=='BLAKE3-KEYED-256'||typeof value.truncated!=='boolean'||!Number.isInteger(value.diskCount)||value.diskCount<0||value.diskCount>8||!Number.isInteger(value.nicCount)||value.nicCount<0||value.nicCount>64)Fail('INTEGRITY_REPORT_INVALID');
+ const count=value.diskCount+value.nicCount;
+ if(value.status==='NOT_REQUESTED'){
+  if(value.scope!==''||value.digest!==''||count!==0||value.truncated)Fail('INTEGRITY_REPORT_INVALID');
+ }else{
+  if(typeof value.scope!=='string'||!/^[a-f0-9]{128}$/.test(value.scope))Fail('INTEGRITY_REPORT_INVALID');
+  if(value.status==='UNAVAILABLE'){if(count!==0||value.digest!=='')Fail('INTEGRITY_REPORT_INVALID');}
+  else if(!count||typeof value.digest!=='string'||!/^[a-f0-9]{64}$/.test(value.digest)||value.status==='MEASURED'&&value.truncated)Fail('INTEGRITY_REPORT_INVALID');
+ }
+ // Session/challenge-scoped client diagnostics; no raw disk/NIC IDs, stable
+ // device binding, hardware attestation, or automatic authorization decision.
+ return {version:1,status:value.status,scope:value.scope,algorithm:value.algorithm,diskCount:value.diskCount,nicCount:value.nicCount,digest:value.digest,truncated:value.truncated};
+}
 function Payload(text){
  if(typeof text!=='string'||Buffer.byteLength(text,'utf8')>MAX_PAYLOAD)Fail('INTEGRITY_REPORT_INVALID');let p;try{p=require('./strictJson').Parse(text);}catch(_){Fail('INTEGRITY_REPORT_INVALID');}
- Keys(p,['version','hashVersion','check','reason','own','modules','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust','crcLayers','ownMeasurement','measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage']);
+ Keys(p,['version','hashVersion','check','reason','own','modules','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust','crcLayers','ownMeasurement','measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','moduleGenerationStatus','threadInventory','deviceSignals','coverage']);
  if(p.version!==1||p.hashVersion!==3||!['OWN_IMAGE','MODULE_INVENTORY','OVERLAY_START'].includes(p.check))Fail('INTEGRITY_REPORT_INVALID');Token(p.reason);
  if(p.check==='OVERLAY_START'){
   // A failed startup is a signed client diagnostic, never hash evidence or an
@@ -80,11 +108,15 @@ function Payload(text){
  if((p.own?.status==='MEASURED'||p.crcLayers!==undefined)&&!require('./desktopCrcPolicy').Validate(p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
  if(p.ownMeasurement!==undefined&&!measurementPlan.ValidateOwnMetadata(p.ownMeasurement,p.own?.status,p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
  if(p.modules!==undefined&&(!Array.isArray(p.modules)||p.modules.length>16))Fail('INTEGRITY_REPORT_INVALID');p.modules=(p.modules||[]).map(row=>Module(row,p.hashVersion));
+ if(p.moduleGenerationStatus!==undefined&&p.check!=='MODULE_INVENTORY')Fail('INTEGRITY_REPORT_INVALID');
+ if(p.deviceSignals!==undefined){if(p.check!=='MODULE_INVENTORY')Fail('INTEGRITY_REPORT_INVALID');p.deviceSignals=DeviceSignals(p.deviceSignals);}
+ if(p.threadInventory!==undefined){if(p.check!=='MODULE_INVENTORY')Fail('INTEGRITY_REPORT_INVALID');p.threadInventory=ThreadInventory(p.threadInventory);}
  if(p.check==='MODULE_INVENTORY'){
   if(p.measurementContract!==undefined&&p.measurementContract!==measurementPlan.CONTRACT)Fail('INTEGRITY_REPORT_INVALID');
   if(p.measurementPlanVersion!==undefined){
    if(p.measurementPlanVersion!==1||!Number.isSafeInteger(p.measurementStartedTick)||!Number.isSafeInteger(p.measurementFinishedTick)||p.measurementStartedTick<0||p.measurementFinishedTick<p.measurementStartedTick||p.measurementFinishedTick-p.measurementStartedTick>60000||typeof p.moduleGenerationStable!=='boolean'||!['FULL','PARTIAL','SAMPLED'].includes(p.coverage)||p.complete&&!p.moduleGenerationStable||p.coverage==='FULL'&&(!p.complete||p.truncated||p.measuredModules!==p.totalModules))Fail('INTEGRITY_REPORT_INVALID');
-  }else if(['measurementContract','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'].some(k=>p[k]!==undefined))Fail('INTEGRITY_REPORT_INVALID');
+   if(p.moduleGenerationStatus!==undefined&&(!['TRACKED_STABLE','TRACKED_CHANGED','UNSUPPORTED','TRACKING_FAILED'].includes(p.moduleGenerationStatus)||p.moduleGenerationStable!==(p.moduleGenerationStatus==='TRACKED_STABLE')))Fail('INTEGRITY_REPORT_INVALID');
+  }else if(['measurementContract','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','moduleGenerationStatus','threadInventory','deviceSignals','coverage'].some(k=>p[k]!==undefined))Fail('INTEGRITY_REPORT_INVALID');
   Identifier(p.snapshotId);if(!p.snapshotId||!Number.isInteger(p.batchIndex)||!Number.isInteger(p.batchCount)||p.batchCount<1||p.batchCount>MAX_BATCHES||p.batchIndex<0||p.batchIndex>=p.batchCount||typeof p.complete!=='boolean'||typeof p.truncated!=='boolean'||!Number.isInteger(p.totalModules)||p.totalModules<0||p.totalModules>65535||!Number.isInteger(p.measuredModules)||p.measuredModules<0||p.measuredModules>MAX_MODULES)Fail('INTEGRITY_REPORT_INVALID');
  }
  return p;
@@ -97,7 +129,7 @@ function Record(input){
  if(input.check==='OWN_CODE')for(const field of ['fileExtendedVerified','codeExtendedVerified'])record[field]=input.hashVersion===3&&input[field]===true;
  if(input.modules){record.modules=input.modules.map(row=>Module(row,record.hashVersion)).map(row=>CompareModule(row,record.hashVersion));if(record.modules.some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){record.status='REJECTED';record.reason='KNOWN_MODULE_CODE_MISMATCH';record.source='SERVER_COMPARISON';}}
  if(input.crcComparison)record.crcComparison=input.crcComparison;
- for(const key of ['ownMeasurement','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','snapshotStatus','snapshotReceivedBatches','snapshotReasons','snapshotFinal','strictPolicyRevision','planAssurance','requiredMeasurementPlanVersion','requiredModuleResults','duplicateModuleNames','duplicateModuleCount','measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'])if(input[key]!==undefined)record[key]=input[key];
+ for(const key of ['ownMeasurement','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','snapshotStatus','snapshotReceivedBatches','snapshotReasons','snapshotFinal','strictPolicyRevision','planAssurance','requiredMeasurementPlanVersion','requiredModuleResults','duplicateModuleNames','duplicateModuleCount','measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','moduleGenerationStatus','threadInventory','deviceSignals','coverage'])if(input[key]!==undefined)record[key]=input[key];
  if(input.measurementStatus!==undefined){if(!measurementStatus.IsStatus(input.measurementStatus))Fail('INTEGRITY_REPORT_INVALID');record.measurementStatus=input.measurementStatus;}
  // Repeated successes update a bounded current observation; retain rejection
  // evidence even during frequent authentication and inventory collection.
@@ -219,7 +251,7 @@ function SnapshotConflict(row,key,reason){
 function AcceptSnapshot(row,fields,payload){
  Load();const stage=row.stage||'B',context=row.reportContextId||row.sessionId,key=SnapshotKey(stage,context,payload.snapshotId);
  if(finishedSnapshots.has(key))Fail('INTEGRITY_SNAPSHOT_REPLAY',409);
- const metadata=JSON.stringify([payload.hashVersion,payload.batchCount,payload.complete,payload.truncated,payload.totalModules,payload.measuredModules,payload.scope||'',payload.trust||'',payload.measurementContract??null,payload.measurementPlanVersion??null,payload.measurementStartedTick??null,payload.measurementFinishedTick??null,payload.moduleGenerationStable??null,payload.coverage??null]);
+ const metadata=JSON.stringify([payload.hashVersion,payload.batchCount,payload.complete,payload.truncated,payload.totalModules,payload.measuredModules,payload.scope||'',payload.trust||'',payload.measurementContract??null,payload.measurementPlanVersion??null,payload.measurementStartedTick??null,payload.measurementFinishedTick??null,payload.moduleGenerationStable??null,payload.moduleGenerationStatus??null,payload.threadInventory??null,payload.deviceSignals??null,payload.coverage??null]);
  let snapshot=snapshots.get(key);
  if(!snapshot){
   if(snapshots.size>=128||finishedSnapshots.size>=8192||[...snapshots.values()].filter(s=>s.context===context).length>=2)Fail('INTEGRITY_SNAPSHOT_LIMIT',429);
@@ -235,10 +267,10 @@ function AcceptSnapshot(row,fields,payload){
   }snapshot.names.add(name);} 
  if(snapshot.modules.length+payload.modules.length>MAX_MODULES)SnapshotConflict(row,key,'INTEGRITY_SNAPSHOT_LIMIT');
  snapshot.modules.push(...payload.modules);snapshot.batches.set(payload.batchIndex,true);
- const final=snapshot.batches.size===payload.batchCount,base={...fields,...Object.fromEntries(['measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'].filter(k=>payload[k]!==undefined).map(k=>[k,payload[k]])),planAssurance:measurementPlan.Assurance(payload),requiredMeasurementPlanVersion:measurementPlan.Required(row.integrityArtifact),status:'CLIENT_DIAGNOSTIC',modules:payload.modules,snapshotId:payload.snapshotId,batchIndex:payload.batchIndex,batchCount:payload.batchCount,complete:false,truncated:payload.truncated,totalModules:payload.totalModules,measuredModules:payload.measuredModules,strictPolicyRevision:snapshot.policyRevision,snapshotReceivedBatches:snapshot.batches.size,duplicateModuleNames:[...snapshot.duplicateNames],duplicateModuleCount:snapshot.duplicateCount,trusted:false};
+ const final=snapshot.batches.size===payload.batchCount,base={...fields,...Object.fromEntries(['measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','moduleGenerationStatus','threadInventory','deviceSignals','coverage'].filter(k=>payload[k]!==undefined).map(k=>[k,payload[k]])),planAssurance:measurementPlan.Assurance(payload),requiredMeasurementPlanVersion:measurementPlan.Required(row.integrityArtifact),status:'CLIENT_DIAGNOSTIC',modules:payload.modules,snapshotId:payload.snapshotId,batchIndex:payload.batchIndex,batchCount:payload.batchCount,complete:false,truncated:payload.truncated,totalModules:payload.totalModules,measuredModules:payload.measuredModules,strictPolicyRevision:snapshot.policyRevision,snapshotReceivedBatches:snapshot.batches.size,duplicateModuleNames:[...snapshot.duplicateNames],duplicateModuleCount:snapshot.duplicateCount,trusted:false};
  if(!final)return Record({...base,snapshotStatus:'RECEIVING',snapshotReasons:[]});
  snapshots.delete(key);finishedSnapshots.set(key,Date.now()+900000);
- const reasons=[];if(measurementPlan.Required(row.integrityArtifact)&&!measurementPlan.Complete(payload))reasons.push('MEASUREMENT_PLAN_INCOMPLETE');if(payload.measurementPlanVersion!==undefined&&(!payload.moduleGenerationStable||payload.coverage==='SAMPLED'))reasons.push('MEASUREMENT_GENERATION_INCOMPLETE');const moduleRows=snapshot.modules.map(module=>CompareModule(module,payload.hashVersion)),actualMeasured=moduleRows.filter(m=>m.fileSha512&&m.fileCrc64&&m.codeSha512&&m.codeCrc64&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.codeStatus)).length;
+ const reasons=[];if(measurementPlan.Required(row.integrityArtifact)&&!measurementPlan.Complete(payload))reasons.push('MEASUREMENT_PLAN_INCOMPLETE');if(payload.measurementPlanVersion!==undefined&&(!payload.moduleGenerationStable||payload.coverage==='SAMPLED'))reasons.push('MEASUREMENT_GENERATION_INCOMPLETE');if(['UNSUPPORTED','TRACKING_FAILED'].includes(payload.moduleGenerationStatus))reasons.push('MEASUREMENT_GENERATION_'+payload.moduleGenerationStatus);const moduleRows=snapshot.modules.map(module=>CompareModule(module,payload.hashVersion));if(moduleRows.some(m=>['READ_ERROR','UNSUPPORTED_EXPORT_LAYOUT'].includes(m.exportTableStatus)))reasons.push('MEASUREMENT_EXPORT_INCOMPLETE');const actualMeasured=moduleRows.filter(m=>!['READ_ERROR','UNSUPPORTED_EXPORT_LAYOUT'].includes(m.exportTableStatus)&&m.fileSha512&&m.fileCrc64&&m.codeSha512&&m.codeCrc64&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.status)&&!['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(m.codeStatus)).length;
  if(!payload.complete||payload.truncated||payload.scope!=='current-process'||payload.trust!=='client-reported')reasons.push('INCOMPLETE_SNAPSHOT');
  if(snapshot.modules.length!==payload.totalModules||actualMeasured!==payload.measuredModules||payload.totalModules<1)reasons.push('INVALID_SNAPSHOT_COUNTS');
  const requiredModuleResults=policy.requiredModules.map(name=>{const module=moduleRows.find(m=>m.name.toLowerCase()===name);let reason='BASELINE_MATCH';if(!module)reason='REQUIRED_MODULE_MISSING';else if(!module.fileSha512||!module.codeSha512||['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(module.status)||['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(module.codeStatus))reason='REQUIRED_MODULE_READ_FAILED';else if(module.serverComparison==='REGISTERED_BASELINE_MISMATCH')reason='REQUIRED_MODULE_CODE_MISMATCH';else if(module.serverComparison!=='MATCH_REGISTERED_BASELINE'||!module.exportTableVerified)reason='REQUIRED_MODULE_UNVERIFIED';else if(policy.requireExtendedHashes&&!module.extendedHashesVerified)reason='REQUIRED_MODULE_EXTENDED_UNVERIFIED';if(policy.enabled&&reason!=='BASELINE_MATCH')reasons.push(reason);return {name,reason,baselineId:module?.baselineId||'',extendedHashesVerified:module?.extendedHashesVerified===true};});

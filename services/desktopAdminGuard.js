@@ -6,8 +6,8 @@ const state=require('../core/state');
 const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
 function IsMutation(pathname) {
-  if(/^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint)$/.test(pathname))return true;
-  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|ci-signers|ci-evidence|mitigation-profiles|tls-pin-transition|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
+  if(/^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint|manual-verification)$/.test(pathname))return true;
+  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|ci-signers|ci-evidence|mitigation-compatibility|mitigation-profiles|tls-pin-transition|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
 }
 function Identities() {
   const text=process.env.DESKTOP_APPROVER_IDENTITIES_JSON||'{}';
@@ -37,8 +37,8 @@ function CriticalMutation(pathname) {
   if (typeof pathname !== 'string') return false;
   return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) ||
     /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|module-baselines)$/.test(pathname) ||
-    /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|ci-signers|ci-evidence|mitigation-profiles|tls-pin-transition|recovery\/(?:prepare|apply))$/.test(pathname) ||
-    /^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint)$/.test(pathname);
+    /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|ci-signers|ci-evidence|mitigation-compatibility|mitigation-profiles|tls-pin-transition|recovery\/(?:prepare|apply))$/.test(pathname) ||
+    /^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint|manual-verification)$/.test(pathname);
 }
 function ReauthenticationRequired(pathname, method = 'POST') {
   if (['GET', 'HEAD', 'OPTIONS'].includes(String(method).toUpperCase())) return false;
@@ -85,7 +85,7 @@ function ConsumeSingleAuthorization(ticket,session,method,path,body){
 function Summary(path,body){
   // No raw request / PE bytes or private key material in an approval ticket.
   const out={path};
-  for(const k of ['profile','expectedActivationRevision','aSha512','bSha512','oSha512','targetHash','expectedRevision','expectedPolicyRevision','expectedOperationsRevision','component','version','sha512','aId','bId','oId','artifactId','keyId','state','mode','enforceLegacy','requireReadonlyApi','dynamicCode','requireCfg','requireReleaseSignature','minVersionA','minVersionB','minVersionO','requireBuildContract','requireTestEvidence'])if(['string','number','boolean'].includes(typeof body?.[k]))out[k]=body[k];
+  for(const k of ['profile','expectedActivationRevision','aSha512','bSha512','oSha512','targetHash','expectedRevision','expectedPolicyRevision','expectedOperationsRevision','component','version','sha512','aId','bId','oId','artifactId','keyId','state','mode','enforceLegacy','requireReadonlyApi','dynamicCode','requireCfg','requireReleaseSignature','deviceSignalsRequested','minVersionA','minVersionB','minVersionO','requireBuildContract','requireTestEvidence'])if(['string','number','boolean'].includes(typeof body?.[k]))out[k]=body[k];
   if(Array.isArray(body?.trustedReleaseKeys))out.trustedSignerKeyIds=body.trustedReleaseKeys.map(x=>x.keyId).slice(0,8);
   if(Array.isArray(body?.revokedSha512))out.revokedReleaseHashes=body.revokedSha512.slice(0,512);
   if(body?.contract)out.contract=Object.fromEntries(['version','evidenceVersion','minApiSlots','maxApiSlots'].filter(k=>Number.isSafeInteger(body.contract[k])).map(k=>[k,body.contract[k]]));

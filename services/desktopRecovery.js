@@ -40,5 +40,5 @@ function Apply(body,actor='ADMIN'){
  require('../web/webAuth').RevokeAllSessions();
  return result;
 }
-function Status(){const db=store.Load();return {epoch:Epoch(db),licenseRevision:require('./desktopLicenses').DB().revision,witness:require('./desktopRecoveryWitness').Status(),localPolicyCache:false,offlineAuthorization:false,auditPending:Object.values(db.serverAuditOutbox||{}).filter(x=>!x.acked).length,clientPersistence:'EXECUTABLE_AND_OS_RUNTIME_ONLY',tpmAttestation:'NOT_ENABLED'};}
+function Status(){const db=store.Load(),identity=require('./desktopCapabilities').DeviceState(db);return {epoch:Epoch(db),licenseRevision:require('./desktopLicenses').DB().revision,witness:require('./desktopRecoveryWitness').Status(),localPolicyCache:false,offlineAuthorization:false,auditPending:Object.values(db.serverAuditOutbox||{}).filter(x=>!x.acked).length,clientPersistence:identity.clientPersistence,tpmAttestation:identity.tpmAttestation,deviceIdentity:identity};}
 module.exports={Epoch,Assert,Validate,Apply,Status};
