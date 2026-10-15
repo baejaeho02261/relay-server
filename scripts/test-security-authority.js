@@ -49,6 +49,9 @@ function LeaseProof(device, session, action, requestId, extra) {
 }
 let dev, start, session, verifyContext;
 Check('Defaults preserve legacy builds, exact policy is bounded and immutable to caller', () => {
+  assert.equal(auth.Policy().deviceSignalsRequested,false);
+  const legacyPolicy=auth.Defaults();delete legacyPolicy.deviceSignalsRequested;assert.equal(auth.ValidatePolicy(legacyPolicy).deviceSignalsRequested,false);assert(!Object.hasOwn(legacyPolicy,'deviceSignalsRequested'));
+  for(const v of [0,1,'true',null])assert.throws(()=>auth.ValidatePolicy({...auth.Defaults(),deviceSignalsRequested:v}));
   assert.equal(auth.Policy().mode, 'enforce'); assert.equal(auth.Policy().enforceLegacy, false);
   const p = auth.Policy(); p.freshnessMs = 1; assert.equal(auth.Policy().freshnessMs, 45000);
   for (const patch of [{freshnessMs:1},{challengeMs:999999},{unexpected:true},{minVersionB:'abc'}, {trustedReleaseKeys:[{}]}]) {
@@ -83,6 +86,18 @@ Check('One-use challenge, context binding and signature verification are enforce
   Fresh(session,'verify',ctx.binding);
   Reject(() => Fresh(session,'redeem',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
   Reject(() => auth.Execute({...ctx,authorityVersion:0}), 'SECURITY_INPUT_INVALID');
+});
+Check('Device signals require explicit policy opt-in and negotiated client support',()=>{
+ const ctx=Context(dev,'B',session,'verify',sha512('optional-device-signals'));
+ assert.equal(require('../services/desktopAdminGuard').Summary('/api/desktop/bootstrap/security-authority',{deviceSignalsRequested:true}).deviceSignalsRequested,true);
+ const revision=auth.Policy().revision,preview=auth.PreviewPolicy({expectedRevision:revision,deviceSignalsRequested:true});assert.equal(preview.policy.deviceSignalsRequested,true);assert.equal(auth.Policy().revision,revision);assert.equal(auth.Policy().deviceSignalsRequested,false);
+ let c=auth.Execute({...ctx,deviceSignalsVersion:1});assert(!Object.hasOwn(c,'deviceSignalsRequested'));auth.Execute(Signed(ctx,c,dev));
+ auth.SetPolicy({expectedRevision:auth.Policy().revision,deviceSignalsRequested:true},'TEST');
+ c=auth.Execute(ctx);assert(!Object.hasOwn(c,'deviceSignalsRequested'));assert.equal(Object.keys(c).length,8);auth.Execute(Signed(ctx,c,dev));
+ for(const v of [null,0,2,'1',true])Reject(()=>auth.Execute({...ctx,deviceSignalsVersion:v}),'SECURITY_INPUT_INVALID');
+ c=auth.Execute({...ctx,deviceSignalsVersion:1});assert.equal(c.deviceSignalsRequested,true);assert.equal(Object.keys(c).length,9);assert.equal(auth.Execute(Signed(ctx,c,dev)).proceed,true);
+ auth.SetPolicy({expectedRevision:auth.Policy().revision,deviceSignalsRequested:false},'TEST');
+ c=auth.Execute({...ctx,deviceSignalsVersion:1});assert(!Object.hasOwn(c,'deviceSignalsRequested'));auth.Execute(Signed(ctx,c,dev));
 });
 Check('Newer result cannot be overwritten by an older in-flight result', () => {
   const ctx = Context(dev,'B',session,'verify',sha512('order'));

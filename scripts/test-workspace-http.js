@@ -9,6 +9,7 @@ const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'game-workspace-http-'));
 const adminPassword = 'desktop-http-regression-admin-secret';
 const viewerPassword = 'desktop-http-regression-viewer-secret';
 const bootstrapFixture = require('./modern-http-fixture');
+const releaseSigner=bootstrapFixture.CreateSyntheticApprovalSigner();
 let child, base, nativeProfile, output = '', sequence = 0;
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const digest = value => crypto.createHash('sha256').update(value).digest('hex');
@@ -89,6 +90,8 @@ async function signed(device, action, payload) {
 async function execute(device, action, payload) { return call('/api/desktop/execute', await signed(device, action, payload)); }
 async function upload(component, bytes, auth, csrf = true) {
     const headers = { 'Content-Type': 'application/octet-stream' };
+    const approval=releaseSigner.Approval(component,'80.0.0',bytes);
+    headers['x-game-release-key-id']=approval.keyId;headers['x-game-release-signature']=approval.signature;
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
     const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=Game' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
@@ -122,14 +125,20 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
  let resumable;
  await test('An interrupted job resumes after a real server process restart',async()=>{const p=await call(w+'/jobs/preview',{kind:'CREATE',count:12,prefix:'RESTART'},auth);resumable=(await call(w+'/jobs',{planId:p.json.planId,requestId:crypto.randomUUID()},auth)).json.id;await delay(120);await stop();await start();auth=await login();const done=await until(async()=>{const x=(await call(w+'/jobs',undefined,auth)).json.items.find(x=>x.id===resumable);return x?.status==='DONE'&&x;});assert.equal(done.done,12);assert.equal(new Set(done.items.map(x=>x.result.license.id)).size,12);assert.equal((await call(w+'/licenses?q=RESTART',undefined,auth)).json.filteredCount,12);});
  nativeProfile=(await call('/api/desktop/connect-profile',undefined,auth)).json.profile;
+ const security='/api/desktop/bootstrap/security-authority',settings=(await call(security,undefined,auth)).json;
+ const trust=await call(security,{expectedRevision:settings.policy.revision,expectedOperationsRevision:settings.operations.operations.revision,requireReleaseSignature:true,trustedReleaseKeys:[releaseSigner.trustedKey]},auth);
+ assert.equal(trust.status,200,JSON.stringify(trust.json));
  let candidates={};
  await test('Duplicate candidate upload reuses the same verified bytes instead of creating a second artifact',async()=>{for(const c of ['A','B','O']){const bytes=bootstrapFixture.PE(c,c==='B'?'manual key console':'user launcher');const one=await upload(c,bytes,auth),two=await upload(c,bytes,auth);assert.equal(one.status,200);assert.equal(two.status,200);assert.equal(two.json.artifact.id,one.json.artifact.id);candidates[c]=one.json.artifact;}});
- await test('New candidates require a complete A/B/O manifest and actual synthetic CI signature before publication',async()=>{
+ await test('Manual publication requires signed A/B/O and a complete manifest without manufacturing CI evidence',async()=>{
   const op='/api/desktop/bootstrap/security-operations',cohort={aId:candidates.A.id,bId:candidates.B.id,oId:candidates.O.id};
   const before=await call(op+'/preview-pair',cohort,auth);assert.equal(before.json.preview.eligible,false);assert(before.json.preview.reasons.includes('SECURITY_RELEASE_MANIFEST_REQUIRED'));
-  await bootstrapFixture.RegisterSyntheticRelease({call,auth,candidates,label:'SYNTHETIC WORKSPACE HTTP CONTRACT ONLY',afterManifest:async()=>assert.equal((await call(op+'/preview-pair',cohort,auth)).json.preview.eligible,false)});
+  await bootstrapFixture.RegisterSyntheticRelease({call,auth,candidates,label:'SYNTHETIC WORKSPACE HTTP CONTRACT ONLY',afterManifest:async()=>assert.equal((await call(op+'/preview-pair',cohort,auth)).json.preview.eligible,true)});
   assert.equal((await call(op+'/preview-pair',{aId:candidates.A.id,bId:candidates.B.id},auth)).json.preview.eligible,false);
   const p=await call(op+'/preview-pair',cohort,auth);assert.equal(p.json.preview.eligible,true,JSON.stringify(p.json));
+  assert.equal(p.json.preview.release.ciOutcomes,null);assert.equal(p.json.preview.hardwareAttested,false);
+  const beforeActivation=(await call(security,undefined,auth)).json.operations.operations.releaseGovernance;
+  assert.deepEqual(beforeActivation.ciEvidence,{});assert.deepEqual(beforeActivation.ciKeys,{});
   const r=await call(op+'/activate',{...cohort,expectedRevision:p.json.preview.operationsRevision,expectedPolicyRevision:p.json.preview.policyRevision},auth);assert.equal(r.status,200,JSON.stringify(r.json));
  });
  let issued,dev,manualKey;

@@ -80,12 +80,18 @@ try {
   const specRun = invoke('spec');
   assert.equal(specRun.status, 0, specRun.stderr);
   assert.equal(JSON.parse(fs.readFileSync(p.spec)).releaseName, 'Release ! &');
+  assert.match(specRun.stdout, /IDE Win64 Release build/);
+  assert.match(specRun.stdout, /ci-evidence\.json are not required/);
+  assert.doesNotMatch(specRun.stdout, /Production CI:|Check_Environment\.bat -> Run_Windows_CI\.bat/);
   fs.unlinkSync(p.manifest);
   const manifestRun = invoke('manifest');
   assert.equal(manifestRun.status, 0, manifestRun.stderr);
   assert.match(manifestRun.stdout, /Manifest ID:\n[a-f0-9]{128}/);
+  assert.match(manifestRun.stdout, /CI evidence is optional/);
+  assert.match(manifestRun.stdout, /BEFORE creating the manifest/);
+  assert.doesNotMatch(manifestRun.stdout, /For production publication, use Run_Windows_CI/);
   for (const role of ['A', 'B', 'O']) {
-    assert.ok(manifestRun.stdout.includes(role + ' output folder hint: ' + path.join(p.native, 'Win64', 'Release') + ' (' + role + '_*.exe)'));
+    assert.ok(manifestRun.stdout.includes(role + ' output folder hint: ' + path.join(p.native, 'bin') + ' (' + role + '_Release_*.exe)'));
   }
   assert.equal(invoke('check').status, 0);
   assert.deepEqual(fs.readdirSync(home).sort(), ['deployment-policy.json', 'release-manifest.json', 'source-manifest.json', 'spec.json']);

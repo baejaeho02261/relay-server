@@ -41,7 +41,10 @@ check('Native helper keeps default READ sharing and requires a read-only parent 
 
 check('Three B-parent readers and the independent B integrity reader alone opt in', () => {
   const calls = [...handoff.matchAll(/:= OpenSafeImage\(([^;]+)\);/g)].map(match => match[1].trim());
-  const optedIn = calls.filter(call => call.split(',').length === 5).sort();
+  const optedIn = calls.filter(call => {
+    const args=call.split(',').map(x=>x.trim());
+    return args.length>=5&&args[4]!=='False';
+  }).sort();
   assert.deepEqual(optedIn, [
     'FBinaryPath, False, IntegrityInfo, False, True',
     'FLauncherPath, False, ParentInfo, False, True',
@@ -49,7 +52,15 @@ check('Three B-parent readers and the independent B integrity reader alone opt i
     'Result.FLauncherPath, False, Info, False, OverlayRole'
   ].sort());
   assert(calls.includes('FBinaryPath, True, FinalBinaryInfo, True'));
-  for (const call of calls.filter(call => !optedIn.includes(call))) assert(call.split(',').length <= 4);
+  for (const call of calls.filter(call => !optedIn.includes(call))) {
+    const args=call.split(',').map(x=>x.trim());
+    assert(args.length<=6);
+    if(args.length>=5)assert.equal(args[4],'False','Diagnostic error output must not widen parent-delete sharing');
+    if(args.length===6){
+      assert.equal(args[1],'True');assert.equal(args[3],'False');
+      assert.match(args[5],/^@F(?:Parent|Own)Observation\.Win32Error$/);
+    }
+  }
   assert.match(handoff, /FBinaryCleanupFile := BinaryFile;/);
   assert.match(handoff, /FImageIntegrity := TImageIntegrity\.Create\(IntegrityFile, BinarySHA512, ExpectedCRC64\)/);
   assert.match(integrity, /DuplicateHandle\(GetCurrentProcess, Handle, GetCurrentProcess,\s*@FHandle, 0, False, DUPLICATE_SAME_ACCESS\)/);
@@ -128,7 +139,8 @@ check('B owns distinct cleanup and integrity file objects without dropping its s
 });
 
 check('Successful unlink closes its owner while OS refusal retains the strict owner pin', () => {
-  const unlinkStart = handoff.indexOf('procedure UnlinkVerifiedOwnImage(');
+  const unlinkStart = handoff.indexOf('function UnlinkVerifiedOwnImage(');
+  assert(unlinkStart>=0);
   const unlink = handoff.slice(unlinkStart, handoff.indexOf('procedure RemoveOwnImage(', unlinkStart));
   const cleanup = handoff.slice(handoff.indexOf('procedure THandoffContext.CleanupBinaryAfterLicenseCore;'), handoff.indexOf('function THandoffContext.TakeImageIntegrityCore:'));
   assert(unlink.indexOf('if not SetFileInfo(') < unlink.indexOf('    Exit;'));

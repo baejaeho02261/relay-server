@@ -116,18 +116,23 @@ check('Native callback IDs resolve the intended API names through the existing e
   ];
   const ror13 = name => [...Buffer.from(name)].reduce((hash, value) => (((hash >>> 13) | (hash << 19)) + value) >>> 0, 0);
   const ids = new Map([...cHeader.matchAll(/\b(GI_PROC_\w+)\s*=\s*(\d+)/g)].map(m => [m[1], Number(m[2])]));
-  const slots = new Map([...pascal.matchAll(/BindApiPointer\(ImGuiApiSlots\[(\d+)\],\s*RequireProcAddressHash64\('([^']+)',\s*\$([0-9A-F]+)\)\);/gi)].map(m => [Number(m[1]), { module: m[2], hash: parseInt(m[3], 16) }]));
+  const hashes = new Map([...read('Game.Api.ROR13.pas').matchAll(/(HASH_\w+)\s*:\s*Cardinal\s*=\s*\$([0-9A-F]+);/gi)].map(m => [m[1], parseInt(m[2], 16)]));
+  const slots = new Map([...pascal.matchAll(/BindApiPointer\(ImGuiApiSlots\[(\d+)\],\s*RequireProcAddressHash64\('([^']+)',\s*(HASH_\w+)\)\);/g)].map(m => [Number(m[1]), { module: m[2], symbol:m[3], hash:hashes.get(m[3]) }]));
   assert.equal(slots.size, names.length);
   for (let index = 0; index < names.length; index++) {
     const [id, module, api] = names[index];
     assert.equal(ids.get(id), index + 1, id);
-    assert.deepEqual(slots.get(index + 1), { module, hash: ror13(api) }, api);
+    assert.deepEqual(slots.get(index + 1), { module, symbol:'HASH_'+api, hash: ror13(api) }, api);
   }
   assert.equal(ids.get('GI_PROC_LAST'), names.length);
   assert.match(pascal, /Result := DecodeApiPointer\(ImGuiApiSlots\[ID\]\)/);
-  for (const [, slot, module, hash] of renderer.matchAll(/BindApiPointer\(Slot_(\w+),\s*RequireProcAddressHash64\('([^']+)',\s*\$([0-9A-F]+)\)\);/gi)) {
-    assert.equal(parseInt(hash, 16), ror13(slot), 'Renderer ' + module + '!' + slot);
+  const rendererSlots=[...renderer.matchAll(/BindApiPointer\(Slot_(\w+),\s*RequireProcAddressHash64\('([^']+)',\s*(HASH_\w+)\)\);/g)];
+  assert.ok(rendererSlots.length>=26,'Renderer checks must not pass with zero recognized bindings');
+  for (const [, slot, module, symbol] of rendererSlots) {
+    assert.equal(symbol,'HASH_'+slot,'Renderer symbol identity');
+    assert.equal(hashes.get(symbol), ror13(slot), 'Renderer ' + module + '!' + slot);
   }
+  assert.doesNotMatch(pascal+renderer,/RequireProcAddressHash64\('[^']+',\s*\$[0-9A-F]+/i);
 });
 
 check('Exact supplied Dear ImGui core, backend reference and MIT license match their SHA-512 provenance', () => {
@@ -174,6 +179,24 @@ check('B readiness remains downstream of a visible Present and a fresh authority
   assert.equal((run.match(/\bTick\(\)/g) || []).length, 1, 'Only gated readiness callback');
   const authority = method('function TOverlayWindow.AuthorityValid:', 'function TOverlayWindow.Run(');
   inOrder(authority, ['not FFailed and Assigned(FShouldClose) and not FShouldClose()', 'FFailed := True;', 'CancelInteraction;', 'SW_HIDE', 'ApiPostQuitMessage(1)'], 'Authority expiry');
+});
+
+check('Optional capture privacy uses only owned HWND, authenticated lease and observed API result', () => {
+  const apply = method('procedure TOverlayWindow.ApplyCapturePrivacy;', 'procedure TOverlayWindow.Paint;');
+  inOrder(apply, ['RequireOwner;', 'FClosing or (FWindow = 0)', 'Assigned(FCapturePrivacy)',
+    'At - FPrivacyCheckTick < 1000', 'ApiSetWindowDisplayAffinity(FWindow, Desired)',
+    'ApiGetWindowDisplayAffinity(FWindow, Observed)',
+    'OverlayCapturePrivacyStatus(Requested, SetOK, ReadOK, Observed)'], 'Own-window affinity');
+  const run = method('function TOverlayWindow.Run(', 'function RunOverlayUI(');
+  inOrder(run, ['AuthorizeBeforeShow();', 'if not AuthorityValid then Exit;', 'ApplyCapturePrivacy;',
+    'ApiShowWindow(FWindow, SW_SHOWNORMAL)'], 'Privacy follows authorization');
+  assert.match(renderer, /HASH_SetWindowDisplayAffinity/);
+  assert.match(renderer, /HASH_GetWindowDisplayAffinity/);
+  const close = method('procedure TOverlayWindow.BeginClosing;', 'destructor TOverlayWindow.Destroy;');
+  inOrder(close, ['FClosingNotified := True;', 'FClosing := True;', 'try FOnClosing();',
+    'except FFailed := True; end;', 'FOnClosing := nil;'], 'Closing failure remains terminal');
+  assert.match(renderer, /ButtonBottom - ButtonTop\) \* FScale, False\);/);
+  assert.doesNotMatch(renderer, /FActionRequested/);
 });
 
 check('Actual GPU identity and initial authority finish while the window is hidden', () => {

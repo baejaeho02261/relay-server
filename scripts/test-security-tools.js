@@ -1,11 +1,5 @@
 'use strict';
 const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
-// Existing publishing accepts numeric versions up to 40 characters.
-{ const a = require('../services/desktopSecurityAuthority');
-  require('node:assert/strict').equal(a.VersionAtLeast('12345678901234567890', '0'), true);
-  require('node:assert/strict').equal(a.VersionAtLeast('9007199254740992', '9007199254740993'), false);
-}
-
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'security-tools-'));
 process.env.DATA_DIR=temp;process.env.HA_ENABLED='0';
@@ -14,10 +8,70 @@ const {SignRelease}=require('../tools/sign-release-approval'),{Audit}=require('.
 const worker=name=>fs.readFileSync(path.join(__dirname,'../tools',name),'utf8').split("$script:Worker = @'")[1].split("\n'@")[0];
 let count=0;function Test(name,fn){fn();count++;console.log('PASS '+name);}
 try{
+ // Set the test-owned DATA_DIR before any server/config module is loaded.
+ // Existing publishing accepts numeric versions up to 40 characters.
+ assert.equal(a.VersionAtLeast('12345678901234567890', '0'), true);
+ assert.equal(a.VersionAtLeast('9007199254740992', '9007199254740993'), false);
  Test('Standalone approval workers embed identical bounded PE preflight',()=>{
   const block=text=>text.replace(/\r\n/g,'\n').split('// BEGIN STANDALONE PE PREFLIGHT\n')[1].split('// END STANDALONE PE PREFLIGHT')[0];
   const create=block(worker('Create_Approval.bat')),check=block(worker('Check_Approval.bat'));
   assert.equal(check,create);assert.match(create,/PE_EXCEPTION_TABLE_UNSORTED/);
+ });
+ Test('Both standalone workers admit Release exports and legacy unmarked bytes, but reject renamed Debug and malformed configuration exports',()=>{
+  const pair=crypto.generateKeyPairSync('ed25519'),keyFile=path.join(temp,'configuration.pem');
+  fs.writeFileSync(keyFile,pair.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
+  const keyId=crypto.createHash('sha256').update(pair.publicKey.export({type:'spki',format:'der'})).digest('hex');
+  const createWorker=worker('Create_Approval.bat'),checkWorker=worker('Check_Approval.bat');
+  function configured(first='GAME_BUILD_RELEASE_V1',second='OtherExport'){
+   const image=require('./test-desktop-pe-exports').Fixture(),pe=image.readUInt32LE(60);
+   image.writeUInt16LE(image.readUInt16LE(pe+22)&~0x2000,pe+22);
+   image.fill(0,1104,1280);image.writeUInt32LE(0x1020,1068);
+   image.writeUInt32LE(0x2090,1072);image.writeUInt32LE(0x20d0,1076);
+   image.write(first+'\0',1168,'ascii');image.write(second+'\0',1232,'ascii');return image;
+  }
+  function legacyApproval(bytes){
+   const digest=sha512(bytes),signature=crypto.sign(null,Buffer.from(a.ReleaseCanonical('B','93.0.0',digest)),pair.privateKey).toString('base64');
+   return {component:'B',version:'93.0.0',sha512:digest,trustedKey:{keyId,publicKey:pair.publicKey.export({type:'spki',format:'pem'}).toString()},approval:{keyId,signature}};
+  }
+  const release=configured(),opt=release.readUInt32LE(60)+24;
+  const cases=[
+   ['release',release,null],
+   ['legacy',PE('B',a.DOMAIN),null],
+   ['raw-string-is-not-an-export',Buffer.concat([PE('B',a.DOMAIN),Buffer.from('GAME_BUILD_DEBUG_V1\0')]),null],
+   ['debug',configured('GAME_BUILD_DEBUG_V1'),'SECURITY_DEBUG_BUILD_NOT_PUBLISHABLE'],
+   ['B_Release_renamed-debug',configured('GAME_BUILD_DEBUG_V1'),'SECURITY_DEBUG_BUILD_NOT_PUBLISHABLE'],
+   ['both-configurations',configured('GAME_BUILD_RELEASE_V1','GAME_BUILD_DEBUG_V1'),'SECURITY_BUILD_CONFIGURATION_INVALID'],
+   ['duplicate-release-marker',configured('GAME_BUILD_RELEASE_V1','GAME_BUILD_RELEASE_V1'),'SECURITY_BUILD_CONFIGURATION_INVALID'],
+   ['unknown-marker-version',configured('GAME_BUILD_RELEASE_V2'),'SECURITY_BUILD_CONFIGURATION_INVALID']
+  ];
+  for(const [name,mutate] of [
+   ['bad-name-rva',b=>b.writeUInt32LE(0x2200,1072)],
+   ['bad-ordinal',b=>b.writeUInt16LE(2,1080)],
+   ['zero-marker-target',b=>b.writeUInt32LE(0,1064)],
+   ['data-marker-target',b=>b.writeUInt32LE(0x2100,1064)],
+   ['forwarded-marker',b=>{b.writeUInt32LE(0x2070,1064);b.write('DLL.Function\0',1136,'ascii');}],
+   ['bad-export-span',b=>b.writeUInt32LE(0xffffffff,opt+116)],
+   ['incomplete-export-directory',b=>b.writeUInt32LE(0,opt+116)],
+   ['relocated-marker-table',b=>{b.writeUInt32LE(0x2180,opt+152);b.writeUInt32LE(12,opt+156);b.writeUInt32LE(0x2000,1408);b.writeUInt32LE(12,1412);b.writeUInt16LE(0xa028,1416);b.writeUInt16LE(0,1418);}]
+  ]){const image=Buffer.from(release);mutate(image);cases.push([name,image,'SECURITY_BUILD_CONFIGURATION_INVALID']);}
+  for(const [name,image,error] of cases){
+   const file=path.join(temp,name+'.exe'),output=path.join(temp,name+'-created.approval.json'),input=path.join(temp,name+'-existing.approval.json');
+   fs.writeFileSync(file,image);fs.writeFileSync(input,JSON.stringify(legacyApproval(image)));
+   const env={...process.env,GC_APPROVAL_COMPONENT:'B',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_OUTPUT:output,GC_APPROVAL_JSON:input};
+   // Rejection must happen before opening any private key or creating approval.
+   const created=require('node:child_process').spawnSync(process.execPath,['-e',createWorker],{env:{...env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_KEY:error?path.join(temp,'must-not-open-configuration.pem'):keyFile},encoding:'utf8'});
+   const inspected=require('node:child_process').spawnSync(process.execPath,['-e',checkWorker],{env:{...env,GC_APPROVAL_ACTION:'inspect'},encoding:'utf8'});
+   if(error){
+    for(const result of [created,inspected]){assert.equal(result.status,1,name);assert.equal(result.stderr.trim(),error,name);assert.equal(result.stdout,'',name);}
+    assert.equal(fs.existsSync(output),false,name);
+   }else{
+    assert.equal(created.status,0,name+': '+created.stderr);assert.equal(inspected.status,0,name+': '+inspected.stderr);
+    assert.equal(JSON.parse(inspected.stdout).ok,true,name);
+    const actual=JSON.parse(fs.readFileSync(output,'utf8'));assert.equal(actual.sha512,sha512(image));assert.deepEqual(actual.approval,legacyApproval(image).approval,'Canonical signature is unchanged');
+   }
+   assert.deepEqual(fs.readFileSync(file),image,name+' input is read-only');
+   assert.deepEqual(JSON.parse(fs.readFileSync(input,'utf8')),legacyApproval(image),name+' approval is read-only');
+  }
  });
  Test('Create embeds the unchanged strict normalizer and prepares O before key selection and signing',()=>{
   const text=fs.readFileSync(path.join(__dirname,'../tools/Create_Approval.bat'),'utf8').replace(/\r\n/g,'\n');
@@ -129,7 +183,14 @@ try{
  });
  Test('Challenge/canonical Delphi field contract stays in sync',()=>{
   const client=path.resolve(__dirname,'../../GameConnect_Win64/Game.ServerAuthority.pas');
-  const text=fs.readFileSync(client,'utf8');assert.match(text,/Challenge\.Count <> 8/);assert.match(text,/Reply\.Count <> 8/);assert.ok(text.includes(a.DOMAIN));
+  const text=fs.readFileSync(client,'utf8');assert.match(text,/Reply\.Count <> 8/);assert.ok(text.includes(a.DOMAIN));
+  const parser=text.slice(text.indexOf('ExpectedChallengeFields := 8;'),text.indexOf("if Number(Challenge, 'version')"));
+  assert.match(text,/Body\.AddPair\('deviceSignalsVersion', TJSONNumber\.Create\(1\)\)/);
+  assert.match(parser,/ExpectedChallengeFields := 8;/);
+  assert.match(parser,/ProfileValue := Challenge\.GetValue\('mitigationProfile'\);[\s\S]*if ProfileValue <> nil then[\s\S]*if not \(ProfileValue is TJSONObject\) then Invalid;[\s\S]*Inc\(ExpectedChallengeFields\)/);
+  assert.match(parser,/DeviceSignalsValue := Challenge\.GetValue\('deviceSignalsRequested'\);[\s\S]*if DeviceSignalsValue <> nil then[\s\S]*if not \(DeviceSignalsValue is TJSONBool\) then Invalid;[\s\S]*Inc\(ExpectedChallengeFields\)/);
+  assert.equal((parser.match(/Inc\(ExpectedChallengeFields\)/g)||[]).length,2);
+  assert.match(parser,/if Challenge\.Count <> ExpectedChallengeFields then Invalid;/);
   const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,16);assert.equal(new Set(fields).size,16);
   for(const name of ['version','hashVersion','codeXxh3_128','codeBlake3','crcLayers','measurement','fileSha512','fileCrc64','codeSha512','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg','mitigationDiagnostics','ownMeasurement'])assert.ok(fields.includes(name));
   const body={stage:'B',sessionId:'SID',intent:'verify',binding:'BIND'},c={challengeId:'CID',nonce:'NONCE',epoch:'EPOCH',sequence:7,revision:2,expiresAt:12345};
