@@ -1,0 +1,154 @@
+ETCD SHARED-STATE ADAPTER: ITEM 14 BOUNDARY
+
+Status: NOT_INTEGRATED. GameWeb still requires HA_ENABLED=0 and one writer.
+The adapter is an independently usable implementation candidate, not a claim
+that the current server supports multiple writers or production HA. Its wire
+tests pass; a real etcd cluster was not available for acceptance testing here.
+Do not remove desktopSingleWriter or the bootstrap/license HA rejection gates.
+
+WHAT IS IMPLEMENTED
+
+services/etcdConsensusStore.js uses the official etcd v3 HTTP JSON gateway. It
+does not implement Raft, replace the local SQLite lock, or wrap a local write in
+a distributed lock. Shared state written through Commit resides in etcd itself.
+Acquire creates an expiring lease and conditionally inserts one namespace owner
+key. Each Commit has one etcd transaction comparing all of the following:
+  - owner key creation revision, random owner value, and lease ID;
+  - expected state key modification revision (0 means absent);
+  - absence of the persistent operation receipt.
+The success branch writes the new state and its receipt in the same transaction.
+Neither is attached to the expiring owner lease. A failed branch reads the
+receipt and owner in the same transaction. It either resolves an identical
+previous operation, rejects an operation-ID collision, rejects stale ownership,
+or reports a state conflict. No check-then-write local-file callback exists.
+
+All cluster, lease, and revision numbers remain decimal strings, including those
+above JavaScript's safe integer limit. Reads request linearizable behavior.
+The adapter never infers ownership from elapsed time or a peer being absent.
+Lease renewal is explicit. Even an apparently live local session must pass
+the ownership comparisons at the commit point. A suspended/stale process has
+no path to bypass them.
+
+HTTPS with server certificate verification is the default. Options permit a CA
+and client certificate/key; HTTPS verification cannot be disabled. Gateway
+authorization uses an externally provisioned token, not automatic root login.
+Renew expired tokens by creating a new client. Do not assume a client certificate
+CN is a gateway authorization identity; configure etcd auth/RBAC explicitly.
+The operator supplies the expected etcd cluster ID. Connect checks reachable
+endpoints before lease acquisition, and an initially unavailable endpoint must
+pass a read-only cluster check before later receiving mutations. Responses from
+another cluster invalidate the client. Trusted endpoints must remain bound to
+the same cluster; replacing/restoring a cluster requires stopped clients and
+explicit operational recovery. No HTTP redirects are followed.
+
+Requests have deadlines, bounded response buffers, strict JSON parsing, and a
+256 KiB limit per JSON state value. At most nine configured endpoints are used.
+A failed request advances the endpoint for the NEXT explicit operation. Writes
+are never automatically retried on another endpoint. No server body, token,
+private key, or state is included in adapter error messages or Status output.
+
+UNKNOWN OUTCOMES AND RECEIPTS
+
+A timeout/disconnect may occur after etcd committed. Such mutation errors carry
+outcomeUnknown=true and invalidate the local session for Commit failures. Use
+Prepare(input).fingerprint, then Resolve(operationId, fingerprint) to recover a
+matching persistent receipt. A positive match reports the original transaction
+revision even if later writes changed state. NOT_OBSERVED means only that the
+read did not see a receipt: a timed-out in-flight request may still commit.
+Never interpret NOT_OBSERVED as a guaranteed rollback or repeat an external
+side effect. After acquiring ownership, retry only the identical request and
+operation ID, preserving expectedRevision and serialized value bytes.
+
+Receipts intentionally have no TTL or deletion API. Quota exhaustion fails
+closed. A future retention design must preserve replay protection across the
+full operation lifetime; blindly deleting receipts is not supported. There is
+no atomicity guarantee for external APIs, local files, audit append operations,
+key rotation, executable publication, or other resources outside this etcd
+transaction. Integrating side effects needs a replicated transactional outbox
+and idempotent consumers before exposing success to clients.
+
+USAGE IN A SEPARATE TEST/INTEGRATION PROGRAM
+
+  const {EtcdConsensusStore} = require('./services/etcdConsensusStore');
+  const db = new EtcdConsensusStore({
+    endpoints: ['https://etcd-1.example:2379','https://etcd-2.example:2379'],
+    expectedClusterId: '<operator-verified decimal uint64>',
+    namespace: 'isolated-evaluation',
+    token: '<externally provisioned restricted token>',
+    tls: {ca: fs.readFileSync('/private/etcd-ca.pem')}
+  });
+  await db.Connect();
+  await db.Acquire({ttlSeconds:15});
+  const previous = await db.Read('authority');
+  const input = {name:'authority',operationId:'stable-operation-id',
+    expectedRevision:previous.revision,value:{example:1}};
+  const fingerprint = db.Prepare(input).fingerprint;
+  const receipt = await db.Commit(input);
+  await db.Renew(); // application schedules renewal; errors stop new work
+  await db.Release();
+
+Status always includes status=NOT_INTEGRATED, serverMultiwriterEnabled=false.
+LEASE_HELD_ADVISORY describes a locally remembered lease, not a write permit.
+Do not put Acquire around an existing synchronous GameWeb storage mutation.
+
+TESTS AND EVIDENCE
+
+  node scripts/test-etcd-consensus-store.js
+
+Ten HTTP wire/adapter test groups cover TLS/config rejection, wrong cluster,
+64-bit revisions, owner contention, same-transaction ownership/CAS/receipts,
+duplicate operation identity, stale revision, streaming renewal, stale owner,
+uncertain committed response recovery, bounded malformed/redirect/timeout
+responses, and persistence across lease release. The in-process test server is
+explicitly a non-consensus fixture. These are NOT real etcd durability, quorum,
+leader failure, physical disk restart, or network-partition results.
+
+An opt-in runner is provided for an isolated disposable etcd cluster:
+  ETCD_TEST_ENDPOINTS=https://...:2379,https://...:2379
+  ETCD_TEST_CLUSTER_ID=<verified decimal cluster ID>
+  ETCD_TEST_CA_FILE=<CA PEM file when needed>
+  ETCD_TEST_TOKEN_FILE=<restricted gateway token file when auth enabled>
+  node scripts/test-etcd-consensus-live.js --disposable-cluster
+
+The environment variables must be exported/set according to the local shell.
+For local disposable tests only, ETCD_TEST_LOOPBACK=1 permits HTTP endpoints
+whose hostname is exactly 127.0.0.1 or [::1]. Hostnames such as localhost and
+non-loopback plaintext endpoints remain rejected. No credentials are printed.
+
+Without endpoints the runner reports NOT_RUN, not PASS. It allocates a unique
+acceptance namespace, tests two independent clients, contention, real lease
+expiration, stale-owner rejection, CAS, receipts, and fresh-client reads. It
+retains the small synthetic state for inspection; dispose of the test cluster.
+It does not stop nodes, modify membership, or claim partition/quorum coverage.
+
+REQUIRED BEFORE SERVER MULTIWRITER SUPPORT CAN BE ENABLED
+
+1. Migrate every authoritative local store and process cache to one coherent
+   shared transactional model: bootstrap capabilities, licenses/consumption,
+   session/handoff state, nonce/replay protection, policy, identity registry,
+   workspace jobs, immutable receipts, authenticated journal heads and recovery
+   witness. The existing 64 MiB bootstrap document cannot simply be placed in
+   this 256 KiB adapter. Define bounded records, indexes and transaction limits.
+2. Replace synchronous callback mutations with awaited transactions. Replay
+   the complete read/validate/compute/commit cycle after CAS conflicts. Never
+   acknowledge an issuance/consumption before its authoritative transaction.
+3. Replicate audit outboxes and recovery epochs atomically; prevent restores or
+   failover from reviving consumed capabilities. Design a shared artifact/key
+   publication protocol with consistent identity and idempotent side effects.
+4. Remove peer-priority/timeout promotion from any authority path. The existing
+   haCoordinator snapshot scheme is asynchronous and is not distributed
+   consensus. Route traffic only after authoritative reads/recovery are ready.
+5. Validate against a real protected three-or-more-member etcd deployment,
+   including simultaneous candidates, leader crash, minority partition,
+   majority/quorum loss, latency beyond TTL, paused clients, ambiguous replies,
+   failover restart, disk restart, compaction, quota/alarm, certificate rotation,
+   auth expiry, restore epoch, replay and cross-resource side effects.
+6. Complete a coordinated migration/cutover with backups and rollback rules,
+   operational monitoring, and independent review. Only then replace the
+   fail-closed HA gates with a supported distributed storage mode.
+
+PRIMARY REFERENCES CONSULTED (2026-10-15)
+https://etcd.io/docs/v3.6/dev-guide/api_grpc_gateway/
+https://etcd.io/docs/v3.6/dev-guide/api_reference_v3/
+https://etcd.io/docs/v3.6/learning/api_guarantees/
+https://etcd.io/docs/v3.6/dev-guide/api_concurrency_reference_v3/

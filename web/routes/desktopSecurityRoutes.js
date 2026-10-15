@@ -13,6 +13,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   }
   if(pathname!==prefix&&!pathname.startsWith(prefix+'/'))return false;
   if(!session||session.role!=='admin'){ApiError(res,403,'ADMIN_REQUIRED');return true;}
+  if(method==='GET'&&pathname===prefix+'/mitigation-compatibility'){Json(res,200,{ok:true,...require('../../services/desktopMitigationCompatibility').Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/mitigation-profiles'){Json(res,200,{ok:true,...require('../../services/desktopMitigationProfiles').Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/tls-pin-transition'){Json(res,200,{ok:true,...require('../../services/desktopTlsPinTransition').Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/publication-status'){Json(res,200,{ok:true,publication:operations.ProductionStatus()});return true;}
@@ -45,7 +46,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   }
   if(action==='preview-rollout'){Json(res,200,{ok:true,preview:authority.PreviewRollout(body)});return true;}
   if(action==='preview-pair'){Json(res,200,{ok:true,preview:operations.PreviewProductionPair(body)});return true;}
-  const actions={'mitigation-profiles':require('../../services/desktopMitigationProfiles').Register,'tls-pin-transition':require('../../services/desktopTlsPinTransition').Schedule,'plan-release':operations.PlanReleaseManifest,'recovery/prepare':operations.PrepareProductionRecovery,'recovery/apply':operations.ApplyProductionRecovery,'release-governance':operations.SetProductionGovernance,'release-manifests':operations.RecordReleaseManifest,'ci-signers':operations.SetCiSigner,'ci-evidence':operations.RecordCiEvidence,controls:operations.SetControls,contracts:operations.SetContract,signers:operations.SetSignerState,rollout:operations.SetRollout,'test-evidence':operations.RecordEvidence,activate:operations.ActivateProductionPair};
+  const actions={'mitigation-compatibility':require('../../services/desktopMitigationCompatibility').Import,'mitigation-profiles':require('../../services/desktopMitigationProfiles').Register,'tls-pin-transition':require('../../services/desktopTlsPinTransition').Schedule,'plan-release':operations.PlanReleaseManifest,'recovery/prepare':operations.PrepareProductionRecovery,'recovery/apply':operations.ApplyProductionRecovery,'release-governance':operations.SetProductionGovernance,'release-manifests':operations.RecordReleaseManifest,'ci-signers':operations.SetCiSigner,'ci-evidence':operations.RecordCiEvidence,controls:operations.SetControls,contracts:operations.SetContract,signers:operations.SetSignerState,rollout:operations.SetRollout,'test-evidence':operations.RecordEvidence,activate:operations.ActivateProductionPair};
   if(!actions[action]){ApiError(res,404,'NOT_FOUND');return true;}
   // Existing admin authentication / CSRF / single-operator authorization were checked
   // by webApi before dispatch. No duplicate consumption of one-use tickets here.

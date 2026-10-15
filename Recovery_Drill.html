@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>격리 복구 드릴 사용법</title>
+<style>
+:root{color-scheme:light;--ink:#1c2c3d;--muted:#516477;--line:#d7e1e9;--blue:#165e8c;--paper:#f5f8fb}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI","Malgun Gothic",sans-serif}main{max-width:980px;margin:0 auto;padding:48px 24px 72px}h1{font-size:2rem;line-height:1.25;margin:0 0 16px}h2{font-size:1.25rem;margin:34px 0 12px}p{margin:10px 0}a{color:var(--blue)}.lead{font-size:1.05rem;color:var(--muted)}.note{padding:16px 20px;background:#e7f1f8;border-left:4px solid var(--blue);border-radius:4px}.warning{background:#fff6df;border-left-color:#9f7419}table{width:100%;border-collapse:collapse;background:#fff;font-size:.94rem}th,td{padding:13px 15px;border:1px solid var(--line);text-align:left;vertical-align:top}th{background:#eaf0f5}code{font-family:Consolas,monospace;font-size:.92em}pre{overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere;padding:17px 20px;background:#14283b;color:#edf6ff;border-radius:6px;line-height:1.55}li{margin:8px 0}.small{font-size:.9rem;color:var(--muted)}footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.9rem}@media print{body{background:white}main{padding:12px;max-width:none}pre{background:#f1f4f7;color:#152638}h2{break-after:avoid}tr,.note{break-inside:avoid}}
+</style>
+</head>
+<body><main>
+<h1>격리 복구 드릴 사용법</h1>
+<p class="lead">사용자가 지정한 DATA_DIR 백업을 임시 디렉터리에 복사한 뒤 실제 서버 저장소·복구 epoch·저널·witness 코드를 실행합니다. 결과는 JSON으로 기록합니다.</p>
+<div class="note"><strong>결과 범위:</strong> 백업 복사본 검사와 합성 회귀시험을 구분합니다. <code>ok: true</code>는 해당 서버 검사들의 성공을 뜻하며, 실제 Windows 기기·CNG·TPM 또는 전체 운영 복구 승인을 뜻하지 않습니다. <code>NOT_TESTED</code> 항목은 그대로 남습니다.</div>
+
+<h2>1. 준비</h2>
+<ul>
+<li>프로젝트에서 지원하는 Node.js와 설치된 서버 의존성이 필요합니다. JSON 저장 방식에도 실제 단일 writer 잠금용 <code>better-sqlite3</code>가 필요합니다.</li>
+<li>합성 회귀시험이 운영 TLS 생성 코드를 사용하므로 OpenSSL을 사용할 수 있어야 합니다. CI 키나 Delphi 컴파일러는 이 도구의 실행 조건이 아닙니다.</li>
+<li>중지된 서버에서 만든 완전한 DATA_DIR 백업 또는 일관성이 보장된 스냅샷을 준비합니다. 실행 중인 운영 DATA_DIR을 입력하지 않습니다.</li>
+<li>witness를 제공하려면 DATA_DIR과 별개인 <strong>witness 스냅샷 디렉터리</strong>를 준비합니다. 복사된 witness만으로 물리적 독립성이나 최신 운영 head가 입증되지는 않습니다.</li>
+<li>결과 파일은 두 입력 디렉터리 바깥의 <strong>새 파일 경로</strong>로 지정합니다. 기존 결과를 덮어쓰지 않습니다.</li>
+</ul>
+
+<h2>2. 실제 백업 복사본 검사</h2>
+<p><a href="tools/recovery-drill-input.example.json">입력 예제</a>를 복사하고 실제 절대 경로와 저장 방식을 입력합니다. <code>storageEngine</code>은 백업에 맞게 <code>sqlite</code> 또는 <code>json</code>으로 지정합니다.</p>
+<pre><code>{
+  "version": 1,
+  "backupDirectory": "D:\\OfflineBackups\\GameWeb-DATA_DIR",
+  "witnessSnapshotDirectory": "E:\\OfflineBackups\\GameWeb-witness-snapshot",
+  "storageEngine": "sqlite"
+}</code></pre>
+<p>witness 스냅샷이 없으면 <code>witnessSnapshotDirectory</code> 필드를 삭제합니다. 이 경우 격리된 드릴용 witness를 새로 만들어 롤백 거절만 모의 시험합니다.</p>
+<p><code>GameWeb\tools</code>에서 실행합니다. 결과 디렉터리는 미리 만들어 두어야 합니다.</p>
+<pre><code>Run_Recovery_Drill.bat backup "D:\Drill\input.json" "D:\Drill\result-001.json" /nopause</code></pre>
+<p>Node.js로 직접 실행할 수도 있습니다.</p>
+<pre><code>node recovery-drill.js backup "D:\Drill\input.json" "D:\Drill\result-001.json"</code></pre>
+<p>원본은 읽기 전용으로 접근하며, 일반 파일의 해시를 실행 전후 비교합니다. 네이티브 조정용 잠금 파일은 복사·해시 비교에서 제외합니다. 심볼릭 링크·하드링크·특수 파일은 거절하며, 서버 listener를 열지 않습니다. 복사된 비밀정보를 포함한 임시 디렉터리는 종료 시 삭제합니다.</p>
+
+<h2>3. 합성 selftest</h2>
+<p>사용자 백업 없이 별도의 테스트 데이터를 만들고 복사·복구하는 서버 회귀시험입니다. <strong>실제 백업 검증 결과로 사용할 수 없습니다.</strong> 백업 모드에서도 같은 시험을 독립된 임시 디렉터리에서 보충 실행합니다.</p>
+<pre><code>Run_Recovery_Drill.bat selftest "D:\Drill\selftest-001.json" /nopause
+
+node recovery-drill.js selftest "D:\Drill\selftest-001.json"</code></pre>
+<p class="small">CLI selftest는 JSON 저장 방식을 사용합니다. 자동 회귀시험 <code>node scripts/test-recovery-drill.js</code>는 합성 데이터로 JSON과 SQLite를 모두 검사합니다.</p>
+
+<h2>4. 검사별 의미</h2>
+<table>
+<thead><tr><th>검사</th><th>입력 백업의 복사본</th><th>합성 서버 회귀시험</th></tr></thead>
+<tbody>
+<tr><td>저장소 복원·저널·감사체인</td><td>실제 저장소 로드·작업 조정·감사체인 확인. 손상되거나 불일치하면 실패합니다.</td><td>생성한 테스트 스냅샷을 복사한 뒤 같은 서버 코드를 실행합니다.</td></tr>
+<tr><td>이전 세션 거절</td><td>백업에서 복원 가능한 B/O 세션 capability가 있으면 실제 복구 epoch 적용 후 거절을 확인합니다. 대상이 없으면 <code>NOT_TESTED</code>입니다.</td><td>복구 직전 허용되던 테스트 세션이 복구 후 거절되는지 확인합니다.</td></tr>
+<tr><td>사용한 라이선스</td><td>소모 상태·영수증 보존 및 저널의 소모 취소 거절을 확인합니다. 원래 기기에서 서명한 재사용 요청은 <code>NOT_TESTED</code>입니다.</td><td>새 소프트웨어 RSA 키로 정상 서명한 재사용 요청이 <code>DESKTOP_KEY_USED</code>로 거절되는지 확인합니다.</td></tr>
+<tr><td>기기 키 폐기·새 키 재등록</td><td>원래 기기의 개인 키를 가져오지 않으므로 <code>NOT_TESTED</code>입니다.</td><td>실제 기기 등록 서비스와 저장소에서 테스트 키 폐기, 기존 세션 종료, 이전 키 거절, 승인된 대체 키 등록을 확인합니다.</td></tr>
+<tr><td>witness 롤백 거절</td><td>제공된 witness 스냅샷과 먼저 대조합니다. 격리 복사본을 진행시킨 후 이전 복사본이 거절되는지도 시험합니다.</td><td>새 드릴 witness를 진행시키고 이전 전체 데이터 복사본의 거절을 시험합니다.</td></tr>
+<tr><td>재시작 후 지속성</td><td colspan="2">새 Node.js 프로세스에서 복구 epoch·소모 라이선스 수와 witness의 현재 상태를 다시 확인합니다.</td></tr>
+</tbody>
+</table>
+
+<h2>5. 결과 확인</h2>
+<ul>
+<li><code>backup</code>은 사용자가 제공한 백업 복사본의 결과이고, <code>syntheticRegression</code>은 합성 시험 결과입니다.</li>
+<li><code>coverage: "PARTIAL_BACKUP_EXERCISE"</code>와 개별 <code>NOT_TESTED</code> 항목을 함께 확인합니다. 보충 시험이 성공해도 원래 기기 검사가 수행된 것으로 바꾸지 않습니다.</li>
+<li><code>originalBackupUnchanged</code>, 제공 시 <code>originalWitnessUnchanged</code>, <code>isolatedCopiesRemoved</code>를 확인합니다. 원본 변경이나 재확인 실패, 임시 파일 삭제 실패는 전체 실패로 기록됩니다.</li>
+<li><code>RECOVERY_ROLLBACK_DETECTED</code>가 백업 로드 단계에서 발생하면 제공된 witness와 백업이 맞지 않는 것입니다. 도구는 그 witness를 다시 등록하거나 초기화하지 않습니다.</li>
+<li><code>DRILL_CLEANUP_FAILED</code>이면 결과의 <code>cleanupDirectory</code>를 확인합니다. 해당 임시 복사본에는 서버 비밀정보가 남아 있을 수 있습니다.</li>
+<li>정상 종료 코드는 <code>0</code>, 검사 실패는 <code>1</code>입니다. BAT의 잘못된 인자 사용은 <code>2</code>입니다. 입력 거절 시에도 CLI는 오류 코드를 JSON으로 출력합니다.</li>
+</ul>
+
+<h2>6. 실제 Windows에서 남은 확인</h2>
+<div class="note warning"><strong>새 기기·새 키의 양성 시험이 별도로 필요합니다.</strong> 실제 Windows에서 CNG 명명 키 생성·유지·재시작, 폐기된 키 거절, 승인된 대체 키로 A/B 등록 및 정상 인증 경로를 확인해야 합니다. TPM 정책을 사용한다면 실제 TPM 키 증명·credential activation·재설치/TPM 초기화 후 재등록도 따로 확인해야 합니다.</div>
+<p>이 도구의 RSA 테스트 키와 PE fixture는 서버 동작을 재현하는 합성 입력입니다. Windows 실행 파일, BAT의 실제 Windows 실행, 기존 장치에서 새 장치로의 전환, CNG 키의 비내보내기 성질 또는 물리적 TPM의 성공 증거를 생성하지 않습니다. 라이선스 자동 이월도 증명하지 않습니다.</p>
+<footer>도구: <code>tools/recovery-drill.js</code> · 내부 작업자: <code>tools/recovery-drill-worker.js</code> · 회귀시험: <code>scripts/test-recovery-drill.js</code></footer>
+</main></body></html>

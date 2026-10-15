@@ -1,5 +1,14 @@
 'use strict';
 const PREFIX='/api/desktop/bootstrap/server-state';
+function Query(url,allowed){
+ const params=url?.searchParams||new URLSearchParams(),out=Object.create(null);
+ for(const [key,value]of params){
+  if(!allowed.includes(key)||Object.hasOwn(out,key))throw Object.assign(new Error('SERVER_STATE_QUERY_INVALID'),{desktopError:true,status:400});
+  out[key]=value;
+ }
+ return out;
+}
+function InvalidQuery(){throw Object.assign(new Error('SERVER_STATE_QUERY_INVALID'),{desktopError:true,status:400});}
 async function Handle(ctx){
  const {method,pathname,req,res,session,body={},url}=ctx;if(pathname!==PREFIX&&!pathname.startsWith(PREFIX+'/'))return false;
  const {Json,ApiError,RequireAdmin}=require('../apiContext');if(!RequireAdmin(res,session))return true;
@@ -13,7 +22,20 @@ async function Handle(ctx){
    if(!require('../../services/haCoordinator').CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}
   }
   const actor='ADMIN:'+session.id;let result;
-  if(method==='GET'&&pathname===PREFIX)result={...require('../../services/desktopRecovery').Status(),journal:require('../../services/desktopJournal').Status(),storage:require('../../services/desktopStorageMaintenance').Status()};
+  if(method==='GET'&&pathname===PREFIX)result={...require('../../services/desktopRecovery').Status(),journal:require('../../services/desktopJournal').Status(),storage:require('../../services/desktopStorageMaintenance').Status(),capabilities:require('../../services/desktopCapabilities').Status()};
+  else if(method==='GET'&&pathname===PREFIX+'/capabilities')result=require('../../services/desktopCapabilities').Status();
+  else if(method==='GET'&&pathname===PREFIX+'/verification-context'){
+   const query=Query(url,['manifestId']);if(!/^[a-f0-9]{128}$/.test(query.manifestId||''))InvalidQuery();
+   result=require('../../services/desktopManualVerification').Context(query.manifestId);
+  }
+  else if(method==='GET'&&pathname===PREFIX+'/lifecycle'){
+   const query=Query(url,['flowId','licenseId','limit']);
+   if(query.flowId!==undefined&&!/^(?:BF-)?[A-F0-9]{24}$/.test(query.flowId))InvalidQuery();
+   if(query.licenseId!==undefined&&!/^(?:DL-)?[A-F0-9]{24}$/.test(query.licenseId))InvalidQuery();
+   if(query.limit!==undefined&&!/^(?:[1-9]|[1-4][0-9]|50)$/.test(query.limit))InvalidQuery();
+   result=require('../../services/desktopLifecycleTrace').Overview({...(query.flowId?{flowId:query.flowId}:{}),...(query.licenseId?{licenseId:query.licenseId}:{}),limit:query.limit?Number(query.limit):20});
+  }
+  else if(method==='POST'&&pathname===PREFIX+'/manual-verification')result=require('../../services/desktopManualVerification').Import(body,actor);
   else if(method==='GET'&&pathname===PREFIX+'/devices')result=require('../../services/desktopDeviceRegistry').List();
   else if(method==='GET'&&pathname===PREFIX+'/device-identity')result=require('../../services/desktopDeviceIdentity').List();
   else if(method==='POST'&&pathname===PREFIX+'/device-identity-policy')result=require('../../services/desktopDeviceIdentity').AdminPolicy(body,actor);
