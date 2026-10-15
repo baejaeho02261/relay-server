@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "releaseVersion": "1.0.0",
+  "artifacts": {
+    "A": "C:\\GameConnect\\GameConnect_Win64\\bin\\GameLauncher.exe",
+    "B": "C:\\GameConnect\\GameConnect_Win64\\bin\\GameConnect.exe",
+    "O": "C:\\GameConnect\\GameConnect_Win64\\bin\\GameOverlay.exe"
+  },
+  "faultArtifacts": {
+    "A": "C:\\GameConnect\\GameConnect_Win64\\tests\\product-faults\\bin\\GameLauncherFaultTest.exe",
+    "B": "C:\\GameConnect\\GameConnect_Win64\\tests\\product-faults\\bin\\GameConnectFaultTest.exe",
+    "O": "C:\\GameConnect\\GameConnect_Win64\\tests\\product-faults\\bin\\GameOverlayFaultTest.exe"
+  },
+  "nativeReceiveProbe": "C:\\GameConnect\\GameConnect_Win64\\tests\\manual-ide\\bin\\TlsReceiveProbe.exe"
+}

@@ -7,7 +7,9 @@ function SignRelease(component, version, file, keyFile) {
   if (!['A','B','O'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) throw Error('RELEASE_ARGUMENT_INVALID');
   const stat = fs.statSync(file), keyStat = fs.statSync(keyFile);
   if (!stat.isFile() || stat.size < 64 || stat.size > 64*1024*1024 || !keyStat.isFile() || keyStat.size > 16384) throw Error('RELEASE_FILE_INVALID');
-  const bytes = fs.readFileSync(file), keyBytes = fs.readFileSync(keyFile);
+  const bytes = fs.readFileSync(file);
+  require('../services/peBuildConfiguration').AssertProductionConfiguration(bytes);
+  const keyBytes = fs.readFileSync(keyFile);
   let key;
   try { key = crypto.createPrivateKey(keyBytes); } finally { keyBytes.fill(0); }
   if (key.asymmetricKeyType !== 'ed25519') throw Error('ED25519_KEY_REQUIRED');

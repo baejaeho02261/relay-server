@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Windows A/B/O 제품 장애 테스트</title>
+<style>body{font:16px/1.65 system-ui,sans-serif;background:#f3f5f8;color:#1b2738;margin:0}main{max-width:1100px;margin:36px auto;padding:36px;background:white;border-radius:14px}h1,h2{line-height:1.25}h1{margin-top:0}h2{margin-top:36px}code,pre{font-family:Consolas,monospace;font-size:.9em}code{background:#edf2f7;padding:2px 5px;border-radius:4px}pre{background:#142538;color:#eef6ff;padding:20px;overflow:auto;border-radius:8px}table{border-collapse:collapse;width:100%;font-size:14px}td,th{text-align:left;border:1px solid #d8e1eb;padding:12px;vertical-align:top}th{background:#edf2f7}.scope{border-left:5px solid #4474ad;padding:10px 18px;background:#edf4fc}.status{font-weight:700;color:#7e4517}a{color:#195c9c}@media(max-width:800px){main{margin:0;padding:20px}table{display:block;overflow:auto}}</style>
+<main><h1>Windows A → B → O 제품 장애 테스트</h1>
+<p class="scope">기존 실행 파일로 실제 제품 경로를 실행하는 <strong>비 CI 진단 도구</strong>입니다. 컴파일·배포 승인·CI 증거·실제 GPU 드라이버 고장을 대신하지 않습니다. 이 소스 패키지 작성 환경에서 Windows 실행은 <span class="status">NOT_RUN</span>입니다.</p>
+<h2>1. 빌드와 실행 준비</h2>
+<ol><li>Windows x64의 대화형 데스크톱 세션에서 Node, PowerShell 7 x64, OpenSSL 및 GameWeb 의존성을 준비합니다.</li>
+<li>RAD Studio IDE에서 일반 최종 Release A/B/O를 빌드합니다.</li>
+<li><code>GameConnect_Win64/tests/product-faults/</code>의 <code>GameLauncherFaultTest.dproj</code>, <code>GameConnectFaultTest.dproj</code>, <code>GameOverlayFaultTest.dproj</code>를 별도로 빌드합니다. 이 파일에는 테스트 마커가 있고 일반 서버 게시 경로는 항상 거부합니다.</li>
+<li><code>tests/manual-ide/TlsReceiveProbe.dproj</code>를 빌드합니다. 수신 경계 검사는 제품 세션 검사와 별도로 보고됩니다.</li>
+<li><a href="product-fault-inputs.example.json">product-fault-inputs.example.json</a>을 복사하고 실제 절대 경로 및 버전을 입력합니다. 최종 EXE와 전용 테스트 EXE의 경로를 서로 바꾸지 마세요.</li></ol>
+<pre>Run_Product_Fault_Tests.bat C:\path\product-fault-inputs.json
+Run_Product_Fault_Tests.bat C:\path\product-fault-inputs.json /nopause</pre>
+<p>입력 JSON의 선택적 <code>scenarios</code> 배열로 아래 ID를 지정할 수 있습니다. 생략하면 17개 제품 시나리오를 선택합니다. 실행 파일 집합이 없으면 해당 시나리오는 <code>NOT_RUN</code>입니다. 서버의 원래 세션 만료를 기다리므로 일부 비정상 종료 검사는 수 분이 걸립니다. 시나리오 제한 시간은 450초입니다.</p>
+<h2>2. 검사 범위</h2>
+<table><thead><tr><th>시나리오 ID</th><th>실행 파일</th><th>통과에 필요한 실제 관찰</th></tr></thead><tbody>
+<tr><td><code>handoff-body-interrupt-ab</code><br><code>handoff-body-interrupt-bo</code></td><td>전용 테스트 A/B/O</td><td>길이 필드와 실제 암호문 일부가 파이프에 쓰인 뒤 중단. 자식의 인증/전송 불가, 서버 종료 상태, 재사용 거부.</td></tr>
+<tr><td><code>handoff-parent-exit-ab</code><br><code>handoff-parent-exit-bo</code></td><td>전용 테스트 A/B/O</td><td>부분 본문 이후 해당 부모가 실제 종료 코드 197로 종료. 이벤트만으로는 통과하지 않음.</td></tr>
+<tr><td><code>handoff-child-exit-ab</code><br><code>handoff-child-exit-bo</code></td><td>전용 테스트 A/B/O</td><td>부분 본문 장벽에서 Job 소유권과 실행 경로를 확인한 정확한 자식 프로세스 핸들만 종료.</td></tr>
+<tr><td><code>response-loss-redeem</code><br><code>response-loss-claim-b</code><br><code>response-loss-claim-o</code><br><code>response-loss-transfer</code></td><td>선택한 최종 Release</td><td>실제 서버 커밋 뒤 해당 TLS 소켓의 응답 1개 손실. 실제 클라이언트의 같은 요청 재시도, 동일 영속 결과, 중복 소비·위임·기한 연장 없음. O 가시 창 및 A/B 종료·파일 정리 확인.</td></tr>
+<tr><td><code>tls-session-record-authentication-failure</code></td><td>선택한 최종 Release</td><td>실제 O 전송과 A/B 정리가 끝난 뒤 갱신 TLS 1.2 레코드 1개 변조. O 실패 종료와 서버 권한 종료·재사용 거부 확인.</td></tr>
+<tr><td><code>signed-exe-replacement</code><br><code>signed-json-replacement</code></td><td>선택한 최종 Release</td><td>전용 서버에서 정상 서명·등록한 B 바이트 또는 승인 JSON을 교체. 실제 A 요청이 흐름 생성·라이선스 소비·O 생성 전에 거부됨.</td></tr>
+<tr><td><code>gpu-create-e-outofmemory</code><br><code>gpu-resize-device-removed</code><br><code>gpu-present-device-reset</code></td><td>전용 테스트 A/B/O</td><td>제품 렌더러의 실제 생성·ResizeBuffers·Present 호출이 지정한 테스트 HRESULT를 반환. 생성 오류는 가시 창 전, 나머지는 첫 프레임 후 실행.</td></tr>
+<tr><td><code>overlay-lease-expiry</code></td><td>전용 테스트 A/B/O</td><td>동일한 A→B→O 실행에서 실제 인계 후 승인받은 120초 lease의 추가 갱신만 중지합니다. 시간을 바꾸지 않고 기다린 뒤 동일 O PID/HWND의 실제 비표시 이벤트가 프로세스 종료보다 먼저 발생하는지 확인합니다. 격리 서버는 해당 O 종료 요청 손실을 모의하여 실제 만료 시각에 Prune하도록 하고, 세션 비밀·장치 실행 권한 폐기와 캡처한 구 권한의 재사용 거부를 확인합니다. 정상 Release 산출물 검증으로 표시하지 않습니다.</td></tr>
+</tbody></table>
+<h2>3. 격리 및 결과 판정</h2>
+<p>매 시나리오마다 새 localhost 서버, 전용 데이터 폴더, 임시 서명 키, 개인화 A, 한 번 쓰는 라이선스와 Windows Job을 만듭니다. 운영 서버·데이터·키를 읽지 않습니다. TLS 핀, 암호화, 서명, 기기 증명 및 서버 권한 검사는 실제 제품 구현을 통과합니다. 테스트 마커 허용은 전용 서버 어댑터 내부에만 있습니다.</p>
+<p>결과 JSON은 최종/테스트 입력의 SHA-512와 실행 전후 불변 여부, 요청한 장애의 관찰, 부모 정리, 모든 서버 권한·런타임 비밀의 종료, 재사용 거부 및 소유 프로세스/폴더 정리를 기록합니다. 비정상 종료 뒤 남은 EXE 수와 테스트 도구의 최종 정리는 구별됩니다. 캡처한 요청 본문·키·티켓·로그·운영체제 경로는 공개 결과에 넣지 않습니다.</p>
+<p>요청한 장애가 관찰되지 않거나 자식 프로세스가 남거나 권한/재사용 검증이 불완전하면 <code>FAIL</code>입니다. 필수 입력이나 별도 수신 프로브가 없으면 <code>INCOMPLETE</code>입니다. 실행이 없었던 항목은 <code>NOT_RUN</code>으로 남습니다.</p>
+<h2>4. 남아 있는 별도 검증</h2>
+<p>서명 EXE/JSON 교체 시나리오는 서버 배포 경계 검사입니다. 실행 직전 네이티브 파일 TOCTOU 전체와 물리 GPU/드라이버 제거는 별도 검사로 남습니다. SChannel/JSON/PE 수신 프로브의 성공도 A/B/O 세션 성공으로 바꾸지 않습니다. 일반 최종 Release의 CRC·비교·수동 검증 작업은 기존 <code>Run_Manual_Windows_Tests.bat</code>에서 수행합니다.</p>
+<p><code>Run_Manual_Windows_Tests.bat</code>에서도 lease 만료 시험을 선택할 수 있습니다. 입력 JSON에서는 <code>faultArtifacts</code>에 전용 테스트 A/B/O 절대 경로를 추가합니다. 일반 <code>artifacts</code>와 혼합하지 마세요. 선택적 <code>verificationContext</code>에는 관리자 화면에서 내보낸 대상 빌드의 검증 컨텍스트 JSON 경로를 지정합니다. 대상 최종 파일·소스 해시가 일치할 때만 <code>-lease-verification.json</code>을 만들어 관리자 화면에 전용 테스트 빌드 범위로 등록할 수 있습니다. 컨텍스트를 제공하지 않아도 로컬 시험 결과는 생성됩니다. 기존 V2 수동 검사 보고와 CI 선택 정책은 유지됩니다.</p>
+<p>포터블 회귀 검사: <code>node GameWeb/scripts/test-product-fault-tests.js</code>, <code>node GameWeb/scripts/test-product-fault-wire.js</code>, <code>node GameWeb/scripts/test-product-fault-tls-proxy.js</code>. 이 결과는 Windows 실행 증거가 아닙니다. 자세한 영문 설명은 <a href="Product_Fault_Tests.md">Product_Fault_Tests.md</a>를 참조하세요.</p>
+</main></html>

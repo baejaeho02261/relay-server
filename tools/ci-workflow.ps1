@@ -73,7 +73,7 @@ try {
  if(-not $IsWindows -or [IntPtr]::Size -ne 8 -or $PSVersionTable.PSVersion.Major -lt 7){throw '64-bit PowerShell 7 is required; Windows PowerShell 5.1 cannot run this CI workflow.'}
  Start-Transcript -LiteralPath $log -NoClobber|Out-Null;$transcript=$true
  Write-Host ('Log: '+$log)
- $nodeCommand=Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue
+ $nodeCommand=Get-Command node.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
  if(-not $nodeCommand){throw 'Install supported 64-bit Node.js and reopen the command prompt (see GameWeb/package.json engines).'}
  $script:node=$nodeCommand.Source
  foreach($name in @('services\boundedArtifactRead.js','services\desktopReleaseProvenance.js','services\strictJson.js','tools\release-provenance.js','tools\ci-workflow.js')){Require-File (Join-Path $sourceRoot ('GameWeb\'+$name)) 'Source package is incomplete. Restore the COMPLETE matching GameWeb package; do not mix versions.'}

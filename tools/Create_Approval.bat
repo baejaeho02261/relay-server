@@ -60,7 +60,7 @@ function ReleaseCanonical(component, version, sha512) {
 function SignRelease(component, version, file, keyFile) {
   if (!['A', 'B', 'O'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) stop('RELEASE_ARGUMENT_INVALID');
   const bytes = ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID');
-  ValidatePeImage(bytes,stop);
+  ValidatePeImage(bytes,stop,true);
   const sha512 = crypto.createHash('sha512').update(bytes).digest('hex');
   if (component === 'O') {
     if (typeof env.GC_APPROVAL_PREPARED_SHA512 !== 'string' || !/^[a-f0-9]{128}$/.test(env.GC_APPROVAL_PREPARED_SHA512)) stop('OVERLAY_PREPARATION_REQUIRED');
@@ -84,7 +84,7 @@ function SignRelease(component, version, file, keyFile) {
 }
 
 // BEGIN STANDALONE PE PREFLIGHT
-function ValidatePeImage(bytes,reject){
+function ValidatePeImage(bytes,reject,checkBuildConfiguration=false){
  const bad=()=>reject('BOOTSTRAP_PE_INVALID');
  if(!Buffer.isBuffer(bytes)||bytes.length<512||bytes.length>64*1024*1024||bytes.readUInt16LE(0)!==0x5a4d)bad();
  const pe=bytes.readUInt32LE(0x3c);if(pe<64||pe>bytes.length-24||bytes.readUInt32LE(pe)!==0x4550||bytes.readUInt16LE(pe+4)!==0x8664)bad();
@@ -101,6 +101,9 @@ function ValidatePeImage(bytes,reject){
  }
  const protectedSections=sections.filter(s=>s.protectedCode).sort((a,b)=>a.rva-b.rva);if(!protectedSections.length)bad();
  ValidatePeExceptionTable(bytes,opt,dirCount,sections,reject);
+ // Core PE measurement can report unsupported exports; release approval must
+ // additionally reject Debug and malformed configuration metadata.
+ const buildConfiguration=checkBuildConfiguration?ValidatePeBuildConfiguration(bytes,opt,dirCount,imageSize,sections,reject):null;
  for(const section of protectedSections){section.bytes=Buffer.alloc(section.span);bytes.copy(section.bytes,0,section.raw,section.raw+Math.min(section.rawSize,section.span));}
  const rawAt=(rva,length)=>{if(!Number.isSafeInteger(length)||length<0)bad();if(rva<headerSize&&rva+length<=headerSize)return rva;const s=sections.find(s=>rva>=s.rva&&rva+length<=s.rva+s.rawSize);if(!s)bad();return s.raw+(rva-s.rva);};
  const relocRva=dirCount>5?bytes.readUInt32LE(opt+112+5*8):0,relocSize=dirCount>5?bytes.readUInt32LE(opt+116+5*8):0;
@@ -113,6 +116,7 @@ function ValidatePeImage(bytes,reject){
    for(let at=cursor+8;at<cursor+block;at+=2){
     const entry=bytes.readUInt16LE(at),type=entry>>>12,target=page+(entry&0xfff);if(type===0)continue;
     const width=type===10?8:type===3?4:1,section=protectedSections.find(s=>target<s.rva+s.span&&target+width>s.rva);
+    if(buildConfiguration&&buildConfiguration.rva&&target<buildConfiguration.end&&target+width>buildConfiguration.rva)reject('SECURITY_BUILD_CONFIGURATION_INVALID');
     if(!section)continue;if(type!==10&&type!==3||target<section.rva||target+width>section.rva+section.span)bad();
     section.bytes.fill(0,target-section.rva,target-section.rva+width);seen.push([target,target+width]);if(++relocations>1000000)bad();
    }
@@ -120,7 +124,42 @@ function ValidatePeImage(bytes,reject){
   }
   seen.sort((a,b)=>a[0]-b[0]);for(let i=1;i<seen.length;i++)if(seen[i][0]<seen[i-1][1])bad();
  }
+ if(buildConfiguration&&buildConfiguration.configuration==='DEBUG')reject('SECURITY_DEBUG_BUILD_NOT_PUBLISHABLE');
  return true;
+}
+function ValidatePeBuildConfiguration(bytes,opt,dirCount,imageSize,sections,reject){
+ // Only bounded export-name entries identify build configuration. A marker-like
+ // string elsewhere in code/resources/overlay data does not change the result.
+ const bad=()=>reject('SECURITY_BUILD_CONFIGURATION_INVALID');
+ const rva=dirCount?bytes.readUInt32LE(opt+112):0,span=dirCount?bytes.readUInt32LE(opt+116):0;
+ if(!rva&&!span)return {configuration:'UNMARKED',rva:0,end:0};
+ if(!rva||span<40||span>8*1024*1024||rva+span>imageSize)bad();
+ const section=sections.find(s=>rva>=s.rva&&rva+span<=s.rva+Math.min(s.rawSize,s.span));
+ if(!section||(section.flags&0x80000000))bad();
+ const start=section.raw+rva-section.rva,end=rva+span;
+ const inside=(at,length)=>{if(!Number.isSafeInteger(at)||!Number.isSafeInteger(length)||length<0||at<rva||at+length>end)bad();return start+at-rva;};
+ const stringAt=(at,forwarder=false)=>{const offset=inside(at,1);for(let i=0;i<512;i++){if(at+i>=end)bad();const c=bytes[offset+i];if(c===0){if(!i)bad();return bytes.toString('ascii',offset,offset+i);}if(c<32||c>126||forwarder&&c===32)bad();}bad();};
+ const functions=bytes.readUInt32LE(start+20),names=bytes.readUInt32LE(start+24);
+ if(functions>131072||names>131072||names>functions)bad();
+ stringAt(bytes.readUInt32LE(start+12));
+ const functionAt=functions?inside(bytes.readUInt32LE(start+28),functions*4):0;
+ const nameAt=names?inside(bytes.readUInt32LE(start+32),names*4):0;
+ const ordinalAt=names?inside(bytes.readUInt32LE(start+36),names*2):0;
+ for(let i=0;i<functions;i++){
+  const target=bytes.readUInt32LE(functionAt+i*4);if(!target)continue;
+  if(target>=imageSize)bad();if(target>=rva&&target<end)stringAt(target,true);
+ }
+ let configuration=null;
+ for(let i=0;i<names;i++){
+  const ordinal=bytes.readUInt16LE(ordinalAt+i*2);if(ordinal>=functions)bad();
+  const name=stringAt(bytes.readUInt32LE(nameAt+i*4));
+  if(!/^GAME_BUILD_(?:DEBUG|RELEASE)_/.test(name))continue;
+  if(configuration||!/^GAME_BUILD_(DEBUG|RELEASE)_V1$/.test(name))bad();
+  const target=bytes.readUInt32LE(functionAt+ordinal*4);
+  if(!target||target>=rva&&target<end||!sections.some(s=>target>=s.rva&&target-s.rva<Math.min(s.span,s.rawSize)&&(s.flags&0x60000000)===0x60000000&&!(s.flags&0x80000000)))bad();
+  configuration=name==='GAME_BUILD_RELEASE_V1'?'RELEASE':'DEBUG';
+ }
+ return {configuration:configuration||'UNMARKED',rva,end};
 }
 function ValidatePeExceptionTable(bytes,opt,dirCount,sections,reject){
  // Read-only preflight: normalization belongs to the completed build, before
@@ -829,6 +868,8 @@ catch {
     Write-Host '기존 개인키와 기존 승인 JSON은 덮어쓰지 않았습니다.'
     Write-Host '이 버전은 sign-release-approval.js, services, vendor, npm 설치가 필요하지 않습니다.'
     Write-Host 'BOOTSTRAP_PE_INVALID / RELEASE_FILE_INVALID: 실제 Win64 EXE인지 확인하세요.'
+    Write-Host 'SECURITY_DEBUG_BUILD_NOT_PUBLISHABLE: Debug EXE는 배포 승인할 수 없습니다. Release로 빌드한 최종 EXE를 선택하세요.'
+    Write-Host 'SECURITY_BUILD_CONFIGURATION_INVALID: EXE의 빌드 구성 표식이 잘못되었습니다. 정상 프로젝트에서 다시 빌드하세요.'
     Write-Host 'PE_EXCEPTION_TABLE_UNSORTED: 이 도구에서 O를 선택하면 서명 전에 자동 정렬합니다.'
     Write-Host 'PE_UNWIND_*: O 예외 테이블 준비가 실패했습니다. 위 상세 오류와 정상 Win64 Release 빌드를 확인하세요.'
     Write-Host 'OVERLAY_PREPARATION_REQUIRED: 이 BAT에서 O 준비와 서명을 순서대로 실행하세요.'
