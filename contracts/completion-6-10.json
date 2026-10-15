@@ -76,7 +76,7 @@
       "status": "부분 실행·native 연결",
       "change": "기존 독립 Python↔Node 해시·CRC·PE·요청 비교를 다시 실행했습니다. 새 native 실행부는 실제 Hash/IntegrityHash/CrcLayer/PE corpus probe를 호출하도록 연결했습니다.",
       "paths": "scripts/test-independent-contracts-14.js; ci/Invoke-NativeContracts6To10.ps1",
-      "verificationAndRemaining": "34 해시/CRC·28 PE·174 요청 지문·1 Handoff 비교 PASS. 실제 Delphi 및 외부 hash-wasm/@noble 확장 의존성 비교는 미완료입니다."
+      "verificationAndRemaining": "독립 Python/Node 및 고정된 vendor 해시 비교 시험이 제공됩니다. 기존 portable 결과는 해당 시험 범위이며 실제 Delphi 산출물 비교·운영 Windows 실행은 미실행입니다."
     },
     {
       "id": "7.3",
@@ -103,7 +103,7 @@
       "status": "서버·표시 보완",
       "change": "COHERENT_PLAN_V1/PLAN_V1_COMPATIBLE/LEGACY_UNVERSIONED를 구분합니다. FULL/PARTIAL/SAMPLED를 별도로 표시하며 FULL은 규약의 필수 범위입니다. 선택적 export 또는 모든 프로세스 메모리의 완전 측정을 뜻하지 않습니다.",
       "paths": "services/measurementPlanContract.js; services/desktopIntegrityReports.js; public/admin-desktop-licenses.js",
-      "verificationAndRemaining": "서버 분류/거절 시험 PASS. 관리자 bundle/cache 검사 PASS, 실제 브라우저 DOM·화면 시험은 jsdom 부재로 차단됐습니다."
+      "verificationAndRemaining": "서버 분류·거절 및 관리자 DOM 회귀 시험이 제공됩니다. DOM 시험과 bundle 검사는 실제 Windows 브라우저·사용자 운영 화면 검증을 대신하지 않습니다."
     },
     {
       "id": "7.6",
@@ -148,7 +148,7 @@
       "status": "기존 스트림 한도 유지",
       "change": "EXE64MiB/DLL32MiB·동시 업로드1·공통 수신 마감을 유지했습니다. 최종 산출물 및 provenance 입력 읽기에도 크기·파일 변화 검사 상한을 적용했습니다.",
       "paths": "web/routes/desktopBootstrapRoutes.js; services/desktopWorkQueue.js; services/boundedArtifactRead.js; tools/release-provenance.js",
-      "verificationAndRemaining": "기존 stream 관련 portable/source 시험 일부 PASS. 전체 HTTP 통합과 실제 대형 부하 시험은 의존성 차단입니다."
+      "verificationAndRemaining": "스트림 한도와 실제 HTTP 회귀 시험 경로는 제공됩니다. 사용자 배포의 대형 업로드·지속 부하·갱신 지연 실측은 미실행입니다."
     },
     {
       "id": "8.5",
@@ -265,7 +265,18 @@
       "status": "버전 고정 유지·증거 갱신",
       "change": "ImGui1.93.0 WIP/19298·bridge·npm lock의 기존 버전을 유지하고 변경된 bridge tool hash를 갱신했습니다. 실제 compiler/SDK 값은 Windows CI가 실행될 때 관측하도록 유지합니다.",
       "paths": "contracts/dependency-provenance-v1.json; package-lock.json; ci/Windows-Stage.ps1",
-      "verificationAndRemaining": "vendor/bridge21개와 npm lock hash 일치. Node22.16.0은 지원 범위 밖이고 npm DNS 실패로 deps 설치/보안 업데이트/취약점 감사는 하지 않았습니다."
+      "verificationAndRemaining": "vendor·bridge·npm lock 검증 경로는 포함됩니다. 실제 설치된 compiler/SDK/Node와 source hash는 실행 환경에서 확인해야 하며, 고정 버전만으로 최신 보안 감사 완료를 주장하지 않습니다."
     }
-  ]
+  ],
+  "statusModel": {
+    "contract": "capabilities-status-v1.json",
+    "endpoint": "/api/desktop/bootstrap/server-state/capabilities",
+    "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
+    "configuration": "READ_FROM_CURRENT_SERVER_STATE",
+    "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
+  },
+  "historicalSnapshot": true,
+  "currentUpdate": "completion-4-6-v2.json"
 }

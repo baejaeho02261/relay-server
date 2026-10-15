@@ -7,7 +7,7 @@ $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 try {
  Write-Output "CI_STAGE_BEGIN $Kind"
  $native=Join-Path $WorkRoot 'GameConnect_Win64';$web=Join-Path $WorkRoot 'GameWeb';Set-Location -LiteralPath $native
- $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
+ $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
  function Run-Checked([string]$File,[string[]]$Arguments) {
   & $File @Arguments
   if ($LASTEXITCODE -ne 0) {
@@ -31,8 +31,9 @@ try {
  switch ($Kind) {
   'dependencies' {
    Set-Location -LiteralPath $web
-   Run-Checked (Get-Command npm.cmd).Source @('ci','--engine-strict','--ignore-scripts','--no-audit','--no-fund')
-   Run-Checked (Get-Command npm.cmd).Source @('rebuild','better-sqlite3','--build-from-source')
+   $npm=(Get-Command npm.cmd -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+   Run-Checked $npm @('ci','--engine-strict','--ignore-scripts','--no-audit','--no-fund')
+   Run-Checked $npm @('rebuild','better-sqlite3','--build-from-source')
   }
   {$_ -in @('build-inputs','build-inputs-after')} {
    Run-Checked $node @((Join-Path $PSScriptRoot 'build-input-lock.js'),'verify',$native,$web,$env:BDS,$BuildInputLockFile,(Join-Path $Output ($Kind+'.json')))
@@ -40,7 +41,10 @@ try {
   'build' {
    foreach($name in @('dcc64.exe','bcc64.exe','brcc32.exe')){if(-not(Test-Path -LiteralPath (Join-Path $env:BDS ('bin\'+$name)))){throw 'CI_RAD_CLASSIC_TOOLS_REQUIRED'}}
    if(-not(Test-Path -LiteralPath (Join-Path $env:BDS 'include\windows\sdk\d3d11.h'))){throw 'CI_RAD_SDK_HEADERS_REQUIRED'}
-   $msbuild=(Get-Command msbuild.exe -CommandType Application -ErrorAction Stop).Source
+   # rsvars can expose Framework and Visual Studio MSBuild at the same time.
+   # Preserve its PATH precedence and pass exactly one executable to children.
+   $msbuild=(Get-Command msbuild.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+   Write-Output ('CI_MSBUILD_PATH '+$msbuild)
    # A snapshot contains immutable resource inputs, never local compiled RES
    # caches. Rebuild all three with the reviewed compiler before Delphi runs.
    $projects=@('GameLauncher','GameConnect','GameOverlay')
@@ -57,11 +61,11 @@ try {
    Run-Checked $node @((Join-Path $web 'scripts\check-connect-project.js'))
    # Only this fresh snapshot's outputs may enter the tested bundle. Product
    # DCUs and compiler staging remain isolated; final EXEs share one folder.
-   $finalDirectory=Join-Path $native 'Win64\Release'
+   $finalDirectory=Join-Path $native 'bin'
    $finalFiles=@(Get-ChildItem -LiteralPath $finalDirectory -Filter '*.exe' -File)
    if($finalFiles.Count -ne 3){throw 'CI_BUILD_OUTPUT_COUNT'}
    foreach($role in @('A','B','O')){
-    $files=@($finalFiles|Where-Object{$_.Name -cmatch ('^'+$role+'_[a-f0-9]{32}\.exe$')})
+    $files=@($finalFiles|Where-Object{$_.Name -cmatch ('^'+$role+'_Release_[a-f0-9]{32}\.exe$')})
     if($files.Count -ne 1 -or $files[0].Length -le 0 -or ($files[0].Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_BUILD_OUTPUT_COUNT'}
     Copy-Item -LiteralPath $files[0].FullName -Destination (Join-Path $Output ($role+'.exe')) -ErrorAction Stop
    }
@@ -87,7 +91,7 @@ try {
   }
   'approve' { $arguments=@((Join-Path $PSScriptRoot 'ci-artifacts.js'),'prepare',$Output,$KeyFile,$Version,[string]$SecurityVersion,(Join-Path $Output 'toolchain.json'),(Join-Path $web 'maintenance\source-manifest.json'));if($PolicyFile){$arguments+=$PolicyFile};Run-Checked $node $arguments }
   'native-probes' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_NativeProbes_Win64.bat')+'"')) }
-  'native-hash-compare' { Run-Checked $node @((Join-Path $web 'scripts\compare-native-hashes.js'),'--hash-probe',(Join-Path $native 'tests\native_probe_build\IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $native 'tests\native_probe_build\CrcProbe.exe'),'--mode-probe',(Join-Path $native 'tests\native_probe_build\HashProbe.exe'),'--pe-probe',(Join-Path $native 'tests\native_probe_build\PeCorpusProbe.exe')) }
+  'native-hash-compare' { Run-Checked $node @((Join-Path $web 'scripts\compare-native-hashes.js'),'--hash-probe',(Join-Path $native 'tests\native_probe_build\IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $native 'tests\native_probe_build\CrcProbe.exe'),'--mode-probe',(Join-Path $native 'tests\native_probe_build\HashProbe.exe'),'--pe-probe',(Join-Path $native 'tests\native_probe_build\PeCorpusProbe.exe'),'--crc-pe-probe',(Join-Path $native 'tests\native_probe_build\CrcPeProbe.exe')) }
   'overlay-contracts' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_OverlayContracts_Win64.bat')+'"')) }
   'compatibility-probes' { Run-Checked $node @((Join-Path $PSScriptRoot 'collect-compatibility.js'),$native,(Join-Path $Output 'compatibility-observations.json')) }
   'device-identity' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_DeviceIdentityProbe_Win64.bat')+'"')) }

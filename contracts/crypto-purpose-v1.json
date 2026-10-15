@@ -17,7 +17,13 @@
         "Game.CrcLayers",
         "extendedHashes",
         "crcLayers"
-      ]
+      ],
+      "blake3Parallel": {
+        "scope": "Native file measurement, updates at least 256 KiB; up to 4 independent leaf jobs and 1024 fixed CV slots; ordered canonical tree reduction. Small updates and resource-pressure fallback remain serial.",
+        "modes": "Hash, keyed, derive, incremental and XOF share the same core; production file workers use unkeyed mode. Keyed mode protects server report storage; native derive-key creates one-shot Handoff content keys. Native startup KATs cover hash/keyed/derive.",
+        "ownership": "Synchronous join of every started native worker before input reuse, release, or exception. Measurement budget checked before/after each bounded 1 MiB file block. No cancellation aborts a worker while borrowed input is live. Worker count and memory are bounded; a failed OS wait cannot safely release borrowed inputs, and drain time is not guaranteed under that failure.",
+        "validation": "Compiled portable Pascal real-thread test plus pinned upstream independent mode/XOF comparison; actual Delphi/Windows runner validation must be performed separately."
+      }
     },
     {
       "purpose": "release and Windows CI evidence",
@@ -64,9 +70,16 @@
       "purpose": "store authentication",
       "algorithms": [
         "HMAC-SHA-256",
-        "context-derived BLAKE3 keyed MAC"
+        "context-derived BLAKE3 keyed MAC",
+        "KMAC256-512 with HKDF-SHA512 purpose-derived server key (integrity reports V3)"
       ],
-      "note": "Preserve stored envelope versions and migrations. Fixed-size MACs use constant-time content comparisons."
+      "note": "Preserve stored envelope versions and migrations. Fixed-size MACs use constant-time content comparisons.",
+      "integrityReportsV3": {
+        "construction": "KMAC256(HKDF-SHA512(server-secret, empty-salt, ASCII(GAME-SERVER-KMAC-KEY-V1\\nGAME-INTEGRITY-REPORTS-STORE-V3), 32), SHA512(UTF8(JSON.stringify(data))), 512 bits, customization GAME-INTEGRITY-REPORTS-STORE-V3)",
+        "migration": "Existing V1/HMAC and V2/HMAC+BLAKE3 envelopes remain readable; next normal save writes V3. V3 requires all three MACs. Existing journal head and rollback checks remain required.",
+        "reference": "NIST SP 800-185 (2016), official KMAC samples 4/5/6",
+        "fipsValidated": false
+      }
     },
     {
       "purpose": "token/session identifiers",
@@ -82,6 +95,15 @@
         "existing request-bound AES-256-GCM over GAME-CONNECT-4"
       ],
       "binding": "generation/endpoint/keyId/current/next/window; delivered after current TLS and AEAD checks. No independent detached-signature algorithm added. RAM-only antirollback, fresh-old-profile limitation explicit."
+    },
+    {
+      "purpose": "native one-shot Handoff content key",
+      "algorithm": "BLAKE3 derive-key (256-bit output)",
+      "context": "GameConnect.Handoff.V3.AES256GCM.ContentKey.v1",
+      "input": "Exactly 32 fresh CNG random seed bytes, followed by exact authenticated transcript (1..8192 bytes); streamed without concatenated secret copy.",
+      "wire": "Existing V3 RSA-OAEP wraps final derived key; AES-256-GCM/AAD/envelope layout/decrypt remain unchanged. No entropy amplification or extra authentication strength is claimed.",
+      "lifetime": "Seed wiped immediately after derivation and on all failure paths; key wiped after CNG key creation and on cleanup; hasher state wiped on destruction.",
+      "validation": "Pinned upstream independent deterministic vector, seed/transcript separation and input bounds via portable compiled HandoffKdfProbe. Actual Windows CNG round-trip remains a Windows test."
     }
   ]
 }

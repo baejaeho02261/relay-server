@@ -1,0 +1,81 @@
+{
+  "version": 1,
+  "scope": "Requested remaining portions of items 7, 9 and 10; existing 4-6 source kept",
+  "ciRequired": false,
+  "implemented": {
+    "crcIndependentSelectedPeStreams": {
+      "roles": 9,
+      "portableMutationCases": 46,
+      "nativeProbe": "CrcPeProbe",
+      "manualReportVersion": 2
+    },
+    "overlaySessionTransitions": {
+      "encodedOptionalWtsApi": true,
+      "boundedRegistrationRetries": 30,
+      "inputCaptureClear": true,
+      "remoteSessionRenderPause": true,
+      "resumeDpiAndPositionReconcile": true
+    },
+    "physicalOverlayTest": {
+      "probe": "OverlayEnvironmentProbe",
+      "realTelemetryAndOperatorConfirmation": true
+    },
+    "mitigationCompatibility": {
+      "policyReadback": true,
+      "exactRegisteredArtifactSourceBinding": true,
+      "gpuDriverIdentity": true,
+      "administratorObservationImport": true,
+      "automaticPolicyChange": false
+    },
+    "cfg": {
+      "finalImageLinearInstructionInspector": true,
+      "unknownOrUnguardedTransfersNeverCertify": true,
+      "exactWindowsFailfastControlProbe": true,
+      "productionRuntimeCallsiteProof": false
+    }
+  },
+  "actualEnvironment": {
+    "delphiBuild": "NOT_RUN",
+    "nativeWindowsCrc": "NOT_RUN",
+    "physicalMultiMonitorDpi": "NOT_RUN",
+    "rdpDisconnectReconnect": "NOT_RUN",
+    "windowsGpuDriverCompatibility": "NOT_RUN",
+    "cfgWindowsEnforcement": "NOT_RUN",
+    "productionWholeCfgCoverage": "NOT_VERIFIED"
+  },
+  "tools": [
+    "Run_CRC_PE_Comparison.bat",
+    "Run_Overlay_Environment.bat",
+    "Run_Mitigation_Compatibility.bat",
+    "Run_CFG_Callsite_Audit.bat",
+    "Test_CFG_Enforcement.bat"
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/secbp/pe-metadata",
+    "https://learn.microsoft.com/en-us/cpp/build/reference/disasm",
+    "https://learn.microsoft.com/en-us/windows/win32/api/wtsapi32/nf-wtsapi32-wtsregistersessionnotification"
+  ],
+  "extraCorrections": {
+    "singleWriterFreshStartContention": {
+      "finiteAcquireAttempts": 12,
+      "monotonicRetryBudgetMs": 250,
+      "failedConnectionClosedBeforeRetry": true,
+      "heldOwnerRejected": true,
+      "lockFileDeletion": false,
+      "synchronizedRaceTrials": 24
+    }
+  },
+  "executionFollowup": {
+    "date": "2026-10-15",
+    "ciRequired": false,
+    "crcFinalArtifactWiring": "Explicit A/B/O selection, snapshots, SHA-512 bindings, changed-input rejection and separate corpus-only status",
+    "cfgRunnerStageNameCollision": "PowerShell case-insensitive iterator/parameter collision corrected; standalone scope checked",
+    "overlayInteractiveRunner": "Incomplete exits 2; /nopause parsing fixed; selected source and probe checked before and after observations",
+    "currentExecutionHost": "Linux x64; no Windows session, Delphi compiler, GPU or physical monitor/RDP access",
+    "actualWindowsEvidenceCreated": false,
+    "wholeProductionCfgVerified": false,
+    "manualProfileProductWorkflow": "NOT_CONNECTED: existing profiled product fixture requires CI-specific inputs; no fabricated substitute added",
+    "manualBaselineProductWorkflow": "Existing optional isolated localhost A/B/O execution remains available",
+    "serverResetRequired": false
+  }
+}

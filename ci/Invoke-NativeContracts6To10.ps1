@@ -6,7 +6,7 @@ param(
 # Compiled TEST probes only. No product A/B/O build, GPU acceptance or CI signing.
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 $private=$null;$output=$null;$logs=$null;$exit=1;$active=$null;$createdResult=$false
-$names=@('snapshot','compile-probes','sdk-probe','abi-compare','HardeningContractsProbe','TlsPinWindowProbe','TlsContractProbe','HashContracts','IntegrityHashProbe','CrcProbe','ServerPolicyLocalProbe','ProcessMitigationProfileProbe','NativeApiContractsProbe','MeasurementLifetimeProbe','JsonEnvelopeProbe','pe-corpus','native-hash-compare')
+$names=@('snapshot','compile-probes','sdk-probe','abi-compare','HardeningContractsProbe','TlsPinWindowProbe','TlsContractProbe','HashContracts','IntegrityHashProbe','CrcProbe','ServerPolicyLocalProbe','ProcessMitigationProfileProbe','NativeApiContractsProbe','MeasurementLifetimeProbe','JsonEnvelopeProbe','ThreadInventoryProbe','Blake3ParallelProbe','HandoffKdfProbe','pe-corpus','native-hash-compare')
 $result=[ordered]@{version=1;scope='NATIVE_TEST_CONTRACTS_6_TO_10';windowsExecuted=$false;outcome='NOT_RUN';productBuild='NOT_RUN';productIntegration='NOT_RUN';signedCiEvidence=$false;stages=[ordered]@{}}
 foreach($name in $names){$result.stages[$name]=[ordered]@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
 function Save-ContractResults {
@@ -53,7 +53,7 @@ try{
  if(-not $BdsRoot -or $BdsRoot -match '[%&|<>^!"\r\n]' -or -not(Test-Path -LiteralPath (Join-Path $BdsRoot 'bin\dcc64.exe'))){throw 'NATIVE_CONTRACT_RAD_STUDIO_REQUIRED'}
  $env:BDS=(Resolve-Path -LiteralPath $BdsRoot).ProviderPath
  $source=(Resolve-Path -LiteralPath $SourceRoot).ProviderPath
- $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
+ $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
  $null=Get-Command cl.exe -CommandType Application -ErrorAction Stop
  $logs=Join-Path $parent ('native-contracts-6-10-'+$id+'-logs');New-CiPrivateDirectory $logs
  $private=Join-Path ([IO.Path]::GetTempPath()) ('GameNativeContracts6To10-'+[Guid]::NewGuid().ToString('N'));New-CiPrivateDirectory $private
@@ -68,7 +68,7 @@ try{
  $built=Join-Path $native 'tests\native_probe_build'
  Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'tests\compare-native-abi.js'),(Join-Path $built 'NativeAbiProbe.exe'),(Join-Path $native 'tests\native_sdk_build\NativeAbiSdkProbe.exe')) $native 60
  foreach($name in $names[4..($names.Count-3)]){Invoke-ContractCommand $name (Join-Path $built ($name+'.exe')) @() $native 120}
- Invoke-ContractCommand 'native-hash-compare' $node @((Join-Path $work 'GameWeb\scripts\compare-native-hashes.js'),'--hash-probe',(Join-Path $built 'IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $built 'CrcProbe.exe'),'--mode-probe',(Join-Path $built 'HashProbe.exe'),'--pe-probe',(Join-Path $built 'PeCorpusProbe.exe')) $native 240
+ Invoke-ContractCommand 'native-hash-compare' $node @((Join-Path $work 'GameWeb\scripts\compare-native-hashes.js'),'--hash-probe',(Join-Path $built 'IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $built 'CrcProbe.exe'),'--mode-probe',(Join-Path $built 'HashProbe.exe'),'--pe-probe',(Join-Path $built 'PeCorpusProbe.exe'),'--crc-pe-probe',(Join-Path $built 'CrcPeProbe.exe')) $native 900
  Invoke-ContractCommand 'pe-corpus' $node @((Join-Path $work 'GameWeb\scripts\test-hardening-pe-corpus.js'),'--native',(Join-Path $built 'PeCorpusProbe.exe')) $native 180
  if(Select-String -LiteralPath (Join-Path $logs 'HardeningContractsProbe.log') -Pattern '(?i)\bSKIP\b' -Quiet){$result.stages.HardeningContractsProbe.outcome='PARTIAL_PRIVILEGE_SKIP';throw 'NATIVE_CONTRACT_REQUIRED_BRANCH_SKIPPED'}
  if(@($result.stages.Values | Where-Object {$_.outcome -ne 'PASS'}).Count -ne 0){throw 'NATIVE_CONTRACT_RESULTS_INCOMPLETE'}

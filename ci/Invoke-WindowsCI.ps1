@@ -76,7 +76,7 @@ try {
  $output=[IO.Path]::GetFullPath($OutputDirectory);New-CiPrivateDirectory $output
  [IO.Directory]::CreateDirectory((Join-Path $output 'logs'))|Out-Null
  $private=Join-Path ([IO.Path]::GetTempPath()) ('GameWindowsCI-'+[Guid]::NewGuid().ToString('N'));New-CiPrivateDirectory $private
- $work=Join-Path $private 'source';$node=(Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
+ $work=Join-Path $private 'source';$node=(Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
  $null=Get-Command openssl.exe -CommandType Application -ErrorAction Stop
  $null=Get-Command cl.exe -CommandType Application -ErrorAction Stop
  Invoke-CiCommand 'self-test' (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $source 'GameWeb\ci\Test-WindowsRunner.ps1'),'-PrivateRoot',$private) $source 120

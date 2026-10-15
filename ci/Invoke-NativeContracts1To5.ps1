@@ -50,7 +50,7 @@ try{
  if(-not $BdsRoot -or $BdsRoot -match '[%&|<>^!"\r\n]' -or -not(Test-Path -LiteralPath (Join-Path $BdsRoot 'bin\dcc64.exe'))){throw 'NATIVE_CONTRACT_RAD_STUDIO_REQUIRED'}
  $env:BDS=(Resolve-Path -LiteralPath $BdsRoot).ProviderPath
  $source=(Resolve-Path -LiteralPath $SourceRoot).ProviderPath
- $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop).Source
+ $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
  $null=Get-Command cl.exe -CommandType Application -ErrorAction Stop
  $logs=Join-Path $parent ('native-contracts-1-5-'+$id+'-logs');New-CiPrivateDirectory $logs
  $private=Join-Path ([IO.Path]::GetTempPath()) ('GameNativeContracts1To5-'+[Guid]::NewGuid().ToString('N'));New-CiPrivateDirectory $private

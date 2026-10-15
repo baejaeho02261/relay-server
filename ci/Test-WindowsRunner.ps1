@@ -29,6 +29,40 @@ try {
  Require ($observed.temp -eq $dir -and $observed.tmp -eq $dir -and $observed.data -eq $environment['DATA_DIR'] -and $observed.npm -eq $environment['NPM_CONFIG_USERCONFIG'] -and $observed.pathValue -eq $environment['GAME_CI_TEST_PATH'] -and $observed.wrapped -eq $wrappedText) 'CI_ENV_ROUNDTRIP_FAILED';$count++
  $job=[GameCi.WindowsJob]::Start($exe,@('-NoProfile','-Command','exit 7'),$dir,$environment,(Join-Path $dir 'nonzero.log'));$jobs.Add($job);Wait-JobExit $job
  Require ($job.ExitCode -eq 7) 'CI_SELFTEST_NONZERO_EXIT';$count++
+ # A RAD Studio shell can expose several MSBuild executables in PATH. Resolve
+ # one scalar path, preserving PATH precedence even when directories have spaces.
+ $stageTokens=$null;$stageErrors=$null
+ $stageAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Windows-Stage.ps1'),[ref]$stageTokens,[ref]$stageErrors)
+ Require ($stageErrors.Count -eq 0) 'CI_COMMAND_RESOLUTION_SOURCE_PARSE_FAILED'
+ $msbuildAssignments=@($stageAst.FindAll({param($node) $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left -is [Management.Automation.Language.VariableExpressionAst] -and $node.Left.Extent.Text -eq '$msbuild'},$false))
+ Require ($msbuildAssignments.Count -eq 1) 'CI_COMMAND_RESOLUTION_SOURCE_ASSIGNMENT_FAILED'
+ $commandName='msbuild.exe'
+ $firstCommandDirectory=Join-Path $dir 'command first';$secondCommandDirectory=Join-Path $dir 'command second'
+ [IO.Directory]::CreateDirectory($firstCommandDirectory)|Out-Null;[IO.Directory]::CreateDirectory($secondCommandDirectory)|Out-Null
+ $firstCommand=Join-Path $firstCommandDirectory $commandName
+ Copy-Item -LiteralPath $env:ComSpec -Destination $firstCommand
+ Copy-Item -LiteralPath $env:ComSpec -Destination (Join-Path $secondCommandDirectory $commandName)
+ $commandEnvironment=Get-CiEnvironment $dir
+ $commandEnvironment['PATH']=$firstCommandDirectory+';'+$secondCommandDirectory
+ $commandScript=Join-Path $dir 'command-resolution.ps1';$commandJson=Join-Path $dir 'command-resolution.json'
+ $commandPrefix=@'
+param([string]$Out)
+$ErrorActionPreference='Stop';Set-StrictMode -Version Latest
+$candidates=@(Get-Command msbuild.exe -CommandType Application -All -ErrorAction Stop)
+'@
+ $commandSuffix=@'
+@{count=$candidates.Count;selected=$selected;selectedType=$selected.GetType().FullName}|ConvertTo-Json|Set-Content -LiteralPath $Out
+& $selected /d /c 'exit 7'
+exit $LASTEXITCODE
+'@
+ # Evaluate the production assignment itself, so removing its scalar selection
+ # causes this test to fail instead of leaving a separate test implementation.
+ $commandSource=$commandPrefix+[Environment]::NewLine+'$selected='+$msbuildAssignments[0].Right.Extent.Text+[Environment]::NewLine+$commandSuffix
+ [IO.File]::WriteAllText($commandScript,$commandSource)
+ $job=[GameCi.WindowsJob]::Start($exe,@('-NoProfile','-File',$commandScript,$commandJson),$dir,$commandEnvironment,(Join-Path $dir 'command-resolution.log'));$jobs.Add($job);Wait-JobExit $job
+ Require ($job.ExitCode -eq 7) 'CI_COMMAND_RESOLUTION_EXECUTION_FAILED'
+ $commandObserved=Read-CiJson $commandJson
+ Require ($commandObserved.count -eq 2 -and $commandObserved.selectedType -eq 'System.String' -and $commandObserved.selected -eq $firstCommand) 'CI_COMMAND_RESOLUTION_PRECEDENCE_FAILED';$count++
  # Verify that a real stage failure keeps its original safe identifier instead
  # of replacing it with a generic wrapper error. This creates no product build.
  $stageWork=Join-Path $dir 'stage-failure';[IO.Directory]::CreateDirectory((Join-Path $stageWork 'GameConnect_Win64'))|Out-Null

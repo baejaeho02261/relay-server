@@ -1,6 +1,6 @@
 param([Parameter(Mandatory)][string]$OutputFile)
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
-$cl=(Get-Command cl.exe -CommandType Application -ErrorAction Stop).Source
+$cl=(Get-Command cl.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 $files=[ordered]@{};$count=0;$bytes=[int64]0
 function Add([string]$Name,[string]$File){
  $s=Get-Item -LiteralPath $File

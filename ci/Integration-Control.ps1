@@ -21,7 +21,7 @@ try {
  if (-not [Environment]::UserInteractive -or [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) { throw 'CI_INTERACTIVE_WINDOWS_SESSION_REQUIRED' }
  $cohort=if($MitigationMode){'integration-profile-'+$MitigationMode}else{'integration'}
  $run=Join-Path $PrivateRoot $cohort;New-CiPrivateDirectory $run
- $environment=Get-CiEnvironment $run;$node=(Get-Command node.exe).Source;$web=Join-Path $WorkRoot 'GameWeb'
+ $environment=Get-CiEnvironment $run;$node=(Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source;$web=Join-Path $WorkRoot 'GameWeb'
  $server=[GameCi.WindowsJob]::Start($node,@((Join-Path $web 'ci\windows-fixture.js'),$run,$Output,$Version,$MitigationMode),$web,$environment,(Join-Path $run 'server.log'))
  $clock=[Diagnostics.Stopwatch]::StartNew()
  do {

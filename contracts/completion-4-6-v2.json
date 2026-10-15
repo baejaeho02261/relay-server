@@ -1,0 +1,157 @@
+{
+  "version": 2,
+  "scope": "Current 4-6 update plus explicitly listed missing connections; source capability and execution evidence are separate.",
+  "previousSnapshots": [
+    "completion-1-5.json",
+    "completion-6-10.json"
+  ],
+  "preserved": [
+    "A/B/O server authority and handoff flow",
+    "CI optional for manual publication",
+    "EXE approval signatures and exact REGISTERED release manifest",
+    "Default hardware collection off",
+    "Existing PC fingerprint and license binding",
+    "Common GameConnect_Win64/bin EXE outputs with isolated intermediate units"
+  ],
+  "work": [
+    {
+      "id": "4",
+      "status": "IMPLEMENTED",
+      "name": "배포·승인",
+      "changes": [
+        "명세에 등재된 소스 전체 SHA-512 및 종료 시 재검사",
+        "경로 탈출·링크·중복·파일 크기·동시 변경 거부",
+        "선택적 현재 빌드 입력 대조; 기준값 자동 승인 없음",
+        "수동 Windows 결과를 같은 등록 명세·소스 해시·A/B/O에만 연결",
+        "중요 결과 등록 API에 관리자·CSRF·최근 재인증·감사 적용"
+      ],
+      "limits": [
+        "수동 소스 대조는 IDE의 실제 컴파일 인과관계 증명이 아님",
+        "수동 결과는 OPERATOR_RECORDED이며 게시 승인에 사용하지 않음"
+      ]
+    },
+    {
+      "id": "5",
+      "status": "IMPLEMENTED_WITH_MEMORY_LIMITS",
+      "name": "네이티브 API·메모리",
+      "changes": [
+        "SDK/C++와 Delphi ABI 필드 149개 비교 규약",
+        "CNG 입력/출력 범위·겹침·반환 길이·정수 축소 검사",
+        "민감 JSON 소유자 해제 후 임시 문자열 삭제",
+        "API 주소를 작업 시작 전에 확보하고 소유 스레드 합류 뒤 자원 해제",
+        "실패 시 중간 digest/키/핸들 소유권 정리"
+      ],
+      "limits": [
+        "관리형 문자열·OS 내부 복사본의 완전 소거를 보장하지 않음",
+        "실제 Windows SDK/Delphi ABI 비교는 사용 환경에서 실행 필요"
+      ]
+    },
+    {
+      "id": "6",
+      "status": "IMPLEMENTED",
+      "name": "파일·PE 측정",
+      "changes": [
+        "위치 기반 읽기·파일 식별정보·최종 시간/취소 검사",
+        "실패한 측정 묶음의 부분 출력 제거",
+        "Export 실패를 FULL로 집계하던 경로 수정",
+        "DLL load/unload 세대 추적으로 열거 사이 재적재 감지",
+        "독립 Python CRC 9종·PE/Export 참조 및 실제 네이티브 probe 비교 명령",
+        "소유 프로세스 스레드 시작 주소를 제한 시간·수량 안에서 관측"
+      ],
+      "limits": [
+        "읽기 중 OS 완료 지연과 실제 Windows 파일 경합 시험은 별도 실행 필요",
+        "스레드 관측은 원자적 전체 프로세스 증명이 아니며 JIT/미확인 주소를 자동 악성 판정하지 않음",
+        "독립 네이티브 보조 CRC 범위 전체 비교는 아직 없음; nativeAuxiliaryCrcCompared=false 유지"
+      ]
+    }
+  ],
+  "additionalConnections": [
+    {
+      "name": "KMAC256",
+      "status": "IMPLEMENTED_SERVER_STORAGE",
+      "detail": "무결성 보고 저장소 V3에 용도 분리 KMAC256 추가. 기존 HMAC/BLAKE3 유지, V1/V2 정상 읽기·저장 전환."
+    },
+    {
+      "name": "BLAKE3 parallel/tree",
+      "status": "IMPLEMENTED",
+      "detail": "최대 4작업·고정 CV 임시 공간; 64KiB 읽기를 최대 1MiB 배치로 처리하며 기존 digest 유지."
+    },
+    {
+      "name": "BLAKE3 derive-key",
+      "status": "IMPLEMENTED_NATIVE_HANDOFF",
+      "detail": "새 CNG 난수와 transcript로 AES 키 파생 후 기존 RSA 포장. Handoff V3 형식 유지."
+    },
+    {
+      "name": "BLAKE3 key ownership",
+      "status": "FIXED",
+      "detail": "서버 hasher.destroy가 호출자 키를 지우던 버그 수정. 전용 복사본만 소유·삭제."
+    },
+    {
+      "name": "Overlay capture privacy",
+      "status": "IMPLEMENTED_OWN_WINDOW_ONLY",
+      "detail": "서버 요청과 클라이언트 버전 협상, 자체 창 affinity 적용·읽기 결과 표시. 실제 렌더러 probe 제공. 외부 캡처 완전 차단 보장 없음."
+    },
+    {
+      "name": "Storage/NIC signals",
+      "status": "IMPLEMENTED_OPTIONAL_DIAGNOSTIC",
+      "detail": "서버 정책과 지원 버전이 모두 허용할 때만 조회. 원본 시리얼/MAC을 전송하지 않고 단기 요청에 결속한 digest·개수·상태만 서명된 진단 보고에 포함. 라이선스 결속/장치 신뢰 판정에 사용하지 않음. 디스크 0..7 및 NIC 최대64행의 제한된 표본이며 하드웨어 전체 조사/위조 방지 증명이 아님."
+    },
+    {
+      "name": "Worker shutdown",
+      "status": "IMPLEMENTED_WITH_OS_LIMITS",
+      "detail": "하드웨어 작업을 단일 소유 스레드·참조 계수·종료 레지스트리로 관리. 취소/합류 실패 시 자체 프로세스 종료로 RTL 해제 후 접근 방지. 이 경우 남은 finalizer·원격 서버 정리 완료 보장은 없음."
+    },
+    {
+      "name": "Manual verification import",
+      "status": "IMPLEMENTED",
+      "detail": "tools/manual-<runId>-results-verification.json을 관리자 웹에 등록. 현재 운영 명세/파일과 정확히 일치할 때만 표시; 기존 인증 및 게시 조건을 대체하지 않음."
+    },
+    {
+      "name": "Probe BAT output lifetime",
+      "status": "IMPLEMENTED",
+      "detail": "컴파일 직전 해당 probe 출력 제거·fresh EXE/DLL 검사. dcc64 exit 0만으로 성공하지 않음. Windows cmd 18개 compiler-stub 시험은 별도 실행 필요."
+    },
+    {
+      "name": "Measurement worker finalization",
+      "status": "IMPLEMENTED_WITH_OS_LIMITS",
+      "detail": "읽기 허용·작업자 등록·종료 전환을 같은 잠금으로 관리하고 실제 스레드 종료까지 핸들을 유지·합류. 소유권 이전 후 중복 해제와 RTL 종료 경합 수정, 독립 검토 완료. 종료 제한 시간 내 OS 작업이 끝나지 않으면 자체 프로세스 종료하며 이후 finalizer·원격 세션 정리는 보장하지 않음. 실제 Windows 종료 경합 probe는 별도 실행 필요."
+    }
+  ],
+  "verification": {
+    "delphiWindowsBuild": "NOT_RUN",
+    "windowsSdkAbiExecution": "NOT_RUN",
+    "realD3d11CaptureTpmStorageNic": "NOT_RUN",
+    "ciEvidenceCreated": false,
+    "publicationApprovalCreated": false,
+    "portableExecuted": {
+      "nativeBlake3OfficialCases": 3157,
+      "parallelBlake3Cases": 351,
+      "parallelLinuxThreads": 997,
+      "threadInventoryAssertions": 6250,
+      "deviceSignalsAssertions": 162,
+      "overlayPrivacyClassificationCases": 9
+    },
+    "independentReferences": [
+      "NIST KMAC and OpenSSL",
+      "upstream BLAKE3 hash/keyed/derive XOF",
+      "pure Python SHA-512 and bitwise CRC, independent PE parser"
+    ],
+    "manualWindowsEntry": "GameWeb/tools/Run_Manual_Windows_Tests.bat",
+    "ideProbeGroup": "GameConnect_Win64/tests/manual-ide/ManualNativeTests.groupproj",
+    "partialIsNotPass": true,
+    "hardwareCollectionDefault": false
+  },
+  "notAdded": [
+    "미지정 대상의 프로세스 Injection 기능",
+    "분석·보안 도구 회피를 위한 IAT 제거/은닉 기능",
+    "GPU 소실 후 자동 디바이스 재생성",
+    "TLS pin 전환 상태의 영속화",
+    "서버 다중 작성자/분산 합의"
+  ],
+  "operationalNotes": [
+    "서버 초기화나 기존 키 삭제가 필요한 변경이 아님",
+    "새 EXE를 게시할 때 최종 파일 승인과 현재 정책 내보내기·배포 명세 재생성이 필요",
+    "시험 데이터·벤더 라이선스·WASM·RES는 동작 및 재빌드에 필요하므로 유지",
+    "실제 Windows 시험 전에는 완료된 실기 검증으로 표시하지 않음"
+  ]
+}

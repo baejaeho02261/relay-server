@@ -25,11 +25,19 @@ async function showDesktopSecurityOperations() {
     SECURITY_RELEASE_MIXED_MANIFEST:'선택한 A/B/O의 명세 ID가 다르거나 누락되었습니다. 같은 명세로 등록한 세 후보를 선택하세요.',
     SECURITY_RELEASE_MANIFEST_NOT_REGISTERED:'계획 등록만 완료된 명세입니다. 아래 명세 영역에서 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.',
     SECURITY_RELEASE_MANIFEST_REQUIRED:'선택한 후보에 등록된 배포 명세가 필요합니다.',
-    SECURITY_CI_EVIDENCE_REQUIRED:'배포 증빙 미충족: 아래 배포 명세 영역의 Windows CI 순서대로 실행하고, 같은 실행 폴더의 manifest.json·A/B/O·ci-evidence.json을 등록하세요. 등록된 전용 CI 키의 유효한 nativeBuild/API/integration PASS가 필요합니다.',
-    SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시의 필수 조건은 유지됩니다. 아래 Windows CI 순서로 검증된 조합과 증빙을 준비해 게시하세요. 현재 조합에 강화 정책 적용은 기존 조합의 증빙이 모두 준비된 뒤 사용합니다.',
+    SECURITY_CI_EVIDENCE_REQUIRED:'기존 실행에 저장된 CI 요구가 남아 있습니다. 배포 명세 영역에서 현재 조합에 수동 배포 정책을 적용하거나, 승인한 최종 A/B/O와 명세로 새 조합을 검증·게시하세요. CI 시험 PASS는 생성하지 않습니다.',
+    SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시에는 최종 A/B/O의 유효한 EXE 승인 서명, 등록 완료된 동일 명세와 보안 버전 1 이상이 필요합니다. 아래 수동 배포 순서로 준비하세요. CI 증거 JSON은 요구하지 않습니다.',
     SECURITY_RELEASE_MANIFEST_INVALID:'명세 내용 또는 ID가 유효하지 않습니다. 생성 도구의 원본 JSON을 확인하세요.',
     SECURITY_MANIFEST_ARTIFACT_MISMATCH:'명세의 파일과 선택한 후보가 다릅니다. 승인 처리까지 끝난 최종 EXE와 명세를 확인하세요.'
   }[reason]||reason);
+  function compatibilityMatrix(){
+    const matrix=data.mitigationCompatibility||{records:[]};
+    if(!matrix.records.length)return '<p class="small-note">아직 등록한 Windows·GPU·드라이버 관측 결과가 없습니다. NOT_RUN · 기존 정책 유지.</p>';
+    const judgement={NOT_RUN:'미실행',INPUT_OR_RELEASE_CHANGED:'파일·명세 변경: 다시 검사',STALE_RETEST_REQUIRED:'30일 경과: 다시 검사',DO_NOT_APPLY:'미지원·실패: 적용 근거 없음',PROBE_PASS_PRODUCT_VALIDATION_REQUIRED:'probe 통과 · 실제 A/B/O 흐름 시험 필요'};
+    return matrix.records.map(record=>`<article class="desktop-compatibility-record"><p><strong>${esc(record.runId)}</strong> · ${esc(record.finishedAt)}<br><small>명세 ${esc(record.manifestId.slice(0,20))}… · ${record.activeArtifacts?'현재 운영 파일':'다른 후보 파일'} · 운영자 기록</small></p>
+      <table><thead><tr><th>Windows 빌드</th><th>범위 / 정책</th><th>결과</th><th>GPU·드라이버 식별</th><th>적용 판단</th></tr></thead><tbody>${record.rows.map(row=>`<tr><td>${esc(row.environment?.windowsBuild??'미수집')}</td><td>${esc(row.componentScope)} / ${esc(row.mode)}</td><td>${esc(row.status)}</td><td>${row.componentScope==='O'?esc(row.environment?.gpuIdentitySha512?.slice(0,20)||'미수집')+'…':'그래픽 시험 아님'}</td><td>${esc(judgement[row.judgement]||row.judgement)}</td></tr>`).join('')}</tbody></table>
+      <details><summary>정책 조회값·오류 코드 / 전체 GPU·드라이버 fingerprint</summary><pre>${esc(JSON.stringify(record.rows,null,2))}</pre></details></article>`).join('');
+  }
   function publishReady(){return !!pairPreview&&pairPreview.policyRevision===data.policy.revision&&pairPreview.operationsRevision===data.operations.operations.revision&&pairPreview.selection===JSON.stringify(pairBody());}
   function reportStatus(message,state='success',sectionIndex=-1){
     for(const el of [node('security-status'),sections()[sectionIndex]?.querySelector(':scope > .security-section-status')])if(el){el.hidden=false;el.textContent=message;el.dataset.state=state;}
@@ -38,6 +46,8 @@ async function showDesktopSecurityOperations() {
     const ready=publishReady(),view=node('sec-pair-status');
     node('sec-activate').disabled=busy||!ready;
     if(view){view.dataset.state=ready?'ready':'pending';view.textContent=message||(ready?'조합 검증을 통과했습니다. 선택한 A/B/O를 운영 게시할 수 있습니다.':'선택한 A/B/O 조합을 먼저 검증해주세요.');}
+    const release=pairPreview?.result?.release,ciVerified=release?.evidenceType==='CI_SIGNED_VERIFIED'&&release?.ciVerification==='SIGNATURE_VERIFIED';
+    node('sec-ci-status').textContent=ciVerified?'CI 서명 증거 확인됨 · 하드웨어 실행 증명이 아닙니다.':'CI 미실행/미검증 · 수동 배포의 서명·명세 확인은 Windows 시험 PASS가 아닙니다.';
     const rows=data.operations.candidates,governance=data.operations.operations.releaseGovernance||{};
     const selected=Object.entries(pairBody()).map(([key,id])=>({component:key[0].toUpperCase(),candidate:rows.find(row=>row.id===id)}));
     node('sec-candidate-summary').innerHTML=selected.map(({component,candidate})=>`<div><strong>${component}</strong> ${candidate?`<span>${esc(candidate.id)}</span><small>명세 ${esc(candidate.deploymentManifestId?candidate.deploymentManifestId.slice(0,20)+'…':'미연결')}</small>`:'<span>선택 안 함</span>'}</div>`).join('');
@@ -56,7 +66,7 @@ async function showDesktopSecurityOperations() {
     const publication=box.productionPublication;
     const pinState=data.tlsPinTransition||{enabled:false,generation:0};
     const publicationFloor=Math.max(1,publication?.requirements?.minimumSecurityVersion||g.minimumSecurityVersion||0);
-    const legacyRuntime=publication?.legacyRuntimePolicy??(!g.requireManifest||!g.requireCiEvidence||g.minimumSecurityVersion<1);
+    const legacyRuntime=publication?.legacyRuntimePolicy??(!g.requireManifest||g.requireCiEvidence||g.minimumSecurityVersion<1);
     const choices=component=>rows.filter(x=>!component||x.component===component).map(a=>[a.id,`${a.component} · ${a.version} · 후보 ${a.id} · 명세 ${a.deploymentManifestId?a.deploymentManifestId.slice(0,12)+'…':'미연결'}${a.active?' · 운영 중':''}`]);
     policyPreview='';rolloutPreview='';activationPreview=null;recoveryPreview=null;
     if(pairPreview&&(pairPreview.policyRevision!==p.revision||pairPreview.operationsRevision!==s.revision))pairPreview=null;
@@ -76,17 +86,22 @@ async function showDesktopSecurityOperations() {
       <label>동적 코드${select('sec-dynamic',[['observe','상태 조회만'],['prohibit','생성·수정 제한 요구']],p.dynamicCode)}</label>
       ${input('sec-fresh','판정 유효기간 (ms)',p.freshnessMs,'number')}${input('sec-challenge','challenge 유효기간 (ms)',p.challengeMs,'number')}
       ${input('sec-min-a','최소 A 버전',p.minVersionA)}${input('sec-min-b','최소 B 버전',p.minVersionB)}${input('sec-min-o','최소 O 버전',p.minVersionO??'0')}
-      ${checkbox('sec-legacy','구버전 금지',p.enforceLegacy)}${checkbox('sec-readonly','읽기 전용 API 저장 요구',p.requireReadonlyApi)}${checkbox('sec-cfg','CFG 요구',p.requireCfg)}${checkbox('sec-signature','배포 서명 강제',p.requireReleaseSignature)}
+      ${checkbox('sec-legacy','구버전 금지',p.enforceLegacy)}${checkbox('sec-readonly','읽기 전용 API 저장 요구',p.requireReadonlyApi)}${checkbox('sec-cfg','CFG 요구',p.requireCfg)}${checkbox('sec-signature','배포 서명 강제',p.requireReleaseSignature)}${checkbox('sec-device-signals','선택적 장치 관측 요청 (원본 식별자 미전송)',p.deviceSignalsRequested===true)}
       </div><label>신뢰 서명자 공개키 목록 (서명 도구의 trustedKey 배열 · 개인키 금지)<textarea id="sec-keys" rows="5" spellcheck="false">${esc(JSON.stringify(p.trustedReleaseKeys,null,2))}</textarea></label>
       <label>철회할 파일 SHA-512 (한 줄에 하나)<textarea id="sec-revoked" rows="3">${esc(p.revokedSha512.join('\n'))}</textarea></label>
       <div class="actions">${button('preview-policy','영향 미리보기')}${button('save-policy','미리본 정책 적용')}</div><pre id="sec-policy-preview" class="desktop-security-result"></pre>
-      <p class="small-note">전역 정책 적용은 진행 중인 빌드별 시험 적용을 종료합니다. 연결되지 않은 PC의 호환성은 판정하지 않습니다.</p></details>
+      <p class="small-note">선택적 장치 관측은 지원하는 새 클라이언트에만 요청하며 기본값은 꺼짐입니다. 세션·Challenge 범위의 해시만 진단용으로 받고 기존 장치 Binding이나 실행 승인 기준을 바꾸지 않습니다. 전역 정책 적용은 진행 중인 빌드별 시험 적용을 종료합니다. 연결되지 않은 PC의 호환성은 판정하지 않습니다.</p></details>
       <details><summary>Windows · GPU 호환성별 완화 정책</summary>
-      <p class="small-note">전용 CI 키로 서명된 실제 Windows 시험과 동일한 빌드·OS·GPU 조합에만 적용합니다. 기본값은 기존 정책을 유지합니다. 환경 보고는 하드웨어 증명이 아니며, CFG 메타데이터만으로 실제 호출부 보호를 인정하지 않습니다.</p>
-      <label>호환성 시험 증빙 JSON<input id="sec-mitigation-evidence" type="file" accept=".json,application/json"></label>
+      <p class="small-note">CI는 선택 사항입니다. IDE에서 ProcessMitigationProfileProbe와 OverlayMitigationProbe를 빌드한 뒤 Run_Mitigation_Compatibility.bat으로 관측 JSON을 만드세요. 같은 최종 A/B/O·등록 명세·소스 기록과 연결하며, O의 GPU fingerprint에는 실제 DXGI 어댑터와 UMD 드라이버 버전이 포함됩니다.</p>
+      <label>수동 호환성 관측 JSON<input id="sec-compatibility-report" type="file" accept=".json,application/json"></label>
+      ${button('import-mitigation-compatibility','호환성 관측 기록 등록')}
+      <p class="small-note">읽어 온 정책 값과 오류 코드를 표시합니다. probe 통과는 실제 A/B/O 전체 흐름 통과·하드웨어 증명으로 바뀌지 않습니다. 미실행·미지원·변경·만료는 별도로 표시하며 이 기록으로 정책을 자동 적용하거나 완화하지 않습니다.</p>
+      ${compatibilityMatrix()}
+      <details><summary>선택적 CI 서명 프로필 적용</summary><p class="small-note">아래 프로필 기능만 실제 Windows 시험과 전용 CI 서명·동일 빌드·OS·GPU 결속이 필요합니다. 일반 게시나 위 수동 관측 등록의 필수 조건은 아닙니다. CFG 메타데이터만으로 전체 호출부 보호를 인정하지 않습니다.</p>
+      <label>서명된 호환성 시험 증빙 JSON<input id="sec-mitigation-evidence" type="file" accept=".json,application/json"></label>
       ${checkbox('sec-mitigation-enabled','검증된 조합에 프로필 사용',true)}
       ${button('save-mitigation-profile','서명 증빙 확인 후 프로필 저장')}
-      <pre>${esc(JSON.stringify(data.mitigationProfiles||{profiles:[]},null,2))}</pre></details>
+      <pre>${esc(JSON.stringify(data.mitigationProfiles||{profiles:[]},null,2))}</pre></details></details>
       <details><summary>빌드별 검사 규격 · 단계적 적용</summary><label>검사 규격 대상${select('sec-contract-artifact',choices(),rows[0]?.id||'')}</label>
       <div class="desktop-security-grid">${input('sec-min-slots','최소 API 슬롯 수 (실제 probe 결과 기준)','','number')}${input('sec-max-slots','최대 API 슬롯 수','','number')}</div>
       ${button('save-contract','이 빌드 규격 저장')}<p class="small-note">V1의 자기 이미지·API 저장·완화 정책 3개 검사와 기존 10필드 응답을 사용합니다. 슬롯 수를 추정값으로 자동 등록하지 않습니다.</p>
@@ -99,33 +114,36 @@ async function showDesktopSecurityOperations() {
       <div class="desktop-security-grid"><label>A${select('sec-a',[['','A 후보 선택'],...choices('A')],selected('A'))}</label><label>B${select('sec-b',[['','B 후보 선택'],...choices('B')],selected('B'))}</label><label>O${select('sec-o',[['','오버레이 사용 안 함'],...choices('O')],selected('O'))}</label></div>
       <div id="sec-candidate-summary" class="security-candidate-summary"></div><p id="sec-release-stage" class="security-release-stage"></p>
       <div class="actions">${button('preview-pair','조합 검증')}<button type="button" id="sec-activate" data-security-action="activate" disabled>검증한 A/B/O 조합 운영 게시</button></div><p id="sec-pair-status" class="security-pair-status" role="status" aria-live="polite"></p><pre id="sec-pair-preview" class="desktop-security-result"></pre>
-      <label>시험 결과 JSON (Windows 수집 도구 결과 또는 운영자 확인 자료)<input type="file" id="sec-evidence-file" accept=".json,application/json"></label>${button('record-evidence','선택 A/B/O에 시험 결과 기록')}
-      <p class="small-note">nativeBuild · apiProbe · integration은 PASS / FAIL / NOT_RUN을 구분합니다. 실제 실행하지 않은 항목을 PASS로 표시하지 마세요.</p>
+      <p id="sec-ci-status" class="small-note">CI 미실행/미검증 · 수동 배포의 서명·명세 확인은 Windows 시험 PASS가 아닙니다.</p>
+      <details><summary>선택 사항 · 운영자 시험 기록</summary><label>시험 결과 JSON (Windows 수집 도구 결과 또는 운영자 확인 자료)<input type="file" id="sec-evidence-file" accept=".json,application/json"></label>${button('record-evidence','선택 A/B/O에 시험 결과 기록')}
+      <p class="small-note">nativeBuild · apiProbe · integration은 PASS / FAIL / NOT_RUN을 구분합니다. 실제 실행하지 않은 항목을 PASS로 표시하지 마세요. 이 기록은 CI 서명을 대신하지 않습니다.</p></details>
       <pre class="desktop-security-result">${esc(JSON.stringify(s.activations.slice(-10).reverse(),null,2))}</pre></details>
-      <details><summary>배포 명세 · CI 서명 증거 · 최소 보안 버전</summary>
-      <p class="small-note">새 운영 게시에는 명세·전용 CI 서명 PASS·보안 버전 1 이상이 필수이며 끌 수 없습니다. 명세는 최종 A/B/O 파일·소스 목록·도구 버전·정책·인계 규격을 하나의 ID로 묶습니다. 명세 입력과 CI 서명은 실제 Windows 실행을 자동 증명하지 않습니다. CI 전용 공개키만 등록하며 개인키는 업로드하지 마세요.</p>
-      <div class="desktop-security-grid">${checkbox('sec-manifest-required','하나의 A/B/O 배포 명세 필수',true,true)}${checkbox('sec-ci-required','전용 CI 서명 PASS 필수',true,true)}${input('sec-security-floor','최소 보안 배포 버전 (1 이상 · 낮출 수 없음)',publicationFloor,'number')}</div>
-      ${button('save-release-governance','현재 조합에 강화 정책 적용')}
-      <p id="sec-runtime-governance" class="small-note">${legacyRuntime?'기존 실행: 과거 저장 정책 유지. 신규 게시 성공 시 기존 실행에도 강화된 명세·CI 정책이 적용되므로 증빙 없는 구 실행은 거절될 수 있습니다.':'기존 실행에도 명세·CI·최소 보안 버전 정책이 적용되어 있습니다.'}</p>
-      <p class="small-note">현재 운영 조합도 검증을 통과해야 이 조건을 저장할 수 있습니다. 기존 조합에 증빙이 없으면 검증된 새 A/B/O를 준비해 게시하세요. 게시 성공 시 조합과 강화 정책을 함께 저장하며, 실패 시 기존 운영 조합을 바꾸지 않습니다.</p>
+      <details><summary>배포 명세 · 수동 배포 · 최소 보안 버전</summary>
+      <p class="small-note">수동 빌드한 최종 A/B/O의 EXE 승인 서명, 하나의 등록 완료된 배포 명세, 보안 버전 1 이상을 서버가 확인합니다. CI 증거 JSON은 요구하지 않습니다. 서명·명세 확인만으로 실제 Windows 시험을 통과했다고 표시하지 않습니다.</p>
+      <div class="desktop-security-grid">${checkbox('sec-manifest-required','하나의 A/B/O 배포 명세 필수',true,true)}${input('sec-security-floor','최소 보안 배포 버전 (1 이상 · 낮출 수 없음)',publicationFloor,'number')}</div>
+      <p id="sec-ci-requirement" class="small-note">신규 운영 게시: CI 증거 요구 안 함 · EXE 승인 서명 및 명세 검사 유지</p>
+      ${button('save-release-governance','현재 조합에 수동 배포 정책 적용')}
+      <p id="sec-runtime-governance" class="small-note">${legacyRuntime?'기존 실행: 과거 저장 정책 유지. 현재 조합에 수동 배포 정책을 적용하거나 새 조합을 게시하면 CI 요구를 해제하고 명세·보안 버전 조건을 저장합니다.':'기존 실행에도 수동 배포의 명세·최소 보안 버전 정책이 적용되어 있습니다.'}${g.requireCiEvidence?' 현재 저장된 기존 실행 정책: CI 증거 요구 켜짐.':''}</p>
+      <p class="small-note">현재 운영 조합도 서명·명세 검증을 통과해야 이 조건을 저장할 수 있습니다. 명세가 없는 기존 조합은 승인한 최종 A/B/O로 명세를 준비해 새로 게시하세요. 실패하면 기존 운영 조합과 정책을 바꾸지 않습니다.</p>
       <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">내려받은 deployment-policy.json을 BAT가 있는 GameWeb/tools 폴더에 저장하세요. 현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
-      <div class="small-note" id="sec-ci-workflow"><strong>Windows CI 실행부터 운영 게시까지</strong>
-      <ol><li>현재 정책을 위 버튼으로 저장해 <code>GameWeb/tools/deployment-policy.json</code>에 넣고 <code>Check_Environment.bat</code>으로 도구·소스 상태를 확인합니다. 같은 폴더의 <code>spec.json</code>에는 실제 빌드 도구 버전을 입력합니다.</li>
-      <li>CI 키가 없을 때만 <code>Create_CI_Key.bat</code>을 실행합니다. <code>Export_CI_Public_Key.bat</code>으로 생성한 <code>tools/ci-public-key.json</code>을 아래 CI 공개키 입력에 등록합니다. EXE 승인키와 CI 키는 별도로 사용하며 개인키는 업로드하지 않습니다.</li>
-      <li><code>Run_Windows_CI.bat</code>으로 빌드·시험을 실행한 뒤 <code>Check_CI_Output.bat</code>으로 완료된 출력 묶음을 확인합니다. 실패·미실행 항목은 해당 로그에서 해결한 뒤 다시 시험합니다.</li>
-      <li>확인한 <strong>같은 <code>tools/ci-runs/&lt;실행 폴더&gt;</code></strong>의 <code>manifest.json</code>을 계획 등록하고, 그 폴더의 <code>A.exe</code>·<code>B.exe</code>·<code>O.exe</code>와 각각의 승인 JSON을 같은 명세 ID로 후보 등록합니다. 이어 같은 <code>manifest.json</code>으로 명세 등록을 완료하고 <code>ci-evidence.json</code>을 등록합니다.</li>
-      <li>해당 A/B/O 후보를 선택해 <strong>조합 검증 → 운영 게시</strong>를 진행합니다. 서버는 현재 정책, 파일, CI 키 상태와 최신 증빙을 다시 확인합니다.</li></ol>
-      <p>이전 수동 빌드 EXE·명세와 CI 출력물을 섞지 마세요. 시험 후 파일·소스·정책이 달라졌다면 현재 구성으로 다시 검증합니다. 필수 조건을 끄거나 서버를 초기화해도 누락된 증빙은 생성되지 않습니다.</p></div>
-      <label>배포 명세 JSON (같은 CI 실행 폴더의 manifest.json)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
-      <label>CI 증거 JSON (같은 CI 실행 폴더의 ci-evidence.json)<input type="file" id="sec-ci-file" accept=".json,application/json"></label>${button('record-ci','CI 서명 증거 검증·등록')}
-      <label>새 CI 공개키 JSON (Export_CI_Public_Key.bat의 ci-public-key.json · 개인키 금지)<input type="file" id="sec-ci-key-file" accept=".json,application/json"></label>${button('record-ci-key','CI 전용 공개키 등록')}
-      <p class="small-note">ACTIVE는 새 CI 증거를 허용합니다. RETIRING은 기존 증거만 유지하며 REVOKED는 기존 증거도 무효화합니다. 키 철회는 복원할 수 없으며 현재 실행에도 영향을 줍니다. 키 유효기간은 발급 후 변경하지 않습니다.</p>
-      ${Object.values(g.ciKeys).map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('ci-signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],k.state)}<button type="button" data-security-action="ci-signer" data-key="${esc(k.keyId)}">CI 키 상태 저장</button></div>`).join('')||'<p>등록된 CI 키가 없습니다.</p>'}
+      <div class="small-note" id="sec-manual-workflow"><strong>IDE 수동 빌드부터 운영 게시까지</strong>
+      <ol><li>필요할 때 <code>Prepare_ImGui.bat</code>으로 ImGui 브리지를 준비하고, IDE에서 A/B/O를 Win64 Release로 빌드합니다. 최종 EXE는 <code>GameConnect_Win64/Win64/Release</code>에 모입니다.</li>
+      <li><code>Create_Spec.bat</code>으로 실제 버전의 <code>tools/spec.json</code>을 준비하고, 위 버튼으로 현재 서버 정책을 <code>tools/deployment-policy.json</code>에 저장합니다. 사용할 EXE 승인 공개키가 이 정책의 신뢰 서명자에 있어야 합니다.</li>
+      <li>같은 최종 A/B/O 각각에 <code>Create_Approval.bat</code> → <code>Check_Approval.bat</code>을 실행합니다. 승인 도구 처리가 끝난 최종 파일과 승인 JSON을 보관합니다.</li>
+      <li>그 세 파일로 <code>Create_Release_Manifest.bat</code> → <code>Check_Release_Manifest.bat</code>을 실행해 <code>tools/release-manifest.json</code>을 준비합니다.</li>
+      <li>아래에서 명세를 계획 등록하고, 최종 A/B/O와 각 승인 JSON을 같은 명세 ID로 후보 등록합니다. 같은 명세 JSON으로 등록을 완료한 뒤 <strong>조합 검증 → 운영 게시</strong>를 진행합니다.</li></ol>
+      <p>승인이나 명세 생성 후 EXE를 다시 빌드·변경했다면 새 최종 파일로 승인·명세를 다시 준비하세요. CI 키 생성과 Windows CI 실행은 이 수동 배포 순서에 포함되지 않습니다.</p></div>
+      <label>배포 명세 JSON (tools/release-manifest.json)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
       <div class="security-manifest-list">${Object.entries(g.manifests).map(([id,r])=>`<article class="security-manifest-card"><div><strong>${esc(r.manifest.releaseName)}</strong><span class="security-manifest-state" data-state="${esc(r.registration||'REGISTERED')}">${(r.registration||'REGISTERED')==='REGISTERED'?'등록 완료 · REGISTERED':'계획 등록 · PLANNED'}</span></div><code>${esc(id)}</code><p>${(r.registration||'REGISTERED')==='REGISTERED'?'후보를 선택하고 조합 검증을 진행하세요.':'A/B/O 후보 등록 후 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.'}</p></article>`).join('')||'<p class="empty">등록된 배포 명세가 없습니다.</p>'}</div>
-      <pre class="desktop-security-result">${esc(JSON.stringify(Object.entries(g.manifests).map(([id,r])=>({manifestId:id,releaseName:r.manifest.releaseName,securityVersion:r.manifest.securityVersion,handoffVersion:r.manifest.handoffVersion,recordedAt:r.recordedAt,registration:r.registration||'REGISTERED',latestCi:g.ciEvidence[id]?{keyId:g.ciEvidence[id].envelope.keyId,statement:g.ciEvidence[id].envelope.statement}:null})),null,2))}</pre><p class="small-note">위 목록은 저장 기록입니다. 현재 유효성은 [조합 검증]에서 키 상태와 정책을 다시 검사합니다.</p></details>
-      <details><summary>긴급 복구 · 승인한 조합으로 전환</summary><p class="small-note">위 A/B/O 선택을 대상으로 복구 내용을 준비한 뒤 명시적으로 승인·적용합니다. 보안 버전 하한·서명·CI·실제 파일 검증을 그대로 적용하며 낮은 버전 예외 통과는 없습니다. 계획은 현재 정책/운영 revision에 결속되고 5분 후 만료됩니다.</p>
+      <pre class="desktop-security-result">${esc(JSON.stringify(Object.entries(g.manifests).map(([id,r])=>({manifestId:id,releaseName:r.manifest.releaseName,securityVersion:r.manifest.securityVersion,handoffVersion:r.manifest.handoffVersion,recordedAt:r.recordedAt,registration:r.registration||'REGISTERED'})),null,2))}</pre><p class="small-note">위 목록은 저장 기록입니다. 현재 유효성은 [조합 검증]에서 키 상태와 정책을 다시 검사합니다.</p></details>
+      <details><summary>긴급 복구 · 승인한 조합으로 전환</summary><p class="small-note">위 A/B/O 선택을 대상으로 복구 내용을 준비한 뒤 명시적으로 승인·적용합니다. 보안 버전 하한·EXE 승인 서명·명세·실제 파일 검증을 그대로 적용하며 낮은 버전 예외 통과는 없습니다. 계획은 현재 정책/운영 revision에 결속되고 5분 후 만료됩니다.</p>
       ${input('sec-recovery-reason','복구 사유','')}<div class="actions">${button('prepare-recovery','선택 조합의 복구 내용 준비')}<button type="button" id="sec-recovery-apply" data-security-action="apply-recovery" disabled>준비한 복구 승인·적용</button></div><pre id="sec-recovery-preview" class="desktop-security-result"></pre>
       <pre class="desktop-security-result">${esc(JSON.stringify(Object.entries(g.recoveryPlans||{}).map(([recoveryId,r])=>({recoveryId,reason:r.reason,status:r.status,createdAt:r.createdAt,appliedAt:r.appliedAt,manifestId:r.manifestId})),null,2))}</pre></details>
+      <details id="sec-optional-ci"><summary>선택 사항 · 기존 CI 공개키와 시험 이력</summary>
+      <label>CI 공개키 JSON (Export_CI_Public_Key.bat의 ci-public-key.json · 개인키 금지)<input type="file" id="sec-ci-key-file" accept=".json,application/json"></label>${button('record-ci-key','CI 전용 공개키 등록')}
+      <p class="small-note">수동 운영 게시에는 CI 키가 필요하지 않습니다. 기존 키와 시험 기록은 보존합니다. ACTIVE는 선택적인 새 CI 증거를 허용합니다. RETIRING은 기존 증거만 유지하며 REVOKED는 기존 증거도 무효화합니다. 키 철회는 복원할 수 없으며 현재 실행에도 영향을 줍니다. 키 유효기간은 발급 후 변경하지 않습니다.</p>
+      ${Object.values(g.ciKeys).map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('ci-signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],k.state)}<button type="button" data-security-action="ci-signer" data-key="${esc(k.keyId)}">CI 키 상태 저장</button></div>`).join('')||'<p>등록된 CI 키가 없습니다.</p>'}
+      <pre class="desktop-security-result">${esc(JSON.stringify(g.ciEvidence||{},null,2))}</pre><p class="small-note">저장된 시험 기록만 표시합니다. 키 등록이나 이력 보존으로 CI PASS를 새로 만들지 않습니다.</p></details>
       <details><summary>서버·승인·CI 키 용도 분리</summary><p class="small-note">서버 통신/TLS/EXE 승인/CI 키의 정규화한 공개키 지문으로 중복 용도를 거절합니다. 저장하는 정보는 공개 지문과 용도뿐이며 이 화면에서 서버 개인키를 내보내지 않습니다.</p><pre class="desktop-security-result">${esc(JSON.stringify(box.keyPurposes||{},null,2))}</pre></details>
       <details><summary>서명 키 전환 · 철회</summary><p class="small-note">ACTIVE: 신규 서명 배포 허용. RETIRING: 기존 배포 검증만 허용. REVOKED: 기존 배포도 거절하며 복원 불가. 현재 운영 키 철회는 세션 작업을 막을 수 있습니다.</p>
       ${p.trustedReleaseKeys.map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],s.signerStates[k.keyId]?.state||'ACTIVE')}<button type="button" data-security-action="signer" data-key="${esc(k.keyId)}">상태 저장</button></div>`).join('')||'<p>등록된 신뢰 서명자가 없습니다.</p>'}</details>
@@ -146,7 +164,7 @@ async function showDesktopSecurityOperations() {
     updatePairStatus();
   }
   function fillContract(){const id=node('sec-contract-artifact')?.value,c=data.operations.candidates.find(x=>x.id===id)?.contract;node('sec-min-slots').value=c?.minApiSlots??'';node('sec-max-slots').value=c?.maxApiSlots??'';}
-  function policyBody(){return{expectedRevision:data.policy.revision,expectedOperationsRevision:data.operations.operations.revision,mode:node('sec-mode').value,dynamicCode:node('sec-dynamic').value,freshnessMs:Number(node('sec-fresh').value),challengeMs:Number(node('sec-challenge').value),minVersionA:node('sec-min-a').value.trim(),minVersionB:node('sec-min-b').value.trim(),minVersionO:node('sec-min-o').value.trim(),enforceLegacy:node('sec-legacy').checked,requireReadonlyApi:node('sec-readonly').checked,requireCfg:node('sec-cfg').checked,requireReleaseSignature:node('sec-signature').checked,trustedReleaseKeys:JSON.parse(node('sec-keys').value),revokedSha512:node('sec-revoked').value.split(/\s+/).filter(Boolean)};}
+  function policyBody(){return{expectedRevision:data.policy.revision,expectedOperationsRevision:data.operations.operations.revision,mode:node('sec-mode').value,dynamicCode:node('sec-dynamic').value,freshnessMs:Number(node('sec-fresh').value),challengeMs:Number(node('sec-challenge').value),minVersionA:node('sec-min-a').value.trim(),minVersionB:node('sec-min-b').value.trim(),minVersionO:node('sec-min-o').value.trim(),enforceLegacy:node('sec-legacy').checked,requireReadonlyApi:node('sec-readonly').checked,requireCfg:node('sec-cfg').checked,requireReleaseSignature:node('sec-signature').checked,deviceSignalsRequested:node('sec-device-signals').checked,trustedReleaseKeys:JSON.parse(node('sec-keys').value),revokedSha512:node('sec-revoked').value.split(/\s+/).filter(Boolean)};}
   function pairBody(){return{aId:node('sec-a').value,bId:node('sec-b').value,oId:node('sec-o').value};}
   async function reload(){const next=await api('/api/desktop/bootstrap/security-authority'),activation=await api(base+'/activation');if(alive()){data=next;activationState=activation.status;render();}}
   root.addEventListener('change',event=>{if(['sec-a','sec-b','sec-o'].includes(event.target.id)){pairPreview=null;recoveryPreview=null;node('sec-recovery-apply').disabled=true;node('sec-pair-preview').textContent='';updatePairStatus('선택이 변경되었습니다. 이 A/B/O 조합을 다시 검증해주세요.');}if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
@@ -176,6 +194,10 @@ async function showDesktopSecurityOperations() {
       }else if(action==='save-policy'){
         const body=policyBody();if(JSON.stringify(body)!==policyPreview)throw Error('현재 편집 내용으로 영향 미리보기를 먼저 실행해주세요.');
         await api('/api/desktop/bootstrap/security-authority',{method:'POST',body});changed=true;
+      }else if(action==='import-mitigation-compatibility'){
+        const file=node('sec-compatibility-report').files[0];if(!file||file.size>32768)throw Error('32KiB 이하의 호환성 관측 JSON을 선택하세요.');
+        const reportText=await file.text();if(!alive())return;
+        await api(base+'/mitigation-compatibility',{method:'POST',body:{reportText}});changed=true;
       }else if(action==='save-mitigation-profile'){
         const file=node('sec-mitigation-evidence').files[0];if(!file||file.size>65536)throw Error('서명된 호환성 증빙 JSON을 선택하세요.');
         const envelope=JSON.parse(await file.text());if(!alive())return;
@@ -216,22 +238,19 @@ async function showDesktopSecurityOperations() {
         await api(base+'/tls-pin-transition',{method:'POST',body:{expectedGeneration:data.tlsPinTransition?.generation||0,stagedGeneration,notBefore:Date.parse(start),oldNotAfter:Date.parse(end)}});changed=true;
         successMessage='pin 전환 계획을 등록했습니다. 공지한 기간 안에 서버를 중지하고 Activate_TLS_Pin.bat를 실행해야 합니다.';
       }else if(action==='save-release-governance'){
-        await api(base+'/release-governance',{method:'POST',body:{expectedRevision:revision,requireManifest:true,requireCiEvidence:true,minimumSecurityVersion:Number(node('sec-security-floor').value)}});changed=true;
-      }else if(action==='plan-manifest'||action==='record-manifest'||action==='record-ci'||action==='record-ci-key'){
-        const inputId=(action==='record-manifest'||action==='plan-manifest')?'sec-manifest-file':action==='record-ci'?'sec-ci-file':'sec-ci-key-file';
+        await api(base+'/release-governance',{method:'POST',body:{expectedRevision:revision,requireManifest:true,requireCiEvidence:false,minimumSecurityVersion:Number(node('sec-security-floor').value)}});changed=true;
+      }else if(action==='plan-manifest'||action==='record-manifest'||action==='record-ci-key'){
+        const inputId=(action==='record-manifest'||action==='plan-manifest')?'sec-manifest-file':'sec-ci-key-file';
         const file=node(inputId).files?.[0];if(!file||file.size>65536)throw Error('64KiB 이하의 공개 JSON 파일을 선택해주세요.');
         const value=JSON.parse(await file.text());if(!alive())return;
         if(action==='record-manifest'||action==='plan-manifest'){
           if(!value||!value.manifest||typeof value.manifestId!=='string'||Object.keys(value).sort().join(',')!=='manifest,manifestId')throw Error('명세 생성 도구의 원본 JSON을 선택해주세요.');
           await api(base+(action==='plan-manifest'?'/plan-release':'/release-manifests'),{method:'POST',body:{expectedRevision:revision,manifestId:value.manifestId,manifest:value.manifest}});
-          successMessage=action==='plan-manifest'?'명세 계획 등록(PLANNED)을 완료했습니다. 같은 명세 ID로 A/B/O 후보를 등록한 뒤 [세 파일 확인 후 명세 등록 완료]를 진행하세요.':'명세 등록 완료(REGISTERED). 같은 CI 실행 폴더의 ci-evidence.json까지 등록한 뒤 조합 검증·운영 게시하세요.';
-        }else if(action==='record-ci'){
-          await api(base+'/ci-evidence',{method:'POST',body:{expectedRevision:revision,envelope:value}});
-          successMessage='CI 서명 증거를 등록했습니다. 같은 명세의 A/B/O 후보로 조합 검증을 실행하세요. 운영 게시는 현재 정책과 키 상태를 다시 검사합니다.';
+          successMessage=action==='plan-manifest'?'명세 계획 등록(PLANNED)을 완료했습니다. 같은 명세 ID로 A/B/O 후보를 등록한 뒤 [세 파일 확인 후 명세 등록 완료]를 진행하세요.':'명세 등록 완료(REGISTERED). 같은 명세의 A/B/O 후보를 선택해 조합 검증·운영 게시하세요. CI 증거 JSON은 필요하지 않습니다.';
         }else {
           if(!value||Object.keys(value).sort().join(',')!=='keyId,notAfter,notBefore,publicKey,state')throw Error('CI 공개키 도구의 원본 JSON을 선택해주세요. 개인키는 등록하지 않습니다.');
           await api(base+'/ci-signers',{method:'POST',body:{expectedRevision:revision,...value}});
-          successMessage='CI 전용 공개키를 등록했습니다. 이 키로 시험·서명한 같은 실행 폴더의 명세, A/B/O, CI 증거를 등록하세요.';
+          successMessage='선택적인 CI 전용 공개키를 등록했습니다. 수동 운영 게시에는 CI 증거가 필요하지 않습니다.';
         }
         changed=true;
       }else if(action==='prepare-recovery'){

@@ -74,7 +74,7 @@
         "scripts/test-production-boundaries-1-5.js"
       ],
       "result": "중앙 dispatcher 및 독립 route adapter에서 익명/조회 전용/일반 operator 수정 요청, 잘못된 CSRF와 만료 재인증을 거절했습니다. 후자의 저장소는 시험용 메모리 객체입니다.",
-      "remaining": "전체 운영 서버 HTTP+TLS+디스크 통합 시험은 네이티브 DB 잠금 의존성 때문에 차단됐습니다."
+      "remaining": "격리 서버 HTTP/TLS 회귀 경로는 제공됩니다. 실제 사용자 배포 서버·프록시·권한 운영 검증은 미실행입니다. 이 문서의 과거 adapter 시험을 운영 검증으로 간주하지 않습니다."
     },
     {
       "id": "2.1",
@@ -88,7 +88,7 @@
         "services/desktopIntegrityReports.js"
       ],
       "result": "벽시계와 단조시계의 정확한 만료 경계 검사를 재실행했습니다. 기존 서명 뒤 재확인 경로는 유지했습니다.",
-      "remaining": "실제 라이선스/보고 서명 검증 중 만료를 넘기는 저장소 통합 시험은 의존성 차단입니다."
+      "remaining": "서명 뒤 마감 재검사 코드는 구현돼 있습니다. 실제 배포의 서명 지연·시계 변경·서버 재시작 조합은 별도 실측이 필요합니다."
     },
     {
       "id": "2.2",
@@ -124,7 +124,7 @@
         "services/desktopLicenses.js"
       ],
       "result": "새 운영 A/B/O 조합과 강화한 runtime 배포 정책을 같은 Commit에 기록하도록 연결했습니다. 파일 재읽기 실패·저장 전 실패에서 조합/정책이 함께 유지되는 시험을 수행했습니다.",
-      "remaining": "실행한 실패 시험의 store/audit 경계는 메모리 시험 객체입니다. 실제 다중 파일 원장·전원 차단·저장소 재시작 검증은 미완료입니다."
+      "remaining": "공통 operationId, 영속 receipt와 감사 재조정 경로를 유지합니다. 여러 원장을 하나의 분산 트랜잭션으로 만드는 구현은 없으며 실제 전원 차단 내구성은 미검증입니다."
     },
     {
       "id": "2.5",
@@ -136,7 +136,7 @@
         "scripts/test-desktop-single-writer.js"
       ],
       "result": "기존 OS 기반 단일 작성자 잠금과 의존성이 없을 때 시작 거절을 유지했습니다. 잠금을 mock으로 바꿔 전체 서버 PASS를 만들지 않았습니다.",
-      "remaining": "실제 두 서버 프로세스의 잠금 경쟁·강제 종료 후 회수 시험은 차단됐습니다."
+      "remaining": "실제 OS 잠금 경로와 중복 서버 시험이 제공됩니다. 사용자 Windows 설치의 잠금 경쟁·강제 종료 후 복구 실기는 미실행입니다."
     },
     {
       "id": "2.6",
@@ -233,20 +233,20 @@
         "services/desktopSecurityOperations.js",
         "web/routes/desktopSecurityRoutes.js"
       ],
-      "result": "신규 운영 게시와 복구 적용은 저장된 과거 false/false/0 값과 무관하게 A/B/O 전체 명세를 요구합니다. 최종 파일 재읽기 후 조합과 강화 정책을 원자적으로 저장합니다.",
-      "remaining": "기존 실행 정책은 검증된 새 조합 게시 전까지 유지합니다. 코드가 로컬 원장을 임의로 일괄 전환하지 않습니다."
+      "result": "신규 운영 게시와 복구 적용은 각 최종 A/B/O의 신뢰된 EXE 승인 서명과 동일한 REGISTERED 명세, 최소 보안 버전 1 이상을 요구합니다. 최종 파일을 재읽고 조합과 수동 배포 정책을 원자적으로 저장합니다.",
+      "remaining": "기존 실행 정책은 현재 조합에 대한 명시적 수동 배포 정책 적용 또는 검증된 새 조합 게시 전까지 유지합니다. 조회만으로 로컬 원장을 일괄 전환하지 않습니다."
     },
     {
       "id": "4.2",
       "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
       "requirement": "CI 서명 증빙: 관리자가 입력한 PASS와 실제 Windows 시험 시스템이 서명한 PASS를 구분합니다. 현재 운영자가 기록하는 증거에 추가할 수 있습니다.",
-      "status": "수정 · CI 서명 필수",
+      "status": "수정 · 사용자 요청에 따라 수동 게시에서 CI 증거 필수 조건 제거",
       "paths": [
         "services/desktopReleaseProvenance.js",
         "services/desktopSecurityOperations.js",
         "public/admin-desktop-security.js"
       ],
-      "result": "승인된 CI 공개키의 유효한 서명과 nativeBuild/apiProbe/integration 모두 PASS를 신규 게시에서 필수로 검사합니다. 수동 PASS·FAIL/NOT_RUN·변조 서명은 거절합니다.",
+      "result": "신규 수동 운영 게시와 복구에는 CI 키 또는 ci-evidence.json을 요구하지 않습니다. EXE 승인 서명·REGISTERED 명세·보안 버전 하한 검증은 유지합니다. 기존 CI 도구·공개키·증거 이력과 서명 검증은 선택 기능으로 보존하며, 수동 게시를 CI PASS로 표시하거나 시험 증거를 자동 생성하지 않습니다.",
       "remaining": "이 환경에서는 실제 Windows CI 증빙을 생성하지 않았습니다. 신뢰 CI 서명을 검사하는 것이지 하드웨어 attestation이나 관리자에 의한 증빙 위조 불가능성을 보장하는 것은 아닙니다."
     },
     {
@@ -260,7 +260,7 @@
         "ci/fixture-services.js"
       ],
       "result": "승인키·CI키·통신키의 기존 용도 분리와 서버 측 키 관리 구조를 유지합니다. purpose 변경과 CI 본문 변조 거절을 추가 확인했습니다.",
-      "remaining": "실제 사용자 키 생성·교체는 하지 않았습니다. 기존 실행 파일 승인 서명 정책 자체는 임의 변경하지 않았습니다."
+      "remaining": "실제 사용자 키 생성·교체는 하지 않았습니다. 기존 실행의 저장된 서명 정책은 유지하며, 신규 운영 게시에서는 각 EXE의 유효한 승인 서명을 반드시 검사합니다."
     },
     {
       "id": "4.4",
@@ -271,8 +271,8 @@
         "scripts/test-production-boundaries-1-5.js",
         "scripts/test-release-governance-complete.js"
       ],
-      "result": "CI키 ACTIVE→RETIRING→REVOKED, 새 증빙 등록 거절, 대체 키 증빙 유지와 마지막 키 폐기 시 runtime 거절을 단위시험했습니다. 실제 원장·라이선스 세션 훈련 코드도 새 production 함수로 연결했습니다.",
-      "remaining": "후자의 실제 원장 훈련은 의존성 차단입니다. 사용자 운영 EXE 서명키/CI키/통신키의 교체 훈련은 미실행입니다."
+      "result": "EXE 승인키와 선택적 CI 키의 ACTIVE/RETIRING/REVOKED 전이·변조 거절 시험을 제공합니다. 수동 게시 모드에서는 CI 키 폐기만으로 유효한 EXE 실행을 차단하지 않습니다. EXE 승인키 폐기는 새 승인과 해당 키에 의존한 실행의 다음 서버 검사에 적용됩니다.",
+      "remaining": "사용자 운영 EXE 승인키·선택적 CI 키·통신키의 실제 교체와 복구 훈련은 미실행입니다."
     },
     {
       "id": "4.5",
@@ -283,7 +283,7 @@
         "services/desktopSecurityOperations.js",
         "services/desktopReleaseProvenance.js"
       ],
-      "result": "새 게시의 보안 버전 하한은 최소 1이며 기존보다 낮출 수 없습니다. 명세/CI 요구 해제·0 지정은 production API에서 거절하고, 긴급 복구도 같은 하한을 사용합니다.",
+      "result": "새 게시의 보안 버전 하한은 최소 1이며 기존보다 낮출 수 없습니다. 명세 요구 해제·0 지정은 production API에서 거절하고, 긴급 복구도 같은 하한을 사용합니다. 수동 게시의 CI 증거 요구는 false로 고정하며 실제 EXE 승인 서명 검증을 유지합니다.",
       "remaining": "이미 실행 중인 legacy 세션은 새 정책 전환 전까지 기존 규칙을 따릅니다. 새 전환 후 증빙 없는 구 세션은 다음 서버 검사에서 거절될 수 있습니다."
     },
     {
@@ -297,7 +297,7 @@
         "scripts/test-production-boundaries-1-5.js"
       ],
       "result": "PLANNED만 있는 명세는 운영 게시할 수 없으며 서로 다른 릴리스의 A/B/O 혼합을 거절합니다. O 없는 최초 A/B만의 운영 게시도 거절하도록 실제 HTTP 시험을 갱신했습니다.",
-      "remaining": "갱신한 전체 HTTP 시험은 차단 상태입니다. 실행한 production route adapter 시험은 메모리 저장소 범위입니다."
+      "remaining": "실제 서버 HTTP/TLS 시험 코드는 포함됩니다. 합성 PE로 수행한 서버 시험은 Delphi 제품의 Windows 실행·운영 게시 확인을 대신하지 않습니다."
     },
     {
       "id": "5.1",
@@ -341,14 +341,15 @@
       "id": "5.4",
       "section": "네이티브 API·메모리 — 호출 경계의 안전성 확대",
       "requirement": "객체 종료 순서: 신규 작업 차단 → 진행 중 작업 합류 → 키·핸들 해제 순서를 보안 객체 전반에 명시합니다.",
-      "status": "유지 · 실행 도구 연결",
+      "status": "수명 계약 유지 · 장치키 초기화 실패 경로 보완",
       "paths": [
         "../GameConnect_Win64/Game.Lifetime.pas",
         "../GameConnect_Win64/tests/LifetimeProbe.dpr",
-        "ci/Invoke-NativeContracts1To5.ps1"
+        "ci/Invoke-NativeContracts1To5.ps1",
+        "../GameConnect_Win64/Game.DeviceKey.pas"
       ],
-      "result": "기존 신규 작업 차단→합류→키/핸들 해제 순서를 유지하고 LifetimeProbe를 독립 테스트 Job으로 연결했습니다. 제품 스레드를 강제 종료하는 코드는 추가하지 않았습니다.",
-      "remaining": "실제 Windows 종료 경쟁은 미실행입니다. 9번의 제품 종료 예산을 hard timeout으로 바꾼 것은 아닙니다."
+      "result": "신규 작업 차단→진행 작업 합류→키/핸들 해제 순서를 유지합니다. 영속 장치키의 AIK 초기화 실패 시 부분 생성 자원 정리와 재시도 소유권을 보완했습니다. 미완료 스레드가 객체를 사용하는 동안 강제 해제하거나 TerminateThread로 중단하지 않습니다.",
+      "remaining": "실제 Windows 실패 주입·종료 경쟁은 미실행입니다. 안전한 drain 대기는 OS 작업이 반환하지 않으면 종료 예산보다 길어질 수 있습니다."
     },
     {
       "id": "5.5",
@@ -359,7 +360,7 @@
         "../GameConnect_Win64/Game.Security.pas",
         "services/desktopRequestProtocol.js"
       ],
-      "result": "기존 서명/직렬화 원문을 보존합니다. 동일 receipt put에서 불필요한 응답/metadata 복제와 교체를 수행하지 않도록 바꿨습니다. 로컬 키 파일이나 정책 DB를 추가하지 않았습니다.",
+      "result": "서명/직렬화 원문과 불필요한 복제 억제를 유지합니다. 장기 서버 비밀을 클라이언트 정책 파일에 복제하지 않습니다. 별도로 선택적 OS CNG 영속 장치키는 구현돼 있으며 일반 JSON/평문 키 파일로 저장하지 않습니다.",
       "remaining": "Delphi/JS 런타임의 모든 임시 문자열을 제거했다는 뜻은 아닙니다."
     },
     {
@@ -377,20 +378,31 @@
   ],
   "productionPublication": {
     "requireManifest": true,
-    "requireCiEvidence": true,
+    "requireCiEvidence": false,
+    "requireReleaseSignature": true,
     "minimumSecurityVersionFloor": 1,
-    "legacyRuntimePolicy": "PRESERVED_UNTIL_VERIFIED_ATOMIC_PUBLICATION",
+    "legacyRuntimePolicy": "PRESERVED_UNTIL_EXPLICIT_GOVERNANCE_OR_VERIFIED_ATOMIC_PUBLICATION",
     "manualPassSufficient": false,
     "hardwareAttested": false
   },
-  "nativeProductSourceChanged": false,
+  "nativeProductSourceChanged": true,
   "windowsBuildExecuted": false,
   "fullProductionIntegrationExecuted": false,
   "unrelatedAuditGapsLeftForNextScopes": [
-    "7.4/7.5 legacy measurement metadata requirement",
-    "8.5 nested passkey clientDataJSON strict parser",
-    "11.4/11.5 acked audit outbox growth",
-    "8.1 online TLS pin rollover",
-    "12 TPM and persistent device identity"
-  ]
+    "Actual Windows A/B/O, GPU, SChannel, TPM and shutdown execution remains unverified here.",
+    "Complete elimination of managed Delphi/JavaScript string copies is not implemented.",
+    "Operating proxy/WAF configuration and physically independent recovery-witness storage need deployment review.",
+    "Distributed consensus/multi-writer HA and durable client TLS-pin rollback checkpoints are not implemented."
+  ],
+  "statusModel": {
+    "contract": "capabilities-status-v1.json",
+    "endpoint": "/api/desktop/bootstrap/server-state/capabilities",
+    "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
+    "configuration": "READ_FROM_CURRENT_SERVER_STATE",
+    "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
+  },
+  "historicalSnapshot": true,
+  "currentUpdate": "completion-4-6-v2.json"
 }

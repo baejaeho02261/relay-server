@@ -41,6 +41,42 @@
 .desktop-security textarea,.desktop-security select,.desktop-security input:not([type="checkbox"]) { width:100%; box-sizing:border-box; }.desktop-security-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:4px 20px; }.desktop-security-grid>* { min-width:0; }
 .desktop-security-result { margin:15px 0 0; padding:17px 20px; max-height:22rem; overflow:auto; border:1px solid var(--line); border-radius:9px; background:var(--panel-2); color:var(--text-soft); font-size:11px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
 .desktop-security-result:empty { display:none; }.desktop-security-signer { margin:16px 0; overflow-wrap:anywhere; }.desktop-security #security-status { overflow-wrap:anywhere; }.desktop-security button { margin:3px 3px 3px 0; }.desktop-security button:disabled { opacity:.4; }
+.modal-card:has(#desktop-server-state-root) { width:min(1380px,calc(100vw - 56px)); }
+#desktop-server-state-root .server-state-build-bar { display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:12px 0 18px; }
+#desktop-server-state-root .server-state-build-bar label { flex:1 1 360px; margin:0; }
+#desktop-server-state-root .server-state-build-bar button { flex:0 1 auto; margin:0 0 2px; }
+#desktop-server-state-root .server-state-inline { margin:10px 0; padding:0 12px 12px; border-color:var(--line); background:transparent; border-radius:8px; }
+#desktop-server-state-root .server-state-inline:not([open]) { padding-bottom:0; }
+#desktop-server-state-root .server-state-inline>summary { margin:0 -12px; padding:9px 12px; font-size:12px; background:transparent; }
+#desktop-server-state-root .server-state-inline[open]>summary { margin-bottom:10px; }
+#desktop-server-state-root .server-state-inline ul { padding-left:20px; overflow-wrap:anywhere; }
+#desktop-server-state-root .server-state-values { margin:0; font-size:11px; }
+#desktop-server-state-root .server-state-values>div { display:grid; grid-template-columns:minmax(110px,1fr) minmax(50px,1fr); gap:8px; padding:5px 0; border-bottom:1px solid var(--line); }
+#desktop-server-state-root .server-state-values dt { color:var(--muted); overflow-wrap:anywhere; }
+#desktop-server-state-root .server-state-values dd { margin:0; overflow-wrap:anywhere; }
+#desktop-server-state-root .server-state-values .server-state-values>div { display:block; }
+#desktop-server-state-root .server-state-artifacts { display:grid; grid-template-columns:105px minmax(0,1fr); gap:10px 16px; margin:0; font-size:12px; }
+#desktop-server-state-root .server-state-artifacts dt { color:var(--muted); }
+#desktop-server-state-root .server-state-artifacts dd { margin:0; }
+#desktop-server-state-root .server-state-artifacts code,#desktop-server-state-root .server-state-digest { overflow-wrap:anywhere; word-break:break-all; font-size:11px; }
+#desktop-server-state-root .server-state-badge { display:inline-block; padding:3px 7px; border:1px solid var(--line); border-radius:5px; color:var(--muted); font-size:11px; font-weight:600; white-space:nowrap; }
+#desktop-server-state-root .server-state-badge[data-outcome="FAIL"],#desktop-server-state-root .server-state-badge[data-outcome="FAILED"],#desktop-server-state-root .server-state-badge[data-outcome="STALE"] { color:var(--bad); background:var(--bad-bg); border-color:var(--bad-line); }
+#desktop-server-state-root .server-state-badge[data-outcome="PASS"],#desktop-server-state-root .server-state-badge[data-outcome="PASS_REPORTED"],#desktop-server-state-root .server-state-badge[data-outcome="CURRENT"] { color:var(--text); background:var(--panel-2); }
+#desktop-server-state-root .server-state-report-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:16px 0; color:var(--muted); font-size:12px; overflow-wrap:anywhere; }
+#desktop-server-state-root #server-capabilities-table>tbody>tr>td { vertical-align:top; }
+#desktop-server-state-root #server-capabilities-table>tbody>tr>td:nth-child(1) { min-width:125px; }
+#desktop-server-state-root #server-capabilities-table>tbody>tr>td:nth-child(3) { min-width:240px; max-width:360px; }
+#desktop-server-state-root #server-capabilities-table>tbody>tr>td:nth-child(4) { min-width:300px; }
+#desktop-server-state-root .server-state-checks { font-size:11px; }
+#desktop-server-state-root .server-state-checks td { min-width:100px; max-width:260px; overflow-wrap:anywhere; white-space:normal; }
+#desktop-server-state-root .server-state-alert { color:var(--bad); overflow-wrap:anywhere; }
+#desktop-server-state-root .server-state-residual { padding:16px; margin:16px 0; border:1px solid var(--line); border-radius:8px; background:var(--panel-2); overflow-wrap:anywhere; }
+#desktop-server-state-root .server-state-residual p { margin:8px 0; }
+#desktop-server-state-root .server-state-timeline { list-style:none; padding:0; margin:20px 0 0; }
+#desktop-server-state-root .server-state-timeline li { display:grid; grid-template-columns:180px minmax(0,1fr); gap:16px; padding:14px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+#desktop-server-state-root .server-state-timeline time { font-size:11px; color:var(--muted); }
+#desktop-server-state-root .server-state-timeline p { margin:7px 0 0; color:var(--muted); font-size:12px; }
+@media(max-width:760px) { .modal-card:has(#desktop-server-state-root) { width:100%; } #desktop-server-state-root .server-state-artifacts { grid-template-columns:1fr; gap:5px; } #desktop-server-state-root .server-state-artifacts dd { margin-bottom:10px; } #desktop-server-state-root .server-state-timeline li { grid-template-columns:1fr; gap:8px; } }
 .security-section-status { margin:12px 0; padding:12px 15px; border:1px solid var(--line); border-radius:8px; background:var(--panel-2); color:var(--muted); font-size:12px; line-height:1.75; overflow-wrap:anywhere; }.security-section-status:empty { display:none; }
 .security-section-status[data-state="busy"] { color:var(--accent); background:var(--accent-tint); }.security-section-status[data-state="success"],.security-pair-status[data-state="ready"] { color:var(--good); background:var(--good-bg); border-color:var(--good-line); }.security-section-status[data-state="error"],.security-pair-status[data-state="blocked"] { color:var(--bad); background:var(--bad-bg); border-color:var(--bad-line); }
 .security-release-stage,.security-pair-status { padding:16px 18px; margin:16px 0; border:1px solid var(--line); border-radius:9px; color:var(--text-soft); background:var(--panel-2); font-size:12px; line-height:1.8; overflow-wrap:anywhere; }.security-release-stage strong { color:var(--text); }.security-release-stage .code { font-size:11px; }
