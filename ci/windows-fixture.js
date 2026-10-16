@@ -18,8 +18,9 @@ function Write(name,value){const target=path.join(run,name),tmp=target+'.next';f
  listener=require('../services/desktopConnect').CreateServer();await new Promise((resolve,reject)=>{listener.once('error',reject);listener.listen(0,'127.0.0.1',resolve);});process.env.DESKTOP_PUBLIC_PORT=String(listener.address().port);
  const license=require('../services/desktopLicenses').Create({requestId:crypto.randomUUID(),label:'Ephemeral Windows CI'},'ISOLATED_WINDOWS_CI');
  const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Ephemeral Windows CI',licenseId:license.license.id},'ISOLATED_WINDOWS_CI');
+ license.licenseKey=''; // Assigned server-side; do not persist an unused plaintext copy.
  const launchDir=path.join(run,'execution');fs.mkdirSync(launchDir);const launcher=path.join(launchDir,issue.downloadName);fs.writeFileSync(launcher,bootstrap.LauncherBytes(issue.launcherId),{flag:'wx',mode:0o600});
- Write('input.json',{launcher,licenseKey:license.licenseKey});Write('status.json',CurrentStatus());let stopping=false;
+ Write('input.json',{launcher,licenseKey:''});Write('status.json',CurrentStatus());let stopping=false;
  timer=setInterval(()=>{try{Write('status.json',CurrentStatus());if(fs.existsSync(path.join(run,'stop.request'))&&!stopping){stopping=true;clearInterval(timer);listener.close(()=>process.exit(0));setTimeout(()=>process.exit(1),3000).unref();}}catch(_){Write('status.json',{version:1,ready:false,error:'CI_RUNTIME_STATUS_FAILED'});process.exit(1);}},200);
  setTimeout(()=>process.exit(1),300000).unref();process.stdout.write('CI_FIXTURE_READY\n');
 }catch(error){if(run&&fs.existsSync(run))try{Write('status.json',{version:1,ready:false,error:/^[A-Z0-9_]{1,100}$/.test(error.message)?error.message:'CI_FIXTURE_FAILED'});}catch(_){}process.stderr.write('CI_FIXTURE_FAILED\n');process.exitCode=1;if(listener)listener.close();}})();

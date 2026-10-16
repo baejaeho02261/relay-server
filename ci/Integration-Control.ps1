@@ -46,7 +46,8 @@ try {
    $children=@($ids|Where-Object{$_ -ne $apps.RootId})
    if($children.Count -eq 1){$bId=[uint32]$children[0];$bProcess=[Diagnostics.Process]::GetProcessById([int]$bId);$null=$bProcess.Handle;if(-not $apps.OwnsProcess($bProcess.Handle)){throw 'CI_PROCESS_OWNERSHIP_LOST'};$bPath=Assert-CiOwnedPath ([GameCi.DesktopControl]::ImagePath($bId)) (Join-Path $run 'execution')}
   }
-  if($bId -ne 0 -and -not $sent -and $ids -contains $bId){$sent=[GameCi.DesktopControl]::SubmitLicense($bId,[string]$input.licenseKey);if($sent){$input.licenseKey='';Remove-Item -LiteralPath (Join-Path $run 'input.json') -Force}}
+  if($status.licenseUsed){$sent=$true;$input.licenseKey='';if(Test-Path -LiteralPath (Join-Path $run 'input.json')){Remove-Item -LiteralPath (Join-Path $run 'input.json') -Force}}
+  if($bId -ne 0 -and -not $sent -and $input.licenseKey -and $ids -contains $bId){$sent=[GameCi.DesktopControl]::SubmitLicense($bId,[string]$input.licenseKey);if($sent){$input.licenseKey='';Remove-Item -LiteralPath (Join-Path $run 'input.json') -Force}}
   if($status.licenseUsed){$result.licenseConsumed=$true}
   if($status.overlayAuthorized -and $status.transferCommitted -and $oId -eq 0){
    $others=@($ids|Where-Object{$_ -ne $apps.RootId -and $_ -ne $bId})

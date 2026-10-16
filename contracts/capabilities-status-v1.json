@@ -17,7 +17,8 @@
     "persistentKeyRequired": "Global all-device requirement only; false in COMPATIBLE does not mean enrolled devices may omit proof.",
     "persistentKeyRequiredForEnrolled": "Policy requires proof from enrolled devices when global requirement or requireForEnrolled is enabled; exact legacy-flow grace remains a separate authorization rule.",
     "persistentKeyRequirementScope": "ALL_DEVICES / ENROLLED_DEVICES / OPTIONAL describes server policy scope, not current process authorization.",
-    "manualVerification": "Exact REGISTERED manifest/source/A/B/O build groups; per-check history and evidence-file digests; CURRENT/STALE/UNBOUND configuration binding. Missing checks are NOT_RECORDED; a partial V3 report cannot mark all domains complete."
+    "manualVerification": "Exact REGISTERED manifest/source/A/B/O build groups; per-check history and evidence-file digests; CURRENT/STALE/UNBOUND configuration binding. Missing checks are NOT_RECORDED; a partial V3 report cannot mark all domains complete.",
+    "operationalPerformance": "Persistent aggregate server request timings and authenticated client operation durations. Never a session authorization, whole-process exit attestation, CI approval or Windows execution proof."
   },
   "windowsExecuted": false,
   "ciRequiredForManualPublication": false,
@@ -37,7 +38,12 @@
     "scripts/test-server-state-read-routes.js",
     "scripts/test-lifecycle-trace.js",
     "scripts/test-native-lifecycle-contract.js",
-    "scripts/test-overlay-lease-expiry.js"
+    "scripts/test-overlay-lease-expiry.js",
+    "scripts/test-performance-metrics.js",
+    "scripts/test-performance-dashboard-ui.js",
+    "scripts/test-lifecycle-windows.js",
+    "scripts/test-recovery-device-probe.js",
+    "scripts/test-recovery-windows.js"
   ],
   "manualVerification": {
     "endpoint": "POST /api/desktop/bootstrap/server-state/manual-verification",
@@ -55,7 +61,9 @@
     "retention": "64 immutable reports; reject new records at capacity, no silent eviction.",
     "tools": [
       "tools/Create_Verification_Template.bat",
-      "tools/Create_Verification_Report.bat"
+      "tools/Create_Verification_Report.bat",
+      "tools/Run_Lifecycle_Windows_Tests.bat",
+      "tools/Run_Recovery_Windows.bat"
     ]
   },
   "lifecycle": {
@@ -73,5 +81,20 @@
       "eventsPerFlow": 96
     },
     "limits": "A/B process exits are child observations. Self exit cannot be reported as observed. Deletion scheduling is not file absence. Missing reports remain unknown."
+  },
+  "operationalPerformance": {
+    "endpoint": "GET /api/desktop/bootstrap/server-state/performance?resolution=hour|day&limit=<bounded integer>",
+    "authorization": "Current administrator session; read access audited. Unknown or duplicate parameters rejected.",
+    "source": "services/desktopPerformanceMetrics.js",
+    "persistence": "DATA_DIR/desktop-performance/metrics.json; atomic replacement under server OS single-writer lock; aggregate diagnostics only.",
+    "retention": {
+      "hourBuckets": 720,
+      "dayBuckets": 365
+    },
+    "renewalScope": "Complete request frame accepted through server response enqueue or failure; not TLS handshake or network RTT.",
+    "quantiles": "Nearest-rank histogram interval and conservative upper bound; raw samples not retained; missing times not replaced with zero.",
+    "shutdownScope": "Client-reported worker join, parent exit wait and file cleanup operation durations; different populations kept separate.",
+    "gaps": "Explicit unobserved restart, wall-clock changes, collection pauses and persistence failures; no extrapolation over offline periods.",
+    "ciRequired": false
   }
 }

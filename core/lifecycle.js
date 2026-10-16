@@ -75,7 +75,7 @@ function DisconnectConnection(connection) {
     }
 }
 
-function Shutdown(){try{CreateBackup('shutdown');SaveDatabase();}finally{process.exit(0);}}
+function Shutdown(){try{CreateBackup('shutdown');SaveDatabase();}finally{try{require('../services/desktopPerformanceMetrics').Close();}catch(_){}process.exit(0);}}
 
 module.exports = {
     ForceReconnectAll,
