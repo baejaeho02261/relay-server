@@ -240,11 +240,16 @@ function Payload(text) {
   for (const k of ['fileCrc64', 'codeCrc64']) if (typeof value[k] !== 'string' || !(measurementStatus.IsFailure(value.measurement) && value[k] === '') && !/^[A-F0-9]{16}$/.test(value[k])) Fail('SECURITY_INPUT_INVALID', 400);
   if(value.measurement==='MEASURED'&&!require('./desktopCrcPolicy').Validate(value.crcLayers))Fail('SECURITY_INPUT_INVALID',400);
   for(const [key,length] of [['codeXxh3_128',32],['codeBlake3',64]])if(typeof value[key]!=='string'||!(measurementStatus.IsFailure(value.measurement)&&value[key]==='')&&!new RegExp('^[a-f0-9]{'+length+'}$').test(value[key]))Fail('SECURITY_INPUT_INVALID',400);
-  if(value.ownMeasurement!==undefined)require('./measurementPlanContract').ValidateOwnMetadata(value.ownMeasurement,value.measurement,value.crcLayers);
+  if(value.ownMeasurement!==undefined&&!require('./measurementPlanContract').ValidateOwnMetadata(value.ownMeasurement,value.measurement,value.crcLayers))Fail('SECURITY_INPUT_INVALID',400);
   return value;
 }
 function Evaluate(value, baseline, policy, artifact) {
-  if(artifact?.ownMeasurementVersion===1)require('./measurementPlanContract').AssertOwn({check:'OWN_IMAGE',own:{status:value.measurement},ownMeasurement:value.ownMeasurement},artifact);
+  // FULL own-measurement validation needs the same signed CRC evidence that
+  // Payload validated. Omitting it here rejects valid A/B/O observations.
+  if(artifact?.ownMeasurementVersion===1)require('./measurementPlanContract').AssertOwn({
+    check:'OWN_IMAGE',own:{status:value.measurement},
+    ownMeasurement:value.ownMeasurement,crcLayers:value.crcLayers
+  },artifact);
   if(value.hashVersion!==3||baseline.hashVersion!==3)return {status:'INDETERMINATE',reason:'HASH_VERSION_MISMATCH'};
   if (value.measurement !== 'MEASURED') return { status: 'INDETERMINATE', reason: measurementStatus.FailureReason(value.measurement) };
   if (value.fileSha512 !== baseline.sha512 || value.fileCrc64 !== baseline.crc64 || value.codeSha512 !== baseline.codeSha512 || value.codeCrc64 !== baseline.codeCrc64 || value.codeXxh3_128!==baseline.codeXxh3_128 || value.codeBlake3!==baseline.codeBlake3) return { status: 'MISMATCH', reason: 'IMAGE_DIGEST_MISMATCH' };
