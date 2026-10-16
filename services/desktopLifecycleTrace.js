@@ -18,6 +18,13 @@ function RequestId(x){if(typeof x!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(x))F
 function State(db){return db.lifecycleTrace||(db.lifecycleTrace={version:1,flows:{},permits:{}});}
 function Expired(p){return require('./desktopDeadline').persistent.expired('lifecycle:'+p.id,p.createdAt,p.expiresAt);}
 function PruneState(s){for(const [id,p]of Object.entries(s.permits))if(Expired(p)){delete s.permits[id];store.AfterCommit(()=>require('./desktopDeadline').persistent.forget('lifecycle:'+id));}}
+// Expired diagnostic nonces must not wait for an unrelated authority mutation.
+// A quiet server persists their removal too; a failed durable write throws and
+// leaves the prior permit state intact rather than reporting cleanup success.
+function Maintain(){
+ const state=store.Load().lifecycleTrace;if(!state||!Object.values(state.permits).some(Expired))return {removed:0};
+ return store.Atomic(next=>{const live=next.lifecycleTrace,before=Object.keys(live.permits).length;PruneState(live);return {removed:before-Object.keys(live.permits).length};});
+}
 function RootFlow(db,row,stage){return stage==='O'?db.flows[row.parentFlowId]:db.flows[row.id];}
 function Binding(body){
  if(!['A','B','O'].includes(body.stage)||!['A','B','O'].includes(body.targetRole))Fail('LIFECYCLE_ROLE_INVALID',403);
@@ -63,6 +70,10 @@ function Report(body){
  const receipt={version:1,permitId:p.id,status:'RECORDED',recordedAt:Date.now(),eventCount:events.length};
  store.Atomic(next=>{const permit=next.lifecycleTrace?.permits[p.id];if(!permit||Expired(permit)||permit.serverEpoch!==require('./desktopRecovery').Epoch(next))Fail('LIFECYCLE_PERMIT_EXPIRED',410);if(permit.receipt)Fail('LIFECYCLE_REQUEST_REUSED',409);
   for(const event of events)Append(next,p.flowId,{...event,role:p.targetRole,targetSessionId:p.targetSessionId,source:'CLIENT_REPORTED',reporterRole:p.reporterRole,reporterSessionId:p.reporterSessionId});permit.receipt=receipt;permit.fingerprint=fingerprint;
+  // Only a newly committed receipt contributes. An exact retry must not count
+  // twice, and diagnostics persistence must never undo the authority commit.
+  // Durations are authenticated client observations, not server OS attestation.
+  store.AfterCommit(()=>{try{const metrics=require('./desktopPerformanceMetrics');for(const event of events)metrics.RecordLifecycle(p.targetRole,event.event,event.status,event.elapsedMs);}catch(_){}});
  });return receipt;
 }
 function Execute(body){if(body.action==='lifecycleChallenge')return Challenge(body);if(body.action==='lifecycleReport')return Report(body);Fail('LIFECYCLE_INPUT_INVALID');}
@@ -137,4 +148,4 @@ function Validate(s,db){
  }
  return s;
 }
-module.exports={Execute,ProofTasks,Canonical,Validate,ObserveTransitions,ServerEvent,Flow,Overview,TTL};
+module.exports={Maintain,Execute,ProofTasks,Canonical,Validate,ObserveTransitions,ServerEvent,Flow,Overview,TTL};

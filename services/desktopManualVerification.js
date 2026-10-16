@@ -69,7 +69,11 @@ function ValidateReport(value){
    }else if(check.execution!==catalog.EXECUTION[check.scope]||!digest(check.evidenceSha512))Fail();
    if(check.execution==='WINDOWS_EXECUTED'&&(value.platform!=='win32'||value.architecture!=='x64')||check.execution==='PHYSICAL_EXECUTED'&&value.platform!=='win32')Fail();
    let subjectArtifacts=null;
-   if(['SELECTED_FINAL_ABO','DEDICATED_PRODUCT_TESTBUILD'].includes(check.scope)){
+   // A prepared, unexecuted dedicated scenario has no testbuild yet. Keep
+   // that absence explicit; every executed outcome still requires its exact
+   // A/B/O tuple, and selected-final checks always bind to the manifest tuple.
+   const pendingTestBuild=check.scope==='DEDICATED_PRODUCT_TESTBUILD'&&check.outcome==='NOT_RUN'&&check.execution==='NOT_EXECUTED'&&check.subjectArtifacts===null;
+   if(['SELECTED_FINAL_ABO','DEDICATED_PRODUCT_TESTBUILD'].includes(check.scope)&&!pendingTestBuild){
     Shape(check.subjectArtifacts,['A','B','O']);if(Object.values(check.subjectArtifacts).some(x=>!digest(x)))Fail();
     subjectArtifacts=Object.fromEntries(['A','B','O'].map(k=>[k,check.subjectArtifacts[k]]));
     const same=['A','B','O'].every(k=>subjectArtifacts[k]===value.artifacts[k].sha512);

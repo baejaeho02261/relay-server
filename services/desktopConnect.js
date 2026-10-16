@@ -65,8 +65,11 @@ function Accept(socket){
   // One LF-delimited JSON request is accepted. CRLF from ReadLn clients is
   // supported; a second frame or trailing bytes are never pipelined.
   if(end!==buffer.length-1)return socket.destroy();
-  let opened,renewalRecorded=false;try{const raw=buffer.subarray(0,end);opened=await Open(require('./strictJson').Parse(raw,{maxBytes:MAX_FRAME}),absoluteDeadline-performance.now(),String(socket.remoteAddress||'UNKNOWN'));if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const result=await Dispatch(opened,absoluteDeadline);if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');if(opened.payload.tlsPinVersion===1){const plan=require('./desktopTlsPinTransition').Offer();if(plan)result.tlsPinPlan=plan;}const response=Seal(opened,result),wire=JSON.stringify(response)+'\n';if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');socket.end(wire);work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,result.ok);renewalRecorded=true;}
-  catch(_){if(opened&&!renewalRecorded)work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,false);opened?.key.fill(0);socket.destroy();}
+  // Monotonic server processing time: a complete frame through response enqueue
+  // (or failure). It is neither network round-trip nor client lease latency.
+  const requestStarted=performance.now();
+  let opened,renewalRecorded=false;try{const raw=buffer.subarray(0,end);opened=await Open(require('./strictJson').Parse(raw,{maxBytes:MAX_FRAME}),absoluteDeadline-performance.now(),String(socket.remoteAddress||'UNKNOWN'));if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const result=await Dispatch(opened,absoluteDeadline);if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');if(opened.payload.tlsPinVersion===1){const plan=require('./desktopTlsPinTransition').Offer();if(plan)result.tlsPinPlan=plan;}const response=Seal(opened,result),wire=JSON.stringify(response)+'\n';if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');socket.end(wire);work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,result.ok,performance.now()-requestStarted);renewalRecorded=true;}
+  catch(_){if(opened&&!renewalRecorded)work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,false,performance.now()-requestStarted);opened?.key.fill(0);socket.destroy();}
  });
 }
 function CreateServer(){

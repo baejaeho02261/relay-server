@@ -56,6 +56,7 @@ function Status(){
   item('14','독립 비교 · 장애 주입','IMPLEMENTED',{serverTestsAvailable:true,nativeProbesAvailable:true},'DEPLOYMENT_INDEPENDENT_AND_FAILURE_TEST',['PORTABLE_TEST_IS_NOT_WINDOWS_TEST'])
  ];
  return {version:1,readOnly:true,generatedAt:Date.now(),source:'LIVE_SERVER_POLICY_AND_SOURCE_CAPABILITIES',
-  evidencePolicy:'NO_AUTOMATIC_PASS',windowsVerification:manualVerification.status,manualVerification,deviceIdentity:device,features};
+  evidencePolicy:'NO_AUTOMATIC_PASS',windowsVerification:manualVerification.status,manualVerification,deviceIdentity:device,
+  operationalPerformance:{implementation:'IMPLEMENTED',persistentHistory:true,endpoint:'/api/desktop/bootstrap/server-state/performance',source:'SERVER_TIMINGS_AND_AUTHENTICATED_CLIENT_DIAGNOSTICS',securityAuthority:false,automaticWindowsAttestation:false},features};
 }
 module.exports={DeviceState,Status};
