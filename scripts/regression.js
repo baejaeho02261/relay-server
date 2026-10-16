@@ -3,6 +3,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ['test-performance-metrics.js'], ['test-performance-dashboard-ui.js'], ['test-lifecycle-windows.js'], ['test-recovery-device-probe.js'], ['test-recovery-windows.js'],
   ['test-manual-verification-v3.js'], ['test-lifecycle-trace.js'],
   ['test-server-state-read-routes.js'], ['test-server-state-dashboard-ui.js'], ['test-server-state-service-ui.js'],
   ['test-overlay-lease-expiry.js'], ['test-native-lifecycle-contract.js'],
