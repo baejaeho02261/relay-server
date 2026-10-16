@@ -22,11 +22,11 @@ const rows=[
  ['8','TLS · 요청 수명','DEPLOYMENT_WINDOWS_TLS_TEST',[
   ['schannel-handshake',NATIVE],['pin-transition',NATIVE],['receive-bounds',NATIVE],['request-timeout',NATIVE]]],
  ['9','오버레이 · 종료','DEPLOYMENT_WINDOWS_GPU_AND_SHUTDOWN_TEST',[
-  ['overlay-first-frame',NATIVE],['overlay-privacy',NATIVE],['overlay-shutdown',NATIVE],['overlay-gpu-faults',NATIVE],['abo-integration',['SELECTED_FINAL_ABO']],['overlay-lease-expiry',['SELECTED_FINAL_ABO','DEDICATED_PRODUCT_TESTBUILD']],['physical-dpi-monitor',PHYSICAL],['physical-rdp-focus',PHYSICAL]]],
+  ['overlay-first-frame',NATIVE],['overlay-privacy',NATIVE],['overlay-shutdown',NATIVE],['overlay-gpu-faults',NATIVE],['abo-integration',['SELECTED_FINAL_ABO']],['overlay-lease-expiry',['SELECTED_FINAL_ABO','DEDICATED_PRODUCT_TESTBUILD']],['lifecycle-cleanup-success',['SELECTED_FINAL_ABO']],['lifecycle-cleanup-refused',['DEDICATED_PRODUCT_TESTBUILD']],['lifecycle-cleanup-scheduled',['DEDICATED_PRODUCT_TESTBUILD']],['physical-dpi-monitor',PHYSICAL],['physical-rdp-focus',PHYSICAL]]],
  ['10','완화 정책 · 빌드 격리','DEPLOYMENT_WINDOWS_MITIGATION_TEST',[
   ['mitigation-readback',NATIVE],['product-policy-compatibility',['SELECTED_FINAL_ABO']],['final-cfg-instrumentation',['SELECTED_FINAL_ABO']],['windows-cfg-enforcement',['SELECTED_FINAL_ABO']]]],
  ['11','복구 · 보존','DEPLOYMENT_STORAGE_RESTORE_DRILL',[
-  ['backup-restore',SERVER],['old-session-rejection',SERVER],['spent-license-rejection',SERVER],['witness-rollback',SERVER],['device-key-rotation',SERVER]]],
+  ['backup-restore',SERVER],['old-session-rejection',SERVER],['spent-license-rejection',SERVER],['witness-rollback',SERVER],['device-key-rotation',SERVER],['original-device-recovery',['WINDOWS_PROBE']],['recovered-abo-integration',['SELECTED_FINAL_ABO']]]],
  ['12','영속 장치키 · TPM','DEPLOYMENT_WINDOWS_TPM_TEST',[
   ['persistent-device-key',NATIVE],['tpm-manufacturer-chain',PHYSICAL],['key-possession',NATIVE],['revoke-reenroll',NATIVE]]],
  ['13','Windows 실기 시나리오','DEPLOYMENT_WINDOWS_SCENARIOS',[

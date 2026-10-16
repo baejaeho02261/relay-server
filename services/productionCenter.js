@@ -235,7 +235,7 @@ function ChaosRun(scenario,actor){
 }
 
 function Overview(){
-    return {compatibility:CompatibilityOverview(),transport:require('./transportSecurity').Status(),updates:require('./updateSupervisor').Overview(),audit:state.production.auditChain,incidents:require('./incidentCenter').List(),slo:SloSnapshot(),recoveryDrills:state.production.recoveryDrills.slice(-20).reverse(),anomalies:EvaluateAnomalies(),retention:state.production.retentionPolicy,supplyChain:state.production.supplyChain,chaosRuns:state.production.chaosRuns.slice(-20).reverse(),diagnosticsBundles:state.production.diagnosticsBundles.slice(-20).reverse()};
+    return {compatibility:CompatibilityOverview(),transport:require('./transportSecurity').Status(),updates:require('./updateSupervisor').Overview(),audit:state.production.auditChain,incidents:require('./incidentCenter').List(),slo:SloSnapshot(),desktopPerformance:require('./desktopPerformanceMetrics').Snapshot({resolution:'day',limit:30}),recoveryDrills:state.production.recoveryDrills.slice(-20).reverse(),anomalies:EvaluateAnomalies(),retention:state.production.retentionPolicy,supplyChain:state.production.supplyChain,chaosRuns:state.production.chaosRuns.slice(-20).reverse(),diagnosticsBundles:state.production.diagnosticsBundles.slice(-20).reverse()};
 }
 
 module.exports={CompatibilityOverview,ConfigDryRun,ApplyPlan,SloSnapshot,SetSloPolicy,Diagnostics,RecoveryDrill,EvaluateAnomalies,RetentionApply,SetRetention,SupplyChainManifest,ChaosRun,Overview};
