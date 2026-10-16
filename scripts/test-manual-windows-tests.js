@@ -73,7 +73,7 @@ try{
   const exported=JSON.parse(fs.readFileSync(first.publicVerificationFile,'utf8'));
   assert.equal(exported.startedAt,'2026-01-01T00:00:00.123Z');
   assert.equal(exported.publicationApproval,false);assert.equal(exported.hardwareAttested,false);
-  assert(!JSON.stringify(exported).includes(dir));assert.equal(exported.stages.length,require('../services/desktopManualVerification').CURRENT_STAGES.length);
+  assert(!JSON.stringify(exported).includes(dir));assert(!Object.hasOwn(first.environment,'nodePath'));assert(!first.stages.some(stage=>Object.hasOwn(stage,'log')));assert(!Object.hasOwn(first.inputs.A,'source'));assert(!Object.hasOwn(first.inputs.A,'executedCopy'));assert.equal(exported.stages.length,require('../services/desktopManualVerification').CURRENT_STAGES.length);
  });
  test(()=>{const ps=fs.readFileSync(path.join(root,'GameWeb/tools/manual-windows-tests.ps1'),'utf8'),bat=fs.readFileSync(path.join(root,'GameWeb/tools/Run_Manual_Windows_Tests.bat'),'utf8');assert(!/dcc64\.exe|msbuild\.exe|ci-evidence\.json|Run_Windows_CI/i.test(ps+bat));assert(ps.includes('WindowsJob]::Start'));assert(ps.includes('Get-CiEnvironment'));assert(ps.includes('MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED'));});
  test(()=>{const props=fs.readFileSync(path.join(root,'GameConnect_Win64/tests/manual-ide/ManualProbe.props'),'utf8');assert(props.includes('units\\$(ProjectName)\\$(Platform)\\$(Config)'));assert(!props.includes('GAME_APPLICATION_BUILD'));for(const name of t.PROBES.filter(x=>!['NativeAbiSdkProbe','OverlayGpuFaultProbe'].includes(x)))assert(fs.existsSync(path.join(root,'GameConnect_Win64/tests/manual-ide',name+'.dproj')),name);});
