@@ -88,3 +88,33 @@ On Linux the Windows cases are **NOT_RUN**. Run portable harness regression with
 ```text
 node GameWeb/scripts/test-product-fault-tests.js
 ```
+
+## Lifecycle and genuine expiry bundle
+
+Run `Run_Lifecycle_Windows_Tests.bat` to select existing final Release A/B/O and
+the dedicated product-fault A/B/O built in the RAD Studio IDE. Input/result JSON
+files are created beside the BAT. No CI evidence or production reset is needed.
+
+- `lifecycle-cleanup-success` executes the selected final files, then binds each
+  signed A/B parent-exit and removal report to held process observations.
+- `lifecycle-cleanup-refused` pauses only the dedicated O after B has exited.
+  An exact-hash, single-link, owned B file handle denies DELETE sharing; the
+  actual production cleanup must report the Windows failure and B residual.
+- `lifecycle-cleanup-scheduled` holds that same B with DELETE sharing. The actual
+  non-POSIX disposition must be pending while the observer handle is open, and
+  path absence is checked only after it closes. SCHEDULED is not REMOVED.
+- `overlay-lease-expiry` additionally requires the real signed O lifecycle report
+  after server expiry, using a test-only pause of at most 1.5 seconds within the
+  existing shutdown budget. The unchanged server verifies the old diagnostic
+  permit, while old runtime authority remains rejected.
+
+Each case cross-checks the server-state and license-workspace timeline projections.
+Client observations remain labeled CLIENT_REPORTED. These tests do not claim that
+the server directly observed Windows process or filesystem state. Missing events,
+missing reports, unavailable OS paths or unexecuted cases cannot become PASS.
+Actual Delphi compilation and Windows execution are still required on the operator PC.
+
+An optional admin-exported `verificationContext` binds the local results to the
+registered final A/B/O and source manifest. The runner then emits a separate
+`-verification.json` V3 report for domain 9 with distinct final/dedicated artifact
+hashes. Only these named lifecycle checks are reported; no other test becomes PASS.

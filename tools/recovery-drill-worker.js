@@ -76,8 +76,8 @@ function DeviceLifecycle(){
  identity.AssertSession(Object.values(store.Load().flows).find(r=>r.sessionId===fresh.sessionId),'B');
  return {name:'device_key_revoke_and_reregister',status:'PASS',scope:'SYNTHETIC_SOFTWARE_RSA_PROOFS_REAL_STORES',oldKeyDenied:true,newKeyRegistered:true,licenseCarryOver:false,hardwareTpm:'NOT_TESTED',windowsCng:'NOT_TESTED'};
 }
-function Recover(synthetic){
- Load();const boot=require('../services/desktopBootstrap'),store=require('../services/desktopBootstrapStore'),licenses=require('../services/desktopLicenses'),recovery=require('../services/desktopRecovery'),checks=[];
+function Recover(synthetic,alreadyLoaded=false){
+ if(!alreadyLoaded)Load();const boot=require('../services/desktopBootstrap'),store=require('../services/desktopBootstrapStore'),licenses=require('../services/desktopLicenses'),recovery=require('../services/desktopRecovery'),checks=[];
  const before=structuredClone(licenses.DB()),epoch=recovery.Epoch(),probes=ExistingSessionProbes(store.Load()),oldRows=[...Object.values(store.Load().flows),...Object.values(store.Load().overlays||{})].map(r=>structuredClone(r));
  const request={requestId:crypto.randomUUID(),expectedEpoch:epoch,reasonCode:'RECOVERY_DRILL'},applied=recovery.Apply(request,'DRILL');assert.equal(applied.epoch,epoch+1);assert.equal(recovery.Apply(request,'DRILL').duplicate,true);
  checks.push({name:'recovery_epoch_apply_and_retry',status:'PASS',from:epoch,to:applied.epoch});
@@ -105,6 +105,7 @@ function Recover(synthetic){
  assert.equal(require('../storage/audit').VerifyAuditChain().ok,true);checks.push({name:'audit_chain_after_recovery',status:'PASS'});
  return {ok:true,epoch:applied.epoch,consumedLicenses:spent.length,checks};
 }
+function Main(){
 let job,result,authorizedOutput;
 try{
  const root=process.env.RECOVERY_DRILL_ROOT,token=process.env.RECOVERY_DRILL_TOKEN;
@@ -116,3 +117,7 @@ try{
 }catch(error){result={ok:false,error:/^[A-Z][A-Z0-9_]{2,100}$/.test(error.message)?error.message:'DRILL_ASSERTION_FAILED'};}
 if(authorizedOutput)fs.writeFileSync(authorizedOutput,JSON.stringify(result),{flag:'wx',mode:0o600});
 process.exitCode=result?.ok?0:1;
+
+}
+if(require.main===module)Main();
+module.exports={Load,Enroll,Denied,Proof,ExistingSessionProbes,Recover,SafePath};

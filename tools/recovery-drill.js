@@ -120,4 +120,4 @@ function Main(){
  }catch(error){console.error(JSON.stringify({version:1,kind:'ISOLATED_RECOVERY_DRILL',ok:false,error:Code(error)}));console.error('Usage: node recovery-drill.js selftest [new-result.json] | backup input.json [new-result.json]');process.exitCode=1;}
 }
 if(require.main===module)Main();
-module.exports={Run,Validate,Tree,Inside,ChildEnvironment};
+module.exports={Run,Validate,Tree,Inside,ChildEnvironment,Worker};

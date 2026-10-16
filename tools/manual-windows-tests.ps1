@@ -1,7 +1,7 @@
 param([string]$InputFile='')
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
-$run=$null;$private=$null;$report=$null;$execution=$null;$plan=$null;$node=$null
+$run=$null;$private=$null;$report=$null;$execution=$null;$plan=$null;$node=$null;$cleanupTool=$null;$failureCode=$null
 $resultCode=1
 function Read-PathAnswer([string]$Prompt,[string]$Default='') {
  $value=(Read-Host $Prompt).Trim().Trim('"')
@@ -37,10 +37,14 @@ try {
  $node=[string](Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $pwsh=[string](Get-Process -Id $PID).Path
  $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
+ $cleanupTool=Join-Path $PSScriptRoot 'test-evidence-cleanup.js'
  $id='manual-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
- $run=Join-Path $PSScriptRoot $id;$private=Join-Path ([IO.Path]::GetTempPath()) ('GameManual-'+[Guid]::NewGuid().ToString('N'))
+ $run=Join-Path ([IO.Path]::GetTempPath()) ('GameManualResults-'+[Guid]::NewGuid().ToString('N'));$private=Join-Path ([IO.Path]::GetTempPath()) ('GameManual-'+[Guid]::NewGuid().ToString('N'))
  $report=Join-Path $PSScriptRoot ($id+'-results.json')
  New-CiPrivateDirectory $run;New-CiPrivateDirectory $private
+ if(-not ('GameCi.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $root 'GameWeb\ci\LifecycleFileObserver.cs')}
+ $run=[GameCi.LifecycleFileObserver]::CanonicalDirectory($run)
+ $private=[GameCi.LifecycleFileObserver]::CanonicalDirectory($private)
  [IO.Directory]::CreateDirectory((Join-Path $run 'logs'))|Out-Null
  Write-Host 'Execution only: build the test projects in the RAD Studio IDE first.'
  Write-Host 'No command-line Delphi build, CI evidence, production key or production server is used.'
@@ -66,7 +70,7 @@ try {
   if($integration -and $faultArtifacts.Count -eq 3){$verificationContext=Read-PathAnswer 'Optional admin-exported verification-context JSON for build-linked expiry report [Enter: local result only]'}
   $hardwareAnswer=(Read-Host 'Also query this PC storage/NIC signals for a one-run hashed diagnostic? YES / NO [NO]').Trim()
   $collectHardwareSignals=$hardwareAnswer -ceq 'YES'
-  $InputFile=Join-Path $PSScriptRoot ($id+'-inputs.json')
+  $InputFile=Join-Path $run 'selected-inputs.json'
   $configuration=@{version=1;probeDirectory=$probeDirectory;probes=@{};artifacts=$artifacts;releaseVersion=$releaseVersion;runIntegration=$integration;collectHardwareSignals=$collectHardwareSignals}
   if($faultArtifacts.Count -eq 3){$configuration.faultArtifacts=$faultArtifacts};if($verificationContext){$configuration.verificationContext=$verificationContext}
   Write-CiJson $InputFile $configuration
@@ -95,27 +99,31 @@ try {
  }
  Write-CiJson (Join-Path $run 'execution.json') $execution
  Write-CiJson (Join-Path $run 'plan.json') $plan
- # Final hash/result validation runs before private fixture copies are removed.
- $finish=Run-Owned $node @((Join-Path $PSScriptRoot 'manual-windows-tests.js'),'finalize',$run,$report) (Join-Path $run 'finalize.log') 90
- if($finish.ContainsKey('error') -or -not(Test-Path -LiteralPath $report)){throw 'MANUAL_RESULT_FINALIZATION_FAILED'}
+ # Validate actual source/copy hashes while pins and files still exist.
+ # Keep pending diagnostics private until cleanup succeeds; exact bytes move
+ # to public outputs afterwards, so no stale PASS or evidence hash can escape.
+ $pending=Join-Path $run ([IO.Path]::GetFileName($report))
+ $finish=Run-Owned $node @((Join-Path $PSScriptRoot 'manual-windows-tests.js'),'finalize',$run,$pending,$report) (Join-Path $run 'finalize.log') 90
+ if($finish.ContainsKey('error') -or -not(Test-Path -LiteralPath $pending)){throw 'MANUAL_RESULT_FINALIZATION_FAILED'}
+ & $node $cleanupTool publish $run $private $pending $report
+ if($LASTEXITCODE -ne 0){throw 'MANUAL_PRIVATE_CLEANUP_OR_PUBLICATION_FAILED'}
  $value=Read-CiJson $report;Write-Host ('Result: '+$value.outcome+' / '+$report)
  if($value.ContainsKey('publicVerificationFile')){Write-Host ('Admin manual execution record: '+$value.publicVerificationFile)}
  if($value.ContainsKey('leaseVerificationFile')){Write-Host ('Admin build-linked expiry observation (dedicated test builds): '+$value.leaseVerificationFile)}
+ if($value.ContainsKey('leaseEvidenceFile')){Write-Host ('Exact observed lease evidence: '+$value.leaseEvidenceFile)}
  Write-Host 'MANUAL_EXECUTION only. Physical DPI, GPU/driver loss and RDP checks remain separately recorded.'
  $resultCode=if($value.outcome -eq 'PASS'){0}elseif($value.outcome -eq 'INCOMPLETE'){2}else{1}
 } catch {
  $code=if($_.Exception.Message -cmatch '^[A-Z][A-Z0-9_]+$'){$_.Exception.Message}else{'MANUAL_RUNNER_FAILED'}
  Write-Host ('ERROR: '+$code)
- if($report -and -not(Test-Path -LiteralPath $report)){
-  $failure=@{version=1;kind='MANUAL_EXECUTION';outcome='FAIL';error=$code;nativeBuild='NOT_RUN';ciEvidenceCreated=$false;hardwareAttested=$false;publicationApproval=$false;stages=if($execution){$execution.stages}else{@()};finishedAt=[DateTime]::UtcNow.ToString('o')}
-  [IO.File]::WriteAllText($report,($failure|ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false));Write-Host ('Result: '+$report)
- }
+ $failureCode=$code
 } finally {
- if($private -and (Test-Path -LiteralPath (Join-Path $private 'ci-owned-marker'))){
-  try{Remove-Item -LiteralPath $private -Recurse -Force}catch{
-   Write-Host ('ERROR: MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED '+$private);$resultCode=1
-   if($report -and (Test-Path -LiteralPath $report)){$value=Read-CiJson $report;$value.outcome='FAIL';$value.cleanup='MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED';Write-CiJson $report $value}
+ foreach($scratch in @($private,$run)){
+  if($scratch -and $node -and $cleanupTool -and (Test-Path -LiteralPath $scratch)){
+   & $node $cleanupTool cleanup $scratch
+   if($LASTEXITCODE -ne 0){$resultCode=1;$failureCode='MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED';Write-Host ('ERROR: '+$failureCode)}
   }
  }
 }
+if($failureCode -and $report -and $node -and $cleanupTool -and -not(Test-Path -LiteralPath $report)){& $node $cleanupTool failure $report MANUAL_EXECUTION $failureCode}
 exit $resultCode

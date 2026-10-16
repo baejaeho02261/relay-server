@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "backupDirectory": "D:\\OfflineBackups\\GameWeb-DATA_DIR",
+  "witnessSnapshotDirectory": "E:\\OfflineBackups\\GameWeb-witness-snapshot",
+  "storageEngine": "sqlite",
+  "enrollmentId": "REPLACE_WITH_EXISTING_ACTIVE_ENROLLMENT_64_LOWER_HEX",
+  "machineId": "REPLACE_WITH_ORIGINAL_PC_FINGERPRINT_64_UPPER_HEX",
+  "provider": "SOFTWARE",
+  "nativeProbe": "C:\\GameConnect_Win64\\tests\\manual-ide\\bin\\RecoveryDeviceProbe.exe",
+  "artifacts": {
+    "A": "C:\\ApprovedRelease\\GameLauncher.exe",
+    "B": "C:\\ApprovedRelease\\GameConnect.exe",
+    "O": "C:\\ApprovedRelease\\GameOverlay.exe"
+  },
+  "allowIsolatedPcUnlock": true
+}
