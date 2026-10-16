@@ -80,7 +80,12 @@
     "test:server:state:dashboard": "node scripts/test-server-state-dashboard-ui.js",
     "test:server:state:integration": "node scripts/test-server-state-service-ui.js",
     "test:overlay:lease-expiry": "node scripts/test-overlay-lease-expiry.js",
-    "test:lifecycle:native-contract": "node scripts/test-native-lifecycle-contract.js"
+    "test:lifecycle:native-contract": "node scripts/test-native-lifecycle-contract.js",
+    "test:performance-metrics": "node scripts/test-performance-metrics.js",
+    "test:performance-dashboard-ui": "node scripts/test-performance-dashboard-ui.js",
+    "test:lifecycle-windows": "node scripts/test-lifecycle-windows.js",
+    "test:recovery-device-probe": "node scripts/test-recovery-device-probe.js",
+    "test:recovery-windows": "node scripts/test-recovery-windows.js"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

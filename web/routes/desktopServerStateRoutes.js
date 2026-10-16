@@ -35,6 +35,12 @@ async function Handle(ctx){
    if(query.limit!==undefined&&!/^(?:[1-9]|[1-4][0-9]|50)$/.test(query.limit))InvalidQuery();
    result=require('../../services/desktopLifecycleTrace').Overview({...(query.flowId?{flowId:query.flowId}:{}),...(query.licenseId?{licenseId:query.licenseId}:{}),limit:query.limit?Number(query.limit):20});
   }
+  else if(method==='GET'&&pathname===PREFIX+'/performance'){
+   const query=Query(url,['resolution','limit']),resolution=query.resolution===undefined?'hour':query.resolution;
+   if(!['hour','day'].includes(resolution))InvalidQuery();
+   if(query.limit!==undefined&&(!/^[1-9][0-9]{0,2}$/.test(query.limit)||Number(query.limit)>(resolution==='hour'?720:365)))InvalidQuery();
+   result=require('../../services/desktopPerformanceMetrics').Snapshot({resolution,limit:query.limit===undefined?(resolution==='hour'?24:30):Number(query.limit)});
+  }
   else if(method==='POST'&&pathname===PREFIX+'/manual-verification')result=require('../../services/desktopManualVerification').Import(body,actor);
   else if(method==='GET'&&pathname===PREFIX+'/devices')result=require('../../services/desktopDeviceRegistry').List();
   else if(method==='GET'&&pathname===PREFIX+'/device-identity')result=require('../../services/desktopDeviceIdentity').List();
