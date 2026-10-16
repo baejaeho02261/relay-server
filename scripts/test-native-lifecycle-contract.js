@@ -38,6 +38,17 @@ test('Signed late report has identical v1 domain, exact retry identity and no se
   assert.equal(canonical.split('\n').length, 5);
   assert.notEqual(canonical, canonical + '\n');
 });
+test('Finished or expired report grants are wiped under request ownership after JSON aliases are released', () => {
+  const submit=reporter.split('procedure TLifecycleReporter.Submit(')[1];
+  order(submit,['C.Submitted := True','Reply := Post(Body, DeadlineTick)','FreeAndNil(Body); FreeAndNil(Reply);','C.ClearGrant;','TMonitor.Exit(FRequestLock)']);
+  assert.match(submit,/if C\.Submitted or \(\(C\.Deadline <> 0\) and \(Tick >= C\.Deadline\)\) then\s+C\.ClearGrant/);
+  const clear=reporter.split('procedure TLifecycleReporter.TChannel.ClearGrant;')[1].split('destructor TLifecycleReporter.TChannel.Destroy;')[0];
+  for(const field of ['PermitID','Nonce','RequestID'])assert(clear.includes('WipeText('+field+')'));
+  assert.match(clear,/Deadline := 0/);
+  const prepare=reporter.split('procedure TLifecycleReporter.Prepare(')[1].split('procedure TLifecycleReporter.Note(')[0];
+  order(prepare,['TMonitor.Enter(FRequestLock','if (C.Deadline <> 0) and (At >= C.Deadline) then C.ClearGrant;','C.NextPrepare']);
+  assert.match(reporter,/destructor TLifecycleReporter.TChannel.Destroy;\s+begin\s+ClearGrant;/);
+});
 test('Permit refresh covers last O lease at every renewal phase without increasing business lifetime', () => {
   const ttl = Number(service.match(/const TTL=(\d+)/)[1]);
   const reserve = Number(reporter.match(/TargetRole = 'O'\) then Reserve := (\d+)/)[1]);
