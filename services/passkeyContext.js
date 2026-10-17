@@ -12,9 +12,12 @@ function Configuration(env = process.env) {
 }
 function Resolve(req, https, env = process.env) {
     if (!https) throw Error('ADMIN_HTTPS_REQUIRED');
-    const ctx = Configuration(env), host = req.headers?.host;
+    // Railway preserves the original domain in X-Forwarded-Host. This path is
+    // reached only after the caller validates HTTPS with the ingress policy.
+    const hostHeader = env.WEB_ADMIN_TRANSPORT === 'railway' ? 'x-forwarded-host' : 'host';
+    const ctx = Configuration(env), host = req.headers?.[hostHeader];
     if (typeof host !== 'string' || !host || host.length > 259 || /[\s,@\\\/#?%]/.test(host)) throw Error('PASSKEY_HOST_INVALID');
-    if (Array.isArray(req.rawHeaders) && req.rawHeaders.filter((x, i) => !(i % 2) && String(x).toLowerCase() === 'host').length !== 1) throw Error('PASSKEY_HOST_INVALID');
+    if (Array.isArray(req.rawHeaders) && req.rawHeaders.filter((x, i) => !(i % 2) && String(x).toLowerCase() === hostHeader).length !== 1) throw Error('PASSKEY_HOST_INVALID');
     let url; try { url = new URL('https://' + host); } catch (_) { throw Error('PASSKEY_HOST_INVALID'); }
     if (url.host !== ctx.host || url.origin !== ctx.origin) throw Error('PASSKEY_HOST_INVALID');
     if (req.headers.origin !== undefined && req.headers.origin !== ctx.origin) throw Error('PASSKEY_ORIGIN_INVALID');
