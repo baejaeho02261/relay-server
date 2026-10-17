@@ -53,7 +53,7 @@ const upload=r=>svc.Import({reportText:JSON.stringify(r)},'ADMIN:SYNTHETIC');let
  // Route authorization is exercised with real session/CSRF code, while only the
  // record store above is replaced by the test-owned state.
  const route=require('../web/routes/desktopServerStateRoutes'),auth=require('../web/webAuth');
- const req={headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:false}};
+ const req={headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:true}};
  async function post(session,headers={}){let code,body;const res={writeHead(c){code=c;},end(s){body=JSON.parse(s);}};await route.Handle({method:'POST',pathname:'/api/desktop/bootstrap/server-state/manual-verification',req:{...req,headers},res,session,body:{reportText:JSON.stringify(report())}});return {code,body};}
  assert.equal((await post(null)).code,403);assert.equal((await post({id:'viewer',role:'viewer'})).code,403);
  const admin=auth.CreateSession(req,'admin');const noCsrf=await post(admin);assert([403,428].includes(noCsrf.code));
