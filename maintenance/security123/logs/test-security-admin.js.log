@@ -1,0 +1,25 @@
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 127.0.0.1
+PASS Wrong password never produces a session
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+PASS Existing password login produces the admin session, no passkey is created
+[EVENT] WEB_ADMIN_AUTH viewer / 127.0.0.1
+PASS Viewer/anonymous cannot authorize a desktop mutation
+PASS Real cookie resolves session; fabricated and absent cookies do not
+PASS CSRF remains mandatory and is bound to the logged-in session
+PASS Session cookies retain HTTPS, HttpOnly and SameSite protection
+PASS Authenticated single administrator can mutate desktop policies without identity mapping
+PASS All desktop protected routes retain the admin gate and omit dual tickets
+PASS Old mandatory settings cannot reintroduce the removed desktop gate
+PASS Explicit passkey revocation is accessible to existing admin without the key being revoked
+[EVENT] DUAL_APPROVAL_REQUESTED DUAL-6B88748A043843987FAE / /api/system/service/stop
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+[EVENT] DUAL_APPROVAL_GRANTED DUAL-6B88748A043843987FAE / 5D47BCEF9DDD0D14
+[EVENT] DUAL_APPROVAL_CONSUMED DUAL-6B88748A043843987FAE / /api/system/service/stop
+PASS Unrelated global two-person feature is unchanged, not silently disabled
+PASS Obsolete desktop approval APIs cannot create a fake second-person approval
+PASS Removed desktop passkey reauthentication returns explicit unused status
+PASS Non-secret summaries exclude private keys, bearer tokens and file bytes
+PASS Existing logout invalidates a session including delayed mutations
+PASS Source wiring: JSON mutation dispatcher still checks CSRF before authorization
+PASS Source wiring: raw uploads keep admin, CSRF and HA checks
+Single-operator admin regression: 17 passed (15 service/session cases + 2 source-wiring checks; no full HTTP/browser execution)

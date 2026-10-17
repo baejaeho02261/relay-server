@@ -4,15 +4,23 @@ function pkDecode(value){const text=String(value||'').replace(/-/g,'+').replace(
 function pkEncode(value){const bytes=new Uint8Array(value);let raw='';for(const b of bytes)raw+=String.fromCharCode(b);return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function normalizePublicKeyOptions(options){const x=JSON.parse(JSON.stringify(options));x.challenge=pkDecode(x.challenge);if(x.user)x.user.id=pkDecode(x.user.id);if(x.allowCredentials)x.allowCredentials=x.allowCredentials.map(c=>({...c,id:pkDecode(c.id)}));return x;}
 
-async function registerAdminPasskey(){
+async function registerAdminPasskey(recovery=false){
   if(!window.PublicKeyCredential||!navigator.credentials)throw new Error('이 브라우저는 WebAuthn 패스키를 지원하지 않습니다.');
-  const begin=await api('/api/production/passkeys/register/begin',{method:'POST',body:{}});
+  let begin;
+  try { if(recovery){const required=Error('Server enrollment');required.code='ADMIN_ENROLLMENT_APPROVAL_REQUIRED';throw required;} begin=await api('/api/production/passkeys/register/begin',{method:'POST',body:{}}); }
+  catch(error){
+    if(error.code!=='ADMIN_ENROLLMENT_APPROVAL_REQUIRED')throw error;
+    const current=await api('/api/session');
+    const approval=await openModal({isolated:true,title:'서버 등록 승인',message:'현재 세션 ID: '+current.id+' — 서버 관리자가 이 ID로 발급한 일회용 등록 승인번호를 입력하세요. 일반 정책 변경 권한은 발급되지 않습니다.',fields:[{name:'token',label:'일회용 승인번호',type:'password',maxLength:64}],confirmLabel:'등록 승인'});
+    if(!approval)return;
+    try{begin=await api('/api/production/passkeys/register/begin',{method:'POST',body:{},headers:{'X-Admin-Enrollment-Token':approval.token},reauthRetried:true});}finally{approval.token='';}
+  }
   const credential=await navigator.credentials.create({publicKey:normalizePublicKeyOptions(begin.publicKey)});
   const response=credential.response;
-  if(typeof response.getPublicKey!=='function'||!response.getPublicKey())throw new Error('브라우저가 공개키 내보내기를 지원하지 않습니다.');
+  if(!response.attestationObject)throw new Error('브라우저가 패스키 등록 응답을 제공하지 않았습니다.');
   const values=await openModal({title:'패스키 이름',message:'이 기기를 구분할 이름을 입력하세요.',fields:[{name:'name',label:'이름',value:'Admin Passkey'}],confirmLabel:'등록'});
   if(!values)return;
-  await api('/api/production/passkeys/register/finish',{method:'POST',body:{challengeId:begin.challengeId,credentialId:pkEncode(credential.rawId),clientDataJSON:pkEncode(response.clientDataJSON),authenticatorData:pkEncode(response.getAuthenticatorData()),publicKeySpki:pkEncode(response.getPublicKey()),name:values.name}});
+  await api('/api/production/passkeys/register/finish',{method:'POST',body:{challengeId:begin.challengeId,credentialId:pkEncode(credential.rawId),clientDataJSON:pkEncode(response.clientDataJSON),attestationObject:pkEncode(response.attestationObject),name:values.name}});
   toast('관리자 패스키가 등록되었습니다.');await renderProductionHardening();
 }
 
@@ -56,7 +64,7 @@ async function renderProductionHardening(){
     <div class="section-card"><div class="section-head"><h3>서명 검증 업데이트 관리</h3><button data-prod-rollback>수동 되돌리기</button></div><div class="section-body kv"><div>자동 되돌리기</div><div>${badge(u.policy.autoRollback?'ACTIVE':'OFF')}</div><div>실패 기준값</div><div>${u.policy.failureThresholdPercent}% / 최소 ${u.policy.minimumSamples}</div><div>시작 처리 응답</div><div>${u.policy.startupAckSeconds}s</div></div><div class="table-wrap compact-table"><table><tbody>${tx||'<tr><td class="empty">트랜잭션 없음</td></tr>'}</tbody></table></div></div>
     <div class="section-card"><div class="section-head"><h3>감사 기록 / 장애 시간순 이력</h3><button data-prod-audit-verify>검증 검증 체인</button></div><div class="table-wrap"><table><thead><tr><th>중요도</th><th>식별자</th><th>신호</th><th>대상</th><th>개수</th><th>상태</th><th>마지막</th><th></th></tr></thead><tbody>${incidents||'<tr><td colspan="8" class="empty">장애 없음</td></tr>'}</tbody></table></div></div>
     <div class="section-card"><div class="section-head"><h3>서비스 목표·허용 오류량</h3><span>${badge(s.compliant?'GOOD':'WARNING')}</span></div><div class="section-body metric-row"><div><span>가용률</span><strong>${s.availability}%</strong></div><div><span>응답 성공</span><strong>${s.ackSuccess}%</strong></div><div><span>상위 95% 응답 시간</span><strong>${s.p95Ms}ms</strong></div><div><span>남은 허용 오류량</span><strong>${s.errorBudget.remainingPercent}%</strong></div></div></div>
-    <div class="section-card"><div class="section-head"><h3>패스키 로그인</h3><button class="primary" data-prod-passkey-register>패스키 등록</button></div><div class="table-wrap"><table><thead><tr><th>이름</th><th>식별자</th><th>생성됨</th><th>마지막 사용됨</th><th></th></tr></thead><tbody>${passkeys||'<tr><td colspan="5" class="empty">등록된 패스키 없음</td></tr>'}</tbody></table></div></div>
+    <div class="section-card"><div class="section-head"><h3>패스키 로그인</h3><button class="primary" data-prod-passkey-register>패스키 등록</button><button data-prod-passkey-recover>분실 복구 등록</button></div><div class="table-wrap"><table><thead><tr><th>이름</th><th>식별자</th><th>생성됨</th><th>마지막 사용됨</th><th></th></tr></thead><tbody>${passkeys||'<tr><td colspan="5" class="empty">등록된 패스키 없음</td></tr>'}</tbody></table></div></div>
     <div class="section-card"><div class="section-head"><h3>관리자 이중 승인</h3><button data-prod-dual-toggle>${d.dualApprovalRequired?"비활성화":"활성화"}</button></div><div class="section-body"><p class="small-note">삭제·복원·서비스 종료·핵심 정책 변경은 서로 다른 관리자 세션의 승인 티켓으로 보호할 수 있습니다.</p></div><div class="table-wrap"><table><thead><tr><th>승인 요청</th><th>작업</th><th>상태</th><th>요청자</th><th>승인자</th><th></th></tr></thead><tbody>${approvals||'<tr><td colspan="6" class="empty">승인 티켓 없음</td></tr>'}</tbody></table></div></div>
     <div class="section-card"><div class="section-head"><h3>설정 적용 미리보기</h3><button class="primary" data-prod-dry-run>새 계획 검사</button></div><div class="section-body"><div class="kv"><div>배포 명세 개정 번호</div><div>${c.manifest.revision}</div><div>마지막 운영자</div><div>${esc(c.manifest.updatedBy||'-')}</div></div>${c.manifest.lastDryRun?`<div class="warning-box"><strong>${esc(c.manifest.lastDryRun.planId)}</strong><br>${c.manifest.lastDryRun.warnings.map(esc).join('<br>')||'검사 통과'}<br><button data-prod-apply-plan="${esc(c.manifest.lastDryRun.planId)}">적용 계획</button></div>`:''}</div></div>
     <div class="section-card"><div class="section-head"><h3>복구 / 진단</h3><div class="actions"><button data-prod-drill>복구 모의 복구</button><button data-prod-diag>기기 묶음 파일</button></div></div><div class="section-body kv"><div>마지막 모의 복구</div><div>${d.recoveryDrills[0]?badge(d.recoveryDrills[0].ok?'PASS':'FAIL'):'-'}</div><div>묶음 파일</div><div>${d.diagnosticsBundles.length}</div><div>복원 모드</div><div>분리된 검증</div></div></div>
@@ -69,6 +77,7 @@ async function renderProductionHardening(){
 
 document.getElementById('passkey-login-btn')?.addEventListener('click',()=>loginWithPasskey().catch(e=>{loginError.textContent=e.message;}));
 document.addEventListener('click',async event=>{try{
+  if(event.target.closest('[data-prod-passkey-recover]'))return await registerAdminPasskey(true);
   if(event.target.closest('[data-prod-passkey-register]'))return await registerAdminPasskey();
   const revoke=event.target.closest('[data-prod-passkey-revoke]');if(revoke){await api('/api/production/passkeys/revoke',{method:'POST',body:{id:revoke.dataset.prodPasskeyRevoke}});return await renderProductionHardening();}
   const resolve=event.target.closest('[data-prod-resolve]');if(resolve){await api('/api/production/incidents/resolve',{method:'POST',body:{id:resolve.dataset.prodResolve}});return await renderProductionHardening();}

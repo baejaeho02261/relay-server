@@ -1,0 +1,38 @@
+PASS 1.4 critical floor cannot be disabled by an unset/zero legacy environment flag
+PASS 1.4 read-only previews/candidates/planning are not silently made critical mutations
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+[EVENT] WEB_ADMIN_REAUTH_FAILED admin / 127.0.0.1
+[EVENT] WEB_ADMIN_REAUTH admin / 127.0.0.1
+PASS 1.4 ordinary session activity does not renew recent authentication
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+PASS 1.5 credential change/revocation invalidates a previously fresh capability
+PASS 2.1 exact wall/monotonic expiry rejects even after wall-clock rollback
+PASS 2.2 purpose fingerprints are disjoint for every catalog entry
+PASS 2.3 repeated put keeps the first result, metadata and deadline
+PASS 2.3 same receipt ID with changed body/purpose cannot overwrite a committed result
+PASS 2.3 failed receipt serialization cannot evict a live unrelated result
+PASS 2.3 receipt limits/options and monotonic cleanup are fail-closed
+PASS 3.1/3.2 V3 delegation canonical separates parent grant, child claim and B/O role
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+[EVENT] WEB_ADMIN_AUTH viewer / 127.0.0.1
+PASS 1.6 production route rejects anonymous/viewer even when called without outer dispatcher
+PASS 1.4 production route rejects stale reauthentication while preview remains readable
+PASS 1.6 production route still rejects bad CSRF before mutation
+PASS 4.1/4.2 publication floor is strict even for a stored legacy false/false/0 state
+PASS 4.1 activation HTTP route cannot opt into the internal CI/legacy compatibility mode
+PASS 4.1/4.2/4.5 publication policy HTTP route cannot lower the mandatory floor
+PASS 4.1 a planned manifest is not a registered production cohort
+PASS 4.2 manual publication has no fabricated CI result or required operator PASS
+PASS 4.2 optional signed CI FAIL/NOT_RUN stays accurately reported in manual mode
+PASS 4.3 changed purpose or tampered statement fails signature validation
+PASS 4.1 failed final artifact re-read leaves policy and active cohort unchanged
+PASS 4.1 explicit Debug in any role cannot activate and leaves the cohort unchanged
+PASS 2.4/4.1 failure before store commit leaves both active pointer and runtime floor unchanged
+PASS 4.1/4.2 activation route commits verified cohort and strict runtime policy together
+PASS 4.4 retiring a CI key preserves earlier verified proof but rejects new records
+PASS 4.6 valid signed release A cannot be mixed with another release O
+PASS 4.5 security floor remains monotonic and applies to emergency recovery too
+PASS 4.5 recovery HTTP route cannot use legacy compatibility to evade production checks
+PASS 4.4 optional CI signer revocation invalidates evidence without inventing PASS
+PASS 1.5 logout blocks a delayed direct route mutation even with the old CSRF token
+{"scope":"PRODUCTION_CODE_WITH_IN_MEMORY_STORE_AND_ROUTE_ADAPTER","groups":31,"fullWebServer":false,"nativeDatabase":false,"windowsExecuted":false,"syntheticSignaturesAreNotCiEvidence":true}

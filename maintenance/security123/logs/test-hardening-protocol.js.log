@@ -1,0 +1,4 @@
+PASS strict UTF8, escaped duplicate keys, full grammar and safe numeric ranges
+PASS public values and secrets have separate equality contracts
+PASS mitigation setter results never replace actual queried states
+Hardening protocol groups: 3 passed

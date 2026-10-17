@@ -1,0 +1,34 @@
+Error: HTTP server exited: ================================
+FATAL UNCAUGHT EXCEPTION
+================================
+Error: DESKTOP_WRITER_LOCK_UNAVAILABLE
+    at Unavailable (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:12:43)
+    at Object.Acquire (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:29:62)
+    at Object.<anonymous> (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/server.js:28:43)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+================================
+
+    at start (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/scripts/test-workspace-http.js:51:44)
+    at async /mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/scripts/test-workspace-http.js:119:2
+================================
+FATAL UNCAUGHT EXCEPTION
+================================
+Error: DESKTOP_WRITER_LOCK_UNAVAILABLE
+    at Unavailable (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:12:43)
+    at Object.Acquire (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:29:62)
+    at Object.<anonymous> (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/server.js:28:43)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32)
+    at Function._load (node:internal/modules/cjs/loader:1282:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+================================
+

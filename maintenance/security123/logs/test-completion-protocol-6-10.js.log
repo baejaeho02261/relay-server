@@ -1,0 +1,16 @@
+PASS client data exact signed bytes, legal whitespace and non-critical extensions preserved
+PASS client data duplicate and invalid UTF-8 rejected, not reserialized
+PASS client data bounded canonical base64url and object depth
+PASS critical client data type/origin/binding cannot be ignored
+PASS actual passkey signature hashes original bytes, replayed challenge rejected
+PASS even correctly signed duplicate JSON/invalid UTF-8 rejected before persistence
+PASS assertion binary/critical outer fields have canonical bounds
+PASS real worker RSA proof exact message succeeds; changed intent/key/signature never reuses cache
+PASS invalid cryptographic signature never authenticates; buffers wiped after run
+PASS current authorization can reject after valid proof without bypass
+PASS deadline and empty proof map cannot grant late/unprepared result
+PASS proof maps isolated across concurrent renewal/ordinary requests
+PASS per-key active/queued admission limits without occupying renewal lane
+PASS queue closure and invalid time/key bounds reject, without forced termination
+PASS authenticated shutdown diagnostics bounded, not attested; challenge is not renewal success
+{"suite":"completion-protocol-6-10","groups":15,"status":"PASS","actualCrypto":true,"isolatedPersistence":true,"nativeExecuted":false}

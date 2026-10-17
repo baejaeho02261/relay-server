@@ -1,0 +1,368 @@
+{
+  "node": "v22.16.0",
+  "supportedRuntime": false,
+  "results": [
+    {
+      "script": "test-admin-https-security.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.598,
+      "log": "test-admin-https-security.js.log",
+      "tail": [
+        "[EVENT] PASSKEY_AUTH DD3195A733EF8380E5A5571F / admin",
+        "PASS Real TLS passkey login verifies a fresh ES256 assertion and issues a server session",
+        "ADMIN HTTPS SECURITY PASS: 10 cases; real HTTP/TLS + JSON persistence; no physical passkey/browser/WAN claim"
+      ]
+    },
+    {
+      "script": "test-passkey-validation-security.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.237,
+      "log": "test-passkey-validation-security.js.log",
+      "tail": [
+        "PASS Existing RP-bound credentials are not silently upgraded to verified registration",
+        "PASS A later-added credential cannot answer an earlier allow-list challenge",
+        "PASSKEY VALIDATION SECURITY PASS: 30 cases; real ES256 / synthetic authenticator / isolated storage"
+      ]
+    },
+    {
+      "script": "test-tcp-admission-security.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.352,
+      "log": "test-tcp-admission-security.js.log",
+      "tail": [
+        "PASS Invalid peers and settings fail without allocating connection state",
+        "PASS Production pre-TLS connection handler integrates atomic admission and close cleanup",
+        "TCP ADMISSION SECURITY PASS: 12 cases; deterministic limiter + production handler with synthetic sockets"
+      ]
+    },
+    {
+      "script": "test-passkey-lifetime.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.673,
+      "log": "test-passkey-lifetime.js.log",
+      "tail": [
+        "PASS Failed registration or revocation persistence is not reported as success",
+        "PASS Pending ceremony storage is bounded and expired entries free capacity",
+        "PASSKEY LIFETIME PASS: 9 deterministic cases; no physical authenticator claim"
+      ]
+    },
+    {
+      "script": "test-web-auth-hardening.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.447,
+      "log": "test-web-auth-hardening.js.log",
+      "tail": [
+        "PASS Actual login endpoint returns 429 with Retry-After and passkey cannot bypass address budget",
+        "PASS UI retries a rejected operation once after successful reauthentication, never after cancel",
+        "WEB AUTH HARDENING PASS: 24 behavioral cases (HTTP, crypto fixture, UI VM; no physical passkey/browser claim)"
+      ]
+    },
+    {
+      "script": "test-completion-protocol-6-10.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.811,
+      "log": "test-completion-protocol-6-10.js.log",
+      "tail": [
+        "PASS queue closure and invalid time/key bounds reject, without forced termination",
+        "PASS authenticated shutdown diagnostics bounded, not attested; challenge is not renewal success",
+        "{\"suite\":\"completion-protocol-6-10\",\"groups\":15,\"status\":\"PASS\",\"actualCrypto\":true,\"isolatedPersistence\":true,\"nativeExecuted\":false}"
+      ]
+    },
+    {
+      "script": "test-security-admin.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.125,
+      "log": "test-security-admin.js.log",
+      "tail": [
+        "PASS Source wiring: JSON mutation dispatcher still checks CSRF before authorization",
+        "PASS Source wiring: raw uploads keep admin, CSRF and HA checks",
+        "Single-operator admin regression: 17 passed (15 service/session cases + 2 source-wiring checks; no full HTTP/browser execution)"
+      ]
+    },
+    {
+      "script": "test-hardening-protocol.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.058,
+      "log": "test-hardening-protocol.js.log",
+      "tail": [
+        "PASS public values and secrets have separate equality contracts",
+        "PASS mitigation setter results never replace actual queried states",
+        "Hardening protocol groups: 3 passed"
+      ]
+    },
+    {
+      "script": "test-production-boundaries-1-5.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 1.073,
+      "log": "test-production-boundaries-1-5.js.log",
+      "tail": [
+        "PASS 4.4 optional CI signer revocation invalidates evidence without inventing PASS",
+        "PASS 1.5 logout blocks a delayed direct route mutation even with the old CSRF token",
+        "{\"scope\":\"PRODUCTION_CODE_WITH_IN_MEMORY_STORE_AND_ROUTE_ADAPTER\",\"groups\":31,\"fullWebServer\":false,\"nativeDatabase\":false,\"windowsExecuted\":false,\"syntheticSignaturesAreNotCiEvidence\":true}"
+      ]
+    },
+    {
+      "script": "test-network-lifecycle-upgrade.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.131,
+      "log": "test-network-lifecycle-upgrade.js.log",
+      "tail": [
+        "PASS renewal metrics and routing recognize same terminal B/O operations",
+        "PASS pin retirement remains closed across wall-clock rollback in one server process",
+        "{\"suite\":\"network-lifecycle-upgrade\",\"groups\":5,\"status\":\"PASS\",\"actualDispatchAndPinClock\":true,\"isolatedStores\":true,\"nativeExecuted\":false}"
+      ]
+    },
+    {
+      "script": "test-connect-tls.js",
+      "status": "BLOCKED_DEPENDENCY",
+      "exitCode": 1,
+      "seconds": 0.374,
+      "log": "test-connect-tls.js.log",
+      "tail": [
+        "  expected: 0,",
+        "  operator: 'strictEqual'",
+        "}"
+      ]
+    },
+    {
+      "script": "test-desktop-connect.js",
+      "status": "BLOCKED_DEPENDENCY",
+      "exitCode": 1,
+      "seconds": 0.671,
+      "log": "test-desktop-connect.js.log",
+      "tail": [
+        "}",
+        "",
+        "Node.js v22.16.0"
+      ]
+    },
+    {
+      "script": "test-desktop-http.js",
+      "status": "BLOCKED_ENVIRONMENT",
+      "exitCode": 1,
+      "seconds": 0.284,
+      "log": "test-desktop-http.js.log",
+      "tail": [
+        "    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)",
+        "================================",
+        ""
+      ],
+      "initialClassification": "FAIL",
+      "blocker": "DESKTOP_WRITER_LOCK_UNAVAILABLE: desktopSingleWriter.js:29 requires absent better-sqlite3 (confirmed by test-connect-tls.js and module resolution)."
+    },
+    {
+      "script": "test-workspace-http.js",
+      "status": "BLOCKED_ENVIRONMENT",
+      "exitCode": 1,
+      "seconds": 0.19,
+      "log": "test-workspace-http.js.log",
+      "tail": [
+        "    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)",
+        "================================",
+        ""
+      ],
+      "initialClassification": "FAIL",
+      "blocker": "DESKTOP_WRITER_LOCK_UNAVAILABLE: desktopSingleWriter.js:29 requires absent better-sqlite3 (confirmed by test-connect-tls.js and module resolution)."
+    },
+    {
+      "script": "check-web-ui.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "seconds": 0.078,
+      "log": "check-web-ui.js.log",
+      "tail": [
+        "WEB UI BUNDLE PASS: WEB v5.0.1 / UI console-v4-109-sec123 / 48 files"
+      ]
+    }
+  ],
+  "scope": "Server changes 1-3 only; no production deployment",
+  "runtimeRequired": "^22.22.2 || ^24.15.0 || >=26.0.0",
+  "primaryCasesPassed": 85,
+  "primarySuites": [
+    "test-admin-https-security.js",
+    "test-passkey-validation-security.js",
+    "test-tcp-admission-security.js",
+    "test-passkey-lifetime.js",
+    "test-web-auth-hardening.js"
+  ],
+  "physicalAuthenticatorTested": false,
+  "browserWebAuthnTested": false,
+  "windowsCompiled": false,
+  "wanFirewallVerified": false,
+  "productionKeysChanged": false,
+  "dependencyAuditCompleted": false,
+  "dependencyInstallBlocker": "Container DNS could not resolve nodejs.org or registry.npmjs.org; no package dependency versions changed.",
+  "changedJavaScriptSyntax": [
+    {
+      "file": "GameWeb/server.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-security-activation.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-workspace-http.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-completion-protocol-6-10.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-admin-https-security.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-desktop-http.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/passkey-wire-fixture.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-server-capabilities.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-passkey-lifetime.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-manual-verification.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-server-state-read-routes.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/regression.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-desktop-retirement.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-mitigation-compatibility.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-connect-deployment.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-tcp-admission-security.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-passkey-validation-security.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-web-auth-hardening.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/scripts/test-production-boundaries-1-5.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/public/admin-pages-production.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/web/webServer.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/web/webAuthPolicy.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/web/webAuth.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/web/webTransport.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/config/config.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/services/passkeyContext.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/services/desktopConnect.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/services/passkeyAuth.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/services/desktopConnectionAdmission.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/services/passkeyAuthData.js",
+      "ok": true,
+      "error": ""
+    },
+    {
+      "file": "GameWeb/tools/check-admin-security.js",
+      "ok": true,
+      "error": ""
+    }
+  ],
+  "limitations": [
+    "Real loopback HTTPS tests use generated test certificates with verification enabled and synthetic ES256 authenticator data. JSON persistence is real, SQLite integration is not verified.",
+    "TCP rate/active tests use deterministic state and synthetic raw sockets through the production connection handler; no live denial-of-service traffic was sent.",
+    "No A+/certification claim; legacy passkeys are not retrospectively proven to have had a valid registration.",
+    "The proxy mode requires same-host/network-namespace HTTPS termination. Public/private/wildcard plaintext binding is rejected. Remote managed proxies require a reviewed deployment architecture rather than trusting all sources."
+  ]
+}

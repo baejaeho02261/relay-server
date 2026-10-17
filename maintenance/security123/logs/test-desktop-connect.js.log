@@ -1,0 +1,44 @@
+/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:29
+  try{Database=require('better-sqlite3');}catch(error){throw Unavailable(error);}
+                                                       ^
+
+Error: DESKTOP_WRITER_LOCK_UNAVAILABLE
+    at Unavailable (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:12:43)
+    at Object.Acquire (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:29:62)
+    at Object.Reserve (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopKeyPurposes.js:22:34)
+    at Original (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/connectTransportKey.js:30:85)
+    at Object.Load (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/connectTransportKey.js:35:69)
+    at Object.CreateServer (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopConnect.js:76:11)
+    at Object.<anonymous> (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/scripts/test-desktop-connect.js:11:46)
+    at Module._compile (node:internal/modules/cjs/loader:1730:14)
+    at Object..js (node:internal/modules/cjs/loader:1895:10)
+    at Module.load (node:internal/modules/cjs/loader:1465:32) {
+  cause: Error: Cannot find module 'better-sqlite3'
+  Require stack:
+  - /mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js
+  - /mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopKeyPurposes.js
+  - /mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/connectTransportKey.js
+  - /mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopConnect.js
+  - /mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/scripts/test-desktop-connect.js
+      at Function._resolveFilename (node:internal/modules/cjs/loader:1401:15)
+      at defaultResolveImpl (node:internal/modules/cjs/loader:1057:19)
+      at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1062:22)
+      at Function._load (node:internal/modules/cjs/loader:1211:37)
+      at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+      at wrapModuleLoad (node:internal/modules/cjs/loader:235:24)
+      at Module.require (node:internal/modules/cjs/loader:1487:12)
+      at require (node:internal/modules/helpers:135:16)
+      at Object.Acquire (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js:29:16)
+      at Object.Reserve (/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopKeyPurposes.js:22:34) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [
+      '/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopSingleWriter.js',
+      '/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopKeyPurposes.js',
+      '/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/connectTransportKey.js',
+      '/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/services/desktopConnect.js',
+      '/mnt/data/work_security123/GameConnect_GameWeb_Server_Cleanup/GameWeb/scripts/test-desktop-connect.js'
+    ]
+  }
+}
+
+Node.js v22.16.0

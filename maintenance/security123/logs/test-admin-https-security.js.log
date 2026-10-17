@@ -1,0 +1,19 @@
+PASS Safe default binds plaintext only to loopback
+PASS Public/private wildcard HTTP binding and old security opt-outs are refused at startup
+PASS Plain HTTP admin login, passkey, UI, session and event paths all return 403
+PASS No raw HTTP helper can create/authenticate a session; clear cookies stay Secure
+PASS Spoofed, duplicated or downgraded forwarding does not authenticate HTTPS
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965309,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/login","status":200,"action":"LOGIN"}
+PASS Trusted on-host HTTPS proxy preserves password login and secure cookie behavior
+PASS Direct TLS requires a complete valid identity and never falls back to HTTP
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965524,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/login","status":200,"action":"LOGIN"}
+PASS Actual TLS login works with certificate verification enabled; plaintext on that port fails
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965593,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/production/passkeys/register/begin","status":200,"action":"MUTATION"}
+[EVENT] PASSKEY_REGISTERED DD3195A733EF8380E5A5571F / admin
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965621,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/production/passkeys/register/finish","status":200,"action":"MUTATION"}
+PASS Real TLS registration routes persist the parsed credential with the current UI payload
+[EVENT] PASSKEY_AUTH DD3195A733EF8380E5A5571F / admin
+PASS Real TLS passkey login verifies a fresh ES256 assertion and issues a server session
+ADMIN HTTPS SECURITY PASS: 10 cases; real HTTP/TLS + JSON persistence; no physical passkey/browser/WAN claim

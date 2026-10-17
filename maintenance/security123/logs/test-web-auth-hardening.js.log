@@ -1,0 +1,104 @@
+PASS Untrusted peer cannot spoof client address or HTTPS
+PASS Trusted CIDR follows chain from peer and stops at first untrusted hop
+PASS IPv6 CIDR and mapped IPv4 normalize equivalent spellings
+PASS Malformed CIDRs are rejected and malformed/oversize forwarding falls back to peer
+PASS IP throttling has finite windows; rejected requests do not extend cooldown
+PASS Role/global limits also cover distributed peers; limiter storage is bounded
+PASS Idle refresh is capped by absolute expiry, which cannot be renewed by activity
+PASS Clock rollback rejects a live session instead of lengthening it
+PASS Changing password or emergency credential revision revokes active sessions
+PASS Revoked passkey invalidates its session independently of password
+PASS Credential rotation stops SSE event disclosure for an already-open stream
+PASS Duplicate cookies fail closed; role revocation leaves other roles active
+[EVENT] WEB_ADMIN_AUTH admin / 192.0.2.1
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+PASS HTTPS is mandatory even when old opt-out flags are set; secure cookies are unconditional
+[EVENT] WEB_ADMIN_AUTH admin / 127.0.0.1
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/login","status":200,"action":"LOGIN"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/session/reauthenticate","status":403,"action":"CSRF_FAILED"}
+PASS Trusted HTTPS-proxy hop: password login, cookie and CSRF routes work
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"admin","ip":"192.0.2.10","method":"POST","path":"/api/sessions/DE167F1BD61039DB/revoke","status":401,"action":"MUTATION"}
+PASS A delayed JSON mutation rechecks session after logout and leaves target untouched
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"admin","ip":"192.0.2.10","method":"POST","path":"/api/sessions/7E65DAB4345EBD58/revoke","status":401,"action":"MUTATION"}
+PASS A delayed JSON mutation rechecks session after expiry and leaves target untouched
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"admin","ip":"192.0.2.10","method":"POST","path":"/api/sessions/91C79ECCFB00D645/revoke","status":401,"action":"MUTATION"}
+PASS A delayed JSON mutation rechecks session after password-change and leaves target untouched
+PASS A delayed release upload cannot publish after revocation and removes its temporary file
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"admin","ip":"192.0.2.10","method":"POST","path":"/api/session/reauthenticate/passkey/begin","status":401,"action":"MUTATION"}
+PASS A delayed reauthentication request cannot issue a challenge after session revocation
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"viewer","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-authority","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"viewer","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/signers","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"viewer","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/ci-signers","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"viewer","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/plan-release","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"viewer","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/recovery/prepare","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"viewer","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/recovery/apply","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"viewer","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/artifacts","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"operator","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-authority","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"operator","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/signers","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"operator","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/ci-signers","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"operator","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/plan-release","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"operator","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/recovery/prepare","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"operator","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/security-operations/recovery/apply","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792208965133,"role":"operator","ip":"192.0.2.10","method":"POST","path":"/api/desktop/bootstrap/artifacts","status":403,"action":"MUTATION"}
+PASS Viewer/operator direct mutation and raw upload attempts are denied before mutation
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/desktop/bootstrap/security-authority","status":428,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/desktop/bootstrap/security-authority","status":428,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/desktop/bootstrap/security-operations/plan-release","status":428,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/desktop/bootstrap/security-operations/recovery/prepare","status":428,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/desktop/bootstrap/security-operations/recovery/apply","status":428,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/desktop/bootstrap/artifacts","status":428,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_REAUTH_FAILED admin / 127.0.0.1
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/session/reauthenticate","status":403,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_REAUTH admin / 127.0.0.1
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/session/reauthenticate","status":200,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/desktop/bootstrap/security-authority","status":409,"action":"MUTATION"}
+PASS Critical reauth is mandatory by default; the optional flag only extends its scope
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/session/reauthenticate/passkey/begin","status":200,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.10","method":"POST","path":"/api/session/reauthenticate/passkey/finish","status":403,"action":"MUTATION"}
+[EVENT] PASSKEY_AUTH fixture / admin
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/session/reauthenticate/passkey/finish","status":200,"action":"MUTATION"}
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"127.0.0.1","method":"POST","path":"/api/session/reauthenticate/passkey/finish","status":403,"action":"MUTATION"}
+PASS Passkey reauthentication is bound to the initiating session and verifies a real signature
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+[EVENT] WEB_ADMIN_AUTH_FAILED admin / 192.0.2.200
+[EVENT] WEB_ADMIN_ACTIVITY {"time":1792209265134,"role":"admin","ip":"192.0.2.200","method":"POST","path":"/api/login","status":401,"action":"LOGIN_FAILED"}
+PASS Actual login endpoint returns 429 with Retry-After and passkey cannot bypass address budget
+PASS UI retries a rejected operation once after successful reauthentication, never after cancel
+WEB AUTH HARDENING PASS: 24 behavioral cases (HTTP, crypto fixture, UI VM; no physical passkey/browser claim)

@@ -1,0 +1,6 @@
+PASS retired TLS certificate blocks side effects for opted-in AND legacy envelopes
+PASS proof queue wait cannot carry authorization past certificate retirement
+PASS B and O renewals share critical lane; ordinary work does not inherit it
+PASS renewal metrics and routing recognize same terminal B/O operations
+PASS pin retirement remains closed across wall-clock rollback in one server process
+{"suite":"network-lifecycle-upgrade","groups":5,"status":"PASS","actualDispatchAndPinClock":true,"isolatedStores":true,"nativeExecuted":false}

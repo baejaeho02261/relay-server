@@ -1,0 +1,13 @@
+PASS Rejected single-IP flood cannot exhaust the shared 1800-connection budget
+PASS Per-IP active socket rejection consumes neither global tokens nor entries
+PASS Global active capacity is retained; rejected peers cannot allocate rate entries
+PASS Global rate rejection does not spend a new peer token or grow the map
+PASS Rejected attempts do not prolong fixed window expiry
+PASS Admission uses its monotonic clock, and injected rollback fails closed
+PASS Entry bound is exact and expired inactive entries can be reclaimed
+PASS Expired windows never discard live socket accounting
+PASS Duplicate close/release is idempotent and cannot underflow counters
+PASS Equivalent IPv4/mapped IPv6 spellings share the same peer budget
+PASS Invalid peers and settings fail without allocating connection state
+PASS Production pre-TLS connection handler integrates atomic admission and close cleanup
+TCP ADMISSION SECURITY PASS: 12 cases; deterministic limiter + production handler with synthetic sockets

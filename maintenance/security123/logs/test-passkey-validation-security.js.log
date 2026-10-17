@@ -1,0 +1,31 @@
+PASS Valid raw none/ES256 registration derives the stored key from COSE and signs in
+PASS Matching legacy convenience fields are checked, not trusted independently
+PASS Missing configured RP or origin never falls back to Host
+PASS Only a fixed HTTPS single-host RP configuration is supported
+PASS Wrong or injected Host and Origin are rejected before challenge allocation
+PASS Plain HTTP is refused by the ceremony itself
+PASS Registration requires the raw attestation object
+PASS The old 37-byte no-AT registration is rejected
+PASS Submitted credential ID must match the attested credential ID
+PASS Submitted SPKI must match the attested COSE key
+PASS Submitted authenticator data must match the attestation bytes
+PASS Unsupported attestation formats and non-empty none statements fail closed
+PASS Wrong COSE algorithm or curve is not accepted
+PASS Off-curve coordinates are rejected by the native EC implementation
+PASS Registration requires user presence and verification
+PASS Inconsistent backup flags are rejected; valid synchronized zero-counter keys work
+PASS Duplicate COSE labels, truncation and trailing data are rejected
+PASS Extension bytes are bounded, fully consumed and structurally checked
+PASS Attestation CBOR rejects duplicate top keys, trailing bytes and oversized values
+PASS CBOR rejects indefinite lengths, nonminimal integers, invalid UTF8 and excessive nesting
+PASS Registration challenge is single-use on both success and verification failure
+PASS Other RP credentials are never offered and missing stored RP is not inferred
+PASS A changed server RP/origin invalidates pending ceremonies
+PASS Stored RP is rechecked at finish, not only at challenge creation
+PASS Even a valid signature cannot authorize the wrong RP hash
+PASS Signed origin changes or cross-origin assertions are refused
+PASS Assertion AT flag and trailing bytes are rejected despite a valid signature
+PASS Wrong private key fails and cannot reuse the consumed challenge
+PASS Existing RP-bound credentials are not silently upgraded to verified registration
+PASS A later-added credential cannot answer an earlier allow-list challenge
+PASSKEY VALIDATION SECURITY PASS: 30 cases; real ES256 / synthetic authenticator / isolated storage

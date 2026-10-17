@@ -1,0 +1,10 @@
+PASS Always-zero passkeys remain supported across independent assertions
+PASS Observed positive counter cannot be reset to zero, decreased or replayed
+PASS Challenge expires by either clock and cannot survive wall-clock rollback
+PASS A valid proof crossing expiry does not change the credential or issue a login
+PASS Revocation during proof verification wins over the previously selected credential
+PASS Failed login persistence restores counters and consumes the one-use challenge
+PASS Registration retains the first counter and refuses an expired ceremony
+PASS Failed registration or revocation persistence is not reported as success
+PASS Pending ceremony storage is bounded and expired entries free capacity
+PASSKEY LIFETIME PASS: 9 deterministic cases; no physical authenticator claim
