@@ -2,7 +2,7 @@
 // Real parser, crypto and worker execution. Passkey persistence/auth session and
 // mutation handlers are isolated; this does not assert a full HTTP login or OS run.
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto'),{performance}=require('node:perf_hooks');
-const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-protocol-6-10-'));process.env.DATA_DIR=temp;process.env.HA_ENABLED='0';
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-protocol-6-10-'));process.env.DATA_DIR=temp;process.env.HA_ENABLED='0';process.env.WEBAUTHN_RP_ID='localhost';process.env.WEBAUTHN_ORIGIN='https://localhost';
 const {Isolated}=require('./completion-6-10-fixture'),client=require('../services/passkeyClientData'),proof=require('../services/desktopProofWork'),work=require('../services/desktopWorkQueue');
 let count=0;async function check(name,fn){await fn();count++;console.log('PASS '+name);}const b64=x=>Buffer.from(x).toString('base64url');
 (async()=>{try{

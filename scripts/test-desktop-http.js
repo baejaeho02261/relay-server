@@ -24,12 +24,12 @@ async function stop() {
     const timer = setTimeout(() => child.kill('SIGKILL'), 5000); await exited; clearTimeout(timer);
 }
 async function call(url, body, auth, options = {}) {
-    // Admin calls use real HTTP. Native authorization uses pinned TLS only.
+    // Admin calls simulate the on-host hop of a trusted HTTPS proxy. Native authorization uses pinned TLS only.
     if (['/api/desktop/challenge','/api/desktop/execute'].includes(url)) {
         const json=await require('./tls-request-fixture').Request(nativeProfile,url.endsWith('challenge')?'challenge':'execute',body);
         return {status:json.ok?200:0,json};
     }
-    const headers = { ...(options.headers || {}) };
+    const headers = { 'X-Forwarded-Proto': 'https', ...(options.headers || {}) };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (auth) { headers.Cookie = auth.cookie; if (options.csrf !== false) headers['X-CSRF-Token'] = auth.csrf; }
     const response = await fetch(base + url, { method: body === undefined ? 'GET' : 'POST', headers,
@@ -42,6 +42,7 @@ async function start() {
     while (tcpPort === port) tcpPort = await freePort();
     child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, DATA_DIR: dataDir,
         STORAGE_ENGINE: 'json', PORT: String(tcpPort), CONNECT_TCP_PORT: String(tcpPort), WEB_ADMIN_PORT: String(port), HEALTH_PORT: '0', HA_ENABLED: '0',
+        WEB_ADMIN_TRANSPORT: 'proxy', WEB_ADMIN_HOST: '127.0.0.1', WEB_ADMIN_TRUSTED_PROXIES: '127.0.0.1/32', WEB_ADMIN_REQUIRE_HTTPS: '1', WEB_ADMIN_SECURE_COOKIE: '1',
         ADMIN_SECRET: adminPassword, DESKTOP_ALLOW_HTTP_LOOPBACK: '1', DESKTOP_TRUST_PROXY: '0',
         VIEWER_SECRET: viewerPassword, DESKTOP_PUBLIC_HOST: '127.0.0.1', DESKTOP_PUBLIC_PORT: String(tcpPort),
         VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -89,21 +90,21 @@ async function signed(device, action, payload) {
 }
 async function execute(device, action, payload) { return call('/api/desktop/execute', await signed(device, action, payload)); }
 async function upload(component, bytes, auth, csrf = true) {
-    const headers = { 'Content-Type': 'application/octet-stream' };
+    const headers = { 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/octet-stream' };
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
     if (['A','B','O'].includes(component)) { const approval=releaseSigner.Approval(component,'80.0.0',bytes); headers['X-Game-Release-Key-Id']=approval.keyId; headers['X-Game-Release-Signature']=approval.signature; }
     const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=Game' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
 async function uploadBaseline(bytes, auth, csrf = true, fileName = 'ntdll.dll') {
-    const headers = { 'Content-Type': 'application/octet-stream' };
+    const headers = { 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/octet-stream' };
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
     const response = await fetch(base + '/api/desktop/bootstrap/module-baselines?fileName=' + encodeURIComponent(fileName) + '&label=HTTP-test', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
 async function bootstrapDevice(device, auth) {
     const issue = await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID(), label: device.name }, auth); assert.equal(issue.status, 200);
-    const response = await fetch(base + issue.json.downloadUrl, { headers: { Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
+    const response = await fetch(base + issue.json.downloadUrl, { headers: { 'X-Forwarded-Proto': 'https', Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
     assert.match(issue.json.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(response.headers.get('content-disposition'),'attachment; filename="'+issue.json.downloadName+'"');assert.match(response.headers.get('content-type'), /application\/octet-stream/); assert.match(response.headers.get('cache-control'), /no-store/);
     const launcher = Buffer.from(await response.arrayBuffer()); assert.equal(bootstrapFixture.Config(launcher).launcherId, issue.json.launcherId);
     device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher);

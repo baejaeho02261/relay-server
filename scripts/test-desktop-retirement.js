@@ -33,7 +33,7 @@ async function stop() {
     await exited; clearTimeout(timer);
 }
 async function request(base, url, method = 'GET', body, auth) {
-    const headers = {};
+    const headers = { 'X-Forwarded-Proto': 'https' };
     if (auth) { headers.Cookie = auth.cookie; headers['X-CSRF-Token'] = auth.csrf; }
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     return fetch(base + url, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(5000), redirect: 'manual' });
@@ -59,7 +59,7 @@ async function request(base, url, method = 'GET', body, auth) {
         const seed = db.BuildDatabaseObject();
         fs.writeFileSync(path.join(temp, 'relay-identities.json'), JSON.stringify(seed));
         const webPort = await port(), relayPort = await port();
-        child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(relayPort), CONNECT_TCP_PORT: String(relayPort), WEB_ADMIN_PORT: String(webPort), HEALTH_PORT: '0', ADMIN_SECRET: secret, ENABLE_LEGACY_TCP_ADMIN: '1', DESKTOP_ALLOW_HTTP_LOOPBACK: '1', VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
+        child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, PORT: String(relayPort), CONNECT_TCP_PORT: String(relayPort), WEB_ADMIN_PORT: String(webPort), HEALTH_PORT: '0', WEB_ADMIN_TRANSPORT: 'proxy', WEB_ADMIN_HOST: '127.0.0.1', WEB_ADMIN_TRUSTED_PROXIES: '127.0.0.1/32', WEB_ADMIN_REQUIRE_HTTPS: '1', WEB_ADMIN_SECURE_COOKIE: '1', ADMIN_SECRET: secret, ENABLE_LEGACY_TCP_ADMIN: '1', DESKTOP_ALLOW_HTTP_LOOPBACK: '1', VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
         child.stdout.on('data', data => { output += data; });
         child.stderr.on('data', data => { output += data; });
         const base = 'http://127.0.0.1:' + webPort;

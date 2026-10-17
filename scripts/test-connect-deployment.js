@@ -18,7 +18,7 @@ async function stop() {
     const kill = setTimeout(() => child.kill('SIGKILL'), 3000); await done; clearTimeout(kill);
 }
 async function request(route, body, authenticated = false) {
-    const headers = {};
+    const headers = { 'X-Forwarded-Proto': 'https' };
     if (authenticated) { headers.Cookie = cookie; headers['X-CSRF-Token'] = csrf; }
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     const response = await fetch(base + route, {method: body === undefined ? 'GET' : 'POST', headers,
@@ -29,7 +29,7 @@ async function start(httpPort, tcpPort, extra = {}) {
     output = ''; base = 'http://127.0.0.1:' + httpPort;
     child = spawn(process.execPath, ['server.js'], {cwd: root, env: {...process.env,
         DATA_DIR: dataDir, STORAGE_ENGINE: 'json', PORT: String(httpPort), WEB_ADMIN_PORT: String(httpPort),
-        CONNECT_TCP_PORT: String(tcpPort), HEALTH_PORT: '0', HA_ENABLED: '0', ADMIN_SECRET: adminSecret,
+        CONNECT_TCP_PORT: String(tcpPort), HEALTH_PORT: '0', HA_ENABLED: '0', WEB_ADMIN_TRANSPORT: 'proxy', WEB_ADMIN_HOST: '127.0.0.1', WEB_ADMIN_TRUSTED_PROXIES: '127.0.0.1/32', WEB_ADMIN_REQUIRE_HTTPS: '1', WEB_ADMIN_SECURE_COOKIE: '1', ADMIN_SECRET: adminSecret,
         DESKTOP_PUBLIC_HOST: '', DESKTOP_PUBLIC_PORT: '', RAILWAY_TCP_PROXY_DOMAIN: 'proxy.example.test',
         RAILWAY_TCP_PROXY_PORT: '17959', RAILWAY_SERVICE_ID: 'DEPLOYMENT-TEST',
         VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '', ...extra}, stdio: ['ignore', 'pipe', 'pipe']});
