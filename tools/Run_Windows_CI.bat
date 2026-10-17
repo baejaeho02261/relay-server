@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 rem /nopause must be the first argument; other arguments are PowerShell named parameters.
-rem Example: /nopause -CiKeyFile "C:\Private Keys\CI\ci-private.pem"
+rem No production private key arguments. Output is unsigned test evidence.
 set "GC_CI_PAUSE=1"
 set "GC_CI_EXIT=1"
 if /i "%~1"=="/nopause" (

@@ -131,8 +131,20 @@ function Run-Case($Case,[string]$CaseRoot,[string]$Node,[string]$WorkRoot,[strin
     $result.overlayExitTick=[GameCi.OverlayLeaseObserver]::CurrentTick;$result.overlayExitCode=[int]$processes[[string]$oId].ExitCode
     $result.automaticExitObservedBeforeCleanup=($ids.Count -eq 0)
    }
+   # Prove denial while the exact owned O is still alive, BEFORE releasing the
+   # dedicated local-stop hold. Never change server time, tokens or lease rows.
+   if($Case.id -eq 'authority-local-stop-held' -and $status.allAuthorityTerminal -and $status.ContainsKey('lease') -and $status.lease.serverExpired -and $oId -ne 0 -and $processes.ContainsKey([string]$oId) -and -not $processes[[string]$oId].HasExited){
+    $result.overlayPid=[int]$oId
+    if(-not $reused){[IO.File]::WriteAllText((Join-Path $CaseRoot 'reuse.request'),'check');$reused=$true}
+    if($status.proof.reuseChecks -gt 0 -and $status.lease.oldAuthorityRejected){
+     $result.serverDeniedWhileClientAlive=$true;$result.denialObservedAt=[DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
+     $release=Join-Path $CaseRoot ('release-authority-'+[string]$oId)
+     if(-not(Test-Path -LiteralPath $release)){[IO.File]::WriteAllText($release,'continue')}
+    }
+   }
+   if($Case.id -like 'authority-*' -and $oId -ne 0){$result.overlayPid=[int]$oId}
    if($ids.Count -eq 0 -and $status.allAuthorityTerminal -and -not $reused){[IO.File]::WriteAllText((Join-Path $CaseRoot 'reuse.request'),'check');$reused=$true}
-   if($reused -and $status.proof.reuseChecks -gt 0){$result.fixture=$status;break}
+   if($reused -and $status.proof.reuseChecks -gt 0 -and ($Case.id -ne 'authority-local-stop-held' -or $ids.Count -eq 0)){$result.fixture=$status;break}
    if($clock.Elapsed.TotalSeconds -gt 450){throw 'PRODUCT_FAULT_CASE_TIMEOUT'}
    Start-Sleep -Milliseconds 50
   }while($true)
