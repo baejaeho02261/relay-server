@@ -49,10 +49,10 @@
     "audit/history/enable-all-auth-tests/test-security-activation.js",
     "audit/history/enable-all-auth-tests/test-security-admin.js"
   ],
-  "basisFile": "GameConnect_GameWeb_Security_1-3_Server.zip",
-  "basisSha512": "458aeaf99e6b6aadf4055cc9d4ee32634351ae8c7e55525c0de1c481488550783336f6bcf6500075ff2bb0454fca3de8955a238961b4123ba8c25bfa9f2277b3",
-  "generatedAt": "2026-10-17T04:39:08.396924+00:00",
-  "scope": "Cumulative security steps 1-6. Step4 direct checked-address HTTPS push transport; Step5 current server capability/policy checks and missing device Rate regression fix; Step6 non-success native default, caller resets, strict own metadata and server generation/completeness guards. Six native product sources changed; existing IDE/project/approval-key workflow preserved. 96 new server behavioral cases and previous 85 pass; 9 new native SOURCE checks only. Actual Windows/Delphi and real push provider NOT_RUN; actual SQLite integration blocked; Node v22.16.0 outside declared support. No added npm dependency. Unsigned package consistency, not publisher trust or A+ certification.",
+  "basisFile": "GameConnect_GameWeb_Security_1-10_Server.zip",
+  "basisSha512": "a0b51751ae910772d9cadd6c84c9291d10cc845ff609a05d3f281cff473da031be0fd372edcfece88c911fe61d7fb380e6356a121715706c6e5fbc8d484ea1f0",
+  "generatedAt": "2026-10-17T07:08:14.395864+00:00",
+  "scope": "Cumulative security 1-10 plus explicit Railway HTTP edge deployment adapter; no live deployment verification.",
   "files": {
     ".github/workflows/windows-ci.yml": "8a027a7583ded3e0b5f4ad527259c084d4c64981ed105d46e7158fb75f0f4ad839ca1a2b5c5bec8fa64113d869f42096746e7382d69fcd79a3d761b7b73f0010",
     "GameConnect_Win64/Game.Api.Contracts.pas": "8ea0bd006b9b62e218d5c3cb2b2b53166fbfbf5266030052676235f924d31d755606d4cc047b5d093e50d9853e08699805412b46d10505a21000e851e48fb233",
@@ -314,7 +314,7 @@
     "GameWeb/ci/profile-fixture.js": "6d4ad411f0da8905033d2ffaf0df5d153bb75dbe7327de983c85c784cae9a72bf3c7851b403d3c163d5305833b544a49f417323ae5cb49d16d56921e02f67922",
     "GameWeb/ci/separated-signing.js": "91a63438235a3f6fdab1bb638eb5cee2b4c18c5dc2bb2b1987c95ae6f5528df769b8aabd803c30312b82b7b869f47da494e63e28d7bef6322739280fdecca360",
     "GameWeb/ci/windows-fixture.js": "52b8c6647c48e6b3bd3da40fa4b28df8a947948f1622e22934557c24ecdedd23a8dc32e64d5eeec5ef860d524f8d84f094e940cbec0e97c117ebc4acc90427e0",
-    "GameWeb/config/config.js": "bcc0217af09fcb24cafcaa9271b91b5ffc50e5b3ffaf0047bea1ea8f420513f9a2ef7c5f48be864390f0b6f72c5196a93461105fda6dae4593540afabbd4c6e7",
+    "GameWeb/config/config.js": "fcdacbbbbcd820377ec98ea2d6cd9baae4fc757e82159124f2ab737a24ee01cd12ae17832ef4646c4f076a2a4915b9d8a9d5c52a91a8e4043ec26b2f578d836e",
     "GameWeb/contracts/capabilities-status-v1.json": "4cafecfec583803a51307d0f8338328d1c921e3037bfefddf98cec979296f13655a5457f5b0bb534abd9cea1caf25e4afa4ad1462479c5be58d283b1797f66d1",
     "GameWeb/contracts/compatibility-matrix-v1.json": "651e2799346e812579bd7f638feadda49c6ac70821cacfc7173d7909ae9339bee19b804e289c8a29f832e483b51180debe9caacd64b70252c131c0b32a7779b7",
     "GameWeb/contracts/completion-1-5.json": "c41357a12622d1359994fc8456c5a44f50e55e6cd45349963ed7190962f64cff3b11bc4b3bf7ab9e4cc78a77ba2fd4f56e668b65154f5ab072a28c999203e0f3",
@@ -354,7 +354,7 @@
     "GameWeb/maintenance/security123/logs/test-workspace-http.js.log": "a91e20fd635dde21fa2533e9ea7e52051f82778f3a245d4fda6da32adb5d033e1604d527ca8ca14ce7ce73a78f254423f92a799751e0c99e5e87022576164597",
     "GameWeb/maintenance/security123/test-results.json": "9fb3b9a7dc6c422de4ab1d710b609b8ce5885c1106419a80ae965e2ba17acf37e5d92255334f582f7a52e87698b0f19a88a02334d1a57081ace02aa84aa90eaf",
     "GameWeb/package-lock.json": "5bec3a978ebfb6d26ae2be2f0835470304ee77cb4a8757dc456e2bb85363dbfd31232af4d5ef04b85041121fac8f3fa7099fbd4e62c32519bd01ffe4f42c9893",
-    "GameWeb/package.json": "d5830ccf7eca3740b6b0629d52fdf43a6eaf9955ae6883f975591742dfd100abd480c5985b54f12b3863037fb8d357cf84ad30c7ad6937f7d8d1c81e6854530c",
+    "GameWeb/package.json": "67d90116e596ce37c14ed59ec0c70d2661153e3abea889a253481cae49b84bfc68a991b931083bbe78743f9600b51ffb178932f34bf762a1151354da3dc89a51",
     "GameWeb/public/admin-actions-access.js": "ebd3fc9dc79c155994e6efef6e18bbb3d324a23a14207f9333984b5f894db5b1db7f4d88298a17a23ec94048de63d8d27782b9f7cc6ab5915e4e241d289d31d3",
     "GameWeb/public/admin-actions-devices.js": "14f276ca9d57e0ff020c3ace2164907b87cc3ea6e5b0eddcecaa62ff46a173832cf8d02b1ee7fd3e80e36c73ade2084a2f63958e3073997ce7844772061c5662",
     "GameWeb/public/admin-actions-operations.js": "325ec50a5b1cb22d73dfb75c695dd194006dc23e130f1f4f3457571c67519875c13aff3c0d438235b9a4433325db2c69bc281234ba3fd4f1124e9d97152f65e4",
@@ -544,6 +544,7 @@
     "GameWeb/scripts/test-protected-operation-security.js": "8baf6b0a206368b09a57bc7306aa27b5b2cb54e1f847a5834e5432b165c6d16fa4fd86c2a8eea64d63c68ba501295866760906206afae3a166339a2f8f85625c",
     "GameWeb/scripts/test-push-destination-security.js": "47ffa63479183c6d277d9712c3d19c7eaaeb1716b04d0c0964ed2df553fed669dc4db41b040bb8b9569735dbc53d98fac33ef42c00a15c580a6483e84aeef3f6",
     "GameWeb/scripts/test-push-transport-tls.js": "fbfc55d910f4d48901a569fbb1991b746b0dc0f6f6e14171154aaeb7dbee5df276f745ad60caf9fd46018277f3626e6e24c22535d97321f78dae386a34984fc9",
+    "GameWeb/scripts/test-railway-web-security.js": "483a67922f30c0331bbb0fd92d97b8d8f5092e50226f5ceaf2c7e8a569bd3673b57e6858baa34e22c523db2c36f39b5b637a20cc87f4c7277579c13e55c7d667",
     "GameWeb/scripts/test-recovery-device-probe.js": "bf3b22cfa0e40133f191f1d1a5f420caf0adcb269bd3fe6fe38a9b91a8ae7325c47cd2258aaba679f58c10c36e599380a9606b3d2f95db86effc1b1a1a2e1b0a",
     "GameWeb/scripts/test-recovery-drill.js": "39fa54c9f2a86ba446b6be630e34f610a688a55db1b0473ce93fec21707994355bd97289a89ed4f66b09e2d5661b4a7af9a89bc9b94f0315bf160cf975f97d96",
     "GameWeb/scripts/test-recovery-windows.js": "e08d6672f1a4fbb654d06fd5e9e566064d4f1046c63f8122e036027388bace667d7bd144ab0b0cd8824e82470fc2add36820d3f6335f466a6e1ac85caa2b7db1",
@@ -588,7 +589,7 @@
     "GameWeb/scripts/verify-device-identity-native.js": "494459fb250f7ae7f44bd802dcc0496a51382a19577cb11121710f074b6d4d4d84a2bf0afd1e62175696f14e8e30335d806fc28158567a65474eb67791dbc06d",
     "GameWeb/scripts/verify-native-hashes.py": "970988661d68378a01c40f31cc1038757d32188a4cd4acdc35d255388b16f4434296f08e8b4928e96bccea0799cff0089d14a01b7e73900ccc45360472cb48cb",
     "GameWeb/scripts/verify-source.py": "b112920a2adec896d0862d427f263ef8bd00815be5f336397816d38aa1abab98a6e15065761f1abd14088ab4963b04416b93812ba907da8b58ff7e87a136ea55",
-    "GameWeb/server.js": "0a15871c515f50d9db7bdc68969e6e84372cbad7f95637b5a93f8f716e0cbbb7aa32f5e41000d53e74a8ebd017f9e827e8eb9a735769c3747ba8556299302fb0",
+    "GameWeb/server.js": "35a668c784a5a36fc278b2b5dc4c29c56d017afd5371bbc19c73c4f737b08ab377792d721fa1886b82236d281950cd6bce192a975c30d6406d46a481206e15ea",
     "GameWeb/services/adminActivity.js": "8a2147ac6228733175db46fc54ce2f88cf3a3ab5f55af976ac02f865f8c9ee9994c0f5f8dd99f43223d6f32f435b58390637e4d97c0c820e7bc4f8733d468962",
     "GameWeb/services/boundedArtifactRead.js": "2cfa6aaac7e62ef47889e7005131a603ed21a0e0081f6711422409603ef9037b89b448be3d8d3ce7c3f05fc5e9eaded0cfbbad07c7bd29278a666516ea577b10",
     "GameWeb/services/configHistory.js": "53b746cadcb83049b81422b99472f7d1063a929d50da565ca0da0f820159ab22063c2577ab4bcd0ed4d88a76cf80ac29b056568dbf11dbcafd39ed8a858dac9c",
@@ -681,7 +682,7 @@
     "GameWeb/services/passkeyAuth.js": "67eb9ba222a0209bcd27a2b180059c6eb8d14f9ddabc87bc66a82b00a053cba1e6a4105a5ccd22e968439f2e1ae8a87ed30816c3165d8189d9308dcebe04ebec",
     "GameWeb/services/passkeyAuthData.js": "52aa87b466ba340e1bedc73c423b0702c52caf2f9a7d890397f1a552939dbf70c81931a88de4c1b2b4a98e0d767ebb742215a624743dcaafda964fb99f4d26d1",
     "GameWeb/services/passkeyClientData.js": "cd5371a0fc34fc265deab9d453e09bd2791f0c28f0cdeba845cc9a8db8545cfeedb5bd8794860e51ae4adbc582b8f4fc8872a8c21992b75327a83ee13a152a6c",
-    "GameWeb/services/passkeyContext.js": "be863d14821b3ae5ecef4eef31f8f6f4ef6c1b26e543ef06a566156083a861eb400a902bef2f9d8df0ce233d24b725122fa70caa16c626947ccd9103644c5ac0",
+    "GameWeb/services/passkeyContext.js": "baeb99b993b6b2e0a723e9c799f559781640def16a5fbedf95af8efa95fa76565328a405746db979d8287ed1aee3b3bcb244505346380c8bd13538a5b75a5c0f",
     "GameWeb/services/peBuildConfiguration.js": "06eab73a27e36b5969f2812ba75f0eb622a335658e6e6ff9e2733d04d138cb06467c1a77f66f9077244eebaf8e781788e15ba783f5edafafbbe6186671bdaf9a",
     "GameWeb/services/peCapabilities.js": "ff1ca4d5ff95f0cabac6eac7cd3f2ab6f69031776b451ee49b97921bd840f51612f11186000ade60fc140ed6d6532c0e9e14faa51b2ac09de7b890df53b00332",
     "GameWeb/services/peManifest.js": "06cb112d37fbf19bb41c2f79f77f56eea09132c7ca6707b01aba301c1b7a62cb7fb4c1e456e441c9c9d501f1683d98ea86e3a9b76e5bad3db16d09e033dc467b",
@@ -729,6 +730,8 @@
     "GameWeb/services/vendor/noble-hashes-1.8.0/sha3.js": "2e5cdf5dacfb72947cdf9aaf8501b7261893d9b09801fb400482e548f7798db1230189ba22614d4f9b8c53a8f37b04af135f5c2464e5646bdf373916bcf7be6d",
     "GameWeb/services/vendor/noble-hashes-1.8.0/utils.js": "f280ddaf9462ad6aad6789258fb7dd48cbf2e4068e1263b7ac29f9967782bea8fed2cbf2f09f80389b72470038a4740b66b2507a2cd6c1c287ef63231c1bc3dd",
     "GameWeb/services/versionPolicy.js": "9f35e9a621e845882cacaef555e01405cd0739a6814120f18b52111bb652d84d6f636325f1a27e746abad7d8fb2a1c577cb335f37cf3e47283190ecd971db568",
+    "GameWeb/setup/Railway_Deployment_Fix.ko.md": "34bcd3632475d1f48e2ee915f1f9a2acb537016f12b4cde7d5510eb58c2a4911eb1f363ba51372fa85f1ac5bceaeec8f04b00e8f66409f76b9fc32e450a9b0af",
+    "GameWeb/setup/railway.env.example": "61dfe994c621c1c3e5e1bd868e911e39ed42d8d5163fcadb676bb0390dca5e05591d67b4d45c6f58a73b64153d68cd3740e5e1cc0238fcc60ef98b71dbe16020",
     "GameWeb/setup/release-manifest-spec.example.json": "a94d9be2f62030673f43204be3a8086a6f733cef59f920408c9614617846f09900bc5b67a10f339bdceed2a402b0b4d2cdc4e7b858acd7883ead9ddc7afb4654",
     "GameWeb/setup/windows.env.example": "791482b76789ce00fcbd8e9e02b1abf5042c6beac2daffbab5624ccdf02a9d0e4a4c0fb79d261632011ab4fdf86f0a774e5faedd05f97bb628dd6f5692e60174",
     "GameWeb/storage/audit.js": "6b60265d14e87bb5c3484318c18fb51d0238f7987467e6302a31d57caa5fb35d0f735b8e9ff2db1d6eb362d5fda69e258b69eb45df28faf2aad2d45812757801",
@@ -793,7 +796,7 @@
     "GameWeb/tools/cfg-callsite-console.js": "1703c8035ae660bb31e38aed5f7d62a7669fdc4fb0ca6d7742d116e2aadf03023b88582f9f83d91fad069e8fe55cc7e437f9d6c28ae4501be7e30fa24fc9172a",
     "GameWeb/tools/cfg-enforcement-report.js": "35a34c73a80287f70d0082f1aaf702763842f38b390bb403969bd7bf83d4fa13ea1757591a932e3436720d871045fa4ab3983bf665f85f03b7bba0bcf6ae1d85",
     "GameWeb/tools/cfg-enforcement.ps1": "26626cc80a458688e3561899629f75bba1fecfdc28e3c103fec78e8095c6c2ca0bca367a825a805aca038488405ae559996ef7177187d8971e340fc1ac27dee3",
-    "GameWeb/tools/check-admin-security.js": "82103129f1bfb8325e47144f914c5dbf21ede49328cd3b991098414c40db28a052e1ad0cddec494f19ee9bf9c5e396f1e20adaba3bcd0ebf54fdfa8e5c5ddad0",
+    "GameWeb/tools/check-admin-security.js": "8d033dd53b72e69c6020856e14e004adb9b4e84e8abf8b078d1196e9d3d8f546a15b2c12ed455faa9f0bb5787e6ebeab00a9f3bb6b3c1bd8e0469ae57e925851",
     "GameWeb/tools/ci-workflow.js": "d404b81781f412972137ee4d677f91e7282efdf60c9e96cff7680f63ae7429945060c552b20b02d91df1a99556966b586b4e9bc44d03030dc667e30bcceb2be8",
     "GameWeb/tools/ci-workflow.ps1": "a89c057f8cde6ac73f22392ad054a4a6ac3b5748c789359b44e3745e3735b5965ddda53a18a5bb7a7996fc197f79123e9ad1b7dd1d539109af7c409d542eb578",
     "GameWeb/tools/ide-build-observation.js": "aae61771193e8b2978c94e13bc77fcb624c9bb2d2130497118503cd9ae442d7e5853ff4b5f34c7bc19b354ede389e0d9cec69c3eac0245c234001fbfe1e07b5b",
@@ -841,6 +844,7 @@
     "GameWeb/tools/verification-report.js": "b1143c2dd935ba9c41a5206869dac689d0a737006581374b64d6cff1e84cdedbd54138f9b790fa22cac433e5adf04bf0a4d44870c45664c00b774a0e65d807b3",
     "GameWeb/web/apiContext.js": "62f8c71d609ed55abc6fa2188eb992d88c7d4187a4707c12c56eea13ba643d1467bda7459ae51b5ecaca811a06b19bcd77942c6d0212c274aa803e806a32d6be",
     "GameWeb/web/desktopApi.js": "55aea03207ca1f81a10f31dedad8846d423fb6e6301d6541c01ad390a4a9ab097938a55ad4c423563dd841e374a14b61d3bfc7a230dc4f9d0af4f02cfbd0d5da",
+    "GameWeb/web/railwayIngress.js": "012c753c6a2ea143e8d9e2d1363f0ef88468e6fd924d12da517d96cdde77e24010ffa46fdc36d278637bc44c00eb71ddbae98cebe9e504f0c490fdb49605fcda",
     "GameWeb/web/readJsonBody.js": "3d7ffffb0d5efaa275374a47e0cb0f179c79ccbfbc61f4fdac7918c2c09fa8b7fece600df3e761c94cbff2c5684374801815ce6422f5b55be3e034802e6b94f5",
     "GameWeb/web/routes/deploymentRoutes.js": "1c7e52826fac6453e4abc0725d963da36682291b6b73150c4b3f9b2838029acaeea56ad4d52579fc8f1abcb3ad52f41a0d43a01a414489d3ad9aaea25801cd1e",
     "GameWeb/web/routes/desktopBootstrapRoutes.js": "50eb9538e0141651ecb899fd14d80e006445e6ebece3b0f7b7a3e6a86cd454626d4ce6cbe699b459b0148dcb059595555696aa7bb835d42575e30e178d8c534b",
@@ -858,11 +862,11 @@
     "GameWeb/web/ui-bundle.json": "afb0d53bc45df58c3f2d4f8c8d924a69b93f9817a79f240da9d383d4f15d8638e3b1d98f99b6b37e433db33ff27b1b59ec04a419b97f6326537e04257daa9247",
     "GameWeb/web/uiBundle.js": "5ef1b89e01ebe145c5162ecdc420c21c49338222aa82efea1e30d6263e7f49d580c49b828f14cc2ddf21be96aedf547f49604f023abacb7ab207f8ba57f2afe6",
     "GameWeb/web/webApi.js": "2781c4e8ee1a8590b4f981386ba20c05993885a15d3118b9f10a4d7b796a0304a9e948efd54043fbd072e2b1e476ffc995d40e78d59db72941a329cca7cf6d4f",
-    "GameWeb/web/webAuth.js": "27ad7f7cbc419b78a68a3cd6ba7b60a154c898ee57bee7f4de96214f070353629da6a2c25a5192d2bbc3ec618ab4d1cc2cf887639f0ec9ef2b7a93598c6e328f",
+    "GameWeb/web/webAuth.js": "272c8cc1cef165a08071db33594531bb279321d2846bb3a17c9cb1c09a48bdabfa5839d69ba66d356b53b77220bea81981e112df107691e2c61d5e216baf78e0",
     "GameWeb/web/webAuthPolicy.js": "7342fd773399e8cdd3ee802417e91627ee9a6a9a53eeec245095cf589fc362af9a589066287bc789f7c11bfcfd09e1c42c1b5549f393daf7d8f851b6479072fb",
     "GameWeb/web/webEvents.js": "7a2babfe4521ccfade92a9da82860ca9354022e3cf628dd31716db21336e028b2e86a973ddbcd49aebbb241a5f0f0b14dc05ba83bcad0db05bcd015316b7a5c0",
-    "GameWeb/web/webServer.js": "6c552477a5bafecd9df77ae570b642423f0f7d76b65659025a4b13c8bc8c04791961d0e7ea826c2425bac12101c8b0e61680a7827eaf65d35b26d680c8184219",
-    "GameWeb/web/webTransport.js": "e1488ee20f1132e3eadef11ff4401c59ba3456c5913f317944d3f9a72c8130a809fdd47e1eaacf262f05360fe851ab077843e7b66645f155f706346b6581e022"
+    "GameWeb/web/webServer.js": "07d6d5dd659ca16e5553b7e0b48c75ac785a696b9303a35adf24368d93b80e97370410475acb3ac6f44ae77e5cf510c07604baa64f0ec03735eb9edf4fabbbfa",
+    "GameWeb/web/webTransport.js": "5a5291b64ee5923fe76e8dd961f455d9e4e2b50da7acccbbd79d0af5dd85558da57137865f6297129bdfdc4800ce9acec9df7c8e235dce07bbdac8a1b46b5158"
   },
   "bundledBuildOutputs": [
     "GameConnect_Win64/GameConnectResources.res",
@@ -870,9 +874,7 @@
     "GameConnect_Win64/GameOverlayResources.res"
   ],
   "previousBasis": {
-    "basisFile": "GameConnect_GameWeb_Server_Cleanup(1).zip",
-    "basisSha512": "c0da41c7e0342f1a671ac920c5af22f1c57f821ad84a11d73dc4db436d2a42e3847bff85ecf62d25e8c70451b7318887a202d0a75b4709e75ac66a37831b9ba6",
-    "scope": "Security steps 1-3: mandatory admin HTTPS, loopback HTTP origin/direct TLS; bounded ES256/none WebAuthn registration and RP checks; atomic TCP admission. Win64 files unchanged. No new npm dependency. Core 85 test cases pass in Node 22.16.0 (below declared supported range); full native/SQLite integration blocked by absent better-sqlite3. No Windows, physical authenticator, WAN firewall or production deployment claim. Unsigned package consistency only.",
-    "generatedAt": "2026-10-17T03:53:36.397269+00:00"
+    "basisFile": "GameConnect_GameWeb_Security_1-3_Server.zip",
+    "basisSha512": "458aeaf99e6b6aadf4055cc9d4ee32634351ae8c7e55525c0de1c481488550783336f6bcf6500075ff2bb0454fca3de8955a238961b4123ba8c25bfa9f2277b3"
   }
 }
