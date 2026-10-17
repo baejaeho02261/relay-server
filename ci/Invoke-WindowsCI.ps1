@@ -10,8 +10,8 @@ param(
 # All outputs are observations of actual subprocesses, never operator PASS input.
 . (Join-Path $PSScriptRoot 'CiCommon.ps1')
 $private=$null;$output=$null;$work=$null;$exit=1;$active=$null
-$results=@{version=1;runId=$RunId;windowsExecuted=$true;stages=[ordered]@{};nativeBuild='NOT_RUN';apiProbe='NOT_RUN';integration='NOT_RUN';signed=$false}
-foreach($name in @('self-test','snapshot','dependencies','build-inputs','build','build-inputs-after','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','integration','profile-integration-observe','profile-integration-prohibit','report','sign')){$results.stages[$name]=@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
+$results=@{version=1;runId=$RunId;releaseVersion=$Version;securityVersion=$SecurityVersion;productionKeysPresent=$false;windowsExecuted=$true;stages=[ordered]@{};nativeBuild='NOT_RUN';apiProbe='NOT_RUN';integration='NOT_RUN';signed=$false}
+foreach($name in @('self-test','snapshot','dependencies','build-inputs','build','build-inputs-after','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','integration','security-authority','profile-integration-observe','profile-integration-prohibit','report')){$results.stages[$name]=@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
 function Save-Results {if($output){Write-CiJson (Join-Path $output 'runner-results.json') $results}}
 function Invoke-CiCommand([string]$Name,[string]$Exe,[string[]]$Arguments,[string]$Directory,[int]$Seconds) {
  $watch=[Diagnostics.Stopwatch]::StartNew();$job=$null;$record=$results.stages[$Name]
@@ -52,23 +52,14 @@ function Invoke-CiCommand([string]$Name,[string]$Exe,[string[]]$Arguments,[strin
 }
 function Stage([string]$Kind,[int]$Seconds=600,[string]$Key='') {
  $stageArgs=@('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $work 'GameWeb\ci\Windows-Stage.ps1'),'-Kind',$Kind,'-WorkRoot',$work,'-Output',$output,'-Version',$Version,'-SecurityVersion',[string]$SecurityVersion,'-RunId',$RunId)
- if($Key){$stageArgs+=@('-KeyFile',$Key)}
+ if($Key){throw 'CI_PRODUCTION_KEY_ARGUMENT_FORBIDDEN'}
  if($Kind -in @('build-inputs','build-inputs-after')){$stageArgs+=@('-BuildInputLockFile',(Join-Path $private 'reviewed-build-inputs.json'))}
- if($Kind -eq 'approve' -and $PolicyFile){$stageArgs+=@('-PolicyFile',(Join-Path $private 'reviewed-policy.json'))}
+ if($Kind -eq 'approve'){$stageArgs+=@('-PrivateDirectory',$private);if($PolicyFile){$stageArgs+=@('-PolicyFile',(Join-Path $private 'reviewed-policy.json'))}}
  Invoke-CiCommand $Kind (Join-Path $PSHOME 'pwsh.exe') $stageArgs $work $Seconds
 }
-function Copy-CiKey([string]$File,[string]$Variable,[string]$Name) {
- $target=Join-Path $private $Name
- if($File){$fileInfo=Get-Item -LiteralPath $File;if($fileInfo.PSIsContainer -or $fileInfo.Length -gt 16384 -or ($fileInfo.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_KEY_FILE_INVALID'};[IO.File]::Copy($fileInfo.FullName,$target,$false)}
- else {
-  $text=[Environment]::GetEnvironmentVariable($Variable)
-  if(-not $text -or $text.Length -gt 24000){throw 'CI_SIGNING_KEYS_REQUIRED'}
-  $bytes=[Convert]::FromBase64String($text)
-  try {[IO.File]::WriteAllBytes($target,$bytes)}finally{[Array]::Clear($bytes,0,$bytes.Length);[Environment]::SetEnvironmentVariable($Variable,$null)}
- }
- return $target
-}
+
 try {
+ if($ReleaseKeyFile -or $CiKeyFile -or $env:GAME_RELEASE_APPROVAL_KEY_B64 -or $env:GAME_CI_ATTESTATION_KEY_B64){throw 'CI_PRODUCTION_KEYS_FORBIDDEN_ON_BUILDER'}
  if(-not [Environment]::UserInteractive -or [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0){throw 'CI_INTERACTIVE_RUNNER_REQUIRED'}
  if(-not $BdsRoot -or -not(Test-Path -LiteralPath (Join-Path $BdsRoot 'bin\dcc64.exe'))){throw 'CI_RAD_STUDIO_REQUIRED'}
  $env:BDS=(Resolve-Path -LiteralPath $BdsRoot).ProviderPath
@@ -91,11 +82,9 @@ try {
  Stage 'build' 1200
  Stage 'build-inputs-after' 600
  Stage 'normalize' 120
- # Keys are materialized only after source verification and a successful clean
- # native build. Child environments never inherit CI tokens/secrets.
- $releaseKey=Copy-CiKey $ReleaseKeyFile 'GAME_RELEASE_APPROVAL_KEY_B64' 'release-approval.pem'
- $ciKey=Copy-CiKey $CiKeyFile 'GAME_CI_ATTESTATION_KEY_B64' 'ci-attestation.pem'
- Stage 'approve' 120 $releaseKey
+ # Only a new disposable fixture key is used to exercise signature-dependent
+ # product code. Neither production private key is ever loaded on this host.
+ Stage 'approve' 120
  $results.nativeBuild='PASS';Save-Results
  $probeFailed=$false
  foreach($kind in @('native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare')){try{Stage $kind 600}catch{$probeFailed=$true;break}}
@@ -124,10 +113,10 @@ try {
    Save-Results
   }
  }
+ if($results.apiProbe -eq 'PASS' -and $results.integration -eq 'PASS'){Stage 'security-authority' 1800}
  Stage 'report' 120
- Stage 'sign' 120 $ciKey
- $results.signed=$true
- if($results.nativeBuild -eq 'PASS' -and $results.apiProbe -eq 'PASS' -and $results.integration -eq 'PASS'){$exit=0}
+ if($results.nativeBuild -eq 'PASS' -and $results.apiProbe -eq 'PASS' -and $results.integration -eq 'PASS' -and $results.stages['security-authority'].outcome -eq 'PASS'){$exit=0}
+
 } catch {
  if($results.stages.build.outcome -eq 'FAIL' -or $results.stages.normalize.outcome -eq 'FAIL' -or $results.stages.approve.outcome -eq 'FAIL'){$results.nativeBuild='FAIL'}
  $results.error=if($_.Exception.Message -match '^CI_[A-Za-z0-9_-]+$'){$_.Exception.Message}else{'CI_RUN_FAILED'}
@@ -140,6 +129,13 @@ try {
   [Environment]::SetEnvironmentVariable('GAME_RELEASE_APPROVAL_KEY_B64',$null)
   [Environment]::SetEnvironmentVariable('GAME_CI_ATTESTATION_KEY_B64',$null)
  }
+}
+if($exit -eq 0){
+ try{
+  & $node (Join-Path $source 'GameWeb\ci\separated-signing.js') seal $output
+  if($LASTEXITCODE -ne 0){throw 'CI_UNSIGNED_BUNDLE_SEAL_FAILED'}
+  Write-Output 'CI_UNSIGNED_TEST_BUNDLE_READY: isolated fixture approvals are NOT production approvals.'
+ }catch{$exit=1;Write-Output 'CI_UNSIGNED_BUNDLE_SEAL_FAILED'}
 }
 Write-Output ('CI_RESULTS '+($results|ConvertTo-Json -Depth 8 -Compress))
 exit $exit

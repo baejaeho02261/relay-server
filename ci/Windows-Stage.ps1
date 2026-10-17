@@ -1,7 +1,7 @@
 param(
- [Parameter(Mandatory)][ValidateSet('dependencies','build-inputs','build-inputs-after','build','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','report','sign')][string]$Kind,
+ [Parameter(Mandatory)][ValidateSet('dependencies','build-inputs','build-inputs-after','build','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','security-authority','report')][string]$Kind,
  [Parameter(Mandatory)][string]$WorkRoot,[Parameter(Mandatory)][string]$Output,
- [string]$BuildInputLockFile,[string]$KeyFile,[string]$PolicyFile,[string]$Version,[int]$SecurityVersion=1,[string]$RunId
+ [string]$BuildInputLockFile,[string]$PrivateDirectory,[string]$KeyFile,[string]$PolicyFile,[string]$Version,[int]$SecurityVersion=1,[string]$RunId
 )
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 try {
@@ -16,7 +16,7 @@ try {
    throw $failure
   }
  }
- if ($Kind -in @('build','native-probes','overlay-contracts','device-identity')) {
+ if ($Kind -in @('build','native-probes','overlay-contracts','device-identity','security-authority')) {
   if (-not $env:BDS -or $env:BDS -match '[%&|<>^!"\r\n]') { throw 'CI_BDS_INVALID' }
   $rsvars=Join-Path $env:BDS 'bin\rsvars.bat'
   if (-not (Test-Path -LiteralPath $rsvars -PathType Leaf)) { throw 'CI_RAD_STUDIO_REQUIRED' }
@@ -89,7 +89,7 @@ try {
    Run-Checked $node @((Join-Path $web 'tools\audit-final-artifacts.js'),(Join-Path $Output 'A.exe'),(Join-Path $Output 'B.exe'),(Join-Path $Output 'O.exe'),(Join-Path $Output 'final-artifact-audit.json'))
    Run-Checked $node @((Join-Path $PSScriptRoot 'cfg-evidence.js'),$Output,(Join-Path $Output 'build-inputs.json'),(Join-Path $Output 'cfg-evidence.json'))
   }
-  'approve' { $arguments=@((Join-Path $PSScriptRoot 'ci-artifacts.js'),'prepare',$Output,$KeyFile,$Version,[string]$SecurityVersion,(Join-Path $Output 'toolchain.json'),(Join-Path $web 'maintenance\source-manifest.json'));if($PolicyFile){$arguments+=$PolicyFile};Run-Checked $node $arguments }
+  'approve' { $arguments=@((Join-Path $PSScriptRoot 'separated-signing.js'),'fixture',$Output,$PrivateDirectory,$Version,[string]$SecurityVersion);if($PolicyFile){$arguments+=$PolicyFile};Run-Checked $node $arguments }
   'native-probes' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_NativeProbes_Win64.bat')+'"')) }
   'native-hash-compare' { Run-Checked $node @((Join-Path $web 'scripts\compare-native-hashes.js'),'--hash-probe',(Join-Path $native 'tests\native_probe_build\IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $native 'tests\native_probe_build\CrcProbe.exe'),'--mode-probe',(Join-Path $native 'tests\native_probe_build\HashProbe.exe'),'--pe-probe',(Join-Path $native 'tests\native_probe_build\PeCorpusProbe.exe'),'--crc-pe-probe',(Join-Path $native 'tests\native_probe_build\CrcPeProbe.exe')) }
   'overlay-contracts' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_OverlayContracts_Win64.bat')+'"')) }
@@ -97,8 +97,25 @@ try {
   'device-identity' { Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_DeviceIdentityProbe_Win64.bat')+'"')) }
   'sdk-probe' { Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $PSScriptRoot 'Observe-SdkProbeInputs.ps1'),'-OutputFile',(Join-Path $Output 'sdk-probe-inputs.json')); Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'tests\Build_NativeAbi_SDK_Win64.bat')+'"')) }
   'abi-compare' { Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $native 'tests\Compare-NativeAbi.ps1'),'-DelphiProbe',(Join-Path $native 'tests\native_probe_build\NativeAbiProbe.exe'),'-SdkProbe',(Join-Path $native 'tests\native_sdk_build\NativeAbiSdkProbe.exe')) }
+  'security-authority' {
+   # The object was compiled by the preceding real overlay-contract stage with
+   # the same reviewed classic compiler. It remains only in the test subtree.
+   $faultObject=Join-Path $native 'tests\overlay_contract_build\game_imgui_fault_test.o'
+   if(-not(Test-Path -LiteralPath $faultObject -PathType Leaf)){throw 'CI_FAULT_OBJECT_REQUIRED'}
+   Copy-Item -LiteralPath $faultObject -Destination (Join-Path $native 'tests\manual-ide\gpu-fault\game_imgui_fault_test.o') -ErrorAction Stop
+   $msbuild=(Get-Command msbuild.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
+   foreach($project in @('GameLauncherFaultTest','GameConnectFaultTest','GameOverlayFaultTest')){
+    Run-Checked $msbuild @((Join-Path $native ('tests\product-faults\'+$project+'.dproj')),'/t:Rebuild','/p:Config=Release','/p:Platform=Win64','/m:1','/nr:false','/nologo','/v:minimal')
+   }
+   $configuration=@{version=1;releaseVersion=$Version;policyFile=(Join-Path $Output 'policy.json');artifacts=@{A=(Join-Path $Output 'A.exe');B=(Join-Path $Output 'B.exe');O=(Join-Path $Output 'O.exe')};faultArtifacts=@{A=(Join-Path $native 'tests\product-faults\bin\GameLauncherFaultTest.exe');B=(Join-Path $native 'tests\product-faults\bin\GameConnectFaultTest.exe');O=(Join-Path $native 'tests\product-faults\bin\GameOverlayFaultTest.exe')}}
+   $input=Join-Path $env:TEMP 'security-authority-input.json'
+   try{
+    [IO.File]::WriteAllText($input,($configuration|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
+    Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $web 'tools\security-authority-windows-tests.ps1'),'-InputFile',$input,'-ResultFile',(Join-Path $Output 'security-authority-result.json'))
+   }finally{if(Test-Path -LiteralPath $input){Remove-Item -LiteralPath $input -Force}}
+  }
   'report' { Run-Checked $node @((Join-Path $PSScriptRoot 'ci-artifacts.js'),'report',$Output,(Join-Path $Output 'runner-results.json')) }
-  'sign' { Run-Checked $node @((Join-Path $PSScriptRoot 'ci-artifacts.js'),'sign',$Output,$KeyFile,$RunId) }
+
  }
  Write-Output "CI_STAGE_PASS $Kind";exit 0
 } catch {

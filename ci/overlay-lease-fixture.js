@@ -2,7 +2,7 @@
 const {performance}=require('node:perf_hooks');
 // Installed only inside the disposable product-fault fixture. This observer
 // never edits clocks, leases, credentials or accepted service responses.
-function Install({service,overlay,store,onEvent=()=>{}}={}){
+function Install({service,overlay,store,onEvent=()=>{},allowEarlyTerminal=false}={}){
  service||=require('../services/desktopBootstrap');overlay||=require('../services/desktopOverlay');store||=require('../services/desktopBootstrapStore');
  const execute=service.Execute;let grant=null,acceptedBody=null,replay=null,renewed=false,closeWithheld=false,prunedElapsedMs=0;
  service.Execute=function(body){
@@ -35,7 +35,7 @@ function Install({service,overlay,store,onEvent=()=>{}}={}){
   return {grantObserved:!!grant,authorizedAt:grant?.authorizedAt||0,grantObservedAt:grant?.observedAt||0,expiresAt:grant?.expiresAt||0,serverObservedAt:at,monotonicElapsedMs:elapsed,prunedElapsedMs,prunedAt:expired?row.retiredAt:0,renewalAcceptedAfterGrant:renewed,cleanupCloseWithheld:closeWithheld,serverExpired:expired,serverTerminal:!!row&&['EXPIRED','CLOSED','REVOKED'].includes(row.status),runtimeSecretsRetired:!!row&&!!row.retiredAt&&['sessionNonce','ticketNonce','verifyReceipt','claimRecoveryUntil','claimFingerprint'].every(k=>row[k]===undefined),deviceRuntimeAuthorityRetired:!!grant&&[...Object.values(db.flows),...Object.values(db.overlays||{})].filter(x=>x.deviceId===grant.deviceId||x.machineId===grant.machineId).every(x=>['EXPIRED','CLOSED','REVOKED'].includes(x.status)),oldAuthorityRejected:replay===true};
  }
  function CheckReuse(){
-  if(!acceptedBody||Date.now()<grant.expiresAt)throw Error('LEASE_REUSE_BEFORE_REAL_EXPIRY');
+  if(!acceptedBody||Date.now()<grant.expiresAt&&!allowEarlyTerminal)throw Error('LEASE_REUSE_BEFORE_REAL_EXPIRY');
   const before=Status();if(!before.serverTerminal||!before.runtimeSecretsRetired)throw Error('LEASE_REUSE_BEFORE_TERMINAL');
   let serviceDenied=false,reportDenied=false;
   try{execute.call(service,acceptedBody);}catch(error){serviceDenied=error.desktopError===true;}

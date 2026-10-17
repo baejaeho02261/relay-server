@@ -12,7 +12,7 @@ async function Main(){
  Object.assign(process.env,{DATA_DIR:data,STORAGE_ENGINE:'json',HA_ENABLED:'0',DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'1',WEB_ADMIN_PORT:'0',CONNECT_TCP_PORT:'1',HEALTH_PORT:'0',ENABLE_LEGACY_TCP_ADMIN:'0',GAME_PRODUCT_FAULT_ROOT:root,GAME_PRODUCT_FAULT_FIXTURE:'1'});
  console.log=()=>{};console.error=()=>{};
  const contracts=require('../tools/product-fault-tests');
- if(contracts.HANDOFF.includes(scenario)||contracts.GPU.includes(scenario)||contracts.LEASE.includes(scenario)||contracts.LIFECYCLE_FAULT.includes(scenario)){
+ if(contracts.HANDOFF.includes(scenario)||contracts.GPU.includes(scenario)||contracts.LEASE.includes(scenario)||contracts.AUTHORITY.includes(scenario)||contracts.LIFECYCLE_FAULT.includes(scenario)){
   // A deliberately separate test-process admission adapter. Normal production
   // admission ALWAYS rejects this marker; no environment switch changes it.
   const build=require('../services/peBuildConfiguration');
@@ -24,7 +24,7 @@ async function Main(){
  const events=[];let replacementObserved=false,replacementDenied=false,reuseProof=null,tlsArmedAfterTransfer=false,tlsRecordCorrupted=false,tlsMutationCount=0;
  function Event(e){if(events.length<96)events.push(e);if(e.event==='tls-record-corrupted'){tlsRecordCorrupted=true;tlsMutationCount=e.mutationCount;}if(e.event==='service-rejected'&&e.action==='begin'&&((scenario==='signed-exe-replacement'&&e.error==='BOOTSTRAP_ARTIFACT_INVALID')||(scenario==='signed-json-replacement'&&e.error==='SECURITY_RELEASE_SIGNATURE')))replacementDenied=true;}
  adapter=require('./product-fault-adapter').Install({scenario,onEvent:Event});
- if(contracts.LEASE.includes(scenario))lease=require('./overlay-lease-fixture').Install({onEvent:Event});
+ if(contracts.LEASE.includes(scenario)||contracts.AUTHORITY.includes(scenario))lease=require('./overlay-lease-fixture').Install({onEvent:Event,allowEarlyTerminal:['authority-measurement-skipped','authority-report-stopped'].includes(scenario)});
  if(contracts.LEASE.includes(scenario)||contracts.LIFECYCLE.includes(scenario))lifecycle=require('./lifecycle-fixture').Install();
  if(contracts.TLS.includes(scenario))require('../services/connectTls').Load().options.maxVersion='TLSv1.2';
  listener=require('../services/desktopConnect').CreateServer();adapter.Attach(listener);await new Promise((resolve,reject)=>{listener.once('error',reject);listener.listen(0,'127.0.0.1',resolve);});process.env.DESKTOP_PUBLIC_PORT=String(listener.address().port);
