@@ -20,7 +20,8 @@ function Id(){return crypto.randomBytes(12).toString('hex').toUpperCase();}
 function Nonce(){return crypto.randomBytes(24).toString('hex');}
 function DB(){try{return store.Load();}catch(error){Fail(messages[error.message]?error.message:'BOOTSTRAP_STORAGE_INVALID',503);}}
 function Atomic(kind,actor,fn){try{return kind?require('./desktopOperationAudit').Run(kind,actor,{},fn):store.Atomic(fn);}catch(error){if(error.desktopError)throw error;Fail(messages[error.message]?error.message:'STORAGE_SAVE_FAILED',503);}}
-function Available(){if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);if(!state.serviceEnabled||state.maintenanceMode||!require('./haCoordinator').CanAcceptTraffic())Fail('SERVICE_DISABLED',503);DB();Prune();}
+function Availability(){if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);if(!state.serviceEnabled||state.maintenanceMode||!require('./haCoordinator').CanAcceptTraffic())Fail('SERVICE_DISABLED',503);}
+function Available(){Availability();DB();Prune();}
 function Token(domain,id,nonce){return crypto.createHmac('sha256',Buffer.from(DB().secret,'hex')).update(['GAME-A80',domain,id,nonce].join('|')).digest('base64url');}
 function EqualHash(value,digest){if(typeof value!=='string'||value.length>200||typeof digest!=='string')return false;const a=Buffer.from(hash(value)),b=Buffer.from(digest);return a.length===b.length&&crypto.timingSafeEqual(a,b);}
 function Sha(value){if(typeof value!=='string'||!/^[a-f0-9]{128}$/i.test(value))Fail('BOOTSTRAP_INPUT_INVALID');return value.toLowerCase();}
@@ -123,7 +124,14 @@ function IssueLauncher(body={},actor='ADMIN'){
  require('./desktopOperationAudit').Run('LAUNCHER_ISSUED',actor,{subject:crypto.createHash('sha256').update(row.id).digest('hex')},next=>{next.launchers[row.id]=row;next.issueReceipts[receiptKey]={fingerprint,launcherId:row.id};});
  Audit('DESKTOP_BOOTSTRAP_ISSUED',{launcherId:row.id,label:row.label,expiresAt:row.expiresAt,licenseId:row.assignedLicenseId||''});return LauncherResult(row);
 }
-function LauncherBytes(id){Prune();const row=DB().launchers[id];if(!row)Fail('BOOTSTRAP_LAUNCHER_INVALID',404);require('./desktopRecovery').Assert(row,DB());if(row.status==='EXPIRED'||row.expiresAt<=now())Fail('BOOTSTRAP_EXPIRED',410);if(row.status!=='AVAILABLE')Fail('BOOTSTRAP_LAUNCHER_USED',409);const bytes=MakeLauncher(row),digests=integrity.Digests(bytes);if(row.hashVersion!==3||['sha512','crc64','xxh3_128','blake3'].some(k=>digests[k]!==row[k]))Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return bytes;}
+function LauncherBytes(id){
+ Available();
+ function Check(){const row=DB().launchers[id];if(!row)Fail('BOOTSTRAP_LAUNCHER_INVALID',404);require('./desktopRecovery').Assert(row,DB());if(row.status==='EXPIRED'||row.expiresAt<=now())Fail('BOOTSTRAP_EXPIRED',410);if(row.status!=='AVAILABLE')Fail('BOOTSTRAP_LAUNCHER_USED',409);require('./desktopSecurityAuthority').RequireArtifact(DB().artifacts[row.artifactId]);return row;}
+ const row=Check(),bytes=MakeLauncher(row);
+ try{const digests=integrity.Digests(bytes);if(row.hashVersion!==3||['sha512','crc64','xxh3_128','blake3'].some(k=>digests[k]!==row[k]))Fail('BOOTSTRAP_ARTIFACT_INVALID',503);
+  Available();const current=Check();if(current.artifactId!==row.artifactId||current.sha512!==row.sha512)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return bytes;
+ }catch(error){bytes.fill(0);throw error;}
+}
 function FinishCanonical(row){const release=DB().artifacts[row.releaseId];return ['GAME-A85-FINISH-V2',row.id,row.launcherId,row.launcherSha512,row.launcherCrc64,row.aCodeSha512,row.aCodeCrc64,delegation.Parent(row).deviceId,row.machineId,release.id,release.sha512,release.crc64,release.codeSha512,release.codeCrc64,String(release.size),row.downloadHash,row.finishNonce,String(row.expiresAt)].join('\n');}
 function ClaimCanonical(row){const release=DB().artifacts[row.releaseId];return ['GAME-B85-CLAIM-V2',row.id,row.launcherId,row.launcherSha512,row.launcherCrc64,row.aCodeSha512,row.aCodeCrc64,delegation.Parent(row).deviceId,row.machineId,release.id,release.sha512,release.crc64,release.codeSha512,release.codeCrc64,String(release.size),row.handoffHash,row.claimNonce,String(row.handoffExpiresAt)].join('\n');}
 function Verify(row,canonical,signature){
@@ -139,7 +147,12 @@ function FlowExpired(row){
 }
 function AssertFlowLifetime(row){if(!row||FlowExpired(row))Fail('BOOTSTRAP_EXPIRED',403);}
 function FlowLive(row,allowClaimed=false){if(row)require('./desktopRecovery').Assert(row,DB());if(row?.machineId)require('./desktopDeviceRegistry').AssertMachineAllowed(row.machineId,DB());if(row?.machineId)MachinePolicy().AssertAllowed(row.machineId,row.machinePolicyGeneration,row.sessionId);if(row?.status==='EXPIRED')Fail('BOOTSTRAP_EXPIRED',403);if(!row)Fail('BOOTSTRAP_FLOW_INVALID',401);if(row.status==='REVOKED')Fail('BOOTSTRAP_REVOKED',403);if(row.status==='CLOSED')Fail('BOOTSTRAP_SESSION_CLOSED',403);if(row.status==='CLAIMED'){if(!allowClaimed)Fail('BOOTSTRAP_LAUNCHER_USED',409);AssertFlowLifetime(row);}else AssertFlowLifetime(row);}
-function RequireFlowPair(row){const db=DB();if(delegation.RequirePair(db.artifacts[db.launchers[row.launcherId]?.artifactId],db.artifacts[row.releaseId],db.artifacts[row.overlayReleaseId])!==delegation.Version(row))Fail('BOOTSTRAP_HANDOFF_VERSION_MISMATCH',409);require('./desktopSecurityOperations').RequireRuntimePair(db.artifacts[db.launchers[row.launcherId]?.artifactId],db.artifacts[row.releaseId],db.artifacts[row.overlayReleaseId]);}
+function RequireFlowPair(row){const db=DB();
+ const authority=require('./desktopSecurityAuthority');
+ authority.RequireArtifact(db.artifacts[db.launchers[row.launcherId]?.artifactId]);
+ authority.RequireArtifact(db.artifacts[row.releaseId]);
+ if(row.overlayReleaseId)authority.RequireArtifact(db.artifacts[row.overlayReleaseId]);
+ if(delegation.RequirePair(db.artifacts[db.launchers[row.launcherId]?.artifactId],db.artifacts[row.releaseId],db.artifacts[row.overlayReleaseId])!==delegation.Version(row))Fail('BOOTSTRAP_HANDOFF_VERSION_MISMATCH',409);require('./desktopSecurityOperations').RequireRuntimePair(db.artifacts[db.launchers[row.launcherId]?.artifactId],db.artifacts[row.releaseId],db.artifacts[row.overlayReleaseId]);}
 function DownloadFlow(body,allowClaimed=false){const row=DB().flows[body.flowId];FlowLive(row,allowClaimed);if(!EqualHash(body.downloadTicket,row.downloadHash))Fail('BOOTSTRAP_FLOW_INVALID',401);require('./desktopSecurityAuthority').RequireArtifact(DB().artifacts[row.releaseId]);require('./desktopSecurityAuthority').RequireArtifact(DB().artifacts[DB().launchers[row.launcherId].artifactId]);RequireFlowPair(row);return row;}
 function Begin(body){
  Fields(body,['requestId','launcherId','launcherTicket','launcherSha512','launcherCrc64','aCodeSha512','aCodeCrc64','publicKey','deviceId','machineId','handoffVersion']);RequestId(body.requestId);const digest=Sha(body.launcherSha512),crc64=Crc(body.launcherCrc64),machineId=MachinePolicy().Validate(body.machineId);MachinePolicy().AssertAllowed(machineId);require('./desktopDeviceRegistry').AssertMachineAllowed(machineId,DB());
@@ -164,12 +177,19 @@ function Chunk(body){
  Fields(body,['flowId','downloadTicket','offset']);const row=DownloadFlow(body),artifact=DB().artifacts[row.releaseId];
  if(!Number.isSafeInteger(body.offset)||body.offset<0||body.offset>=artifact.size||body.offset%CHUNK_SIZE!==0)Fail('BOOTSTRAP_INPUT_INVALID');
  const size=Math.min(CHUNK_SIZE,artifact.size-body.offset),bytes=Buffer.alloc(size);let fd;
- try{const file=store.ArtifactPath(artifact.id);fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==artifact.size)throw Error();let read=0;while(read<size){const count=fs.readSync(fd,bytes,read,size-read,body.offset+read);if(!count)throw Error();read+=count;}}
- catch(_){Fail('BOOTSTRAP_ARTIFACT_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
- // Receipt is committed before acknowledging a chunk; retries of a lost reply
- // read the same frozen artifact and never skip verification/download coverage.
- if(!row.chunkOffsets.includes(body.offset))Atomic('BOOTSTRAP_CHUNK','SERVER',db=>{db.flows[row.id].chunkOffsets.push(body.offset);});
- return {offset:body.offset,data:bytes.toString('base64'),size};
+ try{
+  try{const file=store.ArtifactPath(artifact.id);fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==artifact.size)throw Error();let read=0;while(read<size){const count=fs.readSync(fd,bytes,read,size-read,body.offset+read);if(!count)throw Error();read+=count;}}
+  catch(_){Fail('BOOTSTRAP_ARTIFACT_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
+  // Reading or durable receipt writes may cross a server deadline. Re-evaluate
+  // the actual capability, artifacts and runtime policy, not a client flag.
+  const current=DownloadFlow(body);if(current.releaseId!==artifact.id)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);
+  if(!current.chunkOffsets.includes(body.offset))Atomic('BOOTSTRAP_CHUNK','SERVER',db=>{
+   DownloadFlow(body);FlowLive(db.flows[row.id]);
+   if(!db.flows[row.id].chunkOffsets.includes(body.offset))db.flows[row.id].chunkOffsets.push(body.offset);
+  });
+  const data=bytes.toString('base64');Available();DownloadFlow(body);
+  return {offset:body.offset,data,size};
+ }finally{bytes.fill(0);}
 }
 function Finish(body){
  Fields(body,['flowId','downloadTicket','sha512','crc64','aCodeSha512','aCodeCrc64','signature']);const row=DownloadFlow(body,true),artifact=DB().artifacts[row.releaseId];CheckFile(artifact,Sha(body.sha512),Crc(body.crc64),{stage:'B',row});Verify(delegation.Parent(row),FinishCanonical(row),body.signature);AssertFlowLifetime(row);CheckCode(DB().artifacts[DB().launchers[row.launcherId].artifactId],Sha(body.aCodeSha512),Crc(body.aCodeCrc64),{stage:'A',row});Bytes(artifact);
@@ -286,8 +306,8 @@ function Revoke(id,body={},actor='ADMIN'){
 }
 function TouchLicense(id,token,deviceId,license,action,verification={}){
  // desktopLicenses calls Gate before its synchronous journal transaction.
- // Do not re-check the wall clock after that durable commit: a slow fsync on
- // the expiry boundary must not consume a key without renewing its session.
+ // A durable consume may finish after expiry. Keep the consume committed but
+ // NEVER mint a fresh lifetime at fsync completion; project original bounds only.
  const row=SessionAuthenticated(id,token),released=action==='release'&&row.status==='CLOSED'&&row.closedByLicenseRelease;
  if((row.status!=='CLAIMED'&&!released)||row.deviceId!==deviceId)Fail('BOOTSTRAP_SESSION_INVALID',403);
  if(row.licenseId&&row.licenseId!==license.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
@@ -295,17 +315,22 @@ function TouchLicense(id,token,deviceId,license,action,verification={}){
  // result must not refresh session/lease timestamps or measurements again.
  if(verification.replay===true){if(row.licenseId!==license.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);return;}
  if(verification.operationId!==undefined&&row.lastLicenseOperationId===verification.operationId&&row.lastLicenseOperationRevision===verification.operationRevision&&row.licenseId===license.id)return;
+ if(action!=='release') { Available(); FlowLive(row,true); MachinePolicy().AssertAllowed(row.machineId,row.machinePolicyGeneration,row.sessionId); RequireFlowPair(row); }
  let measuredAt=now(),sessionExpiresAt=Math.min(measuredAt+SESSION_MS,license.expiresAt||Number.MAX_SAFE_INTEGER);
  if(verification.originalAt!==undefined||verification.originalExpiresAt!==undefined){
   const at=verification.originalAt,until=verification.originalExpiresAt;
-  if(action!=='verify'||!Number.isSafeInteger(at)||!Number.isSafeInteger(until)||at<row.createdAt||at>now()||until<=at||until>at+SESSION_MS||until!==(Number(verification.leaseExpiresAt)||0)||until>(license.expiresAt||Number.MAX_SAFE_INTEGER))Fail('BOOTSTRAP_STORAGE_INVALID',503);
+  if(!['redeem','verify'].includes(action)||!Number.isSafeInteger(at)||!Number.isSafeInteger(until)||at<row.createdAt||at>now()||until<=at||until>at+SESSION_MS||until!==(Number(verification.leaseExpiresAt)||0)||until>(license.expiresAt||Number.MAX_SAFE_INTEGER))Fail('BOOTSTRAP_STORAGE_INVALID',503);
   // A pending projection may finish once using its original bounds. A later
   // completed verification wins even if an older request retries afterward.
   if(row.lastVerifiedAt>at)return;
   if(until<=now())Fail('DESKTOP_CHALLENGE_EXPIRED',401);
   measuredAt=at;sessionExpiresAt=until;
  }
- Atomic(action==='verify'?'BOOTSTRAP_LICENSE_VERIFIED':null,'SERVER',db=>{const item=db.flows[row.id];if(verification.operationId!==undefined){if(!/^[a-f0-9]{64}$/.test(verification.operationId)||!Number.isSafeInteger(verification.operationRevision)||verification.operationRevision<1)Fail('BOOTSTRAP_STORAGE_INVALID',503);if(!item.lastLicenseOperationRevision||verification.operationRevision>=item.lastLicenseOperationRevision){item.lastLicenseOperationId=verification.operationId;item.lastLicenseOperationRevision=verification.operationRevision;}}item.licenseId=license.id;item.codeIntegrityStatus='VERIFIED';item.lastCodeVerifiedAt=measuredAt;item.lastVerifiedAt=measuredAt;item.licenseLeaseExpiresAt=Number(verification.leaseExpiresAt)||0;item.appVersion=typeof verification.appVersion==='string'?verification.appVersion.slice(0,40):'';item.sessionExpiresAt=sessionExpiresAt;if(action==='release'){item.status='CLOSED';item.closedAt=now();item.closedByLicenseRelease=true;RetireFlow(item,db);}});
+ Atomic(action==='verify'?'BOOTSTRAP_LICENSE_VERIFIED':null,'SERVER',db=>{const item=db.flows[row.id];
+ if(!item||((item.status!=='CLAIMED')&&!(action==='release'&&item.status==='CLOSED'&&item.closedByLicenseRelease)))Fail('BOOTSTRAP_SESSION_CLOSED');
+ if(action!=='release'){ Availability(); FlowLive(item,true); RequireFlowPair(item); if(sessionExpiresAt<=now())Fail('DESKTOP_CHALLENGE_EXPIRED',401); const current=require('./desktopLicenses').DB().licenses[license.id]; if(!current||current.status!=='USED'||!current.consumed||current.releasedAt||current.deviceId!==deviceId||current.bootstrapSessionId!==id||current.expiresAt&&current.expiresAt<=now())Fail('DESKTOP_ACTIVATION_INVALID'); }
+ if(verification.operationId!==undefined){if(!/^[a-f0-9]{64}$/.test(verification.operationId)||!Number.isSafeInteger(verification.operationRevision)||verification.operationRevision<1)Fail('BOOTSTRAP_STORAGE_INVALID',503);if(!item.lastLicenseOperationRevision||verification.operationRevision>=item.lastLicenseOperationRevision){item.lastLicenseOperationId=verification.operationId;item.lastLicenseOperationRevision=verification.operationRevision;}}item.licenseId=license.id;item.codeIntegrityStatus='VERIFIED';item.lastCodeVerifiedAt=measuredAt;item.lastVerifiedAt=measuredAt;item.licenseLeaseExpiresAt=Number(verification.leaseExpiresAt)||0;item.appVersion=typeof verification.appVersion==='string'?verification.appVersion.slice(0,40):'';item.sessionExpiresAt=sessionExpiresAt;if(action==='release'){item.status='CLOSED';item.closedAt=now();item.closedByLicenseRelease=true;RetireFlow(item,db);}});
+ if(action!=='release'){Available();FlowLive(DB().flows[row.id],true);RequireFlowPair(DB().flows[row.id]);}
 }
 // Startup repair links already durable license operations to their bootstrap
 // projection. It never grants a fresh lease, measurement, token or reopened
@@ -357,7 +382,7 @@ function Stop(){if(retirementTimer){clearInterval(retirementTimer);retirementTim
 function Overview(){
  Prune();const db=DB();return {artifacts:{A:Artifact(db.artifacts[db.active.A]),B:Artifact(db.artifacts[db.active.B]),O:Artifact(db.artifacts[db.active.O])},launchers:Object.values(db.launchers).map(row=>({id:row.id,downloadName:LauncherName(row),label:row.label,issuedAt:row.issuedAt,expiresAt:row.expiresAt,status:row.status==='AVAILABLE'&&row.expiresAt<=now()?'EXPIRED':row.status,flowId:row.flowId||'',sha512:row.sha512,crc64:row.crc64})).sort((a,b)=>b.issuedAt-a.issuedAt),sessions:[...Object.values(db.flows).map(SessionView),...require('./desktopOverlay').List()].sort((a,b)=>b.createdAt-a.createdAt),limits:{maxArtifactBytes:MAX_ARTIFACT_BYTES,chunkSize:CHUNK_SIZE,launcherLifetimeMs:LAUNCHER_MS,flowLifetimeMs:FLOW_MS,sessionLifetimeMs:SESSION_MS},serverTime:now()};
 }
-function Execute(body){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');if(['lifecycleChallenge','lifecycleReport'].includes(body.action)){DB();return require('./desktopLifecycleTrace').Execute(body);}if(typeof body.action==='string'&&body.action.startsWith('overlay')){if(!['overlayClose','overlayAbort'].includes(body.action))Available();else DB();return require('./desktopOverlay').Execute(body);}if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
+function Execute(body){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');require('./desktopRequestProtocol').Resolve('bootstrap',body.action);if(['lifecycleChallenge','lifecycleReport'].includes(body.action)){DB();return require('./desktopLifecycleTrace').Execute(body);}if(typeof body.action==='string'&&body.action.startsWith('overlay')){if(!['overlayClose','overlayAbort'].includes(body.action))Available();else DB();return require('./desktopOverlay').Execute(body);}if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
 function ProofTasks(body){
  if(['lifecycleChallenge','lifecycleReport'].includes(body.action))return require('./desktopLifecycleTrace').ProofTasks(body);
  if(String(body.action).startsWith('overlay'))return require('./desktopOverlay').ProofTasks(body);
@@ -366,6 +391,6 @@ function ProofTasks(body){
  if(body.action==='claim')return delegation.ProofTasks(row,body,'B',ClaimCanonical(row));
  return [];
 }
-module.exports={AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
+module.exports={AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,AssertSecurityAvailable:Availability,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
 
 module.exports.Stop=Stop;

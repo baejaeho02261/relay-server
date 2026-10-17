@@ -6,6 +6,7 @@ const state=require('../core/state');
 const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
 function IsMutation(pathname) {
+  if(AdditionalCritical(pathname))return true;
   if(/^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint|manual-verification)$/.test(pathname))return true;
   return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|ci-signers|ci-evidence|mitigation-compatibility|mitigation-profiles|tls-pin-transition|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
 }
@@ -19,7 +20,7 @@ function Identities() {
 function DualRequired(){return state.production.deploymentManifest.dualApprovalRequired===true;}
 function StepUpRequired(){return process.env.DESKTOP_SECURITY_STEP_UP_REQUIRED==='1'||DualRequired();}
 function Credential(session){return session?.passkeyCredentialId&&state.production.passkeyCredentials.get(session.passkeyCredentialId);}
-function Recent(session){const c=Credential(session);return !!c&&!c.revokedAt&&c.role==='admin'&&session.role==='admin'&&Number.isSafeInteger(session.securityVerifiedAt)&&session.securityVerifiedAt<=Date.now()&&Date.now()-session.securityVerifiedAt<TTL;}
+function Recent(session){return require('../web/webAuth').HasRecentPasskey(session);}
 function ProvisionedCredential(id,principal){const c=state.production.passkeyCredentials.get(id);return !!c&&!c.revokedAt&&c.role==='admin'&&Identities()?.[id]===principal;}
 function Identity(session){if(!Recent(session))return '';return Identities()?.[session.passkeyCredentialId]||'';}
 function MarkVerified(session,credentialId){session.passkeyCredentialId=credentialId;session.securityVerifiedAt=Date.now();}
@@ -33,7 +34,9 @@ function SingleOperatorPath(pathname) {
 // release planning and normal launcher/license operations are NOT step-up gates.
 // Replacing trust policy/measurement baselines, publishing an execution cohort,
 // changing evidence used by live authorization and recovery always are.
+function AdditionalCritical(pathname){return /^\/api\/production\/(?:config\/apply|transport|update\/(?:policy|rollback))$/.test(pathname||'');}
 function CriticalMutation(pathname) {
+  if(AdditionalCritical(pathname))return true;
   if (typeof pathname !== 'string') return false;
   return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) ||
     /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|module-baselines)$/.test(pathname) ||
@@ -53,19 +56,20 @@ function CheckSession(session, pathname='', method='POST') {
     return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
   if(Object.hasOwn(session,'expiresAt')&&(!Number.isSafeInteger(session.expiresAt)||session.expiresAt<=Date.now()))
     return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
-  if(ReauthenticationRequired(pathname,method)&&!require('../web/webAuth').HasRecentAuthentication(session))
-    return {ok:false,status:428,reason:'ADMIN_REAUTH_REQUIRED'};
+  if(ReauthenticationRequired(pathname,method)&&!Recent(session))
+    return {ok:false,status:428,reason:EnrollmentPath(pathname)?'ADMIN_ENROLLMENT_APPROVAL_REQUIRED':'ADMIN_PASSKEY_REQUIRED'};
   if(!pathname||SingleOperatorPath(pathname))return {ok:true,mode:'SINGLE_ADMIN'};
   if(StepUpRequired()&&!Recent(session))return {ok:false,status:428,reason:'SECURITY_ADMIN_STEP_UP_REQUIRED'};
   if(DualRequired()&&!Identity(session))return {ok:false,status:428,reason:'SECURITY_ADMIN_IDENTITY_REQUIRED'};
   return {ok:true};
 }
-function Status(){return {mode:'SINGLE_ADMIN',stepUpRequired:false,dualApprovalRequired:false,
-  identityConfigurationValid:true,provisionedPrincipalCount:0,stepUpLifetimeMs:0,
-  identitySource:'EXISTING_ADMIN_SESSION',humanIdentityProof:false,
+function Status(){return {mode:'SINGLE_ADMIN',stepUpRequired:true,dualApprovalRequired:false,
+  identityConfigurationValid:true,provisionedPrincipalCount:0,stepUpLifetimeMs:require('../web/webAuth').REAUTH_MS,
+  identitySource:'SERVER_VERIFIED_RECENT_PASSKEY',humanIdentityProof:false,
   recentReauthenticationRequired:true,
   reauthenticationScope:process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1'?'ALL_DECLARED_MUTATIONS':'CRITICAL_MUTATIONS',
-  criticalReauthenticationMandatory:true,
+  criticalReauthenticationMandatory:true,criticalAuthenticationMethod:'PASSKEY',
+  enrollmentRecovery:'ONE_USE_SERVER_ISSUED_SESSION_BOUND_APPROVAL',
   reauthenticationLifetimeMs:require('../web/webAuth').REAUTH_MS};}
 function Begin(session,req){const check=CheckSession(session);return check.ok?{ok:false,reason:'SECURITY_DESKTOP_PASSKEY_NOT_USED'}:check;}
 function Finish(session,req,body){return Begin(session,req);}
@@ -90,11 +94,19 @@ function Summary(path,body){
   if(Array.isArray(body?.revokedSha512))out.revokedReleaseHashes=body.revokedSha512.slice(0,512);
   if(body?.contract)out.contract=Object.fromEntries(['version','evidenceVersion','minApiSlots','maxApiSlots'].filter(k=>Number.isSafeInteger(body.contract[k])).map(k=>[k,body.contract[k]]));
   if(body?.rollout)out.rollout={enabled:body.rollout.enabled===true,artifactKeys:Array.isArray(body.rollout.artifactKeys)?body.rollout.artifactKeys.filter(x=>typeof x==='string'&&/^[ABO]:[a-f0-9]{128}$/.test(x)).slice(0,128):[],patch:Object.fromEntries(['mode','dynamicCode','requireReadonlyApi','requireCfg'].filter(k=>['string','boolean'].includes(typeof body.rollout.patch?.[k])).map(k=>[k,String(body.rollout.patch[k]).slice(0,20)]))};
-  if(path==='/api/desktop/bootstrap/security-operations/enable-all')out.activationTargets={profile:body?.profile,targetHash:body?.targetHash,stepUpRequired:false,dualApprovalRequired:false,adminMode:'SINGLE_ADMIN',windows:body?.profile==='ALL'?'dynamicCode=prohibit; requireCfg=true':'UNCHANGED'};
+  if(path==='/api/desktop/bootstrap/security-operations/enable-all')out.activationTargets={profile:body?.profile,targetHash:body?.targetHash,stepUpRequired:true,dualApprovalRequired:false,adminMode:'SINGLE_ADMIN',windows:body?.profile==='ALL'?'dynamicCode=prohibit; requireCfg=true':'UNCHANGED'};
   if(body?.report)out.testEvidence={aSha512:body.report.aSha512,bSha512:body.report.bSha512,...(body.report.oSha512?{oSha512:body.report.oSha512}:{}),nativeBuild:body.report.nativeBuild,apiProbe:body.report.apiProbe,integration:body.report.integration,logsSha512:body.report.logsSha512};
   return out;
 }
-function Authorize(session,method,path,body,ticketId){
+function EnrollmentPath(path){return /^\/api\/production\/passkeys\/register\/(?:begin|finish)$/.test(path||'');}
+function Authorize(session,method,path,body,ticketId,enrollmentToken=''){
+  if(EnrollmentPath(path)&&!Recent(session)){
+    const base=CheckSession(session);if(!base.ok)return base;
+    const enrollment=require('./desktopAdminEnrollment');
+    const existing=Array.from(state.production.passkeyCredentials.values()).some(c=>c.role==='admin'&&!c.revokedAt);
+    if(!enrollmentToken&&!enrollment.HasPending(session)&&existing)return {ok:false,status:428,reason:'ADMIN_PASSKEY_REQUIRED'};
+    return enrollment.Authorize(session,method,path,body,enrollmentToken);
+  }
   const check=CheckSession(session,path,method);if(!check.ok)return check;
   if(path==='/api/desktop/bootstrap/security-operations/enable-all'){
     try{require('./desktopSecurityActivation').CheckRequest(body,session);}

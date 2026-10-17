@@ -5,7 +5,7 @@
 const crypto=require('node:crypto'),store=require('./desktopBootstrapStore');
 const TTL=180000,MAX_PERMITS=2048,MAX_FLOWS=512,MAX_EVENTS=96;
 const TERMINAL=new Set(['CLOSED','REVOKED','EXPIRED']);
-const PAIRS={SHUTDOWN_BEGIN:['REQUESTED'],CLOSE_RESPONSE:['ACKNOWLEDGED','FAILED'],PROCESS_EXIT:['OBSERVED','TIMEOUT','UNKNOWN'],FILE_CLEANUP:['REMOVED','FAILED','NOT_ATTEMPTED','SCHEDULED','TIMEOUT','UNKNOWN'],UI_HIDDEN:['OBSERVED'],LEASE_EXPIRED:['OBSERVED']};
+const PAIRS={SHUTDOWN_BEGIN:['REQUESTED'],CLOSE_RESPONSE:['ACKNOWLEDGED','FAILED'],PROCESS_EXIT:['OBSERVED','TIMEOUT','UNKNOWN'],FILE_CLEANUP:['REMOVED','FAILED','NOT_ATTEMPTED','SCHEDULED','TIMEOUT','UNKNOWN'],UI_HIDDEN:['OBSERVED'],LEASE_EXPIRED:['OBSERVED'],DOWNLOAD_DEADLINE:['OBSERVED']};
 const Plain=x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
 const Id=x=>typeof x==='string'&&/^(?:(?:BF|DS|DL|LA)-)?[A-F0-9]{24}$/.test(x);
 const KindId=(x,kind)=>typeof x==='string'&&new RegExp('^(?:'+kind+'-)?[A-F0-9]{24}$').test(x);
@@ -49,6 +49,7 @@ function Events(text,p){
  if(typeof text!=='string'||Buffer.byteLength(text)>8192)Fail('LIFECYCLE_INPUT_INVALID');let events;try{events=require('./strictJson').Parse(text,{maxBytes:8192,maxNodes:128});}catch(_){Fail('LIFECYCLE_INPUT_INVALID');}
  if(!Array.isArray(events)||!events.length||events.length>8)Fail('LIFECYCLE_INPUT_INVALID');
  for(const e of events){if(!Plain(e)||Object.keys(e).some(k=>!['event','status','pid','exitCode','win32Error','elapsedMs'].includes(k))||typeof e.event!=='string'||!Object.hasOwn(PAIRS,e.event)||!PAIRS[e.event].includes(e.status))Fail('LIFECYCLE_INPUT_INVALID');
+  if(e.event==='DOWNLOAD_DEADLINE'&&(p.reporterRole!=='A'||p.targetRole!=='A'))Fail('LIFECYCLE_ROLE_INVALID',403);
   for(const k of ['pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,k)&&(!Number.isSafeInteger(e[k])||e[k]<0||e[k]>(k==='elapsedMs'?600000:0xffffffff)))Fail('LIFECYCLE_INPUT_INVALID');
   if(p.reporterRole!==p.targetRole&&!['PROCESS_EXIT','FILE_CLEANUP'].includes(e.event)||p.reporterRole===p.targetRole&&e.event==='PROCESS_EXIT'&&e.status==='OBSERVED')Fail('LIFECYCLE_ROLE_INVALID',403);
  }
@@ -115,7 +116,7 @@ function Flow(flowId){
  const roles={A:Role('A',row.id,row.claimedAt?'HANDED_OFF':row.status,events),B:Role('B',row.sessionId,row.claimedAt?row.status:'NOT_STARTED',events),O:Role('O',overlay?.sessionId||'',overlay?.status||'NOT_STARTED',events)};
  let code='B_NOT_STARTED',summary='B 실행이 서버에 등록되지 않았습니다.';
  if(row.claimedAt){if(!roles.B.authorityEnded){code='B_AUTHORITY_ACTIVE';summary='B의 서버 권한이 아직 종료되지 않았습니다.';}else if(roles.B.processExit==='NOT_REPORTED'){code='B_EXIT_NOT_REPORTED';summary='B의 서버 권한은 종료됐지만 자식의 프로세스 종료 관측 보고가 없습니다.';}else if(roles.B.fileCleanup==='FAILED'){code='B_FILE_CLEANUP_FAILED';summary='자식이 B 종료를 관측했으나 파일 정리 실패를 보고했습니다. 오류 코드를 확인하세요.';}else if(roles.B.fileCleanup!=='REMOVED'){code='B_FILE_CLEANUP_PENDING';summary='자식의 B 종료 관측은 있으나 파일 제거 완료 보고가 없습니다.';}else{code='B_CLEANUP_CLIENT_REPORTED';summary='인증된 자식이 B 프로세스 종료와 파일 제거를 보고했습니다. 서버의 OS 직접 관측은 아닙니다.';}}
- return {flowId:row.id,licenseId:row.licenseId||'',launcherId:row.launcherId,sessionId:row.sessionId,createdAt:row.createdAt,roles,events,bResidual:{code,summary,confirmed:false},processTruth:'AUTHENTICATED_CLIENT_OBSERVATION_ONLY',eventRetention:MAX_EVENTS};
+ return {flowId:row.id,licenseId:row.licenseId||'',launcherId:row.launcherId,sessionId:row.sessionId,createdAt:row.createdAt,roles,events,timing:require('./desktopTimingDiagnosis').Describe(events),bResidual:{code,summary,confirmed:false},processTruth:'AUTHENTICATED_CLIENT_OBSERVATION_ONLY',eventRetention:MAX_EVENTS};
 }
 function Overview(query={}){const {flowId,licenseId,limit=50}=query;if(Object.keys(query).some(k=>!['flowId','licenseId','limit'].includes(k))||flowId!==undefined&&!KindId(flowId,'BF')||licenseId!==undefined&&!KindId(licenseId,'DL')||!Number.isSafeInteger(Number(limit))||Number(limit)<1||Number(limit)>100)Fail('LIFECYCLE_INPUT_INVALID');const rows=Object.values(store.Load().flows).filter(r=>(!flowId||r.id===flowId)&&(!licenseId||r.licenseId===licenseId)).sort((a,b)=>b.createdAt-a.createdAt).slice(0,Number(limit));return {version:1,asOf:Date.now(),scope:'SERVER_DECISIONS_AND_AUTHENTICATED_CLIENT_OBSERVATIONS',items:rows.map(r=>Flow(r.id)),retention:{flows:MAX_FLOWS,eventsPerFlow:MAX_EVENTS,permitLifetimeMs:TTL}};}
 function Validate(s,db){

@@ -2,15 +2,16 @@
 const tls=require('node:tls'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require('./desktopLicenses'),identity=require('./connectTransportKey');
 const PROTOCOL='GAME-CONNECT-4',MAX_FRAME=65536,MAX_CLEAR=32768,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
-const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),pendingReplays=new Set(),rates=new Map(),activeByIp=new Map();
+const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),pendingReplays=new Set();
 const work=require('./desktopWorkQueue'),{performance}=require('node:perf_hooks');
-let active=0,lastPrune=0,listener=null;
+const admission=new(require('./desktopConnectionAdmission').Admission)();
+const deviceRate=new(require('./desktopRequestRate').DeviceRate)();
+let lastPrune=0,listener=null;
 const rawDeadlines=new Map();
 function ConnectionKey(socket){return [socket.localAddress,socket.localPort,socket.remoteAddress,socket.remotePort].join('|');}
 function Aad(direction,requestId,keyId){return Buffer.from(PROTOCOL+'\n'+direction+'\n'+requestId+'\n'+keyId,'utf8');}
 function Plain(value){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype;}
-function Prune(){const at=Date.now();if(at-lastPrune<1000)return;lastPrune=at;for(const [id,until]of seen)if(until<=at)seen.delete(id);for(const [id,row]of rates)if(row.until<=at)rates.delete(id);}
-function Rate(key,limit){let row=rates.get(key);if(!row||row.until<=Date.now()){row={until:Date.now()+60000,count:0};rates.set(key,row);}if(rates.size>12000||++row.count>limit)throw Error('CONNECT_RATE_LIMIT');}
+function Prune(){const at=Date.now();if(at-lastPrune<1000)return;lastPrune=at;for(const [id,until]of seen)if(until<=at)seen.delete(id);}
 function Base64(value,min,max=min){if(typeof value!=='string'||value.length>Math.ceil(max/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(value))throw Error('CONNECT_FRAME_INVALID');const bytes=Buffer.from(value,'base64');if(bytes.length<min||bytes.length>max||bytes.toString('base64')!==value)throw Error('CONNECT_FRAME_INVALID');return bytes;}
 async function Open(frame,budgetMs,peerKey=''){
  if(!Plain(frame)||Object.keys(frame).sort().join(',')!=='ciphertext,keyId,nonce,requestId,tag,v,wrappedKey'||frame.v!==1||!/^([a-f0-9]{64})$/.test(frame.keyId||'')||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(frame.requestId||''))throw Error('CONNECT_FRAME_INVALID');
@@ -42,7 +43,7 @@ async function Dispatch(opened,absoluteDeadline){
  try{
   if(!Plain(payload)||!['body,operation','body,operation,tlsPinVersion'].includes(Object.keys(payload).sort().join(','))||(payload.tlsPinVersion!==undefined&&payload.tlsPinVersion!==1)||!Plain(payload.body)||!['challenge','execute','bootstrap','report','security','device'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
   require('./desktopRequestProtocol').Resolve(payload.operation,payload.body.action);
-  if(typeof payload.body.deviceId==='string')Rate('DEVICE:'+payload.body.deviceId.slice(0,100),40);
+  if(typeof payload.body.deviceId==='string')deviceRate.Take(payload.body.deviceId);
   // A retired server certificate must not authorize side effects, including
   // callers that did not request a transition offer. Check again after queued
   // proof work: waiting cannot extend the authenticated certificate window.
@@ -83,11 +84,12 @@ function CreateServer(){
  // Count and expire raw sockets before TLS authentication, including peers that
  // never send ClientHello. The same absolute budget covers handshake + request.
  server.on('connection',socket=>{
-  Prune();const ip=String(socket.remoteAddress||'UNKNOWN');
-  try{Rate('ALL',1800);Rate('IP:'+ip,1200);if(active>=512||(activeByIp.get(ip)||0)>=32)throw Error('CONNECT_CAPACITY');}catch(_){socket.destroy();return;}
-  const connectionKey=ConnectionKey(socket),expires=performance.now()+DEADLINE_MS;rawDeadlines.set(connectionKey,expires);active++;work.connections.active=active;activeByIp.set(ip,(activeByIp.get(ip)||0)+1);socket.on('error',()=>{});
+  Prune();socket.on('error',()=>{});
+  let ticket;try{ticket=admission.Acquire(String(socket.remoteAddress||''));}catch(_){socket.destroy();return;}
+  const connectionKey=ConnectionKey(socket),expires=performance.now()+DEADLINE_MS;
+  rawDeadlines.set(connectionKey,expires);work.connections.active=admission.active;
   const deadline=setTimeout(()=>socket.destroy(),DEADLINE_MS);deadline.unref();
-  socket.once('close',()=>{clearTimeout(deadline);if(rawDeadlines.get(connectionKey)===expires)rawDeadlines.delete(connectionKey);active--;work.connections.active=active;const count=(activeByIp.get(ip)||1)-1;if(count)activeByIp.set(ip,count);else activeByIp.delete(ip);});
+  socket.once('close',()=>{clearTimeout(deadline);if(rawDeadlines.get(connectionKey)===expires)rawDeadlines.delete(connectionKey);ticket.release();work.connections.active=admission.active;});
  });
  server.on('tlsClientError',(_error,socket)=>socket.destroy());
  return server;

@@ -203,7 +203,7 @@ function DrainAudit({reconcile=false}={}){
 function ReconcileOperations(){const result=require('./desktopBootstrap').ReconcileLicenseOperations(DB());return {...result,auditRecovered:DrainAudit({reconcile:true}),checkpointAuditRecovered:ReconcileCheckpoints()};}
 function BootstrapResult(result,payload,deviceId,action,operation={}){
  const row=DB().licenses[result.licenseId],replay=action==='verify'&&operation.projected===true;
- require('./desktopBootstrap').TouchLicense(payload.bootstrapSessionId,payload.bootstrapSessionToken,deviceId,row,action,{leaseExpiresAt:result.leaseExpiresAt||0,appVersion:payload.appVersion||'',...(replay?{replay:true}:{}),...(action==='verify'&&operation.originalAt?{originalAt:operation.originalAt,originalExpiresAt:operation.leaseExpiresAt}:{}),...(operation.operationId?{operationId:operation.operationId,operationRevision:operation.operationRevision}:{})});
+ require('./desktopBootstrap').TouchLicense(payload.bootstrapSessionId,payload.bootstrapSessionToken,deviceId,row,action,{leaseExpiresAt:result.leaseExpiresAt||0,appVersion:payload.appVersion||'',...(replay?{replay:true}:{}),...(['redeem','verify'].includes(action)?{originalAt:action==='redeem'?operation.at:operation.originalAt,originalExpiresAt:operation.leaseExpiresAt}:{}),...(operation.operationId?{operationId:operation.operationId,operationRevision:operation.operationRevision}:{})});
  if(action==='verify'){
   // This mutable marker belongs only to a process-local verify receipt. Durable
   // redeem/release receipts stay immutable in the append-only journal.

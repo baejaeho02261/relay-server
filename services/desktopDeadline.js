@@ -30,12 +30,13 @@ function CreatePersistentBounds({max = 131072} = {}) {
       if (!item || item.issuedAt !== issuedAt || item.expiresAt !== expiresAt) {
         // Only a newly committed generation may have a new deadline. Reading
         // the same capability again cannot extend its monotonic allowance.
-        if (item && (issuedAt < item.issuedAt || issuedAt === item.issuedAt && expiresAt < item.expiresAt)) return true;
+        if (item && (item.expired || issuedAt <= item.issuedAt)) return true;
         if (!item && entries.size >= max) return true;
         item = {issuedAt, expiresAt, deadline: at.tick + Math.max(0, expiresAt - at.wall)};
         entries.set(id, item);
       }
-      return Expired(item, at);
+      if (item.expired || Expired(item, at)) { item.expired = true; return true; }
+      return false;
     },
     forget(id) { entries.delete(id); }
   });
