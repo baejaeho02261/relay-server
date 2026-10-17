@@ -85,7 +85,13 @@
     "test:performance-dashboard-ui": "node scripts/test-performance-dashboard-ui.js",
     "test:lifecycle-windows": "node scripts/test-lifecycle-windows.js",
     "test:recovery-device-probe": "node scripts/test-recovery-device-probe.js",
-    "test:recovery-windows": "node scripts/test-recovery-windows.js"
+    "test:recovery-windows": "node scripts/test-recovery-windows.js",
+    "test:security:123": "node scripts/test-admin-https-security.js && node scripts/test-passkey-validation-security.js && node scripts/test-tcp-admission-security.js && node scripts/test-passkey-lifetime.js && node scripts/test-web-auth-hardening.js",
+    "check:admin-security": "node tools/check-admin-security.js",
+    "test:security:456": "node scripts/test-push-destination-security.js && node scripts/test-protected-operation-security.js && node scripts/test-authority-measurement-security.js && node scripts/test-native-measurement-security.js && node scripts/test-remaining-own-measurement.js",
+    "test:security:456:tls": "node scripts/test-push-transport-tls.js",
+    "test:security:78910": "node scripts/test-server-expiry-security.js && node scripts/test-admin-passkey-stepup-security.js && node scripts/test-authority-windows-security.js && node scripts/test-separated-signing-security.js",
+    "test:security:all": "npm run test:security:123 && npm run test:security:456 && npm run test:security:78910"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

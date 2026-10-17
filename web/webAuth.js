@@ -12,7 +12,7 @@ const SESSION_MS = policy.IntegerSetting('WEB_ADMIN_SESSION_MS', 30 * 60000, 5 *
 const ABSOLUTE_SESSION_MS = policy.IntegerSetting('WEB_ADMIN_ABSOLUTE_SESSION_MS', 12 * 60 * 60000, 5 * 60000, 7 * 24 * 60 * 60000);
 const REAUTH_MS = policy.IntegerSetting('DESKTOP_ADMIN_REAUTH_MS', 5 * 60000, 60000, 30 * 60000);
 const MAX_SESSIONS = policy.IntegerSetting('WEB_ADMIN_MAX_SESSIONS', 2048, 16, 100000);
-const trustedProxies = policy.ParseTrustedProxies(process.env.WEB_ADMIN_TRUSTED_PROXIES || '');
+const trustedProxies = policy.ParseTrustedProxies(require('./webTransport').TrustedProxySetting());
 const limiter = new policy.LoginLimiter({
     windowMs: policy.IntegerSetting('WEB_ADMIN_LOGIN_WINDOW_MS', 5 * 60000, 1000, 60 * 60000),
     ipMax: policy.IntegerSetting('WEB_ADMIN_LOGIN_IP_MAX', 20, 1, 10000),
@@ -46,7 +46,7 @@ function SessionCookie(req, token, maxAgeSeconds) {
         `${COOKIE_NAME}=${encodeURIComponent(token)}`, 'Path=/', 'HttpOnly', 'SameSite=Strict',
         `Max-Age=${Math.max(0, Math.floor(Math.min(maxAgeSeconds, ABSOLUTE_SESSION_MS / 1000)))}`
     ];
-    if (IsHttps(req) || process.env.WEB_ADMIN_SECURE_COOKIE === '1' || process.env.WEB_ADMIN_REQUIRE_HTTPS === '1') parts.push('Secure');
+    parts.push('Secure'); // Mandatory even when clearing a session cookie.
     return parts.join('; ');
 }
 function GetWebSecret(role) {
@@ -84,6 +84,7 @@ function CleanupSessions() {
     for (const session of Array.from(sessions.values())) IsSessionActive(session);
 }
 function CreateSession(req, role, options = {}) {
+    if (!IsHttps(req)) return null;
     role = ResolveAdminRole(role);
     if (!role) return null;
     CleanupSessions();
@@ -98,13 +99,14 @@ function CreateSession(req, role, options = {}) {
     sessionSecurity.set(session, {
         role, createdTick: tick, absoluteDeadline: tick + ABSOLUTE_SESSION_MS,
         idleDeadline: tick + Math.min(SESSION_MS, ABSOLUTE_SESSION_MS), authenticatedTick: tick,
-        authenticatedAt: now, credentialStamp: CredentialStamp(role), credentialId: options.credentialId || ''
+        authenticatedAt: now, credentialStamp: CredentialStamp(role), credentialId: options.credentialId || '',
+        passkeyAt: options.credentialId ? now : 0, passkeyTick: options.credentialId ? tick : 0
     });
     sessions.set(token, session);
     return session;
 }
 function CheckLoginAttempt(req, role) {
-    if (process.env.WEB_ADMIN_REQUIRE_HTTPS === '1' && !IsHttps(req))
+    if (!IsHttps(req))
         return { ok: false, status: 403, code: 'ADMIN_HTTPS_REQUIRED' };
     return limiter.Check(ClientIP(req), ResolveAdminRole(role) || 'unknown');
 }
@@ -125,7 +127,7 @@ function Login(req, role, password) {
     return { ok: true, session };
 }
 function Authenticate(req, refresh = true) {
-    if (process.env.WEB_ADMIN_REQUIRE_HTTPS === '1' && !IsHttps(req)) return null;
+    if (!IsHttps(req)) return null;
     const token = ParseCookies(req)[COOKIE_NAME] || '';
     if (!/^[a-f0-9]{64}$/.test(token)) return null;
     const session = sessions.get(token);
@@ -144,6 +146,12 @@ function HasRecentAuthentication(session) {
     return now >= meta.authenticatedAt && now - meta.authenticatedAt < REAUTH_MS &&
         tick >= meta.authenticatedTick && tick - meta.authenticatedTick < REAUTH_MS;
 }
+function HasRecentPasskey(session) {
+    if (!IsSessionActive(session)) return false;
+    const meta=sessionSecurity.get(session), now=Now(), tick=performance.now();
+    return !!meta.credentialId && meta.passkeyAt>0 && now>=meta.passkeyAt && now-meta.passkeyAt<REAUTH_MS &&
+        tick>=meta.passkeyTick && tick-meta.passkeyTick<REAUTH_MS;
+}
 function MarkReauthenticated(session, credentialId = '') {
     if (!IsSessionActive(session)) return false;
     if (credentialId) {
@@ -154,7 +162,7 @@ function MarkReauthenticated(session, credentialId = '') {
     meta.authenticatedAt = Now(); meta.authenticatedTick = performance.now();
     // A session established by a passkey remains tied to that credential even
     // after password reauthentication; revoking it still closes the session.
-    if (credentialId) meta.credentialId = credentialId;
+    if (credentialId) { meta.credentialId = credentialId; meta.passkeyAt = Now(); meta.passkeyTick = performance.now(); }
     return true;
 }
 function Reauthenticate(req, session, password) {
@@ -208,5 +216,5 @@ module.exports = {
     COOKIE_NAME, SESSION_MS, ABSOLUTE_SESSION_MS, REAUTH_MS, ClientIP, IsHttps, SessionCookie,
     Login, CreateSession, Authenticate, IsSessionActive, IsManagedSession: session => managedSessions.has(session), Logout, ValidateCsrf, Can, IsAdmin,
     ListSessions, SessionSummary, RevokeSession, RevokeOtherSessions, RevokeAllSessions, RevokeRoleSessions,
-    CheckLoginAttempt, HasRecentAuthentication, MarkReauthenticated, Reauthenticate
+    CheckLoginAttempt, HasRecentAuthentication, HasRecentPasskey, MarkReauthenticated, Reauthenticate
 };

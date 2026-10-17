@@ -25,7 +25,7 @@ async function Handle(c){
     if(method==='POST'&&pathname==='/api/production/dual-policy'){if(!RequireAdmin(res,session))return true;Json(res,200,privileged.SetRequired(body.required,session.id));return true;}
     if(method==='POST'&&pathname==='/api/production/approvals/request'){if(!RequireAdmin(res,session))return true;const r=privileged.Request(session,body.method,body.pathname,body.payload,body.note);if(!r.ok)ApiError(res,400,r.reason);else Json(res,200,r);return true;}
     if(method==='POST'&&pathname==='/api/production/approvals/approve'){if(!RequireAdmin(res,session))return true;const r=privileged.Approve(body.ticketId,session);if(!r.ok)ApiError(res,409,r.reason);else Json(res,200,r);return true;}
-    if(method==='POST'&&pathname==='/api/production/passkeys/register/begin'){if(!RequireAdmin(res,session))return true;const r=passkeys.RegistrationBegin(session,req);if(!r.ok)ApiError(res,400,r.reason);else Json(res,200,r);return true;}
+    if(method==='POST'&&pathname==='/api/production/passkeys/register/begin'){if(!RequireAdmin(res,session))return true;const r=passkeys.RegistrationBegin(session,req);require('../../services/desktopAdminEnrollment').Bind(session,r);if(!r.ok)ApiError(res,400,r.reason);else Json(res,200,r);return true;}
     if(method==='POST'&&pathname==='/api/production/passkeys/register/finish'){if(!RequireAdmin(res,session))return true;const r=passkeys.RegistrationFinish(session,req,body);if(!r.ok)ApiError(res,400,r.reason);else Json(res,200,r);return true;}
     if(method==='POST'&&pathname==='/api/production/passkeys/revoke'){if(!RequireAdmin(res,session))return true;const r=passkeys.Revoke(body.id,session.id);if(!r.ok)ApiError(res,404,r.reason);else Json(res,200,r);return true;}
     return false;

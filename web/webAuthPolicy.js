@@ -65,7 +65,9 @@ function RequestOrigin(req, rules) {
     const direct = { ip: peer ? peer.text : 'unknown', https: !!(req.socket && req.socket.encrypted) };
     if (!Trusted(peer, rules)) return direct;
     const proto = req.headers && req.headers['x-forwarded-proto'];
-    if (!direct.https && typeof proto === 'string' && proto.toLowerCase() === 'https') direct.https = true;
+    // When a trusted proxy reports the client scheme, its exact single value
+    // is authoritative, including HTTP or malformed/duplicated values.
+    if (proto !== undefined) direct.https = typeof proto === 'string' && proto.toLowerCase() === 'https';
     const forwarded = req.headers && req.headers['x-forwarded-for'];
     if (typeof forwarded !== 'string' || forwarded.length > 2048) return direct;
     const raw = forwarded.split(',');

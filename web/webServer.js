@@ -1,6 +1,6 @@
 'use strict';
 
-const http = require('http');
+const webTransport = require('./webTransport');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -37,6 +37,7 @@ const MIME = {
 };
 
 function SecurityHeaders(req, res) {
+    if (require('./webAuth').IsHttps(req)) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
@@ -102,6 +103,12 @@ function ServeUpdateArtifact(req, res, pathname, url) {
         return true;
     }
     const stat = fs.statSync(file);
+    // Filesystem work can cross a deadline; validate the live capability again
+    // before sending headers/bytes. This cannot recall bytes already delivered.
+    if (!stat.isFile() || !releaseManager.VerifyDownload(artifactId, url.searchParams.get('exp'), url.searchParams.get('sig'))) {
+        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+        res.end('Forbidden'); return true;
+    }
     res.writeHead(200, {
         'Content-Type': release.type === 'CLIENT' && file.toLowerCase().endsWith('.apk') ? 'application/vnd.android.package-archive' : 'application/octet-stream',
         'Content-Length': stat.size,
@@ -179,6 +186,15 @@ async function RequestHandler(req, res) {
         if (ServeUpdateArtifact(req, res, pathname, url)) return;
     }
 
+    // Public readiness/legacy signed downloads above retain their own rules.
+    // Reject admin UI, session, SSE and all admin API traffic before body reads.
+    if (!require('./webAuth').IsHttps(req)) {
+        res.setHeader('Cache-Control', 'no-store');
+        res.setHeader('Connection', 'close');
+        ApiError(res, 403, 'ADMIN_HTTPS_REQUIRED');
+        return;
+    }
+
     if (pathname === '/api/login' && method === 'POST') {
         let body;
         try { body = await ReadJsonBody(req); }
@@ -240,7 +256,7 @@ async function RequestHandler(req, res) {
             Json(res, 200, {
                 ok: true,
                 role: session.role,
-                csrf: session.csrf,
+                id: session.id, csrf: session.csrf,
                 expiresAt: session.expiresAt
             });
             return;
@@ -307,7 +323,7 @@ async function RequestHandler(req, res) {
             if (!limited.ok) { AuthFailure(res, limited); return; }
             const passkeys = require('../services/passkeyAuth');
             if (pathname.endsWith('/begin')) {
-                const result = passkeys.LoginBegin(session.role, req);
+                const result = passkeys.LoginBegin(session.role, req, session);
                 if (!result.ok) { AuthFailure(res, result); return; }
                 reauthChallenges.set(session, { id: result.challengeId, expiresAt: Date.now() + 5 * 60000 });
                 Json(res, 200, result); return;
@@ -317,7 +333,7 @@ async function RequestHandler(req, res) {
             if (!pending || pending.expiresAt <= Date.now() || pending.id !== body.challengeId) {
                 ApiError(res, 403, 'REAUTH_CHALLENGE_INVALID'); return;
             }
-            const result = passkeys.LoginFinish(req, body);
+            const result = passkeys.LoginFinish(req, body, session);
             if (!result.ok || result.role !== session.role || !require('./webAuth').MarkReauthenticated(session, result.credentialId)) {
                 ApiError(res, 403, 'REAUTH_FAILED'); return;
             }
@@ -371,7 +387,7 @@ function StartWebAdmin() {
     const ui = uiBundle.Check();
     if (!ui.ready) console.error('[WEB_UI_FILES_MISMATCH]', ui.issues.join(', '));
 
-    const server = http.createServer((req, res) => {
+    const transport = webTransport.CreateServer((req, res) => {
         Promise.resolve(RequestHandler(req, res)).catch(error => {
             const reference = crypto.randomBytes(6).toString('hex').toUpperCase();
             console.error(
@@ -383,9 +399,10 @@ function StartWebAdmin() {
         });
     });
 
+    const { server } = transport;
     server.on('error', error => console.error('WEB ADMIN SERVER ERROR:', error.message));
-    server.listen(port, config.HOST, () => {
-        console.log('Web Admin HTTP Port:', port);
+    server.listen(port, transport.host, () => {
+        console.log('Web Admin transport:', transport.mode, 'bind:', transport.host, 'port:', port);
         if (!config.ADMIN_CREDENTIALS.admin) console.log('Web Admin admin role disabled: ADMIN_SECRET is not configured.');
     });
     return server;

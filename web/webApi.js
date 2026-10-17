@@ -36,7 +36,7 @@ async function HandleApiRequest(req, res, session) {
     const desktopGuard=require('../services/desktopAdminGuard');
     if(!['GET','HEAD'].includes(method)&&desktopGuard.IsMutation(pathname)) {
         if(!require('./webAuth').ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return;}
-        const guarded=desktopGuard.Authorize(session,method,pathname,body,String(req.headers['x-approval-ticket']||''));
+        const guarded=desktopGuard.Authorize(session,method,pathname,body,String(req.headers['x-approval-ticket']||''),String(req.headers['x-admin-enrollment-token']||''));
         if(!guarded.ok){ApiError(res,guarded.status||428,guarded.reason,guarded.ticketId||'');return;}
         desktopAuthorization=guarded;
     }
