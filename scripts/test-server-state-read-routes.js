@@ -13,7 +13,7 @@ verification.Context=manifestId=>{calls++;return {manifestId,publicationApproval
 lifecycle.Overview=options=>{calls++;return {options,authorityGranted:false};};
 performance.Snapshot=options=>{calls++;return {options,scope:'OPERATIONAL_OBSERVATION_NOT_AUTHORITY'};};
 audit.RecordAccess=(kind)=>{assert.equal(kind,'ADMIN_STORAGE_READ');reads++;};
-const prefix='/api/desktop/bootstrap/server-state',req={headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:false}};
+const prefix='/api/desktop/bootstrap/server-state',req={headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:true}};
 async function request(suffix,session,method='GET'){
  const url=new URL(prefix+suffix,'http://localhost');let code,body;
  const res={writeHead(c){code=c;},end(text){body=JSON.parse(text);}};

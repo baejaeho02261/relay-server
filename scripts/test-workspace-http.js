@@ -24,12 +24,12 @@ async function stop() {
     const timer = setTimeout(() => child.kill('SIGKILL'), 5000); await exited; clearTimeout(timer);
 }
 async function call(url, body, auth, options = {}) {
-    // Admin calls use real HTTP. Native authorization uses pinned TLS only.
+    // Admin calls simulate the on-host hop of a trusted HTTPS proxy. Native authorization uses pinned TLS only.
     if (['/api/desktop/challenge','/api/desktop/execute'].includes(url)) {
         const json=await require('./tls-request-fixture').Request(nativeProfile,url.endsWith('challenge')?'challenge':'execute',body);
         return {status:json.ok?200:0,json};
     }
-    const headers = { ...(options.headers || {}) };
+    const headers = { 'X-Forwarded-Proto': 'https', ...(options.headers || {}) };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (auth) { headers.Cookie = auth.cookie; if (options.csrf !== false) headers['X-CSRF-Token'] = auth.csrf; }
     const response = await fetch(base + url, { method: body === undefined ? 'GET' : 'POST', headers,
@@ -42,6 +42,7 @@ async function start() {
     while (tcpPort === port) tcpPort = await freePort();
     child = spawn(process.execPath, ['server.js'], { cwd: root, env: { ...process.env, DATA_DIR: dataDir,
         STORAGE_ENGINE: 'json', PORT: String(tcpPort), CONNECT_TCP_PORT: String(tcpPort), WEB_ADMIN_PORT: String(port), HEALTH_PORT: '0', HA_ENABLED: '0',
+        WEB_ADMIN_TRANSPORT: 'proxy', WEB_ADMIN_HOST: '127.0.0.1', WEB_ADMIN_TRUSTED_PROXIES: '127.0.0.1/32', WEB_ADMIN_REQUIRE_HTTPS: '1', WEB_ADMIN_SECURE_COOKIE: '1',
         ADMIN_SECRET: adminPassword, DESKTOP_ALLOW_HTTP_LOOPBACK: '1', DESKTOP_TRUST_PROXY: '0',
         VIEWER_SECRET: viewerPassword, DESKTOP_PUBLIC_HOST: '127.0.0.1', DESKTOP_PUBLIC_PORT: String(tcpPort),
         VAPID_PUBLIC_KEY: '', VAPID_PRIVATE_KEY: '' }, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -89,7 +90,7 @@ async function signed(device, action, payload) {
 }
 async function execute(device, action, payload) { return call('/api/desktop/execute', await signed(device, action, payload)); }
 async function upload(component, bytes, auth, csrf = true) {
-    const headers = { 'Content-Type': 'application/octet-stream' };
+    const headers = { 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/octet-stream' };
     const approval=releaseSigner.Approval(component,'80.0.0',bytes);
     headers['x-game-release-key-id']=approval.keyId;headers['x-game-release-signature']=approval.signature;
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
@@ -97,14 +98,14 @@ async function upload(component, bytes, auth, csrf = true) {
     return { status: response.status, json: await response.json() };
 }
 async function uploadBaseline(bytes, auth, csrf = true, fileName = 'ntdll.dll') {
-    const headers = { 'Content-Type': 'application/octet-stream' };
+    const headers = { 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/octet-stream' };
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
     const response = await fetch(base + '/api/desktop/bootstrap/module-baselines?fileName=' + encodeURIComponent(fileName) + '&label=HTTP-test', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
 async function bootstrapDevice(device, auth) {
     const issue = await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID(), label: device.name }, auth); assert.equal(issue.status, 200);
-    const response = await fetch(base + issue.json.downloadUrl, { headers: { Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
+    const response = await fetch(base + issue.json.downloadUrl, { headers: { 'X-Forwarded-Proto': 'https', Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
     assert.match(issue.json.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(response.headers.get('content-disposition'),'attachment; filename="'+issue.json.downloadName+'"');assert.match(response.headers.get('content-type'), /application\/octet-stream/); assert.match(response.headers.get('cache-control'), /no-store/);
     const launcher = Buffer.from(await response.arrayBuffer()); assert.equal(bootstrapFixture.Config(launcher).launcherId, issue.json.launcherId);
     device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher);
@@ -143,7 +144,7 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
  });
  let issued,dev,manualKey;
  await test('A issuance needs no selected license and does not consume a key',async()=>{const before=(await call(w+'/licenses',undefined,auth)).json.filteredCount;const result=await call('/api/desktop/bootstrap/launchers',{requestId:crypto.randomUUID(),label:'User console'},auth);assert.equal(result.status,200,JSON.stringify(result.json));issued=result.json;assert.ok(issued.launcherId);assert.equal((await call(w+'/licenses',undefined,auth)).json.filteredCount,before);const key=await call('/api/desktop/licenses',{requestId:crypto.randomUUID(),label:'Manual key after A issuance'},auth);assert.equal(key.status,200,JSON.stringify(key.json));manualKey=key.json.licenseKey;licenseIds[0]=key.json.license.id;});
- await test('Real encrypted TLS bootstrap and signed redeem accept the entered KEY, not the old automatic marker',async()=>{const response=await fetch(base+issued.downloadUrl,{headers:{Cookie:auth.cookie}}),bytes=Buffer.from(await response.arrayBuffer());assert.equal(response.status,200);assert.ok(!JSON.stringify(bootstrapFixture.Config(bytes)).includes(licenseIds[0]));dev=device('Workspace user');dev.bootstrap=await bootstrapFixture.RemoteSession(dev,bytes);const marker=await execute(dev,'redeem',{licenseKey:'SERVER_ASSIGNED_V1',appVersion:'92.0'});assert.equal(marker.json.ok,false);assert.equal(marker.json.error,'DESKTOP_KEY_INVALID');const p=await signed(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'}),invalid={...p,signature:'A'.repeat(342)+'=='};const bad=await call('/api/desktop/execute',invalid);assert.equal(bad.json.ok,false);const result=await execute(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'});assert.equal(result.json.ok,true,JSON.stringify(result));assert.equal(result.json.data.licenseId,licenseIds[0]);dev.activationToken=result.json.data.activationToken;});
+ await test('Real encrypted TLS bootstrap and signed redeem accept the entered KEY, not the old automatic marker',async()=>{const response=await fetch(base+issued.downloadUrl,{headers:{'X-Forwarded-Proto':'https',Cookie:auth.cookie}}),bytes=Buffer.from(await response.arrayBuffer());assert.equal(response.status,200);assert.ok(!JSON.stringify(bootstrapFixture.Config(bytes)).includes(licenseIds[0]));dev=device('Workspace user');dev.bootstrap=await bootstrapFixture.RemoteSession(dev,bytes);const marker=await execute(dev,'redeem',{licenseKey:'SERVER_ASSIGNED_V1',appVersion:'92.0'});assert.equal(marker.json.ok,false);assert.equal(marker.json.error,'DESKTOP_KEY_INVALID');const p=await signed(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'}),invalid={...p,signature:'A'.repeat(342)+'=='};const bad=await call('/api/desktop/execute',invalid);assert.equal(bad.json.ok,false);const result=await execute(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'});assert.equal(result.json.ok,true,JSON.stringify(result));assert.equal(result.json.data.licenseId,licenseIds[0]);dev.activationToken=result.json.data.activationToken;});
  await test('Native request diagnostics arrive in admin detail without raw tokens or payloads',async()=>{const r=(await call(w+'/licenses/'+licenseIds[0],undefined,auth)).json;assert.ok(r.timeline.some(x=>x.type==='DESKTOP_RUNTIME_REQUEST_FAILED'),JSON.stringify(r.timeline));assert.ok(r.timeline.some(x=>x.type==='B_CLAIMED'));assert.ok(!JSON.stringify(r).includes(dev.bootstrap.sessionToken));assert.ok(!JSON.stringify(r).includes(dev.activationToken));});
  await test('Original verification and release remain authenticated and functional',async()=>{assert.equal((await execute(dev,'verify',{activationToken:dev.activationToken,appVersion:'91.0'})).json.ok,true);assert.equal((await execute(dev,'release',{activationToken:dev.activationToken})).json.data.released,true);});
  console.log(`Workspace HTTP/TLS: ${passed} scenarios passed. Real HTTP/auth/CSRF + encrypted TLS and RSA; synthetic PE, not a Windows EXE test.`);

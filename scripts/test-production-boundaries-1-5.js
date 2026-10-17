@@ -6,7 +6,7 @@
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs');
 const path=require('node:path'),os=require('node:os'),http=require('node:http'),vm=require('node:vm'),Module=require('node:module');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-boundaries-1-5-'));
-Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',ADMIN_SECRET:'SYNTHETIC-ADMIN-1-5',VIEWER_SECRET:'SYNTHETIC-VIEWER-1-5',OPERATOR_SECRET:'SYNTHETIC-OPERATOR-1-5',DESKTOP_ADMIN_REAUTH_REQUIRED:'0',WEB_ADMIN_LOGIN_IP_MAX:'10000',WEB_ADMIN_LOGIN_ROLE_MAX:'10000',WEB_ADMIN_LOGIN_GLOBAL_MAX:'10000'});
+Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',ADMIN_SECRET:'SYNTHETIC-ADMIN-1-5',VIEWER_SECRET:'SYNTHETIC-VIEWER-1-5',OPERATOR_SECRET:'SYNTHETIC-OPERATOR-1-5',WEB_ADMIN_TRUSTED_PROXIES:'127.0.0.1/32',DESKTOP_ADMIN_REAUTH_REQUIRED:'0',WEB_ADMIN_LOGIN_IP_MAX:'10000',WEB_ADMIN_LOGIN_ROLE_MAX:'10000',WEB_ADMIN_LOGIN_GLOBAL_MAX:'10000'});
 require('../core/utils').EnsureDirs();
 const web=require('../web/webAuth'),guard=require('../services/desktopAdminGuard');
 const deadline=require('../services/desktopDeadline'),protocol=require('../services/desktopRequestProtocol'),delegation=require('../services/desktopHandoffDelegation');
@@ -18,7 +18,7 @@ const atest=async(name,run)=>{await run();checks++;console.log('PASS '+name);};
 const reject=(fn,code)=>assert.throws(fn,e=>e.message===code,code);
 const sha=x=>crypto.createHash('sha512').update(x).digest('hex');
 const mutationRoot='/api/desktop/bootstrap/security-operations';
-const request=()=>({headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:false}});
+const request=()=>({headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:true}});
 function WithClock(wall,tick,run){
  const {performance}=require('node:perf_hooks'),old=Object.getOwnPropertyDescriptor(performance,'now');
  Date.now=()=>wall;Object.defineProperty(performance,'now',{configurable:true,value:()=>tick});
@@ -76,7 +76,7 @@ function record(k,m,result='PASS'){return ops.RecordCiEvidence({expectedRevision
 function call(route,body,session,csrf=true){
  return new Promise((resolve,rejectPromise)=>{
   const bytes=body===undefined?null:Buffer.from(JSON.stringify(body));
-  const req=http.request({host:'127.0.0.1',port:server.address().port,path:mutationRoot+'/'+route,method:bytes?'POST':'GET',headers:{...(bytes?{'Content-Type':'application/json','Content-Length':bytes.length}:{}),...(session?{Cookie:web.COOKIE_NAME+'='+session.token,'X-CSRF-Token':csrf?session.csrf:'wrong'}:{})}},res=>{
+  const req=http.request({host:'127.0.0.1',port:server.address().port,path:mutationRoot+'/'+route,method:bytes?'POST':'GET',headers:{'X-Forwarded-Proto':'https',...(bytes?{'Content-Type':'application/json','Content-Length':bytes.length}:{}),...(session?{Cookie:web.COOKIE_NAME+'='+session.token,'X-CSRF-Token':csrf?session.csrf:'wrong'}:{})}},res=>{
    let text='';res.on('data',x=>text+=x);res.on('end',()=>{try{resolve({status:res.statusCode,body:JSON.parse(text)});}catch(e){rejectPromise(e);}});
   });req.on('error',rejectPromise);req.setTimeout(5000,()=>req.destroy(Error('TEST_HTTP_TIMEOUT')));req.end(bytes);
  });

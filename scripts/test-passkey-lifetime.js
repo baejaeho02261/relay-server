@@ -6,6 +6,8 @@ const crypto = require('node:crypto');
 const { Isolated } = require('./completion-6-10-fixture');
 const realDeadline = require('../services/desktopDeadline');
 const pair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+process.env.WEBAUTHN_RP_ID = 'localhost'; process.env.WEBAUTHN_ORIGIN = 'https://localhost';
+const wire = require('./passkey-wire-fixture');
 const request = { headers: { host: 'localhost' } };
 const b64 = value => Buffer.from(value).toString('base64url');
 let count = 0;
@@ -14,7 +16,7 @@ function fixture() {
     const credentialId = b64(crypto.randomBytes(32));
     const record = { id: 'ABCDEF0123456789ABCDEF01', credentialId, role: 'admin',
         publicKeySpki: pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64url'),
-        signCount: 0, lastUsedAt: 0, revokedAt: 0 };
+        rpId: 'localhost', signCount: 0, lastUsedAt: 0, revokedAt: 0 };
     const credentials = new Map([[record.id, record]]);
     const passkey = Isolated('services/passkeyAuth.js', [], {
         crypto: { ...crypto, verify(...args) { const valid = crypto.verify(...args); afterVerify(); return valid; } },
@@ -43,11 +45,7 @@ function fixture() {
         const session = { id: 'registration-admin', role: 'admin' };
         const start = passkey.RegistrationBegin(session, request);
         assert.equal(start.ok, true);
-        const auth = Buffer.alloc(37);
-        crypto.createHash('sha256').update('localhost').digest().copy(auth);
-        auth[32] = 5; auth.writeUInt32BE(signCount, 33);
-        return { session, body: { challengeId: start.challengeId, credentialId: b64(crypto.randomBytes(32)),
-            publicKeySpki: record.publicKeySpki, authenticatorData: b64(auth), name: 'Synthetic credential',
+        return { session, body: { challengeId: start.challengeId, ...wire.Registration('localhost', pair.publicKey, crypto.randomBytes(32), signCount), name: 'Synthetic credential',
             clientDataJSON: b64(JSON.stringify({ type: 'webauthn.create', challenge: start.publicKey.challenge, origin: 'https://localhost' })) } };
     }
     return { passkey, record, credentials, assertion, registration,

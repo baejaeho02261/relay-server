@@ -8,7 +8,7 @@ Object.assign(process.env, { DATA_DIR: temp, STORAGE_ENGINE: 'json', HA_ENABLED:
     ADMIN_SECRET: 'test-admin-secret', OPERATOR_SECRET: 'test-operator-secret', VIEWER_SECRET: 'test-viewer-secret',
     WEB_ADMIN_TRUSTED_PROXIES: '127.0.0.1,::1', WEB_ADMIN_SESSION_MS: '1800000', WEB_ADMIN_ABSOLUTE_SESSION_MS: '43200000',
     WEB_ADMIN_LOGIN_IP_MAX: '20', WEB_ADMIN_LOGIN_ROLE_MAX: '200', WEB_ADMIN_LOGIN_GLOBAL_MAX: '1000',
-    DESKTOP_ADMIN_REAUTH_REQUIRED: '0', DESKTOP_SECURITY_STEP_UP_REQUIRED: '0', WEB_ADMIN_REQUIRE_HTTPS: '0', WEB_ADMIN_SECURE_COOKIE: '0'
+    DESKTOP_ADMIN_REAUTH_REQUIRED: '0', DESKTOP_SECURITY_STEP_UP_REQUIRED: '0', WEB_ADMIN_REQUIRE_HTTPS: '1', WEB_ADMIN_SECURE_COOKIE: '1', WEBAUTHN_RP_ID: 'localhost', WEBAUTHN_ORIGIN: 'https://localhost'
 });
 require('../core/utils').EnsureDirs();
 const policy = require('../web/webAuthPolicy'), web = require('../web/webAuth'), guard = require('../services/desktopAdminGuard');
@@ -16,7 +16,7 @@ const state = require('../core/state'), realNow = Date.now;
 let now = realNow(), tests = 0, server;
 const readWaiters = new Map();
 Date.now = () => now;
-const req = (ip = '192.0.2.10', headers = {}, encrypted = false) => ({ socket: { remoteAddress: ip, encrypted }, headers });
+const req = (ip = '192.0.2.10', headers = {}, encrypted = true) => ({ socket: { remoteAddress: ip, encrypted }, headers });
 const cookieReq = session => req('192.0.2.10', { cookie: web.COOKIE_NAME + '=' + session.token });
 function test(name, run) { run(); tests++; console.log('PASS ' + name); }
 async function atest(name, run) { await run(); tests++; console.log('PASS ' + name); }
@@ -24,6 +24,7 @@ function call(url, body, session, headers = {}) {
     return new Promise((resolve, reject) => {
         const data = body === undefined ? null : Buffer.from(JSON.stringify(body));
         const r = http.request({ host: '127.0.0.1', port: server.address().port, path: url, method: data ? 'POST' : 'GET', headers: {
+            'X-Forwarded-Proto': 'https', Host: 'localhost',
             ...(data ? { 'Content-Type': 'application/json', 'Content-Length': data.length } : {}),
             ...(session ? { Cookie: web.COOKIE_NAME + '=' + session.token, 'X-CSRF-Token': session.csrf } : {}), ...headers
         } }, res => { let text = ''; res.on('data', x => text += x); res.on('end', () => { try { resolve({ status: res.statusCode, data: JSON.parse(text), headers: res.headers }); } catch (e) { reject(e); } }); });
@@ -39,7 +40,7 @@ async function delayedCall(url, body, session, interrupt, raw = false) {
     const completed = new Promise((resolve, reject) => {
         request = http.request({host:'127.0.0.1',port:server.address().port,path:url,method:'POST',headers:{
             'Content-Type': raw ? 'application/octet-stream' : 'application/json', 'Content-Length':bytes.length,
-            'X-Test-Read-Barrier':barrier,Cookie:web.COOKIE_NAME+'='+session.token,'X-CSRF-Token':session.csrf
+            'X-Forwarded-Proto':'https',Host:'localhost','X-Test-Read-Barrier':barrier,Cookie:web.COOKIE_NAME+'='+session.token,'X-CSRF-Token':session.csrf
         }}, response => {let text='';response.on('data', x=>text+=x);response.on('end',()=>{try{resolve({status:response.statusCode,data:JSON.parse(text)});}catch(error){reject(error);}});});
         request.on('error',reject);request.setTimeout(5000,()=>request.destroy(Error('TEST_TIMEOUT')));
     });
@@ -53,7 +54,7 @@ async function delayedCall(url, body, session, interrupt, raw = false) {
 (async () => {
 try {
     test('Untrusted peer cannot spoof client address or HTTPS', () => {
-        assert.deepEqual(policy.RequestOrigin(req('192.0.2.1', { 'x-forwarded-for': '1.1.1.1', 'x-forwarded-proto': 'https' }), policy.ParseTrustedProxies('127.0.0.1')), { ip: '192.0.2.1', https: false });
+        assert.deepEqual(policy.RequestOrigin(req('192.0.2.1', { 'x-forwarded-for': '1.1.1.1', 'x-forwarded-proto': 'https' }, false), policy.ParseTrustedProxies('127.0.0.1')), { ip: '192.0.2.1', https: false });
         assert.equal(web.IsHttps(req('192.0.2.1', {}, true)), true);
     });
     test('Trusted CIDR follows chain from peer and stops at first untrusted hop', () => {
@@ -119,15 +120,13 @@ try {
         assert.equal(web.Authenticate(req('192.0.2.1', { cookie: `${web.COOKIE_NAME}=${admin.token}; ${web.COOKIE_NAME}=${admin.token}` })), null);
         assert.ok(web.RevokeRoleSessions('admin') >= 1); assert.equal(web.IsSessionActive(admin), false); assert.equal(web.IsSessionActive(viewer), true);
     });
-    test('Local HTTP stays compatible; explicit production HTTPS rejects spoofed direct requests', () => {
-        assert.ok(!web.SessionCookie(req('127.0.0.1'), 'x', 60).includes('; Secure'));
-        process.env.WEB_ADMIN_REQUIRE_HTTPS = '1';
-        assert.equal(web.Login(req('192.0.2.1', { 'x-forwarded-proto': 'https' }), 'admin', process.env.ADMIN_SECRET).code, 'ADMIN_HTTPS_REQUIRED');
+    test('HTTPS is mandatory even when old opt-out flags are set; secure cookies are unconditional', () => {
+        process.env.WEB_ADMIN_REQUIRE_HTTPS = '0'; process.env.WEB_ADMIN_SECURE_COOKIE = '0';
+        assert.ok(web.SessionCookie(req('127.0.0.1', {}, false), 'x', 60).includes('; Secure'));
+        assert.equal(web.Login(req('192.0.2.1', { 'x-forwarded-proto': 'https' }, false), 'admin', process.env.ADMIN_SECRET).code, 'ADMIN_HTTPS_REQUIRED');
         assert.equal(web.Login(req('192.0.2.1', {}, true), 'admin', process.env.ADMIN_SECRET).ok, true);
-        assert.equal(web.Login(req('127.0.0.1', { 'x-forwarded-proto': 'https' }), 'admin', process.env.ADMIN_SECRET).ok, true);
-        assert.ok(web.SessionCookie(req('127.0.0.1'), 'x', 60).includes('; Secure'));
-        process.env.WEB_ADMIN_REQUIRE_HTTPS = '0'; process.env.WEB_ADMIN_SECURE_COOKIE = '1';
-        assert.ok(web.SessionCookie(req(), 'x', 60).includes('; Secure')); process.env.WEB_ADMIN_SECURE_COOKIE = '0';
+        assert.equal(web.Login(req('127.0.0.1', { 'x-forwarded-proto': 'https' }, false), 'admin', process.env.ADMIN_SECRET).ok, true);
+        process.env.WEB_ADMIN_REQUIRE_HTTPS = '1'; process.env.WEB_ADMIN_SECURE_COOKIE = '1';
     });
     const { RequestHandler } = require('../web/webServer');
     server = http.createServer((request, response) => {
@@ -140,7 +139,7 @@ try {
     });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     let admin;
-    await atest('Real HTTP password login, cookie and CSRF routes work', async () => {
+    await atest('Trusted HTTPS-proxy hop: password login, cookie and CSRF routes work', async () => {
         const login = await call('/api/login', { role: 'admin', password: process.env.ADMIN_SECRET }); assert.equal(login.status, 200);
         const token = login.headers['set-cookie'][0].split(';')[0].split('=')[1]; admin = web.Authenticate(req('127.0.0.1', { cookie: web.COOKIE_NAME + '=' + token }), false);
         assert.equal((await call('/api/session', undefined, admin)).status, 200);
@@ -180,29 +179,29 @@ try {
     await atest('Critical reauth is mandatory by default; the optional flag only extends its scope', async () => {
         now += web.REAUTH_MS + 1;
         const route = '/api/desktop/bootstrap/security-authority';
-        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_REAUTH_REQUIRED');
+        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_PASSKEY_REQUIRED');
         assert.equal(guard.Authorize(admin, 'POST', '/api/desktop/bootstrap/security-operations/plan-release', {}).ok, true);
-        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
+        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
         process.env.DESKTOP_ADMIN_REAUTH_REQUIRED = '1';
-        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
-        for(const action of ['plan-release','recovery/prepare','recovery/apply'])assert.equal((await call('/api/desktop/bootstrap/security-operations/'+action, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
-        assert.equal((await call('/api/desktop/bootstrap/artifacts?component=O&version=1.0.0&fileName=O.exe', {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
+        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
+        for(const action of ['plan-release','recovery/prepare','recovery/apply'])assert.equal((await call('/api/desktop/bootstrap/security-operations/'+action, {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
+        assert.equal((await call('/api/desktop/bootstrap/artifacts?component=O&version=1.0.0&fileName=O.exe', {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
         assert.equal((await call('/api/session/reauthenticate', { password: 'wrong' }, admin)).data.error, 'REAUTH_FAILED');
-        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_REAUTH_REQUIRED');
+        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_PASSKEY_REQUIRED');
         assert.equal((await call('/api/session/reauthenticate', { password: process.env.ADMIN_SECRET }, admin)).status, 200);
-        assert.equal(guard.Authorize(admin, 'POST', route, {}).ok, true);
-        // Invalid policy body now reaches validation; the reauth gate has opened.
-        const result = await call(route, {}, admin); assert.notEqual(result.status, 428); assert.notEqual(result.status, 500);
+        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_PASSKEY_REQUIRED');
+        assert.equal((await call(route, {}, admin)).status,428); // password never upgrades to recent passkey
     });
     await atest('Passkey reauthentication is bound to the initiating session and verifies a real signature', async () => {
         const pair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' }), credentialId = crypto.randomBytes(24).toString('base64url');
-        state.production.passkeyCredentials.set('fixture', { id: 'fixture', role: 'admin', credentialId, publicKeySpki: pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64url'), revokedAt: 0, signCount: 0 });
+        state.production.passkeyCredentials.set('fixture', { id: 'fixture', role: 'admin', rpId: 'localhost', credentialId, publicKeySpki: pair.publicKey.export({ type: 'spki', format: 'der' }).toString('base64url'), revokedAt: 0, signCount: 0 });
         const begin = await call('/api/session/reauthenticate/passkey/begin', {}, admin); assert.equal(begin.status, 200);
-        const client = Buffer.from(JSON.stringify({ type: 'webauthn.get', challenge: begin.data.publicKey.challenge, origin: `http://127.0.0.1:${server.address().port}` }));
-        const auth = Buffer.alloc(37); crypto.createHash('sha256').update('127.0.0.1').digest().copy(auth); auth[32] = 5; auth.writeUInt32BE(1, 33);
+        const client = Buffer.from(JSON.stringify({ type: 'webauthn.get', challenge: begin.data.publicKey.challenge, origin: 'https://localhost' }));
+        const auth = Buffer.alloc(37); crypto.createHash('sha256').update('localhost').digest().copy(auth); auth[32] = 5; auth.writeUInt32BE(1, 33);
         const proof = { challengeId: begin.data.challengeId, credentialId, clientDataJSON: client.toString('base64url'), authenticatorData: auth.toString('base64url'), signature: crypto.sign('sha256', Buffer.concat([auth, crypto.createHash('sha256').update(client).digest()]), pair.privateKey).toString('base64url') };
         const other = web.CreateSession(req(), 'admin'); assert.equal((await call('/api/session/reauthenticate/passkey/finish', proof, other)).data.error, 'REAUTH_CHALLENGE_INVALID');
         assert.equal((await call('/api/session/reauthenticate/passkey/finish', proof, admin)).status, 200);
+        assert.equal(guard.Authorize(admin,'POST','/api/desktop/bootstrap/security-authority',{}).ok,true);
         assert.equal((await call('/api/session/reauthenticate/passkey/finish', proof, admin)).data.error, 'REAUTH_CHALLENGE_INVALID');
         state.production.passkeyCredentials.get('fixture').revokedAt = now;
         assert.equal((await call('/api/session', undefined, admin)).status, 401);

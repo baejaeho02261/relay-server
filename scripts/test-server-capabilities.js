@@ -78,7 +78,7 @@ const identity=(patch={})=>({deviceIdentity:{version:2,revision:5,mode:'COMPATIB
   }finally{if(old===undefined)delete db.deviceIdentity;else db.deviceIdentity=old;}
  });
  const route=require('../web/routes/desktopServerStateRoutes'),auth=require('../web/webAuth');
- const req={headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:false}};
+ const req={headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:true}};
  async function get(session){let status,body;const res={writeHead(value){status=value;},end(text){body=JSON.parse(text);}};assert.equal(await route.Handle({method:'GET',pathname:'/api/desktop/bootstrap/server-state/capabilities',req,res,session}),true);return {status,body};}
  const anonymous=await get(null);assert.equal(anonymous.status,403);
  const viewer=await get({id:'VIEWER',role:'viewer'});assert.equal(viewer.status,403);

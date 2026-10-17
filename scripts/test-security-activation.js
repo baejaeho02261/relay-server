@@ -11,7 +11,7 @@ const auth=require('../services/desktopSecurityAuthority'),ops=require('../servi
 const guard=require('../services/desktopAdminGuard'),dual=require('../services/privilegedApproval');
 const activation=require('../services/desktopSecurityActivation'),boot=require('../services/desktopBootstrap');
 const audit=require('../storage/audit'),fixture=require('./desktop-bootstrap-fixture');
-const webAuth=require('../web/webAuth'),adminRequest={socket:{remoteAddress:'127.0.0.1'},headers:{}};
+const webAuth=require('../web/webAuth'),adminRequest={socket:{remoteAddress:'127.0.0.1',encrypted:true},headers:{}};
 function administrator(){const result=webAuth.Login(adminRequest,'admin',process.env.ADMIN_SECRET);assert.equal(result.ok,true,result.code);return result.session;}
 const alice=administrator(),bob=administrator();
 let count=0,a,b,releaseKey,contexts,device;
