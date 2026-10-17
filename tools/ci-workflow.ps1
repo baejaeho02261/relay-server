@@ -32,7 +32,7 @@ function Show-RunFailure([string]$Directory){
   if(-not(Test-Path -LiteralPath $resultFile -PathType Leaf)){return}
   if((Get-Item -LiteralPath $resultFile).Length -gt 1MB){return}
   $details=Get-Content -LiteralPath $resultFile -Raw|ConvertFrom-Json -AsHashtable
-  $stageNames=@('self-test','snapshot','dependencies','build-inputs','build','build-inputs-after','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','integration','profile-integration-observe','profile-integration-prohibit','report','sign')
+  $stageNames=@('self-test','snapshot','dependencies','build-inputs','build','build-inputs-after','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','integration','profile-integration-observe','profile-integration-prohibit','security-authority','report')
   foreach($name in $stageNames){
    if(-not $details.Contains('stages') -or -not $details.stages.Contains($name)){continue}
    $stage=$details.stages[$name]
@@ -103,10 +103,7 @@ try {
   }
   'run' {
    $spec=Assert-Environment
-   $CiKeyFile=Input-Path $CiKeyFile 'CI private key absolute path'
-   $ReleaseKeyFile=Input-Path $ReleaseKeyFile 'EXISTING EXE approval private key absolute path (trusted by exported policy)'
-   Require-File (Join-Path $toolRoot 'ci-public-key.json') 'Run Export_CI_Public_Key.bat for the selected CI key first.'
-   $null=Invoke-Helper @('key-check',$sourceRoot,$toolRoot,$CiKeyFile,$ReleaseKeyFile)
+   if($CiKeyFile -or $ReleaseKeyFile){throw 'Do not supply production private keys to the build/test host. Use the separate offline signing procedure.'}
    if($OutputDirectory){throw 'Run_Windows_CI always writes a NEW run folder under tools\ci-runs. OutputDirectory is only for Check_CI_Output.'}
    $runId='windows-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
    $runs=Join-Path $toolRoot 'ci-runs';if(-not(Test-Path -LiteralPath $runs)){[IO.Directory]::CreateDirectory($runs)|Out-Null}
@@ -114,16 +111,13 @@ try {
    Write-Host ('Starting REAL Windows build/tests. Run output: '+$OutputDirectory)
    Write-Host 'This runner creates NEW final A/B/O. Previously uploaded/manual-build EXEs are not the tested files.'
    $runner=Join-Path $sourceRoot 'GameWeb\ci\Invoke-WindowsCI.ps1'
-   $runnerArgs=@('-NoLogo','-NoProfile','-File',$runner,'-SourceRoot',$sourceRoot,'-OutputDirectory',$OutputDirectory,'-Version',[string]$spec.version,'-SecurityVersion',[string]$spec.securityVersion,'-RunId',$runId,'-BuildInputLockFile',(Join-Path $toolRoot 'reviewed-build-inputs.json'),'-BdsRoot',$script:BdsRoot,'-ReleaseKeyFile',$ReleaseKeyFile,'-CiKeyFile',$CiKeyFile,'-PolicyFile',(Join-Path $toolRoot 'deployment-policy.json'))
+   $runnerArgs=@('-NoLogo','-NoProfile','-File',$runner,'-SourceRoot',$sourceRoot,'-OutputDirectory',$OutputDirectory,'-Version',[string]$spec.version,'-SecurityVersion',[string]$spec.securityVersion,'-RunId',$runId,'-BuildInputLockFile',(Join-Path $toolRoot 'reviewed-build-inputs.json'),'-BdsRoot',$script:BdsRoot,'-PolicyFile',(Join-Path $toolRoot 'deployment-policy.json'))
    & (Join-Path $PSHOME 'pwsh.exe') @runnerArgs
    $runnerExit=$LASTEXITCODE
    if($runnerExit -ne 0){Show-RunFailure $OutputDirectory;throw ('Windows CI did not pass (exit '+$runnerExit+'). No publication approval is claimed. Fix the FIRST failed stage before rerunning.')}
-   $null=Invoke-Helper @('check-output',$OutputDirectory,(Join-Path $toolRoot 'ci-public-key.json'))
-   Write-Host ('Verified final files, manifest and signed evidence: '+$OutputDirectory)
-   Write-Host ('CI evidence JSON: '+(Join-Path $OutputDirectory 'ci-evidence.json'))
-   Write-Host 'A.exe, B.exe, O.exe and all three approval JSONs are in that SAME folder.'
-   Write-Host 'Web order: register CI public signer; plan this run manifest.json; register THIS run A/B/O and their approval JSONs with the same manifest ID; complete manifest registration; register ci-evidence.json; inspect eligibility and publish.'
-   Write-Host 'Do not rebuild, rename/reprocess with approval tools, regenerate a manifest or mix files from different runs. Server trust/policy is checked by the web server.'
+   Write-Host ('Unsigned Windows test bundle: '+$OutputDirectory)
+   Write-Host 'Test approvals use an ephemeral fixture key and MUST NOT be registered as a production signer.'
+   Write-Host 'Review bundle-review-sha512.txt and the actual results. Transfer the bundle to the separate release signer, then the distinct CI attester. See Security_7-10_Apply.ko.md.'
   }
   'check-output' {
    $OutputDirectory=Input-Path $OutputDirectory 'Completed CI run folder absolute path (tools\ci-runs\windows-...)'
