@@ -179,18 +179,20 @@ try {
     await atest('Critical reauth is mandatory by default; the optional flag only extends its scope', async () => {
         now += web.REAUTH_MS + 1;
         const route = '/api/desktop/bootstrap/security-authority';
-        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_PASSKEY_REQUIRED');
+        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_REAUTH_REQUIRED');
         assert.equal(guard.Authorize(admin, 'POST', '/api/desktop/bootstrap/security-operations/plan-release', {}).ok, true);
-        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
+        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
         process.env.DESKTOP_ADMIN_REAUTH_REQUIRED = '1';
-        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
-        for(const action of ['plan-release','recovery/prepare','recovery/apply'])assert.equal((await call('/api/desktop/bootstrap/security-operations/'+action, {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
-        assert.equal((await call('/api/desktop/bootstrap/artifacts?component=O&version=1.0.0&fileName=O.exe', {}, admin)).data.error, 'ADMIN_PASSKEY_REQUIRED');
+        assert.equal((await call(route, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
+        for(const action of ['plan-release','recovery/prepare','recovery/apply'])assert.equal((await call('/api/desktop/bootstrap/security-operations/'+action, {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
+        assert.equal((await call('/api/desktop/bootstrap/artifacts?component=O&version=1.0.0&fileName=O.exe', {}, admin)).data.error, 'ADMIN_REAUTH_REQUIRED');
         assert.equal((await call('/api/session/reauthenticate', { password: 'wrong' }, admin)).data.error, 'REAUTH_FAILED');
-        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_PASSKEY_REQUIRED');
+        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_REAUTH_REQUIRED');
         assert.equal((await call('/api/session/reauthenticate', { password: process.env.ADMIN_SECRET }, admin)).status, 200);
-        assert.equal(guard.Authorize(admin, 'POST', route, {}).reason, 'ADMIN_PASSKEY_REQUIRED');
-        assert.equal((await call(route, {}, admin)).status,428); // password never upgrades to recent passkey
+        assert.equal(guard.Authorize(admin, 'POST', route, {}).ok, true);
+        assert.equal(web.HasRecentPasskey(admin), false); // password is not a passkey identity
+        const allowed = await call(route, {}, admin);
+        assert.notEqual(allowed.status, 428); // request reaches domain validation, not passkey gate
     });
     await atest('Passkey reauthentication is bound to the initiating session and verifies a real signature', async () => {
         const pair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' }), credentialId = crypto.randomBytes(24).toString('base64url');

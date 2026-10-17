@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'console-v4-110-sec1to10';
+const WEB_UI_REVISION = 'console-v4-111-auth-choice';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -174,8 +174,9 @@ function toast(message, error = false) {
 function readableApiError(code) {
   if(code==='HISTORY_CHANGED')return '다른 곳에서 내용이 변경되었습니다. 최신 상태를 불러온 뒤 다시 시도해주세요.';
   if (code === 'LOGIN_RATE_LIMITED') return '로그인 시도가 많습니다. 잠시 후 다시 시도하세요.';
-  if (code === 'ADMIN_PASSKEY_REQUIRED') return '이 중요 작업은 최근 패스키 인증이 필요합니다. 비밀번호로 대신할 수 없습니다.';
-  if (code === 'ADMIN_ENROLLMENT_APPROVAL_REQUIRED') return '첫 등록 또는 복구는 서버에서 발급한 일회용 등록 승인번호가 필요합니다.';
+  if (code === 'ADMIN_PASSKEY_REQUIRED') return '관리자 비밀번호 또는 등록된 패스키로 재인증하세요.';
+  if (code === 'PASSKEY_NOT_REGISTERED') return '등록된 패스키가 없습니다. 관리자 비밀번호를 선택하세요. 패스키 등록은 선택 사항입니다.';
+  if (code === 'ADMIN_ENROLLMENT_APPROVAL_REQUIRED') return '서버 승인 복구의 승인번호를 확인하세요. 일반 패스키 등록은 관리자 비밀번호로 진행할 수 있습니다.';
   if (code === 'ADMIN_REAUTH_REQUIRED') return '최근 인증이 필요합니다. 다시 로그인하거나 재인증 후 시도하세요.';
   if (code === 'ADMIN_SESSION_CAPACITY') return '관리자 세션 한도에 도달했습니다. 사용하지 않는 세션을 해제한 뒤 시도하세요.';
   if (code === 'REAUTH_FAILED') return '재인증에 실패했습니다. 관리자 인증정보를 확인하세요.';
@@ -184,19 +185,20 @@ function readableApiError(code) {
   return uiError(code);
 }
 let adminReauthenticationPending = null;
-async function requestAdminReauthentication(passkeyOnly = false) {
+async function requestAdminReauthentication() {
   if (adminReauthenticationPending) return adminReauthenticationPending;
   adminReauthenticationPending = (async () => {
     const owner = session?.csrf;
-    const values = await openModal({isolated:true,title:'관리자 재인증',message:'이 중요 작업은 최근 인증이 필요합니다. 패스키를 선택하면 비밀번호는 입력하지 않아도 됩니다.',fields:[
-      {name:'method',label:'인증 방식',type:'select',value:passkeyOnly?'passkey':'password',options:passkeyOnly?[{value:'passkey',label:'등록된 패스키'}]:[{value:'password',label:'관리자 비밀번호'},{value:'passkey',label:'등록된 패스키'}]},
-      {name:'password',label:'현재 관리자 비밀번호',type:'password',maxLength:4096,inputmode:'text',autocomplete:'current-password'}
+    const values = await openModal({isolated:true,title:'관리자 재인증',message:'관리자 비밀번호 또는 등록된 패스키 중 하나를 선택하세요. 패스키가 없어도 비밀번호로 진행할 수 있습니다.',fields:[
+      {name:'method',label:'인증 방식',type:'select',value:'password',options:[{value:'password',label:'관리자 비밀번호'},{value:'passkey',label:'등록된 패스키'}]},
+      {name:'password',label:'현재 관리자 비밀번호 (패스키 선택 시 비워두세요)',type:'password',maxLength:4096,inputmode:'text',autocomplete:'current-password'}
     ],confirmLabel:'재인증'});
     if (!values) throw new Error('재인증을 취소했습니다. 작업은 적용되지 않았습니다.');
     try {
       if (!owner || session?.csrf !== owner) throw new Error('로그인 상태가 변경되어 재인증을 취소했습니다.');
-      if (passkeyOnly || values.method === 'passkey') await reauthenticateWithPasskey();
-      else await api('/api/session/reauthenticate',{method:'POST',body:{password:values.password},reauthRetried:true});
+      if (values.method === 'passkey') await reauthenticateWithPasskey();
+      else if (values.method === 'password') await api('/api/session/reauthenticate',{method:'POST',body:{password:values.password},reauthRetried:true});
+      else throw new Error('인증 방식을 선택하세요.');
     } finally { values.password = ''; }
   })();
   try { return await adminReauthenticationPending; } finally { adminReauthenticationPending = null; }
@@ -226,7 +228,7 @@ async function api(url, options = {}) {
   }
   if (response.status === 428 && ['ADMIN_REAUTH_REQUIRED','ADMIN_PASSKEY_REQUIRED'].includes(data?.error) && !options.reauthRetried) {
     if (!requestSession || session?.csrf !== requestSession || requestModalAlive && !requestModalAlive()) throw new Error('작업 화면 또는 로그인 상태가 변경되어 재인증 요청을 취소했습니다.');
-    await requestAdminReauthentication(data?.error === 'ADMIN_PASSKEY_REQUIRED');
+    await requestAdminReauthentication();
     if (session?.csrf !== requestSession || requestModalAlive && !requestModalAlive()) throw new Error('작업 화면 또는 로그인 상태가 변경되어 작업을 취소했습니다.');
     return api(url, {...options, reauthRetried:true});
   }

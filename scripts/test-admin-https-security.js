@@ -96,13 +96,9 @@ const close = s => s ? new Promise(resolve => { s.closeAllConnections?.(); s.clo
         catch (_) { rejected = true; } assert.equal(rejected, true);
     });
     await test('Real TLS registration routes persist the parsed credential with the current UI payload', async () => {
-        // Step 9: even HTTPS/password login cannot enroll a first passkey without
-        // separate server-console approval. Exercise the real one-use grant.
-        const blocked = await call(direct, { secure: true, route: '/api/production/passkeys/register/begin', body: {}, ...auth });
-        assert.equal(blocked.status, 428); assert.equal(blocked.body.error, 'ADMIN_ENROLLMENT_APPROVAL_REQUIRED');
-        const current = await call(direct, { secure: true, route: '/api/session', ...auth });
-        const approval = require('../services/desktopAdminEnrollment').Issue(current.body.id);
-        const begin = await call(direct, { secure: true, route: '/api/production/passkeys/register/begin', body: {}, headers: { 'X-Admin-Enrollment-Token': approval.token }, ...auth });
+        // Password OR passkey: first enrollment requires recent authentication,
+        // but no separate console token. TLS, CSRF and wire parsing stay intact.
+        const begin = await call(direct, { secure: true, route: '/api/production/passkeys/register/begin', body: {}, ...auth });
         assert.equal(begin.status, 200, JSON.stringify(begin.body)); keyPair = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
         const value = wire.Registration('localhost', keyPair.publicKey); credentialId = value.credentialId;
         delete value.publicKeySpki; delete value.authenticatorData;

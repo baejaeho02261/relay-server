@@ -20,7 +20,9 @@ function Identities() {
 function DualRequired(){return state.production.deploymentManifest.dualApprovalRequired===true;}
 function StepUpRequired(){return process.env.DESKTOP_SECURITY_STEP_UP_REQUIRED==='1'||DualRequired();}
 function Credential(session){return session?.passkeyCredentialId&&state.production.passkeyCredentials.get(session.passkeyCredentialId);}
+// Passkey identity remains separate from the single-operator authentication choice.
 function Recent(session){return require('../web/webAuth').HasRecentPasskey(session);}
+function RecentAuthentication(session){return require('../web/webAuth').HasRecentAuthentication(session);}
 function ProvisionedCredential(id,principal){const c=state.production.passkeyCredentials.get(id);return !!c&&!c.revokedAt&&c.role==='admin'&&Identities()?.[id]===principal;}
 function Identity(session){if(!Recent(session))return '';return Identities()?.[session.passkeyCredentialId]||'';}
 function MarkVerified(session,credentialId){session.passkeyCredentialId=credentialId;session.securityVerifiedAt=Date.now();}
@@ -56,20 +58,23 @@ function CheckSession(session, pathname='', method='POST') {
     return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
   if(Object.hasOwn(session,'expiresAt')&&(!Number.isSafeInteger(session.expiresAt)||session.expiresAt<=Date.now()))
     return {ok:false,status:401,reason:'ADMIN_SESSION_EXPIRED'};
-  if(ReauthenticationRequired(pathname,method)&&!Recent(session))
-    return {ok:false,status:428,reason:EnrollmentPath(pathname)?'ADMIN_ENROLLMENT_APPROVAL_REQUIRED':'ADMIN_PASSKEY_REQUIRED'};
+  // Both password and passkey verification use private, live server session metadata.
+  // Never derive freshness from browser flags or a client-supplied timestamp.
+  if(ReauthenticationRequired(pathname,method)&&!RecentAuthentication(session))
+    return {ok:false,status:428,reason:'ADMIN_REAUTH_REQUIRED'};
   if(!pathname||SingleOperatorPath(pathname))return {ok:true,mode:'SINGLE_ADMIN'};
-  if(StepUpRequired()&&!Recent(session))return {ok:false,status:428,reason:'SECURITY_ADMIN_STEP_UP_REQUIRED'};
+  if(StepUpRequired()&&!RecentAuthentication(session))return {ok:false,status:428,reason:'ADMIN_REAUTH_REQUIRED'};
   if(DualRequired()&&!Identity(session))return {ok:false,status:428,reason:'SECURITY_ADMIN_IDENTITY_REQUIRED'};
   return {ok:true};
 }
 function Status(){return {mode:'SINGLE_ADMIN',stepUpRequired:true,dualApprovalRequired:false,
   identityConfigurationValid:true,provisionedPrincipalCount:0,stepUpLifetimeMs:require('../web/webAuth').REAUTH_MS,
-  identitySource:'SERVER_VERIFIED_RECENT_PASSKEY',humanIdentityProof:false,
+  identitySource:'SERVER_VERIFIED_RECENT_AUTHENTICATION',humanIdentityProof:false,
   recentReauthenticationRequired:true,
   reauthenticationScope:process.env.DESKTOP_ADMIN_REAUTH_REQUIRED==='1'?'ALL_DECLARED_MUTATIONS':'CRITICAL_MUTATIONS',
-  criticalReauthenticationMandatory:true,criticalAuthenticationMethod:'PASSKEY',
-  enrollmentRecovery:'ONE_USE_SERVER_ISSUED_SESSION_BOUND_APPROVAL',
+  criticalReauthenticationMandatory:true,criticalAuthenticationMethod:'PASSWORD_OR_PASSKEY',
+  enrollmentAuthentication:'PASSWORD_OR_PASSKEY',
+  enrollmentRecovery:'OPTIONAL_ONE_USE_SERVER_ISSUED_SESSION_BOUND_APPROVAL',
   reauthenticationLifetimeMs:require('../web/webAuth').REAUTH_MS};}
 function Begin(session,req){const check=CheckSession(session);return check.ok?{ok:false,reason:'SECURITY_DESKTOP_PASSKEY_NOT_USED'}:check;}
 function Finish(session,req,body){return Begin(session,req);}
@@ -100,12 +105,16 @@ function Summary(path,body){
 }
 function EnrollmentPath(path){return /^\/api\/production\/passkeys\/register\/(?:begin|finish)$/.test(path||'');}
 function Authorize(session,method,path,body,ticketId,enrollmentToken=''){
-  if(EnrollmentPath(path)&&!Recent(session)){
-    const base=CheckSession(session);if(!base.ok)return base;
+  if(EnrollmentPath(path)){
     const enrollment=require('./desktopAdminEnrollment');
-    const existing=Array.from(state.production.passkeyCredentials.values()).some(c=>c.role==='admin'&&!c.revokedAt);
-    if(!enrollmentToken&&!enrollment.HasPending(session)&&existing)return {ok:false,status:428,reason:'ADMIN_PASSKEY_REQUIRED'};
-    return enrollment.Authorize(session,method,path,body,enrollmentToken);
+    // Optional console recovery remains one-use/session-bound. An explicitly
+    // supplied token must validate: never silently fall back after token failure.
+    if(enrollmentToken||enrollment.HasPending(session)){
+      const base=CheckSession(session);if(!base.ok)return base;
+      return enrollment.Authorize(session,method,path,body,enrollmentToken);
+    }
+    // Ordinary first/additional enrollment uses the same recent password OR
+    // passkey gate as other sensitive writes. No SSH approval is mandatory.
   }
   const check=CheckSession(session,path,method);if(!check.ok)return check;
   if(path==='/api/desktop/bootstrap/security-operations/enable-all'){
