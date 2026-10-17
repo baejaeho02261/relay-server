@@ -4,11 +4,13 @@ const path = require('path');
 
 const HOST = '0.0.0.0';
 // Explicit TCP port keeps Railway's HTTP healthcheck PORT independent.
-// PORT remains a legacy TCP alias only when CONNECT_TCP_PORT is absent.
-const CONNECT_TCP_PORT = Number(process.env.CONNECT_TCP_PORT || process.env.RAILWAY_TCP_APPLICATION_PORT || process.env.PORT || 3000);
+// PORT is the managed HTTP port in explicit Railway mode, never a TCP alias.
+// Non-Railway deployments retain their legacy port behavior.
+const RAILWAY_WEB = process.env.WEB_ADMIN_TRANSPORT === 'railway';
+const CONNECT_TCP_PORT = Number(process.env.CONNECT_TCP_PORT || process.env.RAILWAY_TCP_APPLICATION_PORT || (RAILWAY_WEB ? 3000 : process.env.PORT) || 3000);
 const PORT = CONNECT_TCP_PORT;
 const HEALTH_PORT = Number(process.env.HEALTH_PORT || 0);
-const WEB_ADMIN_PORT = Number(process.env.WEB_ADMIN_PORT || 8080);
+const WEB_ADMIN_PORT = Number(process.env.WEB_ADMIN_PORT || (RAILWAY_WEB ? process.env.PORT : 0) || 8080);
 const WEB_ADMIN_SESSION_MS = Number(process.env.WEB_ADMIN_SESSION_MS || 30 * 60 * 1000);
 // Optional own-window capture privacy; Windows affinity is not a security guarantee.
 const OVERLAY_CAPTURE_PRIVACY = String(process.env.OVERLAY_CAPTURE_PRIVACY || '') === '1';
