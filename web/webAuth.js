@@ -13,6 +13,8 @@ const ABSOLUTE_SESSION_MS = policy.IntegerSetting('WEB_ADMIN_ABSOLUTE_SESSION_MS
 const REAUTH_MS = policy.IntegerSetting('DESKTOP_ADMIN_REAUTH_MS', 5 * 60000, 60000, 30 * 60000);
 const MAX_SESSIONS = policy.IntegerSetting('WEB_ADMIN_MAX_SESSIONS', 2048, 16, 100000);
 const trustedProxies = policy.ParseTrustedProxies(require('./webTransport').TrustedProxySetting());
+const railwayIngress = require('./railwayIngress');
+const railwayPolicy = process.env.WEB_ADMIN_TRANSPORT === 'railway' ? railwayIngress.Settings() : null;
 const limiter = new policy.LoginLimiter({
     windowMs: policy.IntegerSetting('WEB_ADMIN_LOGIN_WINDOW_MS', 5 * 60000, 1000, 60 * 60000),
     ipMax: policy.IntegerSetting('WEB_ADMIN_LOGIN_IP_MAX', 20, 1, 10000),
@@ -25,8 +27,11 @@ const managedSessions = new WeakSet();
 const stampKey = crypto.randomBytes(32);
 
 function RandomToken(bytes = 32) { return crypto.randomBytes(bytes).toString('hex'); }
-function ClientIP(req) { return policy.RequestOrigin(req, trustedProxies).ip; }
-function IsHttps(req) { return policy.RequestOrigin(req, trustedProxies).https; }
+function RequestOrigin(req) {
+    return railwayPolicy ? railwayIngress.Origin(req, railwayPolicy) : policy.RequestOrigin(req, trustedProxies);
+}
+function ClientIP(req) { return RequestOrigin(req).ip; }
+function IsHttps(req) { return RequestOrigin(req).https; }
 function ParseCookies(req) {
     const out = Object.create(null);
     const raw = String(req.headers.cookie || '');

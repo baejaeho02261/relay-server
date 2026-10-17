@@ -22,6 +22,9 @@ process.on('unhandledRejection', reason => {
 const http = require('http');
 
 const config = require('./config/config');
+// Fail before storage locks, key generation or listeners on a bad web mode.
+try { require('./web/webTransport').Settings(); }
+catch (error) { console.error('[WEB_ADMIN_CONFIGURATION_ERROR]', error.message); throw error; }
 // Acquire before loading any service that can create keys, migrate storage,
 // save state or open a listener. The lock remains held through shutdown writes.
 require('./services/desktopStorageAcl').Check();

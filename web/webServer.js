@@ -400,9 +400,15 @@ function StartWebAdmin() {
     });
 
     const { server } = transport;
-    server.on('error', error => console.error('WEB ADMIN SERVER ERROR:', error.message));
+    server.on('error', error => {
+        console.error('WEB ADMIN SERVER ERROR:', error.code || error.message);
+        // A failed web bind must not leave a seemingly running native-only app.
+        // server.js owns fatal shutdown; do not pretend deployment succeeded.
+        throw error;
+    });
     server.listen(port, transport.host, () => {
         console.log('Web Admin transport:', transport.mode, 'bind:', transport.host, 'port:', port);
+        if (transport.mode === 'railway') console.log('Railway HTTP ready path: /readyz; raw TCP exposure of this HTTP port is forbidden.');
         if (!config.ADMIN_CREDENTIALS.admin) console.log('Web Admin admin role disabled: ADMIN_SECRET is not configured.');
     });
     return server;

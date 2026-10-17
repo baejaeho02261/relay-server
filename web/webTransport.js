@@ -1,6 +1,7 @@
 "use strict";
-// No new framework. Plain HTTP is only an on-host proxy transport; it is never
-// an Internet-facing administrator listener. Native TLS uses Node/OpenSSL.
+// No new framework. proxy = on-host loopback; direct = native TLS;
+// railway = explicitly accepted, isolated managed-edge deployment boundary.
+// Never expose a railway-mode HTTP listener through a raw public TCP port.
 const fs = require('node:fs');
 const http = require('node:http');
 const https = require('node:https');
@@ -9,12 +10,12 @@ const { Address, ParseTrustedProxies } = require('./webAuthPolicy');
 const LOOPBACK_PROXIES = '127.0.0.1/32,::1/128';
 function TrustedProxySetting(env = process.env) {
     return env.WEB_ADMIN_TRUSTED_PROXIES === undefined
-        ? (env.WEB_ADMIN_TRANSPORT === 'direct' ? '' : LOOPBACK_PROXIES)
+        ? (['direct', 'railway'].includes(env.WEB_ADMIN_TRANSPORT) ? '' : LOOPBACK_PROXIES)
         : env.WEB_ADMIN_TRUSTED_PROXIES;
 }
 function Settings(env = process.env) {
     const mode = env.WEB_ADMIN_TRANSPORT || 'proxy';
-    if (!['proxy', 'direct'].includes(mode)) throw Error('WEB_ADMIN_TRANSPORT_INVALID');
+    if (!['proxy', 'direct', 'railway'].includes(mode)) throw Error('WEB_ADMIN_TRANSPORT_INVALID');
     // Old opt-out flags cannot silently undo the new invariant.
     for (const name of ['WEB_ADMIN_REQUIRE_HTTPS', 'WEB_ADMIN_SECURE_COOKIE'])
         if (env[name] !== undefined && env[name] !== '' && env[name] !== '1') throw Error(name + '_MUST_BE_1');
@@ -23,6 +24,10 @@ function Settings(env = process.env) {
     if (!address) throw Error('WEB_ADMIN_HOST_MUST_BE_IP');
     if (mode === 'proxy' && !((address.family === 4 && address.value >> 24n === 127n) ||
         (address.family === 6 && address.value === 1n))) throw Error('WEB_ADMIN_HTTP_LOOPBACK_REQUIRED');
+    if (mode === 'railway') {
+        if (host !== '0.0.0.0') throw Error('WEB_ADMIN_RAILWAY_WILDCARD_REQUIRED');
+        require('./railwayIngress').Settings(env);
+    }
     const proxies = ParseTrustedProxies(TrustedProxySetting(env));
     if (mode === 'proxy') {
         if (!proxies.length) throw Error('WEB_ADMIN_PROXY_REQUIRED');
