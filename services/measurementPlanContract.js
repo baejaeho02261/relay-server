@@ -24,6 +24,7 @@ function ArtifactVersion(bytes,marker=CONTRACT){
  return supported?1:0;
 }
 function ValidateOwnMetadata(meta,status,layers){
+ if(!require('./measurementStatus').IsStatus(status))return false;
  const fields=['contract','version','startedTick','finishedTick','coverage','fileStatus','codeStatus','crcStatus','imageStable'];
  if(!meta||Array.isArray(meta)||typeof meta!=='object'||Object.keys(meta).length!==fields.length||fields.some(k=>!Object.hasOwn(meta,k))||meta.contract!==OWN_CONTRACT||meta.version!==1)return false;
  if(!Number.isSafeInteger(meta.startedTick)||!Number.isSafeInteger(meta.finishedTick)||meta.startedTick<0||meta.finishedTick<meta.startedTick||meta.finishedTick-meta.startedTick>60000||typeof meta.imageStable!=='boolean'||!['FULL','PARTIAL'].includes(meta.coverage))return false;

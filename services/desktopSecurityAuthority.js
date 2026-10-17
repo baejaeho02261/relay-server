@@ -218,6 +218,12 @@ function Challenge(body) {
   rates.set(context, rate);
   const item = { challengeId: crypto.randomBytes(24).toString('hex'), nonce: crypto.randomBytes(24).toString('hex'),
     mitigationProfile, epoch, sequence: ++sequence, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), ...deadline.After(policy.challengeMs), context, stage: body.stage, intent: body.intent, binding: body.binding };
+  // A newly admitted measurement invalidates the previous result for exactly
+  // this operation binding. A skipped/failed replacement cannot inherit PASS.
+  const decisionId=context+':'+body.intent+':'+body.binding;
+  decisions.delete(decisionId);
+  receipts.deleteWhere(meta=>meta.id===decisionId);
+  for(const previous of pending.values()) if(previous.context===context&&previous.intent===body.intent&&previous.binding===body.binding)previous.superseded=true;
   pending.set(item.challengeId, item);
   return { version: 1, challengeId: item.challengeId, nonce: item.nonce, epoch, sequence: item.sequence,
     revision: item.revision, expiresAt: item.expiresAt, dynamicCode: mitigationProfile?.dynamicCode||policy.dynamicCode, ...(mitigationProfile?{mitigationProfile}: {}),
@@ -244,12 +250,7 @@ function Payload(text) {
   return value;
 }
 function Evaluate(value, baseline, policy, artifact) {
-  // FULL own-measurement validation needs the same signed CRC evidence that
-  // Payload validated. Omitting it here rejects valid A/B/O observations.
-  if(artifact?.ownMeasurementVersion===1)require('./measurementPlanContract').AssertOwn({
-    check:'OWN_IMAGE',own:{status:value.measurement},
-    ownMeasurement:value.ownMeasurement,crcLayers:value.crcLayers
-  },artifact);
+  require('./measurementPlanContract').AssertOwn({check:'OWN_IMAGE',own:{status:value.measurement},ownMeasurement:value.ownMeasurement,crcLayers:value.crcLayers},artifact);
   if(value.hashVersion!==3||baseline.hashVersion!==3)return {status:'INDETERMINATE',reason:'HASH_VERSION_MISMATCH'};
   if (value.measurement !== 'MEASURED') return { status: 'INDETERMINATE', reason: measurementStatus.FailureReason(value.measurement) };
   if (value.fileSha512 !== baseline.sha512 || value.fileCrc64 !== baseline.crc64 || value.codeSha512 !== baseline.codeSha512 || value.codeCrc64 !== baseline.codeCrc64 || value.codeXxh3_128!==baseline.codeXxh3_128 || value.codeBlake3!==baseline.codeBlake3) return { status: 'MISMATCH', reason: 'IMAGE_DIGEST_MISMATCH' };
@@ -261,6 +262,13 @@ function Evaluate(value, baseline, policy, artifact) {
   if (policy.dynamicCode === 'prohibit' && value.dynamicCode !== 'PROHIBITED') return { status: 'INDETERMINATE', reason: 'DYNAMIC_CODE_POLICY_UNAVAILABLE' };
   if (policy.requireCfg && value.cfg !== 'ENABLED') return { status: 'INDETERMINATE', reason: 'CFG_UNAVAILABLE' };
   return { status: 'PASS', reason: 'BASELINE_MATCH',crcComparison }; 
+}
+function MeasurementComplete(value,artifact) {
+  if(value.measurement!=='MEASURED')return false;
+  const comparison=require('./desktopCrcPolicy').Compare(value.crcLayers,value.crcLayers);
+  if(!comparison.matched||!comparison.complete)return false;
+  if(artifact?.ownMeasurementVersion===1&&value.ownMeasurement===undefined)return false;
+  return value.ownMeasurement===undefined||require('./measurementPlanContract').ValidateOwnMetadata(value.ownMeasurement,value.measurement,value.crcLayers);
 }
 function Submit(body) {
   Fields(body, [...AUTH_FIELDS, 'challengeId', 'payload', 'signature']);
@@ -300,27 +308,27 @@ function Submit(body) {
   // Recheck before publishing either a fresh decision or a reusable receipt.
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
   require('./desktopMitigationProfiles').RequireCurrent(challenge.mitigationProfile,artifact);
-  const decision = { ...result, mitigationProfile:challenge.mitigationProfile, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), sequence: challenge.sequence,
+  const decision = { ...result, measurementComplete:MeasurementComplete(value,artifact), mitigationProfile:challenge.mitigationProfile, revision: policy.revision, operationsRevision:require('./desktopSecurityOperations').Revision(), sequence: challenge.sequence,
     ...deadline.After(policy.freshnessMs) };
   decisions.set(id, decision);
   // A decision can expire before an older challenge (freshnessMs may be less
   // than challengeMs). Retain the ordering rejection on that pending challenge
   // itself so pruning the newer decision cannot revive an older measurement.
   for (const item of pending.values()) if (item.context === context && item.intent === body.intent && item.binding === body.binding && item.sequence < challenge.sequence) item.superseded = true;
-  const response = { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: result.status === 'PASS' || policy.mode === 'observe',
+  const response = { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: decision.measurementComplete && (result.status === 'PASS' || policy.mode === 'observe'),
     sequence: challenge.sequence, expiresAt: decision.expiresAt, attested: false };
   receipts.put(body.challengeId, 'authority.submit', body, response, { context, id }, { ttlMs: policy.freshnessMs });
   return response;
 }
 function RequireFresh(row, stage, intent, binding) {
   const artifact = RowArtifact(row, stage), policy = require('./desktopSecurityOperations').EffectivePolicy(Policy(),artifact); RequireArtifact(artifact);
-  if (policy.mode !== 'enforce') {const existing=decisions.get(Context(row,stage)+':'+intent+':'+binding);require('./desktopMitigationProfiles').RequireCurrent(existing?.mitigationProfile,artifact);return;}
   Prune(); const item = decisions.get(Context(row, stage) + ':' + intent + ':' + binding);
   require('./desktopMitigationProfiles').RequireCurrent(item?.mitigationProfile,artifact);
   let code = '';
   if (!item || item.revision !== policy.revision || item.operationsRevision!==require('./desktopSecurityOperations').Revision()) code = 'SECURITY_FRESH_OBSERVATION_REQUIRED';
-  else if (item.status === 'MISMATCH') code = 'SECURITY_OBSERVATION_MISMATCH';
-  else if (item.status !== 'PASS') code = 'SECURITY_OBSERVATION_INDETERMINATE';
+  else if (item.measurementComplete !== true) code = 'SECURITY_MEASUREMENT_INCOMPLETE';
+  else if (policy.mode === 'enforce' && item.status === 'MISMATCH') code = 'SECURITY_OBSERVATION_MISMATCH';
+  else if (policy.mode === 'enforce' && item.status !== 'PASS') code = 'SECURITY_OBSERVATION_INDETERMINATE';
   if (code) { Audit('HOLD', code, { ...row, stage }, { revision: policy.revision, intent }); Fail(code); }
 }
 function RenewalIdentity(row, stage, intent, binding) {

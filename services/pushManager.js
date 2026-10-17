@@ -3,6 +3,8 @@
 const crypto = require('crypto');
 const config = require('../config/config');
 const state = require('../core/state');
+const destination = require('./pushDestination');
+const pushTransport = require('./pushTransport');
 const { Now, SafeField } = require('../core/utils');
 
 let webPush = null;
@@ -12,6 +14,7 @@ let initError = '';
 function Initialize() {
     if (initialized) return !initError;
     initialized = true;
+    try { destination.Policy(); } catch (_) { initError = 'PUSH_HOST_POLICY_INVALID'; return false; }
     if (!config.VAPID_PUBLIC_KEY || !config.VAPID_PRIVATE_KEY) {
         initError = 'VAPID_KEYS_NOT_CONFIGURED';
         return false;
@@ -31,11 +34,29 @@ function SubscriptionId(endpoint) {
 }
 
 function NormalizeSubscription(input) {
-    const endpoint = String(input && input.endpoint || '').trim();
-    const p256dh = String(input && input.keys && input.keys.p256dh || '').trim();
-    const auth = String(input && input.keys && input.keys.auth || '').trim();
-    if (!/^https:\/\//i.test(endpoint) || endpoint.length > 4096 || !p256dh || !auth) throw new Error('INVALID_PUSH_SUBSCRIPTION');
-    return { endpoint, expirationTime: input.expirationTime || null, keys: { p256dh, auth } };
+    if (!input || Object.getPrototypeOf(input) !== Object.prototype ||
+        !input.keys || Object.getPrototypeOf(input.keys) !== Object.prototype)
+        throw new Error('INVALID_PUSH_SUBSCRIPTION');
+    const endpoint = destination.ValidateEndpoint(input.endpoint).endpoint;
+    const { p256dh, auth } = input.keys;
+    const decode = (value, size) => {
+        if (typeof value !== 'string' || value.length > 100 || !/^[A-Za-z0-9_-]+={0,2}$/.test(value))
+            throw new Error('INVALID_PUSH_SUBSCRIPTION');
+        const bytes = Buffer.from(value, 'base64url');
+        if (bytes.length !== size || bytes.toString('base64url') !== value.replace(/=+$/, ''))
+            throw new Error('INVALID_PUSH_SUBSCRIPTION');
+        return bytes;
+    };
+    const publicKey = decode(p256dh, 65), secret = decode(auth, 16);
+    try {
+        if (publicKey[0] !== 4) throw new Error('INVALID_PUSH_SUBSCRIPTION');
+        crypto.ECDH.convertKey(publicKey, 'prime256v1');
+    } catch (_) { throw new Error('INVALID_PUSH_SUBSCRIPTION'); }
+    finally { secret.fill(0); }
+    const expirationTime = input.expirationTime ?? null;
+    if (expirationTime !== null && (!Number.isSafeInteger(expirationTime) || expirationTime < 0))
+        throw new Error('INVALID_PUSH_SUBSCRIPTION');
+    return { endpoint, expirationTime, keys: { p256dh, auth } };
 }
 
 function ImportPersisted(data) {
@@ -110,7 +131,9 @@ async function Send(input, options = {}) {
     let sent = 0, failed = 0, removed = 0;
     for (const [id, item] of Array.from(state.pushSubscriptions.entries())) {
         try {
-            await webPush.sendNotification(item.subscription, payload, { TTL: 300, urgency: severity === 'CRITICAL' ? 'high' : 'normal' });
+            // Revalidate persisted entries and resolve/pin the destination on EVERY send.
+            const subscription = NormalizeSubscription(item.subscription);
+            await pushTransport.Send(webPush, subscription, payload, { urgency: severity === 'CRITICAL' ? 'high' : 'normal' });
             item.lastSuccessAt = Now();
             item.failureCount = 0;
             sent++;

@@ -1,5 +1,5 @@
 'use strict';
-const failures=Object.freeze(['READ_ERROR','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED']);
+const failures=Object.freeze(['NOT_MEASURED','READ_ERROR','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED']);
 function IsFailure(status){return failures.includes(status);}
 function IsStatus(status){return status==='MEASURED'||IsFailure(status);}
 function FailureReason(status){

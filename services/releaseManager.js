@@ -34,7 +34,20 @@ function SetChannel(type,id,channel){ type=NormalizeType(type); id=NormalizeID(i
 function GetRelease(type,channel){ return state.releaseCatalog.get(ReleaseKey(type,channel)) || null; }
 function EligibleForRollout(type,id,release){ if(!release)return false; const p=Math.max(0,Math.min(100,Number(release.rolloutPercent??100))); return p>=100 || HashBucket(type,id)<p; }
 function SignedDownload(artifactId,ttlMs=15*60*1000){ const exp=Date.now()+ttlMs; const sig=crypto.createHmac('sha256',SigningSecret()).update(`${artifactId}|${exp}`).digest('hex'); const rel=`/updates/${encodeURIComponent(artifactId)}?exp=${exp}&sig=${sig}`; return config.UPDATE_BASE_URL ? config.UPDATE_BASE_URL + rel : rel; }
-function VerifyDownload(artifactId,exp,sig){ exp=Number(exp); if(!artifactId||!Number.isFinite(exp)||exp<Date.now()||exp>Date.now()+60*60*1000)return false; const expected=crypto.createHmac('sha256',SigningSecret()).update(`${artifactId}|${exp}`).digest('hex'); const a=Buffer.from(String(sig||'')); const b=Buffer.from(expected); return a.length===b.length && crypto.timingSafeEqual(a,b); }
+function VerifyDownload(artifactId,exp,sig){
+    // The signed URL is a download capability, not a licence/session grant.
+    // A catalog disable/revocation must also affect URLs issued earlier.
+    if(typeof artifactId!=='string'||!/^[A-F0-9]{24}$/.test(artifactId)||typeof exp!=='string'||!/^\d{1,16}$/.test(exp)||typeof sig!=='string'||!/^[a-f0-9]{64}$/.test(sig))return false;
+    exp=Number(exp);const at=Date.now();if(!Number.isSafeInteger(exp)||exp<=at||exp>at+60*60*1000)return false;
+    let permitted=false;
+    for(const root of state.releaseCatalog.values()){
+        if(root.type!=='SERVER'||root.enabled!==true)continue;
+        let item=root,depth=0;while(item&&depth++<10){if(item.artifactId===artifactId&&item.type==='SERVER'&&item.enabled===true){permitted=true;break;}item=item.previous;}
+    }
+    if(!permitted)return false;
+    const expected=crypto.createHmac('sha256',SigningSecret()).update(`${artifactId}|${exp}`).digest('hex');
+    return crypto.timingSafeEqual(Buffer.from(sig,'hex'),Buffer.from(expected,'hex'));
+}
 function FindArtifact(id){
     for(const root of state.releaseCatalog.values()){
         let r=root, depth=0;
