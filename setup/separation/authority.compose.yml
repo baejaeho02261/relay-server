@@ -1,0 +1,66 @@
+# Run on the designated host only. Not automatically applied to Railway.
+services:
+  authority:
+    image: ${GAMEWEB_IMAGE:?set reviewed Relay Server image digest}
+    user: 10001:10001
+    cpus: 2
+    mem_limit: 2g
+    memswap_limit: 2g
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 128
+    init: true
+    restart: 'no'
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      GAME_ISOLATION_REQUIRED: '1'
+      GAME_SERVICE_ROLE: authority
+      GAME_SERVICE_UID: '10001'
+      GAME_READONLY_PATHS_JSON: '["/app"]'
+      GAME_FORBIDDEN_PATHS_JSON: '["/witness","/keys-release","/keys-ci"]'
+      GAME_WRITABLE_PATHS_JSON: '["/data"]'
+      WEB_ADMIN_TRANSPORT: direct
+      WEB_ADMIN_HOST: ${WEB_ADMIN_HOST:?set listener bind address}
+      WEB_ADMIN_PORT: ${WEB_ADMIN_PORT:?set listener port}
+      PORT: ${PORT:?set environment port}
+      CONNECT_TCP_HOST: ${CONNECT_TCP_HOST:?set native bind address}
+      CONNECT_TCP_PORT: ${CONNECT_TCP_PORT:?set native listener port}
+      WEB_ADMIN_GATEWAY: '1'
+      WEB_ADMIN_TRUSTED_PROXIES: ''
+      WEB_ADMIN_REQUIRE_HTTPS: '1'
+      WEB_ADMIN_SECURE_COOKIE: '1'
+      WEB_ADMIN_TLS_CERT_FILE: /tls/authority.crt
+      WEB_ADMIN_TLS_KEY_FILE: /tls/authority.key
+      WEB_ADMIN_CLIENT_CA_FILE: /tls/gateway-ca.crt
+      DESKTOP_RECOVERY_WITNESS_REQUIRED: '1'
+      DESKTOP_RECOVERY_WITNESS_DIR: ''
+      DESKTOP_RECOVERY_WITNESS_CA_FILE: /tls/witness-ca.crt
+      DESKTOP_RECOVERY_WITNESS_CERT_FILE: /tls/witness-client.crt
+      DESKTOP_RECOVERY_WITNESS_KEY_FILE: /tls/witness-client.key
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10001,gid=10001,mode=700
+    env_file:
+    - ./authority.env
+    command:
+    - node
+    - peace.relay-server.js
+    ports:
+    - "${AUTHORITY_PRIVATE_IP:?set private bind address}:${WEB_ADMIN_PORT:?set HTTPS listener port}:${WEB_ADMIN_PORT:?set HTTPS listener port}"
+    - "${NATIVE_BIND_IP:?set native bind address}:${CONNECT_TCP_PORT:?set native listener port}:${CONNECT_TCP_PORT:?set native listener port}"
+    volumes:
+    - type: bind
+      source: ${AUTHORITY_DATA_DIR:?existing current DATA_DIR}
+      target: /data
+      read_only: false
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${AUTHORITY_TLS_DIR:?authority-only certificates}
+      target: /tls
+      read_only: true
+      bind:
+        create_host_path: false

@@ -1,0 +1,52 @@
+# Run on the designated host only. Not automatically applied to Railway.
+services:
+  release-signer:
+    image: ${GAMEWEB_IMAGE:?set reviewed Relay Server image digest}
+    user: 10005:10005
+    cpus: 1
+    mem_limit: 512m
+    memswap_limit: 512m
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 128
+    init: true
+    restart: 'no'
+    environment:
+      NODE_ENV: production
+      DATA_DIR: ''
+      GAME_ISOLATION_REQUIRED: '1'
+      GAME_SERVICE_ROLE: release-signer
+      GAME_SERVICE_UID: '10005'
+      GAME_READONLY_PATHS_JSON: '["/app", "/keys-release", "/input"]'
+      GAME_FORBIDDEN_PATHS_JSON: '["/data", "/witness", "/keys-ci"]'
+      GAME_WRITABLE_PATHS_JSON: '["/output"]'
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10005,gid=10005,mode=700
+    network_mode: none
+    volumes:
+    - type: bind
+      source: ${SIGNING_KEY_DIR:?only this role key directory}
+      target: /keys-release
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${REVIEWED_INPUT_DIR:?trusted input bundle}
+      target: /input
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${NEW_OUTPUT_DIR:?empty private output parent}
+      target: /output
+      read_only: false
+      bind:
+        create_host_path: false
+    entrypoint:
+    - node
+    - ci/evidence/peace.separated-signing.js
+    command:
+    - --help

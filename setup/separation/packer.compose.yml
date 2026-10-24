@@ -1,0 +1,60 @@
+# Run on the designated host only. Not automatically applied to Railway.
+services:
+  packer:
+    image: ${GAMEWEB_IMAGE:?set reviewed Relay Server image digest}
+    user: 10003:10003
+    cpus: 1
+    mem_limit: 1g
+    memswap_limit: 1g
+    read_only: true
+    cap_drop:
+    - ALL
+    security_opt:
+    - no-new-privileges:true
+    pids_limit: 128
+    init: true
+    restart: 'no'
+    environment:
+      NODE_ENV: production
+      DATA_DIR: ''
+      GAME_ISOLATION_REQUIRED: '1'
+      GAME_SERVICE_ROLE: packer
+      GAME_SERVICE_UID: '10003'
+      GAME_READONLY_PATHS_JSON: '["/app","/tool","/profiles"]'
+      GAME_FORBIDDEN_PATHS_JSON: '["/data","/keys-release","/keys-ci"]'
+      GAME_WRITABLE_PATHS_JSON: '["/work"]'
+      PACKER_HOST: ${PACKER_HOST:?set listener bind address}
+      PACKER_PORT: ${PACKER_PORT:?set listener port}
+      PACKER_TLS_CA_FILE: /tls/authority-client-ca.crt
+      PACKER_TLS_CERT_FILE: /tls/packer.crt
+      PACKER_TLS_KEY_FILE: /tls/packer.key
+      TMPDIR: /work
+    tmpfs:
+    - /tmp:rw,noexec,nosuid,nodev,size=64m,uid=10003,gid=10003,mode=700
+    - /work:rw,noexec,nosuid,nodev,size=512m,uid=10003,gid=10003,mode=700
+    env_file:
+    - ./packer.env
+    command:
+    - node
+    - tools/artifacts/peace.packing-worker.js
+    ports:
+    - "${PACKER_BIND_IP:?set bind address}:${PACKER_PORT:?set listener port}:${PACKER_PORT:?set listener port}"
+    volumes:
+    - type: bind
+      source: ${PACKER_TOOL_DIR:?reviewed executable tool}
+      target: /tool
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PACKER_PROFILE_DIR:?reviewed profiles}
+      target: /profiles
+      read_only: true
+      bind:
+        create_host_path: false
+    - type: bind
+      source: ${PACKER_TLS_DIR:?packer-only certificates}
+      target: /tls
+      read_only: true
+      bind:
+        create_host_path: false
