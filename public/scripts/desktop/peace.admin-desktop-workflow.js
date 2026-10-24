@@ -7,62 +7,88 @@ function desktopWorkflowError(node,error,retry){
  const p=error.problem||{title:error.serverMessage||error.message||'요청을 완료하지 못했습니다.',current:'이 작업의 완료를 확인하지 못했습니다.',next:'내용과 현재 서버 상태를 확인한 뒤 다시 시도하세요.',code:error.code||'REQUEST_FAILED',action:'refresh'};
  node.innerHTML=`<div class="desktop-operation-error" role="alert"><strong>${esc(p.title)}</strong><p>현재: ${esc(p.current)}</p><p>다음: ${esc(p.next)}</p><details><summary>상세 코드</summary><code>${esc(error.code||p.code||'REQUEST_FAILED')}</code></details>${retry?'<button type="button" data-workflow-retry>이 항목 다시 확인</button>':''}</div>`;
  if(retry)node.querySelector('[data-workflow-retry]').onclick=retry;
- const names={security:'서버 보안 설정 열기',deploy:'메인에 등록 열기',licenses:'라이선스 목록으로',jobs:'서버 작업함 열기',storage:'저장공간 확인'};
- if(names[p.action]){const go=document.createElement('button');go.type='button';go.textContent=names[p.action];node.firstElementChild.append(go);go.onclick=async()=>{try{const owner=session?.csrf;if(typeof modalCancel!=='undefined')modalCancel.click();await new Promise(r=>setTimeout(r,0));if(session?.csrf!==owner)return;if(p.action==='security')await showDesktopSecurityOperations();else if(p.action==='deploy')await showDesktopMainRegistration();else if(p.action==='jobs'||p.action==='storage')await showDesktopWorkspace(p.action);else await renderCurrent();}catch(e){toast(e.message||'화면을 열지 못했습니다.',true);}};}
+ const names={security:'서버 보안 설정 열기',deploy:'서버 보안 · 배포 운영 열기',licenses:'라이선스 목록으로',jobs:'서버 작업함 열기',storage:'저장공간 확인'};
+ if(names[p.action]){const go=document.createElement('button');go.type='button';go.textContent=names[p.action];node.firstElementChild.append(go);go.onclick=async()=>{try{const owner=session?.csrf;if(typeof modalCancel!=='undefined')modalCancel.click();await new Promise(r=>setTimeout(r,0));if(session?.csrf!==owner)return;if(p.action==='security')await showDesktopSecurityOperations();else if(p.action==='deploy')await showDesktopSecurityOperations();else if(p.action==='jobs'||p.action==='storage')await showDesktopWorkspace(p.action);else await renderCurrent();}catch(e){toast(e.message||'화면을 열지 못했습니다.',true);}};}
 
 }
 function desktopWorkflowDownload(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-async function desktopApprovalRead(file,component){
- if(!file||file.size>65536)throw Error('64KB 이하의 공개 approval.json을 선택하세요.');
- const value=JSON.parse(await file.text()),a=value.approval||value;
- if(value.component!==component||typeof value.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(value.version)||!/^[a-f0-9]{128}$/.test(value.sha512||'')||!/^[a-f0-9]{64}$/.test(a.keyId||'')||typeof a.signature!=='string')throw Error(component+'의 구분·버전·해시·공개 서명 자료를 확인하세요. 개인키는 선택하지 마세요.');
- return {...value,approval:a};
-}
-async function desktopFileHash(file){if(!crypto.subtle)throw Error('파일 사전 확인은 HTTPS 관리자 주소에서 사용하세요.');return [...new Uint8Array(await crypto.subtle.digest('SHA-512',await file.arrayBuffer()))].map(x=>x.toString(16).padStart(2,'0')).join('');}
-async function showDesktopMainRegistration(){
- if(!roleIsAdmin())return;const owner=desktopWorkflowOwner();const initial=await api('/api/desktop/bootstrap/security-operations');if(session?.csrf!==owner)return;
- let listing=initial,preview=null,busy=false;const staged=new Map();
- const promise=openModal({title:'메인에 등록',message:'사용자 A/B/O에는 관리자 화면이 없습니다. 파일 확인 → 후보 등록 → 조합 검증 → 게시를 이 창에서 진행합니다. 개인키는 업로드하지 않습니다.',html:`<div id="desktop-deploy-wizard"><fieldset id="desktop-release-safety"><legend>정상본 보존 · 배포 묶음 관리</legend><p class="small-note">회귀 보고서와 30분 유지 시험은 운영 게시의 필수 조건이 아닙니다. A/B/O 서명·해시·명세·버전·철회·정책 및 관리자 승인 검사는 그대로 수행합니다. 정상본 고정은 운영자가 확인한 기준 보존이며 시험 PASS가 아닙니다.</p><div id="desktop-safety-status" role="status"></div><label>정상본 고정 메모<input id="desktop-baseline-note" maxlength="500" placeholder="직접 확인한 환경·동작을 기록하세요"></label><div class="actions"><button type="button" id="desktop-baseline-pin">현재 운영 A/B/O 정상본 고정</button><button type="button" id="desktop-baseline-export">고정 기록 받기</button></div><details><summary>보안상 폐기할 배포 묶음 (되돌릴 수 없음)</summary><label>등록된 묶음<select id="desktop-retire-cohort"></select></label><label>폐기 사유<input id="desktop-retire-reason" maxlength="500"></label><label>영향 확인 후 RETIRE 입력<input id="desktop-retire-confirm" maxlength="6" autocomplete="off"></label><p>현재 또는 실행 중인 묶음을 폐기하면 다음 서버 검사에서 거절됩니다. 단순히 새 버전을 올릴 때 사용하는 버튼이 아닙니다.</p><button type="button" id="desktop-retire-submit">선택 묶음 영구 폐기</button></details><div id="desktop-safety-result" role="status"></div></fieldset><fieldset><legend>자체 암호화 패키지 (.gcpack)</legend><p class="small-note">VMProtect 없이 이 서버에서 압축·암호화합니다. A/B/O 보관 패키지 또는 서버에 있는 Win64 전체 매니페스트 파일을 선택하세요. .gcpack은 직접 실행하는 EXE가 아니며 함수 가상화·실행 코드 난독화는 수행하지 않습니다. 복호화 키는 서버에만 설정하고 이 화면에 올리지 않습니다.</p><label>대상<select id="desktop-custom-kind"><option value="artifacts">아래에서 선택한 A/B/O 세 파일</option><option value="sources">Railway 전체 매니페스트 파일</option></select></label><button type="button" id="desktop-custom-selected">자체 암호화 패키지 만들기</button><div id="desktop-custom-result" role="status"></div></fieldset>${['A','B','O'].map(c=>`<fieldset><legend>${c==='A'?'A · 사용자 실행기':c==='B'?'B · 사용자 프로그램':'O · 오버레이'}</legend><p class="small-note">변경하지 않는 파일은 현재 후보를 선택할 수 있습니다. 단, 선택한 A/B/O 세 파일이 같은 등록 매니페스트의 정확한 조합이어야 합니다.</p><label>실행 파일<input data-file="${c}" type="file" accept=".exe"></label><label>공개 승인 JSON<input data-approval="${c}" type="file" accept=".json"></label><label>버전<input data-version="${c}" maxlength="40" value="1.0.0"></label><p data-file-status="${c}" role="status"></p><label>게시할 후보<select data-candidate="${c}"></select></label></fieldset>`).join('')}<details><summary>기존 외부 보호 도구 연동 (선택 사항)</summary><fieldset><legend>선택 A/B/O 서버 패킹</legend><p class="small-note">별도 VMProtect 워커와 검토한 프로필이 필요합니다. 결과는 미승인 후보이며, 패킹 후 Windows 시험·새 서명·후보 재등록·게시가 필요합니다. 기존 운영 파일은 바뀌지 않습니다.</p><button type="button" id="desktop-pack-selected">선택한 A/B/O 패킹 후보 만들기</button><div id="desktop-pack-result" role="status"></div></fieldset></details><label>이번 변경 내용 (서버에 보관)<textarea id="desktop-release-notes" maxlength="1000"></textarea></label><div class="actions"><button type="button" id="desktop-stage-selected">선택 파일 확인 · 후보 등록</button><button type="button" id="desktop-pair-preview">선택 A/B/O 조합 검증</button><button type="button" id="desktop-pair-publish" disabled>검증한 조합 운영 게시</button></div><div id="desktop-deploy-result" role="status" aria-live="polite"></div></div>`,confirmLabel:'닫기'});
- const root=document.getElementById('desktop-deploy-wizard'),result=root.querySelector('#desktop-deploy-result'),publish=root.querySelector('#desktop-pair-publish');
- const live=()=>root.isConnected&&session?.csrf===owner;
- function selects(preferred={}){for(const c of ['A','B','O']){const select=root.querySelector(`[data-candidate="${c}"]`),id=preferred[c]||select.value||listing.active[c];select.innerHTML=(c==='O'?'<option value="">오버레이 사용 안 함</option>':'')+(listing.candidates||[]).filter(x=>x.component===c).map(x=>`<option value="${esc(x.id)}">${esc(x.version)} · ${esc(x.sha512.slice(0,12))}${x.active?' · 현재 운영':''}</option>`).join('');if([...select.options].some(x=>x.value===id))select.value=id;}}
- function invalidate(){preview=null;publish.disabled=true;}
- function lock(value){busy=value;for(const e of root.querySelectorAll('button,input,select,textarea'))e.disabled=value;if(!value)publish.disabled=!preview?.eligible;}
-
- function safetyManifest(active=false){
-  const tuple=Object.fromEntries(['A','B','O'].map(k=>{const id=active?listing.active[k]:root.querySelector(`[data-candidate="${k}"]`).value;return [k,listing.candidates.find(a=>a.id===id&&a.component===k)?.sha512];}));
+async function showDesktopReleaseSafety(){
+ if(!roleIsAdmin()||!session)return;const owner=desktopWorkflowOwner();
+ let listing=await api('/api/desktop/bootstrap/security-operations');
+ if(!roleIsAdmin()||session?.csrf!==owner)return;
+ let busy=false,closed=false;
+ const promise=openModal({title:'정상본 보존 · 배포 묶음 관리',message:'서버 보안 · 배포 운영에서 현재 운영 정상본을 보존하고 보안상 폐기할 묶음을 관리합니다.',html:`<div id="desktop-release-safety"><p class="small-note">정상본 고정은 운영자가 확인한 기준 보존이며 시험 PASS가 아닙니다. A/B/O 서명·해시·명세·버전·철회·정책 및 관리자 승인 검사는 그대로 수행합니다.</p><div id="desktop-safety-status" role="status"></div><label>정상본 고정 메모<input id="desktop-baseline-note" maxlength="500" placeholder="직접 확인한 환경·동작을 기록하세요"></label><div class="actions"><button type="button" id="desktop-baseline-pin">현재 운영 A/B/O 정상본 고정</button><button type="button" id="desktop-baseline-export">고정 기록 받기</button></div><details><summary>보안상 폐기할 배포 묶음 (되돌릴 수 없음)</summary><label>등록된 묶음<select id="desktop-retire-cohort"></select></label><label>폐기 사유<input id="desktop-retire-reason" maxlength="500"></label><label>영향 확인 후 RETIRE 입력<input id="desktop-retire-confirm" maxlength="6" autocomplete="off"></label><p>현재 또는 실행 중인 묶음을 폐기하면 다음 서버 검사에서 거절됩니다. 단순히 새 버전을 올릴 때 사용하는 버튼이 아닙니다.</p><button type="button" id="desktop-retire-submit">선택 묶음 영구 폐기</button></details><div id="desktop-safety-result" role="status" aria-live="polite"></div></div>`,confirmLabel:'닫기'});
+ const root=document.getElementById('desktop-release-safety'),area=root.querySelector('#desktop-safety-result');
+ const live=()=>!closed&&root.isConnected&&roleIsAdmin()&&session?.csrf===owner;
+ function lock(value){busy=value;for(const e of root.querySelectorAll('button,input,select,textarea'))e.disabled=value;if(!value&&!listing?.releaseSafety){root.querySelector('#desktop-baseline-pin').disabled=true;root.querySelector('#desktop-retire-submit').disabled=true;}}
+ function activeManifest(){
+  const tuple=Object.fromEntries(['A','B','O'].map(k=>[k,(listing.candidates||[]).find(a=>a.id===listing.active?.[k]&&a.component===k)?.sha512]));
   const row=Object.entries(listing.operations.releaseGovernance?.manifests||{}).find(([,v])=>v.registration!=='PLANNED'&&['A','B','O'].every(k=>tuple[k]&&v.manifest.artifacts[k]===tuple[k]));
-  if(!row)throw Error('선택 A/B/O의 등록 완료된 배포 명세가 필요합니다. 기존 명세 등록 절차를 먼저 수행하세요.');
-  return {manifestId:row[0],manifest:row[1].manifest};
+  if(!row)throw Error('현재 운영 A/B/O의 등록 완료된 배포 명세가 필요합니다. 서버 보안 · 배포 운영에서 명세와 운영 조합을 확인하세요.');
+  return row[0];
  }
- function renderSafety(){
-  const v=listing.releaseSafety;const area=root.querySelector('#desktop-safety-status');
-  if(!v){area.textContent='서버의 새 release-safety 코드가 아직 적용되지 않았습니다.';return;}
-  area.textContent=(v.baseline?'정상본 고정됨: '+v.baseline.manifestId.slice(0,16)+' · '+desktopDate(v.baseline.pinnedAt):'정상본 미고정 · 동작 확인은 운영자 기록으로만 저장됩니다.')+' / 보안 버전 하한 '+listing.operations.releaseGovernance.minimumSecurityVersion;
-  const select=root.querySelector('#desktop-retire-cohort'),previous=select.value;
-  select.innerHTML='<option value="">폐기 대상 선택</option>'+Object.entries(listing.operations.releaseGovernance?.manifests||{}).filter(([,r])=>r.registration!=='PLANNED').map(([id,r])=>`<option value="${esc(id)}">${esc(r.manifest.releaseName)} · 보안 ${Number(r.manifest.securityVersion)} · ${esc(id.slice(0,16))}${v.revokedCohorts[id]?' · 이미 폐기됨':''}</option>`).join('');
+ function render(){
+  const v=listing.releaseSafety,status=root.querySelector('#desktop-safety-status'),select=root.querySelector('#desktop-retire-cohort'),previous=select.value;
+  if(!v){status.textContent='서버에서 정상본 보존 기능을 사용할 수 없습니다. 서버 상태를 확인하세요.';select.innerHTML='<option value="">폐기 대상 없음</option>';lock(false);return;}
+  status.textContent=(v.baseline?'정상본 고정됨: '+v.baseline.manifestId.slice(0,16)+' · '+desktopDate(v.baseline.pinnedAt):'정상본 미고정 · 동작 확인은 운영자 기록으로만 저장됩니다.')+' / 보안 버전 하한 '+listing.operations.releaseGovernance.minimumSecurityVersion;
+  select.innerHTML='<option value="">폐기 대상 선택</option>'+Object.entries(listing.operations.releaseGovernance?.manifests||{}).filter(([,r])=>r.registration!=='PLANNED').map(([id,r])=>`<option value="${esc(id)}">${esc(r.manifest.releaseName)} · 보안 ${Number(r.manifest.securityVersion)} · ${esc(id.slice(0,16))}${v.revokedCohorts?.[id]?' · 이미 폐기됨':''}</option>`).join('');
   if([...select.options].some(x=>x.value===previous))select.value=previous;
  }
- async function safetyMutation(action,body){
-  if(busy||!live())return;invalidate();lock(true);const area=root.querySelector('#desktop-safety-result');
-  try{if(!listing.releaseSafety)throw Error('서버 변경분을 먼저 배포하세요.');await api('/api/desktop/bootstrap/security-operations/'+action,{method:'POST',body:{expectedRevision:listing.releaseSafety.revision,...body}});if(!live())return;listing=await api('/api/desktop/bootstrap/security-operations');if(!live())return;selects();renderSafety();area.textContent='서버에 저장했습니다. 선택 조합을 다시 검증하세요. 실행 시험이나 운영 게시를 자동 수행하지 않았습니다.';}catch(e){if(live())desktopWorkflowError(area,e);}finally{if(live())lock(false);}
+ async function mutate(action,bodyForRequest){
+  if(busy||!live())return false;lock(true);
+  try{
+   if(!listing.releaseSafety)throw Error('서버에서 정상본 보존 기능을 사용할 수 없습니다.');
+   const body=await bodyForRequest();if(!live())return false;
+   await api('/api/desktop/bootstrap/security-operations/'+action,{method:'POST',body:{expectedRevision:listing.releaseSafety.revision,...body}});
+   if(!live())return false;const next=await api('/api/desktop/bootstrap/security-operations');if(!live())return false;
+   listing=next;render();area.textContent='서버에 저장했습니다. 실행 시험이나 운영 게시를 자동 수행하지 않았습니다.';return true;
+  }catch(e){if(live())desktopWorkflowError(area,e);return false;}finally{if(live())lock(false);}
  }
- selects();renderSafety();root.addEventListener('change',()=>{invalidate();});
- root.querySelector('#desktop-baseline-pin').onclick=async()=>{if(busy||!live())return;try{const {manifestId}=safetyManifest(true);const note=root.querySelector('#desktop-baseline-note').value.trim();if(!note)throw Error('직접 확인한 정상 동작을 메모에 입력하세요.');const p=await api('/api/desktop/bootstrap/security-authority');if(!live())return;await safetyMutation('baseline-pin',{manifestId,note,expectedOperationsRevision:listing.operations.revision,expectedPolicyRevision:p.policy.revision});}catch(e){if(live())desktopWorkflowError(root.querySelector('#desktop-safety-result'),e);}};
- root.querySelector('#desktop-baseline-export').onclick=()=>{try{if(!live())return;const b=listing.releaseSafety?.baseline;if(!b)throw Error('먼저 현재 운영 조합을 고정하세요.');desktopWorkflowDownload('known-good-baseline.json',b);}catch(e){desktopWorkflowError(root.querySelector('#desktop-safety-result'),e);}};
- root.querySelector('#desktop-retire-submit').onclick=async()=>{if(busy||!live())return;try{const manifestId=root.querySelector('#desktop-retire-cohort').value,reason=root.querySelector('#desktop-retire-reason').value.trim();if(!manifestId||!reason||root.querySelector('#desktop-retire-confirm').value!=='RETIRE')throw Error('폐기 대상·사유·RETIRE 확인이 필요합니다. 현재 묶음을 폐기하면 사용 중 실행도 제한됩니다.');await safetyMutation('retire-cohort',{manifestId,reason});if(live())root.querySelector('#desktop-retire-confirm').value='';}catch(e){if(live())desktopWorkflowError(root.querySelector('#desktop-safety-result'),e);}};
-
- for(const c of ['A','B','O'])root.querySelector(`[data-approval="${c}"]`).onchange=async()=>{try{const v=await desktopApprovalRead(root.querySelector(`[data-approval="${c}"]`).files[0],c);if(!live())return;root.querySelector(`[data-version="${c}"]`).value=v.version;root.querySelector(`[data-file-status="${c}"]`).textContent=`${c} / ${v.version} / 서명 키 ${v.approval.keyId.slice(0,12)} · 공개키 신뢰 등록은 별도입니다.`;}catch(e){if(live())desktopWorkflowError(result,e);} };
+ root.querySelector('#desktop-baseline-pin').onclick=()=>mutate('baseline-pin',async()=>{
+  const manifestId=activeManifest(),note=root.querySelector('#desktop-baseline-note').value.trim();
+  if(!note)throw Error('직접 확인한 정상 동작을 메모에 입력하세요.');
+  const policy=await api('/api/desktop/bootstrap/security-authority');
+  if(!live())return null;
+  return {manifestId,note,expectedOperationsRevision:listing.operations.revision,expectedPolicyRevision:policy.policy.revision};
+ });
+ root.querySelector('#desktop-baseline-export').onclick=()=>{try{if(busy||!live())return;const baseline=listing.releaseSafety?.baseline;if(!baseline)throw Error('먼저 현재 운영 조합을 고정하세요.');desktopWorkflowDownload('known-good-baseline.json',baseline);}catch(e){if(live())desktopWorkflowError(area,e);}};
+ root.querySelector('#desktop-retire-submit').onclick=async()=>{
+  const saved=await mutate('retire-cohort',()=>{
+   const manifestId=root.querySelector('#desktop-retire-cohort').value,reason=root.querySelector('#desktop-retire-reason').value.trim();
+   if(!manifestId||!reason||root.querySelector('#desktop-retire-confirm').value!=='RETIRE')throw Error('폐기 대상·사유·RETIRE 확인이 필요합니다. 현재 묶음을 폐기하면 사용 중 실행도 제한됩니다.');
+   return {manifestId,reason};
+  });
+  if(saved&&live())root.querySelector('#desktop-retire-confirm').value='';
+ };
+ render();
+ try{await promise;}finally{closed=true;listing=null;if(root.isConnected)root.replaceChildren();}
+}
+async function showDesktopExecutableProtection(){
+ if(!roleIsAdmin()||!session)return;const owner=desktopWorkflowOwner();
+ let listing=await api('/api/desktop/bootstrap/security-operations');
+ if(!roleIsAdmin()||session?.csrf!==owner)return;
+ let busy=false,closed=false,waitTimer=null,wakeWait=null;
+ const promise=openModal({title:'패킹 · 암호화 · 난독화',message:'서버에 등록된 후보로 보호 작업을 준비합니다. 파일 등록과 일회용 A 발급은 A / B / O 실행 파일 배포에서 진행하세요.',html:`<div id="desktop-protection-modal"><fieldset><legend>보호 작업 대상 · 등록된 A/B/O 후보</legend><p class="small-note">패키지·패킹 작업에는 A/B/O 세 후보가 필요합니다. 결과 파일은 직접 확인한 뒤 새 승인·명세로 등록해야 합니다.</p>${['A','B','O'].map(c=>`<label>${c} 후보<select data-protection-candidate="${c}"></select></label>`).join('')}</fieldset><fieldset><legend>자체 암호화 패키지 (.gcpack)</legend><p class="small-note">VMProtect 없이 이 서버에서 압축·암호화합니다. .gcpack은 보관·전달용 데이터 패키지이며 직접 실행하는 EXE가 아닙니다. 함수 가상화·실행 코드 난독화는 수행하지 않습니다. 복호화 키는 서버에만 설정하고 이 화면에 올리지 않습니다.</p><label>대상<select id="desktop-custom-kind"><option value="artifacts">위에서 선택한 A/B/O 세 파일</option><option value="sources">Railway 전체 매니페스트 파일</option></select></label><button type="button" id="desktop-custom-selected">자체 암호화 패키지 만들기</button><div id="desktop-custom-result" role="status" aria-live="polite"></div></fieldset><fieldset><legend>외부 실행 파일 보호 · 패킹/난독화 도구 연동</legend><p class="small-note">별도 VMProtect 워커와 검토한 프로필이 필요합니다. 실제 보호 범위는 워커와 프로필에 따릅니다. 결과는 미승인 후보이며, 패킹 후 Windows 시험·새 서명·후보 재등록·게시가 필요합니다.</p><button type="button" id="desktop-pack-selected">선택한 A/B/O 패킹 후보 만들기</button><div id="desktop-pack-result" role="status" aria-live="polite"></div></fieldset></div>`,confirmLabel:'닫기'});
+ const root=document.getElementById('desktop-protection-modal');
+ const live=()=>!closed&&root.isConnected&&roleIsAdmin()&&session?.csrf===owner;
+ function lock(value){busy=value;for(const e of root.querySelectorAll('button,input,select,textarea'))e.disabled=value;}
+ function selected(){const body=Object.fromEntries(['A','B','O'].map(c=>[c,root.querySelector(`[data-protection-candidate="${c}"]`).value]));if(Object.values(body).some(x=>!x))throw Error('A, B, O 후보를 모두 선택하세요.');return body;}
+ function wait(ms){return new Promise(resolve=>{wakeWait=resolve;waitTimer=setTimeout(()=>{waitTimer=null;wakeWait=null;resolve();},ms);});}
+ for(const c of ['A','B','O']){
+  const select=root.querySelector(`[data-protection-candidate="${c}"]`);
+  select.innerHTML=`<option value="">${c} 후보 선택</option>`+(listing.candidates||[]).filter(x=>x.component===c).map(x=>`<option value="${esc(x.id)}">${esc(x.version)} · ${esc(x.sha512.slice(0,12))}${x.active?' · 현재 운영':''}</option>`).join('');
+  if([...select.options].some(x=>x.value===listing.active?.[c]))select.value=listing.active[c];
+ }
  root.querySelector('#desktop-custom-selected').onclick=async()=>{
   if(busy||!live())return;lock(true);const area=root.querySelector('#desktop-custom-result');
   try{
+   const kind=root.querySelector('#desktop-custom-kind').value,body={kind};if(kind==='artifacts')Object.assign(body,selected());
    const status=await api('/api/desktop/bootstrap/packing/status');if(!live())return;
    if(!status.custom?.configured)throw Error('서버 암호화 키 설정 필요: '+(status.custom?.reason||'CUSTOM_PACKAGE_KEY_NOT_CONFIGURED'));
-   const kind=root.querySelector('#desktop-custom-kind').value,body={kind};
    if(kind==='sources'&&!status.custom.sourceTreeAvailable)throw Error('서버에 Railway 소스가 없습니다. 서버 전용 배포에서는 A/B/O 보관 패키지를 사용하세요.');
-   if(kind==='artifacts'){for(const c of ['A','B','O'])body[c]=root.querySelector(`[data-candidate="${c}"]`).value;if(['A','B','O'].some(c=>!body[c]))throw Error('A, B, O 후보를 모두 선택하세요.');}
-   let response=await api('/api/desktop/bootstrap/packing/custom/jobs',{method:'POST',body});const id=response.job.id,stop=Date.now()+100000;
-   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent='서버에서 데이터 패키지를 압축·암호화합니다. 실행 파일 보호·운영 게시는 별개입니다.';await new Promise(resolve=>setTimeout(resolve,1000));if(!live())return;response=await api('/api/desktop/bootstrap/packing/custom/jobs/'+id);}
+   let response=await api('/api/desktop/bootstrap/packing/custom/jobs',{method:'POST',body});
+   const id=encodeURIComponent(response.job.id),stop=Date.now()+100000;
+   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent='서버에서 데이터 패키지를 압축·암호화합니다. 실행 파일 보호·운영 게시는 별개입니다.';await wait(1000);if(!live())return;response=await api('/api/desktop/bootstrap/packing/custom/jobs/'+id);}
    if(!live())return;if(response.job.status!=='COMPLETE')throw Error(response.job.error||'암호화 패키지 완료를 확인하지 못했습니다.');
    area.replaceChildren();const note=document.createElement('p');note.textContent=`암호화 완료: ${response.job.fileCount}개 파일 / ${response.job.size}바이트. 내려받기는 10분 후 만료됩니다. 실행 코드 난독화나 운영 게시를 완료했다는 뜻은 아닙니다.`;area.append(note);
    const link=document.createElement('a');link.href='/api/desktop/bootstrap/packing/custom/jobs/'+id+'/download';link.textContent='자체 암호화 패키지 (.gcpack) 받기';link.setAttribute('download','');area.append(link);
@@ -70,56 +96,19 @@ async function showDesktopMainRegistration(){
   }catch(e){if(live())desktopWorkflowError(area,e);}finally{if(live())lock(false);}
  };
  root.querySelector('#desktop-pack-selected').onclick=async()=>{
-  if(busy||!live())return;invalidate();lock(true);const area=root.querySelector('#desktop-pack-result');
+  if(busy||!live())return;lock(true);const area=root.querySelector('#desktop-pack-result');
   try{
-   const status=await api('/api/desktop/bootstrap/packing/status');if(!live())return;
+   const body=selected(),status=await api('/api/desktop/bootstrap/packing/status');if(!live())return;
    if(!status.packing?.configured)throw Error('패킹 워커 설정 필요: '+(status.packing?.reason||'PACKING_WORKER_NOT_CONFIGURED'));
-   const body=Object.fromEntries(['A','B','O'].map(c=>[c,root.querySelector(`[data-candidate="${c}"]`).value]));
-   if(Object.values(body).some(x=>!x))throw Error('A, B, O 후보를 모두 선택하세요.');
    let response=await api('/api/desktop/bootstrap/packing/jobs',{method:'POST',body});
-   const id=response.job.id,stop=Date.now()+600000;
-   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){
-    area.textContent='서버 패킹 진행: '+(response.job.component||'시작')+' · 운영 발급 전 시험·서명 필요';
-    await new Promise(resolve=>setTimeout(resolve,2000));if(!live())return;
-    response=await api('/api/desktop/bootstrap/packing/jobs/'+id);
-   }
-   if(!live())return;
-   if(response.job.status!=='COMPLETE')throw Error(response.job.error||'패킹 완료를 확인하지 못했습니다.');
-   area.replaceChildren();const note=document.createElement('p');note.textContent='패킹 후보 생성 완료. 아래 파일로 Windows 시험 및 새 배포 승인을 수행한 뒤 이 창에서 후보를 다시 등록하세요. 10분 후 내려받기 만료. 기존 승인 JSON은 재사용할 수 없습니다.';area.append(note);
+   const id=encodeURIComponent(response.job.id),stop=Date.now()+600000;
+   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent='서버 패킹 진행: '+(response.job.component||'시작')+' · 운영 발급 전 시험·서명 필요';await wait(2000);if(!live())return;response=await api('/api/desktop/bootstrap/packing/jobs/'+id);}
+   if(!live())return;if(response.job.status!=='COMPLETE')throw Error(response.job.error||'패킹 완료를 확인하지 못했습니다.');
+   area.replaceChildren();const note=document.createElement('p');note.textContent='패킹 후보 생성 완료. 아래 파일로 Windows 시험 및 새 배포 승인을 수행한 뒤 A / B / O 실행 파일 배포에서 후보를 다시 등록하세요. 10분 후 내려받기 만료. 기존 승인 JSON은 재사용할 수 없습니다.';area.append(note);
    for(const c of ['A','B','O','report']){const a=document.createElement('a');a.href='/api/desktop/bootstrap/packing/jobs/'+id+'/'+c;a.textContent=c==='report'?'SHA-512 작업 보고서':c+' 미승인 패킹 EXE';a.setAttribute('download','');const div=document.createElement('div');div.append(a);area.append(div);}
   }catch(e){if(live())desktopWorkflowError(area,e);}finally{if(live())lock(false);}
  };
- root.querySelector('#desktop-stage-selected').onclick=async()=>{
-  if(busy||!live())return;invalidate();lock(true);let any=false;const preferred={};
-  try{
-   for(const c of ['A','B','O']){
-    const file=root.querySelector(`[data-file="${c}"]`).files[0];if(!file)continue;any=true;
-    const version=root.querySelector(`[data-version="${c}"]`).value.trim(),af=root.querySelector(`[data-approval="${c}"]`).files[0];
-    if(!file.size||file.size>67108864||!file.name.toLowerCase().endsWith('.exe')||!/^\d+(?:\.\d+){0,3}$/.test(version))throw Error('64MB 이하의 EXE와 올바른 버전을 선택하세요.');
-    const headers={};const digest=await desktopFileHash(file);if(!live())return;
-    if(af){const approval=await desktopApprovalRead(af,c);if(approval.version!==version)throw Error(`${c} 승인 버전 ${approval.version} / 입력 버전 ${version}: 서로 일치시켜 주세요.`);if(approval.sha512!==digest)throw Error(c+' EXE 내용이 승인 파일의 해시와 다릅니다. 같은 빌드의 파일을 선택하세요.');headers['x-game-release-key-id']=approval.approval.keyId;headers['x-game-release-signature']=approval.approval.signature;}
-    const key=[c,version,digest,headers['x-game-release-signature']||''].join(':');let artifact=staged.get(key);
-    result.textContent=c+' 파일을 서버에서 검증하고 후보로 등록합니다.';
-    if(!artifact){const r=await api('/api/desktop/bootstrap/artifacts?'+new URLSearchParams({component:c,version,fileName:file.name}),{method:'POST',rawBody:file,headers});artifact=r.artifact;staged.set(key,artifact);}
-    preferred[c]=artifact.id;if(live())root.querySelector(`[data-file-status="${c}"]`).textContent='후보 등록됨 · 운영 게시는 아직 하지 않았습니다.';
-   }
-   if(!any)throw Error('등록할 파일을 선택하세요. 파일을 바꾸지 않는 경우 아래 조합 검증으로 진행하세요.');
-   listing=await api('/api/desktop/bootstrap/security-operations');if(live()){selects(preferred);result.textContent='후보 등록 완료. 아래 선택 A/B/O를 검증한 뒤 별도로 게시하세요.';}
-  }catch(e){if(live()){desktopWorkflowError(result,e);try{listing=await api('/api/desktop/bootstrap/security-operations');if(live())selects(preferred);}catch(_){} }}finally{if(live())lock(false);}
- };
- root.querySelector('#desktop-pair-preview').onclick=async()=>{
-  if(busy||!live())return;lock(true);try{const aId=root.querySelector('[data-candidate="A"]').value,bId=root.querySelector('[data-candidate="B"]').value,oId=root.querySelector('[data-candidate="O"]').value;if(!aId||!bId)throw Error('A와 B 후보를 각각 선택하세요.');const r=await api('/api/desktop/bootstrap/security-operations/preview-pair',{method:'POST',body:{aId,bId,oId}});if(live()){preview=r.preview;result.textContent=preview.eligible?'조합 검증 통과. 아직 운영 파일은 변경하지 않았습니다.':'조합 검증 보류: '+preview.reasons.join(', ');}}catch(e){if(live())desktopWorkflowError(result,e);}finally{if(live())lock(false);}
- };
- publish.onclick=async()=>{
-  if(busy||!live()||!preview?.eligible)return;const selected=preview;lock(true);
-  try{
-   const note=root.querySelector('#desktop-release-notes').value.trim();
-   if(note)await api('/api/desktop/workspace/deployment-note',{method:'POST',body:{aId:selected.aId,bId:selected.bId,oId:selected.oId||'',note}});
-   await api('/api/desktop/bootstrap/security-operations/activate',{method:'POST',body:{expectedRevision:selected.operationsRevision,expectedPolicyRevision:selected.policyRevision,aId:selected.aId,bId:selected.bId,oId:selected.oId||''}});
-   if(live()){result.textContent='선택 A/B/O를 운영 게시했습니다. 사용자에게 새 A를 발급하세요.';listing=await api('/api/desktop/bootstrap/security-operations');if(live())selects();}invalidate();
-  }catch(e){invalidate();if(live())desktopWorkflowError(result,e);}finally{if(live())lock(false);}
- };
- try{await promise;}finally{if(root.isConnected)root.replaceChildren();if(session?.csrf===owner&&currentView==='desktop-licenses')await renderCurrent();}
+ try{await promise;}finally{closed=true;if(waitTimer!==null)clearTimeout(waitTimer);waitTimer=null;const wake=wakeWait;wakeWait=null;if(wake)wake();listing=null;if(root.isConnected)root.replaceChildren();}
 }
 async function showDesktopWorkspace(initialTab='quality'){
  if(!roleIsAdmin())return;const owner=desktopWorkflowOwner();let plan=null,pendingRequest=null,busy=false,tickBusy=false;

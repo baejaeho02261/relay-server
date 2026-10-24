@@ -6,6 +6,7 @@ async function showDesktopSecurityOperations() {
   const owner=session.csrf,base='/api/desktop/bootstrap/security-operations';
   let data=await api('/api/desktop/bootstrap/security-authority'),policyPreview='',pairPreview=null,rolloutPreview='',busy=false,closed=false;
   let recoveryPreview=null,recoveryDraft='',recoveryRequestId='';
+  let nextPanel='';
   let activationState=(await api(base+'/activation')).status,activationPreview=null;
   if(!roleIsAdmin()||session?.csrf!==owner)return;
   const done=openModal({title:'서버 보안 · 배포 운영',html:'<section id="desktop-security-root" class="desktop-security"></section>',confirmLabel:'닫기'});
@@ -38,7 +39,7 @@ async function showDesktopSecurityOperations() {
       <table><thead><tr><th>Windows 빌드</th><th>범위 / 정책</th><th>결과</th><th>GPU·드라이버 식별</th><th>적용 판단</th></tr></thead><tbody>${record.rows.map(row=>`<tr><td>${esc(row.environment?.windowsBuild??'미수집')}</td><td>${esc(row.componentScope)} / ${esc(row.mode)}</td><td>${esc(row.status)}</td><td>${row.componentScope==='O'?esc(row.environment?.gpuIdentitySha512?.slice(0,20)||'미수집')+'…':'그래픽 시험 아님'}</td><td>${esc(judgement[row.judgement]||row.judgement)}</td></tr>`).join('')}</tbody></table>
       <details><summary>정책 조회값·오류 코드 / 전체 GPU·드라이버 fingerprint</summary><pre>${esc(JSON.stringify(record.rows,null,2))}</pre></details></article>`).join('');
   }
-  function publishReady(){return !!pairPreview&&pairPreview.policyRevision===data.policy.revision&&pairPreview.operationsRevision===data.operations.operations.revision&&pairPreview.selection===JSON.stringify(pairBody());}
+  function publishReady(){return !!pairPreview&&pairPreview.policyRevision===data.policy.revision&&pairPreview.operationsRevision===data.operations.operations.revision&&pairPreview.selection===JSON.stringify(pairBody())&&pairPreview.note===node('sec-release-notes').value.trim();}
   function reportStatus(message,state='success',sectionIndex=-1){
     for(const el of [node('security-status'),sections()[sectionIndex]?.querySelector(':scope > .security-section-status')])if(el){el.hidden=false;el.textContent=message;el.dataset.state=state;}
   }
@@ -71,7 +72,7 @@ async function showDesktopSecurityOperations() {
     policyPreview='';rolloutPreview='';activationPreview=null;recoveryPreview=null;
     if(pairPreview&&(pairPreview.policyRevision!==p.revision||pairPreview.operationsRevision!==s.revision))pairPreview=null;
     root.innerHTML=`<p class="small-note">정책·검사 기준·승인·배포 이력은 서버에 저장합니다. 이 화면은 메모리에서만 초안을 유지합니다. 시험 기록은 운영자 확인 자료이며 하드웨어 실행 증명이 아닙니다.</p>
-      <div class="actions">${button('refresh','새로고침')}</div>
+      <div class="actions">${button('refresh','새로고침')}${button('release-safety','정상본 보존 · 배포 묶음 관리')}</div>
       <p id="security-status" role="status" aria-live="polite"></p>
       <div class="kv"><div>정책 / 운영 revision</div><div>${p.revision} / ${s.revision}</div><div>관리자 보호</div><div>${box.adminProtection?.recentReauthenticationRequired?'1인 운영 · 중요 변경 시 최근 재인증 필요':'1인 운영 · 기존 관리자 로그인 사용'}</div><div>감사 저장</div><div>${esc(box.auditHealth.status)} · 프로세스 시작 후 실패 ${box.auditHealth.failedWrites}건</div></div>
       <details open><summary>1인 운영 · 현재 가능한 보호 적용</summary>
@@ -113,6 +114,7 @@ async function showDesktopSecurityOperations() {
       <p class="small-note">기존 A/B/O 파일 등록 버튼은 후보만 등록합니다. 이 화면에서 조합을 선택해 운영 게시합니다. 이전 조합도 현재 서명·철회·시험 정책을 통과해야 합니다.</p>
       <div class="desktop-security-grid"><label>A${select('sec-a',[['','A 후보 선택'],...choices('A')],selected('A'))}</label><label>B${select('sec-b',[['','B 후보 선택'],...choices('B')],selected('B'))}</label><label>O${select('sec-o',[['','오버레이 사용 안 함'],...choices('O')],selected('O'))}</label></div>
       <div id="sec-candidate-summary" class="security-candidate-summary"></div><p id="sec-release-stage" class="security-release-stage"></p>
+      <label>이번 변경 내용 (서버에 보관)<textarea id="sec-release-notes" maxlength="1000"></textarea></label>
       <div class="actions">${button('preview-pair','조합 검증')}<button type="button" id="sec-activate" data-security-action="activate" disabled>검증한 A/B/O 조합 운영 게시</button></div><p id="sec-pair-status" class="security-pair-status" role="status" aria-live="polite"></p><pre id="sec-pair-preview" class="desktop-security-result"></pre>
       <p id="sec-ci-status" class="small-note">CI 미실행/미검증 · 수동 배포의 서명·명세 확인은 Windows 시험 PASS가 아닙니다.</p>
       <details><summary>선택 사항 · 운영자 시험 기록</summary><label>시험 결과 JSON (Windows 수집 도구 결과 또는 운영자 확인 자료)<input type="file" id="sec-evidence-file" accept=".json,application/json"></label>${button('record-evidence','선택 A/B/O에 시험 결과 기록')}
@@ -127,7 +129,7 @@ async function showDesktopSecurityOperations() {
       <p class="small-note">현재 운영 조합도 서명·명세 검증을 통과해야 이 조건을 저장할 수 있습니다. 명세가 없는 기존 조합은 승인한 최종 A/B/O로 명세를 준비해 새로 게시하세요. 실패하면 기존 운영 조합과 정책을 바꾸지 않습니다.</p>
       <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">내려받은 deployment-policy.json을 BAT가 있는 Relay Server/tools 폴더에 저장하세요. 현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
       <div class="small-note" id="sec-manual-workflow"><strong>IDE 수동 빌드부터 운영 게시까지</strong>
-      <ol><li>필요할 때 <code>Prepare_ImGui.bat</code>으로 ImGui 브리지를 준비하고, IDE에서 A/B/O를 Win64 Release로 빌드합니다. 최종 EXE는 <code>Railway/Win64/Release</code>에 모입니다.</li>
+      <ol><li>필요할 때 <code>Prepare_ImGui.bat</code>으로 ImGui 브리지를 준비하고, IDE에서 A/B/O를 Win64 Release로 빌드합니다. 최종 EXE는 <code>Railway/Cozy.Projects/Cozy.Launcher/Cozy.Launcher.exe</code>, <code>Railway/Cozy.Projects/Cozy.Client/Cozy.Client.exe</code>, <code>Railway/Cozy.Projects/Cozy.Overlay/Cozy.Overlay.exe</code>에 생성됩니다.</li>
       <li><code>Create_Spec.bat</code>으로 실제 버전의 <code>tools/spec.json</code>을 준비하고, 위 버튼으로 현재 서버 정책을 <code>tools/deployment-policy.json</code>에 저장합니다. 사용할 EXE 승인 공개키가 이 정책의 신뢰 서명자에 있어야 합니다.</li>
       <li>같은 최종 A/B/O 각각에 <code>Create_Approval.bat</code> → <code>Check_Approval.bat</code>을 실행합니다. 승인 도구 처리가 끝난 최종 파일과 승인 JSON을 보관합니다.</li>
       <li>그 세 파일로 <code>Create_Release_Manifest.bat</code> → <code>Check_Release_Manifest.bat</code>을 실행해 <code>tools/release-manifest.json</code>을 준비합니다.</li>
@@ -167,10 +169,13 @@ async function showDesktopSecurityOperations() {
   function policyBody(){return{expectedRevision:data.policy.revision,expectedOperationsRevision:data.operations.operations.revision,mode:node('sec-mode').value,dynamicCode:node('sec-dynamic').value,freshnessMs:Number(node('sec-fresh').value),challengeMs:Number(node('sec-challenge').value),minVersionA:node('sec-min-a').value.trim(),minVersionB:node('sec-min-b').value.trim(),minVersionO:node('sec-min-o').value.trim(),enforceLegacy:node('sec-legacy').checked,requireReadonlyApi:node('sec-readonly').checked,requireCfg:node('sec-cfg').checked,requireReleaseSignature:node('sec-signature').checked,deviceSignalsRequested:node('sec-device-signals').checked,trustedReleaseKeys:JSON.parse(node('sec-keys').value),revokedSha512:node('sec-revoked').value.split(/\s+/).filter(Boolean)};}
   function pairBody(){return{aId:node('sec-a').value,bId:node('sec-b').value,oId:node('sec-o').value};}
   async function reload(){const next=await api('/api/desktop/bootstrap/security-authority'),activation=await api(base+'/activation');if(alive()){data=next;activationState=activation.status;render();}}
+  function invalidateReleaseNote(event){if(event.target.id==='sec-release-notes'){pairPreview=null;node('sec-pair-preview').textContent='';updatePairStatus('변경 내용을 수정했습니다. 현재 A/B/O 조합을 다시 검증해주세요.');}}
+  root.addEventListener('input',invalidateReleaseNote);root.addEventListener('change',invalidateReleaseNote);
   root.addEventListener('change',event=>{if(['sec-a','sec-b','sec-o'].includes(event.target.id)){pairPreview=null;recoveryPreview=null;node('sec-recovery-apply').disabled=true;node('sec-pair-preview').textContent='';updatePairStatus('선택이 변경되었습니다. 이 A/B/O 조합을 다시 검증해주세요.');}if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
   root.addEventListener('click',async event=>{
     const target=event.target.closest('[data-security-action]');if(!target||busy||!alive())return;
     const action=target.dataset.securityAction,revision=data.operations.operations.revision;
+    if(action==='release-safety'){nextPanel='release-safety';modalCancel.click();return;}
     const sectionIndex=sections().indexOf(target.closest('details'));
     busy=true;target.disabled=true;reportStatus('서버에서 처리하고 있습니다.','busy',sectionIndex);updatePairStatus(node('sec-pair-status').textContent);
     try{
@@ -217,15 +222,21 @@ async function showDesktopSecurityOperations() {
           await api(base+'/rollout',{method:'POST',body});changed=true;
         }
       }else if(action==='preview-pair'){
-        const body=pairBody(),out=await api(base+'/preview-pair',{method:'POST',body});
+        const body=pairBody(),note=node('sec-release-notes').value.trim(),out=await api(base+'/preview-pair',{method:'POST',body});
         if(alive()){
-          const current=JSON.stringify(body)===JSON.stringify(pairBody())&&out.preview.policyRevision===data.policy.revision&&out.preview.operationsRevision===data.operations.operations.revision;
-          pairPreview=current&&out.preview.eligible?{selection:JSON.stringify(body),policyRevision:out.preview.policyRevision,operationsRevision:out.preview.operationsRevision,result:out.preview}:null;
+          const current=JSON.stringify(body)===JSON.stringify(pairBody())&&note===node('sec-release-notes').value.trim()&&out.preview.policyRevision===data.policy.revision&&out.preview.operationsRevision===data.operations.operations.revision;
+          pairPreview=current&&out.preview.eligible?{selection:JSON.stringify(body),note,policyRevision:out.preview.policyRevision,operationsRevision:out.preview.operationsRevision,result:out.preview}:null;
           if(current){statusState=out.preview.eligible?'success':'error';node('sec-pair-preview').textContent=JSON.stringify(out.preview,null,2);successMessage=out.preview.eligible?'조합 검증을 통과했습니다. 이제 운영 게시할 수 있습니다.':(out.preview.reasons||[]).map(reasonText).join('\n')||'서버에서 조합을 승인하지 않았습니다.';updatePairStatus(successMessage);node('sec-pair-status').dataset.state=out.preview.eligible?'ready':'blocked';}
           else {statusState='error';successMessage='검사 중 선택 또는 서버 revision이 변경되었습니다. 현재 조합을 다시 검증해주세요.';updatePairStatus(successMessage);}
         }
       }else if(action==='activate'){
         const pair=pairBody();if(!publishReady())throw Error('선택한 A/B/O 조합을 먼저 검증해주세요.');
+        const note=pairPreview.note;
+        if(note){
+          await api('/api/desktop/workspace/deployment-note',{method:'POST',body:{aId:pair.aId,bId:pair.bId,oId:pair.oId||'',note}});
+          if(!alive())return;
+          if(!publishReady())throw Error('선택 또는 변경 내용이 바뀌었습니다. 현재 조합을 다시 검증해주세요.');
+        }
         await api(base+'/activate',{method:'POST',body:{expectedRevision:revision,expectedPolicyRevision:data.policy.revision,...pair}});changed=true;successMessage='서버에 반영했습니다. 선택한 A/B/O 조합이 운영 게시되었습니다.';
       }else if(action==='record-evidence'){
         const file=node('sec-evidence-file').files?.[0];if(!file||file.size>65536)throw Error('64KiB 이하의 시험 결과 JSON을 선택해주세요.');
@@ -281,4 +292,5 @@ async function showDesktopSecurityOperations() {
   });
   render();
   try{await done;}finally{closed=true;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';pairPreview=null;rolloutPreview='';if(root.isConnected)root.replaceChildren();}
+  if(nextPanel==='release-safety'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopReleaseSafety();
 }

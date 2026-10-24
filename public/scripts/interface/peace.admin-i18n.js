@@ -543,7 +543,7 @@ const UI_KO = Object.freeze({
   "DEVICE SECURITY MATRIX": "기기별 보안 상태",
   "DEVICE RELEASE CHANNEL": "기기별 배포 채널",
   "RELEASE MATRIX": "채널별 배포 현황",
-  "PUBLISH RELEASE": "메인에 등록",
+  "PUBLISH RELEASE": "운영 조합 게시",
   "RELEASE NOTES": "변경 사항",
   "CHECK/PUSH": "업데이트 확인·알림",
   "UPLOAD & PUBLISH": "파일 등록·배포",

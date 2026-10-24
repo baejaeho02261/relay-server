@@ -117,23 +117,28 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  assert.equal(new URL(requests.find(r=>r.url.startsWith('/api/desktop/workspace/licenses?')).url,'https://fixture.invalid').searchParams.has('status'),false);
  w.openPalette();w.document.querySelector('#palette-input').value='고객';await w.runPaletteSearch('고객');w.closePalette();
  const paletteRequest=requests.filter(r=>r.url.startsWith('/api/desktop/workspace/licenses?')).at(-1);assert.equal(new URL(paletteRequest.url,'https://fixture.invalid').searchParams.has('status'),false);
- assert.equal(w.document.querySelector('[data-desktop-action="main-registration"]').textContent,'메인에 등록');
- assert.equal(w.document.querySelector('[data-desktop-action="artifact-upload"]'),null);
+ assert.equal(w.document.querySelector('[data-desktop-action="main-registration"]'),null);
+ assert.equal(typeof w.showDesktopMainRegistration,'undefined');
+ assert.equal(w.document.querySelectorAll('#desktop-bootstrap-artifacts [data-desktop-action="artifact-upload"]').length,3);
+ for(const component of ['A','B','O'])assert.equal(w.document.querySelectorAll(`#desktop-bootstrap-artifacts [data-desktop-action="artifact-upload"][data-component="${component}"]`).length,1);
+ assert.equal(w.document.querySelectorAll('#desktop-launcher-create').length,1);
+ assert.match(w.document.querySelector('#desktop-bootstrap-panel').textContent,/A \/ B \/ O 실행 파일 배포/);
+ assert.equal(w.document.querySelector('[data-desktop-action="executable-protection"]').textContent,'패킹 · 암호화 · 난독화');
  assert.equal(w.document.querySelector('#nav [data-view="releases"]'),null);
- w.document.querySelector('[data-desktop-action="main-registration"]').click();
- await waitFor(()=>shown('#desktop-deploy-wizard'),'main registration dialog');
- assert.equal(w.document.querySelector('#modal-title').textContent,'메인에 등록');
- assert.equal(w.document.querySelector('#desktop-pair-publish').disabled,true);
- await closeModal();
- // The consolidated registration surface retains the existing guarded upload helper.
- // A/B deployment replaces the end-user sidecar download path.
+ const protectionOpen=w.showDesktopExecutableProtection;let protectionRoutes=0;
+ w.showDesktopExecutableProtection=async()=>{protectionRoutes++;};
+ w.document.querySelector('[data-desktop-action="executable-protection"]').click();
+ await waitFor(()=>protectionRoutes===1&&actionIdle(),'separate executable protection action');
+ w.showDesktopExecutableProtection=protectionOpen;
+ assert.equal(shown('#desktop-deploy-wizard'),false);
+ // Register through the restored A/B/O rows; uploading candidates never publishes.
  assert.equal(w.document.querySelector('#desktop-connect-profile'),null);
  assert.equal(w.document.querySelector('#desktop-launcher-create').disabled,true);
  assert.match(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/000/);assert.doesNotMatch(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/DL_|FLOW_|DA_/);
  assert.match(w.document.querySelector('#desktop-bootstrap-sessions').textContent,/사용됨/);
  assert.ok(!requests.some(r=>r.url==='/api/desktop/connect-profile'));
  for(const component of ['A','B']){
-   void w.showDesktopArtifactUpload(component);await waitFor(()=>shown('#desktop-artifact-file')&&!modalClosed(),component+' upload form');
+   w.document.querySelector(`[data-desktop-action="artifact-upload"][data-component="${component}"]`).click();await waitFor(()=>shown('#desktop-artifact-file')&&!modalClosed(),component+' upload form');
    const fileInput=w.document.querySelector('#desktop-artifact-file'),file=new w.File(['MZ_'+component],component+'.exe',{type:'application/octet-stream'});Object.defineProperty(fileInput,'files',{value:[file]});field('version','1.0.83');
    if(component==='A'){
      uploadFail=true;w.document.querySelector('#modal-confirm').click();await waitFor(()=>w.document.querySelector('#desktop-artifact-status').textContent.includes('interrupted'),'upload retry retains form');
