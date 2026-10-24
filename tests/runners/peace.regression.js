@@ -5,6 +5,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["cryptography/peace.test-native-contract-vectors.js"],
   ["authentication/peace.test-admin-https-security.js"], ["authentication/peace.test-passkey-validation-security.js"], ["network/peace.test-tcp-admission-security.js"],
   ["observability/peace.test-performance-metrics.js"], ["observability/peace.test-performance-dashboard-ui.js"], ["runtime/peace.test-lifecycle-windows.js"], ["recovery/peace.test-recovery-device-probe.js"], ["recovery/peace.test-recovery-windows.js"],
   ["runtime/peace.test-manual-verification-v3.js"], ["observability/peace.test-lifecycle-trace.js"],
