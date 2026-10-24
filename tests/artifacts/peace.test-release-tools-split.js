@@ -97,8 +97,9 @@ try {
   assert.match(manifestRun.stdout, /CI evidence is optional/);
   assert.match(manifestRun.stdout, /BEFORE creating the manifest/);
   assert.doesNotMatch(manifestRun.stdout, /For production publication, use Run_Windows_CI/);
-  for (const role of ['A', 'B', 'O']) {
-    assert.ok(manifestRun.stdout.includes(role + ' output folder hint: ' + path.join(p.native, 'bin') + ' (' + role + '_Release_*.exe)'));
+  for (const [role, project] of [['A', 'Cozy.Launcher'], ['B', 'Cozy.Client'], ['O', 'Cozy.Overlay']]) {
+    const output = path.join(p.native, 'Cozy.Projects', project, project + '.exe');
+    assert.ok(manifestRun.stdout.includes(role + ' output path hint: ' + output), role + ': canonical project EXE hint required');
   }
   assert.equal(invoke('check').status, 0);
   assert.deepEqual(fs.readdirSync(home).sort(), ['deployment-policy.json', 'release-manifest.json', 'source-manifest.json', 'spec.json']);

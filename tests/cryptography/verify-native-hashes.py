@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the real compiled Pascal cozy.HashProbe. Never substitutes another implementation.
+"""Validate the real compiled Pascal Cozy.HashProbe. Never substitutes another implementation.
 SHA-512 is compared with Python/OpenSSL; XXH3-128 with upstream libxxhash;
 BLAKE3 hash, keyed, derive, XOF and seek with official project vectors.
 """
@@ -17,9 +17,9 @@ def main():
     here = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--probe', required=True, type=Path)
-    parser.add_argument('--extended-vectors', type=Path, default=here / 'fixtures/extended-hash-vectors.json')
+    parser.add_argument('--extended-vectors', type=Path, default=here / 'fixtures/cryptography/extended-hash-vectors.json')
     parser.add_argument('--blake3-vectors', type=Path,
-                        default=here.parent.parent / 'Railway/cozy.tests/cozy.blake3-official-full-vectors.json')
+                        default=here.parent.parent / 'Railway/Cozy.Tests/Cozy.Crypto/Cozy.blake3-official-full-vectors.json')
     parser.add_argument('--xxhash-library', default=ctypes.util.find_library('xxhash'))
     args = parser.parse_args()
     probe = args.probe.resolve()
