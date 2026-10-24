@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "backupDirectory": "D:\\OfflineBackups\\Relay Server-DATA_DIR",
+  "witnessSnapshotDirectory": "E:\\OfflineBackups\\Relay Server-witness-snapshot",
+  "storageEngine": "sqlite",
+  "enrollmentId": "REPLACE_WITH_EXISTING_ACTIVE_ENROLLMENT_64_LOWER_HEX",
+  "machineId": "REPLACE_WITH_ORIGINAL_PC_FINGERPRINT_64_UPPER_HEX",
+  "provider": "SOFTWARE",
+  "nativeProbe": "C:\\Railway\\cozy.tests\\cozy.manual-ide\\bin\\cozy.RecoveryDeviceProbe.exe",
+  "artifacts": {
+    "A": "C:\\ApprovedRelease\\cozy.Launcher.exe",
+    "B": "C:\\ApprovedRelease\\cozy.Client.exe",
+    "O": "C:\\ApprovedRelease\\cozy.Overlay.exe"
+  },
+  "allowIsolatedPcUnlock": true
+}
