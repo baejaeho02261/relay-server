@@ -1,0 +1,87 @@
+'use strict';
+const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
+
+const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
+const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-desktop-licenses-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE=process.argv.includes('--sqlite')?'sqlite':'json';
+const cleanupRoots=new Set([temp]);process.once('exit',()=>{require("../../storage/sqlite/peace.sqlite-database").Close();for(const root of cleanupRoots)fs.rmSync(root,{recursive:true,force:true});});
+require("../../core/peace.utilities.js").EnsureDirs();const d=require("../../services/licensing/peace.desktop-licenses"),state=require("../../core/peace.runtime-state"),database=require("../../storage/snapshots/peace.database.js"),journal=require("../../services/licensing/peace.desktop-journal");
+const bootstrapFixture=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture");
+const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
+function Device(){const {privateKey,publicKey}=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),jwk=publicKey.export({format:'jwk'}),e=Buffer.from(jwk.e,'base64url'),n=Buffer.from(jwk.n,'base64url'),head=Buffer.alloc(24);[0x31415352,2048,e.length,n.length,0,0].forEach((v,i)=>head.writeUInt32LE(v,i*4));const blob=Buffer.concat([head,e,n]);return {privateKey,publicKey:blob.toString('base64'),deviceId:hash(blob).toUpperCase(),machineId:crypto.randomBytes(32).toString('hex').toUpperCase()};}
+let a=Device();const b=Device();
+function Proof(device,action,payload,requestId=crypto.randomUUID()){
+ payload=bootstrapFixture.LicensePayload(device,payload,requestId);
+ const payloadJSON=JSON.stringify(payload),body={action,requestId,deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:sha512(payloadJSON)},c=d.Challenge(body);
+ bootstrapFixture.ObserveLicense(device,action,requestId,sha512(payloadJSON),payload);
+ assert.equal(c.canonical,['GAME-DESKTOP-V2',action,c.challengeId,c.nonce,requestId,device.deviceId,body.payloadHash,String(c.expiresAt)].join('\n'));
+ return {...body,challengeId:c.challengeId,payloadJSON,signature:crypto.sign('sha256',Buffer.from(c.canonical),{key:device.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING}).toString('base64')};
+}
+function Call(device,action,payload,requestId){return d.Execute(Proof(device,action,payload,requestId));}
+function Reject(code,fn){assert.throws(fn,e=>e.message===code,code);}
+let assertions=0;function check(label,fn){fn();assertions++;console.log('PASS '+label);}
+let issued,token,backup,redeemProof;
+check('CNG RSA1 blob and device hash',()=>{assert.equal(d.ParseKey(a.publicKey).deviceId,a.deviceId);const bad=Buffer.from(a.publicKey,'base64');bad.writeUInt32LE(1024,4);Reject('DESKTOP_PROOF_INVALID',()=>d.ParseKey(bad.toString('base64')));Reject('DESKTOP_DEVICE_MISMATCH',()=>d.Challenge({action:'verify',requestId:crypto.randomUUID(),deviceId:b.deviceId,publicKey:a.publicKey,payloadHash:'a'.repeat(64)}));});
+check('Random unprefixed key, detail secrecy and admin idempotent issue',()=>{const body={label:'Windows 테스트',requestId:crypto.randomUUID()};issued=d.Create(body,'ADMIN:test');assert.equal(issued.license.expiresAt,0);assert.match(issued.licenseKey,/^[A-F0-9]{64}$/);assert.match(issued.license.id,/^[A-F0-9]{24}$/);assert.equal(d.Detail(issued.license.id).licenseKey,undefined);assert.ok(!JSON.stringify(d.List()).includes(issued.licenseKey));assert.equal(d.Create(body,'ADMIN:test').licenseKey,issued.licenseKey);Reject('DESKTOP_REQUEST_REUSED',()=>d.Create({requestId:require('node:crypto').randomUUID(),...body,label:'변경'},'ADMIN:test'));assert.equal(d.DB().licenses[issued.license.id].keyHash,hash(issued.licenseKey));assert.ok(!JSON.stringify(d.DB()).includes(issued.licenseKey));backup=structuredClone(d.DB());});
+check('Invalid signature and changed payload never consume key',()=>{const proof=Proof(a,'redeem',{licenseKey:issued.licenseKey,deviceName:'PC',appVersion:'1.0'});Reject('DESKTOP_PROOF_INVALID',()=>d.Execute({...proof,signature:Buffer.alloc(256).toString('base64')}));Reject('DESKTOP_PROOF_INVALID',()=>d.Execute({...proof,payloadJSON:JSON.stringify({...JSON.parse(proof.payloadJSON),deviceName:'BAD'})}));assert.equal(d.DB().licenses[issued.license.id].consumed,false);});
+check('Atomic one-time redeem and uncertain-response recovery',()=>{redeemProof=Proof(a,'redeem',{licenseKey:issued.licenseKey,deviceName:'PC',appVersion:'1.0'});const result=d.Execute(redeemProof);token=result.activationToken;assert.match(token,/^[a-f0-9]{64}$/);assert.equal(d.DB().licenses[issued.license.id].status,'USED');assert.equal(d.Detail(issued.license.id).licenseKey,undefined);assert.equal(result.status,'USED');assert.ok(result.leaseExpiresAt>Date.now());assert.equal(d.Execute(redeemProof).activationToken,token);assert.equal(Call(a,'redeem',JSON.parse(redeemProof.payloadJSON),redeemProof.requestId).activationToken,token);assert.equal(d.DB().licenses[issued.license.id].tokenHash,hash(token));assert.ok(!JSON.stringify(d.DB()).includes(token));Reject('DESKTOP_KEY_USED',()=>Call(a,'redeem',{licenseKey:issued.licenseKey}));Reject('DESKTOP_KEY_USED',()=>Call(b,'redeem',{licenseKey:issued.licenseKey}));});
+check('Owner proof, token, revision and no per-heartbeat snapshot writes',()=>{const save=database.SaveDatabase;let writes=0;database.SaveDatabase=()=>{writes++;return true;};try{assert.equal(Call(a,'verify',{activationToken:token,appVersion:'1.0'}).deviceId,a.deviceId);assert.equal(writes,0);Reject('DESKTOP_DEVICE_MISMATCH',()=>Call(b,'verify',{activationToken:token}));Reject('DESKTOP_ACTIVATION_INVALID',()=>Call(a,'verify',{activationToken:'a'.repeat(64),bootstrapSessionId:JSON.parse(redeemProof.payloadJSON).bootstrapSessionId,bootstrapSessionToken:JSON.parse(redeemProof.payloadJSON).bootstrapSessionToken}));}finally{database.SaveDatabase=save;}});
+check('Persisted journal overrides old unused snapshot and retains retry receipt',()=>{d.Import(backup);assert.equal(d.DB().licenses[issued.license.id].consumed,true);assert.equal(Call(a,'verify',{activationToken:token}).status,'USED');assert.equal(Call(a,'redeem',JSON.parse(redeemProof.payloadJSON),redeemProof.requestId).activationToken,token);Reject('DESKTOP_KEY_USED',()=>Call(b,'redeem',{licenseKey:issued.licenseKey}));});
+check('Nonce expires and action/request/device bindings cannot be replayed',()=>{const proof=Proof(a,'verify',{activationToken:token});Reject('DESKTOP_PROOF_INVALID',()=>d.Execute({...proof,requestId:crypto.randomUUID()}));Reject('DESKTOP_PROOF_INVALID',()=>d.Execute({...proof,action:'release'}));const real=Date.now;Date.now=()=>real()+d.CHALLENGE_MS+1;try{Reject('DESKTOP_CHALLENGE_EXPIRED',()=>d.Execute(proof));}finally{Date.now=real;}});
+check('Immediate service-off lock and admin revoke while offline',()=>{const proof=Proof(a,'verify',{activationToken:token});state.serviceEnabled=false;try{Reject('SERVICE_DISABLED',()=>d.Execute(proof));Reject('SERVICE_DISABLED',()=>Proof(a,'verify',{activationToken:token}));d.Revoke(issued.license.id,{requestId:require('node:crypto').randomUUID(),reason:'관리자 취소'},'ADMIN:test');}finally{state.serviceEnabled=true;}Reject('DESKTOP_REVOKED',()=>Call(a,'verify',{activationToken:token}));Reject('DESKTOP_REVOKED',()=>Call(a,'redeem',JSON.parse(redeemProof.payloadJSON),redeemProof.requestId));d.Import(backup);assert.equal(d.DB().licenses[issued.license.id].status,'REVOKED');});
+check('Release permanently consumes key, exact retry remains safe',()=>{a=Device();const key=d.Create({requestId:require('node:crypto').randomUUID(),label:'해제'},'ADMIN:test'),r=Call(a,'redeem',{licenseKey:key.licenseKey}),id=crypto.randomUUID();assert.equal(Call(a,'release',{activationToken:r.activationToken},id).status,'USED');assert.equal(Call(a,'release',{activationToken:r.activationToken},id).released,true);Reject('BOOTSTRAP_SESSION_CLOSED',()=>Call(a,'verify',{activationToken:r.activationToken}));Reject('DESKTOP_MACHINE_BLOCKED',()=>Call(a,'redeem',{licenseKey:key.licenseKey}));assert.equal(d.DB().licenses[key.license.id].consumed,true);assert.equal(d.Detail(key.license.id).licenseKey,undefined);assert.equal(d.Public(d.DB().licenses[key.license.id]).status,'USED');});
+check('Period issuance is rejected and legacy deadlines remain authoritative',()=>{a=Device();
+ for(const fields of [{validDays:1},{expiresAt:Date.now()+500},{expiresAt:0,validDays:7},{validDays:'0'},{expiresAt:null}])Reject('DESKTOP_SINGLE_USE_ONLY',()=>d.Create({requestId:require('node:crypto').randomUUID(),label:'기간제 차단',...fields},'ADMIN:test'));
+ const key=d.Create({requestId:require('node:crypto').randomUUID(),label:'기존 기한'},'ADMIN:test'),before=structuredClone(d.DB());
+ // Simulate an already persisted FIX80 license without re-enabling period
+ // creation through any production endpoint.
+ d.DB().licenses[key.license.id].expiresAt=Date.now()+500;d.DB().revision++;journal.Commit(before,d.DB());
+ const deadline=d.DB().licenses[key.license.id].expiresAt,r=Call(a,'redeem',{licenseKey:key.licenseKey}),real=Date.now;
+ Date.now=()=>real()+1000;try{assert.equal(d.Public(d.DB().licenses[key.license.id]).status,'EXPIRED');assert.throws(()=>Call(a,'verify',{activationToken:r.activationToken}),/DESKTOP_EXPIRED|BOOTSTRAP_EXPIRED|DESKTOP_CHALLENGE_EXPIRED/);}finally{Date.now=real;}
+ Reject('DESKTOP_SINGLE_USE_ONLY',()=>d.Reissue(key.license.id,{requestId:require('node:crypto').randomUUID(),reason:'기기 교체',validDays:1},'ADMIN:test'));assert.equal(d.DB().licenses[key.license.id].expiresAt,deadline);
+ const re=d.Reissue(key.license.id,{reason:'기기 교체',requestId:crypto.randomUUID()},'ADMIN:test');assert.equal(d.DB().licenses[key.license.id].status,'REVOKED');assert.equal(d.DB().licenses[key.license.id].consumed,true);assert.equal(re.license.status,'AVAILABLE');assert.equal(re.license.expiresAt,0);
+});
+check('Journal write failure rolls back; mirror failure never undoes durable consumption',()=>{const commit=journal.Commit,before=JSON.stringify(d.DB());journal.Commit=()=>{throw Error('TEST_IO_FAILURE');};try{Reject('STORAGE_SAVE_FAILED',()=>d.Create({requestId:require('node:crypto').randomUUID(),label:'오류'},'ADMIN:test'));assert.equal(JSON.stringify(d.DB()),before);}finally{journal.Commit=commit;}a=Device();const key=d.Create({requestId:require('node:crypto').randomUUID(),label:'복구'},'ADMIN:test'),save=database.SaveDatabase;database.SaveDatabase=()=>false;let result;try{result=Call(a,'redeem',{licenseKey:key.licenseKey});assert.equal(result.status,'USED');}finally{database.SaveDatabase=save;}d.Import(backup);assert.equal(Call(a,'verify',{activationToken:result.activationToken}).status,'USED');});
+check('Journal hash chain fails closed and repairs only torn last append',()=>{const bytes=fs.readFileSync(journal.FILE);fs.appendFileSync(journal.FILE,'{"seq":');assert.equal(journal.Load().state.revision,d.DB().revision);assert.deepEqual(fs.readFileSync(journal.FILE),bytes);fs.appendFileSync(journal.FILE,'{"seq":123,"body":{}}\n');try{assert.throws(()=>journal.Load(),/DESKTOP_JOURNAL_CORRUPT/);}finally{fs.writeFileSync(journal.FILE,bytes);journal.Load();}});
+check('Archived APK data is never migrated or pruned',()=>{const snapshot=database.BuildDatabaseObject();snapshot.memberHub={retained:'old',history:Array.from({length:25},(_,i)=>i),products:{}};database.ImportDatabaseObject(snapshot);assert.deepEqual(state.memberHub,snapshot.memberHub);assert.equal(d.DB().licenses[issued.license.id].status,'REVOKED');});
+check('JSON/SQLite restart loads authoritative journal',()=>{database.SaveDatabase();const child=require('node:child_process').execFileSync(process.execPath,['-e',"const root=process.cwd();require(root+\"/storage/snapshots/peace.database.js\").LoadDatabase();const d=require(root+\"/services/licensing/peace.desktop-licenses.js\");if(!d.List().items.some(r=>r.status==='REVOKED'&&r.consumed))process.exit(3);console.log('PERSISTENCE_OK');"],{cwd:path.join(MODULE_RESOURCE_ROOT,'..'),env:process.env,encoding:'utf8'});assert.match(child,/PERSISTENCE_OK/);});
+check('Startup fails closed for corrupt or missing journal under both storage engines',()=>{
+ database.SaveDatabase();
+ for(const mode of ['corrupt','missing']){
+  const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-desktop-broken-'));cleanupRoots.add(copy);fs.cpSync(temp,copy,{recursive:true});
+  const file=path.join(copy,path.basename(journal.FILE));if(mode==='missing')fs.unlinkSync(file);else fs.appendFileSync(file,'{"invalid":true}\n');
+  const result=require('node:child_process').spawnSync(process.execPath,['-e',"const root=process.cwd();require(root+\"/storage/snapshots/peace.database.js\").LoadDatabase();process.stdout.write('UNSAFE_STARTED');"],{cwd:path.join(MODULE_RESOURCE_ROOT,'..'),env:{...process.env,DATA_DIR:copy},encoding:'utf8'});
+  assert.notEqual(result.status,0,mode);assert.ok(!result.stdout.includes('UNSAFE_STARTED'));assert.match(result.stderr,/DESKTOP_JOURNAL_(CORRUPT|MISSING)/);fs.rmSync(copy,{recursive:true,force:true});cleanupRoots.delete(copy);
+ }
+});
+// Controlled future time prunes all live sessions; run it after unrelated cases.
+check('Expired redemption receipt recovers token but only fresh proof renews lease',()=>{
+ // A successfully renewed future session must reject a later clock rollback.
+ // Keep this session isolated instead of reusing it in unrelated later cases.
+ const leaseDevice=Device(),key=d.Create({requestId:crypto.randomUUID(),label:'Isolated lease clock'},'ADMIN:test');
+ const proof=Proof(leaseDevice,'redeem',{licenseKey:key.licenseKey}),initial=d.Execute(proof),real=Date.now,started=real();
+ let clock=started+Math.floor(d.LEASE_MS/2);Date.now=()=>clock;
+ try{
+  // Keep the bootstrap capability live with an independent fresh verification.
+  // An expired B capability cannot be revived merely by retrying an old receipt.
+  const renewed=Call(leaseDevice,'verify',{activationToken:initial.activationToken});
+  clock=started+d.LEASE_MS+1000;assert(renewed.leaseExpiresAt>clock);
+  const retry=Call(leaseDevice,'redeem',JSON.parse(proof.payloadJSON),proof.requestId);
+  assert.equal(retry.activationToken,initial.activationToken);assert.ok(retry.leaseExpiresAt<Date.now());
+  assert.ok(Call(leaseDevice,'verify',{activationToken:initial.activationToken}).leaseExpiresAt>Date.now());
+ }finally{Date.now=real;}
+ assert.throws(()=>Call(leaseDevice,'verify',{activationToken:initial.activationToken}),/DESKTOP_CHALLENGE_EXPIRED|BOOTSTRAP_EXPIRED/);
+});
+async function ApiTests(){
+ const api=require("../../web/http/peace.desktop-api"),server=http.createServer((req,res)=>api.Handle(req,res,new URL(req.url,'http://localhost')));await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const url='http://127.0.0.1:'+server.address().port;
+ const post=(route,body,headers={})=>fetch(url+route,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
+ try{
+  for(const headers of [{},{'x-forwarded-proto':'https'},{Origin:'https://evil.example'}]){
+   process.env.DESKTOP_ALLOW_HTTP_LOOPBACK='1';process.env.DESKTOP_TRUST_PROXY='1';
+   for(const route of ['/api/desktop/challenge','/api/desktop/execute'])assert.equal((await post(route,{},headers)).status,410);
+  }
+  assertions++;console.log('PASS Legacy HTTP native authorization is retired: TLS TCP is mandatory, including loopback/proxy headers');
+ }finally{await new Promise(resolve=>server.close(resolve));}
+ console.log(`Desktop license checks: ${assertions} passed (${process.env.STORAGE_ENGINE})`);
+}
+ApiTests().catch(error=>{console.error(error);process.exitCode=1;});
