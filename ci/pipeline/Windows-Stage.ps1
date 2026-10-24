@@ -68,6 +68,7 @@ try {
    foreach($project in $projects){
     $projectDirectory=Join-Path $native ('Cozy.Projects\'+$project)
     if(Test-Path -LiteralPath (Join-Path $projectDirectory ($project+'Resources.res'))){throw 'CI_GENERATED_RESOURCE_IN_SNAPSHOT'}
+    if(Test-Path -LiteralPath (Join-Path $projectDirectory ($project+'.exe'))){throw 'CI_GENERATED_EXECUTABLE_IN_SNAPSHOT'}
    }
    Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Test-BuildIsolation.ps1'),'-NativeRoot',$native,'-MsBuildPath',$msbuild)
    foreach($project in $projects){
@@ -82,14 +83,15 @@ try {
     }finally{Set-Location -LiteralPath $native}
    }
    Run-Checked $node @((Join-Path $web 'tests\network\peace.check-connect-project.js'))
-   # Only this fresh snapshot's outputs may enter the tested bundle. Product
-   # DCUs and compiler staging remain isolated; final EXEs share one folder.
-   $finalDirectory=Join-Path $native 'bin'
-   $finalFiles=@(Get-ChildItem -LiteralPath $finalDirectory -Filter '*.exe' -File)
-   if($finalFiles.Count -ne 3){throw 'CI_BUILD_OUTPUT_COUNT'}
+   # Only each fresh snapshot project's canonical EXE may enter the tested
+   # bundle. DCUs are cleaned in that project's own dcu directory.
+   $roleProjects=@{A='Cozy.Launcher';B='Cozy.Client';O='Cozy.Overlay'}
    foreach($role in @('A','B','O')){
-    $files=@($finalFiles|Where-Object{$_.Name -cmatch ('^'+$role+'_Release_[a-f0-9]{32}\.exe$')})
-    if($files.Count -ne 1 -or $files[0].Length -le 0 -or ($files[0].Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_BUILD_OUTPUT_COUNT'}
+    $project=$roleProjects[$role];$projectDirectory=Join-Path $native ('Cozy.Projects\'+$project)
+    $directory=Get-Item -LiteralPath $projectDirectory -ErrorAction Stop
+    if(-not $directory.PSIsContainer -or ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_BUILD_OUTPUT_DIRECTORY'}
+    $files=@(Get-ChildItem -LiteralPath $projectDirectory -Filter '*.exe' -File)
+    if($files.Count -ne 1 -or $files[0].Name -cne ($project+'.exe') -or $files[0].Length -le 0 -or ($files[0].Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_BUILD_OUTPUT_COUNT'}
     Copy-Item -LiteralPath $files[0].FullName -Destination (Join-Path $Output ($role+'.exe')) -ErrorAction Stop
    }
    $header=Get-Content -LiteralPath (Join-Path $native 'Cozy.ImGui\Cozy.Vendor\Cozy.Core\Cozy.imgui.h') -Raw

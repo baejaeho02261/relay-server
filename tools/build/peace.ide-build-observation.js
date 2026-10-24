@@ -33,17 +33,20 @@ function environment(){
  return {source:'HOOK_CHILD_INHERITED_ENVIRONMENT',compilerEnvironmentObserved:false,values:Object.fromEntries(names.filter(n=>process.env[n]!==undefined).map(n=>[n,process.env[n]]))};
 }
 function roleProject(native,role,extension){if(!ROLES[role])fail('RELEASE_ROLE_REQUIRED');const name=ROLES[role][0];return path.join(native,'Cozy.Projects',name,name+extension);}
+function roleDcuDirectory(native,role){return path.join(path.dirname(roleProject(native,role,'.dproj')),'dcu');}
 const IMGUI_OBJECT='Cozy.BuildOutputs/Cozy.ImGui/Cozy.game_imgui_bridge.o';
 function generatedNames(native){return [...Object.keys(ROLES).map(role=>roleProject(native,role,'Resources.res')),path.join(native,...IMGUI_OBJECT.split('/'))];}
 function generatedSnapshot(s){const files={};for(const f of generatedNames(s.native))if(fs.existsSync(f))files[key(f)]=fileRecord(f);return{files,sha512:hash(Buffer.from(canonical(files))),scope:'GENERATED_REFERENCES_SNAPSHOTTED_BEFORE_COMPILER_TARGET'};}
 function snapshot(native,bds){
  const files={};let total=0,count=0;
  const generated=new Set(generatedNames(native).map(key));
+ const outputFiles=new Set(Object.keys(ROLES).map(role=>key(roleProject(native,role,'.exe'))));
+ const outputDirectories=new Set(Object.keys(ROLES).map(role=>key(roleDcuDirectory(native,role))));
  const extensions=/\.(?:pas|inc|dpr|dproj|groupproj|targets|props|cs|res|rc|manifest|obj|o|a|lib|dcu|dcp|dll|exe|bpl|cfg|rsp|cmds|h|hpp|cpp|c|bat|ps1|json|js)$/i;
  function tree(dir,isNative){safeDirectory(dir);for(const entry of fs.readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){
   const file=path.join(dir,entry.name);if(entry.isSymbolicLink()||!entry.isDirectory()&&!entry.isFile())fail('SNAPSHOT_LINK_OR_TYPE');
-  if(entry.isDirectory()){if(isNative&&dir===native&&['build','bin','.git'].includes(entry.name.toLowerCase()))continue;tree(file,isNative);}
-  else if(extensions.test(entry.name)&&!generated.has(key(file))){if(++count>100000)fail('SNAPSHOT_FILE_LIMIT');const record=fileRecord(file);total+=record.bytes;if(total>32*1024**3)fail('SNAPSHOT_BYTE_LIMIT');const k=key(file);if(files[k])fail('SNAPSHOT_CASE_COLLISION');files[k]=record;}
+  if(entry.isDirectory()){if(isNative&&(dir===native&&['build','bin','.git'].includes(entry.name.toLowerCase())||outputDirectories.has(key(file))))continue;tree(file,isNative);}
+  else if(extensions.test(entry.name)&&!generated.has(key(file))&&!(isNative&&outputFiles.has(key(file)))){if(++count>100000)fail('SNAPSHOT_FILE_LIMIT');const record=fileRecord(file);total+=record.bytes;if(total>32*1024**3)fail('SNAPSHOT_BYTE_LIMIT');const k=key(file);if(files[k])fail('SNAPSHOT_CASE_COLLISION');files[k]=record;}
  }}
  tree(native,true);for(const dir of ['bin',...(fs.existsSync(path.join(bds,'bin64'))?['bin64']:[]),'include',path.join('lib','win64','release')])tree(path.join(bds,dir),false);
  const ordered=Object.fromEntries(Object.keys(files).sort().map(k=>[k,files[k]]));
@@ -58,17 +61,17 @@ function prepare(native,bds,run){
 }
 function session(run){safeDirectory(run);const s=json(path.join(run,'session.json'));if(s.version!==1||s.kind!=='IDE_BUILD_OBSERVATION_SESSION'||!/^[0-9a-f]{48}$/.test(s.id)||!s.inputs?.files||s.inputs.sha512!==hash(Buffer.from(canonical(s.inputs.files))))fail('SESSION_INVALID');safeDirectory(s.native);safeDirectory(s.bds);return s;}
 function recheck(s){const now=snapshot(s.native,s.bds);if(now.sha512!==s.inputs.sha512)fail('INPUTS_CHANGED');return now;}
-function stagePath(s,role,config){if(!ROLES[role]||config!=='Release')fail('RELEASE_ROLE_REQUIRED');return path.join(s.native,'build','stage',ROLES[role][1],'Win64',config,ROLES[role][0]+'.exe');}
+function stagePath(s,role,config){if(!ROLES[role]||config!=='Release')fail('RELEASE_ROLE_REQUIRED');return roleProject(s.native,role,'.exe');}
 function marker(run,role,phase,id){const file=path.join(run,role+'-'+phase+'-'+id+'.marker');writeNew(file,Buffer.from(id+'\n'));regular(file,1024);return file;}
 function before(run,role,config,properties){
  const s=session(run),staged=stagePath(s,role,config);recheck(s);safeDirectory(path.dirname(staged));
  if(fs.existsSync(path.join(run,role+'-before.json')))fail('ROLE_ALREADY_USED');
- // Only a generated, isolation-validated role path is ever removed. A failed
- // build cannot inherit last week's EXE, including trial dcc exit=0/no-output.
- if(fs.existsSync(staged)){regular(staged);fs.unlinkSync(staged);}
  const values=typeof properties==='string'?json(properties):properties;
  if(!values||key(values.project||'')!==key(roleProject(s.native,role,'.dproj'))||values.configuration!==config||values.platform!=='Win64')fail('EVALUATED_PROJECT_MISMATCH');
  if(fileRecord(process.execPath).sha512!==s.runtime.sha512||fileRecord(__filename).sha512!==s.tool.sha512)fail('OBSERVER_CHANGED');
+ // Only the validated role's canonical project EXE is ever removed. A failed
+ // build cannot inherit last week's EXE, including trial dcc exit=0/no-output.
+ if(fs.existsSync(staged)){regular(staged);fs.unlinkSync(staged);}
  const receipt={version:1,kind:'IDE_BEFORE_HOOK_DECLARATION',sessionSha512:hash(regular(path.join(run,'session.json'))),sessionId:s.id,role,configuration:config,staged,pid:process.pid,time:new Date().toISOString(),properties:values,environment:environment(),inputsSha512:s.inputs.sha512,source:'MSBUILD_EVALUATED_PROPERTIES_NOT_COMPILER_ARGUMENTS',independentAttestation:false};
  receipt.marker=marker(run,role,'before',s.id);return writeJson(path.join(run,role+'-before.json'),receipt);
 }
@@ -80,7 +83,8 @@ function ready(run,role,config,properties){
  const result={version:1,kind:'IDE_BEFORE_COMPILER_HOOK_DECLARATION',sessionId:s.id,role,pid:process.pid,time:new Date().toISOString(),beforeSha512:hash(regular(path.join(run,role+'-before.json'))),generated,properties:values,environment:environment(),compilerArgumentsObserved:false,independentAttestation:false};result.marker=marker(run,role,'ready',s.id);return writeJson(path.join(run,role+'-ready.json'),result);
 }
 function generatedDcus(s,role,config){
- const root=path.join(s.native,'build',role,'Win64',config,'dcu'),files={};if(fs.existsSync(root)){safeDirectory(root);let count=0;const tree=dir=>{for(const e of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,e.name);if(e.isSymbolicLink())fail('GENERATED_DCU_LINK');if(e.isDirectory())tree(file);else if(e.isFile()&&/\.dcu$/i.test(e.name)){if(++count>10000)fail('GENERATED_DCU_LIMIT');files[key(file)]=fileRecord(file);}}};tree(root);}return{root,files,scope:'AFTER_BUILD_HASH_NOT_BYTES_AT_READ'};
+ if(!ROLES[role]||config!=='Release')fail('RELEASE_ROLE_REQUIRED');
+ const root=roleDcuDirectory(s.native,role),files={};if(fs.existsSync(root)){safeDirectory(root);let count=0;const tree=dir=>{for(const e of fs.readdirSync(dir,{withFileTypes:true})){const file=path.join(dir,e.name);if(e.isSymbolicLink())fail('GENERATED_DCU_LINK');if(e.isDirectory())tree(file);else if(e.isFile()&&/\.dcu$/i.test(e.name)){if(++count>10000)fail('GENERATED_DCU_LIMIT');files[key(file)]=fileRecord(file);}}};tree(root);}return{root,files,scope:'AFTER_BUILD_HASH_NOT_BYTES_AT_READ'};
 }
 function pe64(bytes){
  if(bytes.length<512||bytes.readUInt16LE(0)!==0x5a4d)fail('NATIVE_OUTPUT_NOT_PE64');const pe=bytes.readUInt32LE(60);
@@ -128,7 +132,7 @@ function corroborate(run,role,traceFile,pid){
   // Windows OS DLL loads remain an explicit outside-snapshot category. Source,
   // object, configuration or RTL reads outside the snapshot always fail closed.
   if(!expected){if(/\.(?:dll|exe)$/i.test(k)&&!k.startsWith(traceKey(s.native)+'/')&&!k.startsWith(traceKey(s.bds)+'/')){outsideImages.add(event.Path);continue;}fail('TRACE_UNSNAPSHOTTED_INPUT');}
-  if(generatedDcu&&(!k.startsWith(traceKey(path.join(s.native,'build',role,'Win64',b.configuration,'dcu'))+'/')||!writes.has(k)))fail('TRACE_DCU_READ_WITHOUT_PRIOR_WRITE');
+  if(generatedDcu&&(!k.startsWith(traceKey(roleDcuDirectory(s.native,role))+'/')||!writes.has(k)))fail('TRACE_DCU_READ_WITHOUT_PRIOR_WRITE');
   if(k===traceKey(roleProject(s.native,role,'.dpr'))&&event.Operation==='ReadFile')mainRead=true;
   observed[k]={...expected,operation:event.Operation,inputClass:generatedDcu?'GENERATED_DCU_WITH_PRIOR_RECORDED_WRITE':r.generated.files[k]?'GENERATED_REFERENCE_SNAPSHOTTED_BEFORE_COMPILER':'IMMUTABLE_CANDIDATE',bytesAtRead:'NOT_OBSERVED'};
  }

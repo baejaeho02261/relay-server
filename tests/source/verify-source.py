@@ -29,7 +29,17 @@ def verify(root: Path) -> list[str]:
     test_root = native_root/'Cozy.Tests'
     for p in native_root.rglob('*'):
         rel_native = p.relative_to(native_root)
+        if p.is_symlink() or getattr(p, 'is_junction', lambda: False)():
+            problems.append('Native source/output link is forbidden: '+p.relative_to(root).as_posix())
+            continue
         if rel_native.parts[0] in {'build', 'bin', 'Cozy.BuildOutputs'}:
+            continue
+        parts = rel_native.parts
+        project_output = (len(parts) >= 3 and parts[0] == 'Cozy.Projects' and
+                          parts[1] in {'Cozy.Launcher', 'Cozy.Client', 'Cozy.Overlay'})
+        if project_output and (parts[2].lower() == 'dcu' or
+                               (len(parts) == 3 and p.is_file() and
+                                parts[2].lower() == (parts[1]+'.exe').lower())):
             continue
         if not p.name.startswith('Cozy.'):
             problems.append('Native source name must start Cozy.: '+p.relative_to(root).as_posix())

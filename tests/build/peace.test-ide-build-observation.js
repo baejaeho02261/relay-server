@@ -13,16 +13,26 @@ function event(pid,operation,file,detail='Offset: 0, Length: 32',name='bds.exe')
 function approve(role,bytes,approvalFile,policyFile,key){const keyId=p.KeyId(key.publicKey),publicKey=key.publicKey.export({type:'spki',format:'pem'}).toString(),sha512=hash(bytes);json(approvalFile,{component:role,version:'1.0.0',sha512,trustedKey:{keyId,publicKey},approval:{keyId,signature:crypto.sign(null,Buffer.from(['GAME-RELEASE-APPROVAL-V2',role,'1.0.0',sha512].join('\n')),key.privateKey).toString('base64')}});json(policyFile,{version:1,revision:1,requireReleaseSignature:true,trustedReleaseKeys:[{keyId,publicKey}],revokedSha512:[]});}
 try{
  for(const dir of [native,run,path.join(bds,'bin'),path.join(bds,'include'),path.join(bds,'lib/win64/release')])fs.mkdirSync(dir,{recursive:true});
- for(const [role,name,stage]of [['A',"Cozy.Launcher",'launcher'],['B',"Cozy.Client",'client'],['O',"Cozy.Overlay",'overlay']]){put(path.join(native,'Cozy.Projects',name,name+'.dpr'),'program '+name.replaceAll('.','_')+'; begin end.');put(path.join(native,'Cozy.Projects',name,name+'.dproj'),'<Project />');fs.mkdirSync(path.join(native,'build/stage',stage,'Win64/Release'),{recursive:true});}
+ for(const [role,name,stage]of [['A',"Cozy.Launcher",'launcher'],['B',"Cozy.Client",'client'],['O',"Cozy.Overlay",'overlay']]){put(path.join(native,'Cozy.Projects',name,name+'.dpr'),'program '+name.replaceAll('.','_')+'; begin end.');put(path.join(native,'Cozy.Projects',name,name+'.dproj'),'<Project />');}
  put(path.join(native,'Game.Unused.pas'),'unit Game.Unused;');put(path.join(bds,'bin/bds.exe'),'synthetic image identifier, never executed');put(path.join(bds,'lib/win64/release/System.dcu'),'fixture');
  const sessionFile=path.join(run,'session.json'),session={version:1,kind:'IDE_BUILD_OBSERVATION_SESSION',id:'1'.repeat(48),native,bds,inputs:observation.snapshot(native,bds),runtime:record(process.execPath),tool:record(path.resolve(MODULE_RESOURCE_ROOT,"../tools/build/peace.ide-build-observation.js"))};json(sessionFile,session);
+ // Only the canonical project outputs are excluded from immutable source input.
+ const canonicalSnapshot=observation.snapshot(native,bds).sha512;
+ const canonicalExe=path.join(native,'Cozy.Projects','Cozy.Launcher','Cozy.Launcher.exe'),canonicalDcu=path.join(native,'Cozy.Projects','Cozy.Launcher','dcu','Cozy.Output.dcu');
+ put(canonicalExe,'old project executable');put(canonicalDcu,'old project DCU');
+ assert.equal(observation.snapshot(native,bds).sha512,canonicalSnapshot,'Canonical EXE/DCU must not become immutable source inputs');
+ for(const relative of ['Cozy.Projects/Cozy.Launcher/unreviewed.exe','Cozy.Projects/Cozy.Launcher/shadow.pas']) {
+  const file=path.join(native,relative);put(file,'unreviewed input');assert.notEqual(observation.snapshot(native,bds).sha512,canonicalSnapshot,'Unreviewed source/output candidates must remain visible');fs.unlinkSync(file);
+ }
+ fs.unlinkSync(canonicalExe);fs.unlinkSync(canonicalDcu);
+
  const properties=role=>({project:path.join(native,'Cozy.Projects',{A:"Cozy.Launcher",B:"Cozy.Client",O:"Cozy.Overlay"}[role],{A:"Cozy.Launcher",B:"Cozy.Client",O:"Cozy.Overlay"}[role]+'.dproj'),configuration:'Release',platform:'Win64',defines:'GAME_APPLICATION_BUILD;RELEASE',references:[]});
  const pe=require("../fixtures/artifacts/peace.crc-pe-fixture").crcPeFixture();
  assert.throws(()=>observation.before(run,'A','Release',{...properties('A'),project:path.join(native,'Cozy.Launcher.dproj')}),/EVALUATED_PROJECT_MISMATCH/);
  assert.equal(fs.existsSync(path.join(run,'A-before.json')),false,'a flat project alias cannot create an observation receipt');
  // Missing output is failure even if an external compiler reports exit=0; a
  // stale prebuild EXE is removed only from the exact isolated stage location.
- const aStage=observation.stagePath(session,'A','Release');put(aStage,pe);observation.before(run,'A','Release',properties('A'));assert.equal(fs.existsSync(aStage),false);
+ const aStage=observation.stagePath(session,'A','Release');assert.equal(aStage,path.join(native,'Cozy.Projects','Cozy.Launcher','Cozy.Launcher.exe'));put(aStage,pe);observation.before(run,'A','Release',properties('A'));assert.equal(fs.existsSync(aStage),false);
  // Generated resources may first appear during prebuild, while source inputs
  // remain immutable. The ready phase binds their exact precompiler hashes.
  put(path.join(native,"Cozy.Projects/Cozy.Launcher/Cozy.LauncherResources.res"),'generated resource');observation.ready(run,'A','Release',properties('A'));
@@ -52,7 +62,7 @@ try{
  // Source mutation between hooks, including newly shadowing candidates, fails.
  observation.before(run,'B','Release',properties('B'));put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'generated resource B');observation.ready(run,'B','Release',properties('B'));put(observation.stagePath(session,'B','Release'),pe);put(path.join(native,'shadow.pas'),'unit shadow;');assert.throws(()=>observation.after(run,'B'),/INPUTS_CHANGED/);fs.unlinkSync(path.join(native,'shadow.pas'));
  put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'changed during compiler');assert.throws(()=>observation.after(run,'B'),/GENERATED_REFERENCES_CHANGED/);put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'generated resource B');
- const newDcu=path.join(native,'build/B/Win64/Release/dcu/Game.New.dcu');put(newDcu,'new generated dcu');observation.after(run,'B');
+ const newDcu=path.join(native,'Cozy.Projects','Cozy.Client','dcu','Cozy.New.dcu');put(newDcu,'new generated dcu');observation.after(run,'B');
  const br=get(path.join(run,'B-ready.json')),ba=get(path.join(run,'B-after.json')),bTrace=path.join(run,'b.csv'),bRows=[event(br.pid,'ReadFile',br.marker,undefined,'node.exe'),event(pid,'ReadFile',path.join(native,"Cozy.Projects/Cozy.Client/Cozy.Client.dpr")),event(pid,'WriteFile',newDcu),event(pid,'ReadFile',newDcu),event(pid,'WriteFile',observation.stagePath(session,'B','Release')),event(ba.pid,'ReadFile',ba.marker,undefined,'node.exe')];put(bTrace,csv(bRows));
  assert.equal(Object.values(observation.corroborate(run,'B',bTrace,pid).observedInputs).find(x=>x.path===newDcu).inputClass,'GENERATED_DCU_WITH_PRIOR_RECORDED_WRITE');put(bTrace,csv(bRows.filter(x=>!(x[2]==='WriteFile'&&x[3]===newDcu))));assert.throws(()=>observation.corroborate(run,'B',bTrace,pid),/TRACE_DCU_READ_WITHOUT_PRIOR_WRITE/);
  // Clean O trees acquire their exact generated reference set in prebuild.
@@ -72,5 +82,7 @@ try{
  const policy=get(policyFile);policy.revokedSha512=[hash(pe)];json(policyFile,policy);assert.throws(()=>observation.approved('A',pe,approvalFile,policyFile),/APPROVAL_BINDING/);
  const alias=path.join(root,'hardlink.csv');fs.linkSync(traceFile,alias);assert.throws(()=>observation.corroborate(run,'A',traceFile,pid),/MANUAL_INPUT_SIZE_OR_TYPE/);fs.unlinkSync(alias);
  if(process.platform!=='win32')assert.throws(()=>observation.prepare(native,bds,path.join(root,'new-run')),/WINDOWS_NOT_RUN/);
+ assert.equal(fs.existsSync(path.join(native,'build')),false,'Production observation must not create a shared build tree');
+ assert.equal(fs.existsSync(path.join(native,'bin')),false,'Production observation must not create a shared bin tree');
  console.log('PASS: optional IDE observation synthetic contracts; fresh output, changed inputs, real-trace-shaped read/write correlation, strict O byte relation, final approval binding and externally anchored tamper detection. Windows RAD IDE / real ProcMon capture / C# task execution: NOT_RUN. Independent full provenance: NOT_PROVEN.');
 }finally{fs.rmSync(root,{recursive:true,force:true});}

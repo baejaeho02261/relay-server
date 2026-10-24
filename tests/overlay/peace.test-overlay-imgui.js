@@ -250,8 +250,9 @@ check('Project generates one central object before Delphi and propagates all aud
   assert.match(project,/<BuildDependsOn>PrepareOverlayNative;/);assert.match(project,/<RebuildDependsOn>PrepareOverlayNative;/);
   assert.match(nativeTarget,/BeforeTargets="PreBuildEvent;CoreCompile"/);assert.match(nativeTarget,/DependsOnTargets="ValidateProductionIsolation"/);
   inOrder(nativeTarget,['Cozy.Build_ImGui_Win64.bat','GAME_OVERLAY_OBJECT_MISSING','<Delete Files=','brcc32.exe&quot; -fo','Cozy.Assert-OverlayManifest.ps1','-ResourcePath','<Move SourceFiles='],'Native compile/resource gates');
-  const publish=project.match(/<Target Name="PublishRandomExecutable"[\s\S]*?<\/Target>/)?.[0];
-  inOrder(publish,['Cozy.Normalize-PE-Unwind.ps1','Cozy.Assert-OverlayManifest.ps1','-ImagePath','<Move SourceFiles='],'Actual EXE manifest gates publication');
+  const publish=project.match(/<Target Name="FinalizeProjectExecutable"[\s\S]*?<\/Target>/)?.[0];
+  inOrder(publish,['Cozy.Normalize-PE-Unwind.ps1','Cozy.Assert-OverlayManifest.ps1','-ImagePath','<Message Importance='],'Actual EXE manifest gates finalization');
+  assert.doesNotMatch(publish, /<(?:Move|Delete|RemoveDir)\b/);
   assert.match(project,/<PreBuildEventIgnoreExitCode>false<\/PreBuildEventIgnoreExitCode>/);
   inOrder(build,['DisableDelayedExpansion','if not "%~1"=="" set "BDS=%~1"','pushd "%~dp0.."','if errorlevel 1 goto directory_failed','if not defined BDS','"%GAME_IMGUI_COMPILER%" -c','if errorlevel 1 goto failed','if not exist "%COZY_IMGUI_OBJECT_DIR%\\Cozy.game_imgui_bridge.pending.o" goto failed','Cozy.Audit-Object.ps1','if errorlevel 1 goto failed','move /y','if errorlevel 1 goto failed','if not exist "%COZY_IMGUI_OBJECT_DIR%\\'+objectName+'" goto failed','exit /b 0'],'Object generation gates');
   assert.match(build.slice(build.indexOf(':failed\n')),/exit \/b 1/);
@@ -269,12 +270,13 @@ check('Project generates one central object before Delphi and propagates all aud
 
 check('O prepares its unsigned PE exception table before publishing the release executable', () => {
   const project = read("Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dproj");
-  const target = project.match(/<Target Name="PublishRandomExecutable"[\s\S]*?<\/Target>/)[0];
+  const target = project.match(/<Target Name="FinalizeProjectExecutable"[\s\S]*?<\/Target>/)[0];
   assert.match(project, /<PostBuildEvent>[^<]*Normalize-PE-Unwind\.ps1[^<]*-ImagePath &quot;\$\(OUTPUTPATH\)&quot;<\/PostBuildEvent>/);
   assert.match(project, /<PostBuildEventIgnoreExitCode>false<\/PostBuildEventIgnoreExitCode>/);
   inOrder(target, ['<Error Condition="!Exists(\'$(CompiledArtifact)\')"',
     '<Exec Command=', 'Cozy.Normalize-PE-Unwind.ps1', '-ImagePath &quot;$(CompiledArtifact)&quot;',
-    '<Move SourceFiles="$(CompiledArtifact)"', '<Message Importance="high"'], 'Post-link preparation');
+    'Cozy.Assert-OverlayManifest.ps1', '<Message Importance="high"'], 'Post-link preparation');
+  assert.doesNotMatch(target, /<(?:Move|Delete|RemoveDir)\b/);
   assert.doesNotMatch(target, /(?:IgnoreExitCode|ContinueOnError)="(?:true|WarnAndContinue)"/i);
   const normalizer = read("Cozy.ImGui/Cozy.Build/Cozy.Normalize-PE-Unwind.ps1");
   assert.match(normalizer, /SIGNED_IMAGE_REFUSED/);

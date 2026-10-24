@@ -170,11 +170,12 @@ async function promptFiles(home) {
   console.log('Manual publication uses final IDE-built A/B/O, their approval JSONs and this release-manifest.json. CI evidence is optional.');
   console.log('Finish Create_Approval and Check_Approval for every role BEFORE creating the manifest; O preparation can change EXE bytes.');
   console.log('Select the same FINAL EXEs used by Create_Approval and Check_Approval.');
-  console.log('All final EXEs share Railway\\bin; choose A_Release_, B_Release_, O_Release_ files for publication.');
-  console.log('Random filenames are normal. Select the intended build and paste Explorer Copy as path; do not rename EXEs.');
+  console.log('Final EXEs are in Railway/Cozy.Projects/Cozy.Launcher, Cozy.Client and Cozy.Overlay.');
+  console.log('Select the intended Release build of each Cozy.<Project>.exe and paste Explorer Copy as path.');
   try {
     for (let i = 0; i < ROLES.length; i++) {
-      console.log(ROLES[i] + ' output folder hint: ' + path.join(p.native, 'bin') + ' (' + ROLES[i] + '_Release_*.exe)');
+      const project = {A:'Cozy.Launcher', B:'Cozy.Client', O:'Cozy.Overlay'}[ROLES[i]];
+      console.log(ROLES[i] + ' output path hint: ' + path.join(p.native, 'Cozy.Projects', project, project + '.exe'));
       let value = await q.ask(ROLES[i] + ' full EXE path', s => s.length > 0);
       if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
       files.push(value);

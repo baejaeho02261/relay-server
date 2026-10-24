@@ -39,13 +39,15 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   assert.match(project, /<FrameworkType>None<\/FrameworkType>/);
   assert.ok(project.includes('<DCC_ConsoleTarget>false</DCC_ConsoleTarget>'));
   assert.match(project, /<Platform value="Win64">True<\/Platform>/);
-  assert.match(project, /<Target Name="PublishRandomExecutable" AfterTargets="Build;Rebuild">/);
-  assert.ok(project.includes("<RandomArtifactName>" + role + "_$(Config)_$([System.Guid]::NewGuid().ToString('N')).exe</RandomArtifactName>"));
-  assert.ok(project.includes('<RandomArtifactDirectory>$(CozyNativeRoot)\\bin</RandomArtifactDirectory>'));
-  assert.ok(project.includes('<DCC_DcuOutput>$(CozyNativeRoot)\\build\\' + role + '\\$(Platform)\\$(Config)\\dcu</DCC_DcuOutput>'), 'Compiler units must remain role-isolated');
-  assert.match(project, /<Move SourceFiles="\$\(CompiledArtifact\)"/);
+  assert.match(project, /<Target Name="FinalizeProjectExecutable" AfterTargets="Build;Rebuild">/);
+  assert.ok(project.includes('<CompiledArtifact>$(MSBuildProjectDirectory)\\' + name + '.exe</CompiledArtifact>'));
+  assert.ok(project.includes('<DCC_DcuOutput>$(MSBuildProjectDirectory)\\dcu</DCC_DcuOutput>'), 'Compiler units remain isolated in the selected project');
+  assert.ok(project.includes('<DCC_ExeOutput>$(MSBuildProjectDirectory)</DCC_ExeOutput>'));
+  const finalization=project.match(/<Target Name="FinalizeProjectExecutable"[\s\S]*?<\/Target>/)[0];
+  assert.doesNotMatch(finalization, /<(?:Move|Delete|RemoveDir)\b/, 'The final EXE stays in its own project folder');
+  assert.doesNotMatch(project, /PublishRandomExecutable|RandomArtifactName|RandomArtifactDirectory/);
   const localProperties=project.match(/TreatAsLocalProperty="([^"]+)"/)[1].split(';');
-  for(const property of ['CozyNativeRoot','RandomArtifactName','RandomArtifactDirectory','CompiledArtifact'])assert(localProperties.includes(property),'Global build properties must not redirect '+property);
+  for(const property of ['CozyNativeRoot','CompiledArtifact','DCC_UnitSearchPath','DCC_IncludePath','DCC_ObjPath'])assert(localProperties.includes(property),'Global build properties must not redirect '+property);
   for(const property of ['DCC_UnitSearchPath','DCC_IncludePath']){
     const listed=project.match(new RegExp('<'+property+'>([^<]+)</'+property+'>'))[1].split(';');
     assert.deepEqual(listed.slice(0,-1),sourceDirectories.map(x=>'$(CozyNativeRoot)\\'+x.replaceAll('/','\\')));
@@ -53,16 +55,19 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   }
   if(role==='O')assert(project.includes('<DCC_ObjPath>$(CozyNativeRoot)\\Cozy.BuildOutputs\\Cozy.ImGui;$(DCC_ObjPath)</DCC_ObjPath>'));
   for(const entry of fs.readdirSync(directory))assert(!/\.(?:pas|inc)$/i.test(entry),'Product project must not shadow functional source units');
-  for (const configuration of ['Debug', 'Release']) {
-    const finalName = project.match(/<RandomArtifactName>([^<]+)<\/RandomArtifactName>/)[1].replace('$(Config)', configuration).replace(/\$\(\[System\.Guid\]::NewGuid\(\)\.ToString\('N'\)\)/, 'a'.repeat(32));
-    assert.equal(finalName, `${role}_${configuration}_${'a'.repeat(32)}.exe`);
-  }
   assert.match(project, /<Icon_MainIcon\s*\/>/);
   assert.ok(!/\.ico\b/i.test(project));
   for (const [, file] of project.matchAll(/(?:DCCReference|None)\s+Include="([^"]+)"/g)) {
     contained(directory,file);
   }
   const dpr = read(projectFile(name, '.dpr'));
+  for(const unit of ['Cozy.Hashes.XXH3','Cozy.Hashes.SHA512']) {
+    const relative='..\\..\\Cozy.Source\\Cozy.Crypto\\'+unit+'.pas';
+    assert(project.includes('<DCCReference Include="'+relative+'" />'),'Project must reference hash implementation '+unit);
+    assert(dpr.includes(unit+" in '"+relative+"'"),'DPR must explicitly map hash implementation '+unit);
+    assert(dpr.indexOf(unit+" in '")<dpr.indexOf("Cozy.Hashes in '"),'Hash implementations resolve before their facade');
+  }
+
   assert.ok(!/GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)/i.test(dpr), 'Probe-only hooks must not be enabled in an application entry point');
   assert.ok(dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') >= 0 && dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') < dpr.search(/\{\$I [^}]*Cozy\.Metadata\.inc\}/), 'Direct compiler builds must reject probe hooks');
   const expectedRole = {"Cozy.Launcher":'gcrLauncher',"Cozy.Client":'gcrConnect',"Cozy.Overlay":'gcrOverlay'}[name];
@@ -97,18 +102,24 @@ assert.match(metadata, /Application build configuration cannot be both Debug and
 assert.match(metadata, /Application build configuration must define Debug or Release/);
 const isolation = read("Cozy.Build/Cozy.BuildIsolation.targets");
 assert.match(isolation, /Name="GameCompileSearchPathValidator" Condition="'\$\(Config\)'=='Debug' or '\$\(Config\)'=='Release'"/);
-assert.ok(isolation.includes('\\Win64\\$(Config)\\dcu'));
-assert.ok(isolation.includes('\\Win64\\$(Config)'));
+assert.ok(isolation.includes("GetFullPath('$(_GameExpectedProject)\\dcu')"));
+assert.ok(isolation.includes('<_GameExpectedExe>$(_GameExpectedProject)</_GameExpectedExe>'));
+assert.doesNotMatch(isolation, /\\build\\(?:stage|A|B|O)\\/);
 assert.ok(!isolation.includes('\\Win64\\Release'), 'Output validation must not hardcode the Release directory');
 for (const error of ['GAME_BUILD_CONFIGURATION_INVALID', 'GAME_BUILD_RELEASE_DEFINE_MISMATCH', 'GAME_BUILD_DEBUG_DEFINE_MISMATCH', 'GAME_BUILD_TEST_DEFINE_FORBIDDEN', 'GAME_BUILD_OUTPUT_OVERRIDE_FORBIDDEN']) assert.ok(isolation.includes(error));
-assert.ok(isolation.includes('Final="$(CozyNativeRoot)\\bin"'));
+assert.ok(isolation.includes('Final="$(_GameExpectedProject)"'));
+for(const [resolved,property]of [['ResolvedUnits','DCC_UnitSearchPath'],['ResolvedIncludes','DCC_IncludePath'],['ResolvedObjects','DCC_ObjPath']])assert(isolation.includes('<Output TaskParameter="'+resolved+'" PropertyName="'+property+'" />'),'Canonical search paths must reach the compiler');
+const validation=isolation.match(/<Target Name="ValidateProductionIsolation"[\s\S]*?<\/Target>/)[0];
+assert(validation.indexOf('<GameValidateSearchPaths ')<validation.indexOf('<Delete Files=')&&validation.indexOf('<Delete Files=')<validation.indexOf('<RemoveDir '),'Validate before cleaning exact EXE and project DCU paths');
+assert.match(validation, /<RemoveDir Directories="\$\(_GameExpectedDcu\)" \/>/);
+assert.doesNotMatch(validation, /<RemoveDir[^>]*_GameExpectedProject/);
 assert.ok(isolation.includes('ProjectDirectory="$(MSBuildProjectDirectory)"'));
 assert.ok(isolation.includes('GAME_BUILD_SHADOW_SOURCE_FORBIDDEN'));
 assert.doesNotMatch(isolation.match(/<Target Name="ValidateProductionIsolation"[^>]*>/)[0], /Condition=/, 'Validation must not be skipped through DesignTimeBuild or a configuration override');
-assert.match(read("Cozy.Build/Cozy.Tasks/Cozy.BuildSearchPaths.cs"), /rejectReparse\(canonical\(Final\)\)/, 'Shared final folder must not redirect through a junction');
+assert.match(read("Cozy.Build/Cozy.Tasks/Cozy.BuildSearchPaths.cs"), /rejectReparse\(canonical\(Final\)\)/, 'Project final folder must not redirect through a junction');
 const isolationTest = read("Cozy.Tests/Cozy.Build/Cozy.Test-BuildIsolation.ps1");
 assert.match(isolationTest, /foreach\(\$config in @\('Debug','Release'\)\)/);
-assert.match(isolationTest, /ISOLATION_OTHER_CONFIGURATION_DAMAGED/);
+assert.match(isolationTest, /ISOLATION_OTHER_PROJECT_OR_SOURCE_DAMAGED/);
 assert.match(isolationTest, /ISOLATION_COMPILER_CONFIGURATION_NOT_REJECTED/);
 for (const hook of ['GAME_LICENSE_CONTRACT_TESTS', 'GAME_TLS_CONTRACT_TESTS', 'GAME_NATIVE_ABI_TESTS', 'GAME_HANDOFF_CONTRACT_TESTS']) {
   assert.ok(metadata.includes('{$IFDEF '+hook+'}'), 'Missing product guard for '+hook);
