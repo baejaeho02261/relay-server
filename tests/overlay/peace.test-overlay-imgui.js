@@ -101,9 +101,12 @@ check('Host callback layout is versioned and checked before static-object creati
     assert(link.index < firstExternal && link.index < initialization,
       'Native object must be registered before external declarations; moving $L into initialization causes dcc64 E2065');
   }
-  assert.match(pascal, /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}\s*\{\$L 'Cozy.game_imgui_fault_test\.o'\}\s*\{\$ELSE\}\s*\{\$L 'Cozy.game_imgui_bridge\.o'\}\s*\{\$ENDIF\}/);
+  const productionLink = pascal.match(/\{\$ELSE\}\s*\{\$L\s+'([^']+)'\}/)?.[1];
+  assert.equal(productionLink, '..\\..\\Cozy.BuildOutputs\\Cozy.ImGui\\Cozy.game_imgui_bridge.o',
+    'Production object link must work when IDE object-search options are absent');
+  assert.match(pascal, /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}\s*\{\$L 'Cozy.game_imgui_fault_test\.o'\}\s*\{\$ELSE\}\s*\{\$L '[^']+'\}\s*\{\$ENDIF\}/);
   assert.match(read("Cozy.Source/Cozy.Configuration/Cozy.Metadata.inc"), /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}[\s\S]*?\{\$MESSAGE FATAL/);
-  assert.match(pascal, /\{\$L\s+'Cozy.game_imgui_bridge\.o'\}/);
+  assert.equal(path.win32.basename(productionLink), 'Cozy.game_imgui_bridge.o');
   assert.doesNotMatch(pascal, /external\s+'[^']+\.dll'/i);
 });
 
@@ -240,8 +243,20 @@ check('GPU failure HRESULT survives the C/Pascal boundary and failed frames cann
 
 check('Project generates one central object before Delphi and propagates all audited build failures', () => {
   const project=read("Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dproj"),build=read("Cozy.ImGui/Cozy.Build/Cozy.Build_ImGui_Win64.bat");
-  const objectName=pascal.match(/\{\$ELSE\}\s*\{\$L\s+'([^']+)'\}/)[1];
-  assert.equal(path.win32.basename(objectName),objectName,'The validated object search path owns resolution');
+  const objectLink=pascal.match(/\{\$ELSE\}\s*\{\$L\s+'([^']+)'\}/)[1];
+  const objectName=path.win32.basename(objectLink);
+  // Resolve the actual $L argument without using DCC_ObjPath. The source and
+  // project directory bases must both lead to the producer's one audited file.
+  const producer=path.resolve(native,'Cozy.ImGui/Cozy.Build','../../Cozy.BuildOutputs/Cozy.ImGui',objectName);
+  for(const relative of ['Cozy.Source/Cozy.Overlay','Cozy.Projects/Cozy.Overlay']){
+    assert.equal(path.resolve(native,relative,...objectLink.split('\\')),producer);
+  }
+  for(const root of ['C:\\Source Tree\\Railway','D:\\한글 폴더\\cozy-peace\\Railway','\\\\build-host\\source share\\Railway']){
+    const expected=path.win32.join(root,'Cozy.BuildOutputs','Cozy.ImGui',objectName);
+    for(const relative of ['Cozy.Source\\Cozy.Overlay','Cozy.Projects\\Cozy.Overlay']){
+      assert.equal(path.win32.resolve(root,relative,objectLink),expected);
+    }
+  }
   const objectDir=project.match(/<DCC_ObjPath>([^;<]+);\$\(DCC_ObjPath\)<\/DCC_ObjPath>/)[1];
   assert.equal(objectDir,'$(CozyNativeRoot)\\Cozy.BuildOutputs\\Cozy.ImGui');
   assert(build.includes('set "COZY_IMGUI_OBJECT_DIR=%~dp0..\\..\\Cozy.BuildOutputs\\Cozy.ImGui"'));
@@ -256,8 +271,8 @@ check('Project generates one central object before Delphi and propagates all aud
   assert.match(project,/<PreBuildEventIgnoreExitCode>false<\/PreBuildEventIgnoreExitCode>/);
   inOrder(build,['DisableDelayedExpansion','if not "%~1"=="" set "BDS=%~1"','pushd "%~dp0.."','if errorlevel 1 goto directory_failed','if not defined BDS','"%GAME_IMGUI_COMPILER%" -c','if errorlevel 1 goto failed','if not exist "%COZY_IMGUI_OBJECT_DIR%\\Cozy.game_imgui_bridge.pending.o" goto failed','Cozy.Audit-Object.ps1','if errorlevel 1 goto failed','move /y','if errorlevel 1 goto failed','if not exist "%COZY_IMGUI_OBJECT_DIR%\\'+objectName+'" goto failed','exit /b 0'],'Object generation gates');
   assert.match(build.slice(build.indexOf(':failed\n')),/exit \/b 1/);
-  // Both compiler lookup and the unit's bare $L resolve the single audited
-  // object directory. Adjacent source-tree object copies are forbidden.
+  // The explicit $L path resolves the single audited object directory even
+  // without IDE search options. Adjacent source-tree object copies are forbidden.
   assert.doesNotMatch(build,/\bcopy\s+(?:\/b|\/y)/i);
   assert.doesNotMatch(build,/\.\.\\Cozy\.game_imgui_bridge(?:\.pending)?\.o/);
   assert(!fs.existsSync(path.join(native,'Cozy.Source/Cozy.Overlay/Cozy.game_imgui_bridge.o')));
