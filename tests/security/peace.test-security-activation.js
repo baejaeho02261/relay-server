@@ -1,0 +1,109 @@
+'use strict';
+const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
+
+// Generated keys and synthetic PE images only. Tests server enforcement; does
+// not claim to run Delphi, a physical authenticator or a Windows CFG process.
+const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs');
+const os=require('node:os'),path=require('node:path'),child=require('node:child_process');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-activation-'));
+Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',WEBAUTHN_RP_ID:'localhost',WEBAUTHN_ORIGIN:'https://localhost',DESKTOP_SECURITY_STEP_UP_REQUIRED:'0',DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'29131',ADMIN_SECRET:'synthetic-activation-admin-secret'});
+require("../../core/peace.utilities.js").EnsureDirs();
+const state=require("../../core/peace.runtime-state"),store=require("../../services/bootstrap/peace.desktop-bootstrap-store");
+const auth=require("../../services/security/peace.desktop-security-authority"),ops=require("../../services/security/peace.desktop-security-operations");
+const guard=require("../../services/authentication/peace.desktop-admin-guard"),dual=require("../../services/authentication/peace.privileged-approval");
+const activation=require("../../services/security/peace.desktop-security-activation"),boot=require("../../services/bootstrap/peace.desktop-bootstrap");
+const audit=require("../../storage/audit/peace.audit.js"),fixture=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture");
+const webAuth=require("../../web/authentication/peace.web-auth"),adminRequest={socket:{remoteAddress:'127.0.0.1',encrypted:true},headers:{}};
+function administrator(){const result=webAuth.Login(adminRequest,'admin',process.env.ADMIN_SECRET);assert.equal(result.ok,true,result.code);return result.session;}
+const alice=administrator(),bob=administrator();
+let count=0,a,b,releaseKey,contexts,device;
+const test=(name,fn)=>{fn();console.log('PASS '+name);count++;};
+const reject=(fn,code)=>assert.throws(fn,e=>e.message===code,code);
+const has=(view,code)=>view.issues.some(x=>x.code===code);
+const pending=(view,code)=>view.pending.some(x=>x.code===code);
+const bytes=()=>fs.readFileSync(path.join(temp,'desktop-bootstrap/authority.json'));
+const view=(profile='READY')=>activation.Preview(profile,alice);
+function signed(component,version,cfg=false){
+ let data=fixture.PE(component,auth.DOMAIN+' activation '+version);
+ if(cfg){
+  // Synthetic structurally valid CFG metadata: bounded load config, check/
+  // dispatch slots and sorted executable targets. This is not native CFG proof.
+  data=Buffer.concat([data,Buffer.alloc(512)]);
+  const opt=data.readUInt32LE(0x3c)+24,table=opt+240,base=data.readBigUInt64LE(opt+24),lc=1536;
+  data.writeUInt32LE(1024,table+40+8);data.writeUInt32LE(1024,table+40+16);
+  data.writeUInt16LE(data.readUInt16LE(opt+70)|0x4000,opt+70);
+  data.writeUInt32LE(0x2200,opt+192);data.writeUInt32LE(148,opt+196);
+  data.writeUInt32LE(148,lc);data.writeBigUInt64LE(base+0x22e0n,lc+112);
+  data.writeBigUInt64LE(base+0x22f0n,lc+120);data.writeBigUInt64LE(base+0x22c0n,lc+128);
+  data.writeBigUInt64LE(2n,lc+136);data.writeUInt32LE(0x500,lc+144);
+  data.writeUInt32LE(0x1000,1728);data.writeUInt32LE(0x1020,1732);
+ }
+ const keyId=crypto.createHash('sha256').update(releaseKey.publicKey.export({type:'spki',format:'der'})).digest('hex');
+ const signature=crypto.sign(null,Buffer.from(auth.ReleaseCanonical(component,version,fixture.sha512(data))),releaseKey.privateKey).toString('base64');
+ return ops.Stage(component,version,data,{keyId,signature},'TEST');
+}
+const contract={version:1,evidenceVersion:1,minApiSlots:60,maxApiSlots:62,requiredChecks:['ownImage','apiStorage','mitigations']};
+function contracts(){for(const r of[a,b])ops.SetContract({expectedRevision:ops.Revision(),artifactId:r.id,contract},'TEST');}
+function report(outcome='PASS'){
+ ops.RecordEvidence({expectedRevision:ops.Revision(),aId:a.id,bId:b.id,report:{version:1,aSha512:a.sha512,bSha512:b.sha512,sourceManifestSha512:'1'.repeat(128),logsSha512:'2'.repeat(128),nativeBuild:'PASS',apiProbe:'PASS',integration:outcome,note:'SYNTHETIC SERVER REGRESSION RECORD. Not a Windows test.'}},'TEST');
+}
+function publishPair(){ops.ActivatePair({expectedRevision:ops.Revision(),expectedPolicyRevision:auth.Policy().revision,aId:a.id,bId:b.id},'TEST');}
+function observe(ctx,patch={}){
+ const c=auth.Execute(ctx),baseline=boot.AuthenticateIntegrityReport(ctx).integrityArtifact;
+ const value={version:1,hashVersion:3,measurement:'MEASURED',fileSha512:baseline.sha512,fileCrc64:baseline.crc64,codeSha512:baseline.codeSha512,codeCrc64:baseline.codeCrc64,codeXxh3_128:baseline.codeXxh3_128,codeBlake3:baseline.codeBlake3,crcLayers:baseline.crcLayers,apiSealed:true,apiSlots:60,dynamicCode:'ALLOWED',cfg:'DISABLED',...patch};
+ const payload=JSON.stringify(value);return auth.Execute({...ctx,action:'submit',challengeId:c.challengeId,payload,signature:fixture.Sign(device,auth.Canonical(ctx,c,payload))});
+}
+function session(patch={}){
+ device=fixture.Device();const start=fixture.Begin(device);fixture.Download(start.begin);
+ const ac={action:'challenge',stage:'A',sessionId:start.begin.flowId,sessionToken:start.begin.downloadTicket,machineId:device.machineId,intent:'finish',binding:auth.Binding(start.begin.flowId,start.begin.release.sha512)};
+ assert.equal(observe(ac,patch).status,'PASS');
+ const out=fixture.Claim(device,start.begin,fixture.Finish(device,start.begin,false));
+ const bc={action:'challenge',stage:'B',sessionId:out.sessionId,sessionToken:out.sessionToken,machineId:device.machineId,intent:'verify',binding:auth.Binding(crypto.randomUUID(),fixture.sha512('activation-test'))};
+ assert.equal(observe(bc,patch).status,'PASS');return[ac,bc];
+}
+function permit(plan,actor=alice){
+ const pending=guard.Authorize(actor,'POST',activation.PATH,plan,'');assert.equal(pending.reason,'ADMIN_ACTION_REQUIRED');
+ assert.equal(webAuth.Reauthenticate(adminRequest,actor,process.env.ADMIN_SECRET).ok,true);
+ require("../../services/authentication/peace.desktop-action-approval").Approve(actor,pending.action.id);
+ const out=guard.Authorize(actor,'POST',activation.PATH,plan,'','',pending.action.id);assert.equal(out.ok,true,out.reason);assert.ok(out.ticket);return out.ticket;
+}
+
+try {
+ test('No automatic policy migration; single-operator mode is explicit',()=>{assert.equal(activation.Status().adminMode,'SINGLE_ADMIN');assert.equal(activation.Status().baselineEnabled,false);assert.equal(store.Load().securityActivation,undefined);assert.equal(activation.AdminEnforced(),false);});
+ test('Anonymous/non-admin sessions and unknown profile are denied',()=>{for(const s of [null,{}, {id:'x',role:'viewer'},{role:'admin'}])reject(()=>activation.Preview('READY',s),'ADMIN_REQUIRED');reject(()=>activation.Preview('FALLBACK',alice),'SECURITY_ACTIVATION_PROFILE_INVALID');});
+ test('No registered passkey or mapping is needed, but a real active pair is',()=>{const before=bytes(),v=view();assert.ok(has(v,'SECURITY_ACTIVE_PAIR_REQUIRED'));assert.equal(v.ready,false);assert.equal(v.issues.some(x=>/PASSKEY|STEP_UP|IDENTITY|SECOND_OPERATOR/.test(x.code)),false);assert.deepEqual(bytes(),before);assert.equal(state.production.passkeyCredentials.size,0);});
+ test('Old env flags do not reintroduce desktop 2-person gates; unrelated global protection preserved',()=>{process.env.DESKTOP_SECURITY_STEP_UP_REQUIRED='1';process.env.DESKTOP_APPROVER_IDENTITIES_JSON='{invalid';state.production.deploymentManifest.dualApprovalRequired=true;assert.equal(guard.CheckSession(alice).ok,true);assert.equal(guard.Status().stepUpRequired,true);assert.equal(guard.Status().dualApprovalRequired,false);for(const p of [activation.PATH,'/api/desktop/bootstrap/artifacts','/api/desktop/bootstrap/security-authority','/api/production/passkeys/revoke'])assert.equal(dual.Required(p),false);assert.equal(dual.Required('/api/system/service/stop'),true);assert.equal(state.production.deploymentManifest.dualApprovalRequired,true);state.production.deploymentManifest.dualApprovalRequired=false;});
+ test('Desktop passkey endpoint explicitly unused; does not fabricate verification',()=>{assert.equal(guard.Begin(alice,{}).reason,'SECURITY_DESKTOP_PASSKEY_NOT_USED');assert.equal(alice.securityVerifiedAt,undefined);});
+ test('Unsigned active files remain rejected; keys are never auto-trusted',()=>{a=boot.Publish('A','1.0.0',fixture.PE('A',auth.DOMAIN));b=boot.Publish('B','1.0.0',fixture.PE('B',auth.DOMAIN));assert.ok(has(view(),'SECURITY_RELEASE_SIGNATURE'));assert.equal(auth.Policy().trustedReleaseKeys.length,0);});
+ test('Existing trusted signature and candidate/publication flow remain',()=>{releaseKey=crypto.generateKeyPairSync('ed25519');const keyId=crypto.createHash('sha256').update(releaseKey.publicKey.export({type:'spki',format:'der'})).digest('hex');auth.SetPolicy({expectedRevision:auth.Policy().revision,trustedReleaseKeys:[{keyId,publicKey:releaseKey.publicKey.export({type:'spki',format:'pem'}).toString()}]},'TEST');a=signed('A','1.0.1');b=signed('B','1.0.1');publishPair();assert.equal(has(view(),'SECURITY_RELEASE_SIGNATURE'),false);});
+ test('READY applies without fabricated contracts, test records, CFG or recent observations',()=>{const v=view();assert.equal(v.ready,true,JSON.stringify(v.issues));for(const c of ['SECURITY_BUILD_CONTRACT_REQUIRED','SECURITY_TEST_EVIDENCE_REQUIRED','SECURITY_RECENT_OBSERVATION_REQUIRED','SECURITY_CFG_NOT_ENABLED'])assert.ok(pending(v,c),c);assert.equal(v.target.controls.requireBuildContract,false);assert.equal(v.target.controls.requireTestEvidence,false);assert.equal(v.target.policy.requireCfg,false);assert.equal(v.target.policy.dynamicCode,'observe');assert.equal(v.approvalRequiredBeforeFirstActivation,false);});
+ test('Preview never changes policy, existing files or stored evidence',()=>{const before=bytes();view();view('SERVER');view('ALL');assert.deepEqual(bytes(),before);});
+ test('Advanced full profiles remain honest and do not silently degrade',()=>{assert.ok(has(view('ALL'),'SECURITY_CFG_BUILD_REQUIRED'));assert.ok(has(view('SERVER'),'SECURITY_TEST_EVIDENCE_REQUIRED'));assert.equal(view('ALL').target.policy.requireCfg,true);});
+ test('Missing, extra and forged target request fields are denied',()=>{const p=view().plan;reject(()=>activation.CheckRequest({...p,requireCfg:false},alice),'SECURITY_ACTIVATION_INPUT_INVALID');const short={...p};delete short.targetHash;reject(()=>activation.CheckRequest(short,alice),'SECURITY_ACTIVATION_INPUT_INVALID');reject(()=>activation.CheckRequest({...p,targetHash:'0'.repeat(128)},alice),'SECURITY_ACTIVATION_PREVIEW_CHANGED');});
+ test('Stale policy, operations and activation revisions denied',()=>{const p=view().plan;for(const[k,c]of[['expectedPolicyRevision','SECURITY_POLICY_CONFLICT'],['expectedOperationsRevision','SECURITY_OPERATIONS_CONFLICT'],['expectedActivationRevision','SECURITY_ACTIVATION_CONFLICT']])reject(()=>activation.CheckRequest({...p,[k]:p[k]+1},alice),c);});
+ test('Target is bound to exact current A/B IDs and hashes',()=>{const p=view().plan;reject(()=>activation.CheckRequest({...p,aSha512:'f'.repeat(128)},alice),'SECURITY_ACTIVE_PAIR_CHANGED');reject(()=>activation.CheckRequest({...p,bId:a.id},alice),'SECURITY_ACTIVE_PAIR_CHANGED');});
+ test('Direct calls, client-constructed approvals and cloned grants denied',()=>{const p=view().plan;reject(()=>activation.Apply(p,alice),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');reject(()=>activation.Apply(p,alice,{mode:'SINGLE_ADMIN'}),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');const t=permit(p);reject(()=>activation.Apply(p,alice,{...t}),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');});
+ test('Grant cannot be transferred to another session or a copied session object',()=>{for(const s of [bob,{...alice}]){const p=view().plan,t=permit(p);reject(()=>activation.Apply(p,s,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');}});
+ test('Administrator loss and expiration invalidate a one-use grant',()=>{const lost=administrator();let p=view().plan,t=permit(p,lost);lost.role='viewer';reject(()=>activation.Apply(p,lost,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');assert.equal(webAuth.IsSessionActive(lost),false);p=view().plan;t=permit(p);const now=Date.now,at=now();Date.now=()=>at+30001;try{reject(()=>activation.Apply(p,alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');}finally{Date.now=now;}});
+ test('Wrong method and modified body cannot use the server-only capability',()=>{let p=view().plan,t=guard.Authorize(alice,'GET',activation.PATH,p).ticket;reject(()=>activation.Apply(p,alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');t=permit(p);reject(()=>activation.Apply({...p,profile:'ALL'},alice,t),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');});
+ let plan,ticket;
+ test('Atomic store failure leaves policy and activation unchanged',()=>{plan=view().plan;ticket=permit(plan);const before=bytes(),old=fs.renameSync;fs.renameSync=(src,dst)=>{if(dst===path.join(temp,'desktop-bootstrap/authority.json'))throw Error('INJECTED_RENAME_FAILURE');return old(src,dst);};try{reject(()=>activation.Apply(plan,alice,ticket),'INJECTED_RENAME_FAILURE');}finally{fs.renameSync=old;}assert.deepEqual(bytes(),before);});
+ test('READY activates baseline with one admin, without passkeys or a second operator',()=>{plan=view().plan;ticket=permit(plan);const before=structuredClone(store.Load()),out=activation.Apply(plan,alice,ticket);assert.equal(out.activated,true);assert.equal(out.current.baselineEnabled,true);assert.equal(out.current.serverEnabled,false);assert.equal(out.current.allEnabled,false);assert.equal(out.current.settings.requireBuildContract,false);assert.equal(out.current.settings.requireTestEvidence,false);assert.equal(out.current.settings.stepUpRequired,false);assert.equal(out.current.settings.dualApprovalRequired,false);assert.equal(store.Load().securityAuthorityPolicy.revision,(before.securityAuthorityPolicy?.revision||0)+1);assert.equal(store.Load().securityOperations.revision,(before.securityOperations?.revision||0)+1);assert.equal(store.Load().securityActivation.revision,(before.securityActivation?.revision||0)+1);const commit=Object.values(store.Load().serverAuditOutbox||{}).filter(row=>row.event.kind==='SECURITY_ACTIVATION');assert.equal(commit.length,1);assert.equal(commit[0].acked,true);assert.equal(commit[0].event.revision,before.revision+1);assert.equal(store.Load().revision,before.revision+2,'one authority commit plus its durable audit ACK');for(const k of ['secret','artifacts','active','launchers','flows','issueReceipts'])assert.deepEqual(store.Load()[k],before[k],k);assert.deepEqual(store.Load().securityOperations.contracts,{});assert.deepEqual(store.Load().securityOperations.pairEvidence,{});assert.equal(state.production.passkeyCredentials.size,0);assert.equal(state.production.privilegedApprovals.size,0);});
+ test('Record identifies SINGLE_ADMIN, not a fictional two-person approval',()=>{const r=activation.Record();assert.equal(r.version,2);assert.equal(r.adminMode,'SINGLE_ADMIN');assert.equal(r.approvedBy,undefined);assert.match(r.activatedBy,/^admin-[a-f0-9]{24}$/);assert.ok(!JSON.stringify(r).includes(alice.id));});
+ test('A consumed grant cannot replay even with an otherwise matching body',()=>{reject(()=>activation.Apply(plan,alice,ticket),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');});
+ test('Saved flags reload in a separate process without passkeys/mapping',()=>{const code="const a=require(process.cwd()+\"/services/security/peace.desktop-security-activation.js\");if(a.AdminEnforced()||!a.Status().baselineEnabled||a.Status().settings.dualApprovalRequired)process.exit(3);console.log('RELOADED_SINGLE')";const r=child.spawnSync(process.execPath,['-e',code],{cwd:path.resolve(MODULE_RESOURCE_ROOT,'..'),env:process.env,encoding:'utf8'});assert.equal(r.status,0,r.stderr);assert.match(r.stdout,/RELOADED_SINGLE/);});
+ test('Legacy v1 records remain readable history, not mandatory co-approval',()=>{const old=structuredClone(store.Load().securityActivation),v1={version:1,revision:7,adminEnforced:true,profile:'SERVER',activatedAt:Date.now(),activatedBy:'operator-a',approvedBy:'operator-b',aSha512:a.sha512,bSha512:b.sha512};store.Atomic(db=>{db.securityActivation=v1;});const before=bytes();assert.deepEqual(activation.Record(),v1);assert.equal(activation.AdminEnforced(),false);assert.equal(dual.Required(activation.PATH),false);assert.deepEqual(bytes(),before);store.Atomic(db=>{db.securityActivation=old;});});
+ test('Malformed old and new records remain rejected',()=>{const r=activation.Record();for(const bad of [{...r,unknown:true},{...r,revision:0},{...r,adminMode:'DUAL'},{...r,activatedBy:''}])reject(()=>activation.ValidateRecord(bad),'SECURITY_ACTIVATION_STORAGE_INVALID');});
+ test('READY does not enable contracts merely from counts or missing measurements',()=>{contracts();const v=view();assert.equal(v.ready,true);assert.equal(v.target.controls.requireBuildContract,false);assert.ok(pending(v,'SECURITY_BUILD_CONTRACT_ACTIVATION_PENDING'));});
+ test('NOT_RUN and FAIL evidence remain that way, not auto-upgraded to PASS',()=>{for(const result of ['NOT_RUN','FAIL']){report(result);assert.equal(view().target.controls.requireTestEvidence,false);assert.equal(ops.State().pairEvidence[ops.PairKey(a,b)].integration,result);}report();assert.equal(view().target.controls.requireTestEvidence,true);});
+ test('Exact target hash detects newly ready optional requirements between preview/apply',()=>{const p=view().plan;contexts=session();assert.equal(view().target.controls.requireBuildContract,true);reject(()=>activation.CheckRequest(p,alice),'SECURITY_ACTIVATION_PREVIEW_CHANGED');});
+ test('Known storage/code/slot mismatch blocks even READY instead of being skipped',()=>{observe(contexts[1],{apiSealed:false});assert.ok(has(view(),'SECURITY_TARGET_OBSERVATION_FAILED'));observe(contexts[1],{apiSlots:1});assert.ok(has(view(),'SECURITY_TARGET_OBSERVATION_FAILED'));observe(contexts[1]);assert.equal(view().ready,true);});
+ test('Ready registered contracts and actual pair records can now be enforced',()=>{const p=view().plan,out=activation.Apply(p,alice,permit(p));assert.equal(out.current.serverEnabled,true);assert.equal(out.current.allEnabled,false);assert.equal(ops.State().requireBuildContract,true);assert.equal(ops.State().requireTestEvidence,true);});
+ test('Existing required controls are never silently disabled when prerequisites go missing',()=>{const s=ops.State();store.Atomic(db=>{delete db.securityOperations.contracts[ops.BuildKey(a)];delete db.securityOperations.pairEvidence[ops.PairKey(a,b)];});const v=view();assert.equal(v.target.controls.requireBuildContract,true);assert.equal(v.target.controls.requireTestEvidence,true);assert.ok(has(v,'SECURITY_BUILD_CONTRACT_REQUIRED'));assert.ok(has(v,'SECURITY_TEST_EVIDENCE_REQUIRED'));store.Atomic(db=>{db.securityOperations=s;});});
+ test('Existing CFG requirement is retained, not silently downgraded for compatibility',()=>{const p=auth.Policy();store.Atomic(db=>{db.securityAuthorityPolicy.requireCfg=true;});assert.equal(view().target.policy.requireCfg,true);assert.ok(has(view(),'SECURITY_CFG_BUILD_REQUIRED'));store.Atomic(db=>{db.securityAuthorityPolicy=p;});});
+ test('Historical strict ALL still needs compiled metadata and measured protection',()=>{assert.equal(view('ALL').ready,false);assert.ok(has(view('ALL'),'SECURITY_CFG_BUILD_REQUIRED'));a=signed('A','1.0.2',true);b=signed('B','1.0.2',true);contracts();report();publishPair();contexts=session({dynamicCode:'PROHIBITED',cfg:'ENABLED'});assert.equal(view('ALL').ready,true,JSON.stringify(view('ALL').issues));});
+ test('Full profile also uses single operator, never a fake second identity',()=>{const p=view('ALL').plan,out=activation.Apply(p,alice,permit(p));assert.equal(out.current.allEnabled,true);assert.equal(out.current.settings.dualApprovalRequired,false);assert.equal(activation.Record().adminMode,'SINGLE_ADMIN');});
+ test('Displayed status reflects current values, not a stale activated flag',()=>{auth.SetPolicy({expectedRevision:auth.Policy().revision,mode:'observe'},'TEST_INTERNAL');assert.equal(activation.Status().baselineEnabled,false);assert.equal(activation.Status().allEnabled,false);});
+ test('Audit fsync failure prevents all changes; no partial activation',()=>{plan=view().plan;ticket=permit(plan);const before=bytes(),old=fs.fsyncSync;fs.fsyncSync=()=>{throw Object.assign(Error('injected'),{code:'ENOSPC'});};try{reject(()=>activation.Apply(plan,alice,ticket),'SECURITY_AUDIT_UNAVAILABLE');}finally{fs.fsyncSync=old;}assert.deepEqual(bytes(),before);reject(()=>activation.Apply(plan,alice,ticket),'SECURITY_ACTIVATION_AUTHORIZATION_REQUIRED');assert.equal(audit.LogEvent('TEST_RECOVERY','synthetic injection ended',{durable:true}).errorCode,'AUDIT_RESTART_REQUIRED');const copy=fs.mkdtempSync(path.join(os.tmpdir(),'game-activation-audit-restart-'));try{fs.cpSync(temp,copy,{recursive:true,filter:source=>!path.basename(source).startsWith('.desktop-single-writer.sqlite')});const run=child.spawnSync(process.execPath,['-e',"const a=require(process.cwd()+\"/storage/audit/peace.audit.js\");a.LoadRecentAudit();if(!a.VerifyAuditChain().ok||!a.LogEvent('TEST_RECOVERY','fresh process',{durable:true}).ok)process.exit(9);"],{cwd:path.resolve(MODULE_RESOURCE_ROOT,'..'),env:{...process.env,DATA_DIR:copy},encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);}finally{fs.rmSync(copy,{recursive:true,force:true});}});
+ console.log(`Single-operator activation regression: ${count} passed (real services/signatures; synthetic PE and reports, not Windows execution)`);
+} finally {webAuth.RevokeAllSessions();fs.rmSync(temp,{recursive:true,force:true});}
