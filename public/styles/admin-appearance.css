@@ -1,0 +1,31 @@
+/* Ivory, graphite and sapphire. Every page consumes the same color roles. */
+:root {
+ color-scheme:light;
+ --bg:#f4f5f7; --bg-2:#eceef2; --panel:#fff; --panel-2:#f8f9fb; --panel-3:#edf0f5;
+ --line:#e5e8ed; --line-strong:#cdd3de; --border:var(--line);
+ --text:#172033; --text-soft:#465268; --muted:#6e7c92;
+ --accent:#315dce; --accent-hover:#244ab2; --accent-tint:#eef3ff; --accent-2:#267f92;
+ --good:#217759; --good-bg:#edf7f2; --good-line:#cfe8dc;
+ --warn:#986817; --warn-bg:#fbf5e8; --warn-line:#eddfbd;
+ --bad:#b6424d; --bad-bg:#fff0f1; --bad-line:#f2d3d7;
+ --shadow:0 2px 7px rgba(25,41,70,.025);
+ --shadow-float:0 20px 65px rgba(19,32,56,.13),0 2px 8px rgba(19,32,56,.035);
+ --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;
+ --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+ --workspace-bg:var(--bg); --workspace-panel:var(--panel); --workspace-border:var(--line); --workspace-ink:var(--text); --workspace-muted:var(--muted); --workspace-active:var(--accent); --workspace-tint:var(--accent-tint);
+}
+:root[data-theme="dark"] {
+ color-scheme:dark;
+ --bg:#11151e; --bg-2:#0c1018; --panel:#191f2b; --panel-2:#1e2634; --panel-3:#273246;
+ --line:#2a3547; --line-strong:#465570; --text:#edf2fb; --text-soft:#bdc9dc; --muted:#8e9fba;
+ --accent:#7397f3; --accent-hover:#88a8fa; --accent-tint:#233353; --accent-2:#7ab9c9;
+ --good:#8ad7b4; --good-bg:#19372e; --good-line:#2b5344;
+ --warn:#e5c17a; --warn-bg:#393020; --warn-line:#5a4930;
+ --bad:#f0a0aa; --bad-bg:#3b252f; --bad-line:#643746;
+ --shadow:0 2px 8px rgba(0,0,0,.06); --shadow-float:0 24px 72px rgba(0,0,0,.36);
+}
+[data-theme="dark"] button.primary,[data-theme="dark"] .support-message.from-admin { background:#426bcf; border-color:#426bcf; color:#fff; }
+[data-theme="dark"] button.primary:hover:not(:disabled) { background:#527cdf; border-color:#527cdf; color:#fff; }
+[data-theme="dark"] .toast { background:#e7eefb; color:#172033; }[data-theme="dark"] .toast.error { background:#9b3949; color:#fff; }
+#qr-auth-preview,.license-qr { background:#fff; object-fit:contain; }
+#theme-toggle { white-space:nowrap; }

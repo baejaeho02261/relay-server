@@ -1,0 +1,6 @@
+/* Navigation is one scrollable list; expanded groups never nest scrollbars. */
+#nav,.sidebar { overscroll-behavior-y:contain; scrollbar-width:thin; scrollbar-color:#465570 #171b24; }
+.sidebar #nav::-webkit-scrollbar { width:5px; }.sidebar #nav::-webkit-scrollbar-track { background:transparent; }.sidebar #nav::-webkit-scrollbar-thumb { background:#465570; border:0; border-radius:5px; }
+.nav-items>button { flex-shrink:0; }.nav-items:focus-visible { outline:2px solid #91afff; outline-offset:2px; border-radius:8px; }
+.nav-filter-hidden { display:none!important; }
+@media(max-height:400px) { .app .sidebar { overflow-y:auto; }.sidebar #nav { flex:0 0 auto; overflow:visible; }.sidebar-footer { margin-top:15px; } }

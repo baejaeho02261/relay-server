@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#171b24">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
+  <link rel="alternate icon" type="image/x-icon" href="/icons/favicon.ico">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <title>Game 관리자</title>
+  <link rel="stylesheet" href="/styles/admin.css?v=5.0.1-cozy-peace-v2-functional-layout">
+  <link rel="stylesheet" href="/styles/admin-theme.css?v=5.0.1-cozy-peace-v2-functional-layout">
+  <link rel="stylesheet" href="/styles/admin-navigation.css?v=5.0.1-cozy-peace-v2-functional-layout">
+  <link rel="stylesheet" href="/styles/admin-appearance.css?v=5.0.1-cozy-peace-v2-functional-layout">
+  <link rel="stylesheet" href="/styles/admin-controls.css?v=5.0.1-cozy-peace-v2-functional-layout">
+  <link rel="stylesheet" href="/styles/admin-workspace.css?v=5.0.1-cozy-peace-v2-functional-layout">
+  <link rel="stylesheet" href="/styles/admin-desktop.css?v=5.0.1-cozy-peace-v2-functional-layout">
+  <script src="/scripts/interface/peace.admin-controls.js?v=5.0.1-cozy-peace-v2-functional-layout"></script>
+  <script src="/scripts/interface/peace.admin-appearance.js?v=5.0.1-cozy-peace-v2-functional-layout"></script>
+</head>
+<body>
+  <section id="login-screen" class="login-screen">
+    <div class="login-card">
+      <img class="brand-mark" src="/icons/game.svg" alt="Game">
+      <span class="login-eyebrow">OPERATIONS CONSOLE</span>
+      <h1>Game 관리자</h1>
+      <p class="muted">Windows 라이선스와 서버를 한곳에서 관리하세요.</p>
+      <form id="login-form" autocomplete="off">
+        <label>접근 역할
+          <select id="login-role">
+            <option value="admin">관리자</option>
+            <option value="operator">운영자</option>
+            <option value="viewer">조회 전용</option>
+          </select>
+        </label>
+        <label>비밀번호
+          <input id="login-password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="primary wide" type="submit">비밀번호로 로그인</button>
+        <button id="passkey-login-btn" class="ghost wide" type="button">패스키로 로그인</button>
+        <p class="small-note">둘 중 하나만 사용하세요. 패스키 등록은 선택 사항입니다.</p>
+      </form>
+      <div id="login-error" class="form-error"></div>
+    </div>
+  </section>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar" id="main-menu">
+      <div class="nav-search"><svg class="nav-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="nav-filter" type="search" placeholder="기능 검색" aria-label="관리 기능 검색" autocomplete="off"></div>
+      <nav id="nav" aria-label="관리 메뉴">
+        <details class="nav-group" open><summary>Windows 라이선스</summary><div class="nav-items">
+          <button data-view="desktop-licenses" data-admin-only class="active">라이선스 관리</button>
+          <button data-view="dashboard">운영 대시보드</button>
+          <button data-view="servers">서버 기기</button>
+          <button data-view="monitor">연결 상태</button>
+        </div></details>
+        <details class="nav-group"><summary>관제 및 처리</summary><div class="nav-items">
+          <button data-view="console">실시간 이벤트</button>
+          <button data-view="notifications">알림<span id="notification-badge" class="nav-count hidden">0</span></button>
+          <button data-view="trace">요청 추적</button>
+          <button data-view="recovery">요청 복구</button>
+          <button data-view="processors">처리 정책</button>
+          <button data-view="terminal">관리 명령</button>
+        </div></details>
+        <details class="nav-group"><summary>배포 및 보안</summary><div class="nav-items">
+          <button data-view="production" data-admin-only>운영 설정</button>
+          <button data-view="features" data-admin-only>기능 설정</button>
+          <button data-view="confighistory" data-admin-only>설정 이력</button>
+          <button data-view="enrollment" data-admin-only>서버 등록</button>
+          <button data-view="protocol">프로토콜</button>
+          <button data-view="security">보안 상태</button>
+          <button data-view="reports">푸시 · 보고서</button>
+        </div></details>
+        <details class="nav-group"><summary>관리 및 시스템</summary><div class="nav-items">
+          <button data-view="audit">감사 기록</button>
+          <button data-view="activity" data-admin-only>관리자 활동</button>
+          <button data-view="sessions" data-admin-only>로그인 세션</button>
+          <button data-view="backups">백업 · 복원</button>
+          <button data-view="health">시스템 상태</button>
+          <button data-view="ha">이중화 관리</button>
+          <button data-view="storage" data-admin-only>저장소</button>
+          <button data-view="system">시스템 관리</button>
+          <button data-view="danger" data-admin-only>주의가 필요한 작업</button>
+        </div></details>
+      </nav>
+      <p id="nav-empty" class="nav-empty hidden" role="status">검색 결과가 없습니다.</p>
+      <div class="sidebar-footer">
+        <div><span class="muted">버전</span><strong id="web-version-label">웹 v5.0.1 · Windows License</strong></div>
+        <div><span class="muted">역할</span><strong id="role-label">-</strong></div>
+        <button id="logout-btn" class="ghost">로그아웃</button>
+        <a class="ui-refresh-link" href="/ui-refresh">웹 화면 새로 불러오기</a>
+      </div>
+    </aside>
+
+    <main class="main" id="main-content">
+      <header class="topbar">
+        <button id="menu-toggle" type="button" aria-controls="main-menu" aria-expanded="false" aria-label="메뉴 열기">메뉴</button>
+        <div class="page-heading">
+          <span id="page-category" class="page-category">관제</span>
+          <h2 id="page-title">Windows 라이선스</h2>
+          <p id="page-subtitle" class="muted">기기 연결과 최근 활동을 확인하세요.</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="theme-toggle" type="button" aria-label="화면 모드 전환" aria-pressed="false">다크 모드</button>
+          <span id="live-state" class="live-pill">실시간 연결</span>
+          <button id="install-pwa-btn" class="ghost hidden">앱 설치</button>
+          <button id="refresh-btn" class="ghost">새로고침</button>
+        </div>
+      </header>
+      <nav id="workspace-tabs" class="workspace-tabs" aria-label="현재 카테고리의 기능"></nav>
+      <section id="content" class="content" aria-live="off"></section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <div id="modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-head">
+        <h3 id="modal-title">확인</h3>
+        <button class="icon-btn" aria-label="닫기" data-modal-close>×</button>
+      </div>
+      <div id="modal-body" class="modal-body"></div>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="ghost">취소</button>
+        <button id="modal-confirm" class="primary">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/scripts/interface/peace.admin-i18n.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/application/peace.admin.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/interface/peace.admin-navigation.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-monitoring.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/application/peace.admin-terminal.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-traffic.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-danger.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-access.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-reports.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-pages-devices.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-deployment.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-security.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-operations.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-access.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-operations.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-traffic.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-devices.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-policy.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-system.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/interface/peace.admin-modal.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-device-actions.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-licenses.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-security.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-security-center.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-server-state.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-workflow.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/actions/peace.admin-actions.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/interface/peace.admin-palette.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-production.js?v=5.0.1-cozy-peace-v2-functional-layout" defer></script>
+</body>
+</html>
