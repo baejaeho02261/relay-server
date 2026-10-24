@@ -1,0 +1,376 @@
+{
+  "version": 1,
+  "sourceFile": "세부목록 11~14.txt",
+  "scope": "Source implementation and explicitly scoped verification. NOT a Windows execution or deployment approval.",
+  "requirements": [
+    {
+      "id": "11.1",
+      "title": "외부 최신 상태 증거",
+      "status": "구현 / 운영 설정 필요",
+      "detail": "라이선스·PC 정책·Bootstrap·측정 저장소의 seq/hash를 DATA_DIR 밖의 일회 등록 witness와 대조합니다. current/pending 두 상태만 복구하며, 관측한 최신 head보다 옛 상태는 시작 단계에서 거절합니다. 별도 파일 볼륨의 HMAC 증거이며 원격 합의 서비스가 아닙니다. 독립 물리 장치·백업 범위·ACL은 운영자가 확보해야 합니다.",
+      "paths": "services/recovery/peace.recovery-witness-file.js; services/recovery/peace.desktop-recovery-witness.js; tools/recovery/peace.recovery-maintenance.js",
+      "verification": "외부 head를 남기고 로컬 저널·키·head 전체를 옛 사본으로 교체하는 단위시험 통과. 실제 Windows 잠금·독립 볼륨 운영은 미실행."
+    },
+    {
+      "id": "11.2",
+      "title": "복구 후 이전 세션 폐기",
+      "status": "구현",
+      "detail": "서버 recovery epoch 증가가 A/B/O 새 발급·실행 상태와 결속됩니다. 복구 시 미사용 launcher 만료, 활성 flow/O 폐기, nonce 제거, Challenge·단기 결과 메모리 비우기, 관리자 세션 폐기를 수행합니다. 기존 라이선스 소비·배포 폐기 기록은 변경하지 않습니다. 일반 웹 mirror 백업 복원도 최근 재인증과 epoch fence를 거칩니다.",
+      "paths": "services/recovery/peace.desktop-recovery.js; services/bootstrap/peace.desktop-bootstrap.js; services/overlay/peace.desktop-overlay.js; storage/snapshots/peace.backup.js; web/routes/runtime/peace.history-routes.js",
+      "verification": "epoch·재요청·재시작 보존 단위시험 통과. 실제 A/B/O 및 웹 백업 복원 통합은 미실행. 기존 PC의 메모리 lease는 다음 검사/만료까지 존재할 수 있습니다."
+    },
+    {
+      "id": "11.3",
+      "title": "고아 파일 처리",
+      "status": "구현",
+      "detail": "서버 배포 폴더의 허용된 artifact/임시파일 이름만 검사합니다. 참조·파일 종류·링크 수·크기·SHA-512를 확인하고 PENDING 기록을 먼저 확정한 뒤 격리합니다. 동일 작업 ID로 rename 중단을 복구합니다. 삭제는 격리 후 7일·해시·재참조 확인·별도 관리자 승인에 한정하고 DELETED tombstone을 남깁니다.",
+      "paths": "services/storage/peace.desktop-orphan-files.js; services/storage/peace.durable-file.js",
+      "verification": "rename/unlink 직후 중단·재시도·유예·경로 탈출·symlink 거절 단위시험 통과. 실제 디스크 단절/Windows reparse 종류 전체는 미실행."
+    },
+    {
+      "id": "11.4",
+      "title": "감사 의도와 결과 연결",
+      "status": "구현 / 범위 명시",
+      "detail": "새 관리 작업, 보안 정책 확정, artifact 게시, launcher 발급에 공통 operationId와 INTENT/COMMITTED/FAILED/UNCERTAIN을 연결합니다. metadata와 함께 outbox를 확정하고 재시작 시 INTENT와 결과를 보충합니다. 라이선스의 기존 receipt/ACK도 재대조합니다. 모든 과거 고빈도 진단 LogEvent를 새 트랜잭션 방식으로 전면 교체한 것은 아닙니다.",
+      "paths": "services/storage/peace.desktop-operation-audit.js; services/licensing/peace.desktop-licenses.js; services/security/peace.desktop-security-operations.js; services/bootstrap/peace.desktop-bootstrap.js",
+      "verification": "감사 전 실패 시 mutation 없음, 확정 뒤 감사 장애와 ACK 이후 로그 누락 재보충 시험 통과. 실제 audit 백업 복원 통합은 미실행."
+    },
+    {
+      "id": "11.5",
+      "title": "저널 성장 관리",
+      "status": "구현 / 기록별 보존 분리",
+      "detail": "라이선스 저널의 full-snapshot·immutable segment·HMAC checkpoint와 PC 정책 ledger compaction을 구현했습니다. ACK된 감사 outbox는 인증된 archive로 옮기며 미확정/미전송 결과는 제거하지 않습니다. 감사 보존 작업과 archive 재조정·중단 후 재시도가 연결됩니다. 소비·폐기 tombstone 및 재사용 방지 receipt는 별도로 보존하므로 모든 이력이 무조건 삭제되는 기능이 아닙니다.",
+      "paths": "services/licensing/peace.desktop-journal.js; services/licensing/peace.desktop-licenses.js; services/devices/peace.desktop-machine-policy.js; services/storage/peace.desktop-operation-audit.js; services/storage/peace.desktop-audit-retention.js; services/storage/peace.desktop-storage-maintenance.js",
+      "verification": "저장소·retention·중단 경계 회귀 시험이 포함됩니다. 실제 Windows 전원 차단·디스크 장애·운영 복구 실기는 미검증입니다."
+    },
+    {
+      "id": "11.6",
+      "title": "실제 복구 훈련",
+      "status": "부분 실행 / Windows 미실행",
+      "detail": "실제 임시 파일과 fsync를 사용하는 Node 저장소 및 서버 복구 시험 경로를 포함합니다. spent state 보존·외부 witness와 옛 사본 충돌·감사 재보충·JSON/SQLite 동작을 시험하는 코드가 존재합니다. 실제 사용자 Windows 전체 복구 훈련은 수행하지 않았습니다.",
+      "paths": "tests/storage/peace.test-server-storage-11-14.js; tests/recovery/peace.test-desktop-license-recovery.js",
+      "verification": "22개 신규 저장소 시험 묶음은 단위시험입니다. 이를 운영 복구 훈련 또는 OS 단일 작성자 시험 PASS로 쓰면 안 됩니다."
+    },
+    {
+      "id": "11.P",
+      "title": "감사 정보 최소화·보존·접근",
+      "status": "신규 경로 적용 / 운영 정책 필요",
+      "detail": "새 outbox는 allowlist metadata·actor 해시·server-HMAC bindingId를 사용합니다. 토큰·개인키·원본 HWID를 새 metadata에 추가하지 않습니다. 서버 보존 작업은 인증된 감사 retirement/archiving과 연결되며 미전송 outbox 및 소비·폐기 tombstone을 무조건 삭제하지 않습니다. 과거 기록의 연결 가능한 식별자는 개인정보성이 남습니다.",
+      "paths": "services/storage/peace.desktop-operation-audit.js; web/routes/licensing/peace.desktop-license-routes.js; services/licensing/peace.desktop-licenses.js",
+      "verification": "민감 metadata 제외·retention·ACK된 outbox archive/retirement 회귀 시험이 포함됩니다. 실제 운영 ACL·보존 기간·백업 범위·감사 접근 검토는 별도입니다."
+    },
+    {
+      "id": "12.1",
+      "title": "앱 전용 장치키",
+      "status": "구현 / 서버 정책에 따라 사용",
+      "detail": "역할별 임시 앱 키와 별도로 OS CNG의 이름 있는 비내보내기 RSA 장치키를 구현했습니다. SOFTWARE/PLATFORM provider 선택과 장치키·현재 앱 키의 이중 서명, 서버 nonce·세대·역할·세션 결속을 검사합니다. 일반 JSON 또는 평문 파일로 개인키를 저장하지 않습니다. COMPATIBLE/PERSISTENT/TPM_ATTESTED 정책은 서버가 결정합니다.",
+      "paths": "services/devices/peace.desktop-device-identity.js; services/devices/peace.desktop-device-registry.js; ../Railway/cozy.DeviceKey.pas; ../Railway/cozy.DeviceIdentity.pas",
+      "verification": "서버 장치키·Handoff·복구 회귀와 native probe가 포함됩니다. 실제 Windows CNG/TPM 실행은 미실행입니다."
+    },
+    {
+      "id": "12.2",
+      "title": "검증 가능한 TPM 증명",
+      "status": "구현 / 신뢰 설정·실장치 검증 필요",
+      "detail": "서버 TPM 2.0 RSA2048/SHA256 verifier가 EK 인증서 신뢰 체인·유효기간·폐기 목록, nonce/앱 공개키에 결속한 certify 증거와 ActivateCredential 응답을 검사합니다. 제조사 신뢰 root를 임의 기본값으로 넣지 않으며 관리자가 신뢰 설정을 등록해야 TPM_ATTESTED 정책을 켤 수 있습니다. 키 증명은 실행 코드 전체의 원격 증명이 아닙니다.",
+      "paths": "services/devices/peace.desktop-tpm-attestation.js; services/devices/peace.desktop-device-identity.js; services/runtime/peace.desktop-cpu-worker.js; ../Railway/cozy.DeviceKey.pas; ../Railway/cozy.DeviceIdentity.pas",
+      "verification": "Recovery.Status와 capabilities는 실제 mode·trust 만료·등록 건수를 읽습니다. 등록이나 설정만으로 Windows 시험 PASS를 만들지 않으며 실제 제조사 TPM 장비 검증은 미실행입니다."
+    },
+    {
+      "id": "12.3",
+      "title": "교체·복구 절차",
+      "status": "구현",
+      "detail": "최근 재인증을 마친 관리자만 장치 binding/영속 키를 폐기하고 관련 세션을 종료할 수 있습니다. 영속 키 복구는 key generation을 높이고 한정된 재등록 grant를 발급합니다. 재시도는 actor·요청 내용에 결속되며 사용된 라이선스는 복원하거나 자동 이월하지 않습니다.",
+      "paths": "services/devices/peace.desktop-device-registry.js; services/devices/peace.desktop-device-identity.js; web/routes/web/peace.desktop-server-state-routes.js; public/scripts/desktop/peace.admin-desktop-server-state.js",
+      "verification": "장치 교체·동일 요청·다른 내용 재요청·기존 binding 거절·라이선스 이력 불변 시험 통과. 실제 보드/TPM/Windows 재설치 시험 미실행."
+    },
+    {
+      "id": "12.4",
+      "title": "기존 ID 단계적 전환",
+      "status": "구현 / 호환·영속·TPM 단계 분리",
+      "detail": "LEGACY_PC_HASH_V1, APP_CNG_RSA2048_V2와 임시 앱 키를 구분합니다. COMPATIBLE은 기존 실행의 명시적 유예를 지원하며 PERSISTENT는 영속 소유 증명, TPM_ATTESTED는 유효한 TPM 증명을 요구합니다. once-enrolled 증명 생략 방지·정책 revision/epoch·기존 흐름 전환을 서버가 검사하며 미지원 체계를 조용히 낮춰 승인하지 않습니다.",
+      "paths": "services/devices/peace.desktop-device-identity.js; services/devices/peace.desktop-device-registry.js; services/bootstrap/peace.desktop-bootstrap.js; services/overlay/peace.desktop-overlay.js",
+      "verification": "서버 전환·세션 결속·재등록 시험이 포함됩니다. 실제 구/신 A/B/O와 Windows 재설치/TPM 초기화의 혼합 배포 실기는 미실행입니다."
+    },
+    {
+      "id": "12.5",
+      "title": "수집 최소화",
+      "status": "구현 / 기록별 보존 구분",
+      "detail": "새 디스크 시리얼·영구 MAC 수집을 추가하지 않습니다. 장치 registry는 HMAC binding과 공개키·보증 수준·최소 증명 metadata를 저장합니다. TPM 검증 입력의 EK 인증서/TPM blob은 영구 증빙 원장에 그대로 복제하지 않으며 root 지문·만료 같은 검증 metadata만 보존합니다. 종료된 세션의 장치 증명과 최근 관측은 보존 기간 후 정리하고 폐기 tombstone·라이선스 소비와 재사용 방지 자료는 유지합니다.",
+      "paths": "services/devices/peace.desktop-device-registry.js; services/devices/peace.desktop-device-identity.js; services/devices/peace.desktop-tpm-attestation.js; peace.relay-server.js",
+      "verification": "서버 보존 경로와 공개·비밀 정보 구분 시험이 포함됩니다. 실제 운영 백업·로그·OS CNG 보존 상태는 별도로 확인해야 합니다."
+    },
+    {
+      "id": "12.P",
+      "title": "식별·키 보호·실행 무결성의 구분",
+      "status": "명시",
+      "detail": "APP_KEY_POSSESSION은 해당 앱 키로 서명했다는 뜻입니다. TPM 키 보호 증명조차 실행 코드 전체의 정상성 또는 침해 없는 PC를 보증하지 않으며, 보고된 측정값만으로 서버가 로컬 환경 전체를 증명할 수는 없습니다.",
+      "paths": "services/devices/peace.desktop-device-registry.js; services/integrity/peace.desktop-integrity-reports.js; ../Railway/cozy.Security.pas",
+      "verification": "표시/서버 반환 assurance를 낮추어 분리했습니다. TPM 코드 실행 증명은 제공하지 않습니다."
+    },
+    {
+      "id": "13.01",
+      "title": "같은 라이선스를 동시에 사용",
+      "status": "Windows NOT_RUN",
+      "detail": "허용된 소비가 한 번만 확정됨",
+      "paths": "peace.test-desktop-licenses.js; peace.test-desktop-license-recovery.js",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.02",
+      "title": "동일 요청 재전송",
+      "status": "Windows NOT_RUN",
+      "detail": "기존 결과 반환 또는 명확한 거절, 중복 부작용 없음",
+      "paths": "peace.test-review-corrections.js; peace.test-desktop-request-receipts.js; peace.test-server-storage-11-14.js",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.03",
+      "title": "다른 세션·역할로 정상 응답 전용",
+      "status": "Windows NOT_RUN",
+      "detail": "거절됨",
+      "paths": "peace.test-handoff-delegation.js; peace.test-security-authority.js; peace.test-security-native-contract.js",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.04",
+      "title": "검증 도중 만료·시계 후퇴",
+      "status": "Windows NOT_RUN",
+      "detail": "승인 시간이 늘어나지 않음",
+      "paths": "peace.test-desktop-deadlines.js; cozy.HardeningContractsProbe.dpr",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.05",
+      "title": "Handoff 본문 중단·부모/자식 종료",
+      "status": "Windows NOT_RUN",
+      "detail": "해당 실행의 자원만 정리되고 권한이 재사용되지 않음",
+      "paths": "cozy.HandoffPipeProbe.dpr; peace.test-handoff-native-contract.js",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.06",
+      "title": "첫 프레임 직전 만료",
+      "status": "Windows NOT_RUN",
+      "detail": "READY가 전송되지 않음",
+      "paths": "peace.test-handoff-completion-contract.js; 실제 O 첫 프레임 시험 필요",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.07",
+      "title": "서버 확정 직후 응답 소실",
+      "status": "Windows NOT_RUN",
+      "detail": "재시도해도 이중 소비·이중 인계 없음",
+      "paths": "peace.test-desktop-license-recovery.js; peace.test-server-storage-11-14.js",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.08",
+      "title": "서명 후 EXE·JSON 교체",
+      "status": "Windows NOT_RUN",
+      "detail": "등록·실행 거절",
+      "paths": "peace.test-release-provenance.js; peace.test-desktop-code-integrity.js; cozy.HardeningContractsProbe.dpr",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.09",
+      "title": "PE·JSON·TLS 입력 경계 변형",
+      "status": "Windows NOT_RUN",
+      "detail": "충돌·무제한 할당·무한 대기 없이 처리",
+      "paths": "peace.test-hardening-protocol.js; peace.test-hardening-pe-corpus.js; peace.test-independent-contracts-14.js; cozy.TlsContractProbe.dpr",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.10",
+      "title": "D3D11 생성·Resize·Present 실패",
+      "status": "Windows NOT_RUN",
+      "detail": "승인 없는 재표시, 자원 누수, 중복 해제 없음",
+      "paths": "cozy.HardeningContractsProbe.dpr는 분류만 확인; 실제 GPU 실패/누수 시험 필요",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.11",
+      "title": "디스크 부족·쓰기 실패·강제 종료",
+      "status": "Windows NOT_RUN",
+      "detail": "확정되지 않은 상태를 성공으로 발행하지 않음",
+      "paths": "peace.test-server-storage-11-14.js; peace.test-desktop-license-recovery.js",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.12",
+      "title": "같은 데이터 폴더로 서버 중복 실행",
+      "status": "Windows NOT_RUN",
+      "detail": "두 번째 작성자 차단",
+      "paths": "peace.test-desktop-single-writer.js; peace.desktop-single-writer.js",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.13",
+      "title": "과거 서버 백업 복구",
+      "status": "Windows NOT_RUN",
+      "detail": "사용된 키·구 세션의 무단 복원 방지",
+      "paths": "peace.test-server-storage-11-14.js; peace.test-desktop-license-recovery.js; 외부 witness 운영 훈련",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "13.14",
+      "title": "제품 빌드에 테스트 define 주입",
+      "status": "Windows NOT_RUN",
+      "detail": "빌드 또는 배포 단계에서 차단",
+      "paths": "cozy.BuildIsolation.targets; 실제 dcc64/MSBuild 음성 시험 필요",
+      "verification": "관련 단위/소스 시험 결과는 회귀 로그 참조. 이 행의 실제 Windows 성공으로 환산하지 않습니다."
+    },
+    {
+      "id": "14.1",
+      "title": "해시·PE·프로토콜 독립 비교",
+      "status": "실행 완료 / 범위 명시",
+      "detail": "별도 Python 순수 정수 SHA-512(상수를 소수근에서 생성), bit-at-a-time CRC64, struct 기반 PE64 해석기를 구현했습니다. 서버/OpenSSL 또는 Node CRC table을 참조 구현으로 다시 호출하지 않습니다. SHA/CRC 34개, PE 28종, 목적별 요청 지문 174개, Handoff V3 기준 1개를 비교했습니다.",
+      "paths": "tests/protocol/independent-contract-reference.py; tests/protocol/peace.test-independent-contracts-14.js; contracts/artifacts/pe-corpus-v1.json",
+      "verification": "PASS. 추가 export/보조 CRC 계층 전체, floating-point JSON 직렬화, 실제 Delphi 산출물은 이 실행에 포함하지 않았습니다."
+    },
+    {
+      "id": "14.2",
+      "title": "상태 전이 중간 실패 주입",
+      "status": "실행 완료 / 단위시험",
+      "detail": "파일 게시·확정·checkpoint pointer 전환·rename/unlink·감사 전송 경계에 test-owned module override로 실패를 주입합니다. production 전용 우회 export/환경 스위치는 추가하지 않았습니다.",
+      "paths": "tests/storage/peace.test-server-storage-11-14.js",
+      "verification": "22개 저장소 묶음 PASS. 일부 dependency/mirror를 테스트 객체로 대체했으며 실제 서버/OS 잠금 통합은 별도입니다."
+    },
+    {
+      "id": "14.3",
+      "title": "결정적 스레드 중단·재개",
+      "status": "Windows 코드·빌드 연결 / NOT_RUN",
+      "detail": "cozy.DeterministicStateProbe는 Sleep 타이밍이 아닌 TEvent barrier로 admission 전/후를 고정합니다. close-before-enter와 close-during-active를 각 256회, 36개 상태 전이를 별도 bitmask와 대조합니다. 기존 Win64 probe BAT의 빌드·실행 목록과 Python 결과 비교에 연결했습니다.",
+      "paths": "../Railway/cozy.tests/cozy.DeterministicStateProbe.dpr; ../Railway/cozy.tests/cozy.Build_NativeProbes_Win64.bat",
+      "verification": "dcc64 컴파일·512개 스케줄 실행 미실행. 실제 OS 스레드 대신 JS 모의 실행을 PASS로 기록하지 않았습니다."
+    }
+  ],
+  "windowsScenarios": [
+    {
+      "id": "same-license-concurrent",
+      "situation": "같은 라이선스를 동시에 사용",
+      "passCriterion": "허용된 소비가 한 번만 확정됨",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-desktop-licenses.js; peace.test-desktop-license-recovery.js"
+    },
+    {
+      "id": "request-replay",
+      "situation": "동일 요청 재전송",
+      "passCriterion": "기존 결과 반환 또는 명확한 거절, 중복 부작용 없음",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-review-corrections.js; peace.test-desktop-request-receipts.js; peace.test-server-storage-11-14.js"
+    },
+    {
+      "id": "cross-session-role",
+      "situation": "다른 세션·역할로 정상 응답 전용",
+      "passCriterion": "거절됨",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-handoff-delegation.js; peace.test-security-authority.js; peace.test-security-native-contract.js"
+    },
+    {
+      "id": "expiry-clock-backward",
+      "situation": "검증 도중 만료·시계 후퇴",
+      "passCriterion": "승인 시간이 늘어나지 않음",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-desktop-deadlines.js; cozy.HardeningContractsProbe.dpr"
+    },
+    {
+      "id": "handoff-partial-exit",
+      "situation": "Handoff 본문 중단·부모/자식 종료",
+      "passCriterion": "해당 실행의 자원만 정리되고 권한이 재사용되지 않음",
+      "windowsStatus": "NOT_RUN",
+      "related": "cozy.HandoffPipeProbe.dpr; peace.test-handoff-native-contract.js"
+    },
+    {
+      "id": "expiry-before-first-frame",
+      "situation": "첫 프레임 직전 만료",
+      "passCriterion": "READY가 전송되지 않음",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-handoff-completion-contract.js; 실제 O 첫 프레임 시험 필요"
+    },
+    {
+      "id": "commit-response-lost",
+      "situation": "서버 확정 직후 응답 소실",
+      "passCriterion": "재시도해도 이중 소비·이중 인계 없음",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-desktop-license-recovery.js; peace.test-server-storage-11-14.js"
+    },
+    {
+      "id": "post-signature-swap",
+      "situation": "서명 후 EXE·JSON 교체",
+      "passCriterion": "등록·실행 거절",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-release-provenance.js; peace.test-desktop-code-integrity.js; cozy.HardeningContractsProbe.dpr"
+    },
+    {
+      "id": "input-boundary",
+      "situation": "PE·JSON·TLS 입력 경계 변형",
+      "passCriterion": "충돌·무제한 할당·무한 대기 없이 처리",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-hardening-protocol.js; peace.test-hardening-pe-corpus.js; peace.test-independent-contracts-14.js; cozy.TlsContractProbe.dpr"
+    },
+    {
+      "id": "d3d11-failures",
+      "situation": "D3D11 생성·Resize·Present 실패",
+      "passCriterion": "승인 없는 재표시, 자원 누수, 중복 해제 없음",
+      "windowsStatus": "NOT_RUN",
+      "related": "cozy.HardeningContractsProbe.dpr는 분류만 확인; 실제 GPU 실패/누수 시험 필요"
+    },
+    {
+      "id": "disk-full-crash",
+      "situation": "디스크 부족·쓰기 실패·강제 종료",
+      "passCriterion": "확정되지 않은 상태를 성공으로 발행하지 않음",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-server-storage-11-14.js; peace.test-desktop-license-recovery.js"
+    },
+    {
+      "id": "second-writer",
+      "situation": "같은 데이터 폴더로 서버 중복 실행",
+      "passCriterion": "두 번째 작성자 차단",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-desktop-single-writer.js; peace.desktop-single-writer.js"
+    },
+    {
+      "id": "old-backup",
+      "situation": "과거 서버 백업 복구",
+      "passCriterion": "사용된 키·구 세션의 무단 복원 방지",
+      "windowsStatus": "NOT_RUN",
+      "related": "peace.test-server-storage-11-14.js; peace.test-desktop-license-recovery.js; 외부 witness 운영 훈련"
+    },
+    {
+      "id": "test-define-in-production",
+      "situation": "제품 빌드에 테스트 define 주입",
+      "passCriterion": "빌드 또는 배포 단계에서 차단",
+      "windowsStatus": "NOT_RUN",
+      "related": "cozy.BuildIsolation.targets; 실제 dcc64/MSBuild 음성 시험 필요"
+    }
+  ],
+  "defaults": {
+    "witnessRequired": false,
+    "deviceProofRetentionDays": 30,
+    "orphanQuarantineMinimumDays": 7,
+    "automaticArtifactDeletion": false,
+    "tpmAttestation": "IMPLEMENTED_OPTIONAL_REQUIRES_CONFIGURED_TRUST",
+    "automaticNextPinSwitch": "EXPLICIT_OFFLINE_ACTIVATION_REQUIRED",
+    "multiServerConsensus": "NOT_IMPLEMENTED",
+    "deviceIdentityMode": "COMPATIBLE",
+    "ciEvidenceRequiredForPublication": false
+  },
+  "laterCompletion6To10": {
+    "reference": "completion-6-10.json",
+    "pinWindow": "Implemented opt-in after this 11-14 snapshot; real Windows execution pending. Earlier statusAt11To14 fields are historical.",
+    "unchangedScope": [
+      "multi-server consensus remains not implemented",
+      "actual Windows/GPU/TPM deployment verification remains NOT_RUN"
+    ],
+    "currentCorrections": "Persistent CNG device keys, TPM verifier, PC ledger compaction and acknowledged audit outbox retention are now implemented. Current settings come from the capabilities endpoint, not this default snapshot."
+  },
+  "statusModel": {
+    "contract": "capabilities-status-v1.json",
+    "endpoint": "/api/desktop/bootstrap/server-state/capabilities",
+    "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
+    "configuration": "READ_FROM_CURRENT_SERVER_STATE",
+    "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
+  }
+}

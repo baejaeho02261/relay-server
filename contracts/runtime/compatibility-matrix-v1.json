@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "rows": [
+    {
+      "id": "WIN-01",
+      "area": "Actual A/B/O build",
+      "status": "NOT_RUN",
+      "environment": "Actual declared RAD Studio Win64 installation + declared SDK/Node toolchain",
+      "procedure": "Build A/B/O with the supported licensed IDE, then run available manual diagnostics against those exact final files. Optional automated CI requires a license that permits command-line compilation; it is not a publication prerequisite.",
+      "acceptance": "A/B/O compile/link; actual compiler/SDK/Node hashes recorded; no stale DCU or probe code in final products.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-02",
+      "area": "Three-way PE interpretation",
+      "status": "NOT_RUN",
+      "environment": "Compiled cozy.PeCorpusProbe.exe",
+      "procedure": "Run node Relay Server/tests/artifacts/peace.test-hardening-pe-corpus.js --native PATH_TO_cozy.PeCorpusProbe.exe",
+      "acceptance": "All 28 server/BAT/Delphi accept/reject results agree; accepted file/code digests agree; malformed pdata rejected without checker anchor.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-03",
+      "area": "File positions and aliases",
+      "status": "NOT_RUN",
+      "environment": "Local NTFS; existing cozy.HardeningContractsProbe",
+      "procedure": "Run tests/cozy.Build_NativeProbes_Win64.bat. Compare supplied/duplicate file positions while another reader moves the alias offset.",
+      "acceptance": "Pinned measurement is stable and does not change the alias synchronous offset; errors retain distinct statuses.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-04",
+      "area": "Rename/parent/reparse",
+      "status": "NOT_RUN",
+      "environment": "NTFS; Developer Mode or symlink privilege",
+      "procedure": "Execute rename, replacement, parent replacement and reparse branches of cozy.HardeningContractsProbe.",
+      "acceptance": "Original pinned object remains measured; reparse node rejected. Privilege SKIP is not PASS.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-05",
+      "area": "Kernel I/O faults and shutdown",
+      "status": "NOT_RUN",
+      "environment": "Dedicated test storage/driver fault-injection environment",
+      "procedure": "Inject read delay, read error, storage removal and cancellation races; close Overlay at each point.",
+      "acceptance": "No released OVERLAPPED buffer/object use; finite admission; read/deadline/cancel states remain distinct. Observe and report any shutdown overrun rather than force terminating a thread.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-06",
+      "area": "DPI and monitor movement",
+      "status": "NOT_RUN",
+      "environment": "Windows multi-monitor 100/125/150/200% scales",
+      "procedure": "Build cozy.OverlayEnvironmentProbe.dproj in the RAD Studio IDE, Win64 Release, then run tools/overlay/Run_Overlay_Environment.bat. Use two real local monitors with different scale settings, button/drag/focus changes on both, then RDP disconnect/reconnect to the same session. F10 finishes measurements. Preserve observed JSON and operator declarations; missing WTS or physical events remain NOT_RUN.",
+      "acceptance": "Drawing, screen/client transforms and hit-test agree; suggested bounds applied; mouse state released when interrupted.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-07",
+      "area": "Focus, minimize and RDP",
+      "status": "NOT_RUN",
+      "environment": "Windows local/RDP switch, locked/unlocked desktop",
+      "procedure": "Alt-Tab/minimize/restore, remote attach/detach and display change during interaction.",
+      "acceptance": "No stuck buttons, stale device input, unauthorized redisplay or use-after-free; lease expiry still closes UI.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-08",
+      "area": "Device loss/OOM/Resize",
+      "status": "NOT_RUN",
+      "environment": "Intel/AMD/NVIDIA supported GPU and WARP baseline",
+      "procedure": "Exercise device removed/reset/hung, allocation failure and Resize failure paths in a test harness.",
+      "acceptance": "Correct failure category and fail-closed shutdown; no automatic recreation after invalid/expired authorization.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-09",
+      "area": "Mitigation compatibility",
+      "status": "NOT_RUN",
+      "environment": "Each supported Windows build/GPU/driver combination",
+      "procedure": "Build cozy.ProcessMitigationProfileProbe and cozy.OverlayMitigationProbe from tests/cozy.manual-ide/cozy.ManualNativeTests.groupproj in the IDE as Win64 Release. Run tools/security/Run_Mitigation_Compatibility.bat using the final A/B/O. Import its JSON in administrator Security / Deployment. Observe/prohibit policy readbacks and actual first-frame Present are separate trials. Confirm the full product workflow on each supported Windows/GPU/driver combination before applying an optional strict profile.",
+      "acceptance": "Record actual query flags/errors and app/ImGui/TLS functionality; unsupported or incompatible policies do not become falsely reported enabled.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-10",
+      "area": "CFG final artifacts",
+      "status": "NOT_RUN",
+      "environment": "Final A/B/O built by supported compiler, Windows runtime",
+      "procedure": "Run tools/build/Run_CFG_Callsite_Audit.bat with final A/B/O from a VS tool prompt containing dumpbin or llvm-objdump. Review every executable section coverage gap, unverified indirect transfer and missing compiler metadata. Separately run tools/build/Test_CFG_Enforcement.bat for the actual MSVC/OS guarded-vs-unguarded negative controls. The latter cannot establish Delphi A/B/O instrumentation.",
+      "acceptance": "Audit hashes match approved A/B/O. Valid GFIDs/guard metadata plus actual compiler/runtime proof; structural PASS alone is not whole-callsite proof.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "WIN-11",
+      "area": "Global MSBuild/DCU pollution",
+      "status": "NOT_RUN",
+      "environment": "Actual CodeGear MSBuild",
+      "procedure": "Run tests/cozy.Test-BuildIsolation.ps1 using actual msbuild, then clean product rebuild with current RAD defaults.",
+      "acceptance": "All external test/probe define/options/search/output/root-DCU negatives rejected; valid product build accepted; probe and product outputs cannot mix.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "NET-01",
+      "area": "TLS deadlines and strict pin",
+      "status": "NOT_RUN",
+      "environment": "Windows client + isolated test server",
+      "procedure": "Delay DNS/connect/handshake/response, cancel each phase, present unknown cert, send late authenticated reply.",
+      "acceptance": "One common request deadline; no late lease refresh or pin bypass. Residual resolver/IO work retains resource ownership until completion; report overruns. No unconditional kernel-I/O or shutdown time bound is claimed.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "NET-02",
+      "area": "Whole server regression / fair load",
+      "status": "NOT_RUN",
+      "environment": "Supported Node version + exact npm lock + native SQLite addon",
+      "procedure": "npm ci --engine-strict, npm test; stress authenticated renewals alongside bounded invalid auth/PE/upload workload.",
+      "acceptance": "All suites in the current regression registry pass in their declared real-dependency environment; queue/stream limits hold. Record renewal latency/failure ratios and reject overload instead of unbounded queues. Portable test success is not Windows execution.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "OPS-01",
+      "area": "Policy activation and legacy rollout",
+      "status": "NOT_RUN",
+      "environment": "Isolated staging copy; never operating keys/data",
+      "procedure": "Verify critical-operation reauthentication and exact signed EXE/REGISTERED manifest/security-version checks for manual publication; publish one consistent v1 measurement A/B/O cohort and check legacy-to-required report transition without CI keys or evidence.",
+      "acceptance": "Critical reauthentication remains mandatory. New publication requires trusted approvals, exact registered manifest and security floor plus v1 measurement declarations. CI evidence is optional and manual publication creates no CI PASS. Legacy runtime is changed only by explicit governance application or verified publication.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    },
+    {
+      "id": "OPS-02",
+      "area": "Opt-in pin-window v1 real deployment test",
+      "status": "NOT_RUN",
+      "environment": "Newly compiled A/B/O, managed server TLS identity, actual native single-writer lock",
+      "procedure": "Run Prepare_TLS_Pin with stopped server, start and authenticate admin scheduling, stop and Activate_TLS_Pin during overlap, restart. Test actual SChannel handshakes and late replies before/during/after transition.",
+      "acceptance": "Only current authenticated-channel plan accepted. Unknown/retired pins rejected in learned state; no plan extension. Explicit offline certificate activation; fresh old A without learned RAM state may need a new trusted launcher. No durable local checkpoint or zero-downtime claim.",
+      "mandatoryBeforeProduction": false,
+      "requiredForPublication": false,
+      "recommendedBeforeProduction": true
+    }
+  ],
+  "defaultEnforcement": "No additional blanket mitigation enforcement enabled without passing relevant Windows/GPU rows.",
+  "completion6To10": {
+    "windowsExecuted": false,
+    "probeAdded": "cozy.TlsPinWindowProbe",
+    "runner": "Test_Native_6-10.bat",
+    "allPriorWindowsRowsRetainNOT_RUN": true,
+    "recommendedAdditionalScenarios": [
+      "Actual SChannel old/next pin before/during/after overlap and delayed response",
+      "Clock backward/forward and A/B/O restart with/without learned state",
+      "Offline real native-writer lock activation, publication failure/restart",
+      "Observe shutdown phase budgets with delayed OS I/O and GPU close races; no unconditional 5-second completion claim."
+    ]
+  },
+  "statusModel": {
+    "contract": "capabilities-status-v1.json",
+    "endpoint": "/api/desktop/bootstrap/server-state/capabilities",
+    "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
+    "configuration": "READ_FROM_CURRENT_SERVER_STATE",
+    "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
+  },
+  "current7_9_10": {
+    "ciRequired": false,
+    "nativeCrcPeComparison": "tools/artifacts/Run_CRC_PE_Comparison.bat",
+    "overlayPhysicalEnvironment": "tools/overlay/Run_Overlay_Environment.bat",
+    "mitigationObservation": "tools/security/Run_Mitigation_Compatibility.bat",
+    "cfgStaticInspection": "tools/build/Run_CFG_Callsite_Audit.bat",
+    "cfgRuntimeControl": "tools/build/Test_CFG_Enforcement.bat",
+    "defaultActualWindowsStatus": "NOT_RUN",
+    "cfgRuntimeScope": "STANDALONE_MSVC_PROBE_NOT_PRODUCT_COVERAGE"
+  }
+}

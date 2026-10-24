@@ -1,0 +1,408 @@
+{
+  "version": 1,
+  "scope": "ORIGINAL_REQUIREMENTS_1_TO_5",
+  "baseline": "Game_Full_Server_11-14.zip",
+  "requirements": [
+    {
+      "id": "1.1",
+      "section": "관리자 웹 인증 — 가장 먼저",
+      "requirement": "신뢰 프록시 제한: 현재 전달받은 X-Forwarded-For, X-Forwarded-Proto를 사용하는 경로가 있습니다. 지정한 프록시에서 온 헤더만 인정하고, 직접 접속은 실제 소켓 주소·TLS 상태를 사용하도록 강화합니다.",
+      "status": "유지 · 행동 시험 통과",
+      "paths": [
+        "web/authentication/peace.web-auth-policy.js",
+        "web/authentication/peace.web-auth.js"
+      ],
+      "result": "비신뢰 전달 헤더 무시, 신뢰 CIDR 체인·IPv6/IPv4 정규화·잘못된 헤더 거절 시험을 재실행했습니다.",
+      "remaining": "사용자 운영 프록시·WAF 구성과 실제 외부 접속 경로는 미확인입니다."
+    },
+    {
+      "id": "1.2",
+      "section": "관리자 웹 인증 — 가장 먼저",
+      "requirement": "로그인 시도 제한: 로그인 경로 자체의 실패 제한을 보완합니다. 주소·계정 역할·전역 한도를 함께 적용하고, 공격자가 다른 관리자를 쉽게 영구 잠그는 정책은 피합니다.",
+      "status": "유지 · 행동 시험 통과",
+      "paths": [
+        "web/authentication/peace.web-auth-policy.js",
+        "tests/authentication/peace.test-web-auth-hardening.js"
+      ],
+      "result": "IP/역할/전역 예산, 영구 잠금 방지, 유한한 대기 기간, 실제 로그인 HTTP 429와 Retry-After를 확인했습니다.",
+      "remaining": "운영 트래픽·분산 부하 시험은 미실행입니다."
+    },
+    {
+      "id": "1.3",
+      "section": "관리자 웹 인증 — 가장 먼저",
+      "requirement": "절대 세션 수명: 현재 활동 시 만료가 연장되는 구조에 최대 수명을 추가합니다. 계속 요청한다고 관리자 세션이 무기한 유지되지 않게 합니다.",
+      "status": "유지 · 행동 시험 통과",
+      "paths": [
+        "web/authentication/peace.web-auth.js"
+      ],
+      "result": "idle 갱신으로 절대 수명을 늘리지 못하고 시계 후퇴를 거절하는 기존 경로를 재확인했습니다.",
+      "remaining": "장시간 실제 운영 세션 관측은 미실행입니다."
+    },
+    {
+      "id": "1.4",
+      "section": "관리자 웹 인증 — 가장 먼저",
+      "requirement": "중요 작업만 재인증: 신뢰 서명키 변경, 보호 정책 완화, 운영 A/B/O 교체에는 최근 재인증을 요구합니다. 현재 단일 관리자 운영은 유지하면서 적용할 수 있습니다.",
+      "status": "수정 · 기본 서버 강제",
+      "paths": [
+        "services/authentication/peace.desktop-admin-guard.js",
+        "web/routes/security/peace.desktop-security-routes.js",
+        "services/security/peace.desktop-security-activation.js"
+      ],
+      "result": "중요 신뢰 변경·운영 게시·CI 키/증빙·복구는 최근 인증을 필수로 검사합니다. 환경변수 0/미설정으로 해제할 수 없습니다. 조회·후보 업로드·명세 계획/등록은 기본 재인증 대상에서 제외했습니다. 보안 정책 변경은 강화/완화 모두 중요 작업으로 취급합니다.",
+      "remaining": "실제 운영 서버에 소스를 적용한 것은 아닙니다. 기존 환경변수 1은 일반 선언된 수정 작업까지 범위를 넓히는 옵션으로만 남습니다."
+    },
+    {
+      "id": "1.5",
+      "section": "관리자 웹 인증 — 가장 먼저",
+      "requirement": "세션 일괄 폐기: 관리자 자격증명 변경·분실·침해 신고 시 기존 세션을 확실히 무효화합니다.",
+      "status": "유지 · 행동 시험 통과",
+      "paths": [
+        "web/authentication/peace.web-auth.js",
+        "tests/runtime/peace.test-production-boundaries-1-5.js"
+      ],
+      "result": "자격 변경·세션 폐기·패스키 폐기, 읽기가 지연된 요청의 로그아웃/만료 이후 거절, 재인증의 세션 결속을 확인했습니다.",
+      "remaining": "실제 분실·침해 대응 훈련은 미실행입니다."
+    },
+    {
+      "id": "1.6",
+      "section": "관리자 웹 인증 — 가장 먼저",
+      "requirement": "권한별 실패 시험: 화면에서 버튼을 숨기는 수준을 넘어, 조회 전용 계정이 수정 API를 직접 요청해도 거절되는지 검사합니다.",
+      "status": "수정 · HTTP 경계 시험",
+      "paths": [
+        "web/routes/security/peace.desktop-security-routes.js",
+        "tests/authentication/peace.test-web-auth-hardening.js",
+        "tests/runtime/peace.test-production-boundaries-1-5.js"
+      ],
+      "result": "중앙 dispatcher 및 독립 route adapter에서 익명/조회 전용/일반 operator 수정 요청, 잘못된 CSRF와 만료 재인증을 거절했습니다. 후자의 저장소는 시험용 메모리 객체입니다.",
+      "remaining": "격리 서버 HTTP/TLS 회귀 경로는 제공됩니다. 실제 사용자 배포 서버·프록시·권한 운영 검증은 미실행입니다. 이 문서의 과거 adapter 시험을 운영 검증으로 간주하지 않습니다."
+    },
+    {
+      "id": "2.1",
+      "section": "서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "requirement": "만료 검사 공통화: 이번에 강화한 단조시계·벽시계·서명 검증 직후 만료 확인을 다른 Challenge 경로에도 적용합니다.",
+      "status": "유지 · 경계 함수 시험",
+      "paths": [
+        "services/runtime/peace.desktop-deadline.js",
+        "services/security/peace.desktop-security-authority.js",
+        "services/licensing/peace.desktop-licenses.js",
+        "services/integrity/peace.desktop-integrity-reports.js"
+      ],
+      "result": "벽시계와 단조시계의 정확한 만료 경계 검사를 재실행했습니다. 기존 서명 뒤 재확인 경로는 유지했습니다.",
+      "remaining": "서명 뒤 마감 재검사 코드는 구현돼 있습니다. 실제 배포의 서명 지연·시계 변경·서버 재시작 조합은 별도 실측이 필요합니다."
+    },
+    {
+      "id": "2.2",
+      "section": "서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "requirement": "용도 혼용 방지: 발급·다운로드·라이선스·보고·종료용 요청의 역할과 서명 domain을 명시하고, 다른 용도의 정상 서명을 가져와도 거절하도록 공통 시험을 둡니다.",
+      "status": "보완 시험 · 규약 유지",
+      "paths": [
+        "services/protocol/peace.desktop-request-protocol.js",
+        "tests/runtime/peace.test-production-boundaries-1-5.js"
+      ],
+      "result": "전체 purpose catalog의 동일 본문 지문 분리와 잘못된 action/domain 해석 거절을 실행했습니다. 서명된 wire bytes는 변경하지 않았습니다.",
+      "remaining": "모든 역할·작업의 실제 A/B/O 교차 인증 시험은 Windows/전체 서버 실행이 필요합니다."
+    },
+    {
+      "id": "2.3",
+      "section": "서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "requirement": "재시도 규약 통일: 동일 요청의 정상 재시도는 기존 결과를 반환하고, 같은 요청 ID로 다른 내용을 보내면 거절합니다. 이미 있는 receipt 구조를 관련 작업 전체에 일관되게 적용하는 방향입니다.",
+      "status": "수정 · 최초 결과/마감 보존",
+      "paths": [
+        "services/protocol/peace.desktop-request-protocol.js"
+      ],
+      "result": "동일 ID에 put을 재호출해도 처음 확정한 응답·metadata·마감을 유지합니다. 같은 ID의 다른 본문/용도는 거절하고, 복제 실패로 다른 유효 receipt를 밀어내지 않습니다.",
+      "remaining": "기존 TTL 만료·capacity 경계와 상위 현재 권한 재검사는 유지했습니다. 이 helper만으로 전 서비스의 영속 exactly-once를 보장하지 않습니다."
+    },
+    {
+      "id": "2.4",
+      "section": "서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "requirement": "여러 저장소의 작업 연결: 라이선스 소비, 실행 상태 갱신, 감사 기록에 같은 작업 ID를 사용합니다. 중간 장애 후 어느 단계까지 확정됐는지 재조정할 수 있어야 합니다.",
+      "status": "유지 + 게시 전환 원자성 보완",
+      "paths": [
+        "services/security/peace.desktop-security-operations.js",
+        "services/storage/peace.desktop-operation-audit.js",
+        "services/licensing/peace.desktop-licenses.js"
+      ],
+      "result": "새 운영 A/B/O 조합과 강화한 runtime 배포 정책을 같은 Commit에 기록하도록 연결했습니다. 파일 재읽기 실패·저장 전 실패에서 조합/정책이 함께 유지되는 시험을 수행했습니다.",
+      "remaining": "공통 operationId, 영속 receipt와 감사 재조정 경로를 유지합니다. 여러 원장을 하나의 분산 트랜잭션으로 만드는 구현은 없으며 실제 전원 차단 내구성은 미검증입니다."
+    },
+    {
+      "id": "2.5",
+      "section": "서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "requirement": "중복 서버 실행 차단: 현재 데스크톱 저장소는 단일 작성자를 전제로 합니다. 같은 데이터 디렉터리를 두 프로세스가 동시에 열지 못하도록 OS 수준의 독점 잠금을 추가하는 것이 좋습니다.",
+      "status": "유지 · 잠금 우회 없음",
+      "paths": [
+        "services/storage/peace.desktop-single-writer.js",
+        "tests/storage/peace.test-desktop-single-writer.js"
+      ],
+      "result": "기존 OS 기반 단일 작성자 잠금과 의존성이 없을 때 시작 거절을 유지했습니다. 잠금을 mock으로 바꿔 전체 서버 PASS를 만들지 않았습니다.",
+      "remaining": "실제 OS 잠금 경로와 중복 서버 시험이 제공됩니다. 사용자 Windows 설치의 잠금 경쟁·강제 종료 후 복구 실기는 미실행입니다."
+    },
+    {
+      "id": "2.6",
+      "section": "서버 Challenge·라이선스 — 모든 경로의 규칙 통일",
+      "requirement": "HA 오인 방지: 현재 데스크톱 경로는 HA를 거부합니다. 향후 다중 서버를 지원하려면 단순 복제 외에, 오래된 서버가 계속 쓰지 못하게 하는 별도의 쓰기 권한 통제가 필요합니다.",
+      "status": "유지 · 단일 작성자",
+      "paths": [
+        "services/storage/peace.desktop-single-writer.js"
+      ],
+      "result": "HA 거부와 단일 데이터 디렉터리 작성자 전제를 그대로 유지합니다.",
+      "remaining": "분산 합의/다중 작성자는 이번 1~5 범위에 추가하지 않았습니다."
+    },
+    {
+      "id": "3.1",
+      "section": "A→B→O Handoff — 키 노출 범위 축소",
+      "requirement": "구성요소별 독립 키: 현재 전달하는 임시 개인키 대신 B와 O가 각각 새 키를 만들고, 서버가 부모 승인과 자식 공개키를 연결하는 다음 버전 구조를 검토합니다.",
+      "status": "유지 · 역할 규약 추가 시험",
+      "paths": [
+        "../Railway/cozy.Handoff.pas",
+        "../Railway/cozy.Security.pas",
+        "services/bootstrap/peace.desktop-handoff-delegation.js"
+      ],
+      "result": "기존 자식 독립 키/부모 승인 결속 코드는 유지했습니다. 서로 다른 RSA 키와 부모/자식 canonical 구분의 시험을 추가했습니다.",
+      "remaining": "실제 Windows A→B→O 프로세스 실행은 미실행입니다."
+    },
+    {
+      "id": "3.2",
+      "section": "A→B→O Handoff — 키 노출 범위 축소",
+      "requirement": "권한 범위 제한: O에 필요한 권한만 이전하고, O의 키나 토큰으로 A 발급·B 라이선스 소비 같은 다른 작업을 수행하지 못하게 합니다.",
+      "status": "유지 · 역할 분리 시험",
+      "paths": [
+        "services/bootstrap/peace.desktop-handoff-delegation.js",
+        "services/protocol/peace.desktop-request-protocol.js"
+      ],
+      "result": "부모 승인·자식 claim·B/O 역할의 서명 원문이 다르며, 다른 역할 원문이나 자식 키로 기존 부모 서명을 검증하면 거절됨을 확인했습니다.",
+      "remaining": "이는 서명 규약 시험입니다. 실제 각 라이선스/발급 API 전체의 교차 권한 실행은 통합 시험이 필요합니다."
+    },
+    {
+      "id": "3.3",
+      "section": "A→B→O Handoff — 키 노출 범위 축소",
+      "requirement": "개인키 내보내기 제한: 현 구조를 유지하는 동안에는 내보내기를 특정 Handoff에 결속하고 중복 호출·불필요한 사본 생성을 제한합니다. 실패 후 재시도 규칙을 먼저 정해야 합니다.",
+      "status": "기존 독립 키 구조 유지",
+      "paths": [
+        "../Railway/cozy.Security.pas",
+        "../Railway/cozy.Handoff.Crypto.pas"
+      ],
+      "result": "개인키를 자식에 전달하는 방식을 다시 만들지 않았습니다. 기존 역할별 키와 공개키 export 구조를 유지합니다.",
+      "remaining": "실제 Windows 키 수명·실패 후 재시도 시험은 미실행입니다."
+    },
+    {
+      "id": "3.4",
+      "section": "A→B→O Handoff — 키 노출 범위 축소",
+      "requirement": "인증된 IPC 암호화: 암호화 Handoff를 추가한다면 상대 인증·키 합의·재사용 방지까지 함께 설계합니다. 고정키나 임시 XOR을 덧붙이는 방식은 피합니다.",
+      "status": "기존 인증 암호화 유지",
+      "paths": [
+        "../Railway/cozy.Handoff.Crypto.pas",
+        "../Railway/cozy.tests/cozy.HandoffCryptoProbe.dpr"
+      ],
+      "result": "암호 알고리즘·nonce 결속·Handoff transcript를 변경하지 않았습니다. 새 Windows 실행 도구가 기존 암호 probe를 별도 프로세스로 실행합니다.",
+      "remaining": "도구 연결은 구현했지만 여기서는 실행하지 않았습니다. IPC 암호화로 로컬 메모리 전체를 보호한다는 의미가 아닙니다."
+    },
+    {
+      "id": "3.5",
+      "section": "A→B→O Handoff — 키 노출 범위 축소",
+      "requirement": "환경 변수 상속 축소: 현재 자식은 부모 환경을 상속합니다. 운영에 필요한 환경만 전달해 개발용 비밀값이나 불필요한 설정이 O까지 이어지지 않도록 합니다.",
+      "status": "유지 · 소스 계약 확인",
+      "paths": [
+        "../Railway/cozy.Handoff.pas",
+        "tests/bootstrap/peace.test-handoff-native-contract.js"
+      ],
+      "result": "기존 자식 환경변수 allowlist를 유지했습니다. 새 시험 runner 역시 기존 CI 환경 허용 목록을 재사용합니다.",
+      "remaining": "실제 Windows 자식 환경과 외부 설정 영향 시험은 미실행입니다."
+    },
+    {
+      "id": "3.6",
+      "section": "A→B→O Handoff — 키 노출 범위 축소",
+      "requirement": "인계 실패 규약: 서버 claim 전 실패, claim 후 응답 소실, READY 전 종료를 각각 구분합니다. 어느 경우에 재시도하고 어느 경우에 새 실행이 필요한지 명확해야 합니다.",
+      "status": "유지 · 시험 연결 보완",
+      "paths": [
+        "../Railway/cozy.tests/cozy.HandoffPipeProbe.dpr",
+        "tests/recovery/peace.test-handoff-recovery.js",
+        "ci/pipeline/Invoke-NativeContracts1To5.ps1"
+      ],
+      "result": "claim 전 실패·확정 후 응답 소실·READY 전 종료의 기존 규약을 유지하며 pipe/lifetime probe를 시간 제한이 있는 시험 Job 안에서 실행하도록 연결했습니다.",
+      "remaining": "실제 부모/자식 종료·응답 소실·첫 프레임 상태의 Windows 통합 반복은 남아 있습니다."
+    },
+    {
+      "id": "4.1",
+      "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "requirement": "불변 배포 ID: A/B/O 최종 해시, 소스 해시, 컴파일러·SDK 버전, 정책 버전을 하나의 배포 기록으로 묶습니다.",
+      "status": "수정 · 신규 게시 필수",
+      "paths": [
+        "services/artifacts/peace.desktop-release-provenance.js",
+        "services/security/peace.desktop-security-operations.js",
+        "web/routes/security/peace.desktop-security-routes.js"
+      ],
+      "result": "신규 운영 게시와 복구 적용은 각 최종 A/B/O의 신뢰된 EXE 승인 서명과 동일한 REGISTERED 명세, 최소 보안 버전 1 이상을 요구합니다. 최종 파일을 재읽고 조합과 수동 배포 정책을 원자적으로 저장합니다.",
+      "remaining": "기존 실행 정책은 현재 조합에 대한 명시적 수동 배포 정책 적용 또는 검증된 새 조합 게시 전까지 유지합니다. 조회만으로 로컬 원장을 일괄 전환하지 않습니다."
+    },
+    {
+      "id": "4.2",
+      "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "requirement": "CI 서명 증빙: 관리자가 입력한 PASS와 실제 Windows 시험 시스템이 서명한 PASS를 구분합니다. 현재 운영자가 기록하는 증거에 추가할 수 있습니다.",
+      "status": "수정 · 사용자 요청에 따라 수동 게시에서 CI 증거 필수 조건 제거",
+      "paths": [
+        "services/artifacts/peace.desktop-release-provenance.js",
+        "services/security/peace.desktop-security-operations.js",
+        "public/scripts/desktop/peace.admin-desktop-security.js"
+      ],
+      "result": "신규 수동 운영 게시와 복구에는 CI 키 또는 ci-evidence.json을 요구하지 않습니다. EXE 승인 서명·REGISTERED 명세·보안 버전 하한 검증은 유지합니다. 기존 CI 도구·공개키·증거 이력과 서명 검증은 선택 기능으로 보존하며, 수동 게시를 CI PASS로 표시하거나 시험 증거를 자동 생성하지 않습니다.",
+      "remaining": "이 환경에서는 실제 Windows CI 증빙을 생성하지 않았습니다. 신뢰 CI 서명을 검사하는 것이지 하드웨어 attestation이나 관리자에 의한 증빙 위조 불가능성을 보장하는 것은 아닙니다."
+    },
+    {
+      "id": "4.3",
+      "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "requirement": "서명 역할 분리: 실행 파일 승인키, 테스트 증빙키, 서버 통신키를 각각 다른 목적으로 관리합니다.",
+      "status": "유지 · 분리/변조 시험",
+      "paths": [
+        "services/security/peace.desktop-key-purposes.js",
+        "services/artifacts/peace.desktop-release-provenance.js",
+        "ci/fixtures/peace.fixture-services.js"
+      ],
+      "result": "승인키·CI키·통신키의 기존 용도 분리와 서버 측 키 관리 구조를 유지합니다. purpose 변경과 CI 본문 변조 거절을 추가 확인했습니다.",
+      "remaining": "실제 사용자 키 생성·교체는 하지 않았습니다. 기존 실행의 저장된 서명 정책은 유지하며, 신규 운영 게시에서는 각 EXE의 유효한 승인 서명을 반드시 검사합니다."
+    },
+    {
+      "id": "4.4",
+      "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "requirement": "키 교체·폐기 훈련: 새 키 배포, 구키 폐기, 교체 중 실패, 기존 정당한 실행의 처리까지 시험합니다.",
+      "status": "시험 보완 · 실운영 미실행",
+      "paths": [
+        "tests/runtime/peace.test-production-boundaries-1-5.js",
+        "tests/artifacts/peace.test-release-governance-complete.js"
+      ],
+      "result": "EXE 승인키와 선택적 CI 키의 ACTIVE/RETIRING/REVOKED 전이·변조 거절 시험을 제공합니다. 수동 게시 모드에서는 CI 키 폐기만으로 유효한 EXE 실행을 차단하지 않습니다. EXE 승인키 폐기는 새 승인과 해당 키에 의존한 실행의 다음 서버 검사에 적용됩니다.",
+      "remaining": "사용자 운영 EXE 승인키·선택적 CI 키·통신키의 실제 교체와 복구 훈련은 미실행입니다."
+    },
+    {
+      "id": "4.5",
+      "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "requirement": "구버전 복귀 제한: 정상 서명이 있는 오래된 빌드라도 최소 보안 버전 아래로 내려가지 못하게 합니다. 긴급 복구는 별도의 승인된 절차로 둡니다.",
+      "status": "수정 · 보안 버전 하한",
+      "paths": [
+        "services/security/peace.desktop-security-operations.js",
+        "services/artifacts/peace.desktop-release-provenance.js"
+      ],
+      "result": "새 게시의 보안 버전 하한은 최소 1이며 기존보다 낮출 수 없습니다. 명세 요구 해제·0 지정은 production API에서 거절하고, 긴급 복구도 같은 하한을 사용합니다. 수동 게시의 CI 증거 요구는 false로 고정하며 실제 EXE 승인 서명 검증을 유지합니다.",
+      "remaining": "이미 실행 중인 legacy 세션은 새 정책 전환 전까지 기존 규칙을 따릅니다. 새 전환 후 증빙 없는 구 세션은 다음 서버 검사에서 거절될 수 있습니다."
+    },
+    {
+      "id": "4.6",
+      "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
+      "requirement": "배포 묶음 검증: 같은 표시 버전의 다른 O나, 서로 다른 릴리스의 A/B/O를 섞는 실수를 등록 단계에서 명확히 차단합니다.",
+      "status": "수정 · 조합/등록 시험",
+      "paths": [
+        "services/artifacts/peace.desktop-release-provenance.js",
+        "tests/runtime/peace.test-desktop-http.js",
+        "tests/runtime/peace.test-production-boundaries-1-5.js"
+      ],
+      "result": "PLANNED만 있는 명세는 운영 게시할 수 없으며 서로 다른 릴리스의 A/B/O 혼합을 거절합니다. O 없는 최초 A/B만의 운영 게시도 거절하도록 실제 HTTP 시험을 갱신했습니다.",
+      "remaining": "실제 서버 HTTP/TLS 시험 코드는 포함됩니다. 합성 PE로 수행한 서버 시험은 Delphi 제품의 Windows 실행·운영 게시 확인을 대신하지 않습니다."
+    },
+    {
+      "id": "5.1",
+      "section": "네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "requirement": "ABI 비교 자동화: Windows SDK의 C/C++ sizeof/offsetof 결과와 Delphi 선언을 비교합니다. TLS 외에 CNG·프로세스 생성·파일 정보 구조체까지 확대합니다.",
+      "status": "수정 · 공통 누락 차단",
+      "paths": [
+        "../Railway/cozy.tests/cozy.compare-native-abi.js",
+        "../Railway/cozy.tests/cozy.Compare-NativeAbi.ps1",
+        "../Railway/cozy.tests/cozy.native-abi-fields-v1.json"
+      ],
+      "result": "104개 필드의 이름 계약을 고정하고 실제 비교기에서 양쪽 공통 누락·중복·추가·잘못된 UTF-8·정수 범위를 거절합니다. 104개 누락과 104개 불일치 주입을 실행했습니다. 숫자 기준값은 복사하지 않고 SDK/Delphi가 독립 출력합니다.",
+      "remaining": "실행한 비교기 시험은 합성 숫자입니다. 실제 Windows SDK와 Delphi EXE의 sizeof/offsetof 비교는 미실행입니다."
+    },
+    {
+      "id": "5.2",
+      "section": "네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "requirement": "포인터 수명 계약: API 포인터의 인코딩 여부뿐 아니라 대상 모듈의 수명, 호출 규약, 인자 크기와 소유권을 관리합니다.",
+      "status": "유지 · 소스 계약 확인",
+      "paths": [
+        "../Railway/cozy.Api.Pointer.pas",
+        "../Railway/cozy.Platform.ExportResolver.pas",
+        "tests/security/peace.test-security-native-contract.js"
+      ],
+      "result": "API 저장소·대상 모듈 프로세스 수명 보존과 호출 전에 모듈을 고정하는 기존 계약을 유지했습니다.",
+      "remaining": "실제 Windows 모듈/포인터 수명 시험은 미실행이며 DLL hot-unload 지원을 추가하지 않았습니다."
+    },
+    {
+      "id": "5.3",
+      "section": "네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "requirement": "초기화 완료 조건: A/B/O별 필수 API·리소스·자가 진단 목록을 만들고, 누락된 상태에서 세션을 생성하지 못하게 합니다.",
+      "status": "유지 · 실패 주입 소스 시험",
+      "paths": [
+        "../Railway/cozy.Startup.pas",
+        "../Railway/cozy.tests/cozy.test-startup-contracts.py"
+      ],
+      "result": "A/B/O 시작 계약을 재검사했습니다. 필수 TLS API 누락, 동일 슬롯 수의 잘못된 API, 다른 역할 의존성을 넣은 소스 시험이 모두 거절됐습니다.",
+      "remaining": "171/196/216은 소스 계약 슬롯 수입니다. 실제 제품 프로세스의 초기화/자가진단 성공을 뜻하지 않습니다."
+    },
+    {
+      "id": "5.4",
+      "section": "네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "requirement": "객체 종료 순서: 신규 작업 차단 → 진행 중 작업 합류 → 키·핸들 해제 순서를 보안 객체 전반에 명시합니다.",
+      "status": "수명 계약 유지 · 장치키 초기화 실패 경로 보완",
+      "paths": [
+        "../Railway/cozy.Lifetime.pas",
+        "../Railway/cozy.tests/cozy.LifetimeProbe.dpr",
+        "ci/pipeline/Invoke-NativeContracts1To5.ps1",
+        "../Railway/cozy.DeviceKey.pas"
+      ],
+      "result": "신규 작업 차단→진행 작업 합류→키/핸들 해제 순서를 유지합니다. 영속 장치키의 AIK 초기화 실패 시 부분 생성 자원 정리와 재시도 소유권을 보완했습니다. 미완료 스레드가 객체를 사용하는 동안 강제 해제하거나 TerminateThread로 중단하지 않습니다.",
+      "remaining": "실제 Windows 실패 주입·종료 경쟁은 미실행입니다. 안전한 drain 대기는 OS 작업이 반환하지 않으면 종료 예산보다 길어질 수 있습니다."
+    },
+    {
+      "id": "5.5",
+      "section": "네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "requirement": "중간 문자열 축소: JSON 복제와 ToJSON 임시 문자열처럼 민감값의 추가 사본이 생기는 경로를 줄입니다. 직렬화 결과와 서명 내용은 그대로 유지해야 합니다.",
+      "status": "유지 · 추가 사본 억제",
+      "paths": [
+        "../Railway/cozy.Security.pas",
+        "services/protocol/peace.desktop-request-protocol.js"
+      ],
+      "result": "서명/직렬화 원문과 불필요한 복제 억제를 유지합니다. 장기 서버 비밀을 클라이언트 정책 파일에 복제하지 않습니다. 별도로 선택적 OS CNG 영속 장치키는 구현돼 있으며 일반 JSON/평문 키 파일로 저장하지 않습니다.",
+      "remaining": "Delphi/JS 런타임의 모든 임시 문자열을 제거했다는 뜻은 아닙니다."
+    },
+    {
+      "id": "5.6",
+      "section": "네이티브 API·메모리 — 호출 경계의 안전성 확대",
+      "requirement": "C ABI 오류 격리: Delphi와 ImGui C++ 사이로 예외가 넘어가지 않도록 하고, 실패 출력과 반환 상태를 일정하게 유지합니다.",
+      "status": "유지 · 실제 Linux 코어 실행",
+      "paths": [
+        "../Railway/cozy.imgui/cozy.bridge/cozy.game_imgui_bridge.cpp",
+        "../Railway/cozy.imgui/cozy.tests/cozy.test_bridge.cpp"
+      ],
+      "result": "실제 ImGui 코어와 bridge의 portable test 빌드를 다시 컴파일해 ABI/입력/소유권 91개 검사를 통과했습니다. 제품용 C++ 소스는 변경하지 않았습니다.",
+      "remaining": "Windows 호출 규약·D3D11/GPU 렌더링·실제 Delphi 경계를 실행한 결과는 아닙니다."
+    }
+  ],
+  "productionPublication": {
+    "requireManifest": true,
+    "requireCiEvidence": false,
+    "requireReleaseSignature": true,
+    "minimumSecurityVersionFloor": 1,
+    "legacyRuntimePolicy": "PRESERVED_UNTIL_EXPLICIT_GOVERNANCE_OR_VERIFIED_ATOMIC_PUBLICATION",
+    "manualPassSufficient": false,
+    "hardwareAttested": false
+  },
+  "nativeProductSourceChanged": true,
+  "windowsBuildExecuted": false,
+  "fullProductionIntegrationExecuted": false,
+  "unrelatedAuditGapsLeftForNextScopes": [
+    "Actual Windows A/B/O, GPU, SChannel, TPM and shutdown execution remains unverified here.",
+    "Complete elimination of managed Delphi/JavaScript string copies is not implemented.",
+    "Operating proxy/WAF configuration and physically independent recovery-witness storage need deployment review.",
+    "Distributed consensus/multi-writer HA and durable client TLS-pin rollback checkpoints are not implemented."
+  ],
+  "statusModel": {
+    "contract": "capabilities-status-v1.json",
+    "endpoint": "/api/desktop/bootstrap/server-state/capabilities",
+    "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
+    "configuration": "READ_FROM_CURRENT_SERVER_STATE",
+    "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
+  },
+  "historicalSnapshot": true,
+  "currentUpdate": "completion-4-6-v2.json"
+}

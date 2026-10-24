@@ -1,0 +1,167 @@
+{
+  "version": 1,
+  "date": "2026-10-11",
+  "nativeStatus": "SOURCE_MODIFIED_WINDOWS_NOT_COMPILED_OR_EXECUTED",
+  "normalization": {
+    "name": "PE64-CODE-V1",
+    "hashVersion": 3,
+    "validationRevision": 2,
+    "file": "All raw bytes including non-code/certificate/overlay bytes participate in whole-file hashes. This is not the mapped image digest.",
+    "code": "Immutable executable sections ordered by RVA. Digest prefix is GAME-CODE-V1 followed by NUL. Protected span is VirtualSize when nonzero, otherwise SizeOfRawData; section bounds validate max(span, rawSize). Copy min(rawSize, span), zero-fill the remainder. Writable sections are not normalized immutable code.",
+    "relocation": "Only supported HIGHLOW/DIR64 entries with bounded, non-overlapping operands. Native verifies the expected loader adjustment before clearing relocation operand bytes. Unsupported/malformed relocation entries are rejected; normalized operands are zero.",
+    "imports": "Mutable IAT is not conflated with whole immutable code assurance. Existing API readonly/target/module checks remain separate. Import directory content is not silently stripped from the whole-file hash.",
+    "pdata": "Validate exception-directory range, bounded 12-byte runtime records, order/nonoverlap, executable function extent and aligned raw non-executable unwind location even without a checker anchor. Existing anchor-to-runtime-range coverage remains separate. This is not a complete Windows unwinder semantic proof.",
+    "exports": "EAT/export coverage is a separate optional measurement with explicit status. FULL module-file/code coverage never implies every export was measured.",
+    "headers": "SelfImageHeaders measures its bounded approved header ranges, not all mapped image memory.",
+    "compatibility": "Previously accepted malformed PE may now be rejected. Publish server, BAT and native validators together; run the 28-case corpus with the compiled Delphi probe before release. No actual deployed files were tested here."
+  },
+  "fileOwnership": {
+    "synchronousPosition": "IntegrityHashHandle and pinned readers use ReOpenFile plus explicit OVERLAPPED offsets, not SetFilePointer on the supplied/duplicate handle. Same original FILE_OBJECT stays pinned before name unlink/replacement.",
+    "defaults": {
+      "maximumFileBytes": 67108864,
+      "measurementMilliseconds": 30000,
+      "chunkBytes": 65536,
+      "maximumOutstandingReads": 8,
+      "waitPollMilliseconds": 25
+    },
+    "status": [
+      "MEASURED",
+      "FILE_CHANGED",
+      "READ_ERROR",
+      "COVERAGE_INSUFFICIENT",
+      "CANCELLED",
+      "DEADLINE_EXCEEDED"
+    ],
+    "limits": "Cancellation is cooperative. CancelIoEx is a request, not proof of completion. Detached operations own buffer/event/handle until completion. Resource-exhaustion drain and uninterruptible metadata calls can exceed deadline. No thread termination/free-before-completion."
+  },
+  "measurementBundle": {
+    "planVersion": 1,
+    "fields": [
+      "measurementContract",
+      "measurementStartedTick",
+      "measurementFinishedTick",
+      "measurementPlanVersion",
+      "moduleGenerationStable",
+      "snapshotId",
+      "batchIndex",
+      "batchCount",
+      "coverage"
+    ],
+    "coverage": [
+      "FULL",
+      "PARTIAL",
+      "SAMPLED"
+    ],
+    "legacy": "Pre-migration artifact only: missing metadata remains explicit LEGACY_UNVERSIONED. Tagless v1 is PLAN_V1_COMPATIBLE, never the required COHERENT_PLAN_V1. Baseline-disabled policy does not waive new artifact coherence/complete-FULL gate.",
+    "generationLimit": "Before/after module-handle enumeration can miss unload/reload ABA. Client reports are not complete runtime attestation. FULL means mandatory scopes of this plan, not every optional EAT layer/all process memory.",
+    "artifactRequirement": "GAME-MEASUREMENT-PLAN-V1 declaration inside initialized approved PE section -> persisted artifact capability; new production A/B/O publication requires v1. Required artifacts cannot omit/legacy-fallback metadata. This declaration is not execution attestation."
+  },
+  "pinRotationReview": {
+    "status": "IMPLEMENTED_OPT_IN_NATIVE_WINDOWS_NOT_EXECUTED",
+    "profileVersion": 4,
+    "extension": "tlsPinVersion=1 request; authenticated tlsPinPlan reply; optional flat string tlsPinState in authenticated Handoff profile",
+    "authentication": "Current exact pinned TLS plus existing request-bound AES-256-GCM; server RSA keyId and host/port/name binding. Not a detached policy-signature format. Unknown leaf cert never accepted.",
+    "limits": {
+      "leadMs": 604800000,
+      "minimumOverlapMs": 60000,
+      "maximumOverlapMs": 86400000,
+      "maxGenerations": 64
+    },
+    "activation": "Prepare_TLS_Pin stages server-only private key; recent admin auth schedules immutable plan; Activate_TLS_Pin requires stopped server and native single-writer lock. Certificate activation is explicit, not hot/automatic. New plans cannot silently cancel an announced generation.",
+    "antirollback": "Server generation/retired history; in-RAM wall/monotonic floor and authenticated Handoff history. Fresh old A restart without the learned state is not a durable client rollback checkpoint. Missed transition requires a new trusted A. Full server rollback defense still depends on configured independent recovery witness.",
+    "compatibility": "Server first, then newly compiled A/B/O; all active selected artifacts must advertise pin v1 before scheduling. Scheduled deployments refuse unsupported runtime/publish cohorts. Pin feature is unconfigured until administrator explicitly schedules.",
+    "notRun": [
+      "Delphi compilation",
+      "SChannel transition handshake",
+      "actual stopped-server native-lock maintenance",
+      "clock/restart/response-loss Windows integration"
+    ]
+  },
+  "networkAndWork": {
+    "requestBudgetMs": 10000,
+    "authLane": {
+      "workers": 2,
+      "queueLimit": 32
+    },
+    "peLane": {
+      "workers": 1,
+      "queueLimit": 1
+    },
+    "upload": {
+      "exeBytes": 67108864,
+      "dllBytes": 33554432,
+      "concurrency": 1,
+      "deadlineMs": 120000
+    },
+    "offloaded": "RSA-OAEP unwrap, AES-GCM/strict JSON, desktop device RSA proof verification, PE normalization/hashes. Exact transcript result map followed by original synchronous current-authority recheck and mutation. No worker stores, leases or grant output.",
+    "notOffloaded": "Key parsing, current-state checks, store commits and some filesystem calls remain on server event loop. Internal offline callers and admin passkey EC verification remain synchronous. Finite lanes/key caps improve isolation, not hard end-to-end latency/DDoS guarantees.",
+    "metrics": "Connection count, auth latency, lane capacity/active/queued/rejected, identified verify+overlayVerify failure ratio. The last ratio excludes failures before a request is identified as renewal.",
+    "proofLane": {
+      "workers": 1,
+      "queueLimit": 16,
+      "perKeyLimit": 2
+    },
+    "renewalProofLane": {
+      "workers": 1,
+      "queueLimit": 16,
+      "perKeyLimit": 2
+    },
+    "strictInputs": "Passkey signed clientData uses fatal UTF-8, duplicate rejection and bounded canonical base64url. Original bytes hashed for signature, non-critical WebAuthn extensions allowed, unsupported security bindings rejected. Binary assertion fields and outer accepted field set bounded."
+  },
+  "overlay": {
+    "states": [
+      "CREATED",
+      "AUTHORIZED",
+      "VISIBLE",
+      "TRANSFERRED",
+      "CLOSING",
+      "CLOSED"
+    ],
+    "shutdownBudgetMs": 5000,
+    "hardShutdownBound": false,
+    "shutdown": "5000ms total accounting, 1000ms reserved Close, completion TEvent checked before unbounded safe WaitFor drain. Join overrun exits unsuccessfully and reports bounded best-effort authenticated client diagnostic if Close still has budget. No forced thread termination/free-before-exit. Unresponsive OS/I/O can still exceed the budget.",
+    "renewal": "Use remaining lease, recent verification duration and a 30-second ceiling. A reply received after expiry never revives authorization.",
+    "graphics": "Classify device removed/reset/hung, OOM and resize failures; no automatic device recreation, fail closed.",
+    "dpi": "PerMonitorV2, suggested WM_DPICHANGED rectangle, common render/hit-test scale and focus/minimize/display input release. Actual Windows multi-monitor/RDP/GPU behavior unverified."
+  },
+  "buildAndMitigations": {
+    "sourceGuard": "Release role-specific evaluated MSBuild property checks and fresh DCU directories; root DCU/CFG and foreign test/probe define/options/output rejected. Actual CodeGear execution unverified.",
+    "cfg": "Final PE structural evidence is distinct from compiler call-site coverage and actual runtime enforcement. Flag-only checks are insufficient. Record compiler files/version/hash and Windows query results separately.",
+    "policies": "Set success/error and actual GetProcessMitigationPolicy observations are separate. Preserve existing opt-in dynamic prohibit; no untested blanket strict-handle/image-loading/ACG enforcement.",
+    "finalArtifact": "Bounded explicit-offset read; all resource languages for RT_MANIFEST/1 must equal current source bytes; CFG check/dispatch slots mapped and GFID targets raw-backed immutable code. Windows XML parser disables DTD and validates DPI separately. CI approval requires same final-artifact audit hashes, not flags alone."
+  },
+  "primaryReferences": [
+    {
+      "topic": "DuplicateHandle shared file position",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/handleapi/nf-handleapi-duplicatehandle"
+    },
+    {
+      "topic": "ReOpenFile handle semantics",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-reopenfile"
+    },
+    {
+      "topic": "CancelIoEx does not wait for completion",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-cancelioex"
+    },
+    {
+      "topic": "WM_DPICHANGED rectangle",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/hidpi/wm-dpichanged"
+    },
+    {
+      "topic": "CFG compile/runtime evidence",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/secbp/control-flow-guard"
+    },
+    {
+      "topic": "Actual mitigation observation",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocessmitigationpolicy"
+    },
+    {
+      "topic": "MSBuild property evaluation",
+      "url": "https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-properties"
+    },
+    {
+      "topic": "Worker ownership and KeyObject clone",
+      "url": "https://nodejs.org/api/worker_threads.html"
+    }
+  ]
+}

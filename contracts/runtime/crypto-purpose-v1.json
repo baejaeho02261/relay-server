@@ -1,0 +1,109 @@
+{
+  "version": 1,
+  "hashVersion": 3,
+  "policy": "Do not infer replaceability from an algorithm name. Authentication and measurement have separate authorities.",
+  "purposes": [
+    {
+      "purpose": "file and normalized code measurement",
+      "algorithms": [
+        "SHA-512",
+        "BLAKE3-256",
+        "XXH3-128",
+        "CRC-64/ECMA and role-specific CRC-LAYERS-V1"
+      ],
+      "authority": "public measurements; signatures/MAC/server authorization remain required",
+      "implementation": [
+        "cozy.Hashes",
+        "cozy.CrcLayers",
+        "extendedHashes",
+        "crcLayers"
+      ],
+      "blake3Parallel": {
+        "scope": "Native file measurement, updates at least 256 KiB; up to 4 independent leaf jobs and 1024 fixed CV slots; ordered canonical tree reduction. Small updates and resource-pressure fallback remain serial.",
+        "modes": "Hash, keyed, derive, incremental and XOF share the same core; production file workers use unkeyed mode. Keyed mode protects server report storage; native derive-key creates one-shot Handoff content keys. Native startup KATs cover hash/keyed/derive.",
+        "ownership": "Synchronous join of every started native worker before input reuse, release, or exception. Measurement budget checked before/after each bounded 1 MiB file block. No cancellation aborts a worker while borrowed input is live. Worker count and memory are bounded; a failed OS wait cannot safely release borrowed inputs, and drain time is not guaranteed under that failure.",
+        "validation": "Compiled portable Pascal real-thread test plus pinned upstream independent mode/XOF comparison; actual Delphi/Windows runner validation must be performed separately."
+      }
+    },
+    {
+      "purpose": "release and Windows CI evidence",
+      "algorithms": [
+        "Ed25519"
+      ],
+      "domains": [
+        "GAME-RELEASE-APPROVAL-V2",
+        "GAME-DEPLOYMENT-MANIFEST-V1",
+        "GAME-CI-ATTESTATION-V1"
+      ],
+      "keys": "release approval and CI attestation MUST be different"
+    },
+    {
+      "purpose": "device and challenge authentication",
+      "algorithms": [
+        "RSA-2048 PKCS1-v1_5 with SHA-256"
+      ],
+      "domains": [
+        "GAME-AUTHORITY-V2",
+        "GAME-INTEGRITY-REPORT-V2",
+        "existing purpose-bound desktopRequestProtocol domains"
+      ],
+      "note": "Retain protocol algorithms and exact signed bytes; no bulk SHA-256 replacement."
+    },
+    {
+      "purpose": "transport key wrapping and AEAD",
+      "algorithms": [
+        "RSA-OAEP-SHA-256",
+        "AES-256-GCM"
+      ],
+      "protocol": "GAME-CONNECT-4",
+      "note": "Whole-request deadline and replay protection are independent of AEAD."
+    },
+    {
+      "purpose": "TLS certificate pin",
+      "algorithms": [
+        "SHA-256 of exact leaf DER"
+      ],
+      "profileVersion": 4,
+      "note": "Not an SPKI pin. Unknown certificates never auto-accepted."
+    },
+    {
+      "purpose": "store authentication",
+      "algorithms": [
+        "HMAC-SHA-256",
+        "context-derived BLAKE3 keyed MAC",
+        "KMAC256-512 with HKDF-SHA512 purpose-derived server key (integrity reports V3)"
+      ],
+      "note": "Preserve stored envelope versions and migrations. Fixed-size MACs use constant-time content comparisons.",
+      "integrityReportsV3": {
+        "construction": "KMAC256(HKDF-SHA512(server-secret, empty-salt, ASCII(GAME-SERVER-KMAC-KEY-V1\\nGAME-INTEGRITY-REPORTS-STORE-V3), 32), SHA512(UTF8(JSON.stringify(data))), 512 bits, customization GAME-INTEGRITY-REPORTS-STORE-V3)",
+        "migration": "Existing V1/HMAC and V2/HMAC+BLAKE3 envelopes remain readable; next normal save writes V3. V3 requires all three MACs. Existing journal head and rollback checks remain required.",
+        "reference": "NIST SP 800-185 (2016), official KMAC samples 4/5/6",
+        "fipsValidated": false
+      }
+    },
+    {
+      "purpose": "token/session identifiers",
+      "algorithms": [
+        "existing random identifiers and server-side digest bindings"
+      ],
+      "note": "Identifiers do not substitute for possession of a secret or a purpose-bound signature."
+    },
+    {
+      "purpose": "authenticated TLS next-pin plan",
+      "algorithms": [
+        "existing exact leaf SHA-256 pin",
+        "existing request-bound AES-256-GCM over GAME-CONNECT-4"
+      ],
+      "binding": "generation/endpoint/keyId/current/next/window; delivered after current TLS and AEAD checks. No independent detached-signature algorithm added. RAM-only antirollback, fresh-old-profile limitation explicit."
+    },
+    {
+      "purpose": "native one-shot Handoff content key",
+      "algorithm": "BLAKE3 derive-key (256-bit output)",
+      "context": "cozy.Client.Handoff.V3.AES256GCM.ContentKey.v1",
+      "input": "Exactly 32 fresh CNG random seed bytes, followed by exact authenticated transcript (1..8192 bytes); streamed without concatenated secret copy.",
+      "wire": "Existing V3 RSA-OAEP wraps final derived key; AES-256-GCM/AAD/envelope layout/decrypt remain unchanged. No entropy amplification or extra authentication strength is claimed.",
+      "lifetime": "Seed wiped immediately after derivation and on all failure paths; key wiped after CNG key creation and on cleanup; hasher state wiped on destruction.",
+      "validation": "Pinned upstream independent deterministic vector, seed/transcript separation and input bounds via portable compiled cozy.HandoffKdfProbe. Actual Windows CNG round-trip remains a Windows test."
+    }
+  ]
+}

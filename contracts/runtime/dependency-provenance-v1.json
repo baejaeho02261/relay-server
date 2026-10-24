@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "basis": "2026-10-24 functional subfolder layout and Cozy namespace. Current source hashes are consistency evidence, not a zero-vulnerability proof or approved proprietary Windows toolchain lock.",
+  "requiredNodeRange": "24.22.1",
+  "localNodeUsed": "v24.22.1",
+  "localNodeIsNotSupportedForFullDependencyTree": false,
+  "npmLockSha512": "fa65cf6208ee274d9f7bbc7fd53821d3e1407daf49851fc98490f3861af2d63e70d22838dbcfd95b75da1c53d7cfeb48c61fde41aa67467d80aa5edb4674a87f",
+  "dependencies": {
+    "dependencies": {
+      "better-sqlite3": "13.0.3",
+      "jpeg-js": "0.4.4",
+      "jsqr": "1.4.0",
+      "pngjs": "7.0.0",
+      "qrcode": "1.5.4",
+      "web-push": "3.6.7"
+    },
+    "optionalDependencies": {
+      "geoip-lite": "2.0.3"
+    },
+    "devDependencies": {
+      "@noble/hashes": "1.8.0",
+      "hash-wasm": "4.12.0",
+      "jsdom": "30.0.1"
+    }
+  },
+  "imguiVersion": "1.93.0 WIP",
+  "imguiVersionNumber": "19298",
+  "vendorFiles": {
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Legal/Cozy.LICENSE.txt": "fff7ca4d8984277931e6e377563e42441b252836a5a0d6ab60879db92d37202b20877fe3c3602e13938b1d40838a199133ad444959a9f58f54094001493877b4",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Backends/Cozy.imgui_impl_dx11.cpp": "8f2c5f1d067148976d08782ec7d6370b0cdf3c0b7dadbb0a85fe4f4f6b6674f4289ac4a626d3bd7157fcb6eec8468c7e5caf12f31fb3c7363f7d8dd8c3d3e91f",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Backends/Cozy.imgui_impl_dx11.h": "d131c19031d0293137df3380c2b264a10573ec68b4d2430ee82eaae19d9513ee21d0070db7c1e5c3d9c94cb565f359544d83fc0a08f2310eb44b462f6ebfb43e",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Core/Cozy.imconfig.h": "658b75c2f0fea3b86ad9ac47fa2b9785a21e2de096c09cef17f548bdbf159946136c63644905d097b3c4894117cad6fcf1562b8eab0fdc5b3a9b7364b493ff5d",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Core/Cozy.imgui.cpp": "a6ad93c992a6908f750a0c2caa6a992c6c871f3ff82ff87601d05f03858a331d5a4b294b5d4668286493786d8cef4b1cfdcb3b96cb700f9d32befc2e868cbd97",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Core/Cozy.imgui.h": "60ec4b3993ad9d776db64a90e4bbcf6097c2d3949361f3737162d5d06c0bd394d693c6a5da516cf8524a1f12545279deb93a7a748bb454c5be12d5803ed31715",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Drawing/Cozy.imgui_draw.cpp": "0e6a04bfa94917f9fda52e84772e14dbbfdb87ef972feb076491b0fa69041187f389191063905a254e3834c9dcb429c497edc4c9028b4d00fb5e951f39f80bc8",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Core/Cozy.imgui_internal.h": "ad3f2479c475283695dc9dcd435e943e4540bb562df7530fafa019ca55ee52a463a4b4b35ce56b21020a636bb0e531fb1173c2699ff82845f587031add475b29",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Tables/Cozy.imgui_tables.cpp": "ad17a8c9331fa155c1e6b64cc1cf4922924365068f03c7dd241bb8109d03d85a2a5c24fd8e3345c85fe845ea45e530a34b26ca540dd11b8d28d79471fee71041",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.Widgets/Cozy.imgui_widgets.cpp": "b0b333092b54f5c847d07b15d3863f12af9bb0496670ab5dc4f23fdae106db2288b2b3aad6b4613815c04d6d1ad6c84357465e620ee6bf5783378d726186f3d9",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.ThirdParty/Cozy.imstb_rectpack.h": "f475740158ea0f2b2fb194b7f564ec2a64caa10fdadee47249f8572b755e6a8b6b36d3a05297c67074b7e0018c68920d7686885c0be81980b802fe7bd036b435",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.ThirdParty/Cozy.imstb_textedit.h": "e5b40b44c014a5994fa15b02a8d4fd9e7c19cc055b40f7eb6d54f35dc466216f778405997eaabcee8dc28df4795008ec9b8a95b8a6ce871e25ff5c749bf23430",
+    "Railway/Cozy.ImGui/Cozy.Vendor/Cozy.ThirdParty/Cozy.imstb_truetype.h": "79f8dc75f18c26fd2d1cdfe91a4762d156902af3e5cf912a75808433a5cd1220f94db7715e9837f7a69daa20050963ef8f05eda2f70e1b89f4f123ad718868e0"
+  },
+  "bridgeFiles": {
+    "Railway/Cozy.ImGui/Cozy.Build/Cozy.Audit-Object.ps1": "8426f66f81eb344b4c61bb31e719a40c37f2bb497bf030c9bc21aa316f12921e26e3160b09b1ab6ec041f8482137d9325d64f9fc118079cd69973c7395f424d5",
+    "Railway/Cozy.ImGui/Cozy.Build/Cozy.Normalize-PE-Unwind.ps1": "067340bcf5c02bc534aa1ab562f20d59bdc15f6343fd9d770929e3bdd0fecb4f7d4a3789d43993146d0c54b4647c876b784f36d239e48153c920ea02289957ba",
+    "Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.cpp": "96d97a32319fea4d94a6c8f62ef6094332bb049beead5bed4618606b3cb4d165f95b7b5f9a87220b935fd6d365a5d27018d9a3ffb918663ce568c835a1afc34a",
+    "Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.h": "3958a380067fa533a41ef1fd79b8686ad13f01cd08c1f2fa500f6b58cf7ad599c94abc32f38006bc2d56e333f48750aadbcedace1bcd27f6f09716cac53abccf",
+    "Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_config.h": "4a5511b355772c8f5fd3f1c679933015d1a04362e8c23143ca498aec11de57cdf3e2f484bc52e94752a633bc5e8a26868e5c57147297fc5966a7e9b50f076af5",
+    "Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Graphics/Cozy.game_imgui_dx11.cpp": "8f0a46b8ec85e040c7acd300ee7f372c85886af7c9e6912ba41d48d2cbb126ccbb5c31aca6bc4b45d7bf3eadccb45af78d7711a085aac30c27fba36359628c87",
+    "Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Memory/Cozy.game_imgui_guard.h": "1fd46ff20e7ece410e83b50feb59b85155bb2c9fb0e46af8d70856df67d3c31e48cda34771fdb89dbaac47a51024249d283cd404e0925b08570c662cd532429b",
+    "Railway/Cozy.ImGui/Cozy.Build/Cozy.Assert-OverlayManifest.ps1": "197f597755c14e33085fd7934eb7925da7bba7b9662edce31edbb37e775c02c1b3fa5be81b9ee141a20dc7c7d3e30db6f3be239354f4d4398390d77e003bb4de",
+    "Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Memory/Cozy.game_imgui_arena.h": "1826d99923c50adf160c0fdd8fd2c1a832ab4f03e1e74cb2636b87151b64d3d52270489af22b00af615caf7ec3379fc054ebf47e9cfb51f29541d363713afa92"
+  },
+  "compilerAndSdk": "Exact installed executable hashes and versions recorded by Windows-Stage.ps1 only when it actually runs. Not fabricated for this Linux review.",
+  "regressionAfterSecurityUpdate": "Regenerate source/dependency manifests, run all registered suites including completion 6-10 and actual Windows native/ABI/PE corpus, TLS rotation, GPU/DPI and final build/CI approval. Do not reuse historical or synthetic PASS.",
+  "vendorHashesBeforeRename": {
+    "Railway/cozy.imgui/cozy.vendor/cozy.LICENSE.txt": "fff7ca4d8984277931e6e377563e42441b252836a5a0d6ab60879db92d37202b20877fe3c3602e13938b1d40838a199133ad444959a9f58f54094001493877b4",
+    "Railway/cozy.imgui/cozy.vendor/cozy.backends/cozy.imgui_impl_dx11.cpp": "8757571319fee3d43878243daf6f3e17b81a4799114899accfb8c3e922c439107e01af7ca5f97dcd0c4d0788c11419fd79119612cd97606dec77bb24c85b3e63",
+    "Railway/cozy.imgui/cozy.vendor/cozy.backends/cozy.imgui_impl_dx11.h": "b0f0aab2d60759e8ef44370eb8e4d37b8edb95584a0f373c6ff66bd282e959185ef295b3b69e73bcf42ce3d1065dd4c6a55c672271e39bcf58537a573a21170a",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imconfig.h": "cc4d2f15043f9b50de77a863c89211cd8121aec3c934e605bac6aad4a831f84671d38c3a6493781b63a603b2684672eaa1aff48a5ddb42caea3a4add562353bd",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imgui.cpp": "2eda9318e51c725c9ed115a44783cecd8c1f9623b7d226a3452c7b390c71b1e14f14a131783af1679af281d7a76c5042b4e90cd58b83d63d9bef5392c978ae65",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imgui.h": "1c254a2ae46e596ad27150ffaa984186dbba7b5b2a25beeb79164ebe1b164ebb56723cba8bf6a429346f562ebdaa723d455b4228ddfaeb0309cfb2513f32a70c",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imgui_draw.cpp": "a30f2e931b9fe8fca621ea84433278c1cbd7910cf86dd2821aeca7f1664f30b249c892bce516394ec15a8865b44a8d46b0521951be7e33fea47f16ce3ad4b591",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imgui_internal.h": "e7ea5d8fa3e208b9d9e9394ac01a4db9089dab612d39cc91233bac0fbc56ca247862a92439c48154d2ff1b31479fa21b17aaaabd2512dee4c925d7c65dc0b3c4",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imgui_tables.cpp": "c5bd5fcbe744f24e9776f681b96a0957f4e655aa69059073c9a00034ac923a99a2c78f2b0d406343d6af09bdecde0472a9e1910001ebcd000d2ae88f0920fffb",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imgui_widgets.cpp": "dbbfbcb04eb95020579ec431a561257f37188b4a4165b11acba30dc1e380d9b8643e168371a659ad065d9ae031a66bc9ce4617374fc6fc8a955afaf14339fe0f",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imstb_rectpack.h": "f475740158ea0f2b2fb194b7f564ec2a64caa10fdadee47249f8572b755e6a8b6b36d3a05297c67074b7e0018c68920d7686885c0be81980b802fe7bd036b435",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imstb_textedit.h": "e5b40b44c014a5994fa15b02a8d4fd9e7c19cc055b40f7eb6d54f35dc466216f778405997eaabcee8dc28df4795008ec9b8a95b8a6ce871e25ff5c749bf23430",
+    "Railway/cozy.imgui/cozy.vendor/cozy.imstb_truetype.h": "79f8dc75f18c26fd2d1cdfe91a4762d156902af3e5cf912a75808433a5cd1220f94db7715e9837f7a69daa20050963ef8f05eda2f70e1b89f4f123ad718868e0"
+  },
+  "audit": {
+    "date": "2026-10-24",
+    "source": "npm audit full installed dependency tree",
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    }
+  }
+}

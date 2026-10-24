@@ -1,0 +1,282 @@
+{
+  "version": 1,
+  "basis": "Game_Full_1-5_Completion.zip",
+  "scope": "Original 6-10 (29 subrequirements); current implementation and actual evidence; no production/Windows approval",
+  "generatedAt": "2026-10-11T04:38:43.572861+00:00",
+  "windowsExecuted": false,
+  "productionServerOrKeysChanged": false,
+  "requirements": [
+    {
+      "id": "6.1",
+      "sourceLine": 51,
+      "original": "공통 PE 시험 자료: Delphi·서버·승인 BAT가 같은 정상·손상 파일에 대해 일치하는 결과를 내는지 검사합니다.",
+      "status": "보완·부분 실행",
+      "change": "공통 28종의 서버/BAT 비교를 다시 실행했습니다. 새 CFG 정상·손상 비교를 추가하고, corpus의 리소스 없는 최소 PE와 최종 O manifest 시험을 분리했습니다. Delphi probe는 같은 자료로 연결돼 있습니다.",
+      "paths": "tests/artifacts/peace.test-hardening-pe-corpus.js; tests/fixtures/protocol/peace.completion-6-10-fixture.js; tests/cozy.PeCorpusProbe.dpr",
+      "verificationAndRemaining": "서버/BAT 28종·56개 비교 PASS. Delphi 실행은 NOT_RUN입니다."
+    },
+    {
+      "id": "6.2",
+      "sourceLine": 52,
+      "original": "정규화 규약 고정: 디스크 파일과 적재 이미지의 차이, relocation, import, .pdata 처리 범위를 버전별로 문서화합니다.",
+      "status": "규약 유지·기록 갱신",
+      "change": "PE64-CODE-V1/hashVersion3의 raw 파일·적재 이미지·relocation·IAT·.pdata·선택적 export 범위를 유지했습니다. 측정·pin·CFG 후속 규약을 현재 코드와 맞췄습니다.",
+      "paths": "contracts/runtime/hardening-contracts-v1.json; services/artifacts/peace.pe-capabilities.js; tools/artifacts/Create_Approval.bat",
+      "verificationAndRemaining": "정규화 서명 bytes/기존 알고리즘 변경 없음. Windows loader/unwind 전체 의미 검증은 아닙니다."
+    },
+    {
+      "id": "6.3",
+      "sourceLine": 53,
+      "original": "파일 위치 소유권: IntegrityHashHandle이 파일 위치를 변경하는 계약을 명확히 합니다. 복제 핸들과 원본 핸들을 동시에 읽는 경우도 검사해야 합니다.",
+      "status": "기존 네이티브 유지·도구 보완",
+      "change": "원본/복제 핸들의 공유 위치를 쓰지 않는 ReOpenFile/명시적 offset 구조를 유지했습니다. 최종 산출물 도구는 원본 크기+1의 제한된 읽기, 명시적 offset, 전후 핸들/이름 일치 검사로 보완했습니다.",
+      "paths": "cozy.Measurement.pas; services/artifacts/peace.bounded-artifact-read.js; tools/artifacts/peace.audit-final-artifacts.js; tools/artifacts/peace.release-provenance.js",
+      "verificationAndRemaining": "실제 임시 파일 grow/shrink/mutate/rename 읽기 시험 PASS. Windows 복제 핸들·동시 원본 읽기 시험은 NOT_RUN입니다."
+    },
+    {
+      "id": "6.4",
+      "sourceLine": 54,
+      "original": "측정 예산: 일반 파일 해싱에도 최대 크기·시간·취소 조건을 전달해 느린 저장소 때문에 종료가 오래 걸리지 않게 합니다.",
+      "status": "기존 예산 유지·도구 상한 추가",
+      "change": "네이티브 측정의 64MiB·기본30초·취소 계약을 유지합니다. 최종 PE 읽기는 최대64MiB로 제한하며 성장 파일을 따라 무제한 할당하지 않습니다. 종료는 남은 공통 예산을 Close에 전달합니다.",
+      "paths": "cozy.Measurement.pas; services/artifacts/peace.bounded-artifact-read.js; cozy.ShutdownBudget.pas",
+      "verificationAndRemaining": "느린 OS syscall을 강제로 종료하지 않습니다. 물리 저장소 제거·무응답 시험은 NOT_RUN입니다."
+    },
+    {
+      "id": "6.5",
+      "sourceLine": 55,
+      "original": "기존 파일 고정의 검증 확대: 현재 핸들 고정 구조에 파일 이름 변경, 상위 경로 교체, reparse point, 읽기 도중 오류 시험을 추가합니다.",
+      "status": "시험 유지·추가",
+      "change": "기존 Windows reparse/parent/rename probe를 보존했습니다. 실제 임시 파일 이름 교체·읽기 오류·symlink/hardlink·크기 변화 시험을 추가했습니다. 권한 때문에 SKIP된 native 분기는 새 실행부에서 PASS가 아닙니다.",
+      "paths": "tests/protocol/peace.test-completion-artifacts-6-10.js; tests/cozy.HardeningContractsProbe.dpr; ci/pipeline/Invoke-NativeContracts6To10.ps1",
+      "verificationAndRemaining": "Linux 파일 I/O와 시험 모듈의 fault injection PASS. Windows NTFS/reparse/디스크 분리 NOT_RUN입니다."
+    },
+    {
+      "id": "6.6",
+      "sourceLine": 56,
+      "original": "오류 상태 구분: 파일이 바뀐 경우, 읽지 못한 경우, 측정 범위가 부족한 경우를 각각 다른 결과로 유지합니다.",
+      "status": "기존 결과 구분 유지",
+      "change": "MEASURED/FILE_CHANGED/READ_ERROR/COVERAGE_INSUFFICIENT/CANCELLED/DEADLINE_EXCEEDED 구분을 유지합니다. 새 보고 gate는 누락·부분 결과를 FULL 또는 정상 승인으로 올리지 않습니다.",
+      "paths": "cozy.Measurement.pas; cozy.Overlay.Client.pas; services/integrity/peace.desktop-integrity-reports.js",
+      "verificationAndRemaining": "기존 measurement/review 및 신규 required-plan 시험 PASS. Windows 실제 측정 오류 주입 NOT_RUN입니다."
+    },
+    {
+      "id": "7.1",
+      "sourceLine": 60,
+      "original": "용도별 암호 규격표: 측정·서명·키 래핑·인증서 pin·토큰 식별에 사용하는 알고리즘과 버전을 구분합니다. 남아 있는 SHA-256을 이름만 보고 일괄 교체하지 않게 합니다.",
+      "status": "규격표 유지·확장",
+      "change": "기존 측정·서명·키 래핑·leaf 인증서 pin·토큰 식별 알고리즘을 구분합니다. pin 계획은 현재 pinned TLS와 기존 요청 결속 AES-GCM의 인증을 사용하며 별도 서명 체계를 꾸며 넣지 않습니다.",
+      "paths": "contracts/runtime/crypto-purpose-v1.json; contracts/runtime/hardening-contracts-v1.json",
+      "verificationAndRemaining": "SHA-256을 이름만 보고 교체하지 않았습니다. 기존 CRC/XXH를 인증 서명으로 취급하지 않습니다."
+    },
+    {
+      "id": "7.2",
+      "sourceLine": 61,
+      "original": "기준 생성과 측정 구현의 독립 비교: 같은 코드의 같은 오류가 기준값과 측정값 양쪽에 들어가는 것을 방지합니다.",
+      "status": "부분 실행·native 연결",
+      "change": "기존 독립 Python↔Node 해시·CRC·PE·요청 비교를 다시 실행했습니다. 새 native 실행부는 실제 Hash/IntegrityHash/CrcLayer/PE corpus probe를 호출하도록 연결했습니다.",
+      "paths": "tests/protocol/peace.test-independent-contracts-14.js; ci/pipeline/Invoke-NativeContracts6To10.ps1",
+      "verificationAndRemaining": "독립 Python/Node 및 고정된 vendor 해시 비교 시험이 제공됩니다. 기존 portable 결과는 해당 시험 범위이며 실제 Delphi 산출물 비교·운영 Windows 실행은 미실행입니다."
+    },
+    {
+      "id": "7.3",
+      "sourceLine": 62,
+      "original": "부분 결과 처리: 필수 측정 실패를 다른 성공 결과로 덮지 않고, 실패한 계층과 범위를 그대로 보고합니다.",
+      "status": "서버 강제 보완",
+      "change": "필수 측정 누락·실패/부분/표본·불완전 batch 결과는 새 승인 빌드의 실행 gate를 통과하지 못합니다. baseline 검사 정책을 껐더라도 새 빌드의 필수 일관성/FULL 조건은 면제되지 않습니다.",
+      "paths": "services/integrity/peace.measurement-plan-contract.js; services/integrity/peace.desktop-integrity-reports.js",
+      "verificationAndRemaining": "11개 신규 측정 묶음 시험 PASS. 일부 저장소·권한·감사 경계는 격리했습니다."
+    },
+    {
+      "id": "7.4",
+      "sourceLine": 63,
+      "original": "측정 묶음의 일관성: 측정 시작·종료, 모듈 목록 세대, 측정 계획 버전을 묶어 서로 다른 시점의 결과를 무심코 합치지 않도록 합니다.",
+      "status": "서버·A/B/O 구현",
+      "change": "A/B/O는 GAME-MEASUREMENT-PLAN-V1 tag와 계획·시작/종료·모듈 세대 정보를 전달합니다. 서버는 승인된 PE raw section의 선언을 파일 해시에 연결해 저장하고 신규 운영 게시 시 세 구성요소 모두 v1을 요구합니다. 동일 snapshot의 모든 batch metadata가 같아야 합니다.",
+      "paths": "cozy.ModuleInventory.pas; cozy.Api.pas; cozy.Bootstrap.pas; cozy.Overlay.Client.pas; services/bootstrap/peace.desktop-bootstrap.js; services/integrity/peace.desktop-integrity-reports.js; services/security/peace.desktop-security-operations.js",
+      "verificationAndRemaining": "새 빌드의 누락·legacy fallback·혼합 batch 거절 PASS. marker는 선언이지 실행 사실 증명이 아닙니다. 모듈 목록 전후 비교의 ABA 한계는 남습니다."
+    },
+    {
+      "id": "7.5",
+      "sourceLine": 64,
+      "original": "표본 검사와 전체 검사 구분: 성능 때문에 표본 측정을 쓰더라도 전체 검증 완료처럼 표시하지 않습니다.",
+      "status": "서버·표시 보완",
+      "change": "COHERENT_PLAN_V1/PLAN_V1_COMPATIBLE/LEGACY_UNVERSIONED를 구분합니다. FULL/PARTIAL/SAMPLED를 별도로 표시하며 FULL은 규약의 필수 범위입니다. 선택적 export 또는 모든 프로세스 메모리의 완전 측정을 뜻하지 않습니다.",
+      "paths": "services/integrity/peace.measurement-plan-contract.js; services/integrity/peace.desktop-integrity-reports.js; public/scripts/desktop/peace.admin-desktop-licenses.js",
+      "verificationAndRemaining": "서버 분류·거절 및 관리자 DOM 회귀 시험이 제공됩니다. DOM 시험과 bundle 검사는 실제 Windows 브라우저·사용자 운영 화면 검증을 대신하지 않습니다."
+    },
+    {
+      "id": "7.6",
+      "sourceLine": 65,
+      "original": "비밀값 비교 분리: MAC·토큰 같은 비밀 관련 비교와 공개 파일 digest 비교의 요구사항을 구분합니다.",
+      "status": "기존 구분 유지",
+      "change": "MAC·비밀 토큰 비교와 공개 파일/pin digest 비교의 기존 용도를 유지했습니다. 새 worker transcript key는 request-local 일치 확인에만 쓰며 실행 허가나 클라이언트가 제출하는 preverified 값을 받지 않습니다.",
+      "paths": "services/integrity/peace.desktop-proof-work.js; services/runtime/peace.desktop-cpu-worker.js; contracts/runtime/crypto-purpose-v1.json",
+      "verificationAndRemaining": "실제 RSA 검증 및 변경된 transcript/key 재사용 거절 PASS. 모든 런타임 문자열 사본 제거를 보장하지 않습니다."
+    },
+    {
+      "id": "8.1",
+      "sourceLine": 70,
+      "original": "인증서 pin 교체 절차: 현재 신뢰로 인증된 차기 pin과 제한된 전환 기간을 지원하는 방안을 검토합니다. 알 수 없는 인증서를 자동 수용하면 안 됩니다.",
+      "status": "선택적 구현·Windows 미실행",
+      "change": "설계 검토에서 실제 opt-in 코드로 확장했습니다. 현재 인증 연결의 계획만 수용, endpoint/keyId·세대·기간 결속, 구 pin 종료, 관측된 퇴역 pin 재사용 거절, authenticated Handoff 전달을 추가했습니다. 서버의 새 인증서 활성화는 별도 오프라인 BAT로 명시적으로 수행합니다.",
+      "paths": "services/network/peace.desktop-tls-pin-transition.js; cozy.Tls.PinWindow.pas; cozy.Transport.pas; tools/network/peace.tls-pin-maintenance.js; public/scripts/desktop/peace.admin-desktop-security.js",
+      "verificationAndRemaining": "실제 OpenSSL 인증서·키와 파일 활성화 12개 묶음 PASS(감사/잠금 격리). 실제 SChannel·Windows·native lock NOT_RUN. 새 클라이언트는 RAM 상태만 유지하여 fresh old A의 영속 rollback 방어는 제공하지 않습니다."
+    },
+    {
+      "id": "8.2",
+      "sourceLine": 71,
+      "original": "전체 요청 시간 예산: DNS·연결·TLS·송수신에 각각 시간을 더하는 방식 대신 전체 작업의 공통 마감을 전달합니다.",
+      "status": "전체 마감 연결 유지·후검사 보완",
+      "change": "DNS/연결/TLS/송수신의 기존 공통 요청 예산을 유지합니다. 작업 큐·응답 GCM 검증·pin 계획 수용 후에도 취소/마감을 재검사합니다. 늦은 결과는 실행 승인으로 사용하지 않습니다.",
+      "paths": "cozy.Transport.pas; cozy.Relay.Socket.pas; services/network/peace.desktop-connect.js; services/integrity/peace.desktop-proof-work.js",
+      "verificationAndRemaining": "실제 worker deadline 시험 PASS. Windows DNS/SChannel 및 OS 무응답의 실측 NOT_RUN입니다."
+    },
+    {
+      "id": "8.3",
+      "sourceLine": 72,
+      "original": "비싼 요청의 공정한 처리: RSA 검증·PE 해싱·업로드가 정상 세션의 갱신을 밀어내지 않도록 동시 작업 수와 연산 비용을 제한합니다.",
+      "status": "서버 연산 분리·공정성 보완",
+      "change": "장치 RSA 서명 검증을 proof worker로 옮기고 갱신 검증용 별도 lane, key별2개 상한/round-robin 대기 선택을 추가했습니다. 원래 동기 서버 처리기는 검증 후 현재 세션·키·정책·Challenge·만료·receipt를 다시 검사하고 확정합니다.",
+      "paths": "services/integrity/peace.desktop-proof-work.js; services/runtime/peace.desktop-work-queue.js; services/runtime/peace.desktop-cpu-worker.js; services/network/peace.desktop-connect.js; services/licensing/peace.desktop-licenses.js; services/bootstrap/peace.desktop-bootstrap.js",
+      "verificationAndRemaining": "실제 암호·동시 큐·마감·transcript 분리 시험 PASS. 최초 인증 lane, key parsing·store commit·일부 파일 I/O·관리자 EC 검증은 여전히 동기이며 정상 갱신 지연을 무조건 보장하지 않습니다."
+    },
+    {
+      "id": "8.4",
+      "sourceLine": 73,
+      "original": "대상별 업로드 한도: EXE와 DLL 등 대상에 맞는 한도를 실제 스트림 수신 단계부터 적용합니다.",
+      "status": "기존 스트림 한도 유지",
+      "change": "EXE64MiB/DLL32MiB·동시 업로드1·공통 수신 마감을 유지했습니다. 최종 산출물 및 provenance 입력 읽기에도 크기·파일 변화 검사 상한을 적용했습니다.",
+      "paths": "web/routes/bootstrap/peace.desktop-bootstrap-routes.js; services/runtime/peace.desktop-work-queue.js; services/artifacts/peace.bounded-artifact-read.js; tools/artifacts/peace.release-provenance.js",
+      "verificationAndRemaining": "스트림 한도와 실제 HTTP 회귀 시험 경로는 제공됩니다. 사용자 배포의 대형 업로드·지속 부하·갱신 지연 실측은 미실행입니다."
+    },
+    {
+      "id": "8.5",
+      "sourceLine": 74,
+      "original": "프로토콜 입력 엄격화: 중복 필드, 잘못된 UTF-8, 정수 범위 초과, 알 수 없는 중요 필드를 일관되게 처리합니다.",
+      "status": "패스키 내부·도구 JSON 보완",
+      "change": "서명된 clientDataJSON을 canonical base64url·fatal UTF-8·중복 필드·정확한 type/challenge/origin으로 검사합니다. 서명 검증에는 원본 bytes를 사용합니다. 등록/인증 binary 크기·키/알고리즘·외부 허용 필드, CI/provenance/TLS pointer JSON도 엄격하게 연결했습니다.",
+      "paths": "services/authentication/peace.passkey-client-data.js; services/authentication/peace.passkey-auth.js; services/network/peace.connect-tls.js; ci/evidence/peace.ci-artifacts.js; tools/artifacts/peace.release-provenance.js",
+      "verificationAndRemaining": "실제 EC 서명으로 잘못된 내부 JSON 거절 PASS. 계정 저장·세션 일부는 격리했으며 운영 로그인 통합 PASS가 아닙니다. 비중요 WebAuthn 확장 필드는 허용하며 미지원 중요 결속은 거절합니다."
+    },
+    {
+      "id": "8.6",
+      "sourceLine": 75,
+      "original": "과부하 관측: 연결 수뿐 아니라 인증 처리 지연, 대기열 길이, 갱신 실패 비율을 관리 화면에서 확인할 수 있게 합니다.",
+      "status": "서버 계측·표시 보완",
+      "change": "기존 연결·인증 지연·queue 지표에 proof/renewal lane과 종료 합류 진단을 추가했습니다. Challenge를 갱신 성공에 세지 않는 기존 수정은 유지합니다. 종료 진단은 클라이언트 보고이며 attestation이 아닙니다.",
+      "paths": "services/runtime/peace.desktop-work-queue.js; services/overlay/peace.desktop-overlay.js; public/scripts/desktop/peace.admin-desktop-security.js",
+      "verificationAndRemaining": "지표/진단 입력 제한 시험 PASS. 갱신으로 식별되기 전 실패는 해당 갱신 비율에 들어가지 않습니다. 진단은 RAM 통계/최선 노력 전송이며 유실될 수 있습니다."
+    },
+    {
+      "id": "9.1",
+      "sourceLine": 79,
+      "original": "명시적 상태 전이: 생성·승인·표시·인계 완료·종료 중·종료 상태와 허용 전이를 정의합니다.",
+      "status": "기존 상태 전이 유지",
+      "change": "CREATED/AUTHORIZED/VISIBLE/TRANSFERRED/CLOSING/CLOSED 허용 전이를 유지했습니다. worker completion event는 Execute finally에서 알리고 종료 상태는 안전 합류 뒤 CLOSED로 확정합니다.",
+      "paths": "cozy.Overlay.State.pas; cozy.Overlay.pas; tests/cozy.HardeningContractsProbe.dpr",
+      "verificationAndRemaining": "원래 상태 전이 소스 계약/portable 관련 시험 PASS. 실제 Delphi 스레드·제품 상태 전이 NOT_RUN입니다."
+    },
+    {
+      "id": "9.2",
+      "sourceLine": 80,
+      "original": "남은 lease에 맞춘 갱신: 고정 간격뿐 아니라 남은 승인 시간과 최근 검사 소요 시간을 반영합니다. 만료 후 늦은 응답을 받아들이는 변경은 하지 않습니다.",
+      "status": "기존 lease 갱신 유지·서버 lane 추가",
+      "change": "남은 승인 시간·최근 측정 시간의 갱신 계산과 만료 후 결과 거부를 유지했습니다. 서버는 갱신 proof를 별도 lane으로 처리하지만 권한 자체는 원래 현재 상태 gate가 결정합니다.",
+      "paths": "cozy.Overlay.pas; cozy.Overlay.Client.pas; services/runtime/peace.desktop-work-queue.js",
+      "verificationAndRemaining": "worker lane 시험 PASS. 실제 최초 프레임/만료/race·GPU 화면 수명 NOT_RUN입니다."
+    },
+    {
+      "id": "9.3",
+      "sourceLine": 81,
+      "original": "UI 스레드 소유권 확인: ImGui·창·D3D 자원이 지정된 UI 스레드에서만 조작되도록 계약을 실제 검사로 보완합니다.",
+      "status": "기존 소유권 유지·재실행",
+      "change": "ImGui/C ABI와 UI thread 소유권 검사를 유지했습니다. 실제 core/bridge를 Linux portable 모드로 새로 컴파일하고 실행했습니다.",
+      "paths": "cozy.imgui/cozy.bridge/cozy.game_imgui_bridge.cpp; cozy.imgui/cozy.bridge/cozy.game_imgui_guard.h; cozy.imgui/cozy.tests/cozy.test_bridge.cpp",
+      "verificationAndRemaining": "91개 실제 portable 검사 PASS. D3D11/창/SChannel/UI thread의 Windows 런타임 검사는 아닙니다."
+    },
+    {
+      "id": "9.4",
+      "sourceLine": 82,
+      "original": "종료 전체의 시간 예산: 작업 합류와 Close 요청을 포함해 종료가 어디서 얼마나 기다리는지 통제합니다. 객체를 먼저 해제하거나 스레드를 강제로 끊는 방식은 피합니다.",
+      "status": "단계별 예산·진단 구현",
+      "change": "총5초 중 합류4초·Close1초 예약을 기록합니다. event 대기 뒤 완료된 thread를 합류·해제하고 Close에 남은 공통 마감을 전달합니다. 합류가 예산을 넘으면 실패 결과를 남깁니다.",
+      "paths": "cozy.ShutdownBudget.pas; cozy.Overlay.pas; cozy.Overlay.Client.pas; tests/cozy.TlsPinWindowProbe.dpr",
+      "verificationAndRemaining": "실제 Windows native probe는 NOT_RUN. WaitFor의 최종 안전 drain은 OS가 반환하지 않으면 제한 없이 지연될 수 있습니다. 5초 강제 종료/종료 중 객체 선해제/TerminateThread는 없습니다."
+    },
+    {
+      "id": "9.5",
+      "sourceLine": 83,
+      "original": "그래픽 장애 분류: 장치 소실·메모리 부족·Resize 실패를 구분합니다. 재생성을 허용한다면 유효한 승인 안에서 제한된 횟수만 수행합니다.",
+      "status": "기존 분류 유지",
+      "change": "장치 removed/reset/hung·메모리 부족·Resize 오류 분류와 승인 없이 재표시하지 않는 실패 종료를 유지했습니다. 자동 GPU 재생성을 새로 넣지 않았습니다.",
+      "paths": "cozy.Overlay.Renderer.pas; cozy.imgui/cozy.bridge/cozy.game_imgui_dx11.cpp; contracts/runtime/compatibility-matrix-v1.json",
+      "verificationAndRemaining": "실제 GPU 장애·누수·중복 해제·WARP/Intel/AMD/NVIDIA 호환성 시험은 NOT_RUN입니다. 재생성 미지원은 조건부 원문 요구와 구분합니다."
+    },
+    {
+      "id": "9.6",
+      "sourceLine": 84,
+      "original": "DPI·포커스 시험: 다중 모니터, 배율 변경, 최소화, 원격 데스크톱 전환에서도 표시 위치와 hit-test가 일치하고 입력이 눌린 채 남지 않아야 합니다.",
+      "status": "리소스 검증 보완·실장치 미실행",
+      "change": "최종 O EXE의 RT_MANIFEST/1 모든 언어 bytes가 소스 manifest와 일치해야 통과합니다. Windows 빌드 XML 검사는 DTD/외부 resolver를 끕니다. 기존 DPI 렌더/hit-test 배율 및 입력 해제 코드와 .res는 유지했습니다.",
+      "paths": "services/artifacts/peace.pe-manifest.js; tools/artifacts/peace.audit-final-artifacts.js; cozy.imgui/cozy.bridge/cozy.Assert-OverlayManifest.ps1; cozy.Overlay.manifest",
+      "verificationAndRemaining": "합성 PE resource·옛/누락 manifest 거절 PASS. 실제 O EXE·다중 모니터·100~200% 배율·RDP·포커스 시험 NOT_RUN입니다."
+    },
+    {
+      "id": "10.1",
+      "sourceLine": 88,
+      "original": "완화 정책 적용 결과 확인: 설정 요청 성공뿐 아니라 실제 적용 상태를 계속 구분합니다.",
+      "status": "기존 요청/관측 구분 유지",
+      "change": "완화 정책의 설정 시도 결과와 실제 GetProcessMitigationPolicy 관측 결과를 분리한 기존 코드를 유지했습니다. 새 probe 실행부에 관련 native 시험을 연결했습니다.",
+      "paths": "cozy.ProcessMitigations.pas; cozy.ServerAuthority.pas; ci/pipeline/Invoke-NativeContracts6To10.ps1",
+      "verificationAndRemaining": "실제 A/B/O 완화 정책 값은 이 환경에서 수집하지 않았습니다. success 요청만으로 enforced를 표시하지 않습니다."
+    },
+    {
+      "id": "10.2",
+      "sourceLine": 89,
+      "original": "정책별 호환성 표: ACG·이미지 로딩 제한·엄격한 핸들 검사 등을 Windows·GPU 환경별로 검증한 뒤 선택적으로 강제합니다.",
+      "status": "실제 시험표 갱신·강제 보류",
+      "change": "정책별 Windows/GPU/driver 호환성 표는 모두 NOT_RUN을 유지했습니다. 새 pin/종료·도구 시험 조건을 추가하고 과거79 suite/미구현 pin 문구를 현재 상태로 정정했습니다.",
+      "paths": "contracts/runtime/compatibility-matrix-v1.json",
+      "verificationAndRemaining": "ACG·이미지 제한·엄격 핸들 검사를 검증 없이 일괄 강제하지 않습니다. 운영 실장치 검증 및 선택적 강제 판단이 남아 있습니다."
+    },
+    {
+      "id": "10.3",
+      "sourceLine": 90,
+      "original": "CFG 산출물 검사: 설정 이름만 확인하지 말고, 컴파일러 지원과 최종 EXE의 실제 계측·메타데이터를 검사합니다. CFG는 컴파일과 실행 환경이 함께 관여합니다. Microsoft Learn",
+      "status": "최종 파일·CI·BAT 검사 강화",
+      "change": "CFG check/dispatch slot 매핑, 순서 있는 raw-backed immutable GFID 코드 범위와 제한된 load-config를 검사합니다. 승인 BAT의 독립 CFG 코드도 동일하게 맞추고 drift 시험을 추가했습니다. CI는 최종 audit 없이 승인 자료를 만들지 않으며 3개 파일의 실제 해시와 O manifest 결과를 다시 확인합니다.",
+      "paths": "services/artifacts/peace.pe-capabilities.js; tools/artifacts/Create_Approval.bat; tools/artifacts/peace.audit-final-artifacts.js; ci/evidence/peace.ci-artifacts.js",
+      "verificationAndRemaining": "합성 CFG/PE 및 실제 임시 파일 시험 PASS. 모든 간접 호출 계측·실제 Windows CFG 강제/최종 EXE 검증은 NOT_RUN이며 구조 결과로 대체하지 않습니다."
+    },
+    {
+      "id": "10.4",
+      "sourceLine": 91,
+      "original": "시험용 빌드 완전 분리: 테스트 define뿐 아니라 외부 MSBuild 인수와 재사용 DCU까지 검사합니다. 제품 빌드와 probe 출력 디렉터리도 분리합니다.",
+      "status": "기존 격리 유지·실행부 추가",
+      "change": "이전 cozy.BuildIsolation.targets/.dproj 개별 수정본을 그대로 보존했습니다. native runner는 기존 WindowsJob/격리 source/probe DCU 경로를 사용하고 각 시험·exit code·로그를 저장하며 권한 SKIP을 성공으로 세지 않습니다.",
+      "paths": "cozy.BuildIsolation.targets; tests/cozy.Build_NativeProbes_Win64.bat; ci/pipeline/Invoke-NativeContracts6To10.ps1; tools/runtime/Test_Native_6-10.bat",
+      "verificationAndRemaining": "XML·소스 계약 PASS. CodeGear MSBuild/dcc64·외부 인수/DCU 혼입 음성 시험은 NOT_RUN입니다."
+    },
+    {
+      "id": "10.5",
+      "sourceLine": 92,
+      "original": "의존성 고정: ImGui 원본 버전, bridge 변경, 컴파일러·SDK·Node 의존성을 기록하고 보안 업데이트 때 같은 회귀 검사를 실행합니다.",
+      "status": "버전 고정 유지·증거 갱신",
+      "change": "ImGui1.93.0 WIP/19298·bridge·npm lock의 기존 버전을 유지하고 변경된 bridge tool hash를 갱신했습니다. 실제 compiler/SDK 값은 Windows CI가 실행될 때 관측하도록 유지합니다.",
+      "paths": "contracts/runtime/dependency-provenance-v1.json; package-lock.json; ci/pipeline/Windows-Stage.ps1",
+      "verificationAndRemaining": "vendor·bridge·npm lock 검증 경로는 포함됩니다. 실제 설치된 compiler/SDK/Node와 source hash는 실행 환경에서 확인해야 하며, 고정 버전만으로 최신 보안 감사 완료를 주장하지 않습니다."
+    }
+  ],
+  "statusModel": {
+    "contract": "capabilities-status-v1.json",
+    "endpoint": "/api/desktop/bootstrap/server-state/capabilities",
+    "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
+    "configuration": "READ_FROM_CURRENT_SERVER_STATE",
+    "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
+  },
+  "historicalSnapshot": true,
+  "currentUpdate": "completion-4-6-v2.json"
+}

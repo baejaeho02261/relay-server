@@ -1,0 +1,80 @@
+{
+  "version": 2,
+  "identityScheme": "APP_CNG_RSA2048_V2",
+  "legacyScheme": "LEGACY_PC_HASH_V1",
+  "serverModes": {
+    "COMPATIBLE": "Initial legacy sessions permitted. First enrollment snapshots exact existing active flow IDs; new flows for enrolled bindings require proof.",
+    "PERSISTENT": "Fresh persistent-key and current role-key proof required for each A/B/O context.",
+    "TPM_ATTESTED": "Trusted TPM 2.0 key certification AND ActivateCredential proof required. Missing roots, unsupported profiles, expiry or failed activation rejects; no software fallback."
+  },
+  "defaultMode": "COMPATIBLE",
+  "minimumSupportedWindows": "Windows 10 x64; Windows 11 x64",
+  "nativeKeyStorage": "Windows user CNG KSP, app/server namespace, RSA2048, export policy 0; no private-key export API in production.",
+  "tpmProfile": {
+    "name": "TPM2_RSA2048_SHA256_CERTIFY_ACTIVATE_V1",
+    "provider": "Microsoft Platform Crypto Provider",
+    "evidence": "TPM2_ReadPublic + TPM2_Certify via provider-owned TBS context and virtual handles",
+    "certification": "fresh 32-byte server nonce; restricted nonmigratable AK; nonmigratable application signing key; exact public key/name binding; TPMS_ATTEST magic/type/clock safety; RSASSA/SHA256 signature",
+    "activation": "MakeCredential RSA2048 OAEP-SHA256 with IDENTITY NUL label; KDFa SHA256, AES128 CFB, HMAC-SHA256; PCP_TPM12_IDACTIVATION property; fresh random 32-byte secret signed by persistent and current A/B/O keys",
+    "supportedKeyAuth": "PCP_PASSWORD_REQUIRED is a BYTE; only empty authorization profile supported; password-required keys reject",
+    "unsupportedProfiles": [
+      "ECC EK/AK",
+      "TPM 1.2",
+      "SHA-1 TPM key names",
+      "PCR/measured boot attestation",
+      "full OS/app runtime hardware attestation"
+    ]
+  },
+  "trustConfiguration": {
+    "endpoint": "POST /api/desktop/bootstrap/server-state/device-identity-policy",
+    "requires": "current administrator authorization, CSRF, recent reauthentication, expectedRevision and requestId",
+    "fields": {
+      "roots": "1..32 explicitly trusted manufacturer CA PEM strings",
+      "intermediates": "0..64 CA PEM strings required for the chosen leaf path",
+      "revokedCertificateSha256": "0..10000 lowercase SHA256 certificate fingerprints",
+      "validUntil": "UTC milliseconds; operator-managed bounded freshness deadline"
+    },
+    "behavior": "No system-root fallback, automatic root download, test root, or trust-on-first-use. Unknown critical extensions, incompatible purposes, revoked/expired paths fail closed. Intermediate/root expiry limits enrollment assurance."
+  },
+  "migrationAndRecovery": {
+    "enrollment": "server-HMAC pseudonymous binding; same key may prove successive A/B/O roles; competing key commits rejected atomically",
+    "replacement": "legacy device replacement retires old key, rotates approved new PC key namespace, closes old contexts; no license carryover",
+    "recovery": "recent administrator action; optional 15-minute one-use grant; old key tombstones remain; revision/epoch fences; exact admin request replay returns stored result",
+    "clockBounds": "wall expiry plus process-local monotonic bound; restart adopts only remaining wall lifetime and rejects before issuance; this does not attest host wall-clock correctness"
+  },
+  "retention": {
+    "challengeSeconds": 120,
+    "completionReceiptSeconds": 30,
+    "proofDays": 30,
+    "rawEkCertificates": "transient worker/pending request only",
+    "rawHardwareSerialOrMac": "not collected",
+    "privateKey": "Windows KSP only",
+    "revokedKeyTombstones": "retained to prevent reenrollment",
+    "adminReceipts": "durable, bounded 4096, capacity fails closed"
+  },
+  "workerBudget": {
+    "lane": "tpm-attestation",
+    "workers": 1,
+    "queuedCapacity": 4,
+    "maxPerContext": 1,
+    "maxAttemptsPerChallenge": 2,
+    "globalAttemptsPerMinute": 64,
+    "sharedAbsoluteTransportDeadlineMs": 10000,
+    "output": "public metadata and encrypted activation blob only; clear secret copies wiped on completion/error"
+  },
+  "validation": {
+    "serverTest": "node Relay Server/tests/devices/peace.test-desktop-device-identity.js",
+    "syntheticFixtureMeaning": "cryptographic/parser/state tests only; not hardware evidence",
+    "nativeProbe": "Railway/cozy.tests/cozy.Build_DeviceIdentityProbe_Win64.bat [manufacturer-trust.json]",
+    "nativeVerifier": "Relay Server/tests/devices/peace.verify-device-identity-native.js",
+    "localDelphiBuildStatus": "NOT_RUN_LINUX_ENVIRONMENT",
+    "localPhysicalTpmStatus": "NOT_RUN_NO_WINDOWS_TPM",
+    "ciRequirement": "real Windows CNG persistent reopen/private-export denial; real TPM needs explicit trusted manufacturer input and hardware"
+  },
+  "primaryReferences": [
+    "https://github.com/microsoft/TSS.MSR/tree/main/PCPTool.v11",
+    "https://github.com/microsoft/TSS.MSR/blob/main/PCPTool.v11/dll/AttestationApi.cpp",
+    "https://github.com/microsoft/TSS.MSR/blob/main/PCPTool.v11/dll/TPM20.cpp",
+    "https://learn.microsoft.com/en-us/windows/win32/seccng/key-storage-property-identifiers"
+  ]
+}

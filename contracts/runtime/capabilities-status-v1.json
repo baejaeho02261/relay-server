@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "endpoint": "GET /api/desktop/bootstrap/server-state/capabilities",
+  "alsoIncludedIn": "GET /api/desktop/bootstrap/server-state",
+  "authorization": "Current authenticated administrator session; access is audited; no policy mutation.",
+  "source": "services/runtime/peace.desktop-capabilities.js",
+  "fields": {
+    "implementation": "IMPLEMENTED / PARTIAL / NOT_IMPLEMENTED describes source capability, not activation or test execution.",
+    "configured": "Current validated server policy and metadata; no secret keys, session tokens, raw hardware identifiers or certificates.",
+    "verification": "NOT_RECORDED unless a manual execution report matches the current REGISTERED manifest, source-manifest SHA-512 and exact A/B/O hashes. Imported values remain OPERATOR_RECORDED, not independently attested CI/build/physical evidence; only listed checks are scoped.",
+    "limitations": "Known source capability or verification limits.",
+    "deviceIdentity": "Current mode, policy revision, trust-expiry state and enrollment counts; counts are not a new attestation decision.",
+    "tpmUnexpiredEnrollments": "Active TPM-labeled enrollment metadata whose attestedUntil is in the future, independent of current trust configuration. Not a current trust or session-validity result.",
+    "publication": "Current effective new-publication requirements and stored runtime policy are both exposed; reading them never migrates stored policy.",
+    "tpmCurrentRootEnrollments": "Unexpired active TPM enrollment whose stored rootSha256 matches a currently configured, non-revoked CA certificate within its validity period while the trust policy is unexpired. Does not revalidate a full EK chain, session proof/epoch/policy revision or Windows execution.",
+    "tpmCurrentRoots": "Count of configured CA certificate fingerprints currently within validity, not root-revoked, and inside trust.validUntil.",
+    "persistentKeyRequired": "Global all-device requirement only; false in COMPATIBLE does not mean enrolled devices may omit proof.",
+    "persistentKeyRequiredForEnrolled": "Policy requires proof from enrolled devices when global requirement or requireForEnrolled is enabled; exact legacy-flow grace remains a separate authorization rule.",
+    "persistentKeyRequirementScope": "ALL_DEVICES / ENROLLED_DEVICES / OPTIONAL describes server policy scope, not current process authorization.",
+    "manualVerification": "Exact REGISTERED manifest/source/A/B/O build groups; per-check history and evidence-file digests; CURRENT/STALE/UNBOUND configuration binding. Missing checks are NOT_RECORDED; a partial V3 report cannot mark all domains complete.",
+    "operationalPerformance": "Persistent aggregate server request timings and authenticated client operation durations. Never a session authorization, whole-process exit attestation, CI approval or Windows execution proof."
+  },
+  "windowsExecuted": false,
+  "ciRequiredForManualPublication": false,
+  "requiredPublicationGuards": [
+    "trusted EXE approval signatures",
+    "one exact REGISTERED A/B/O manifest",
+    "minimum security version",
+    "role/protocol/hash/handoff/measurement compatibility",
+    "administrator authentication and critical-operation reauthentication"
+  ],
+  "testPaths": [
+    "tests/artifacts/peace.test-server-capabilities.js",
+    "tests/web/peace.test-server-state-ui.js",
+    "tests/runtime/peace.test-manual-verification-v3.js",
+    "tests/observability/peace.test-server-state-dashboard-ui.js",
+    "tests/web/peace.test-server-state-service-ui.js",
+    "tests/web/peace.test-server-state-read-routes.js",
+    "tests/observability/peace.test-lifecycle-trace.js",
+    "tests/runtime/peace.test-native-lifecycle-contract.js",
+    "tests/overlay/peace.test-overlay-lease-expiry.js",
+    "tests/observability/peace.test-performance-metrics.js",
+    "tests/observability/peace.test-performance-dashboard-ui.js",
+    "tests/runtime/peace.test-lifecycle-windows.js",
+    "tests/recovery/peace.test-recovery-device-probe.js",
+    "tests/recovery/peace.test-recovery-windows.js"
+  ],
+  "manualVerification": {
+    "endpoint": "POST /api/desktop/bootstrap/server-state/manual-verification",
+    "authorization": "Administrator, current session, CSRF, recent reauthentication; audited mutation.",
+    "usedForPublicationAuthorization": false,
+    "source": "services/runtime/peace.desktop-manual-verification.js",
+    "limit": 64,
+    "reportSchema": 3,
+    "acceptedReportSchemas": [
+      1,
+      2,
+      3
+    ],
+    "contextEndpoint": "GET /api/desktop/bootstrap/server-state/verification-context?manifestId=<lowercase SHA-512>",
+    "retention": "64 immutable reports; reject new records at capacity, no silent eviction.",
+    "tools": [
+      "tools/artifacts/Create_Verification_Template.bat",
+      "tools/artifacts/Create_Verification_Report.bat",
+      "tools/runtime/Run_Lifecycle_Windows_Tests.bat",
+      "tools/recovery/Run_Recovery_Windows.bat"
+    ]
+  },
+  "lifecycle": {
+    "endpoint": "GET /api/desktop/bootstrap/server-state/lifecycle",
+    "source": "services/observability/peace.desktop-lifecycle-trace.js",
+    "authorization": "Current administrator session; read access audited. Query filters are strict and bounded.",
+    "sources": [
+      "SERVER_CONFIRMED",
+      "CLIENT_REPORTED"
+    ],
+    "reportPermitLifetimeMs": 180000,
+    "runtimeAuthorityGranted": false,
+    "retention": {
+      "flows": 512,
+      "eventsPerFlow": 96
+    },
+    "limits": "A/B process exits are child observations. Self exit cannot be reported as observed. Deletion scheduling is not file absence. Missing reports remain unknown."
+  },
+  "operationalPerformance": {
+    "endpoint": "GET /api/desktop/bootstrap/server-state/performance?resolution=hour|day&limit=<bounded integer>",
+    "authorization": "Current administrator session; read access audited. Unknown or duplicate parameters rejected.",
+    "source": "services/observability/peace.desktop-performance-metrics.js",
+    "persistence": "DATA_DIR/desktop-performance/metrics.json; atomic replacement under server OS single-writer lock; aggregate diagnostics only.",
+    "retention": {
+      "hourBuckets": 720,
+      "dayBuckets": 365
+    },
+    "renewalScope": "Complete request frame accepted through server response enqueue or failure; not TLS handshake or network RTT.",
+    "quantiles": "Nearest-rank histogram interval and conservative upper bound; raw samples not retained; missing times not replaced with zero.",
+    "shutdownScope": "Client-reported worker join, parent exit wait and file cleanup operation durations; different populations kept separate.",
+    "gaps": "Explicit unobserved restart, wall-clock changes, collection pauses and persistence failures; no extrapolation over offline periods.",
+    "ciRequired": false
+  }
+}
