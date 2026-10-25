@@ -15,12 +15,17 @@ const OVERLAY_START_REASONS=new Set(['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FA
 function Anchor(){return require("../licensing/peace.desktop-journal-head").Create(FILE+'.head',secret,'DESKTOP_INTEGRITY');}
 function Mark(data,raw){return {seq:data.revision,hash:crypto.createHash('sha256').update(raw).digest('hex')};}
 let poisoned=false;
-let secret,loaded=false,revision=0,records=[],baselines=[],observations=[],pending=new Map(),rates=new Map();
+let secret,loaded=false,revision=0,records=[],baselines=[],observations=[],registrationResetReceipts={},pending=new Map(),rates=new Map();
 let policy={enabled:false,requireExtendedHashes:false,requiredModules:DEFAULT_MODULES.slice(),revision:0,updatedAt:0,actor:''};
 const snapshots=new Map(),finishedSnapshots=new Map();
 const sha=value=>crypto.createHash('sha512').update(value).digest('hex');
 function Fail(code,status=400){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
 function Plain(value){return value&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype;}
+function ValidateResetReceipts(value,limit){
+ if(!Plain(value)||Object.keys(value).length>1024)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
+ for(const [id,r]of Object.entries(value))if(!/^[a-f0-9]{64}$/.test(id)||!Plain(r)||Object.keys(r).sort().join(',')!=='at,baselines,observations,records,revision'||!Number.isSafeInteger(r.at)||r.at<1||!Number.isSafeInteger(r.revision)||r.revision<1||r.revision>limit||['records','baselines','observations'].some(k=>!Number.isSafeInteger(r[k])||r[k]<0))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
+ return value;
+}
 function Keys(value,allowed){if(!Plain(value)||Object.keys(value).some(key=>!allowed.includes(key)))Fail('INTEGRITY_REPORT_INVALID');}
 function Digest(value,size){if(value===''||value===null||value===undefined)return '';if(typeof value!=='string'||!new RegExp('^[a-fA-F0-9]{'+size+'}$').test(value))Fail('INTEGRITY_REPORT_INVALID');return size===16?value.toUpperCase():value.toLowerCase();}
 function ExtendedDigest(value,size){if(value===''||value===null||value===undefined)return '';if(typeof value!=='string'||!new RegExp('^[a-f0-9]{'+size+'}$').test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}
@@ -42,12 +47,12 @@ function Load(){
  if(!fs.existsSync(KEY)){created=true;if(fs.existsSync(FILE))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');const fd=fs.openSync(KEY,'wx',0o600);try{fs.writeFileSync(fd,crypto.randomBytes(32));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
  if(!created&&!fs.existsSync(FILE))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
  secret=ReadFile(KEY);if(secret.length!==32)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');
- if(fs.existsSync(FILE)){const raw=ReadFile(FILE),envelope=require("../protocol/peace.strict-json").Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});const data=envelope?.data;if(!data||![1,2,3].includes(data.version)||!Number.isSafeInteger(data.revision)||!Array.isArray(data.records)||data.records.length>MAX_REPORTS||!require("../protocol/peace.strict-json").SecretEqual(envelope.mac,Mac(data))||data.version>=2&&!require("../protocol/peace.strict-json").SecretEqual(envelope.blake3Mac,Blake3Mac(data))||data.version===3&&!require("../protocol/peace.strict-json").SecretEqual(envelope.kmac256Mac,KmacMac(data)))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');Anchor().Open(Mark(data,raw),!fs.existsSync(FILE+'.head'));revision=data.revision;records=data.records;observations=data.observations||[];if(!Array.isArray(observations)||observations.length>4096)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');baselines=data.baselines||[];if(!Array.isArray(baselines)||baselines.length>256)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');if(data.policy){try{ValidatePolicy(data.policy,true);}catch(_){throw Error('INTEGRITY_REPORT_STORAGE_INVALID');}policy={requireExtendedHashes:false,...data.policy};}for(const row of records)if(row.snapshotFinal&&row.snapshotId)finishedSnapshots.set(SnapshotKey(row.stage,row.stage==='A'?row.flowId:row.sessionId,row.snapshotId),row.at+900000);}
+ if(fs.existsSync(FILE)){const raw=ReadFile(FILE),envelope=require("../protocol/peace.strict-json").Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});const data=envelope?.data;if(!data||![1,2,3].includes(data.version)||!Number.isSafeInteger(data.revision)||!Array.isArray(data.records)||data.records.length>MAX_REPORTS||!require("../protocol/peace.strict-json").SecretEqual(envelope.mac,Mac(data))||data.version>=2&&!require("../protocol/peace.strict-json").SecretEqual(envelope.blake3Mac,Blake3Mac(data))||data.version===3&&!require("../protocol/peace.strict-json").SecretEqual(envelope.kmac256Mac,KmacMac(data)))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');Anchor().Open(Mark(data,raw),!fs.existsSync(FILE+'.head'));revision=data.revision;registrationResetReceipts=ValidateResetReceipts(data.registrationResetReceipts||{},revision);records=data.records;observations=data.observations||[];if(!Array.isArray(observations)||observations.length>4096)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');baselines=data.baselines||[];if(!Array.isArray(baselines)||baselines.length>256)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');if(data.policy){try{ValidatePolicy(data.policy,true);}catch(_){throw Error('INTEGRITY_REPORT_STORAGE_INVALID');}policy={requireExtendedHashes:false,...data.policy};}for(const row of records)if(row.snapshotFinal&&row.snapshotId)finishedSnapshots.set(SnapshotKey(row.stage,row.stage==='A'?row.flowId:row.sessionId,row.snapshotId),row.at+900000);}
  if(created)Save([]);loaded=true;
 }
 function Save(next){
  if(poisoned)throw Error('INTEGRITY_REPORT_RESTART_REQUIRED');
- const data={version:3,revision:revision+1,records:next,baselines,policy,observations};
+ const data={version:3,revision:revision+1,records:next,baselines,policy,observations,...(Object.keys(registrationResetReceipts).length?{registrationResetReceipts}:{})};
  const raw=Buffer.from(JSON.stringify({data,mac:Mac(data),blake3Mac:Blake3Mac(data),kmac256Mac:KmacMac(data)})),nextHead=Mark(data,raw);let previous,published=false;
  try{
   if(fs.existsSync(FILE)){const before=ReadFile(FILE),old=require("../protocol/peace.strict-json").Parse(before,{maxBytes:64*1024*1024,maxNodes:4000000});previous=Mark(old.data,before);Anchor().Prepare(previous,nextHead);}
@@ -296,8 +301,20 @@ function RequireSnapshot(row,stage){
 
 function RetireContext(row){const ids=new Set([row.id,row.sessionId]);for(const [id,value]of pending)if(ids.has(value.sessionId))pending.delete(id);receipts.deleteWhere((meta,response)=>ids.has(meta.context)&&!response.terminate);for(const id of ids)rates.delete(id);for(const id of snapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))snapshots.delete(id);for(const id of finishedSnapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))finishedSnapshots.delete(id);}
 function InvalidateVolatile(){pending.clear();rates.clear();receipts.clear();snapshots.clear();finishedSnapshots.clear();}
+// Clear observations through the existing authenticated forward write. Policy,
+// authority key and rollback witnesses remain in force.
+function ResetRegistrations(operationId){
+ require('../operations/peace.registration-reset-stores').AssertAuthorized(operationId);Load();
+ const prior=registrationResetReceipts[operationId];if(prior)return {...prior,duplicate:true};
+ if(Object.keys(registrationResetReceipts).length>=1024)Fail('REGISTRATION_RESET_RECEIPT_CAPACITY',409);
+ const result={at:Date.now(),revision:revision+1,records:records.length,baselines:baselines.length,observations:observations.length},previous={baselines,observations,registrationResetReceipts};
+ baselines=[];observations=[];registrationResetReceipts={...registrationResetReceipts,[operationId]:result};
+ try{Save([]);}catch(error){baselines=previous.baselines;observations=previous.observations;registrationResetReceipts=previous.registrationResetReceipts;throw error;}
+ InvalidateVolatile();return {...result,duplicate:false};
+}
+function RegistrationStatus(){Load();return {records:records.length,baselines:baselines.length,observations:observations.length,revision,resetReceipts:Object.keys(registrationResetReceipts).length,policy:{...policy,requiredModules:[...policy.requiredModules]}};}
 function ProofTasks(body){
  if(body.action!=='submit')return [];const challenge=pending.get(body.reportId);if(!challenge)return [];
  const row=Auth(body);return [require('./peace.desktop-proof-work').Job(row.publicKey,Canonical(row.reportContextId||row.sessionId,challenge,body.payload),body.signature)];
 }
-module.exports={ProofTasks,InvalidateVolatile,RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY};
+module.exports={ProofTasks,InvalidateVolatile,RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,ResetRegistrations,RegistrationStatus};

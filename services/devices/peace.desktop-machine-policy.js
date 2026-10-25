@@ -8,17 +8,21 @@ const DIR=path.join(config.DATA_DIR,'desktop-machine-policy'),KEY=path.join(DIR,
 const SNAP=FILE+'.checkpoint',SEGMENTS=FILE+'.segments';
 let lastRecord=null;
 function Checkpoint(){return require("../licensing/peace.desktop-journal-head").Create(FILE+'.head',secret,'DESKTOP_MACHINE_POLICY');}
-let loaded=false,secret,head='0'.repeat(64),revision=0,rows=new Map(),receipts=new Map(),poisoned=false;
+let loaded=false,secret,head='0'.repeat(64),revision=0,rows=new Map(),receipts=new Map(),registrationResets=new Map(),poisoned=false;
 function Fail(code,status=403){const error=Error(code);error.desktopError=true;error.status=status;throw error;}
 function Validate(machineId){if(typeof machineId!=='string'||!/^[A-F0-9]{64}$/.test(machineId))Fail('DESKTOP_MACHINE_INVALID',400);return machineId;}
 function Corrupt(){throw Error('DESKTOP_MACHINE_POLICY_CORRUPT');}
 function SyncDir(){if(process.platform==='win32')return;const fd=fs.openSync(DIR,'r');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}}
 function Mac(seq,prev,body){return crypto.createHmac('sha256',secret).update('GAME-MACHINE-POLICY-V1\n'+seq+'\n'+prev+'\n'+JSON.stringify(body)).digest('hex');}
-function StateBody(){return {version:3,kind:'CHECKPOINT',rows:Object.fromEntries(rows),receipts:Object.fromEntries(receipts)};}
+function StateBody(){return {version:3,kind:'CHECKPOINT',rows:Object.fromEntries(rows),receipts:Object.fromEntries(receipts),...(registrationResets.size?{registrationResets:Object.fromEntries(registrationResets)}:{})};}
+function ValidReset(value,limit){return value&&Object.getPrototypeOf(value)===Object.prototype&&Object.keys(value).sort().join(',')==='at,bindings,receipts,sequence'&&Number.isSafeInteger(value.at)&&value.at>0&&Number.isSafeInteger(value.sequence)&&value.sequence>0&&value.sequence<limit&&Number.isSafeInteger(value.bindings)&&value.bindings>=0&&Number.isSafeInteger(value.receipts)&&value.receipts>=0;}
 function Apply(entry){
  const body=entry?.body;
  if(!entry||!Number.isSafeInteger(entry.seq)||entry.seq!==revision+1||entry.prev!==head||!body||!disk.SecretEqual(entry.mac,Mac(entry.seq,entry.prev,body)))Corrupt();
- if(body.version===3&&body.kind==='CHECKPOINT'){
+ if(body.version===4&&body.kind==='REGISTRATION_RESET'){
+  if(Object.keys(body).sort().join(',')!=='at,kind,operationId,previousSequence,removedBindings,removedReceipts,version'||!/^[a-f0-9]{64}$/.test(body.operationId||'')||registrationResets.has(body.operationId)||registrationResets.size>=1024||body.previousSequence!==revision||!Number.isSafeInteger(body.at)||body.at<1||body.removedBindings!==rows.size||body.removedReceipts!==receipts.size)Corrupt();
+  registrationResets.set(body.operationId,{at:body.at,sequence:entry.seq,bindings:rows.size,receipts:receipts.size});rows=new Map();receipts=new Map();
+ }else if(body.version===3&&body.kind==='CHECKPOINT'){
   if(body.maintenance&&(!/^[a-f0-9]{64}$/.test(body.maintenance.operationId||'')||body.maintenance.result?.sequence!==entry.seq||body.maintenance.result?.compacted!==true||!Number.isSafeInteger(body.maintenance.result.archivedBytes)||body.maintenance.result.archivedBytes<1))Corrupt();
   if(!body.rows||Array.isArray(body.rows)||!body.receipts||Array.isArray(body.receipts))Corrupt();
   for(const [id,row]of Object.entries(body.rows))if(!/^[A-F0-9]{64}$/.test(id)||row.machineId!==id||typeof row.blocked!=='boolean'||!Number.isSafeInteger(row.generation)||row.generation<0||!Number.isSafeInteger(row.revision)||row.revision<1||row.revision>=entry.seq||!Number.isSafeInteger(row.changedAt)||row.changedAt<1||typeof row.reason!=='string'||typeof row.changedBy!=='string')Corrupt();
@@ -26,6 +30,10 @@ function Apply(entry){
   // A live stream checkpoint cannot remove a generation or change a receipt.
   for(const [id,r]of rows)if(JSON.stringify(body.rows[id])!==JSON.stringify(r))Corrupt();
   for(const [id,r]of receipts)if(JSON.stringify(body.receipts[id])!==JSON.stringify(r))Corrupt();
+  const resets=body.registrationResets||{};if(!resets||Object.getPrototypeOf(resets)!==Object.prototype||Object.keys(resets).length>1024)Corrupt();
+  for(const [id,r]of Object.entries(resets))if(!/^[a-f0-9]{64}$/.test(id)||!ValidReset(r,entry.seq))Corrupt();
+  for(const [id,r]of registrationResets)if(JSON.stringify(resets[id])!==JSON.stringify(r))Corrupt();
+  registrationResets=new Map(Object.entries(resets));
   rows=new Map(Object.entries(body.rows));receipts=new Map(Object.entries(body.receipts));
  }else{
   if(typeof body.machineId!=='string'||!/^[A-F0-9]{64}$/.test(body.machineId)||typeof body.blocked!=='boolean'||!Number.isSafeInteger(body.generation)||body.generation<0||!Number.isSafeInteger(body.changedAt)||body.changedAt<1||typeof body.reason!=='string'||typeof body.changedBy!=='string'||typeof body.receiptKey!=='string'||!/^[a-f0-9]{64}$/.test(body.fingerprint))Corrupt();
@@ -45,7 +53,7 @@ function Load(){
  if(!fs.existsSync(KEY)){
   if(fs.existsSync(FILE)||fs.existsSync(SNAP))Corrupt();created=true;disk.Atomic(KEY,crypto.randomBytes(32),{createOnly:true});disk.Atomic(FILE,Buffer.alloc(0),{createOnly:true});
  }else if(!fs.existsSync(FILE))Corrupt();
- secret=disk.ReadRegular(KEY,32);if(secret.length!==32)Corrupt();rows=new Map();receipts=new Map();revision=0;head='0'.repeat(64);lastRecord=null;
+ secret=disk.ReadRegular(KEY,32);if(secret.length!==32)Corrupt();rows=new Map();receipts=new Map();registrationResets=new Map();revision=0;head='0'.repeat(64);lastRecord=null;
  const snapshot=ReadSnapshot(),bytes=disk.ReadRegular(FILE,MAX_JOURNAL);let start=0,complete=0;
  if(snapshot){revision=snapshot.record.seq-1;head=snapshot.record.prev;Apply(snapshot.record);
   const end=bytes.indexOf(10);if(end>=0){let first;try{first=strict.Parse(bytes.subarray(0,end),{maxBytes:MAX_SNAPSHOT,maxNodes:4000000});}catch(_){Corrupt();}if(first.seq<=revision){const a=snapshot.archive;if(bytes.length<a.bytes||crypto.createHash('sha512').update(bytes.subarray(0,a.bytes)).digest('hex')!==a.sha512)Corrupt();start=a.bytes;complete=start;}}
@@ -92,6 +100,16 @@ function PruneSegments(days=90,plan=PlanPruneSegments(days)){
 }
 function ReconcileAudit(){Load();let repaired=0;const audit=require("../storage/peace.desktop-operation-audit");for(const r of receipts.values())if(r.operation){const out=audit.CommitExternal(r.operation,{revision:r.revision});if(out.duplicate!==true)repaired++;}return repaired;}
 function StorageStatus(){Load();return {sequence:revision,activeBytes:fs.statSync(FILE).size,maximumActiveBytes:MAX_JOURNAL,checkpointPresent:fs.existsSync(SNAP),historyRetention:'CURRENT_GENERATIONS_AND_ALL_RECEIPTS',archiveDeletion:'EXPLICIT_CHECKPOINTED_SEGMENTS_AFTER_7_DAYS'};}
+// Startup maintenance only. Existing HTTP mutations cannot create this event.
+// Its signed receipt survives compaction so a retry never erases later PCs.
+function ResetRegistrations(operationId){
+ require('../operations/peace.registration-reset-stores').AssertAuthorized(operationId);Load();if(poisoned)throw Error('DESKTOP_MACHINE_POLICY_RESTART_REQUIRED');
+ const prior=registrationResets.get(operationId);if(prior)return {...prior,duplicate:true};
+ if(registrationResets.size>=1024)Fail('REGISTRATION_RESET_RECEIPT_CAPACITY',409);
+ Append({version:4,kind:'REGISTRATION_RESET',operationId,at:Date.now(),previousSequence:revision,removedBindings:rows.size,removedReceipts:receipts.size});
+ licenseSnapshot=undefined;licenseRevision=-1;consumedIndex.clear();return {...registrationResets.get(operationId),duplicate:false};
+}
+function RegistrationStatus(){Load();return {bindings:rows.size,receipts:receipts.size,sequence:revision,resetReceipts:registrationResets.size};}
 // The committed license record is also the automatic PC lock. No second journal
 // write exists between consuming a key and blocking other sessions. An explicit
 // admin unblock advances the generation, leaving every prior key/session spent.
@@ -129,4 +147,4 @@ function Set(machineId,blocked,body,actor){
  try{Append(event);}catch(error){audit.Failed(operation,error);throw error;}
  audit.CommitExternal(operation,{revision});return {machine:Public(machineId),revision,serverTime:Date.now()};
 }
-module.exports={Validate,AssertAllowed,Generation,Public,List,Set,Load,FILE,KEY,SNAP,SEGMENTS,Compact,ReconcileAudit,StorageStatus,PruneSegments,PlanPruneSegments};
+module.exports={Validate,AssertAllowed,Generation,Public,List,Set,Load,FILE,KEY,SNAP,SEGMENTS,Compact,ReconcileAudit,StorageStatus,PruneSegments,PlanPruneSegments,ResetRegistrations,RegistrationStatus};

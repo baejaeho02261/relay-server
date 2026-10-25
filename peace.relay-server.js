@@ -67,6 +67,9 @@ require("./services/storage/peace.desktop-storage-maintenance").Status();
 require("./services/storage/peace.desktop-audit-archive").Cleanup();
 require("./services/storage/peace.desktop-orphan-files").RecoverPending();
 require("./services/devices/peace.desktop-device-registry").Prune();
+// Explicit one-shot registration maintenance finishes durably before any
+// connection listener or background application worker can accept new work.
+require("./services/operations/peace.registration-reset").Run();
 require("./services/network/peace.ha-coordinator").Start();
 console.log('Game Windows License Service');
 console.log('WEB_ADMIN_ENABLED', WEB_ADMIN_VERSION);

@@ -5,6 +5,10 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["storage/peace.test-registration-reset-journal.js"],
+  ["runtime/peace.test-registration-reset-bootstrap.js"],
+  ["storage/peace.test-registration-reset-stores.js"],
+  ["runtime/peace.test-registration-reset-startup.js"],
   ["artifacts/peace.test-cozy-protection-engine.js"],
   ["bootstrap/peace.test-launcher-config.js"],
   ["artifacts/peace.test-packing-evidence.js"],
