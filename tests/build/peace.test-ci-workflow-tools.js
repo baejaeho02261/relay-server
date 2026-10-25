@@ -11,6 +11,7 @@ try{
  const common=fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../ci/pipeline/CiCommon.ps1"),'utf8');
  const envList=common.match(/foreach \(\$name in @\(([^\n]+)\)\)/);assert.ok(envList,'Explicit child-environment allowlist');
  const envNames=[...envList[1].matchAll(/'([^']+)'/g)].map(x=>x[1]);
+ assert.match(common,/\$clean\['NPM_CONFIG_CACHE'\]=\[string\]\(Join-Path \$PrivateTemp 'npm-cache'\)/,'npm cache remains inside the disposable job directory');
  for(const name of ['NODE_GYP_FORCE_PYTHON','npm_config_python','PYTHON'])assert.ok(envNames.includes(name),'Preserve '+name);
  for(const name of ['GAME_RELEASE_APPROVAL_KEY_B64','GAME_CI_ATTESTATION_KEY_B64','NPM_TOKEN','NODE_OPTIONS'])assert.ok(!envNames.includes(name),'Do not inherit '+name);
  fs.mkdirSync(out,{recursive:true});fs.mkdirSync(keys);fs.mkdirSync(path.join(root,'Relay Server/maintenance'),{recursive:true});fs.mkdirSync(path.join(out,'logs'));

@@ -27,6 +27,8 @@ function Get-CiEnvironment([string]$PrivateTemp) {
     $clean['TEMP']=[string]$PrivateTemp; $clean['TMP']=[string]$PrivateTemp
     $clean['DATA_DIR']=[string](Join-Path $PrivateTemp 'never-production-data')
     $clean['HA_ENABLED']='0'; $clean['NPM_CONFIG_USERCONFIG']=[string](Join-Path $PrivateTemp 'empty.npmrc')
+    $clean['NPM_CONFIG_CACHE']=[string](Join-Path $PrivateTemp 'npm-cache')
+    $clean['NPM_CONFIG_UPDATE_NOTIFIER']='false'
     [IO.File]::WriteAllText($clean['NPM_CONFIG_USERCONFIG'],'')
     return ,$clean
 }

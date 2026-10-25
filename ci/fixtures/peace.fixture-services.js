@@ -13,6 +13,21 @@ function Provision(run,out,version){
  // revision so the exact policy digest can later be registered on that server.
  require("../../services/bootstrap/peace.desktop-bootstrap-store").Atomic(db=>{if(db.securityAuthorityPolicy)throw Error('CI_POLICY_ALREADY_EXISTS');db.securityAuthorityPolicy=structuredClone(policy);ops.RememberReleaseKeys(db,policy.trustedReleaseKeys);});
  if(prov.PolicyDigest(authority.Policy())!==prov.PolicyDigest(policy))throw Error('CI_POLICY_MISMATCH');
+ // A final-file execution run imports the operator's exact recorded cohort
+ // into this NEW private fixture only. This neither manufactures packing
+ // records nor attests their production origin. The result is not CI proof.
+ if(fs.existsSync(path.join(out,'final-execution-inputs.json'))){
+  const inputs=require('../pipeline/peace.final-windows-inputs'),input=inputs.Verify(out);
+  if(input.releaseVersion!==version)throw Error('CI_FINAL_VERSION_MISMATCH');
+  const evidence=require('../../services/artifacts/peace.desktop-packing-evidence');
+  const records=JSON.parse(fs.readFileSync(path.join(out,'packing-receipts.json'),'utf8'));
+  inputs.CheckReceipts(records,input.artifacts);
+  const map=Object.fromEntries(records.map(record=>[evidence.ReceiptId(record),record]));
+  require('../../services/bootstrap/peace.desktop-bootstrap-store').Atomic(next=>{
+   if(Object.keys(next.artifacts).length||Object.keys(next.flows).length||Object.keys(next.packingEvidence||{}).length)throw Error('CI_FIXTURE_MUST_BE_EMPTY');
+   next.packingEvidence=map;evidence.ValidateStore(next);
+  });
+ }
  const manifest=JSON.parse(fs.readFileSync(path.join(out,'manifest.json'),'utf8'));ops.PlanReleaseManifest({expectedRevision:ops.Revision(),...manifest},'ISOLATED_WINDOWS_CI');
  ops.SetReleaseGovernance({expectedRevision:ops.Revision(),requireManifest:true},'ISOLATED_WINDOWS_CI');
  const selected={};for(const role of ['A','B','O'])selected[role]=ops.Stage(role,version,fs.readFileSync(path.join(out,role+'.exe')),JSON.parse(fs.readFileSync(path.join(out,role+'.approval.json'),'utf8')),'ISOLATED_WINDOWS_CI',manifest.manifestId);

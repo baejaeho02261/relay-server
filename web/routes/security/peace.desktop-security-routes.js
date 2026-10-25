@@ -23,6 +23,9 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   if(method==='GET'&&pathname===prefix+'/release-safety'){Json(res,200,{ok:true,...require("../../../services/artifacts/peace.desktop-release-safety").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/publication-status'){Json(res,200,{ok:true,publication:operations.ProductionStatus()});return true;}
   if(method==='GET'&&pathname===prefix+'/packed-release-jobs'){Json(res,200,{ok:true,...require('../../../services/artifacts/peace.packed-release-manifest').List()});return true;}
+  const receiptExport=/^\/packed-release-jobs\/([^/]+)\/receipts$/.exec(pathname.slice(prefix.length));
+  if(receiptExport&&method!=='GET'){ApiError(res,405,'METHOD_NOT_ALLOWED');return true;}
+  if(method==='GET'&&receiptExport){Json(res,200,{ok:true,jobId:receiptExport[1],receipts:require('../../../services/artifacts/peace.packed-release-manifest').ExportReceipts(receiptExport[1]),windowsVerified:false});return true;}
   if(method==='GET'&&pathname===prefix+'/activation'){Json(res,200,{ok:true,status:require("../../../services/security/peace.desktop-security-activation").Status()});return true;}
   if(method==='GET'&&pathname===prefix){Json(res,200,{ok:true,...operations.List()});return true;}
   if(method==='GET'&&pathname===prefix+'/approvals'){

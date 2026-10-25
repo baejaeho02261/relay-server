@@ -2,7 +2,7 @@
 // Actual HTTP dispatcher, administrator sessions and CSRF. No public service,
 // Windows executable or operator credential is used by this test.
 const assert=require('node:assert/strict');
-const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http'),crypto=require('node:crypto');
 const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-packed-release-http-'));
 Object.assign(process.env,{DATA_DIR:directory,STORAGE_ENGINE:'json',HA_ENABLED:'0',
  ADMIN_SECRET:'fixture-packed-release-admin',VIEWER_SECRET:'fixture-packed-release-viewer',
@@ -43,6 +43,8 @@ async function login(role){
   const viewer=await login('viewer');
   assert.equal((await call(prefix+'/packed-release-jobs',undefined,viewer)).status,403);
   assert.equal((await call(prefix+'/plan-packed-release',{},viewer)).status,403);
+  const receiptPath=prefix+'/packed-release-jobs/'+'a'.repeat(32)+'/receipts';
+  assert.equal((await call(receiptPath)).status,401);assert.equal((await call(receiptPath,undefined,viewer)).status,403);
   const admin=await login('admin'),listing=await call(prefix+'/packed-release-jobs',undefined,admin);
   assert.equal(listing.status,200);assert.equal(listing.data.ok,true);assert.deepEqual(listing.data.jobs,[]);
   const request={jobId:'a'.repeat(32),expectedRevision:listing.data.expectedRevision,expectedPolicyRevision:listing.data.expectedPolicyRevision};
@@ -52,6 +54,17 @@ async function login(role){
   const missing=await call(prefix+'/plan-packed-release',request,admin);
   assert.equal(missing.status,404);assert.equal(missing.data.error,'PACKED_RELEASE_JOB_NOT_FOUND');
   assert.deepEqual((await call(prefix+'/packed-release-jobs',undefined,admin)).data.jobs,[]);
+  const exportMissing=await call(receiptPath,undefined,admin,false);assert.equal(exportMissing.status,404);assert.equal(exportMissing.data.error,'PACKED_RELEASE_JOB_NOT_FOUND');
+  const exportInvalid=await call(prefix+'/packed-release-jobs/bad/receipts',undefined,admin,false);assert.equal(exportInvalid.status,400);assert.equal(exportInvalid.data.error,'PACKED_RELEASE_REQUEST_INVALID');
+  assert.equal((await call(receiptPath,{},admin)).status,405);
+  const store=require('../../services/bootstrap/peace.desktop-bootstrap-store'),evidence=require('../../services/artifacts/peace.desktop-packing-evidence');
+  const hash=value=>crypto.createHash('sha512').update(value).digest('hex'),at=Date.now();
+  const records=['A','B','O'].map((role,index)=>({version:1,purpose:evidence.DOMAIN,jobId:'a'.repeat(32),component:role,sourceArtifactId:String(index+1).repeat(24),inputSha512:hash('input '+role),outputSha512:hash('output '+role),size:4096,toolSha512:hash('tool'),profileSha512:hash('profile'),createdAt:at,actorHash:hash('actor')}));
+  store.Atomic(db=>{db.packingEvidence={};for(const record of records){db.packingEvidence[evidence.ReceiptId(record)]=record;const other={...record,jobId:'b'.repeat(32)};db.packingEvidence[evidence.ReceiptId(other)]=other;}evidence.ValidateStore(db);});
+  const before=JSON.stringify(store.Load()),exported=await call(receiptPath,undefined,admin,false);
+  assert.equal(exported.status,200);assert.equal(exported.data.windowsVerified,false);assert.equal(exported.data.jobId,'a'.repeat(32));assert.deepEqual(exported.data.receipts,records);
+  assert.equal(JSON.stringify(store.Load()),before);exported.data.receipts[0].outputSha512=hash('changed response');assert.deepEqual((await call(receiptPath,undefined,admin)).data.receipts,records);
+  console.log('PASS packing receipt export HTTP: anonymous/viewer denied, admin-only read, exact selected cohort, immutable response, malformed 400, missing 404 and POST 405');
   console.log('PASS packed release HTTP: anonymous/viewer denial, admin read, CSRF, exact request schema, durable-job lookup and no claimed-hash admission');
  }catch(error){exitCode=1;console.error(error.stack||error.message);}
  finally{

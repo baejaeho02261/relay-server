@@ -82,3 +82,19 @@ test('list is bounded to the latest 100 authenticated jobs without loading trans
  for(let index=0;index<101;index++)for(const record of original){const next={...record,jobId:index.toString(16).padStart(32,'0'),createdAt:at+index};f.db.packingEvidence[evidence.ReceiptId(next)]=next;}
  const listed=f.service.List();assert.equal(listed.jobs.length,100);assert.equal(listed.totalJobs,101);assert.equal(listed.truncated,true);assert.equal(listed.jobs[0].createdAt,at+100);assert.equal(listed.jobs[99].createdAt,at+1);
 });
+
+test('receipt export returns only the requested validated A/B/O cohort as independent data without writes',()=>{
+ const f=Fixture(),records=Object.values(f.db.packingEvidence),otherJob='b'.repeat(32);
+ for(const record of records){const next={...record,jobId:otherJob};f.db.packingEvidence[evidence.ReceiptId(next)]=next;}
+ const before=JSON.stringify({db:f.db,state:f.state}),exported=f.service.ExportReceipts(f.jobId);
+ assert.equal(exported.length,3);assert.deepEqual(exported.map(row=>row.component),ROLES);
+ assert(exported.every(row=>row.jobId===f.jobId));assert.equal(JSON.stringify({db:f.db,state:f.state}),before);assert.equal(f.plans(),0);
+ exported[0].outputSha512=hash('client changed response');assert.deepEqual(f.service.ExportReceipts(f.jobId),records);
+ delete f.db.artifacts['1'.repeat(24)];assert.equal(f.service.ExportReceipts(f.jobId).length,3);
+});
+test('receipt export rejects malformed IDs, missing jobs and corrupt durable records',()=>{
+ const f=Fixture();for(const value of [undefined,null,{},'bad','A'.repeat(32),'a'.repeat(33)])assert.throws(()=>f.service.ExportReceipts(value),error=>error.status===400&&error.message==='PACKED_RELEASE_REQUEST_INVALID');
+ assert.throws(()=>f.service.ExportReceipts('b'.repeat(32)),error=>error.status===404&&error.message==='PACKED_RELEASE_JOB_NOT_FOUND');
+ const row=Object.values(f.db.packingEvidence)[0];row.privateKey='must never leave this invalid record';
+ Reject(()=>f.service.ExportReceipts(f.jobId),'PACKING_EVIDENCE_INVALID');assert.equal(f.plans(),0);
+});

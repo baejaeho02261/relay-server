@@ -20,13 +20,13 @@ try {
  catch {$cause=$_.Exception;while($cause.InnerException){$cause=$cause.InnerException};$rejected=$cause.Message -eq 'CI_ENV_INVALID'}
  Require ($rejected -and -not(Test-Path -LiteralPath $invalidLog)) 'CI_INVALID_ENV_NOT_REJECTED';$count++
  $script=Join-Path $dir 'arguments.ps1';$json=Join-Path $dir 'arguments.json'
- [IO.File]::WriteAllText($script,'param([string]$Out,[string]$A,[string]$B,[string]$C); @{a=$A;b=$B;c=$C;sentinel=$env:GAME_CI_TEST_SENTINEL;secret=$env:GAME_CI_ATTESTATION_KEY_B64;temp=$env:TEMP;tmp=$env:TMP;data=$env:DATA_DIR;npm=$env:NPM_CONFIG_USERCONFIG;pathValue=$env:GAME_CI_TEST_PATH;wrapped=$env:GAME_CI_TEST_WRAPPED}|ConvertTo-Json|Set-Content -LiteralPath $Out;exit 0')
+ [IO.File]::WriteAllText($script,'param([string]$Out,[string]$A,[string]$B,[string]$C); @{a=$A;b=$B;c=$C;sentinel=$env:GAME_CI_TEST_SENTINEL;secret=$env:GAME_CI_ATTESTATION_KEY_B64;temp=$env:TEMP;tmp=$env:TMP;data=$env:DATA_DIR;npm=$env:NPM_CONFIG_USERCONFIG;npmCache=$env:NPM_CONFIG_CACHE;pathValue=$env:GAME_CI_TEST_PATH;wrapped=$env:GAME_CI_TEST_WRAPPED}|ConvertTo-Json|Set-Content -LiteralPath $Out;exit 0')
  $values=@('space value','quote"slash\','trailing slash\')
  $job=[GameCi.WindowsJob]::Start($exe,@('-NoProfile','-File',$script,$json)+$values,$dir,$environment,(Join-Path $dir 'arguments.log'));$jobs.Add($job);Wait-JobExit $job
  Require ($job.ExitCode -eq 0) 'CI_SELFTEST_ZERO_EXIT';$observed=Read-CiJson $json
  Require ($observed.a -eq $values[0] -and $observed.b -eq $values[1] -and $observed.c -eq $values[2]) 'CI_ARGUMENT_QUOTING_FAILED';$count++
  Require ($observed.sentinel -eq 'expected' -and -not $observed.secret) 'CI_ENV_ISOLATION_FAILED';$count++
- Require ($observed.temp -eq $dir -and $observed.tmp -eq $dir -and $observed.data -eq $environment['DATA_DIR'] -and $observed.npm -eq $environment['NPM_CONFIG_USERCONFIG'] -and $observed.pathValue -eq $environment['GAME_CI_TEST_PATH'] -and $observed.wrapped -eq $wrappedText) 'CI_ENV_ROUNDTRIP_FAILED';$count++
+ Require ($observed.temp -eq $dir -and $observed.tmp -eq $dir -and $observed.data -eq $environment['DATA_DIR'] -and $observed.npm -eq $environment['NPM_CONFIG_USERCONFIG'] -and $observed.npmCache -eq (Join-Path $dir 'npm-cache') -and $observed.pathValue -eq $environment['GAME_CI_TEST_PATH'] -and $observed.wrapped -eq $wrappedText) 'CI_ENV_ROUNDTRIP_FAILED';$count++
  $job=[GameCi.WindowsJob]::Start($exe,@('-NoProfile','-Command','exit 7'),$dir,$environment,(Join-Path $dir 'nonzero.log'));$jobs.Add($job);Wait-JobExit $job
  Require ($job.ExitCode -eq 7) 'CI_SELFTEST_NONZERO_EXIT';$count++
  # A RAD Studio shell can expose several MSBuild executables in PATH. Resolve
@@ -35,7 +35,7 @@ try {
  $stageAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot 'Windows-Stage.ps1'),[ref]$stageTokens,[ref]$stageErrors)
  Require ($stageErrors.Count -eq 0) 'CI_COMMAND_RESOLUTION_SOURCE_PARSE_FAILED'
  $msbuildAssignments=@($stageAst.FindAll({param($node) $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left -is [Management.Automation.Language.VariableExpressionAst] -and $node.Left.Extent.Text -eq '$msbuild'},$false))
- Require ($msbuildAssignments.Count -eq 1) 'CI_COMMAND_RESOLUTION_SOURCE_ASSIGNMENT_FAILED'
+ Require ($msbuildAssignments.Count -ge 1) 'CI_COMMAND_RESOLUTION_SOURCE_ASSIGNMENT_FAILED'
  $commandName='msbuild.exe'
  $firstCommandDirectory=Join-Path $dir 'command first';$secondCommandDirectory=Join-Path $dir 'command second'
  [IO.Directory]::CreateDirectory($firstCommandDirectory)|Out-Null;[IO.Directory]::CreateDirectory($secondCommandDirectory)|Out-Null
@@ -51,18 +51,22 @@ $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 $candidates=@(Get-Command msbuild.exe -CommandType Application -All -ErrorAction Stop)
 '@
  $commandSuffix=@'
-@{count=$candidates.Count;selected=$selected;selectedType=$selected.GetType().FullName}|ConvertTo-Json|Set-Content -LiteralPath $Out
-& $selected /d /c 'exit 7'
-exit $LASTEXITCODE
+@{count=$candidates.Count;selected=@($selected);selectedTypes=@($selected|ForEach-Object{$_.GetType().FullName})}|ConvertTo-Json|Set-Content -LiteralPath $Out
+foreach($command in $selected){& $command /d /c 'exit 7';if($LASTEXITCODE -ne 7){exit 1}}
+exit 7
 '@
  # Evaluate the production assignment itself, so removing its scalar selection
  # causes this test to fail instead of leaving a separate test implementation.
- $commandSource=$commandPrefix+[Environment]::NewLine+'$selected='+$msbuildAssignments[0].Right.Extent.Text+[Environment]::NewLine+$commandSuffix
+ # Build and dedicated fault-project stages both resolve MSBuild. Exercise
+ # every production assignment so adding a stage cannot break this self-test
+ # or leave its command selection untested.
+ $expressions=@($msbuildAssignments|ForEach-Object{'('+ $_.Right.Extent.Text +')'})
+ $commandSource=$commandPrefix+[Environment]::NewLine+'$selected=@('+($expressions -join ',')+')'+[Environment]::NewLine+$commandSuffix
  [IO.File]::WriteAllText($commandScript,$commandSource)
  $job=[GameCi.WindowsJob]::Start($exe,@('-NoProfile','-File',$commandScript,$commandJson),$dir,$commandEnvironment,(Join-Path $dir 'command-resolution.log'));$jobs.Add($job);Wait-JobExit $job
  Require ($job.ExitCode -eq 7) 'CI_COMMAND_RESOLUTION_EXECUTION_FAILED'
  $commandObserved=Read-CiJson $commandJson
- Require ($commandObserved.count -eq 2 -and $commandObserved.selectedType -eq 'System.String' -and $commandObserved.selected -eq $firstCommand) 'CI_COMMAND_RESOLUTION_PRECEDENCE_FAILED';$count++
+ Require ($commandObserved.count -eq 2 -and @($commandObserved.selected).Count -eq $msbuildAssignments.Count -and @($commandObserved.selected|Where-Object{$_ -ne $firstCommand}).Count -eq 0 -and @($commandObserved.selectedTypes|Where-Object{$_ -ne 'System.String'}).Count -eq 0) 'CI_COMMAND_RESOLUTION_PRECEDENCE_FAILED';$count++
  # Verify that a real stage failure keeps its original safe identifier instead
  # of replacing it with a generic wrapper error. This creates no product build.
  $stageWork=Join-Path $dir 'stage-failure';[IO.Directory]::CreateDirectory((Join-Path $stageWork 'Railway'))|Out-Null
@@ -73,7 +77,7 @@ exit $LASTEXITCODE
  $detailLines=@(Get-Content -LiteralPath $stageLog|Where-Object{$_.StartsWith('CI_STAGE_DETAIL ')})
  Require ($detailLines.Count -eq 1) 'CI_SELFTEST_STAGE_DETAIL_MISSING'
  $stageDetail=$detailLines[0].Substring('CI_STAGE_DETAIL '.Length)|ConvertFrom-Json -AsHashtable
- Require ($stageDetail.stage -eq 'build' -and $stageDetail.error -eq 'CI_BDS_INVALID') 'CI_SELFTEST_STAGE_DETAIL_INVALID';$count++
+ Require ($stageDetail.stage -eq 'build' -and $stageDetail.error -eq 'CI_REVIEWED_BUILD_INPUT_LOCK_REQUIRED') 'CI_SELFTEST_STAGE_DETAIL_INVALID';$count++
  # A real child descendant is created inside the owned job, then job disposal
  # must remove both. No process selected outside the job is ever terminated.
  $script=Join-Path $dir 'descendant.ps1';$pidFile=Join-Path $dir 'child.json'

@@ -8,7 +8,8 @@ function Approval(role,{version='2.0.1',hash=sha(Buffer.alloc(1024,role.charCode
  const text=privateKey?'-----BEGIN PRIVATE KEY-----':JSON.stringify({component,version,sha512:hash,approval:{keyId:'c'.repeat(64),signature:'A'.repeat(86)+'=='}});
  return {name:role+'.approval.json',size:Buffer.byteLength(text),text:async()=>text};
 }
-function Job(){return {jobId,createdAt:123,sourceManifestId:oldId,sourceReleaseName:'original',available:true,outputs:Object.fromEntries(roles.map(role=>[role,{sha512:sha(Buffer.alloc(1024,role.charCodeAt(0))),size:1024,sourceArtifactId:role.repeat(24),sourceVersion:'1.0.0'}]))};}
+function Job(){return {jobId,createdAt:123,sourceManifestId:oldId,sourceReleaseName:'original',available:true,outputs:Object.fromEntries(roles.map((role,index)=>[role,{sha512:sha(Buffer.alloc(1024,role.charCodeAt(0))),size:1024,sourceArtifactId:String(index+1).repeat(24),sourceVersion:'1.0.0'}]))};}
+function Receipts(job){return roles.map(role=>({version:1,purpose:'GAME-PACKING-RECEIPT-V1',jobId:job.jobId,component:role,sourceArtifactId:job.outputs[role].sourceArtifactId,inputSha512:sha('input '+role),outputSha512:job.outputs[role].sha512,size:job.outputs[role].size,toolSha512:sha('tool'),profileSha512:sha('profile'),createdAt:123,actorHash:sha('actor')}));}
 function Fixture(options={}){
  const job=Job(),elements={},calls=[],downloads=[];let close,done,rootNode,modal,invalidations=0,openedPair=null,uploadCount=0;
  const plan={ok:true,jobId,sourceManifestId:oldId,manifestId:options.oldPlan?oldId:newId,manifest:{artifacts:Object.fromEntries(roles.map(role=>[role,job.outputs[role].sha512]))},registration:'PLANNED'};
@@ -24,6 +25,11 @@ function Fixture(options={}){
   api:async(url,opt)=>{
    const record={url,method:opt?.method||'GET',body:opt?.body?structuredClone(opt.body):undefined,rawBody:opt?.rawBody,headers:opt?.headers};calls.push(record);
    if(url===base+'/packed-release-jobs'){getCount++;return {ok:true,jobs:options.noJobs?[]:[structuredClone(job)],expectedRevision:getCount===1?3:5,expectedPolicyRevision:7};}
+   if(url===base+'/packed-release-jobs/'+jobId+'/receipts'){
+    if(options.receiptHook)await options.receiptHook(ctx);
+    const receipts=Receipts(job);if(options.mutateReceipts)options.mutateReceipts(receipts);
+    return {ok:true,jobId,receipts,windowsVerified:false};
+   }
    if(url===base+'/plan-packed-release')return structuredClone(plan);
    if(url.startsWith('/api/desktop/bootstrap/artifacts?')){
     uploadCount++;const query=new URL(url,'https://example.invalid').searchParams,role=query.get('component');
@@ -100,4 +106,26 @@ test('saved manifest is the final new ID and hashes, never the source manifest',
 });
 test('missing durable jobs gives recovery guidance and cannot start registration',async()=>{
  const f=Fixture({noJobs:true});await f.start();try{assert(f.status().includes('등록 데이터 초기화는 보호 기록도 삭제'));assert.equal(f.elements['desktop-packed-submit'].disabled,true);assert.equal(f.posts().length,0);}finally{await f.close();}
+});
+
+test('Windows receipt download saves exactly the selected raw three-record array with no writes or completion claims',async()=>{
+ const f=Fixture();await f.start();try{
+  assert(f.modal.html.includes('Windows 시험용 기록 받기'));assert.equal(f.elements['desktop-packed-receipts'].disabled,false);
+  await f.elements['desktop-packed-receipts'].onclick();assert.equal(f.downloads.length,1);assert.equal(f.posts().length,0);
+  assert.equal(f.downloads[0].name,'packing-receipts-'+jobId+'.json');assert.deepEqual(f.downloads[0].value,Receipts(f.job));
+  assert.equal(f.calls.at(-1).url,base+'/packed-release-jobs/'+jobId+'/receipts');assert(f.status().includes('Windows 시험 통과나 운영 승인을 의미하지 않습니다'));
+ }finally{await f.close();}
+});
+test('receipt download rejects incomplete, mismatched and unexpected fields before saving',async()=>{
+ for(const mutateReceipts of [rows=>rows.pop(),rows=>{rows[0].outputSha512='f'.repeat(128);},rows=>{rows[0].privateKey='unexpected';},rows=>{rows[2].component='B';}]){
+  const f=Fixture({mutateReceipts});await f.start();try{await f.elements['desktop-packed-receipts'].onclick();assert.equal(f.downloads.length,0);assert.equal(f.posts().length,0);assert.equal(f.state(),'error');}finally{await f.close();}
+ }
+});
+test('receipt response cannot download after an administrator session change or dialog close',async()=>{
+ for(const action of ['session','close']){
+  let resume;const f=Fixture({receiptHook:()=>new Promise(resolve=>{resume=resolve;})});await f.start();
+  const pending=f.elements['desktop-packed-receipts'].onclick();await turn();
+  if(action==='session')f.ctx.session={csrf:'different-owner'};else await f.close();
+  resume();await pending;assert.equal(f.downloads.length,0);assert.equal(f.posts().length,0);if(action==='session')await f.close();
+ }
 });

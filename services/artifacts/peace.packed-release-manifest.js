@@ -72,6 +72,13 @@ function List(){
   });
   return {jobs,totalJobs:groups.size,truncated:groups.size>jobs.length,expectedRevision:context.state.revision,expectedPolicyRevision:context.policy.revision};
 }
+function ExportReceipts(jobId){
+  if(typeof jobId!=='string'||!JOB.test(jobId))Fail('PACKED_RELEASE_REQUEST_INVALID',400);
+  const db=Dependencies().store.Load();evidence.ValidateStore(db);
+  // Only the exact validated three-record cohort leaves this read path. Never
+  // export authority state, keys, capabilities or client-supplied replacement data.
+  return structuredClone(Records({db},jobId));
+}
 function Plan(body,actor){
   if(!Plain(body)||Object.keys(body).sort().join(',')!=='expectedPolicyRevision,expectedRevision,jobId'||typeof body.jobId!=='string'||!JOB.test(body.jobId)||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0||!Number.isSafeInteger(body.expectedPolicyRevision)||body.expectedPolicyRevision<0)Fail('PACKED_RELEASE_REQUEST_INVALID',400);
   const context=Context();
@@ -82,4 +89,4 @@ function Plan(body,actor){
     registration:state.releaseGovernance.manifests[result.manifestId].registration||'REGISTERED',
     windowsVerified:false,activeUnchanged:true};
 }
-module.exports={List,Plan};
+module.exports={List,Plan,ExportReceipts};

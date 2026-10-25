@@ -10,7 +10,7 @@ param(
 # All outputs are observations of actual subprocesses, never operator PASS input.
 . (Join-Path $PSScriptRoot 'CiCommon.ps1')
 $private=$null;$output=$null;$work=$null;$exit=1;$active=$null
-$results=@{version=1;runId=$RunId;releaseVersion=$Version;securityVersion=$SecurityVersion;productionKeysPresent=$false;windowsExecuted=$true;stages=[ordered]@{};nativeBuild='NOT_RUN';apiProbe='NOT_RUN';integration='NOT_RUN';signed=$false}
+$results=@{version=1;runId=$RunId;releaseVersion=$Version;securityVersion=$SecurityVersion;productionKeysPresent=$false;windowsExecuted=$false;stages=[ordered]@{};nativeBuild='NOT_RUN';apiProbe='NOT_RUN';integration='NOT_RUN';signed=$false}
 foreach($name in @('build-inputs-before-dependencies','self-test','snapshot','dependencies','build-inputs','build','build-inputs-after','normalize','approve','native-probes','native-hash-compare','overlay-contracts','compatibility-probes','device-identity','sdk-probe','abi-compare','integration','security-authority','profile-integration-observe','profile-integration-prohibit','report')){$results.stages[$name]=@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
 function Save-Results {if($output){Write-CiJson (Join-Path $output 'runner-results.json') $results}}
 function Invoke-CiCommand([string]$Name,[string]$Exe,[string[]]$Arguments,[string]$Directory,[int]$Seconds) {
@@ -94,6 +94,9 @@ try {
  $null=Get-Command openssl.exe -CommandType Application -ErrorAction Stop
  $null=Get-Command cl.exe -CommandType Application -ErrorAction Stop
  Invoke-CiCommand 'self-test' (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $source 'Relay Server\ci\pipeline\Test-WindowsRunner.ps1'),'-PrivateRoot',$private) $source 120
+ # The flag records completed real Windows process probes, not the intent to
+ # run on Windows. A rejected preflight must never claim Windows execution.
+ $results.windowsExecuted=$true;Save-Results
  if($PolicyFile){$p=Get-Item -LiteralPath $PolicyFile;if($p.PSIsContainer -or $p.Length -gt 65536 -or ($p.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'CI_POLICY_FILE_INVALID'};[IO.File]::Copy($p.FullName,(Join-Path $private 'reviewed-policy.json'),$false)}
  Invoke-CiCommand 'snapshot' $node @((Join-Path $source 'Relay Server\ci\evidence\peace.ci-artifacts.js'),'snapshot',$source,$work) $source 120
  Copy-Item -LiteralPath (Join-Path $work 'Relay Server\maintenance\source-manifest.json') -Destination (Join-Path $output 'source-manifest.json')
