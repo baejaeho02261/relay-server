@@ -4,6 +4,7 @@
 const crypto = require('node:crypto');
 const store = require("../bootstrap/peace.desktop-bootstrap-store");
 const provenance = require("../artifacts/peace.desktop-release-provenance");
+const packingEvidence = require("../artifacts/peace.desktop-packing-evidence");
 const HASH = /^[a-f0-9]{128}$/;
 const KEY_ID = /^[a-f0-9]{64}$/;
 const BUILD = /^[ABO]:[a-f0-9]{128}$/;
@@ -18,7 +19,7 @@ function Fields(value, allowed, required = allowed) {
 }
 function Text(value, max = 160) { if (typeof value !== 'string' || !value.trim() || value.length > max || /[\x00-\x1f\x7f]/.test(value)) Fail('SECURITY_OPERATIONS_INVALID'); return value.trim(); }
 function Actor(value) { return String(value || 'ADMIN').replace(/[\x00-\x1f\x7f]/g, '').slice(0,160); }
-function Defaults() { return { version:1, revision:0, requireBuildContract:false, requireTestEvidence:false, contracts:{}, signerStates:{}, pairEvidence:{}, rollout:{enabled:false,artifactKeys:[],patch:{}}, activations:[], releaseGovernance:provenance.Defaults() }; }
+function Defaults() { return { version:1, revision:0, requireBuildContract:false, requireTestEvidence:false, requirePackingEvidence:false, contracts:{}, signerStates:{}, pairEvidence:{}, rollout:{enabled:false,artifactKeys:[],patch:{}}, activations:[], releaseGovernance:provenance.Defaults() }; }
 function BuildKey(artifact) { return artifact.component + ':' + artifact.sha512; }
 function PairKey(a, b, o) { return a.sha512 + ':' + b.sha512 + (o ? ':' + o.sha512 : ''); }
 function ValidateContract(c) {
@@ -41,9 +42,10 @@ function ValidateEvidence(e) {
   Text(e.note,500); Text(e.recordedBy); return e;
 }
 function ValidateState(s) {
-  Fields(s, Object.keys(Defaults()), Object.keys(Defaults()).filter(k=>k!=='releaseGovernance'));
+  Fields(s, Object.keys(Defaults()), Object.keys(Defaults()).filter(k=>!['releaseGovernance','requirePackingEvidence'].includes(k)));
   if(s.releaseGovernance!==undefined)provenance.ValidateState(s.releaseGovernance);
   if (s.version !== 1 || !Number.isSafeInteger(s.revision) || s.revision < 0 || typeof s.requireBuildContract !== 'boolean' || typeof s.requireTestEvidence !== 'boolean') Fail('SECURITY_OPERATIONS_STORAGE_INVALID');
+  if(s.requirePackingEvidence!==undefined&&typeof s.requirePackingEvidence!=='boolean')Fail('SECURITY_OPERATIONS_STORAGE_INVALID');
   for (const [key, limit] of [['contracts',512],['signerStates',64],['pairEvidence',256]]) if (!plain(s[key]) || Object.keys(s[key]).length > limit) Fail('SECURITY_OPERATIONS_STORAGE_INVALID');
   for (const [key,c] of Object.entries(s.contracts)) { if (!BUILD.test(key)) Fail('SECURITY_OPERATIONS_STORAGE_INVALID'); ValidateContract(c); }
   for (const [key,r] of Object.entries(s.signerStates)) { Fields(r,['state','changedAt','changedBy']); if (!KEY_ID.test(key) || !['ACTIVE','RETIRING','REVOKED'].includes(r.state) || !Number.isSafeInteger(r.changedAt) || r.changedAt<1) Fail('SECURITY_OPERATIONS_STORAGE_INVALID'); Text(r.changedBy); }
@@ -64,7 +66,7 @@ function ValidateState(s) {
   }
   return s;
 }
-function State() { const s=structuredClone(ValidateState(store.Load().securityOperations || Defaults()));if(s.releaseGovernance===undefined)s.releaseGovernance=provenance.Defaults();if(s.releaseGovernance.releaseKeyIds===undefined)s.releaseGovernance.releaseKeyIds=[];if(s.releaseGovernance.recoveryPlans===undefined)s.releaseGovernance.recoveryPlans={};return s; }
+function State() { const s=structuredClone(ValidateState(store.Load().securityOperations || Defaults()));if(s.requirePackingEvidence===undefined)s.requirePackingEvidence=false;if(s.releaseGovernance===undefined)s.releaseGovernance=provenance.Defaults();if(s.releaseGovernance.releaseKeyIds===undefined)s.releaseGovernance.releaseKeyIds=[];if(s.releaseGovernance.recoveryPlans===undefined)s.releaseGovernance.recoveryPlans={};return s; }
 function Revision() { return State().revision; }
 function CheckRevision(body, policyRequired = false) {
   if (!Number.isSafeInteger(body.expectedRevision) || body.expectedRevision !== Revision()) Fail('SECURITY_OPERATIONS_CONFLICT',409);
@@ -111,6 +113,7 @@ function ValidateActive(next) {
   for (const component of ['A','B','O']) { const row=db.artifacts[db.active[component]]; if (row) { const reason=ArtifactReason(row,next); if(reason) Fail(reason,409); } }
   if (next.requireTestEvidence && db.active.A && db.active.B) RequirePairEvidence(db.artifacts[db.active.A],db.artifacts[db.active.B],next,db.artifacts[db.active.O]);
   if(db.active.A&&db.active.B){const reason=ReleaseView(db.artifacts[db.active.A],db.artifacts[db.active.B],db.artifacts[db.active.O],next).reason;if(reason)Fail(reason,409);}
+  if(db.active.A&&db.active.B){const reason=packingEvidence.EvaluatePair(db,db.artifacts[db.active.A],db.artifacts[db.active.B],db.artifacts[db.active.O],{required:next.requirePackingEvidence===true});if(reason)Fail(reason,409);}
 }
 function SetControls(body,actor) {
   Fields(body,['expectedRevision','requireBuildContract','requireTestEvidence'],['expectedRevision']); CheckRevision(body);
@@ -165,12 +168,23 @@ function Overlay(id) {
 }
 function SelectedOverlay(body) { return Overlay(Object.hasOwn(body,'oId')?body.oId:store.Load().active.O||''); }
 function RequirePairEvidence(a,b,s=State(),o=null) { const e=s.pairEvidence[PairKey(a,b,o)];if(!e||['nativeBuild','apiProbe','integration'].some(k=>e[k]!=='PASS')) Fail('SECURITY_TEST_EVIDENCE_REQUIRED',409);return e; }
+function PackingView(db,a,b,o,s){
+  const reason=packingEvidence.EvaluatePair(db,a,b,o,{required:s.requirePackingEvidence===true});
+  const recorded=!reason&&[a,b,o].filter(Boolean).some(row=>packingEvidence.Projection(db,row)!==null);
+  // A server-recorded transformation receipt binds template bytes. It does not
+  // assert Windows execution, function virtualization or protection of the
+  // issuance configuration appended later by MakeLauncher().
+  return {status:reason?'REJECTED':recorded?'RECEIPTS_VERIFIED':'NOT_RECORDED',reason,
+    required:s.requirePackingEvidence===true,receiptsVerified:recorded&&!reason,
+    proofScope:'TRANSFORMED_TEMPLATES_ONLY',windowsVerified:false,
+    issuedAConfigurationProtected:false};
+}
 function RequireRuntimePair(a,b,o=null) {
   // Role order and protocol compatibility are mandatory even with legacy optional QA policy.
   if(!a||!b||a.component!=='A'||b.component!=='B'||o&&o.component!=='O'||[a,b,o].filter(Boolean).some(r=>r.protocol!=='GAME-CONNECT-4'||r.hashVersion!==3))Fail('SECURITY_RELEASE_PAIR_INVALID',409);
   if(store.Load().tlsPinTransition&&[a,b,o].filter(Boolean).some(row=>row.tlsPinVersion!==1))Fail('TLS_PIN_ACTIVE_BUILD_UPGRADE_REQUIRED',409);
   if(new Set([a,b,o].filter(Boolean).map(row=>row.handoffVersion||1)).size>1)Fail('BOOTSTRAP_HANDOFF_VERSION_MISMATCH',409);
-  const state=State();const release=ReleaseView(a,b,o,state);if(release.reason)Fail(release.reason,409);if(!state.requireTestEvidence)return;
+  const state=State(),packing=PackingView(store.Load(),a,b,o,state);if(packing.reason)Fail(packing.reason,409);const release=ReleaseView(a,b,o,state);if(release.reason)Fail(release.reason,409);if(!state.requireTestEvidence)return;
   if(!a||!b||a.component!=='A'||b.component!=='B'||o&&o.component!=='O')Fail('SECURITY_RELEASE_PAIR_INVALID',409);
   RequirePairEvidence(a,b,state,o);
 }
@@ -184,12 +198,13 @@ function PreviewPair(body, production = false) {
   if(production&&selectedRows.some(row=>row.measurementPlanVersion!==1))reasons.push('INTEGRITY_MEASUREMENT_BUILD_UPGRADE_REQUIRED');
   if(store.Load().tlsPinTransition&&selectedRows.some(row=>row.tlsPinVersion!==1))reasons.push('TLS_PIN_ACTIVE_BUILD_UPGRADE_REQUIRED');
   if(new Set(selectedRows.map(row=>row.handoffVersion||1)).size!==1)reasons.push('BOOTSTRAP_HANDOFF_VERSION_MISMATCH');
+  const packing=PackingView(store.Load(),a,b,o,s);if(packing.reason)reasons.push(packing.reason);
   const e=s.pairEvidence[PairKey(a,b,o)]||null;
   const release=ReleaseView(a,b,o,s);if(release.reason)reasons.push(release.reason);
   const publicationSafety=production?require("../artifacts/peace.desktop-release-safety").EvaluateCohort(store.Load(),[a,b,o],release.manifestId,{sameActive:true}):null;
   if(publicationSafety&&!publicationSafety.eligible)reasons.push(publicationSafety.reason);
   if(s.requireTestEvidence&&(!e||['nativeBuild','apiProbe','integration'].some(k=>e[k]!=='PASS'))) reasons.push('SECURITY_TEST_EVIDENCE_REQUIRED');
-  return {aId:a.id,bId:b.id,oId:o?.id||'',aSha512:a.sha512,bSha512:b.sha512,oSha512:o?.sha512||'',eligible:!reasons.length,reasons,policyRevision:p.revision,operationsRevision:s.revision,testEvidence:e,release,publicationSafety,hardwareAttested:false};
+  return {aId:a.id,bId:b.id,oId:o?.id||'',aSha512:a.sha512,bSha512:b.sha512,oSha512:o?.sha512||'',eligible:!reasons.length,reasons,policyRevision:p.revision,operationsRevision:s.revision,testEvidence:e,release,publicationSafety,packing,hardwareAttested:false};
 }
 function ActivatePair(body,actor,recoveryId='',production=false) {
   Fields(body,['expectedRevision','expectedPolicyRevision','aId','bId','oId'],['expectedRevision','expectedPolicyRevision','aId','bId']);CheckRevision(body,true);
@@ -200,11 +215,24 @@ function ActivatePair(body,actor,recoveryId='',production=false) {
   const assertRelease=bytes=>{require("../artifacts/peace.pe-build-configuration").AssertProductionConfiguration(bytes);require("../artifacts/peace.release-exposure").AssertBytes(bytes);};
   assertRelease(boot.ReadArtifactBytes(a));assertRelease(boot.ReadArtifactBytes(b));if(o)assertRelease(boot.ReadArtifactBytes(o));
   const s=production?PublicationState():State();
+  // One-way transition: only activation of a fully receipt-bound A/B/O set
+  // enables this floor. No HTTP setter clears it, including recovery paths.
+  if(view.packing.receiptsVerified)s.requirePackingEvidence=true;
   if(production)s.releaseGovernance.minimumSecurityVersion=Math.max(s.releaseGovernance.minimumSecurityVersion,view.release.securityVersion);
   s.revision++;s.activations.push({at:Date.now(),actor:Actor(actor),aId:a.id,bId:b.id,aSha512:a.sha512,bSha512:b.sha512,previousA:db.active.A||'',previousB:db.active.B||'',...(o||db.active.O?{oId:o?.id||'',oSha512:o?.sha512||'',previousO:db.active.O||''}:{}),policyRevision:body.expectedPolicyRevision,operationsRevision:s.revision,...(view.release.manifestId?{manifestId:view.release.manifestId}:{}),...(recoveryId?{recoveryId}:{})});s.activations=s.activations.slice(-100);
   if(recoveryId){const plan=s.releaseGovernance.recoveryPlans[recoveryId];if(!plan||plan.status!=='PREPARED')Fail('SECURITY_RECOVERY_INVALID');plan.status='APPLIED';plan.appliedAt=Date.now();}
   Commit(s,actor,recoveryId?'RECOVERY_ACTIVATED':'PAIR_ACTIVATED',next=>{
     if((next.securityAuthorityPolicy||authPolicyDefaults()).revision!==body.expectedPolicyRevision)Fail('SECURITY_POLICY_CONFLICT',409);
+    const packedRows=[next.artifacts[a.id],next.artifacts[b.id],o?next.artifacts[o.id]:null];
+    const packingReason=packingEvidence.EvaluatePair(next,...packedRows,{required:next.securityOperations.requirePackingEvidence===true});if(packingReason)Fail(packingReason,409);
+    const receipts=packedRows.map(row=>packingEvidence.FindReceipt(next,row));
+    if(receipts.every(Boolean)){
+      // Older candidates may have exact hash-bound evidence without a stored
+      // reference. Pin the validated job at publication so a later deterministic
+      // transform cannot silently select a different receipt for an active row.
+      for(let i=0;i<packedRows.length;i++)packedRows[i].packingReceiptId=receipts[i].id;
+      next.securityOperations.requirePackingEvidence=true;
+    }
     if(production)require("../artifacts/peace.desktop-release-safety").RequireCohort(next,[a,b,o],view.release.manifestId,{sameActive:true});
     const current=ReleaseView(a,b,o,next.securityOperations);if(current.reason)Fail(current.reason,409);
     next.active={A:a.id,B:b.id,...(o?{O:o.id}:{})};
@@ -345,8 +373,8 @@ function SetProductionGovernance(body,actor) {
 }
 function ProductionStatus(s=State()) {
   const g=s.releaseGovernance,requirements=provenance.PublicationRequirements(g);
-  return {requirements:{...requirements}, runtime:{requireManifest:g.requireManifest,requireCiEvidence:g.requireCiEvidence,
-    minimumSecurityVersion:g.minimumSecurityVersion},
+  return {requirements:{...requirements,requirePackingEvidence:s.requirePackingEvidence===true}, runtime:{requireManifest:g.requireManifest,requireCiEvidence:g.requireCiEvidence,
+    minimumSecurityVersion:g.minimumSecurityVersion,requirePackingEvidence:s.requirePackingEvidence===true},
     legacyRuntimePolicy:!g.requireManifest||g.requireCiEvidence||g.minimumSecurityVersion<1,
     transition:'VERIFIED_COHORT_AND_RUNTIME_POLICY_COMMITTED_ATOMICALLY',
     failedPublicationLeavesActiveUnchanged:true, readOnly:true};
@@ -354,13 +382,14 @@ function ProductionStatus(s=State()) {
 function Stage(component,version,bytes,approval,actor,releaseManifestId='') {
   AuditIntent('ARTIFACT_STAGE',actor);
   if(approval && !SignerAllowed(approval.keyId,true)) Fail('SECURITY_SIGNER_NOT_ACTIVE',409);
-  return require("../bootstrap/peace.desktop-bootstrap").Publish(component,version,bytes,approval,{activate:false,deduplicate:true,...(releaseManifestId?{deploymentManifestId:releaseManifestId}:{})});
+  const row=require("../bootstrap/peace.desktop-bootstrap").Publish(component,version,bytes,approval,{activate:false,deduplicate:true,...(releaseManifestId?{deploymentManifestId:releaseManifestId}:{})});
+  return {...row,packingEvidence:packingEvidence.Projection(store.Load(),store.Load().artifacts[row.id])};
 }
 function List() {
   const s=State(),db=store.Load();
   return {operations:s,productionPublication:ProductionStatus(s),releaseSafety:require("../artifacts/peace.desktop-release-safety").Status(),protectedOperations:require("../authentication/peace.desktop-protected-dispatch").Inventory(),active:{...db.active},auditHealth:require("../../storage/audit/peace.audit.js").WriteHealth(),
     adminProtection:require("../authentication/peace.desktop-admin-guard").Status(),
     storage:'SERVER_ONLY',keyPurposes:require('./peace.desktop-key-purposes').Summary(),testEvidenceTrust:'OPERATOR_RECORDED_NOT_ATTESTATION',ciEvidenceTrust:'TRUSTED_CI_SIGNATURE_NOT_HARDWARE_ATTESTATION',policySha512:provenance.PolicyDigest(require('./peace.desktop-security-authority').Policy()),
-    candidates:Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,createdAt:a.createdAt,deploymentManifestId:a.deploymentManifestId||'',active:db.active[a.component]===a.id,contract:s.contracts[BuildKey(a)]||null}))};
+    candidates:Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,createdAt:a.createdAt,deploymentManifestId:a.deploymentManifestId||'',active:db.active[a.component]===a.id,contract:s.contracts[BuildKey(a)]||null,packingEvidence:packingEvidence.Projection(db,a)}))};
 }
 module.exports={PublicationState,PreviewProductionPair,ActivateProductionPair,PrepareProductionRecovery,ApplyProductionRecovery,SetProductionGovernance,ProductionStatus,ReserveKnownKeyPurposes,PlanReleaseManifest,ValidateCandidateArtifact,PrepareRecovery,ApplyRecovery,RememberReleaseKeys,AssertReleaseKeyPurpose,SetReleaseGovernance,RecordReleaseManifest,SetCiSigner,RecordCiEvidence,ReleaseView,Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};

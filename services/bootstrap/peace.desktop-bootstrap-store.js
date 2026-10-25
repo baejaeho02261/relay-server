@@ -50,6 +50,7 @@ function Load(){
   if(value.manualVerifications!==undefined)require("../runtime/peace.desktop-manual-verification").Validate(value.manualVerifications);
   if(value.adminCredentialRevocations!==undefined)require("../authentication/peace.admin-credential-revocations").Validate(value.adminCredentialRevocations);
   if(value.releaseSafety!==undefined)require("../artifacts/peace.desktop-release-safety").ValidateState(value.releaseSafety);
+  try{require("../artifacts/peace.desktop-packing-evidence").ValidateStore(value);}catch(_){Invalid();}
   if(value.lifecycleTrace!==undefined)require("../observability/peace.desktop-lifecycle-trace").Validate(value.lifecycleTrace,value);
 
   if(value.schema<5){

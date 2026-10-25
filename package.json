@@ -73,7 +73,6 @@
     "test:float:independent": "node tests/cryptography/peace.test-float-canonicalization-14.js",
     "test:ide:observation": "node tests/build/peace.test-ide-build-observation.js",
     "test:consensus:adapter": "node tests/storage/peace.test-etcd-consensus-store.js",
-    "test:startup:fault-contract": "python ../Railway/Cozy.Tests/Cozy.FaultInjection/Cozy.test-product-fault-startup-contract.py",
     "test:verification:history": "node tests/runtime/peace.test-manual-verification-v3.js",
     "test:lifecycle:trace": "node tests/observability/peace.test-lifecycle-trace.js",
     "test:server:state:routes": "node tests/web/peace.test-server-state-read-routes.js",
@@ -118,7 +117,8 @@
     "test:shutdown": "node --test tests/runtime/peace.test-shutdown-cleanup.js",
     "security:audit": "npm audit --audit-level=moderate",
     "test:runtime:environment": "node --test tests/runtime/peace.test-runtime-environment.js",
-    "test:audit:redaction": "node --test tests/storage/peace.test-audit-redaction.js"
+    "test:audit:redaction": "node --test tests/storage/peace.test-audit-redaction.js",
+    "test:packing:linkage": "node --test tests/artifacts/peace.test-packing-evidence.js tests/security/peace.test-packed-release-pair.js tests/artifacts/peace.test-packing-jobs.js"
   },
   "engines": {
     "node": "24.22.1"

@@ -39,7 +39,7 @@ const releaseSafety={revision:4,baseline:null,revokedCohorts:{}};
 const listing = () => ({ active: { ...active }, candidates: candidates.map(a => ({ ...a, active: active[a.component] === a.id })), operations: { ...operations }, releaseSafety:clone(releaseSafety), auditHealth: { status: 'HEALTHY', failedWrites: 0 } });
 const clone = x => JSON.parse(JSON.stringify(x));
 const base = '/api/desktop/bootstrap/security-operations';
-let customConfigured=true,sourceTreeAvailable=false,packingConfigured=true,customRunning=false;
+let customConfigured=true,sourceTreeAvailable=false,packingConfigured=true,customRunning=false,packingEvidenceAvailable=true;
 w.api = async (url, options = {}) => {
   const body = options.body && clone(options.body);
   calls.push({ url, body, rawBody: options.rawBody, method: options.method || 'GET' });
@@ -74,7 +74,7 @@ w.api = async (url, options = {}) => {
   }
   if(url==='/api/desktop/bootstrap/packing/status')return {custom:{configured:customConfigured,sourceTreeAvailable},packing:{configured:packingConfigured}};
   if(url==='/api/desktop/bootstrap/packing/custom/jobs')return {job:{id:'custom-fixture',status:customRunning?'RUNNING':'COMPLETE',fileCount:3,size:111,sha512:'e'.repeat(128)}};
-  if(url==='/api/desktop/bootstrap/packing/jobs')return {job:{id:'packing-fixture',status:'COMPLETE'}};
+  if(url==='/api/desktop/bootstrap/packing/jobs')return {job:{id:'packing-fixture',status:'COMPLETE',outputs:Object.fromEntries(['A','B','O'].map((c,i)=>[c,{sha512:String(i+5).repeat(128)}])),...(packingEvidenceAvailable?{evidence:{scope:'TRANSFORMED_TEMPLATES',receipts:Object.fromEntries(['A','B','O'].map((c,i)=>[c,String(i+6).repeat(128)])),windowsVerified:false,protectionVerified:false}}:{})}};
   if (url === base + '/test-evidence' || url === '/api/desktop/workspace/deployment-note') return { ok: true };
   throw Error('Unexpected endpoint: ' + url);
 };
@@ -214,11 +214,20 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     await waitFor(()=>!byId('desktop-baseline-pin'),'release safety close scrubs controls');
     console.log('PASS Release safety is separate, navigation is read-only, and explicit baseline/retirement writes retain policy and revision guards');
 
+    candidates[0].packingEvidence={receiptId:'a'.repeat(128),jobId:'b'.repeat(32),scope:'TRANSFORMED_TEMPLATE',inputSha512:'c'.repeat(128),outputSha512:candidates[0].sha512,toolSha512:'d'.repeat(128),profileSha512:'e'.repeat(128),createdAt:1700000000000,windowsVerified:false,protectionVerified:false};
+    candidates[1].packingEvidence={...candidates[0].packingEvidence,outputSha512:'f'.repeat(128)};
     const beforeProtection=calls.filter(c=>c.method==='POST').length,publishedBeforeProtection=count(base+'/activate'),protection=w.showDesktopExecutableProtection();
     await waitFor(()=>byId('desktop-protection-modal'),'separate executable protection');
     assert.equal(calls.filter(c=>c.method==='POST').length,beforeProtection);
     assert.equal(document.querySelectorAll('#desktop-protection-modal input[type="file"],#desktop-baseline-pin,[data-security-action="activate"]').length,0);
     assert.equal(document.querySelectorAll('[data-protection-candidate]').length,3);
+    assert.equal(document.querySelectorAll('[data-active-packing]').length,3);
+    assert.match(document.querySelector('[data-active-packing="A"]').textContent,/워커 변환 기록 연결됨/);
+    assert.match(document.querySelector('[data-active-packing="A"]').textContent,new RegExp(candidates[0].sha512));
+    assert.match(document.querySelector('[data-active-packing="B"]').textContent,/연결된 서버 패킹 기록 없음/,'A mismatched output hash cannot display a linked worker record');
+    assert.match(byId('desktop-protection-issued-config').textContent,/평문 JSON/);
+    assert.match(byId('desktop-protection-modal').textContent,/A 발급·B\/O 배포에는 적용되지 않습니다/);
+    assert.equal(byId('desktop-custom-selected').textContent,'암호화 보관 파일 만들기');
     assert.equal(new Set([...document.querySelectorAll('[id]')].map(e=>e.id)).size,document.querySelectorAll('[id]').length,'No duplicate modal IDs');
     const protectionO=document.querySelector('[data-protection-candidate="O"]');
     protectionO.value='';
@@ -229,6 +238,7 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     await byId('desktop-custom-selected').onclick();
     assert.deepEqual(last('/api/desktop/bootstrap/packing/custom/jobs').body,{kind:'artifacts',A:'A1',B:'B2',O:'O4'});
     assert.match(byId('desktop-custom-result').querySelector('a').getAttribute('href'),/custom-fixture\/download$/);
+    assert.match(byId('desktop-custom-result').textContent,/A 발급·B\/O 배포에는 적용되지 않습니다/);
     byId('desktop-custom-kind').value='sources';
     await byId('desktop-custom-selected').onclick();
     assert.equal(count('/api/desktop/bootstrap/packing/custom/jobs'),beforeCustom+1,'Missing server source tree cannot start source packaging');
@@ -240,8 +250,17 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     await byId('desktop-pack-selected').onclick();
     assert.deepEqual(last('/api/desktop/bootstrap/packing/jobs').body,{A:'A1',B:'B2',O:'O4'});
     assert.equal(byId('desktop-pack-result').querySelectorAll('a[download]').length,4);
+    assert.match(byId('desktop-pack-result').textContent,/A\/B\/O 워커 변환 기록 저장됨/);
+    assert.match(byId('desktop-pack-result').textContent,/A 출력 SHA-512: 5{128}/);
+    assert.match(byId('desktop-pack-result').textContent,/발급된 A의 새 평문 JSON 보호는 완료되지 않았습니다/);
+    packingEvidenceAvailable=false;
+    await byId('desktop-pack-selected').onclick();
+    assert.match(byId('desktop-pack-result').textContent,/서버 변환 기록을 확인하지 못했습니다/);
+    assert.doesNotMatch(byId('desktop-pack-result').textContent,/워커 변환 기록 저장됨/,'A completed job without durable evidence cannot claim a linked record');
+    packingEvidenceAvailable=true;
     assert.equal(count(base+'/activate'),publishedBeforeProtection,'Packing and encryption do not publish artifacts');
     await close(protection);
+    delete candidates[0].packingEvidence;delete candidates[1].packingEvidence;
     assert.equal(document.querySelector('[data-protection-candidate]'),null);
     console.log('PASS Encryption/packing uses existing candidates in a separate category, requires server capability and never uploads or publishes');
 

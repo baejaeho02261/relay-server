@@ -68,12 +68,24 @@ async function showDesktopExecutableProtection(){
  let listing=await api('/api/desktop/bootstrap/security-operations');
  if(!roleIsAdmin()||session?.csrf!==owner)return;
  let busy=false,closed=false,waitTimer=null,wakeWait=null;
- const promise=openModal({title:'패킹 · 암호화 · 난독화',message:'서버에 등록된 후보로 보호 작업을 준비합니다. 파일 등록과 일회용 A 발급은 A / B / O 실행 파일 배포에서 진행하세요.',html:`<div id="desktop-protection-modal"><fieldset><legend>보호 작업 대상 · 등록된 A/B/O 후보</legend><p class="small-note">패키지·패킹 작업에는 A/B/O 세 후보가 필요합니다. 결과 파일은 직접 확인한 뒤 새 승인·명세로 등록해야 합니다.</p>${['A','B','O'].map(c=>`<label>${c} 후보<select data-protection-candidate="${c}"></select></label>`).join('')}</fieldset><fieldset><legend>자체 암호화 패키지 (.gcpack)</legend><p class="small-note">VMProtect 없이 이 서버에서 압축·암호화합니다. .gcpack은 보관·전달용 데이터 패키지이며 직접 실행하는 EXE가 아닙니다. 함수 가상화·실행 코드 난독화는 수행하지 않습니다. 복호화 키는 서버에만 설정하고 이 화면에 올리지 않습니다.</p><label>대상<select id="desktop-custom-kind"><option value="artifacts">위에서 선택한 A/B/O 세 파일</option><option value="sources">Railway 전체 매니페스트 파일</option></select></label><button type="button" id="desktop-custom-selected">자체 암호화 패키지 만들기</button><div id="desktop-custom-result" role="status" aria-live="polite"></div></fieldset><fieldset><legend>외부 실행 파일 보호 · 패킹/난독화 도구 연동</legend><p class="small-note">별도 VMProtect 워커와 검토한 프로필이 필요합니다. 실제 보호 범위는 워커와 프로필에 따릅니다. 결과는 미승인 후보이며, 패킹 후 Windows 시험·새 서명·후보 재등록·게시가 필요합니다.</p><button type="button" id="desktop-pack-selected">선택한 A/B/O 패킹 후보 만들기</button><div id="desktop-pack-result" role="status" aria-live="polite"></div></fieldset></div>`,confirmLabel:'닫기'});
+ const promise=openModal({title:'패킹 · 암호화 · 난독화',message:'실제 실행 파일 변환과 암호화 보관을 구분합니다. 파일 등록과 일회용 A 발급은 A / B / O 실행 파일 배포에서 진행하세요.',html:`<div id="desktop-protection-modal"><fieldset><legend>조회 시점 운영 A/B/O · 서버 패킹 기록</legend><p class="small-note">기록은 신뢰한 워커가 반환한 변경된 EXE 템플릿의 해시를 연결합니다. 함수 가상화·Windows 실행 검증을 증명하는 기록은 아닙니다.</p><div id="desktop-protection-active" role="status"></div><p class="small-note" id="desktop-protection-issued-config">현재 A 발급은 템플릿 뒤에 접속 프로필·발급 정보를 평문 JSON으로 덧붙입니다. 템플릿 패킹 기록만으로 발급 정보 보호가 완료되지 않습니다.</p></fieldset><fieldset><legend>변환·보관 작업 대상 · 등록된 A/B/O 후보</legend><p class="small-note">작업에는 A/B/O 세 후보가 필요합니다. 실제 변환 결과는 Windows 시험과 새 승인·명세로 등록한 뒤 게시해야 발급·다운로드 경로에 연결됩니다.</p>${['A','B','O'].map(c=>`<label>${c} 후보<select data-protection-candidate="${c}"></select></label>`).join('')}</fieldset><fieldset><legend>암호화 보관 파일 (.gcpack)</legend><p class="small-note">선택한 파일의 복사본을 압축·암호화해 보관합니다. A 발급·B/O 배포에는 적용되지 않습니다. 직접 실행하는 EXE가 아니며 함수 가상화·실행 코드 난독화도 수행하지 않습니다. 복호화 키는 서버에만 설정하고 이 화면에 올리지 않습니다.</p><label>보관 대상<select id="desktop-custom-kind"><option value="artifacts">위에서 선택한 A/B/O 파일 복사본</option><option value="sources">매니페스트에 등록된 Railway 폴더 소스</option></select></label><button type="button" id="desktop-custom-selected">암호화 보관 파일 만들기</button><div id="desktop-custom-result" role="status" aria-live="polite"></div></fieldset><fieldset><legend>실제 EXE 템플릿 변환 · 외부 패킹 도구 연동</legend><p class="small-note">별도 VMProtect 워커와 검토한 프로필이 필요합니다. 실제 보호 범위는 도구와 프로필에 따릅니다. 결과와 서버 기록은 미승인 후보이며 Windows 시험·새 EXE 승인·후보 등록·게시가 필요합니다. 발급된 A의 새 평문 정보는 별도 네이티브 형식 변경이 필요합니다.</p><button type="button" id="desktop-pack-selected">선택한 A/B/O EXE 변환 후보 만들기</button><div id="desktop-pack-result" role="status" aria-live="polite"></div></fieldset></div>`,confirmLabel:'닫기'});
  const root=document.getElementById('desktop-protection-modal');
  const live=()=>!closed&&root.isConnected&&roleIsAdmin()&&session?.csrf===owner;
  function lock(value){busy=value;for(const e of root.querySelectorAll('button,input,select,textarea'))e.disabled=value;}
  function selected(){const body=Object.fromEntries(['A','B','O'].map(c=>[c,root.querySelector(`[data-protection-candidate="${c}"]`).value]));if(Object.values(body).some(x=>!x))throw Error('A, B, O 후보를 모두 선택하세요.');return body;}
  function wait(ms){return new Promise(resolve=>{wakeWait=resolve;waitTimer=setTimeout(()=>{waitTimer=null;wakeWait=null;resolve();},ms);});}
+ const activeArea=root.querySelector('#desktop-protection-active');activeArea.className='table-wrap';
+ const activeTable=document.createElement('table'),tableHead=document.createElement('thead'),tableBody=document.createElement('tbody');
+ tableHead.innerHTML='<tr><th>실행 파일</th><th>운영 SHA-512</th><th>서버 템플릿 변환 기록</th></tr>';activeTable.append(tableHead,tableBody);
+ for(const c of ['A','B','O']){
+  const artifact=(listing.candidates||[]).find(a=>a.component===c&&a.id===listing.active?.[c]),evidence=artifact?.packingEvidence;
+  const linked=!!artifact&&evidence?.scope==='TRANSFORMED_TEMPLATE'&&/^[a-f0-9]{128}$/.test(evidence.receiptId||'')&&/^[a-f0-9]{32}$/.test(evidence.jobId||'')&&evidence.outputSha512===artifact.sha512&&evidence.windowsVerified===false&&evidence.protectionVerified===false;
+  const row=document.createElement('tr');row.dataset.activePacking=c;
+  for(const value of [c,artifact?artifact.sha512:'등록된 운영 파일 없음',linked?'워커 변환 기록 연결됨 · 시험·보호 범위 별도 확인':'연결된 서버 패킹 기록 없음']){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}
+  if(linked){const receipt=document.createElement('code');receipt.textContent='기록 ID: '+evidence.receiptId;row.lastElementChild.append(document.createElement('br'),receipt);}
+  tableBody.append(row);
+ }
+ activeArea.append(activeTable);
  for(const c of ['A','B','O']){
   const select=root.querySelector(`[data-protection-candidate="${c}"]`);
   select.innerHTML=`<option value="">${c} 후보 선택</option>`+(listing.candidates||[]).filter(x=>x.component===c).map(x=>`<option value="${esc(x.id)}">${esc(x.version)} · ${esc(x.sha512.slice(0,12))}${x.active?' · 현재 운영':''}</option>`).join('');
@@ -88,10 +100,10 @@ async function showDesktopExecutableProtection(){
    if(kind==='sources'&&!status.custom.sourceTreeAvailable)throw Error('서버에 Railway 소스가 없습니다. 서버 전용 배포에서는 A/B/O 보관 패키지를 사용하세요.');
    let response=await api('/api/desktop/bootstrap/packing/custom/jobs',{method:'POST',body});
    const id=encodeURIComponent(response.job.id),stop=Date.now()+100000;
-   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent='서버에서 데이터 패키지를 압축·암호화합니다. 실행 파일 보호·운영 게시는 별개입니다.';await wait(1000);if(!live())return;response=await api('/api/desktop/bootstrap/packing/custom/jobs/'+id);}
-   if(!live())return;if(response.job.status!=='COMPLETE')throw Error(response.job.error||'암호화 패키지 완료를 확인하지 못했습니다.');
-   area.replaceChildren();const note=document.createElement('p');note.textContent=`암호화 완료: ${response.job.fileCount}개 파일 / ${response.job.size}바이트. 내려받기는 10분 후 만료됩니다. 실행 코드 난독화나 운영 게시를 완료했다는 뜻은 아닙니다.`;area.append(note);
-   const link=document.createElement('a');link.href='/api/desktop/bootstrap/packing/custom/jobs/'+id+'/download';link.textContent='자체 암호화 패키지 (.gcpack) 받기';link.setAttribute('download','');area.append(link);
+   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent='서버에서 보관용 복사본을 압축·암호화합니다. A 발급·B/O 배포에는 적용되지 않습니다.';await wait(1000);if(!live())return;response=await api('/api/desktop/bootstrap/packing/custom/jobs/'+id);}
+   if(!live())return;if(response.job.status!=='COMPLETE')throw Error(response.job.error||'암호화 보관 파일 완료를 확인하지 못했습니다.');
+   area.replaceChildren();const note=document.createElement('p');note.textContent=`보관 파일 암호화 완료: ${response.job.fileCount}개 파일 / ${response.job.size}바이트. 내려받기는 10분 후 만료됩니다. A 발급·B/O 배포에는 적용되지 않습니다.`;area.append(note);
+   const link=document.createElement('a');link.href='/api/desktop/bootstrap/packing/custom/jobs/'+id+'/download';link.textContent='암호화 보관 파일 (.gcpack) 받기';link.setAttribute('download','');area.append(link);
    const digest=document.createElement('pre');digest.textContent='SHA-512: '+response.job.sha512;area.append(digest);
   }catch(e){if(live())desktopWorkflowError(area,e);}finally{if(live())lock(false);}
  };
@@ -104,7 +116,10 @@ async function showDesktopExecutableProtection(){
    const id=encodeURIComponent(response.job.id),stop=Date.now()+600000;
    while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent='서버 패킹 진행: '+(response.job.component||'시작')+' · 운영 발급 전 시험·서명 필요';await wait(2000);if(!live())return;response=await api('/api/desktop/bootstrap/packing/jobs/'+id);}
    if(!live())return;if(response.job.status!=='COMPLETE')throw Error(response.job.error||'패킹 완료를 확인하지 못했습니다.');
-   area.replaceChildren();const note=document.createElement('p');note.textContent='패킹 후보 생성 완료. 아래 파일로 Windows 시험 및 새 배포 승인을 수행한 뒤 A / B / O 실행 파일 배포에서 후보를 다시 등록하세요. 10분 후 내려받기 만료. 기존 승인 JSON은 재사용할 수 없습니다.';area.append(note);
+   area.replaceChildren();const note=document.createElement('p');note.textContent='미승인 EXE 템플릿 변환 후보 생성 완료. 아래 정확한 출력 해시로 Windows 시험 및 새 EXE 승인을 수행한 뒤 A / B / O 실행 파일 배포에서 후보를 등록하고 게시해야 합니다. 10분 후 내려받기 만료. 기존 승인 JSON은 재사용할 수 없습니다. 발급된 A의 새 평문 JSON 보호는 완료되지 않았습니다.';area.append(note);
+   const receipts=response.job.evidence?.scope==='TRANSFORMED_TEMPLATES'?response.job.evidence.receipts:null;
+   const record=document.createElement('p');record.textContent=receipts&&['A','B','O'].every(c=>/^[a-f0-9]{128}$/.test(receipts[c]||''))?'A/B/O 워커 변환 기록 저장됨 · 함수 가상화·Windows 실행 검증은 별도 확인':'연결할 A/B/O 서버 변환 기록을 확인하지 못했습니다. 보호 적용 완료로 간주하지 마세요.';area.append(record);
+   for(const c of ['A','B','O']){const output=response.job.outputs?.[c];if(!output||!/^[a-f0-9]{128}$/.test(output.sha512||''))continue;const digest=document.createElement('pre');digest.textContent=c+' 출력 SHA-512: '+output.sha512+(/^[a-f0-9]{128}$/.test(receipts?.[c]||'')?'\n서버 변환 기록 ID: '+receipts[c]:'');area.append(digest);}
    for(const c of ['A','B','O','report']){const a=document.createElement('a');a.href='/api/desktop/bootstrap/packing/jobs/'+id+'/'+c;a.textContent=c==='report'?'SHA-512 작업 보고서':c+' 미승인 패킹 EXE';a.setAttribute('download','');const div=document.createElement('div');div.append(a);area.append(div);}
   }catch(e){if(live())desktopWorkflowError(area,e);}finally{if(live())lock(false);}
  };
