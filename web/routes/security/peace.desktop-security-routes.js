@@ -22,6 +22,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   if(method==='GET'&&pathname===prefix+'/tls-pin-transition'){Json(res,200,{ok:true,...require("../../../services/network/peace.desktop-tls-pin-transition").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/release-safety'){Json(res,200,{ok:true,...require("../../../services/artifacts/peace.desktop-release-safety").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/publication-status'){Json(res,200,{ok:true,publication:operations.ProductionStatus()});return true;}
+  if(method==='GET'&&pathname===prefix+'/packed-release-jobs'){Json(res,200,{ok:true,...require('../../../services/artifacts/peace.packed-release-manifest').List()});return true;}
   if(method==='GET'&&pathname===prefix+'/activation'){Json(res,200,{ok:true,status:require("../../../services/security/peace.desktop-security-activation").Status()});return true;}
   if(method==='GET'&&pathname===prefix){Json(res,200,{ok:true,...operations.List()});return true;}
   if(method==='GET'&&pathname===prefix+'/approvals'){
@@ -56,6 +57,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   }
   if(action==='preview-rollout'){Json(res,200,{ok:true,preview:authority.PreviewRollout(body)});return true;}
   if(action==='preview-pair'){Json(res,200,{ok:true,preview:operations.PreviewProductionPair(body)});return true;}
+  if(action==='plan-packed-release'){Json(res,200,{ok:true,...require('../../../services/artifacts/peace.packed-release-manifest').Plan(body,actor)});return true;}
   const actions={'baseline-pin':require("../../../services/artifacts/peace.desktop-release-safety").PinBaseline,'retire-cohort':require("../../../services/artifacts/peace.desktop-release-safety").RevokeCohort,'mitigation-compatibility':require("../../../services/security/peace.desktop-mitigation-compatibility").Import,'mitigation-profiles':require("../../../services/security/peace.desktop-mitigation-profiles").Register,'tls-pin-transition':require("../../../services/network/peace.desktop-tls-pin-transition").Schedule,'plan-release':operations.PlanReleaseManifest,'recovery/prepare':operations.PrepareProductionRecovery,'recovery/apply':operations.ApplyProductionRecovery,'release-governance':operations.SetProductionGovernance,'release-manifests':operations.RecordReleaseManifest,'ci-signers':operations.SetCiSigner,'ci-evidence':operations.RecordCiEvidence,controls:operations.SetControls,contracts:operations.SetContract,signers:operations.SetSignerState,rollout:operations.SetRollout,'test-evidence':operations.RecordEvidence,activate:operations.ActivateProductionPair};
   if(!actions[action]){ApiError(res,404,'NOT_FOUND');return true;}
   // Existing admin authentication / CSRF / single-operator authorization were checked

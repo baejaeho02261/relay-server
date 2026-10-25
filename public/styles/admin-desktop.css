@@ -109,3 +109,8 @@
 #desktop-registration-reset #desktop-reset-status { white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
 #desktop-registration-reset #desktop-reset-status[data-state=error] { color:var(--bad); }
 #desktop-registration-reset #desktop-reset-status[data-state=success] { color:var(--good); }
+#desktop-packed-release .desktop-packed-source { margin:12px 0; padding:12px; border:1px solid var(--line); border-radius:8px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; line-height:1.6; }
+#desktop-packed-release fieldset { margin:12px 0; padding:12px; border:1px solid var(--line); border-radius:8px; }
+#desktop-packed-release #desktop-packed-status { white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
+#desktop-packed-release #desktop-packed-status[data-state=error] { color:var(--bad); }
+#desktop-packed-release #desktop-packed-status[data-state=success] { color:var(--good); }

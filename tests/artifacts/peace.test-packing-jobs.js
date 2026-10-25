@@ -1,6 +1,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),ownEngine=require('../../services/artifacts/peace.cozy-protection-engine');
-const {Isolated,PE}=require("../fixtures/protocol/peace.completion-6-10-fixture"),p=require("../../services/artifacts/peace.desktop-packing-protocol"),contract=require("../../services/integrity/peace.measurement-plan-contract");
+const {Isolated,PE:ResourcePE}=require("../fixtures/protocol/peace.completion-6-10-fixture"),p=require("../../services/artifacts/peace.desktop-packing-protocol"),contract=require("../../services/integrity/peace.measurement-plan-contract");
+// Packing tests need synthetic PE resources, not the private native project's
+// actual overlay manifest. Native manifest matching is tested separately.
+const packingManifest=Buffer.from('<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1"><description>SYNTHETIC_PACKING_PARSER_ONLY</description></assembly>');
+const PE=role=>ResourcePE(role,packingManifest);
 function OwnTemplate(component){
  // Extend the fixture's final initialized, non-executable .rsrc section. The
  // slot and PE remain synthetic DATA; no Windows executable is run here.

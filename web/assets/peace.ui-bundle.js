@@ -50,6 +50,7 @@ const FILES = [
   "scripts/desktop/peace.admin-desktop-security.js",
   "scripts/desktop/peace.admin-desktop-server-state.js",
   "scripts/desktop/peace.admin-desktop-workflow.js",
+  "scripts/desktop/peace.admin-desktop-packed-release.js",
   "styles/admin-desktop.css",
   "scripts/pages/peace.admin-pages-production.js",
   "peace.service-worker.js",

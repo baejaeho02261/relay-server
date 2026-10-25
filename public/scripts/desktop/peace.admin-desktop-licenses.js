@@ -145,7 +145,7 @@ async function renderDesktopLicenses(silent = false) {
     <div id="desktop-tabpanel-licenses" class="desktop-tab-panel" role="tabpanel" aria-labelledby="desktop-tab-licenses" data-desktop-tab-panel="licenses" ${desktopLicenseTab==='licenses'?'':'hidden'}>
     <section class="desktop-hero"><div class="desktop-platform" aria-hidden="true"><svg viewBox="0 0 40 40"><path d="M4 8h32v21H4zM13 35h14M20 29v6M9 13h8v5H9zM21 13h10v5H21zM9 21h8v4H9zM21 21h10v4H21z"/></svg></div><div><span class="desktop-eyebrow">WINDOWS 64-BIT</span><h3>한 번 실행하고, 서버에서 인증</h3><p>무작위 이름으로 발급한 실행기가 프로그램을 받아 연결합니다. 새 사용자용 B는 입력창·관리 안내 없이 실행합니다. 관리자가 사용 전 라이선스를 A에 연결하면 기존 서명·기기·무결성 확인 후 서버에서 승인합니다. 실행 상태·원인·후속 조치는 이 웹에서 확인합니다.</p></div><button type="button" id="desktop-license-create" class="primary">+ 라이선스 발급</button></section>
     <div class="desktop-stats" aria-label="필터와 무관한 전체 라이선스 상태">${Object.entries(desktopStatusLabels).map(([status,label])=>`<button type="button" class="desktop-stat${desktopLicenseStatus===status?' selected':''}" data-desktop-status="${status}"><span>${label}</span><strong>${countLabel(status)}</strong></button>`).join('')}</div>
-    <div class="actions">${desktopPendingRevoke?'<button type="button" data-desktop-action="revoke-retry">이전 폐기 결과 확인</button>':''}<button type="button" data-desktop-action="workspace">서버 통계 · 일괄 작업 · 저장공간</button><button type="button" data-desktop-action="security-center">보안 자동 시험 · 탐지 · 배포물 검사</button><button type="button" data-desktop-action="security-operations">서버 보안 · 배포 운영</button><button type="button" data-desktop-action="executable-protection">패킹 · 암호화 · 난독화</button><button type="button" data-desktop-action="server-state">서버 복구 · 장치 · 저장소</button><button type="button" class="danger" data-desktop-action="registration-reset">${desktopPendingRegistrationReset?'초기화 결과 확인':'등록 데이터 전체 초기화'}</button></div>
+    <div class="actions">${desktopPendingRevoke?'<button type="button" data-desktop-action="revoke-retry">이전 폐기 결과 확인</button>':''}<button type="button" data-desktop-action="workspace">서버 통계 · 일괄 작업 · 저장공간</button><button type="button" data-desktop-action="security-center">보안 자동 시험 · 탐지 · 배포물 검사</button><button type="button" data-desktop-action="security-operations">서버 보안 · 배포 운영</button><button type="button" data-desktop-action="executable-protection">패킹 · 암호화 · 난독화</button><button type="button" data-desktop-action="packed-release">보호 결과 등록</button><button type="button" data-desktop-action="server-state">서버 복구 · 장치 · 저장소</button><button type="button" class="danger" data-desktop-action="registration-reset">${desktopPendingRegistrationReset?'초기화 결과 확인':'등록 데이터 전체 초기화'}</button></div>
     ${desktopPanelMarkup(['bootstrap'],desktopBootstrapMarkup(desktopBootstrap))}
     ${desktopPanelMarkup(['machines'],desktopMachineListMarkup(machineData))}
     <section class="section-card desktop-license-list"><div class="section-head"><div><h3>Windows 라이선스</h3><p class="small-note" id="desktop-license-result-summary">전체 ${totalLabel}개 · 검색 결과 ${filteredCount.toLocaleString()}개${filtered?` · 필터 적용: ${esc(desktopStatusLabels[desktopLicenseStatus]||'전체 상태')}${desktopLicenseQuery?' · 검색어 '+esc(desktopLicenseQuery):''}`:' · 전체 보기'} · 위 상태 수치는 전체 기준</p></div><div class="actions"><span class="small-note" id="desktop-license-updated">자동 갱신 · ${desktopDate(data.serverTime)}</span></div></div>
@@ -248,9 +248,10 @@ async function showDesktopArtifactUpload(component) {
   if(!roleIsAdmin()||!session)throw Error('관리자만 실행 파일을 등록할 수 있습니다.');
   if(!['A','B','O'].includes(component))throw Error('등록할 구성 요소를 확인해주세요.');
   const owner=session.csrf,maxBytes=desktopBootstrap?.limits?.maxArtifactBytes||67108864;
-  const promise=openModal({title:component+' 실행 파일 등록',message:component==='A'?'일회용 A 발급에 사용할 Windows64 실행기 템플릿을 등록합니다.':component==='O'?'인증된 B를 통해 발급할 Windows64 Overlay 후보를 등록합니다.':'A가 내려받을 사용자용 Windows64 B 후보를 등록합니다. 운영 게시 전에는 현재 버전이 바뀌지 않습니다.',html:`<label>실행 파일 (.exe)<input id="desktop-artifact-file" type="file" accept=".exe,application/octet-stream"></label><p class="small-note">최대 ${Math.floor(maxBytes/1048576)}MB · 등록은 후보 저장만 수행하며 현재 운영 A/B/O는 바꾸지 않습니다.</p><label>공개 배포 승인 (.approval.json, 선택)<input id="desktop-artifact-approval" type="file" accept=".json,application/json"></label><p class="small-note">개인키를 업로드하지 마세요. 후보 등록 후 서버 보안 · 배포 운영에서 A/B/O를 검증하고 게시하세요.</p><label>사전 등록 배포 명세 ID (선택, 명세 강제 정책이면 필수)<input id="desktop-artifact-manifest" type="text" maxlength="128" autocomplete="off"></label><p class="small-note">명세를 먼저 계획 등록하고 같은 ID로 A/B/O를 순서대로 등록할 수 있습니다. 서버가 각 파일의 최종 해시와 역할을 확인합니다.</p><p id="desktop-artifact-status" role="status" aria-live="polite"></p>`,fields:[{name:'version',label:'버전',value:desktopBootstrap?.artifacts?.[component]?.version||'1.0.0'}],confirmLabel:'후보 등록'});
+  const promise=openModal({title:component+' 실행 파일 등록',message:component==='A'?'일회용 A 발급에 사용할 Windows64 실행기 템플릿을 등록합니다.':component==='O'?'인증된 B를 통해 발급할 Windows64 Overlay 후보를 등록합니다.':'A가 내려받을 사용자용 Windows64 B 후보를 등록합니다. 운영 게시 전에는 현재 버전이 바뀌지 않습니다.',html:`<label>실행 파일 (.exe)<input id="desktop-artifact-file" type="file" accept=".exe,application/octet-stream"></label><p class="small-note">최대 ${Math.floor(maxBytes/1048576)}MB · 등록은 후보 저장만 수행하며 현재 운영 A/B/O는 바꾸지 않습니다.</p><label>공개 배포 승인 (.approval.json, 선택)<input id="desktop-artifact-approval" type="file" accept=".json,application/json"></label><p class="small-note">개인키를 업로드하지 마세요. 후보 등록 후 서버 보안 · 배포 운영에서 A/B/O를 검증하고 게시하세요.</p><label>이 최종 EXE의 배포 명세 ID (선택, 명세 강제 정책이면 필수)<input id="desktop-artifact-manifest" type="text" maxlength="128" autocomplete="off"></label><p class="small-note">명세 ID는 이 EXE의 최종 해시와 일치해야 합니다. 패킹 전 원본 명세 ID는 패킹 결과에 사용할 수 없습니다.</p><button type="button" id="desktop-artifact-packed-register">패킹한 A/B/O는 보호 결과 등록으로 연결</button><p id="desktop-artifact-status" role="status" aria-live="polite"></p>`,fields:[{name:'version',label:'버전',value:desktopBootstrap?.artifacts?.[component]?.version||'1.0.0'}],confirmLabel:'후보 등록'});
   const fileInput=document.getElementById('desktop-artifact-file'),versionInput=modalBody.querySelector('[data-modal-field="version"]'),status=document.getElementById('desktop-artifact-status'),finish=modalConfirm.onclick;
-  let uploaded=false,busy=false;
+  let uploaded=false,busy=false,nextPacked=false;
+  document.getElementById('desktop-artifact-packed-register').onclick=()=>{if(!busy&&session?.csrf===owner){nextPacked=true;modalCancel.click();}};
   modalConfirm.onclick=async()=>{
     if(busy||!session||session.csrf!==owner)return;
     try {
@@ -275,11 +276,12 @@ async function showDesktopArtifactUpload(component) {
       await api('/api/desktop/bootstrap/artifacts?'+query,{method:'POST',rawBody:file,headers});
       uploaded=true;
       if(session?.csrf===owner&&document.getElementById('desktop-artifact-file')===fileInput&&!modalEl.classList.contains('hidden')){toast(component+' 후보를 등록했습니다. 서버 보안 · 배포 운영에서 A/B/O를 게시하세요.');finish();}
-    } catch(error) { if(document.getElementById('desktop-artifact-file')===fileInput)status.textContent=(error.message||'업로드하지 못했습니다. 같은 파일로 다시 시도해주세요.')+(error.code?' · 오류 코드: '+error.code:''); }
+    } catch(error) { if(document.getElementById('desktop-artifact-file')===fileInput)status.textContent=(error.code==='SECURITY_MANIFEST_ARTIFACT_MISMATCH'?'선택한 명세와 최종 EXE가 일치하지 않습니다. 패킹 결과라면 [패킹한 A/B/O는 보호 결과 등록으로 연결]에서 최종 결과용 새 명세를 연결하세요.':error.message||'업로드하지 못했습니다. 같은 파일로 다시 시도해주세요.')+(error.code?' · 오류 코드: '+error.code:''); }
     finally {busy=false;if(document.getElementById('desktop-artifact-file')===fileInput){modalConfirm.disabled=false;fileInput.disabled=false;versionInput.disabled=false;}}
   };
   try {await promise;} finally {if(document.getElementById('desktop-artifact-file')===fileInput)modalBody.replaceChildren();}
-  if(uploaded&&session?.csrf===owner){desktopInvalidatePanels();await renderCurrent();}
+  if(nextPacked&&session?.csrf===owner)await showDesktopPackedRelease();
+  if((uploaded||nextPacked)&&session?.csrf===owner){desktopInvalidatePanels();await renderCurrent();}
 }
 async function downloadDesktopLauncher(data,owner) {
   if(!roleIsAdmin()||!session||session.csrf!==owner)throw Error('관리자 로그인을 확인해주세요.');
@@ -327,13 +329,14 @@ async function handleDesktopLicenseAction(event) {
   if(!action)return false;if(!roleIsAdmin())throw Error('관리자만 사용할 수 있습니다.');
   if(desktopLicenseActionPending)return true;
   const row=action==='machine-unblock'?desktopMachineRows.get(target.dataset.desktopMachine):action==='session-revoke'?desktopBootstrapSessions.get(target.dataset.id):desktopLicenseRows.get(target.dataset.id);
-  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','security-center','server-state','registration-reset','workspace','executable-protection','retry-panels','revoke-retry'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
+  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','security-center','server-state','registration-reset','workspace','executable-protection','packed-release','retry-panels','revoke-retry'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
   const actionOwner=session?.csrf;
   desktopLicenseActionPending=true;target.disabled=true;
   try{
     if(action==='retry-panels'){for(const x of desktopPanels.values())if(x.error)x.at=0;await renderCurrent();return true;}
     if(action==='registration-reset'){await showDesktopRegistrationReset();if(session?.csrf===actionOwner){desktopInvalidatePanels();await renderCurrent();}return true;}
     if(action==='workspace'){await showDesktopWorkspace();return true;}
+    if(action==='packed-release'){await showDesktopPackedRelease();desktopInvalidatePanels();await renderCurrent();return true;}
     if(action==='executable-protection'){await showDesktopExecutableProtection();desktopInvalidatePanels();await renderCurrent();return true;}
     if(action==='server-state'){await showDesktopServerState();desktopInvalidatePanels();await renderCurrent();return true;}
     if(action==='security-center'){await showDesktopSecurityCenter();return true;}

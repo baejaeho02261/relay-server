@@ -1,7 +1,7 @@
 'use strict';
 // Modal state is ephemeral: no localStorage, sessionStorage, IndexedDB or policy
 // cache. Closing / logging out drops the policy draft and public approval file.
-async function showDesktopSecurityOperations() {
+async function showDesktopSecurityOperations(initialPair=null) {
   if(!roleIsAdmin()||!session)throw Error('관리자 로그인을 확인해주세요.');
   const owner=session.csrf,base='/api/desktop/bootstrap/security-operations';
   let data=await api('/api/desktop/bootstrap/security-authority'),policyPreview='',pairPreview=null,rolloutPreview='',busy=false,closed=false;
@@ -29,7 +29,7 @@ async function showDesktopSecurityOperations() {
     SECURITY_CI_EVIDENCE_REQUIRED:'기존 실행에 저장된 CI 요구가 남아 있습니다. 배포 명세 영역에서 현재 조합에 수동 배포 정책을 적용하거나, 승인한 최종 A/B/O와 명세로 새 조합을 검증·게시하세요. CI 시험 PASS는 생성하지 않습니다.',
     SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시에는 최종 A/B/O의 유효한 EXE 승인 서명, 등록 완료된 동일 명세와 보안 버전 1 이상이 필요합니다. 아래 수동 배포 순서로 준비하세요. CI 증거 JSON은 요구하지 않습니다.',
     SECURITY_RELEASE_MANIFEST_INVALID:'명세 내용 또는 ID가 유효하지 않습니다. 생성 도구의 원본 JSON을 확인하세요.',
-    SECURITY_MANIFEST_ARTIFACT_MISMATCH:'명세의 파일과 선택한 후보가 다릅니다. 승인 처리까지 끝난 최종 EXE와 명세를 확인하세요.'
+    SECURITY_MANIFEST_ARTIFACT_MISMATCH:'이 파일의 해시와 명세가 다릅니다. 패킹 결과는 원본 명세 ID를 재사용할 수 없습니다. 라이선스 관리의 [보호 결과 등록]에서 최종 결과용 새 명세를 연결하세요.'
   }[reason]||reason);
   function compatibilityMatrix(){
     const matrix=data.mitigationCompatibility||{records:[]};
@@ -62,7 +62,7 @@ async function showDesktopSecurityOperations() {
     if(!alive())return;
     const p=data.policy,box=data.operations,s=box.operations,active=box.active,rows=box.candidates;
     const previous=node('sec-a')?pairBody():null,opened=sections().map(x=>x.open);
-    const selected=component=>{const id=previous?previous[component.toLowerCase()+'Id']:active[component]||'';return rows.some(x=>x.component===component&&x.id===id)?id:'';};
+    const selected=component=>{const id=previous?previous[component.toLowerCase()+'Id']:initialPair?.[component.toLowerCase()+'Id']||active[component]||'';return rows.some(x=>x.component===component&&x.id===id)?id:'';};
     const g=s.releaseGovernance||{requireManifest:false,requireCiEvidence:false,minimumSecurityVersion:0,manifests:{},ciKeys:{},ciEvidence:{}};
     const publication=box.productionPublication;
     const pinState=data.tlsPinTransition||{enabled:false,generation:0};
@@ -292,6 +292,7 @@ async function showDesktopSecurityOperations() {
     }
   });
   render();
+  if(initialPair&&node('sec-a'))node('sec-a').closest('details').open=true;
   try{await done;}finally{closed=true;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';pairPreview=null;rolloutPreview='';if(root.isConnected)root.replaceChildren();}
   if(nextPanel==='release-safety'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopReleaseSafety();
   if(nextPanel==='registration-reset'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopRegistrationReset();

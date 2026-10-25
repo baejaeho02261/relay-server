@@ -7,6 +7,7 @@ const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
 function SecurityCenterMutation(pathname){return /^\/api\/desktop\/bootstrap\/security-center\/(?:parser-tests|artifact-scan|respond)$/.test(pathname||'');}
 function IsMutation(pathname) {
+  if(pathname==='/api/desktop/bootstrap/security-operations/plan-packed-release')return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/registration-reset')return true;
   if(SecurityCenterMutation(pathname))return true;
   if(AdditionalCritical(pathname)||(pathname==='/api/desktop/bootstrap/packing/jobs'||pathname==='/api/desktop/bootstrap/packing/custom/jobs'))return true;
