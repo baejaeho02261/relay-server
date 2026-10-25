@@ -7,16 +7,16 @@ RUN node -e "require('fs').writeFileSync('/tmp/peace-bootstrap-ca.pem',require('
  && apt-get -o Acquire::https::CaInfo=/tmp/peace-bootstrap-ca.pem -o APT::Update::Error-Mode=any update \
  && apt-get -o Acquire::https::CaInfo=/tmp/peace-bootstrap-ca.pem install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/* /tmp/peace-bootstrap-ca.pem
-# Relay-only repository: the build context is this repository root.
-# Native source archives require a separate private full-source deployment.
 WORKDIR /app/cozy-peace/Relay Server
-COPY ["package.json", "package-lock.json", "./"]
+COPY ["cozy-peace/Relay Server/package.json", "cozy-peace/Relay Server/package-lock.json", "./"]
 # better-sqlite3 13 ships N-API prebuilds for linux-x64/arm64; no
 # runtime compiler or install-time GitHub binary download is needed.
 # Avoid npm auto-detecting binding.gyp on a clean lockfile install. All pinned
 # runtime dependencies are script-free; the SQL smoke check loads the real addon.
 RUN npm ci --omit=dev --ignore-scripts && node -e "const D=require('better-sqlite3');const d=new D(':memory:');d.prepare('SELECT 1').get();d.close();"
-COPY ["./", "/app/cozy-peace/Relay Server/"]
-RUN node tools/build/peace.verify-relay-source.js && node tests/runtime/peace.test-railway-process-lifecycle.js
+COPY ["cozy-peace/Relay Server/", "/app/cozy-peace/Relay Server/"]
+COPY ["cozy-peace/Railway/", "/app/cozy-peace/Railway/"]
+COPY ["tools/", "/app/tools/"]
+RUN node /app/tools/package-check/verify-package.js && node tests/runtime/peace.test-railway-process-lifecycle.js
 ENV NODE_ENV=production
 CMD ["node", "peace.relay-server.js"]
