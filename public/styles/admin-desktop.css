@@ -104,3 +104,8 @@
 #desktop-server-state-root #server-performance-panel th { overflow-wrap:anywhere; }
 #desktop-server-state-root #server-performance-gaps { font-size:12px; overflow-wrap:anywhere; }
 @media(max-width:760px) { #desktop-server-state-root .server-performance-cards { grid-template-columns:1fr; } }
+
+#desktop-registration-reset .desktop-reset-warning { padding:12px 14px; border:1px solid var(--line-strong); border-radius:8px; line-height:1.7; }
+#desktop-registration-reset #desktop-reset-status { white-space:pre-wrap; line-height:1.7; overflow-wrap:anywhere; }
+#desktop-registration-reset #desktop-reset-status[data-state=error] { color:var(--bad); }
+#desktop-registration-reset #desktop-reset-status[data-state=success] { color:var(--good); }

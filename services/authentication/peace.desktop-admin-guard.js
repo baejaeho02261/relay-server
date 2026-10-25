@@ -7,6 +7,7 @@ const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
 function SecurityCenterMutation(pathname){return /^\/api\/desktop\/bootstrap\/security-center\/(?:parser-tests|artifact-scan|respond)$/.test(pathname||'');}
 function IsMutation(pathname) {
+  if(pathname==='/api/desktop/bootstrap/security-operations/registration-reset')return true;
   if(SecurityCenterMutation(pathname))return true;
   if(AdditionalCritical(pathname)||(pathname==='/api/desktop/bootstrap/packing/jobs'||pathname==='/api/desktop/bootstrap/packing/custom/jobs'))return true;
   if(/^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-identity-policy|device-key-revoke|storage-maintenance|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint|manual-verification)$/.test(pathname))return true;
@@ -40,6 +41,7 @@ function SingleOperatorPath(pathname) {
 // changing evidence used by live authorization and recovery always are.
 function AdditionalCritical(pathname){return /^\/api\/backups\/[^/]+\/restore$/.test(pathname||'') || /^\/api\/production\/(?:config\/apply|transport|update\/(?:policy|rollback))$/.test(pathname||'');}
 function CriticalMutation(pathname) {
+  if(pathname==='/api/desktop/bootstrap/security-operations/registration-reset')return true;
   if(SecurityCenterMutation(pathname))return true;
   if(AdditionalCritical(pathname)||(pathname==='/api/desktop/bootstrap/packing/jobs'||pathname==='/api/desktop/bootstrap/packing/custom/jobs'))return true;
   if (typeof pathname !== 'string') return false;
@@ -104,6 +106,7 @@ function Summary(path,body){
   if(body?.contract)out.contract=Object.fromEntries(['version','evidenceVersion','minApiSlots','maxApiSlots'].filter(k=>Number.isSafeInteger(body.contract[k])).map(k=>[k,body.contract[k]]));
   if(body?.rollout)out.rollout={enabled:body.rollout.enabled===true,artifactKeys:Array.isArray(body.rollout.artifactKeys)?body.rollout.artifactKeys.filter(x=>typeof x==='string'&&/^[ABO]:[a-f0-9]{128}$/.test(x)).slice(0,128):[],patch:Object.fromEntries(['mode','dynamicCode','requireReadonlyApi','requireCfg'].filter(k=>['string','boolean'].includes(typeof body.rollout.patch?.[k])).map(k=>[k,String(body.rollout.patch[k]).slice(0,20)]))};
   if(path==='/api/desktop/bootstrap/security-operations/enable-all')out.activationTargets={profile:body?.profile,targetHash:body?.targetHash,stepUpRequired:true,dualApprovalRequired:false,adminMode:'SINGLE_ADMIN',windows:body?.profile==='ALL'?'dynamicCode=prohibit; requireCfg=true':'UNCHANGED'};
+  if(path==='/api/desktop/bootstrap/security-operations/registration-reset')out.reset={scope:body?.scope,confirmation:body?.confirmation,expectedEpoch:body?.expectedEpoch,requestId:body?.requestId,preserves:'SERVER_KEYS_ADMIN_LOGIN_SECURITY_FLOORS_AUDIT'};
   if(body?.report)out.testEvidence={aSha512:body.report.aSha512,bSha512:body.report.bSha512,...(body.report.oSha512?{oSha512:body.report.oSha512}:{}),nativeBuild:body.report.nativeBuild,apiProbe:body.report.apiProbe,integration:body.report.integration,logsSha512:body.report.logsSha512};
   return out;
 }
@@ -130,7 +133,7 @@ function Authorize(session,method,path,body,ticketId,enrollmentToken='',actionId
     catch(e){return{ok:false,status:e.desktopError?e.status:503,reason:e.desktopError?e.message:'SECURITY_ACTIVATION_CHECK_FAILED'};}
   }
   if(SingleOperatorPath(path))return {ok:true,mode:'SINGLE_ADMIN',
-    ...((path==='/api/desktop/bootstrap/security-operations/enable-all'||SecurityCenterMutation(path))?{ticket:SinglePermit(session,method,path,body)}:{})};
+    ...((path==='/api/desktop/bootstrap/security-operations/enable-all'||path==='/api/desktop/bootstrap/security-operations/registration-reset'||SecurityCenterMutation(path))?{ticket:SinglePermit(session,method,path,body)}:{})};
   if(path==='/api/production/dual-policy'&&body?.required===true){
     if(!Identity(session))return{ok:false,status:428,reason:'SECURITY_ADMIN_IDENTITY_REQUIRED'};
     if(new Set(Object.entries(Identities()||{}).filter(([id,principal])=>ProvisionedCredential(id,principal)).map(([,principal])=>principal)).size<2)return{ok:false,status:409,reason:'SECURITY_SECOND_OPERATOR_REQUIRED'};

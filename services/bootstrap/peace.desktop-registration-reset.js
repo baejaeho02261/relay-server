@@ -13,7 +13,7 @@ function Plain(v){return !!v&&Object.getPrototypeOf(v)===Object.prototype;}
 function Exact(v,keys){return Plain(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));}
 function Time(n){return Number.isSafeInteger(n)&&n>0;}
 function Identifier(id){if(typeof id!=='string'||!ID.test(id))Fail('ID_INVALID');return id;}
-function Authorized(id){Identifier(id);if(process.env.COZY_REGISTRATION_RESET_ID!==id||process.env.COZY_REGISTRATION_RESET_SCOPE!==SCOPE)Fail('NOT_AUTHORIZED');}
+function Authorized(id){Identifier(id);require('../operations/peace.registration-reset-authorization').Assert(id);}
 function Count(v){return Object.keys(v||{}).length;}
 function Counts(db){return {artifacts:Count(db.artifacts),launchers:Count(db.launchers),flows:Count(db.flows),overlays:Count(db.overlays),issueReceipts:Count(db.issueReceipts),packingEvidence:Count(db.packingEvidence),manifests:Count(db.securityOperations?.releaseGovernance?.manifests),workspaceGarbage:Count(db.workspaceGarbage),deviceBindings:Count(db.deviceRegistry?.bindings),deviceEnrollments:Count(db.deviceIdentity?.enrollments)};}
 function ValidateJob(j){
@@ -57,7 +57,7 @@ function ResetOperations(db){
  if(db.securityOperations){
   const operations=require('../security/peace.desktop-security-operations'),provenance=require('../artifacts/peace.desktop-release-provenance');
   const old=operations.ValidateState(db.securityOperations),governance=old.releaseGovernance||provenance.Defaults();
-  db.securityOperations={...operations.Defaults(),revision:old.revision+1,requirePackingEvidence:old.requirePackingEvidence===true,requireCozyProtection:old.requireCozyProtection===true,signerStates:structuredClone(old.signerStates),releaseGovernance:{...provenance.Defaults(),requireManifest:governance.requireManifest,requireCiEvidence:governance.requireCiEvidence,minimumSecurityVersion:governance.minimumSecurityVersion,ciKeys:structuredClone(governance.ciKeys),releaseKeyIds:structuredClone(governance.releaseKeyIds||[])}};
+  db.securityOperations={...operations.Defaults(),revision:old.revision+1,requireBuildContract:old.requireBuildContract===true,requireTestEvidence:old.requireTestEvidence===true,requirePackingEvidence:old.requirePackingEvidence===true,requireCozyProtection:old.requireCozyProtection===true,signerStates:structuredClone(old.signerStates),releaseGovernance:{...provenance.Defaults(),requireManifest:governance.requireManifest,requireCiEvidence:governance.requireCiEvidence,minimumSecurityVersion:governance.minimumSecurityVersion,ciKeys:structuredClone(governance.ciKeys),releaseKeyIds:structuredClone(governance.releaseKeyIds||[])}};
   operations.ValidateState(db.securityOperations);
  }
  if(db.releaseSafety){const safety=require('../artifacts/peace.desktop-release-safety'),old=safety.ValidateState(db.releaseSafety);db.releaseSafety={...safety.Defaults(),revision:old.revision+1,revokedCohorts:structuredClone(old.revokedCohorts)};safety.ValidateState(db.releaseSafety);}

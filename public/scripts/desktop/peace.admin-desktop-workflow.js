@@ -12,6 +12,113 @@ function desktopWorkflowError(node,error,retry){
 
 }
 function desktopWorkflowDownload(name,value){const url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+// Only an operation nonce is retained in this tab while the server restarts.
+// No registration data, keys or reset approval is persisted in the browser.
+let desktopPendingRegistrationReset=null;
+async function showDesktopRegistrationReset(){
+ if(!roleIsAdmin()||!session)return;
+ const owner=desktopWorkflowOwner(),base='/api/desktop/bootstrap/security-operations/registration-reset',scope='ABO_LICENSES_ISSUANCE_OPERATIONS_V1';
+ let operationId=desktopPendingRegistrationReset?.id||'',closed=false,busy=false,completed=false,submitted=!!operationId,pollTimer=null,wakePoll=null,controller=null;
+ let state=await api(base+(operationId?'?requestId='+encodeURIComponent(operationId):''));
+ if(!roleIsAdmin()||session?.csrf!==owner)return;
+ if(state.scope!==scope||state.confirmation!=='전체 초기화'||!Number.isSafeInteger(state.epoch))throw Error('초기화 범위와 서버 상태를 확인하지 못했습니다. 새로고침하세요.');
+ if(!operationId&&['QUEUED','RUNNING'].includes(state.operation?.status)&&/^[a-f0-9]{64}$/.test(state.operation.id||'')){
+  operationId=state.operation.id;submitted=true;desktopPendingRegistrationReset={id:operationId};
+ }
+ const done=openModal({title:'등록 데이터 전체 초기화',message:'등록한 A/B/O 파일·라이선스·발급 내역과 관련 운영 데이터를 모두 지웁니다. 초기화 후 파일과 라이선스를 다시 등록해야 합니다.',html:`<section id="desktop-registration-reset"><p class="desktop-reset-warning"><strong>이 작업은 되돌릴 수 없습니다.</strong> 사용 중인 A/B/O의 서버 인증도 종료됩니다.</p><h4>지울 데이터 · 조회 시점 수량</h4><div id="desktop-reset-counts" class="kv"></div><p class="small-note">배포 명세·패킹 기록·실행 세션·기기 연결·무결성 기준·운영 메모와 작업 내역도 초기화합니다. 처리 시점에 등록된 데이터 전체에 적용됩니다.</p><p class="small-note">서버 키·관리자 로그인 수단·보안 정책·철회 기록·보안 감사 기록은 유지합니다. PC에 저장된 EXE 파일은 바뀌지 않습니다.</p><label>삭제 범위를 확인했다면 <strong>전체 초기화</strong> 입력<input id="desktop-reset-confirmation" type="text" maxlength="6" autocomplete="off" spellcheck="false"></label><div class="actions"><button type="button" id="desktop-reset-submit" class="danger" disabled>등록 데이터 전체 초기화</button><button type="button" id="desktop-reset-check">서버에서 결과 확인</button><button type="button" id="desktop-reset-login" hidden>다시 로그인</button></div><p id="desktop-reset-status" role="status" aria-live="polite"></p><p class="small-note">실행 시 관리자 비밀번호 또는 패스키를 다시 확인합니다. 초기화 중 서버가 잠시 연결을 끊을 수 있으며, 재로그인 후 이 버튼에서 결과를 확인할 수 있습니다.</p></section>`,confirmLabel:'닫기'});
+ const root=document.getElementById('desktop-registration-reset'),q=id=>root.querySelector('#'+id),live=()=>!closed&&root.isConnected&&roleIsAdmin()&&session?.csrf===owner;
+ const countNames={artifacts:'등록 A/B/O 파일',activeArtifacts:'운영 중 A/B/O',licenses:'라이선스',issuedLaunchers:'일회용 A 발급',flows:'A/B 실행 세션',overlays:'O 실행 세션',issueReceipts:'발급 처리 내역',packingEvidence:'패킹 기록',releaseManifests:'배포 명세'};
+ function renderCounts(){
+  const number=value=>Number.isSafeInteger(value)&&value>=0?value.toLocaleString()+'건':'확인되지 않음';
+  const counts=state.counts||{},related=state.relatedCounts||{};
+  q('desktop-reset-counts').innerHTML=Object.entries(countNames).map(([key,label])=>`<div>${esc(label)}</div><div>${esc(number(counts[key]))}</div>`).join('')+[['기기 연결',related.machine?.bindings],['무결성 기준',related.integrity?.baselines],['운영 작업',related.workspace?.jobs]].map(([label,value])=>`<div>${esc(label)}</div><div>${esc(number(value))}</div>`).join('');
+ }
+ function status(message,kind='pending'){if(live()){q('desktop-reset-status').textContent=message;q('desktop-reset-status').dataset.state=kind;}}
+ function controls(){if(!live())return;q('desktop-reset-confirmation').disabled=busy||submitted||completed;q('desktop-reset-submit').disabled=busy||submitted||completed||q('desktop-reset-confirmation').value!=='전체 초기화';q('desktop-reset-check').disabled=busy;}
+ function remember(id){operationId=id;submitted=true;desktopPendingRegistrationReset={id};controls();}
+ function wait(){return new Promise(resolve=>{wakePoll=resolve;pollTimer=setTimeout(()=>{pollTimer=null;wakePoll=null;resolve();},2000);});}
+ function friendly(error){
+  const messages={REGISTRATION_RESET_REQUEST_INVALID:'초기화 확인 문구와 요청 범위를 확인하세요.',REGISTRATION_RESET_EPOCH_CONFLICT:'다른 초기화 작업으로 서버 상태가 바뀌었습니다. 창을 닫고 다시 열어 현재 범위를 확인하세요.',REGISTRATION_RESET_IN_PROGRESS:'다른 초기화 작업이 진행 중입니다. 서버에서 결과를 확인하세요.',REGISTRATION_RESET_CONFLICT:'초기화 준비 중 서버 상태가 변경되었습니다. 창을 다시 열어 현재 상태를 확인하세요.',REGISTRATION_RESET_AUTHORIZATION_CONFLICT:'서버 유지보수 초기화가 이미 예약되어 있습니다. 해당 작업의 완료 후 다시 확인하세요.',REGISTRATION_RESET_SERVICE_UNAVAILABLE:'서버가 현재 초기화 요청을 받을 수 없습니다. 서버 상태를 확인한 뒤 다시 시도하세요.',REGISTRATION_RESET_RECEIPT_CAPACITY:'보존된 초기화 기록의 한도에 도달했습니다. 서버 운영 점검이 필요합니다.',REGISTRATION_RESET_NOT_AUTHORIZED:'이 초기화 요청의 관리자 승인을 확인하지 못했습니다. 다시 승인하세요.',REGISTRATION_RESET_MAINTENANCE:'서버가 초기화 중입니다. 재로그인 후 결과를 확인하세요.'};
+  return messages[error.code]||error.message||'초기화 요청 결과를 확인하지 못했습니다.';
+ }
+ async function readStatus(){
+  controller=new AbortController();const timeout=setTimeout(()=>controller?.abort(),8000);
+  try{
+   const response=await fetch(base+'?requestId='+encodeURIComponent(operationId),{method:'GET',headers:{Accept:'application/json'},credentials:'same-origin',cache:'no-store',signal:controller.signal});
+   if(response.status===401){const error=Error('로그인이 만료되었습니다.');error.status=401;throw error;}
+   const value=await response.json();
+   if(!response.ok||value?.ok!==true){const error=Error(value?.message||'서버의 초기화 결과를 확인하지 못했습니다.');error.code=value?.error;error.status=response.status;throw error;}
+   if(value.scope!==scope)throw Error('초기화 결과의 범위가 요청과 다릅니다.');return value;
+  }finally{clearTimeout(timeout);controller=null;}
+ }
+ async function observe(){
+  if(busy||!live()||!operationId)return;busy=true;controls();const expected=operationId,until=Date.now()+120000;
+  try{
+   while(live()&&operationId===expected&&Date.now()<until){
+    try{
+     const value=await readStatus();if(!live()||operationId!==expected)return;
+     const operation=value.operation;
+     if(operation&&operation.id!==expected)throw Error('다른 초기화 작업의 응답입니다. 완료로 확인할 수 없습니다.');
+     if(operation?.status==='COMPLETE'&&Number.isSafeInteger(operation.completedAt)&&operation.completedAt>0){
+      state=value;completed=true;renderCounts();q('desktop-reset-confirmation').value='';
+      if(desktopPendingRegistrationReset?.id===expected)desktopPendingRegistrationReset=null;
+      desktopSelectedLicenses.clear();
+      if(typeof desktopPendingIssue!=='undefined')desktopPendingIssue=null;
+      if(typeof desktopPendingRevoke!=='undefined')desktopPendingRevoke=null;
+      if(typeof desktopPendingLauncher!=='undefined')desktopPendingLauncher=null;
+      if(typeof desktopInvalidatePanels==='function')desktopInvalidatePanels();
+      status('등록 데이터 전체 초기화가 완료되었습니다. A/B/O 파일과 라이선스를 새로 등록할 수 있습니다.','success');return;
+     }
+     if(operation&&!['QUEUED','RUNNING'].includes(operation.status))throw Error('서버의 초기화 진행 상태를 확인하지 못했습니다.');
+     status(operation?'초기화 요청을 저장했습니다. 서버 처리와 재접속 후 완료 결과를 확인하고 있습니다.':'이 요청의 접수·완료 여부를 아직 확인하지 못했습니다. 같은 요청의 상태만 조회하고 있습니다.');
+    }catch(error){
+     if(!live())return;
+     if(error.status===401){q('desktop-reset-login').hidden=false;status('서버 연결이 복구되면 다시 로그인한 뒤 [초기화 결과 확인]을 누르세요. 아직 완료로 확인하지 않았습니다.','pending');return;}
+     status('서버 연결 또는 처리 결과를 아직 확인하지 못했습니다. 재접속을 기다리고 있습니다.','pending');
+    }
+    await wait();
+   }
+   if(live())status('완료 여부를 아직 확인하지 못했습니다. [서버에서 결과 확인]으로 같은 요청을 확인하세요. 초기화를 다시 실행하지 않습니다.','pending');
+  }finally{busy=false;controls();}
+ }
+ q('desktop-reset-confirmation').oninput=controls;
+ q('desktop-reset-submit').onclick=async()=>{
+  if(busy||submitted||completed||!live())return;
+  if(q('desktop-reset-confirmation').value!=='전체 초기화'){status('확인 문구를 정확히 입력하세요: 전체 초기화','error');return;}
+  const requestId=Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
+  remember(requestId);busy=true;controls();status('확인한 초기화 요청에 대한 관리자 재인증을 진행합니다.');
+  try{
+   const result=await api(base,{method:'POST',body:{requestId,scope,confirmation:'전체 초기화',expectedEpoch:state.epoch}});
+   if(!live())return;
+   if(result.operation?.id!==requestId||!['QUEUED','RUNNING','COMPLETE'].includes(result.operation.status))throw Error('요청한 초기화 작업의 접수 결과를 확인하지 못했습니다.');
+   remember(requestId);status('초기화 요청을 저장했습니다. 서버 처리 결과를 확인합니다.');
+  }catch(error){
+   // Never resend a destructive POST after losing a response. Retain the
+   // nonce even if restart/SSE has already closed this modal for login.
+   const rejected=error.status>=400&&error.status<500||/재인증을 취소|작업 화면 또는 로그인 상태가 변경|작업 화면 또는 로그인 상태가 변경되어/.test(error.message||'');
+   if(rejected){if(desktopPendingRegistrationReset?.id===requestId)desktopPendingRegistrationReset=null;operationId='';submitted=false;}
+   if(!live())return;
+   status(friendly(error)+(operationId?' 서버에서 같은 요청의 결과를 확인합니다.':''),'error');
+  }finally{busy=false;controls();}
+  if(live()&&operationId)await observe();
+ };
+ q('desktop-reset-check').onclick=async()=>{
+  if(busy||!live())return;
+  if(operationId)return observe();
+  busy=true;controls();
+  try{const value=await api(base);if(!live())return;if(value.scope!==scope||!Number.isSafeInteger(value.epoch))throw Error('초기화 범위를 확인하지 못했습니다.');state=value;renderCounts();status('서버에서 현재 등록 수량을 확인했습니다.');}
+  catch(error){if(live())status(friendly(error),'error');}finally{busy=false;controls();}
+ };
+ q('desktop-reset-login').onclick=()=>{if(live())showLogin();};
+ renderCounts();controls();
+ if(operationId)void observe();
+ else if(state.operation?.status==='COMPLETE')status('이전 초기화 완료 기록이 있습니다. 위 수량은 현재 서버의 등록 데이터입니다.');
+ try{await done;}finally{
+  closed=true;controller?.abort();if(pollTimer!==null)clearTimeout(pollTimer);const wake=wakePoll;wakePoll=null;if(wake)wake();
+  q('desktop-reset-confirmation').oninput=null;q('desktop-reset-submit').onclick=null;q('desktop-reset-check').onclick=null;q('desktop-reset-login').onclick=null;
+  state=null;if(root.isConnected)root.replaceChildren();
+ }
+}
 async function showDesktopReleaseSafety(){
  if(!roleIsAdmin()||!session)return;const owner=desktopWorkflowOwner();
  let listing=await api('/api/desktop/bootstrap/security-operations');

@@ -35,6 +35,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
    if(length>32*1024*1024)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);uploadPending=true;
    const bytes=await ReadBytes(req,32*1024*1024),fileName=url.searchParams.get('fileName'),label=url.searchParams.get('label')||'';
    await require("../../../services/artifacts/peace.desktop-pe-cache").Prepare(bytes);
+   require('../../../services/operations/peace.registration-reset').AssertAvailable();
    const summary={fileName,label,hashVersion:3,sha512:require("../../../services/security/peace.desktop-security-operations").sha512(bytes),size:bytes.length};
    const allowed=require("../../../services/authentication/peace.desktop-admin-guard").Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''),'',String(req.headers['x-admin-action']||''));
    if(!allowed.ok){require("../../../services/authentication/peace.desktop-action-approval").Deny(res,allowed);return true;}
@@ -46,6 +47,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
   if(!['A','B','O'].includes(component)||!/^\d+(?:\.\d+){0,3}$/.test(version||'')||!/^.{1,200}\.exe$/i.test(name)||/[\x00-\x1f\x7f/\\]/.test(name))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
   uploadPending=true;const bytes=await ReadBytes(req,bootstrap.MAX_ARTIFACT_BYTES),approval=req.headers['x-game-release-key-id']||req.headers['x-game-release-signature']?{keyId:req.headers['x-game-release-key-id'],signature:req.headers['x-game-release-signature']}:undefined;
   await require("../../../services/artifacts/peace.desktop-pe-cache").Prepare(bytes);
+  require('../../../services/operations/peace.registration-reset').AssertAvailable();
   const ops=require("../../../services/security/peace.desktop-security-operations"),authority=require("../../../services/security/peace.desktop-security-authority");
   const summary={component,version,fileName:name,...(releaseManifestId?{releaseManifestId}:{}),hashVersion:3,sha512:ops.sha512(bytes),size:bytes.length,keyId:approval?.keyId||'',signatureSha512:approval?ops.sha512(JSON.stringify(approval)):'',expectedPolicyRevision:authority.Policy().revision,expectedOperationsRevision:ops.Revision(),disposition:'CANDIDATE'};
   const allowed=require("../../../services/authentication/peace.desktop-admin-guard").Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''),'',String(req.headers['x-admin-action']||''));

@@ -6,6 +6,8 @@ async function HandleApiRequest(req, res, session) {
     const url = new URL(req.url, 'http://localhost');
     let pathname = url.pathname;
     const method = String(req.method || 'GET').toUpperCase();
+    const reset=require('../../services/operations/peace.registration-reset');
+    if(reset.IsDraining()&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
     let body = {};
     const desktopMode = require("../../services/runtime/peace.desktop-mode");
     if (desktopMode.RetiredPath(pathname)) { desktopMode.Reject(res); return; }
@@ -25,6 +27,7 @@ async function HandleApiRequest(req, res, session) {
     }
 
     if (!body || typeof body !== 'object' || Array.isArray(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
+    if(reset.IsDraining()&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
     if (desktopMode.RetiredTarget(pathname, body, url.searchParams)) { desktopMode.Reject(res); return; }
 
     if (!['GET', 'HEAD'].includes(method) && pathname !== '/api/logout' && !require("../../services/network/peace.ha-coordinator").CanAcceptTraffic()) {
@@ -73,23 +76,26 @@ async function HandleApiRequest(req, res, session) {
     }
 
     const context = { method, pathname, url, body, req, res, session, desktopAuthorization };
-    if (await require("../routes/web/peace.desktop-server-state-routes").Handle(context)) return;
-    if (await require("../routes/web/peace.desktop-workspace-routes").Handle(context)) return;
-    if (await require("../routes/bootstrap/peace.desktop-bootstrap-routes").Handle(context)) return;
-    if (await require("../routes/licensing/peace.desktop-license-routes").Handle(context)) return;
-
-    if (await productionRoutes.Handle({
-        method, pathname, body, req, res, session,
-        RequireAdmin, Json, ApiError
-    })) return;
-
-    if (await require("../routes/devices/peace.device-routes").Handle(context)) return;
-    if (await require("../routes/runtime/peace.traffic-routes").Handle(context)) return;
-    if (await require("../routes/runtime/peace.history-routes").Handle(context)) return;
-    if (await require("../routes/runtime/peace.report-routes").Handle(context)) return;
-    if (await require("../routes/runtime/peace.deployment-routes").Handle(context)) return;
-    if (await require("../routes/runtime/peace.infrastructure-routes").Handle(context)) return;
-    if (await require("../routes/runtime/peace.system-routes").Handle(context)) return;
+    const routes=[
+        require("../routes/web/peace.desktop-server-state-routes").Handle,
+        require("../routes/web/peace.desktop-workspace-routes").Handle,
+        require("../routes/bootstrap/peace.desktop-bootstrap-routes").Handle,
+        require("../routes/licensing/peace.desktop-license-routes").Handle,
+        c=>productionRoutes.Handle({...c,RequireAdmin,Json,ApiError}),
+        require("../routes/devices/peace.device-routes").Handle,
+        require("../routes/runtime/peace.traffic-routes").Handle,
+        require("../routes/runtime/peace.history-routes").Handle,
+        require("../routes/runtime/peace.report-routes").Handle,
+        require("../routes/runtime/peace.deployment-routes").Handle,
+        require("../routes/runtime/peace.infrastructure-routes").Handle,
+        require("../routes/runtime/peace.system-routes").Handle
+    ];
+    for(const handle of routes){
+        // A false asynchronous handler yields too: recheck between dispatches,
+        // not only once before the first router receives the request.
+        if(reset.IsDraining()&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
+        if(await handle(context))return;
+    }
     ApiError(res, 404, 'NOT_FOUND');
 }
 

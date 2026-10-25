@@ -13,6 +13,10 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   }
   if(pathname!==prefix&&!pathname.startsWith(prefix+'/'))return false;
   if(!session||session.role!=='admin'){ApiError(res,403,'ADMIN_REQUIRED');return true;}
+  if(method==='GET'&&pathname===prefix+'/registration-reset'){
+    const check=guard.CheckSession(session,pathname,method);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
+    Json(res,200,{ok:true,...require('../../../services/operations/peace.registration-reset').Status(new URL(req.url,'http://localhost').searchParams.get('requestId')||undefined)});return true;
+  }
   if(method==='GET'&&pathname===prefix+'/mitigation-compatibility'){Json(res,200,{ok:true,...require("../../../services/security/peace.desktop-mitigation-compatibility").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/mitigation-profiles'){Json(res,200,{ok:true,...require("../../../services/security/peace.desktop-mitigation-profiles").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/tls-pin-transition'){Json(res,200,{ok:true,...require("../../../services/network/peace.desktop-tls-pin-transition").Status()});return true;}
@@ -32,6 +36,11 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   const live=guard.CheckSession(session,pathname,method);
   if(!live.ok){ApiError(res,live.status||403,live.reason);return true;}
   const action=pathname.slice(prefix.length+1),actor=guard.Identity(session)||'ADMIN:'+session.id;
+  if(action==='registration-reset'){
+    const reset=require('../../../services/operations/peace.registration-reset'),result=reset.Schedule(body,session,desktopAuthorization?.ticket);
+    if(result.restartRequired)reset.AfterResponse(res);
+    Json(res,result.restartRequired?202:200,{ok:true,...result});return true;
+  }
   if(action==='step-up/begin'){const out=guard.Begin(session,req);if(out.ok)Json(res,200,out);else ApiError(res,403,out.reason);return true;}
   if(action==='step-up/finish'){const out=guard.Finish(session,req,body);if(out.ok)Json(res,200,out);else ApiError(res,403,out.reason);return true;}
   if(action==='approve'){

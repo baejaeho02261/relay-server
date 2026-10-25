@@ -1,12 +1,13 @@
 'use strict';
-// One-time startup maintenance. No HTTP route exposes these operations.
+// One-time startup maintenance. HTTP can queue, but never execute, a reset.
 // Every store advances its existing authenticated history and retains receipts.
 const SCOPE='ABO_LICENSES_ISSUANCE_OPERATIONS_V1';
 const ID=/^[a-f0-9]{64}$/;
 function Fail(code){throw Error(code);}
 function Plain(value){return !!value&&Object.getPrototypeOf(value)===Object.prototype;}
 function AssertAuthorized(operationId){
- if(typeof operationId!=='string'||!ID.test(operationId)||process.env.COZY_REGISTRATION_RESET_ID!==operationId||process.env.COZY_REGISTRATION_RESET_SCOPE!==SCOPE)Fail('REGISTRATION_RESET_NOT_AUTHORIZED');
+ if(typeof operationId!=='string'||!ID.test(operationId))Fail('REGISTRATION_RESET_NOT_AUTHORIZED');
+ require('./peace.registration-reset-authorization').Assert(operationId);
  const db=require('../bootstrap/peace.desktop-bootstrap-store').Load(),job=db.registrationResetJob;
  if(!job||job.version!==1||job.id!==operationId||!['PREPARED','APPLIED'].includes(job.phase)||Object.hasOwn(db.registrationResetReceipts||{},operationId))Fail('REGISTRATION_RESET_NOT_AUTHORIZED');
  return job;
