@@ -58,7 +58,7 @@ function Pe(bytes,component){
  if(!entryExecutable)Fail('BOOTSTRAP_PE_INVALID');
  // The parser's marker literal may occur inside a valid template. Only a
  // terminal marker means the file already carries an individualized overlay.
- if(component==='A'&&bytes.subarray(-FOOTER.length).equals(FOOTER))Fail('BOOTSTRAP_TEMPLATE_PERSONALIZED');
+ if(component==='A'&&[FOOTER,CONFIG_FOOTER].some(marker=>bytes.subarray(-marker.length).equals(marker)))Fail('BOOTSTRAP_TEMPLATE_PERSONALIZED');
  // Explicit historical wire bytes: old native builds cannot understand the new
  // overlay/profile. Reject them instead of silently distributing a broken pair.
  if(!bytes.includes(Buffer.from('GAME-CONNECT-4'))&&!bytes.includes(Buffer.from('GAME-CONNECT-4','utf16le')))Fail('BOOTSTRAP_PROTOCOL_UPGRADE_REQUIRED');

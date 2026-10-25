@@ -16,7 +16,9 @@ test('decoder rejects non-ASCII host, invalid key binding, zero and oversized ex
 test('new native source requires AEAD before binary parsing and has no plaintext JSON fallback',()=>{const native=path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Application/Cozy.Launcher.pas');if(!fs.existsSync(native))return;const s=fs.readFileSync(native,'utf8');assert.match(s,/ConfigMarker: AnsiString = 'COZYA2CONFIG!'/);assert.match(s,/BinaryConfigMarker: AnsiString = 'COZYACF2'/);assert.ok(s.indexOf('Plain := CozyProtectionDecryptConfig(Bytes)')<s.indexOf('Result := ParseProtectedConfig(Plain)'));assert.doesNotMatch(s,/TJSONObject\.ParseJSONValue\(Text\)/);for(let i=1;i<=9;i++)assert.match(s,new RegExp('Field\\('+i+', '));assert.match(s,/Field\(10, 1, 6144\)/);assert.match(s,/WipeBytes\(Plain\)/);});
 
 function Template(role){
- const input=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture').PE(role,'encrypted-config-test'),slot=engine.CreateUnsealedSlot(),bytes=Buffer.concat([input,slot]);
+ // Real templates retain parser marker literals internally. Only a terminal
+ // personalization footer makes the file unsuitable for another issuance.
+ const input=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture').PE(role,'encrypted-config-test GAMEA80CONFIG! COZYA2CONFIG!'),slot=engine.CreateUnsealedSlot(),bytes=Buffer.concat([input,slot]);
  const pe=bytes.readUInt32LE(60),opt=pe+24,table=opt+bytes.readUInt16LE(pe+20),last=table+(bytes.readUInt16LE(pe+6)-1)*40,size=bytes.readUInt32LE(last+16)+slot.length;
  bytes.writeUInt32LE(size,last+8);bytes.writeUInt32LE(size,last+16);bytes.writeUInt32LE(Math.ceil((bytes.readUInt32LE(last+12)+size)/4096)*4096,opt+56);return bytes;
 }
@@ -39,8 +41,14 @@ test('actual issuance preserves legacy templates and emits deterministic encrypt
  const os=require('node:os'),child=require('node:child_process'),temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-config-issue-'));process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE='json';process.env.HA_ENABLED='0';process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT='29131';
  try{
   require('../../core/peace.utilities').EnsureDirs();const bootstrap=require('../../services/bootstrap/peace.desktop-bootstrap'),store=require('../../services/bootstrap/peace.desktop-bootstrap-store'),evidence=require('../../services/artifacts/peace.desktop-packing-evidence'),fixture=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture');
+  function RejectPersonalizedTemplate(bytes){
+   const ids=Object.keys(store.Load().artifacts).sort(),active={...store.Load().active};
+   assert.throws(()=>bootstrap.Publish('A','1.0.3',bytes,undefined,{activate:false}),{message:'BOOTSTRAP_TEMPLATE_PERSONALIZED'});
+   assert.throws(()=>require('../../services/security/peace.desktop-security-operations').Stage('A','1.0.3',bytes,undefined,'TEST'),{message:'BOOTSTRAP_TEMPLATE_PERSONALIZED'});
+   assert.deepEqual(Object.keys(store.Load().artifacts).sort(),ids);assert.deepEqual(store.Load().active,active);
+  }
   // Historical native templates continue to receive exactly their old footer.
-  fixture.Publish();const old=bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),oldBytes=bootstrap.LauncherBytes(old.launcherId);assert.equal(fixture.Config(oldBytes).launcherId,old.launcherId);assert.equal(store.Load().launchers[old.launcherId].configNonce,undefined);
+  fixture.Publish();const old=bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),oldBytes=bootstrap.LauncherBytes(old.launcherId);assert.equal(fixture.Config(oldBytes).launcherId,old.launcherId);assert.equal(store.Load().launchers[old.launcherId].configNonce,undefined);RejectPersonalizedTemplate(oldBytes);
   const jobId=crypto.randomBytes(16).toString('hex'),createdAt=Date.now(),outputs={},records=[];
   for(const role of ['A','B','O']){
    const input=Template(role);assert.throws(()=>bootstrap.Publish(role,'1.0.1',input),/SECURITY_RELEASE_ATOMIC_PUBLICATION_REQUIRED/);const source=bootstrap.Publish(role,'1.0.1',input,undefined,{activate:false}),out=engine.Pack(input,role);outputs[role]=out;
@@ -55,7 +63,7 @@ test('actual issuance preserves legacy templates and emits deterministic encrypt
   store.Atomic(db=>{for(const role of ['A','B','O'])delete db.artifacts[selected[role].id].ownProtection;});
   assert.throws(()=>bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),/COZY_PROTECTION_METADATA_MISMATCH/);
   store.Atomic(db=>{for(const role of ['A','B','O'])db.artifacts[selected[role].id].ownProtection=saved[role];});
-  const body={requestId:crypto.randomUUID(),label:'Encrypted issuance'},issued=bootstrap.IssueLauncher(body,'TEST'),row=store.Load().launchers[issued.launcherId],first=bootstrap.LauncherBytes(issued.launcherId);assert.equal(row.configFormat,'COZY_A_CONFIG_V2');assert.match(row.configNonce,/^[a-f0-9]{24}$/);assert.equal(bootstrap.IssueLauncher(body,'TEST').launcherId,issued.launcherId);assert.equal(bootstrap.LauncherBytes(issued.launcherId).equals(first),true);
+  const body={requestId:crypto.randomUUID(),label:'Encrypted issuance'},issued=bootstrap.IssueLauncher(body,'TEST'),row=store.Load().launchers[issued.launcherId],first=bootstrap.LauncherBytes(issued.launcherId);assert.equal(row.configFormat,'COZY_A_CONFIG_V2');assert.match(row.configNonce,/^[a-f0-9]{24}$/);assert.equal(bootstrap.IssueLauncher(body,'TEST').launcherId,issued.launcherId);assert.equal(bootstrap.LauncherBytes(issued.launcherId).equals(first),true);RejectPersonalizedTemplate(first);
   store.Atomic(db=>{db.artifacts[selected.A.id].ownProtection.functionCount=2;});assert.throws(()=>bootstrap.LauncherBytes(issued.launcherId),/COZY_PROTECTION_METADATA_MISMATCH/);store.Atomic(db=>{db.artifacts[selected.A.id].ownProtection.functionCount=1;});
   const marker=bootstrap.CONFIG_FOOTER,tail=marker.length+4,n=first.readUInt32LE(first.length-tail),envelope=first.subarray(first.length-tail-n,first.length-tail),plain=engine.OpenLauncherConfig(outputs.A.bytes,envelope),settings=codec.Decode(plain);assert.equal(settings.launcherId,issued.launcherId);assert.equal(settings.expiresAt,row.expiresAt);
   for(const value of ['"profile"','"launcherTicket"',settings.profile.host,settings.profile.serverPublicKey,settings.launcherTicket])assert.equal(first.includes(Buffer.from(value)),false);
