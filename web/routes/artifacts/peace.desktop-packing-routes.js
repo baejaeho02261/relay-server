@@ -24,7 +24,7 @@ async function Handle({method,pathname,body,req,res,session}){
    if(!require("../../../services/network/peace.ha-coordinator").CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}
    Json(res,202,{ok:true,job:jobs.Begin(body,session)});return true;
   }
-  if(method==='GET'&&pathname===prefix+'/status'){Json(res,200,{ok:true,packing:jobs.Status(),custom:custom.Status()});return true;}
+  if(method==='GET'&&pathname===prefix+'/status'){const {ownEngine,...packing}=jobs.Status();Json(res,200,{ok:true,packing,ownEngine,custom:custom.Status()});return true;}
   if(method==='GET'&&match){
    const job=jobs.Get(match[1],session);
    if(!match[2]){Json(res,200,{ok:true,job:jobs.View(job)});return true;}

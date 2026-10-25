@@ -10,7 +10,7 @@ const root = path.resolve(MODULE_RESOURCE_ROOT, '../../Railway');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 const projectDirectory = name => path.join('Cozy.Projects', name);
 const projectFile = (name, extension) => path.join(projectDirectory(name), name + extension);
-const sourceDirectories = ['Cozy.Application','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration'].map(name=>'Cozy.Source/'+name);
+const sourceDirectories = ['Cozy.Application','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration','Cozy.Protection'].map(name=>'Cozy.Source/'+name);
 for(const directory of sourceDirectories){
   const files=fs.readdirSync(path.join(root,directory));
   assert(files.some(name=>/\.(?:pas|inc)$/i.test(name)),'Functional source group must contain actual source: '+directory);
@@ -73,7 +73,8 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   const expectedRole = {"Cozy.Launcher":'gcrLauncher',"Cozy.Client":'gcrConnect',"Cozy.Overlay":'gcrOverlay'}[name];
   const seal = dpr.indexOf('SealApiPointerStorage;'), startup = dpr.indexOf('RequireNativeStartup('+expectedRole+');');
   assert.ok(seal >= 0 && startup > seal, 'Native startup validation must follow API sealing');
-  assert.match(dpr.slice(startup), /RequireNativeStartup\(gcr(?:Launcher|Connect|Overlay)\);\s+ExitCode := Run/, 'Role-specific startup checks must precede application execution');
+  assert.match(dpr.slice(startup), new RegExp("RequireNativeStartup\\("+expectedRole+"\\);\\s+RequireCozyProtection\\('"+role+"'\\);\\s+ExitCode := Run"), 'Role-specific startup and sealed protection checks must precede application execution');
+  assert(dpr.includes("Cozy.Protection.Engine in '..\\..\\Cozy.Source\\Cozy.Protection\\Cozy.Protection.Engine.pas'"));
   assert.ok(dpr.includes('{$APPTYPE GUI}'));
   assert.match(dpr, /function GameBuildConfiguration: LongWord; stdcall;\s*begin\s*\{\$IFDEF RELEASE\}\s*Result := 2;\s*\{\$ELSE\}\s*Result := 1;/, 'Marker value must follow the actual compiler configuration');
   assert.match(dpr, /exports\s*\{\$IFDEF RELEASE\}\s*GameBuildConfiguration name 'GAME_BUILD_RELEASE_V1';\s*\{\$ELSE\}\s*GameBuildConfiguration name 'GAME_BUILD_DEBUG_V1';/, 'Debug must not carry the Release export marker');

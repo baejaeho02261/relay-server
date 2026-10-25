@@ -118,7 +118,8 @@
     "security:audit": "npm audit --audit-level=moderate",
     "test:runtime:environment": "node --test tests/runtime/peace.test-runtime-environment.js",
     "test:audit:redaction": "node --test tests/storage/peace.test-audit-redaction.js",
-    "test:packing:linkage": "node --test tests/artifacts/peace.test-packing-evidence.js tests/security/peace.test-packed-release-pair.js tests/artifacts/peace.test-packing-jobs.js"
+    "test:packing:linkage": "node --test tests/artifacts/peace.test-packing-evidence.js tests/security/peace.test-packed-release-pair.js tests/artifacts/peace.test-packing-jobs.js",
+    "test:protection:own": "node --test tests/artifacts/peace.test-cozy-protection-engine.js tests/bootstrap/peace.test-launcher-config.js tests/artifacts/peace.test-packing-jobs.js tests/security/peace.test-packed-release-pair.js"
   },
   "engines": {
     "node": "24.22.1"

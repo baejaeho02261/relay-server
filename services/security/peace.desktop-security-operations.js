@@ -19,7 +19,7 @@ function Fields(value, allowed, required = allowed) {
 }
 function Text(value, max = 160) { if (typeof value !== 'string' || !value.trim() || value.length > max || /[\x00-\x1f\x7f]/.test(value)) Fail('SECURITY_OPERATIONS_INVALID'); return value.trim(); }
 function Actor(value) { return String(value || 'ADMIN').replace(/[\x00-\x1f\x7f]/g, '').slice(0,160); }
-function Defaults() { return { version:1, revision:0, requireBuildContract:false, requireTestEvidence:false, requirePackingEvidence:false, contracts:{}, signerStates:{}, pairEvidence:{}, rollout:{enabled:false,artifactKeys:[],patch:{}}, activations:[], releaseGovernance:provenance.Defaults() }; }
+function Defaults() { return { version:1, revision:0, requireBuildContract:false, requireTestEvidence:false, requirePackingEvidence:false, requireCozyProtection:false, contracts:{}, signerStates:{}, pairEvidence:{}, rollout:{enabled:false,artifactKeys:[],patch:{}}, activations:[], releaseGovernance:provenance.Defaults() }; }
 function BuildKey(artifact) { return artifact.component + ':' + artifact.sha512; }
 function PairKey(a, b, o) { return a.sha512 + ':' + b.sha512 + (o ? ':' + o.sha512 : ''); }
 function ValidateContract(c) {
@@ -42,10 +42,11 @@ function ValidateEvidence(e) {
   Text(e.note,500); Text(e.recordedBy); return e;
 }
 function ValidateState(s) {
-  Fields(s, Object.keys(Defaults()), Object.keys(Defaults()).filter(k=>!['releaseGovernance','requirePackingEvidence'].includes(k)));
+  Fields(s, Object.keys(Defaults()), Object.keys(Defaults()).filter(k=>!['releaseGovernance','requirePackingEvidence','requireCozyProtection'].includes(k)));
   if(s.releaseGovernance!==undefined)provenance.ValidateState(s.releaseGovernance);
   if (s.version !== 1 || !Number.isSafeInteger(s.revision) || s.revision < 0 || typeof s.requireBuildContract !== 'boolean' || typeof s.requireTestEvidence !== 'boolean') Fail('SECURITY_OPERATIONS_STORAGE_INVALID');
   if(s.requirePackingEvidence!==undefined&&typeof s.requirePackingEvidence!=='boolean')Fail('SECURITY_OPERATIONS_STORAGE_INVALID');
+  if(s.requireCozyProtection!==undefined&&typeof s.requireCozyProtection!=='boolean')Fail('SECURITY_OPERATIONS_STORAGE_INVALID');
   for (const [key, limit] of [['contracts',512],['signerStates',64],['pairEvidence',256]]) if (!plain(s[key]) || Object.keys(s[key]).length > limit) Fail('SECURITY_OPERATIONS_STORAGE_INVALID');
   for (const [key,c] of Object.entries(s.contracts)) { if (!BUILD.test(key)) Fail('SECURITY_OPERATIONS_STORAGE_INVALID'); ValidateContract(c); }
   for (const [key,r] of Object.entries(s.signerStates)) { Fields(r,['state','changedAt','changedBy']); if (!KEY_ID.test(key) || !['ACTIVE','RETIRING','REVOKED'].includes(r.state) || !Number.isSafeInteger(r.changedAt) || r.changedAt<1) Fail('SECURITY_OPERATIONS_STORAGE_INVALID'); Text(r.changedBy); }
@@ -66,7 +67,7 @@ function ValidateState(s) {
   }
   return s;
 }
-function State() { const s=structuredClone(ValidateState(store.Load().securityOperations || Defaults()));if(s.requirePackingEvidence===undefined)s.requirePackingEvidence=false;if(s.releaseGovernance===undefined)s.releaseGovernance=provenance.Defaults();if(s.releaseGovernance.releaseKeyIds===undefined)s.releaseGovernance.releaseKeyIds=[];if(s.releaseGovernance.recoveryPlans===undefined)s.releaseGovernance.recoveryPlans={};return s; }
+function State() { const s=structuredClone(ValidateState(store.Load().securityOperations || Defaults()));if(s.requirePackingEvidence===undefined)s.requirePackingEvidence=false;if(s.requireCozyProtection===undefined)s.requireCozyProtection=false;if(s.releaseGovernance===undefined)s.releaseGovernance=provenance.Defaults();if(s.releaseGovernance.releaseKeyIds===undefined)s.releaseGovernance.releaseKeyIds=[];if(s.releaseGovernance.recoveryPlans===undefined)s.releaseGovernance.recoveryPlans={};return s; }
 function Revision() { return State().revision; }
 function CheckRevision(body, policyRequired = false) {
   if (!Number.isSafeInteger(body.expectedRevision) || body.expectedRevision !== Revision()) Fail('SECURITY_OPERATIONS_CONFLICT',409);
@@ -114,6 +115,7 @@ function ValidateActive(next) {
   if (next.requireTestEvidence && db.active.A && db.active.B) RequirePairEvidence(db.artifacts[db.active.A],db.artifacts[db.active.B],next,db.artifacts[db.active.O]);
   if(db.active.A&&db.active.B){const reason=ReleaseView(db.artifacts[db.active.A],db.artifacts[db.active.B],db.artifacts[db.active.O],next).reason;if(reason)Fail(reason,409);}
   if(db.active.A&&db.active.B){const reason=packingEvidence.EvaluatePair(db,db.artifacts[db.active.A],db.artifacts[db.active.B],db.artifacts[db.active.O],{required:next.requirePackingEvidence===true});if(reason)Fail(reason,409);}
+  if(db.active.A&&db.active.B){const reason=CozyProtectionReason(db.artifacts[db.active.A],db.artifacts[db.active.B],db.artifacts[db.active.O],next);if(reason)Fail(reason,409);}
 }
 function SetControls(body,actor) {
   Fields(body,['expectedRevision','requireBuildContract','requireTestEvidence'],['expectedRevision']); CheckRevision(body);
@@ -168,16 +170,24 @@ function Overlay(id) {
 }
 function SelectedOverlay(body) { return Overlay(Object.hasOwn(body,'oId')?body.oId:store.Load().active.O||''); }
 function RequirePairEvidence(a,b,s=State(),o=null) { const e=s.pairEvidence[PairKey(a,b,o)];if(!e||['nativeBuild','apiProbe','integration'].some(k=>e[k]!=='PASS')) Fail('SECURITY_TEST_EVIDENCE_REQUIRED',409);return e; }
+function CozyProtectionReason(a,b,o,s){
+  const rows=[a,b,o],metadata=rows.map(row=>row?.ownProtection);
+  if(!metadata.some(Boolean))return s.requireCozyProtection?'COZY_PROTECTION_REQUIRED':'';
+  if(metadata.some((m,i)=>!m||m.engine!=='COZY_VM_V1'||m.version!==1||m.state!=='SEALED'||m.role!==['A','B','O'][i]))return 'COZY_PROTECTION_COHORT_INCOMPLETE';
+  if(metadata[0].configProtection!=='COZY_A_CONFIG_V2')return 'COZY_PROTECTION_CONFIG_REQUIRED';
+  return '';
+}
 function PackingView(db,a,b,o,s){
-  const reason=packingEvidence.EvaluatePair(db,a,b,o,{required:s.requirePackingEvidence===true});
+  const own=!!a?.ownProtection&&!CozyProtectionReason(a,b,o,s);
+  const reason=CozyProtectionReason(a,b,o,s)||packingEvidence.EvaluatePair(db,a,b,o,{required:s.requirePackingEvidence===true||own});
   const recorded=!reason&&[a,b,o].filter(Boolean).some(row=>packingEvidence.Projection(db,row)!==null);
-  // A server-recorded transformation receipt binds template bytes. It does not
-  // assert Windows execution, function virtualization or protection of the
-  // issuance configuration appended later by MakeLauncher().
+  // The byte parser establishes the selected VM/config format. Windows
+  // execution and arbitrary source translation are separate claims.
   return {status:reason?'REJECTED':recorded?'RECEIPTS_VERIFIED':'NOT_RECORDED',reason,
     required:s.requirePackingEvidence===true,receiptsVerified:recorded&&!reason,
-    proofScope:'TRANSFORMED_TEMPLATES_ONLY',windowsVerified:false,
-    issuedAConfigurationProtected:false};
+    ownEngine:own?'COZY_VM_V1':null,ownEngineRequired:s.requireCozyProtection===true,
+    proofScope:own?'SELECTED_EXPRESSION_VM':'TRANSFORMED_TEMPLATES_ONLY',windowsVerified:false,
+    issuedAConfigurationProtected:own};
 }
 function RequireRuntimePair(a,b,o=null) {
   // Role order and protocol compatibility are mandatory even with legacy optional QA policy.
@@ -218,13 +228,15 @@ function ActivatePair(body,actor,recoveryId='',production=false) {
   // One-way transition: only activation of a fully receipt-bound A/B/O set
   // enables this floor. No HTTP setter clears it, including recovery paths.
   if(view.packing.receiptsVerified)s.requirePackingEvidence=true;
+  if(view.packing.ownEngine==='COZY_VM_V1')s.requireCozyProtection=true;
   if(production)s.releaseGovernance.minimumSecurityVersion=Math.max(s.releaseGovernance.minimumSecurityVersion,view.release.securityVersion);
   s.revision++;s.activations.push({at:Date.now(),actor:Actor(actor),aId:a.id,bId:b.id,aSha512:a.sha512,bSha512:b.sha512,previousA:db.active.A||'',previousB:db.active.B||'',...(o||db.active.O?{oId:o?.id||'',oSha512:o?.sha512||'',previousO:db.active.O||''}:{}),policyRevision:body.expectedPolicyRevision,operationsRevision:s.revision,...(view.release.manifestId?{manifestId:view.release.manifestId}:{}),...(recoveryId?{recoveryId}:{})});s.activations=s.activations.slice(-100);
   if(recoveryId){const plan=s.releaseGovernance.recoveryPlans[recoveryId];if(!plan||plan.status!=='PREPARED')Fail('SECURITY_RECOVERY_INVALID');plan.status='APPLIED';plan.appliedAt=Date.now();}
   Commit(s,actor,recoveryId?'RECOVERY_ACTIVATED':'PAIR_ACTIVATED',next=>{
     if((next.securityAuthorityPolicy||authPolicyDefaults()).revision!==body.expectedPolicyRevision)Fail('SECURITY_POLICY_CONFLICT',409);
     const packedRows=[next.artifacts[a.id],next.artifacts[b.id],o?next.artifacts[o.id]:null];
-    const packingReason=packingEvidence.EvaluatePair(next,...packedRows,{required:next.securityOperations.requirePackingEvidence===true});if(packingReason)Fail(packingReason,409);
+    const ownReason=CozyProtectionReason(...packedRows,next.securityOperations);if(ownReason)Fail(ownReason,409);
+    const packingReason=packingEvidence.EvaluatePair(next,...packedRows,{required:next.securityOperations.requirePackingEvidence===true||packedRows.some(row=>!!row?.ownProtection)});if(packingReason)Fail(packingReason,409);
     const receipts=packedRows.map(row=>packingEvidence.FindReceipt(next,row));
     if(receipts.every(Boolean)){
       // Older candidates may have exact hash-bound evidence without a stored

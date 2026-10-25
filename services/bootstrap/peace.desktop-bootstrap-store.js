@@ -26,6 +26,8 @@ function Crc(x){return typeof x==='string'&&/^[A-F0-9]{16}$/.test(x);}
 function ExtendedFields(row){return ['xxh3_128','codeXxh3_128'].every(key=>row[key]===undefined||typeof row[key]==='string'&&/^[a-f0-9]{32}$/.test(row[key]))&&['blake3','codeBlake3'].every(key=>row[key]===undefined||Digest(row[key]));}
 function Machine(x){return typeof x==='string'&&/^[A-F0-9]{64}$/.test(x);}
 function Invalid(){throw Error('BOOTSTRAP_STORAGE_INVALID');}
+function OwnProtection(v,role){try{require('../artifacts/peace.cozy-protection-engine').ValidateMetadata(v);if(v.state==='SEALED'&&v.role!==role)Invalid();}catch(_){Invalid();}}
+
 function TokenHash(secret,domain,id,nonce,legacy=false){return crypto.createHash('sha256').update(crypto.createHmac('sha256',Buffer.from(secret,'hex')).update([legacy?LEGACY_TOKEN_DOMAIN:'GAME-A80',domain,id,nonce].join('|')).digest('base64url')).digest('hex');}
 function Load(){
  if(poisoned)throw Error('BOOTSTRAP_STORAGE_RESTART_REQUIRED');
@@ -80,6 +82,7 @@ function Load(){
   for(const artifact of Object.values(value.artifacts)){if(artifact.tlsPinVersion!==undefined&&![0,1].includes(artifact.tlsPinVersion))Invalid();if(artifact.ownMeasurementVersion!==undefined&&![0,1].includes(artifact.ownMeasurementVersion))Invalid();if(artifact.measurementPlanVersion!==undefined&&![0,1].includes(artifact.measurementPlanVersion))Invalid();if(artifact.authorityVersion!==undefined&&![0,1].includes(artifact.authorityVersion)||artifact.compiledCfg!==undefined&&typeof artifact.compiledCfg!=='boolean')Invalid();}
   const legacy=false,upgrade=false,previousProtocol='',previousVersion=0;
   for(const [id,row]of Object.entries(value.artifacts))if(!Identifier(id,'DA')||!Plain(row)||!ExtendedFields(row)||row.id!==id||!['A','B','O'].includes(row.component)||row.hashVersion!==3||![1,3].includes(require('./peace.desktop-handoff-delegation').Version(row))||row.protocol!==PROTOCOL||!['xxh3_128','codeXxh3_128','blake3','codeBlake3'].every(k=>typeof row[k]==='string')||!require("../runtime/peace.desktop-crc-policy").Validate(row.crcLayers)||!StrongDigest(row.sha512)||!Number.isSafeInteger(row.size)||row.size<1||row.size>64*1024*1024||!Time(row.createdAt)||(row.protocol===PROTOCOL&&(!Crc(row.crc64)||!StrongDigest(row.codeSha512)||!Crc(row.codeCrc64)||row.codeAlgorithm!=='PE64-CODE-V1'))||typeof row.version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(row.version))Invalid();
+  for(const row of Object.values(value.artifacts))if(row.ownProtection!==undefined)OwnProtection(row.ownProtection,row.component);
   for(const row of Object.values(value.artifacts))if(row.deploymentManifestId!==undefined){
    if(!StrongDigest(row.deploymentManifestId))Invalid();const m=value.securityOperations?.releaseGovernance?.manifests?.[row.deploymentManifestId]?.manifest;
    if(!m||m.artifacts[row.component]!==row.sha512||m.protocol!==row.protocol||m.hashVersion!==row.hashVersion||m.handoffVersion!==require('./peace.desktop-handoff-delegation').Version(row))Invalid();
@@ -88,6 +91,10 @@ function Load(){
   for(const [id,row]of Object.entries(value.launchers)){
    if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!StrongDigest(row.sha512)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
    if(row.assignedLicenseId!==undefined&&!Identifier(row.assignedLicenseId,'DL'))Invalid();
+   const own=value.artifacts[row.artifactId].ownProtection;
+   if(row.configFormat!==undefined){if(row.configFormat!=='COZY_A_CONFIG_V2'||own?.state!=='SEALED'||own.role!=='A'||(row.retiredAt===undefined?typeof row.configNonce!=='string'||!/^[a-f0-9]{24}$/.test(row.configNonce):row.configNonce!==undefined))Invalid();}
+   else if(row.configNonce!==undefined||own?.state==='SEALED')Invalid();
+
    if(row.releaseSelection!==undefined){try{require("../artifacts/peace.desktop-release-safety").ValidateSelection(value,row.releaseSelection);if(row.releaseSelection.A.id!==row.artifactId)Invalid();}catch(_){Invalid();}}
    if(row.crc64!==undefined&&!Crc(row.crc64)||!ExtendedFields(row))Invalid();
    if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();

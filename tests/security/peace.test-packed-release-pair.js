@@ -21,6 +21,30 @@ function ProtectedFixture(){
   return {...f,get db(){return f.db;},source,output,record};
 }
 function reason(view,code){assert.equal(view.eligible,false);assert.ok(view.reasons.includes(code),JSON.stringify(view.reasons));}
+function OwnMetadata(c){for(const row of c.rows)row.ownProtection={engine:'COZY_VM_V1',state:'SEALED',version:1,role:row.component,slotBytes:4096,functionCount:1,configProtection:row.component==='A'?'COZY_A_CONFIG_V2':'NONE',windowsVerified:false,arbitraryDelphiTranslation:false};return c;}
+
+test('own-engine cohorts require all sealed roles, encrypted A format and a recorded packing job',()=>{
+  const f=ProtectedFixture();OwnMetadata(f.output);
+  reason(f.ops.PreviewProductionPair(f.output.select),'PACKING_EVIDENCE_REQUIRED');
+  f.record(f.source,f.output);
+  const view=f.ops.PreviewProductionPair(f.output.select);assert.equal(view.eligible,true);assert.equal(view.packing.issuedAConfigurationProtected,true);assert.equal(view.packing.windowsVerified,false);assert.equal(view.packing.proofScope,'SELECTED_EXPRESSION_VM');
+  f.output.rows[1].ownProtection.state='UNSEALED';reason(f.ops.PreviewProductionPair(f.output.select),'COZY_PROTECTION_COHORT_INCOMPLETE');
+  f.output.rows[1].ownProtection.state='SEALED';f.output.rows[0].ownProtection.configProtection='NONE';reason(f.ops.PreviewProductionPair(f.output.select),'COZY_PROTECTION_CONFIG_REQUIRED');
+});
+
+test('own-engine activation latches its floor and rejects legacy, rollback and mixed-engine replacements',()=>{
+  const f=ProtectedFixture();OwnMetadata(f.output);f.record(f.source,f.output);assert.equal(f.activate(f.output).eligible,true);
+  assert.equal(f.ops.State().requireCozyProtection,true);
+  assert.throws(()=>f.ops.RequireRuntimePair(...f.source.rows),/COZY_PROTECTION_REQUIRED/);
+  reason(f.ops.PreviewProductionPair(f.source.select),'COZY_PROTECTION_REQUIRED');
+  assert.throws(()=>f.ops.SetControls({expectedRevision:f.ops.Revision(),requireCozyProtection:false},'FIXTURE_OPERATOR'),/SECURITY_OPERATIONS_INVALID/);
+  delete f.output.rows[2].ownProtection;assert.throws(()=>f.ops.RequireRuntimePair(...f.output.rows),/COZY_PROTECTION_COHORT_INCOMPLETE/);
+});
+
+test('own-engine state is optional in old stores and cannot have an invalid persisted type',()=>{
+  const f=Fixture();delete f.db.securityOperations.requireCozyProtection;assert.equal(f.ops.State().requireCozyProtection,false);
+  assert.throws(()=>f.ops.ValidateState({...f.db.securityOperations,requireCozyProtection:'true'}),/STORAGE_INVALID/);
+});
 
 test('legacy cohorts keep their existing publication and runtime behavior before the packing floor',()=>{
   const f=Fixture(),c=f.cohort();const before=JSON.stringify(f.db);

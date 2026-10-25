@@ -67,28 +67,48 @@ async function showDesktopExecutableProtection(){
  if(!roleIsAdmin()||!session)return;const owner=desktopWorkflowOwner();
  let listing=await api('/api/desktop/bootstrap/security-operations');
  if(!roleIsAdmin()||session?.csrf!==owner)return;
- let busy=false,closed=false,waitTimer=null,wakeWait=null;
- const promise=openModal({title:'패킹 · 암호화 · 난독화',message:'실제 실행 파일 변환과 암호화 보관을 구분합니다. 파일 등록과 일회용 A 발급은 A / B / O 실행 파일 배포에서 진행하세요.',html:`<div id="desktop-protection-modal"><fieldset><legend>조회 시점 운영 A/B/O · 서버 패킹 기록</legend><p class="small-note">기록은 신뢰한 워커가 반환한 변경된 EXE 템플릿의 해시를 연결합니다. 함수 가상화·Windows 실행 검증을 증명하는 기록은 아닙니다.</p><div id="desktop-protection-active" role="status"></div><p class="small-note" id="desktop-protection-issued-config">현재 A 발급은 템플릿 뒤에 접속 프로필·발급 정보를 평문 JSON으로 덧붙입니다. 템플릿 패킹 기록만으로 발급 정보 보호가 완료되지 않습니다.</p></fieldset><fieldset><legend>변환·보관 작업 대상 · 등록된 A/B/O 후보</legend><p class="small-note">작업에는 A/B/O 세 후보가 필요합니다. 실제 변환 결과는 Windows 시험과 새 승인·명세로 등록한 뒤 게시해야 발급·다운로드 경로에 연결됩니다.</p>${['A','B','O'].map(c=>`<label>${c} 후보<select data-protection-candidate="${c}"></select></label>`).join('')}</fieldset><fieldset><legend>암호화 보관 파일 (.gcpack)</legend><p class="small-note">선택한 파일의 복사본을 압축·암호화해 보관합니다. A 발급·B/O 배포에는 적용되지 않습니다. 직접 실행하는 EXE가 아니며 함수 가상화·실행 코드 난독화도 수행하지 않습니다. 복호화 키는 서버에만 설정하고 이 화면에 올리지 않습니다.</p><label>보관 대상<select id="desktop-custom-kind"><option value="artifacts">위에서 선택한 A/B/O 파일 복사본</option><option value="sources">매니페스트에 등록된 Railway 폴더 소스</option></select></label><button type="button" id="desktop-custom-selected">암호화 보관 파일 만들기</button><div id="desktop-custom-result" role="status" aria-live="polite"></div></fieldset><fieldset><legend>실제 EXE 템플릿 변환 · 외부 패킹 도구 연동</legend><p class="small-note">별도 VMProtect 워커와 검토한 프로필이 필요합니다. 실제 보호 범위는 도구와 프로필에 따릅니다. 결과와 서버 기록은 미승인 후보이며 Windows 시험·새 EXE 승인·후보 등록·게시가 필요합니다. 발급된 A의 새 평문 정보는 별도 네이티브 형식 변경이 필요합니다.</p><button type="button" id="desktop-pack-selected">선택한 A/B/O EXE 변환 후보 만들기</button><div id="desktop-pack-result" role="status" aria-live="polite"></div></fieldset></div>`,confirmLabel:'닫기'});
+ let busy=false,closed=false,waitTimer=null,wakeWait=null,ownProfileFile=null;
+ const promise=openModal({title:'패킹 · 암호화 · 난독화',message:'실제 실행 파일 변환과 암호화 보관을 구분합니다. 파일 등록과 일회용 A 발급은 A / B / O 실행 파일 배포에서 진행하세요.',html:`<div id="desktop-protection-modal"><fieldset><legend>조회 시점 운영 A/B/O · 서버 패킹 기록</legend><p class="small-note">기록은 서버 자체 엔진 또는 신뢰한 외부 워커가 반환한 EXE 템플릿의 해시를 연결합니다. 기록만으로 모든 함수 보호나 Windows 실행 검증이 확인되지는 않습니다.</p><div id="desktop-protection-active" role="status"></div><p class="small-note" id="desktop-protection-issued-config">기존 형식 A는 발급 시 접속 프로필·발급 정보를 평문 JSON으로 덧붙입니다. 새 자체 보호 형식 A를 빌드·보호·승인·게시한 뒤 발급해야 보호된 바이너리 설정 형식이 적용됩니다.</p></fieldset><fieldset><legend>변환·보관 작업 대상 · 등록된 A/B/O 후보</legend><p class="small-note">작업에는 A/B/O 세 후보가 필요합니다. 실제 변환 결과는 Windows 시험과 새 승인·명세로 등록한 뒤 게시해야 발급·다운로드 경로에 연결됩니다.</p>${['A','B','O'].map(c=>`<label>${c} 후보<select data-protection-candidate="${c}"></select></label>`).join('')}</fieldset><fieldset><legend>암호화 보관 파일 (.gcpack)</legend><p class="small-note">선택한 파일의 복사본을 압축·암호화해 보관합니다. A 발급·B/O 배포에는 적용되지 않습니다. 직접 실행하는 EXE가 아니며 함수 가상화·실행 코드 난독화도 수행하지 않습니다. 복호화 키는 서버에만 설정하고 이 화면에 올리지 않습니다.</p><label>보관 대상<select id="desktop-custom-kind"><option value="artifacts">위에서 선택한 A/B/O 파일 복사본</option><option value="sources">매니페스트에 등록된 Railway 폴더 소스</option></select></label><button type="button" id="desktop-custom-selected">암호화 보관 파일 만들기</button><div id="desktop-custom-result" role="status" aria-live="polite"></div></fieldset><fieldset><legend>자체 선택 함수 보호 · Cozy VM v1</legend><p class="small-note">지정한 식 함수를 암호화된 바이트코드로 실행하는 자체 엔진입니다. 임의의 Delphi 소스 자동 변환이나 EXE 전체 보호는 지원하지 않습니다. 새 보호 슬롯을 포함해 다시 빌드한 A/B/O가 필요하며, 이 형식의 템플릿은 봉인 전에는 실행되지 않습니다. 기존 운영 파일은 새 후보를 승인·게시하기 전까지 바뀌지 않습니다.</p><p class="small-note">새 형식 A에는 발급 정보를 읽는 바이너리 보호 형식이 함께 필요합니다. Windows 실행 시험은 별도로 수행해야 합니다.</p><label>사용자 함수 프로필 JSON (선택, 최대 64 KiB)<input type="file" id="desktop-own-profile-file" accept=".json,application/json"></label><button type="button" id="desktop-own-profile-clear">선택한 프로필 지우기</button><p class="small-note" id="desktop-own-profile-status">기본 프로필: 필수 시작 함수 1만 포함합니다.</p><details><summary>사용자 함수 JSON 형식</summary><p class="small-note">version: 1, functions: 최대 15개, 각 함수의 id: 2~65535, args: 0~8, body: 정수식 IR입니다. 필수 함수 1은 바꿀 수 없습니다. 지원 연산은 arg(index), const(value: Int32), not(value), eq/and/or/add/xor(left, right), if(condition, then, else)입니다. JavaScript·네이티브 함수·실행 파일은 프로필로 올리지 않습니다. 전체 IR 구조와 실행 한계는 서버가 검사합니다.</p><pre>{"version":1,"functions":[{"id":2,"args":1,"body":{"op":"xor","left":{"op":"arg","index":0},"right":{"op":"const","value":12345}}}]}</pre></details><button type="button" id="desktop-own-pack-selected">선택한 A/B/O 자체 보호 후보 만들기</button><div id="desktop-own-pack-result" role="status" aria-live="polite"></div></fieldset><fieldset><legend>외부 실행 파일 보호 · VMProtect 워커 연동</legend><p class="small-note">별도 VMProtect 워커와 검토한 프로필이 필요합니다. 실제 보호 범위는 도구와 프로필에 따릅니다. 결과와 서버 기록은 미승인 후보이며 Windows 시험·새 EXE 승인·후보 등록·게시가 필요합니다. 기존 형식 A의 발급 평문은 외부 템플릿 변환만으로 없어지지 않습니다.</p><button type="button" id="desktop-pack-selected">선택한 A/B/O EXE 변환 후보 만들기</button><div id="desktop-pack-result" role="status" aria-live="polite"></div></fieldset></div>`,confirmLabel:'닫기'});
  const root=document.getElementById('desktop-protection-modal');
  const live=()=>!closed&&root.isConnected&&roleIsAdmin()&&session?.csrf===owner;
  function lock(value){busy=value;for(const e of root.querySelectorAll('button,input,select,textarea'))e.disabled=value;}
  function selected(){const body=Object.fromEntries(['A','B','O'].map(c=>[c,root.querySelector(`[data-protection-candidate="${c}"]`).value]));if(Object.values(body).some(x=>!x))throw Error('A, B, O 후보를 모두 선택하세요.');return body;}
  function wait(ms){return new Promise(resolve=>{wakeWait=resolve;waitTimer=setTimeout(()=>{waitTimer=null;wakeWait=null;resolve();},ms);});}
+ function sealedOwnTemplate(artifact,role){const p=artifact?.ownProtection;return p?.engine==='COZY_VM_V1'&&p.state==='SEALED'&&p.version===1&&p.role===role&&p.slotBytes===4096&&Number.isSafeInteger(p.functionCount)&&p.functionCount>0&&p.windowsVerified===false&&p.arbitraryDelphiTranslation===false&&(role!=='A'||p.configProtection==='COZY_A_CONFIG_V2');}
+ function linkedRecord(artifact){const e=artifact?.packingEvidence;return !!artifact&&e?.scope==='TRANSFORMED_TEMPLATE'&&/^[a-f0-9]{128}$/.test(e.receiptId||'')&&/^[a-f0-9]{32}$/.test(e.jobId||'')&&e.outputSha512===artifact.sha512&&e.windowsVerified===false&&e.protectionVerified===false;}
+ const ownProfileInput=root.querySelector('#desktop-own-profile-file'),ownProfileStatus=root.querySelector('#desktop-own-profile-status');
+ ownProfileInput.onchange=()=>{if(busy||!live())return;ownProfileFile=ownProfileInput.files?.[0]||null;ownProfileStatus.textContent=ownProfileFile?'선택됨: '+ownProfileFile.name+' · 자체 보호 후보 생성 시 읽고 검사합니다.':'기본 프로필: 필수 시작 함수 1만 포함합니다.';};
+ root.querySelector('#desktop-own-profile-clear').onclick=()=>{if(busy||!live())return;ownProfileFile=null;ownProfileInput.value='';ownProfileStatus.textContent='기본 프로필: 필수 시작 함수 1만 포함합니다.';};
+ async function readOwnProfile(file){
+  if(!/\.json$/i.test(file.name||''))throw Error('사용자 함수 프로필은 .json 파일을 선택하세요.');
+  if(!Number.isSafeInteger(file.size)||file.size<1||file.size>65536)throw Error('사용자 함수 프로필은 64 KiB 이하의 JSON 파일이어야 합니다.');
+  const text=await file.text();if(!live())return null;
+  if(typeof text!=='string'||new Blob([text]).size>65536)throw Error('사용자 함수 프로필 JSON은 UTF-8 기준 64 KiB 이하여야 합니다.');
+  let profile;try{profile=JSON.parse(text.replace(/^\uFEFF/,''));}catch(_){throw Error('사용자 함수 프로필 JSON 형식이 올바르지 않습니다.');}
+  const shape=(x,keys)=>!!x&&typeof x==='object'&&!Array.isArray(x)&&Object.keys(x).length===keys.length&&keys.every(k=>Object.hasOwn(x,k));
+  if(!shape(profile,['version','functions'])||profile.version!==1||!Array.isArray(profile.functions)||profile.functions.length>15||profile.functions.some(fn=>!shape(fn,['id','args','body'])||!Number.isInteger(fn.id)||fn.id<2||fn.id>65535||!Number.isInteger(fn.args)||fn.args<0||fn.args>8||!fn.body||typeof fn.body!=='object'||Array.isArray(fn.body)||!['arg','const','not','eq','and','or','add','xor','if'].includes(fn.body.op)))throw Error('프로필은 version: 1과 functions의 id·args·body 정수식 IR만 지원합니다. 스크립트나 네이티브 함수는 사용할 수 없습니다.');
+  return profile;
+ }
+
  const activeArea=root.querySelector('#desktop-protection-active');activeArea.className='table-wrap';
  const activeTable=document.createElement('table'),tableHead=document.createElement('thead'),tableBody=document.createElement('tbody');
  tableHead.innerHTML='<tr><th>실행 파일</th><th>운영 SHA-512</th><th>서버 템플릿 변환 기록</th></tr>';activeTable.append(tableHead,tableBody);
  for(const c of ['A','B','O']){
   const artifact=(listing.candidates||[]).find(a=>a.component===c&&a.id===listing.active?.[c]),evidence=artifact?.packingEvidence;
-  const linked=!!artifact&&evidence?.scope==='TRANSFORMED_TEMPLATE'&&/^[a-f0-9]{128}$/.test(evidence.receiptId||'')&&/^[a-f0-9]{32}$/.test(evidence.jobId||'')&&evidence.outputSha512===artifact.sha512&&evidence.windowsVerified===false&&evidence.protectionVerified===false;
+  const linked=linkedRecord(artifact),own=sealedOwnTemplate(artifact,c);
   const row=document.createElement('tr');row.dataset.activePacking=c;
-  for(const value of [c,artifact?artifact.sha512:'등록된 운영 파일 없음',linked?'워커 변환 기록 연결됨 · 시험·보호 범위 별도 확인':'연결된 서버 패킹 기록 없음']){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}
+  for(const value of [c,artifact?artifact.sha512:'등록된 운영 파일 없음',linked?(own?'자체 VM 변환 기록 연결됨 · 선택 식 함수 '+artifact.ownProtection.functionCount+'개 · Windows 시험 별도':artifact.ownProtection?.engine==='COZY_VM_V1'?'서버 변환 기록 연결됨 · 자체 보호 형식 확인 필요':'외부 워커 변환 기록 연결됨 · 시험·보호 범위 별도 확인'):'연결된 서버 패킹 기록 없음']){const cell=document.createElement('td');cell.textContent=value;row.append(cell);}
   if(linked){const receipt=document.createElement('code');receipt.textContent='기록 ID: '+evidence.receiptId;row.lastElementChild.append(document.createElement('br'),receipt);}
   tableBody.append(row);
  }
  activeArea.append(activeTable);
+ const activeArtifacts=['A','B','O'].map(c=>(listing.candidates||[]).find(a=>a.component===c&&a.id===listing.active?.[c]));
+ const ownCohort=activeArtifacts.every((a,i)=>sealedOwnTemplate(a,['A','B','O'][i])&&linkedRecord(a))&&new Set(activeArtifacts.map(a=>a.packingEvidence.jobId)).size===1;
+ if(ownCohort)root.querySelector('#desktop-protection-issued-config').textContent='조회 시점 운영 A/B/O는 같은 작업으로 봉인한 Cozy VM v1 묶음입니다. 새로 발급하는 A의 설정은 COZY_A_CONFIG_V2 보호 바이너리 형식을 사용합니다. 보호 범위는 지정한 식 함수와 새 발급 설정이며 Windows 실행 시험은 별도 확인해야 합니다.';
+ else if(activeArtifacts.some(a=>a?.ownProtection?.engine==='COZY_VM_V1'))root.querySelector('#desktop-protection-issued-config').textContent='운영 A/B/O의 자체 보호 형식·봉인 상태·같은 작업의 변환 기록을 확인하지 못했습니다. 새 형식 후보의 보호·Windows 시험·새 승인·게시 상태를 확인하세요. 발급 정보 보호 완료로 간주하지 마세요.';
  for(const c of ['A','B','O']){
   const select=root.querySelector(`[data-protection-candidate="${c}"]`);
-  select.innerHTML=`<option value="">${c} 후보 선택</option>`+(listing.candidates||[]).filter(x=>x.component===c).map(x=>`<option value="${esc(x.id)}">${esc(x.version)} · ${esc(x.sha512.slice(0,12))}${x.active?' · 현재 운영':''}</option>`).join('');
+  select.innerHTML=`<option value="">${c} 후보 선택</option>`+(listing.candidates||[]).filter(x=>x.component===c).map(x=>`<option value="${esc(x.id)}">${esc(x.version)} · ${esc(x.sha512.slice(0,12))}${x.active?' · 현재 운영':''}${sealedOwnTemplate(x,c)?' · 자체 VM v1 봉인됨':x.ownProtection?.engine==='COZY_VM_V1'&&x.ownProtection.state==='UNSEALED'?' · 자체 VM 봉인 전 템플릿':''}</option>`).join('');
   if([...select.options].some(x=>x.value===listing.active?.[c]))select.value=listing.active[c];
  }
  root.querySelector('#desktop-custom-selected').onclick=async()=>{
@@ -107,23 +127,29 @@ async function showDesktopExecutableProtection(){
    const digest=document.createElement('pre');digest.textContent='SHA-512: '+response.job.sha512;area.append(digest);
   }catch(e){if(live())desktopWorkflowError(area,e);}finally{if(live())lock(false);}
  };
- root.querySelector('#desktop-pack-selected').onclick=async()=>{
-  if(busy||!live())return;lock(true);const area=root.querySelector('#desktop-pack-result');
+ async function createPackingCandidates(mode){
+  if(busy||!live())return;lock(true);const own=mode==='COZY_VM_V1',area=root.querySelector(own?'#desktop-own-pack-result':'#desktop-pack-result');
   try{
-   const body=selected(),status=await api('/api/desktop/bootstrap/packing/status');if(!live())return;
-   if(!status.packing?.configured)throw Error('패킹 워커 설정 필요: '+(status.packing?.reason||'PACKING_WORKER_NOT_CONFIGURED'));
+   const body=selected();if(own){body.mode='COZY_VM_V1';const file=ownProfileFile;if(file){const profile=await readOwnProfile(file);if(!live())return;body.profile=profile;}}
+   const status=await api('/api/desktop/bootstrap/packing/status');if(!live())return;
+   if(own){if(!status.ownEngine?.configured||status.ownEngine.engine!=='COZY_VM_V1')throw Error('서버 자체 보호 엔진을 사용할 수 없습니다. 새 엔진과 보호 슬롯 형식을 지원하는 서버인지 확인하세요.');}
+   else if(!status.packing?.configured)throw Error('패킹 워커 설정 필요: '+(status.packing?.reason||'PACKING_WORKER_NOT_CONFIGURED'));
    let response=await api('/api/desktop/bootstrap/packing/jobs',{method:'POST',body});
    const id=encodeURIComponent(response.job.id),stop=Date.now()+600000;
-   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent='서버 패킹 진행: '+(response.job.component||'시작')+' · 운영 발급 전 시험·서명 필요';await wait(2000);if(!live())return;response=await api('/api/desktop/bootstrap/packing/jobs/'+id);}
-   if(!live())return;if(response.job.status!=='COMPLETE')throw Error(response.job.error||'패킹 완료를 확인하지 못했습니다.');
-   area.replaceChildren();const note=document.createElement('p');note.textContent='미승인 EXE 템플릿 변환 후보 생성 완료. 아래 정확한 출력 해시로 Windows 시험 및 새 EXE 승인을 수행한 뒤 A / B / O 실행 파일 배포에서 후보를 등록하고 게시해야 합니다. 10분 후 내려받기 만료. 기존 승인 JSON은 재사용할 수 없습니다. 발급된 A의 새 평문 JSON 보호는 완료되지 않았습니다.';area.append(note);
+   while(live()&&response.job.status==='RUNNING'&&Date.now()<stop){area.textContent=(own?'서버 자체 보호 진행: ':'외부 패킹 진행: ')+(response.job.component||'시작')+' · 운영 발급 전 Windows 시험·새 승인 필요';await wait(2000);if(!live())return;response=await api('/api/desktop/bootstrap/packing/jobs/'+id);}
+   if(!live())return;if(response.job.status!=='COMPLETE'){const failure=response.job.error||'변환 완료를 확인하지 못했습니다.',error=Error(failure);if(/^[A-Z][A-Z0-9_]{1,119}$/.test(failure))error.code=failure;throw error;}
+   if(own&&response.job.engine!=='COZY_VM_V1')throw Error('요청한 자체 보호 엔진으로 생성한 결과인지 확인하지 못했습니다.');
+   area.replaceChildren();const note=document.createElement('p');note.textContent=own?'Cozy VM v1 미승인 후보 생성 완료. 보호 범위는 지정한 식 함수의 암호화 바이트코드와 새 형식 A 발급 설정입니다. 임의의 Delphi 함수나 EXE 전체가 보호됐다는 뜻은 아닙니다. Windows 시험·새 EXE 승인·후보 등록·게시 후에 발급·다운로드 경로로 연결됩니다.':'미승인 외부 EXE 템플릿 변환 후보 생성 완료. 아래 정확한 출력 해시로 Windows 시험 및 새 EXE 승인을 수행한 뒤 A / B / O 실행 파일 배포에서 후보를 등록하고 게시해야 합니다. 기존 형식 A의 새 평문 JSON 보호는 완료되지 않았습니다.';area.append(note);
+   const expiry=document.createElement('p');expiry.textContent='10분 후 내려받기 만료. 기존 승인 JSON은 재사용할 수 없습니다. 이 작업은 현재 운영 파일을 게시하거나 A를 발급하지 않습니다.';area.append(expiry);
    const receipts=response.job.evidence?.scope==='TRANSFORMED_TEMPLATES'?response.job.evidence.receipts:null;
-   const record=document.createElement('p');record.textContent=receipts&&['A','B','O'].every(c=>/^[a-f0-9]{128}$/.test(receipts[c]||''))?'A/B/O 워커 변환 기록 저장됨 · 함수 가상화·Windows 실행 검증은 별도 확인':'연결할 A/B/O 서버 변환 기록을 확인하지 못했습니다. 보호 적용 완료로 간주하지 마세요.';area.append(record);
+   const record=document.createElement('p');record.textContent=receipts&&['A','B','O'].every(c=>/^[a-f0-9]{128}$/.test(receipts[c]||''))?(own?'A/B/O 자체 엔진 변환 기록 저장됨 · Windows 실행 검증은 별도 확인':'A/B/O 워커 변환 기록 저장됨 · 함수 가상화·Windows 실행 검증은 별도 확인'):'연결할 A/B/O 서버 변환 기록을 확인하지 못했습니다. 보호 적용 완료로 간주하지 마세요.';area.append(record);
    for(const c of ['A','B','O']){const output=response.job.outputs?.[c];if(!output||!/^[a-f0-9]{128}$/.test(output.sha512||''))continue;const digest=document.createElement('pre');digest.textContent=c+' 출력 SHA-512: '+output.sha512+(/^[a-f0-9]{128}$/.test(receipts?.[c]||'')?'\n서버 변환 기록 ID: '+receipts[c]:'');area.append(digest);}
-   for(const c of ['A','B','O','report']){const a=document.createElement('a');a.href='/api/desktop/bootstrap/packing/jobs/'+id+'/'+c;a.textContent=c==='report'?'SHA-512 작업 보고서':c+' 미승인 패킹 EXE';a.setAttribute('download','');const div=document.createElement('div');div.append(a);area.append(div);}
+   for(const c of ['A','B','O','report']){const a=document.createElement('a');a.href='/api/desktop/bootstrap/packing/jobs/'+id+'/'+c;a.textContent=c==='report'?'SHA-512 작업 보고서':c+(own?' 미승인 자체 보호 EXE':' 미승인 외부 패킹 EXE');a.setAttribute('download','');const div=document.createElement('div');div.append(a);area.append(div);}
   }catch(e){if(live())desktopWorkflowError(area,e);}finally{if(live())lock(false);}
- };
- try{await promise;}finally{closed=true;if(waitTimer!==null)clearTimeout(waitTimer);waitTimer=null;const wake=wakeWait;wakeWait=null;if(wake)wake();listing=null;if(root.isConnected)root.replaceChildren();}
+ }
+ root.querySelector('#desktop-own-pack-selected').onclick=()=>createPackingCandidates('COZY_VM_V1');
+ root.querySelector('#desktop-pack-selected').onclick=()=>createPackingCandidates('EXTERNAL');
+ try{await promise;}finally{closed=true;if(waitTimer!==null)clearTimeout(waitTimer);waitTimer=null;const wake=wakeWait;wakeWait=null;if(wake)wake();ownProfileFile=null;listing=null;if(root.isConnected)root.replaceChildren();}
 }
 async function showDesktopWorkspace(initialTab='quality'){
  if(!roleIsAdmin())return;const owner=desktopWorkflowOwner();let plan=null,pendingRequest=null,busy=false,tickBusy=false;

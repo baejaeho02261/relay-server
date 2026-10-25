@@ -7,7 +7,8 @@ const crypto=require('node:crypto'),fs=require('node:fs');
 const delegation=require('./peace.desktop-handoff-delegation'),integrity=require("../integrity/peace.desktop-integrity"),store=require('./peace.desktop-bootstrap-store'),config=require("../../config/peace.runtime-configuration"),state=require("../../core/peace.runtime-state");
 const CLEANUP_RECEIPT_MS=30000;
 const MAX_ARTIFACT_BYTES=64*1024*1024,CHUNK_SIZE=262144,LAUNCHER_MS=86400000,FLOW_MS=900000,HANDOFF_MS=120000,SESSION_MS=300000;
-const FOOTER=Buffer.from('GAMEA80CONFIG!','ascii');
+const FOOTER=Buffer.from('GAMEA80CONFIG!','ascii'),CONFIG_FOOTER=Buffer.from('COZYA2CONFIG!','ascii');
+const protection=require('../artifacts/peace.cozy-protection-engine'),launcherConfig=require('./peace.launcher-config');
 let activityRevision=-1,activityIndex=new Map(),retirementTimer;
 const integritySuccessTimes=new Map();
 const messages={BOOTSTRAP_UPLOAD_TIMEOUT:'업로드 또는 PE 검사 시간이 초과됐습니다.',BOOTSTRAP_UPLOAD_ABORTED:'업로드 연결이 중단됐습니다.',BOOTSTRAP_UPLOAD_CHANGED:'검사 도중 업로드 대상이 변경됐습니다.',BOOTSTRAP_PE_ANALYSIS_FAILED:'서버 PE 검사 작업을 완료하지 못했습니다.',BOOTSTRAP_HANDOFF_VERSION_MISMATCH:'A/B/O 인수인계 버전이 일치하지 않습니다. 같은 전체 소스로 다시 빌드하고 발급해 주세요.',BOOTSTRAP_OVERLAY_NOT_READY:'관리자가 O(cozy.Overlay) 실행 파일을 승인하여 A/B와 함께 게시해야 합니다.',BOOTSTRAP_REQUIRED:'관리자가 발급한 실행 파일 A로 다시 시작해 주세요.',BOOTSTRAP_INPUT_INVALID:'실행 요청을 확인해 주세요.',BOOTSTRAP_PE_INVALID:'올바른 Windows 64비트 실행 파일을 선택해 주세요.',BOOTSTRAP_ARTIFACT_TOO_LARGE:'실행 파일은 64MiB 이하여야 합니다.',BOOTSTRAP_TEMPLATE_PERSONALIZED:'개인화하지 않은 A 템플릿을 업로드해 주세요.',BOOTSTRAP_NOT_READY:'관리자가 A와 B 실행 파일을 먼저 등록해야 합니다.',BOOTSTRAP_LAUNCHER_INVALID:'실행 파일 A를 확인해 주세요.',BOOTSTRAP_LAUNCHER_USED:'이미 사용한 실행 파일입니다. 새 실행 파일을 발급받아 주세요.',BOOTSTRAP_EXPIRED:'실행 인증이 만료되었습니다. 새 실행 파일로 시작해 주세요.',BOOTSTRAP_REQUEST_REUSED:'요청 번호가 다른 실행에 사용되었습니다.',BOOTSTRAP_PROOF_INVALID:'실행 파일의 기기 서명을 확인하지 못했습니다.',BOOTSTRAP_FLOW_INVALID:'실행 요청을 확인할 수 없습니다.',BOOTSTRAP_CODE_MISMATCH:'실행 코드 무결성 검증에 실패했습니다.',BOOTSTRAP_HASH_MISMATCH:'실행 파일 검증에 실패했습니다.',BOOTSTRAP_DOWNLOAD_INCOMPLETE:'실행 파일 다운로드를 완료해 주세요.',BOOTSTRAP_SESSION_INVALID:'실행 세션을 확인할 수 없습니다.',BOOTSTRAP_SESSION_CLOSED:'종료된 실행 세션입니다. 새 실행 파일로 시작해 주세요.',BOOTSTRAP_REVOKED:'관리자가 이 실행 세션을 종료했습니다.',BOOTSTRAP_LICENSE_MISMATCH:'다른 라이선스가 연결된 실행 세션입니다.',BOOTSTRAP_SINGLE_WRITER_REQUIRED:'이 서비스는 단일 인스턴스와 영구 저장소가 필요합니다.',BOOTSTRAP_STORAGE_INVALID:'실행 인증 저장소를 확인할 수 없습니다.',BOOTSTRAP_STORAGE_RESTART_REQUIRED:'저장 결과를 확인하려면 서버를 다시 시작해야 합니다.',BOOTSTRAP_ARTIFACT_INVALID:'등록된 실행 파일을 읽거나 검증하지 못했습니다.'};
@@ -29,11 +30,16 @@ function Crc(value){if(typeof value!=='string'||!/^[A-F0-9]{16}$/.test(value))Fa
 function MachinePolicy(){return require("../devices/peace.desktop-machine-policy");}
 function RequestId(value){if(typeof value!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(value))Fail('BOOTSTRAP_INPUT_INVALID');return value;}
 function Audit(type,value){try{require("../../storage/audit/peace.audit.js").LogEvent(type,JSON.stringify(value&&typeof value==='object'&&Object.hasOwn(value,'actor')?(({actor,...rest})=>({...rest,actorHash:crypto.createHash('sha256').update(String(actor)).digest('hex')}))(value):value));}catch(error){console.error('BOOTSTRAP_AUDIT_FAILED:',type);}}
-function Artifact(row){if(!row)return null;const packingEvidence=require("../artifacts/peace.desktop-packing-evidence").Projection(DB(),row);return {id:row.id,component:row.component,version:row.version,handoffVersion:delegation.Version(row),measurementPlanVersion:row.measurementPlanVersion||0,tlsPinVersion:row.tlsPinVersion||0,...(row.deploymentManifestId?{deploymentManifestId:row.deploymentManifestId}:{}),...(packingEvidence?{packingEvidence}:{}),hashVersion:row.hashVersion,sha512:row.sha512,crc64:row.crc64,xxh3_128:row.xxh3_128,blake3:row.blake3,codeSha512:row.codeSha512,codeCrc64:row.codeCrc64,codeXxh3_128:row.codeXxh3_128,codeBlake3:row.codeBlake3,codeAlgorithm:row.codeAlgorithm,size:row.size,createdAt:row.createdAt,backgroundVersion:row.backgroundVersion||0,crcCoverage:require("../runtime/peace.desktop-crc-policy").Compare(row.crcLayers,row.crcLayers)};}
+function Artifact(row){if(!row)return null;const packingEvidence=require("../artifacts/peace.desktop-packing-evidence").Projection(DB(),row);return {id:row.id,component:row.component,version:row.version,handoffVersion:delegation.Version(row),measurementPlanVersion:row.measurementPlanVersion||0,tlsPinVersion:row.tlsPinVersion||0,...(row.deploymentManifestId?{deploymentManifestId:row.deploymentManifestId}:{}),...(packingEvidence?{packingEvidence}:{}),...(row.ownProtection?{ownProtection:{...row.ownProtection}}:{}),hashVersion:row.hashVersion,sha512:row.sha512,crc64:row.crc64,xxh3_128:row.xxh3_128,blake3:row.blake3,codeSha512:row.codeSha512,codeCrc64:row.codeCrc64,codeXxh3_128:row.codeXxh3_128,codeBlake3:row.codeBlake3,codeAlgorithm:row.codeAlgorithm,size:row.size,createdAt:row.createdAt,backgroundVersion:row.backgroundVersion||0,crcCoverage:require("../runtime/peace.desktop-crc-policy").Compare(row.crcLayers,row.crcLayers)};}
 // GAME-CONNECT-4 clients validate the versioned 13-field release at Begin
 // and Claim. All four file/code measurements and hashVersion are explicit;
 // the v4 envelope and new signed domains reject mixed old/new clients.
 function Release(row){if(!row||row.hashVersion!==3)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);return {id:row.id,version:row.version,hashVersion:3,sha512:row.sha512,crc64:row.crc64,xxh3_128:row.xxh3_128,blake3:row.blake3,codeSha512:row.codeSha512,codeCrc64:row.codeCrc64,codeXxh3_128:row.codeXxh3_128,codeBlake3:row.codeBlake3,codeAlgorithm:row.codeAlgorithm,size:row.size};}
+function SameOwnProtection(a,b){
+ if(!a||!b)return !a&&!b;
+ const fields=['engine','state','version','role','slotBytes','functionCount','configProtection','windowsVerified','arbitraryDelphiTranslation'];
+ return Plain(a)&&Plain(b)&&Object.keys(a).length===fields.length&&Object.keys(b).length===fields.length&&fields.every(k=>Object.hasOwn(a,k)&&Object.hasOwn(b,k)&&a[k]===b[k]);
+}
 function Pe(bytes,component){
  if(!Buffer.isBuffer(bytes)||bytes.length>MAX_ARTIFACT_BYTES)Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
  if(bytes.length<512||bytes.readUInt16LE(0)!==0x5a4d)Fail('BOOTSTRAP_PE_INVALID');
@@ -64,9 +70,10 @@ function Publish(component,version,bytes,releaseApproval,options={}){
  if(config.HA_ENABLED)Fail('BOOTSTRAP_SINGLE_WRITER_REQUIRED',503);
  // Once release governance is active, even internal callers must not replace
  // one role's active pointer outside the audited three-artifact publication.
- if(options.activate!==false&&(DB().securityOperations?.releaseGovernance?.requireManifest||DB().securityOperations?.requirePackingEvidence||DB().releaseSafety?.baseline))Fail('SECURITY_RELEASE_ATOMIC_PUBLICATION_REQUIRED',409);
+ if(options.activate!==false&&(DB().securityOperations?.releaseGovernance?.requireManifest||DB().securityOperations?.requirePackingEvidence||DB().securityOperations?.requireCozyProtection||DB().releaseSafety?.baseline))Fail('SECURITY_RELEASE_ATOMIC_PUBLICATION_REQUIRED',409);
  if(!['A','B','O'].includes(component)||typeof version!=='string'||!/^\d+(?:\.\d+){0,3}$/.test(version)||version.length>40)Fail('BOOTSTRAP_INPUT_INVALID');
- DB();Pe(bytes,component);require("../artifacts/peace.release-exposure").AssertBytes(bytes,{name:component+'.exe'});if(!bytes.includes(Buffer.from('GAME-AUTHORITY-V2'))&&!bytes.includes(Buffer.from('GAME-AUTHORITY-V2','utf16le')))Fail('SECURITY_CLIENT_UPGRADE_REQUIRED');const securityMetadata=require("../security/peace.desktop-security-authority").PublishMetadata(component,version,bytes,releaseApproval);let code;try{code=integrity.CodeImage(bytes);}catch(_){Fail('BOOTSTRAP_PE_INVALID');}const row={id:Id(),component,protocol:'GAME-CONNECT-4',version,handoffVersion:delegation.ArtifactVersion(bytes),measurementPlanVersion:require("../integrity/peace.measurement-plan-contract").ArtifactVersion(bytes),ownMeasurementVersion:require("../integrity/peace.measurement-plan-contract").ArtifactOwnVersion(bytes),tlsPinVersion:require("../integrity/peace.measurement-plan-contract").ArtifactVersion(bytes,'GAME-TLS-PIN-WINDOW-V1'),...securityMetadata,backgroundVersion:bytes.includes(Buffer.from('SERVER_ASSIGNED_V1'))||bytes.includes(Buffer.from('SERVER_ASSIGNED_V1','utf16le'))?1:0,...integrity.Digests(bytes),codeSha512:code.sha512,codeCrc64:code.crc64,codeXxh3_128:code.xxh3_128,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,crcLayers:code.crcLayers,size:bytes.length,createdAt:now()};
+ DB();Pe(bytes,component);const ownProtection=protection.Inspect(bytes);if(ownProtection?.state==='SEALED'&&ownProtection.role!==component)Fail('COZY_PROTECTION_ROLE_MISMATCH',409);if(options.activate!==false&&ownProtection)Fail('SECURITY_RELEASE_ATOMIC_PUBLICATION_REQUIRED',409);require("../artifacts/peace.release-exposure").AssertBytes(bytes,{name:component+'.exe'});if(!bytes.includes(Buffer.from('GAME-AUTHORITY-V2'))&&!bytes.includes(Buffer.from('GAME-AUTHORITY-V2','utf16le')))Fail('SECURITY_CLIENT_UPGRADE_REQUIRED');const securityMetadata=require("../security/peace.desktop-security-authority").PublishMetadata(component,version,bytes,releaseApproval);let code;try{code=integrity.CodeImage(bytes);}catch(_){Fail('BOOTSTRAP_PE_INVALID');}const row={id:Id(),component,protocol:'GAME-CONNECT-4',version,handoffVersion:delegation.ArtifactVersion(bytes),measurementPlanVersion:require("../integrity/peace.measurement-plan-contract").ArtifactVersion(bytes),ownMeasurementVersion:require("../integrity/peace.measurement-plan-contract").ArtifactOwnVersion(bytes),tlsPinVersion:require("../integrity/peace.measurement-plan-contract").ArtifactVersion(bytes,'GAME-TLS-PIN-WINDOW-V1'),...securityMetadata,backgroundVersion:bytes.includes(Buffer.from('SERVER_ASSIGNED_V1'))||bytes.includes(Buffer.from('SERVER_ASSIGNED_V1','utf16le'))?1:0,...integrity.Digests(bytes),codeSha512:code.sha512,codeCrc64:code.crc64,codeXxh3_128:code.xxh3_128,codeBlake3:code.blake3,codeAlgorithm:code.algorithm,crcLayers:code.crcLayers,size:bytes.length,createdAt:now()};
+ if(ownProtection)row.ownProtection={...ownProtection};
  const packingReceipt=require("../artifacts/peace.desktop-packing-evidence").FindReceipt(DB(),row);if(packingReceipt)row.packingReceiptId=packingReceipt.id;
  const deploymentManifestId=require("../security/peace.desktop-security-operations").ValidateCandidateArtifact(row,options.deploymentManifestId||'');if(deploymentManifestId)row.deploymentManifestId=deploymentManifestId;
  // Check the actual parsed baseline before writing bytes, metadata or active
@@ -74,7 +81,7 @@ function Publish(component,version,bytes,releaseApproval,options={}){
  const authority=require("../security/peace.desktop-security-authority"),releaseReason=authority.ArtifactReason(row,authority.Policy());
  if(releaseReason)Fail(releaseReason,409);
  if(options.deduplicate===true){
-  const same=Object.values(DB().artifacts).find(x=>x.component===component&&x.version===version&&x.sha512===row.sha512&&(x.measurementPlanVersion||0)===row.measurementPlanVersion&&(x.ownMeasurementVersion||0)===row.ownMeasurementVersion&&(x.tlsPinVersion||0)===row.tlsPinVersion&&(x.deploymentManifestId||'')===(row.deploymentManifestId||'')&&(x.packingReceiptId||'')===(row.packingReceiptId||'')&&JSON.stringify(x.releaseApproval||null)===JSON.stringify(row.releaseApproval||null));
+  const same=Object.values(DB().artifacts).find(x=>x.component===component&&x.version===version&&x.sha512===row.sha512&&(x.measurementPlanVersion||0)===row.measurementPlanVersion&&(x.ownMeasurementVersion||0)===row.ownMeasurementVersion&&(x.tlsPinVersion||0)===row.tlsPinVersion&&(x.deploymentManifestId||'')===(row.deploymentManifestId||'')&&(x.packingReceiptId||'')===(row.packingReceiptId||'')&&SameOwnProtection(x.ownProtection,row.ownProtection)&&JSON.stringify(x.releaseApproval||null)===JSON.stringify(row.releaseApproval||null));
   if(same){Bytes(same);Audit('DESKTOP_BOOTSTRAP_STAGE_REUSED',{id:same.id,component,version,sha512:same.sha512});return Artifact(same);}
  }
  const operationAudit=require("../storage/peace.desktop-operation-audit"),op=operationAudit.Begin('ARTIFACT_PUBLISH',options.actor||'ADMIN',{component,subject:crypto.createHash('sha256').update(row.id).digest('hex'),bytes:bytes.length});
@@ -97,9 +104,22 @@ function HandoffToken(row){return Token('HANDOFF',row.id,row.handoffNonce);}
 function SessionToken(row){return Token('SESSION',row.sessionId,row.sessionNonce);}
 function MakeLauncher(row){
  const template=DB().artifacts[row.artifactId];if(!template||template.component!=='A')Fail('BOOTSTRAP_ARTIFACT_INVALID',503);
- const overlay=Buffer.from(JSON.stringify({schema:1,profile:row.profile,launcherId:row.id,launcherTicket:LauncherTicket(row),expiresAt:row.expiresAt}),'utf8');
- if(overlay.length>8192)Fail('BOOTSTRAP_INPUT_INVALID');const length=Buffer.alloc(4);length.writeUInt32LE(overlay.length);
- return Buffer.concat([Bytes(template),overlay,length,FOOTER]);
+ const bytes=Bytes(template);let clear,overlay;
+ try{
+  const own=protection.Inspect(bytes);if(!SameOwnProtection(template.ownProtection,own))Fail('COZY_PROTECTION_METADATA_MISMATCH',409);
+  if(own){
+   if(own.state!=='SEALED'||own.role!=='A'||row.configFormat!=='COZY_A_CONFIG_V2'||typeof row.configNonce!=='string'||!/^[a-f0-9]{24}$/.test(row.configNonce))Fail('BOOTSTRAP_CONFIG_INVALID',409);
+   clear=launcherConfig.Encode({schema:2,profile:row.profile,launcherId:row.id,launcherTicket:LauncherTicket(row),expiresAt:row.expiresAt});
+   overlay=protection.SealLauncherConfig(bytes,clear,Buffer.from(row.configNonce,'hex'));const length=Buffer.alloc(4);length.writeUInt32LE(overlay.length);
+   return Buffer.concat([bytes,overlay,length,CONFIG_FOOTER]);
+  }
+  if(row.configFormat!==undefined||row.configNonce!==undefined)Fail('BOOTSTRAP_CONFIG_INVALID',409);
+  // Previously approved templates retain their historical wire format. New
+  // engine-bearing native binaries accept only the authenticated binary format.
+  overlay=Buffer.from(JSON.stringify({schema:1,profile:row.profile,launcherId:row.id,launcherTicket:LauncherTicket(row),expiresAt:row.expiresAt}),'utf8');
+  if(overlay.length>8192)Fail('BOOTSTRAP_INPUT_INVALID');const length=Buffer.alloc(4);length.writeUInt32LE(overlay.length);
+  return Buffer.concat([bytes,overlay,length,FOOTER]);
+ }finally{bytes.fill(0);clear?.fill(0);overlay?.fill(0);}
 }
 function LauncherName(row){return row.downloadName||crypto.createHmac('sha256',Buffer.from(DB().secret,'hex')).update('GAME-LAUNCHER-NAME-V1|'+row.id).digest('hex').slice(0,32)+'.exe';}
 function RequireLauncherSelection(row){
@@ -128,8 +148,9 @@ function IssueLauncher(body={},actor='ADMIN'){
   if(license.status!=='AVAILABLE'||license.consumed)Fail('DESKTOP_KEY_USED',409);
   if(Object.values(db.launchers).some(l=>l.assignedLicenseId===body.licenseId&&(l.status==='AVAILABLE'&&l.expiresAt>now()||l.status==='CONSUMED'&&db.flows[l.flowId]&&!['CLOSED','REVOKED','EXPIRED'].includes(ProjectStatus(db.flows[l.flowId])))))Fail('WORKSPACE_LICENSE_RESERVED',409);
  }else if(db.artifacts[db.active.B].backgroundVersion===1)Fail('WORKSPACE_LICENSE_REQUIRED',409);
- const raw=require("../network/peace.connect-transport-key").Profile(),profile={version:raw.version,protocol:raw.protocol,host:raw.host,port:raw.port,serverKeyId:raw.serverKeyId,serverPublicKey:raw.serverPublicKey,tlsServerName:raw.tlsServerName,tlsCertificateSha256:raw.tlsCertificateSha256};
+ const raw=require("../network/peace.connect-transport-key").Profile(),profile={version:raw.version,protocol:raw.protocol,host:raw.host,port:raw.port,serverKeyId:raw.serverKeyId,serverPublicKey:raw.serverPublicKey,tlsServerName:raw.tlsServerName,tlsCertificateSha256:raw.tlsCertificateSha256,...(raw.tlsPinState!==undefined?{tlsPinState:raw.tlsPinState}:{})};
  const row={serverEpoch:require("../recovery/peace.desktop-recovery").Epoch(db),id:Id(),downloadName:crypto.randomBytes(16).toString('hex')+'.exe',label:(body.label||'').trim(),artifactId:db.active.A,profile,ticketNonce:Nonce(),status:'AVAILABLE',issuedAt:now(),expiresAt:now()+LAUNCHER_MS,issuedBy:String(actor).slice(0,160),flowId:''};
+ const aBytes=Bytes(db.artifacts[row.artifactId]);try{const own=protection.Inspect(aBytes);if(!SameOwnProtection(db.artifacts[row.artifactId].ownProtection,own))Fail('COZY_PROTECTION_METADATA_MISMATCH',409);if(own){if(own.state!=='SEALED'||own.role!=='A')Fail('COZY_PROTECTION_NOT_SEALED',409);row.configFormat='COZY_A_CONFIG_V2';row.configNonce=crypto.randomBytes(12).toString('hex');}}finally{aBytes.fill(0);}
  const releaseSelection=require("../artifacts/peace.desktop-release-safety").Selection(db);if(releaseSelection)row.releaseSelection=releaseSelection;
  if(body.licenseId)row.assignedLicenseId=body.licenseId;
  row.ticketHash=hash(LauncherTicket(row));Object.assign(row,integrity.Digests(MakeLauncher(row)));
@@ -383,7 +404,7 @@ function LicenseActivity(id){
  const db=DB();if(activityRevision!==db.revision){const index=new Map();for(const row of Object.values(db.flows)){if(!row.licenseId)continue;const old=index.get(row.licenseId);if(!old||row.lastVerifiedAt>=old.lastVerifiedAt)index.set(row.licenseId,{lastVerifiedAt:row.lastVerifiedAt||0,leaseExpiresAt:row.licenseLeaseExpiresAt||0,appVersion:row.appVersion||'',sessionId:row.sessionId,sessionStatus:row.status});}for(const row of Object.values(db.overlays||{})){const old=index.get(row.licenseId);if(!old||row.lastVerifiedAt>=old.lastVerifiedAt)index.set(row.licenseId,{lastVerifiedAt:row.lastVerifiedAt||0,leaseExpiresAt:row.status==='CLAIMED'?row.sessionExpiresAt:0,appVersion:db.artifacts[row.releaseId]?.version||'',sessionId:row.parentSessionId,overlaySessionId:row.sessionId,sessionStatus:row.status});}activityIndex=index;activityRevision=db.revision;}
  return activityIndex.get(id)||null;
 }
-function RetireLauncher(row){delete row.ticketNonce;delete row.profile;row.retiredAt||=now();}
+function RetireLauncher(row){delete row.ticketNonce;delete row.profile;delete row.configNonce;row.retiredAt||=now();}
 function RetireFlow(row,db){store.AfterCommit(()=>{for(const kind of ['A.flow:','B.claim:','B.session:','B.claim-recovery:'])require("../runtime/peace.desktop-deadline").persistent.forget(kind+row.id);});if(db&&delegation.Version(row)===3)require("../overlay/peace.desktop-overlay").RetireForParent(db,row);RetireRuntime(row);for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])delete row[key];row.retiredAt||=now();}
 function RetireRuntime(row){require("../devices/peace.desktop-device-identity").RetireContext(row,'A');require("../devices/peace.desktop-device-identity").RetireContext(row,'B');require("../security/peace.desktop-security-authority").RetireContext(row,'A');require("../security/peace.desktop-security-authority").RetireContext(row,'B');require("../integrity/peace.desktop-integrity-reports").RetireContext(row);require("../licensing/peace.desktop-licenses").RetireRuntime(row);for(const key of integritySuccessTimes.keys())if(key.includes(':'+row.sessionId+':'))integritySuccessTimes.delete(key);}
 function Prune(){
@@ -409,6 +430,6 @@ function ProofTasks(body){
  if(body.action==='claim')return delegation.ProofTasks(row,body,'B',ClaimCanonical(row));
  return [];
 }
-module.exports={AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,AssertSecurityAvailable:Availability,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
+module.exports={AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,AssertSecurityAvailable:Availability,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,CONFIG_FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
 
 module.exports.Stop=Stop;

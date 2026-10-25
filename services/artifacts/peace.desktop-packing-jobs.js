@@ -9,7 +9,7 @@ function Prune(){if(current?.status!=='RUNNING'&&current?.expiresAt<Date.now())C
 const timer=setInterval(Prune,60000);timer.unref();
 function Check(session,method='POST'){const r=require("../authentication/peace.desktop-admin-guard").CheckSession(session,PREFIX,method);if(!r.ok)protocol.Fail(r.reason,r.status||403);if(!require("../../web/authentication/peace.web-auth").IsSessionActive(session))protocol.Fail('ADMIN_SESSION_EXPIRED',401);}
 function Source(id,c){const b=require("../bootstrap/peace.desktop-bootstrap"),row=b.Initialize().artifacts[id];if(!row||row.component!==c)protocol.Fail('PACKING_SOURCE_INVALID',409);b.AssertSecurityAvailable();return {row,bytes:b.ReadArtifactBytes(row)};}
-function View(job){return {id:job.id,status:job.status,createdAt:job.createdAt,expiresAt:job.expiresAt||0,component:job.component||'',error:job.error||'',outputs:Object.fromEntries(Object.entries(job.outputs).map(([c,v])=>[c,{sha512:v.sha512,inputSha512:v.inputSha512,size:v.bytes.length,profileSha512:v.profileSha512,toolSha512:v.toolSha512}])),...(job.receiptIds?{evidence:{scope:'TRANSFORMED_TEMPLATES',receipts:{...job.receiptIds},windowsVerified:false,protectionVerified:false}}:{}),disposition:'UNAPPROVED_CANDIDATE',activeUnchanged:true,windowsVerified:false,allSourceVirtualizationVerified:false};}
+function View(job){return {id:job.id,status:job.status,engine:job.engine||'EXTERNAL',createdAt:job.createdAt,expiresAt:job.expiresAt||0,component:job.component||'',error:job.error||'',outputs:Object.fromEntries(Object.entries(job.outputs).map(([c,v])=>[c,{sha512:v.sha512,inputSha512:v.inputSha512,size:v.bytes.length,profileSha512:v.profileSha512,toolSha512:v.toolSha512}])),...(job.receiptIds?{evidence:{scope:'TRANSFORMED_TEMPLATES',receipts:{...job.receiptIds},windowsVerified:false,protectionVerified:false}}:{}),disposition:'UNAPPROVED_CANDIDATE',activeUnchanged:true,windowsVerified:false,allSourceVirtualizationVerified:false};}
 function Get(id,session){Prune();if(!current||current.id!==id||current.owner!==session.id)protocol.Fail('PACKING_JOB_NOT_FOUND',404);return current;}
 function Output(id,c,session){const j=Get(id,session);if(j.status!=='COMPLETE'||!j.outputs[c])protocol.Fail('PACKING_OUTPUT_NOT_READY',409);return j.outputs[c];}
 function ValidateOutput(bytes,source){
@@ -22,20 +22,31 @@ function ValidateOutput(bytes,source){
 }
 function Begin(body,session){
  if(stopped)protocol.Fail('PACKING_STOPPED',503);Check(session);Prune();if(current?.status==='RUNNING')protocol.Fail('PACKING_BUSY',429);
- if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).length!==3||['A','B','O'].some(c=>typeof body[c]!=='string'||!/^[A-F0-9]{24}$/.test(body[c])))protocol.Fail('PACKING_INPUT_INVALID');
- if(!client.Status().configured)protocol.Fail(client.Status().reason,503);
+ const own=body?.mode==='COZY_VM_V1',hasProfile=own&&Object.hasOwn(body,'profile');
+ const fields=own?['A','B','O','mode',...(hasProfile?['profile']:[])]:['A','B','O'];
+ if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).length!==fields.length||Object.keys(body).some(k=>!fields.includes(k))||['A','B','O'].some(c=>typeof body[c]!=='string'||!/^[A-F0-9]{24}$/.test(body[c])))protocol.Fail('PACKING_INPUT_INVALID');
+ let profile;
+ if(hasProfile){
+  if(!body.profile||Object.getPrototypeOf(body.profile)!==Object.prototype||Object.keys(body.profile).length!==2||!Object.hasOwn(body.profile,'version')||!Object.hasOwn(body.profile,'functions')||Buffer.byteLength(JSON.stringify(body.profile),'utf8')>65536)protocol.Fail('PACKING_PROFILE_INVALID');
+  profile=structuredClone(body.profile);
+  // Pure bounded IR compilation validates the snapshot before retaining a job
+  // or admitting executable buffers. It cannot replace the mandatory gate.
+  const compiled=require('./peace.cozy-protection-engine').Compile(profile,'A');compiled.fill(0);
+ }
+ if(!own&&!client.Status().configured)protocol.Fail(client.Status().reason,503);
  // Validate the small descriptors now. Read exact source bytes only inside the
  // serial job, then recheck current source/authorization after each await.
  const db=require("../bootstrap/peace.desktop-bootstrap").Initialize();for(const c of ['A','B','O'])if(db.artifacts[body[c]]?.component!==c||!Number.isSafeInteger(db.artifacts[body[c]].size)||db.artifacts[body[c]].size<1||db.artifacts[body[c]].size>64*1024*1024)protocol.Fail('PACKING_SOURCE_INVALID',409);
- Clear();const lease=require("../runtime/peace.server-resource-budget").Admit('packing',{key:session.id,bytes:Math.max(64*1024*1024,Object.values(body).reduce((n,id)=>n+db.artifacts[id].size,0)*5+8*1024*1024)});const job={id:crypto.randomBytes(16).toString('hex'),owner:session.id,controller:new AbortController(),lease,status:'RUNNING',createdAt:Date.now(),outputs:{},sources:{...body}};
- try{require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_PACKING_STARTED',JSON.stringify({jobId:job.id,artifactIds:body}));}catch(e){lease.release();throw e;}
+ const sources=Object.fromEntries(['A','B','O'].map(c=>[c,body[c]]));
+ Clear();const lease=require("../runtime/peace.server-resource-budget").Admit('packing',{key:session.id,bytes:Math.max(64*1024*1024,Object.values(sources).reduce((n,id)=>n+db.artifacts[id].size,0)*5+8*1024*1024)});const job={id:crypto.randomBytes(16).toString('hex'),owner:session.id,engine:own?'COZY_VM_V1':'EXTERNAL',controller:new AbortController(),lease,status:'RUNNING',createdAt:Date.now(),outputs:{},sources};
+ try{require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_PACKING_STARTED',JSON.stringify({jobId:job.id,artifactIds:sources,engine:job.engine}));}catch(e){lease.release();throw e;}
  current=job;
  pending=Promise.resolve().then(async()=>{
   try{
    for(const c of ['A','B','O']){
     if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);job.component=c;Check(session,'GET');const original=Source(body[c],c);let result;
     try{
-     result=await client.Pack(c,original.bytes,crypto.randomBytes(16).toString('hex'),{signal:job.controller.signal});if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session,'GET');
+     result=own?require('./peace.cozy-protection-engine').Pack(original.bytes,c,profile):await client.Pack(c,original.bytes,crypto.randomBytes(16).toString('hex'),{signal:job.controller.signal});if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session,'GET');
      const after=Source(body[c],c);try{if(after.row.sha512!==original.row.sha512||protocol.Sha512(after.bytes)!==result.inputSha512)protocol.Fail('PACKING_SOURCE_CHANGED',409);}finally{after.bytes.fill(0);}
      await require('./peace.release-exposure').Prepare(result.bytes,session.id);if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session,'GET');
      ValidateOutput(result.bytes,original.row);job.outputs[c]=result;result=null;
@@ -54,4 +65,5 @@ function Begin(body,session){
  return View(job);
 }
 async function Stop(){if(stopped)return pending;stopped=true;clearInterval(timer);const job=current;job?.controller?.abort();job?.lease?.release();for(const out of Object.values(job?.outputs||{}))out.bytes.fill(0);if(job)job.outputs={};current=undefined;await pending;}
-module.exports={Begin,Get,View,Output,ValidateOutput,Status:client.Status,Stop};
+function Status(){return {...client.Status(),ownEngine:{configured:true,engine:'COZY_VM_V1',requiresRebuiltTemplate:true,scope:'SELECTED_EXPRESSION_VM',windowsVerified:false}};}
+module.exports={Begin,Get,View,Output,ValidateOutput,Status,Stop};

@@ -39,7 +39,7 @@ const releaseSafety={revision:4,baseline:null,revokedCohorts:{}};
 const listing = () => ({ active: { ...active }, candidates: candidates.map(a => ({ ...a, active: active[a.component] === a.id })), operations: { ...operations }, releaseSafety:clone(releaseSafety), auditHealth: { status: 'HEALTHY', failedWrites: 0 } });
 const clone = x => JSON.parse(JSON.stringify(x));
 const base = '/api/desktop/bootstrap/security-operations';
-let customConfigured=true,sourceTreeAvailable=false,packingConfigured=true,customRunning=false,packingEvidenceAvailable=true;
+let customConfigured=true,sourceTreeAvailable=false,packingConfigured=true,customRunning=false,packingEvidenceAvailable=true,ownEngineConfigured=true,ownSlotMissing=false,ownWrongEngine=false,ownRunning=false;
 w.api = async (url, options = {}) => {
   const body = options.body && clone(options.body);
   calls.push({ url, body, rawBody: options.rawBody, method: options.method || 'GET' });
@@ -72,9 +72,12 @@ w.api = async (url, options = {}) => {
     assert.equal(body.expectedRevision,releaseSafety.revision);assert.equal(body.manifestId,manifestId);
     releaseSafety.revokedCohorts[body.manifestId]={reason:body.reason};releaseSafety.revision++;return {ok:true};
   }
-  if(url==='/api/desktop/bootstrap/packing/status')return {custom:{configured:customConfigured,sourceTreeAvailable},packing:{configured:packingConfigured}};
+  if(url==='/api/desktop/bootstrap/packing/status')return {custom:{configured:customConfigured,sourceTreeAvailable},packing:{configured:packingConfigured},ownEngine:{configured:ownEngineConfigured,engine:'COZY_VM_V1',requiresRebuiltTemplate:true,windowsVerified:false}};
   if(url==='/api/desktop/bootstrap/packing/custom/jobs')return {job:{id:'custom-fixture',status:customRunning?'RUNNING':'COMPLETE',fileCount:3,size:111,sha512:'e'.repeat(128)}};
-  if(url==='/api/desktop/bootstrap/packing/jobs')return {job:{id:'packing-fixture',status:'COMPLETE',outputs:Object.fromEntries(['A','B','O'].map((c,i)=>[c,{sha512:String(i+5).repeat(128)}])),...(packingEvidenceAvailable?{evidence:{scope:'TRANSFORMED_TEMPLATES',receipts:Object.fromEntries(['A','B','O'].map((c,i)=>[c,String(i+6).repeat(128)])),windowsVerified:false,protectionVerified:false}}:{})}};
+  if(url==='/api/desktop/bootstrap/packing/jobs'){
+    const own=body.mode==='COZY_VM_V1';
+    return {job:{id:'packing-fixture',engine:own&&!ownWrongEngine?'COZY_VM_V1':'EXTERNAL',status:own&&ownSlotMissing?'FAILED':own&&ownRunning?'RUNNING':'COMPLETE',...(own&&ownSlotMissing?{error:'COZY_PROTECTION_SLOT_MISSING'}:{}),outputs:Object.fromEntries(['A','B','O'].map((c,i)=>[c,{sha512:String(i+5).repeat(128)}])),...(packingEvidenceAvailable?{evidence:{scope:'TRANSFORMED_TEMPLATES',receipts:Object.fromEntries(['A','B','O'].map((c,i)=>[c,String(i+6).repeat(128)])),windowsVerified:false,protectionVerified:false}}:{})}};
+  }
   if (url === base + '/test-evidence' || url === '/api/desktop/workspace/deployment-note') return { ok: true };
   throw Error('Unexpected endpoint: ' + url);
 };
@@ -92,6 +95,7 @@ async function waitFor(check, label) {
 const count = url => calls.filter(c => c.url === url && c.method === 'POST').length;
 const last = url => calls.filter(c => c.url === url).at(-1);
 function file(id, value) { Object.defineProperty(byId(id), 'files', { configurable: true, value: [value] }); }
+function ownProfileFile(text,overrides={}) { const value={name:'functions.json',size:Buffer.byteLength(text),text:async()=>text,...overrides};file('desktop-own-profile-file',value);byId('desktop-own-profile-file').dispatchEvent(new w.Event('change'));return value; }
 async function securityAction(action) {
   const button = document.querySelector('[data-security-action="' + action + '"]');
   button.click();
@@ -189,7 +193,7 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     assert.equal(oldSecurityRoot.isConnected,false);
     assert.equal(byId('modal-title').textContent,'정상본 보존 · 배포 묶음 관리');
     assert.equal(calls.filter(c=>c.method==='POST').length,beforeSafety);
-    assert.equal(document.querySelectorAll('#desktop-release-safety input[type="file"],#desktop-release-safety [data-candidate],#desktop-custom-selected,#desktop-pack-selected').length,0);
+    assert.equal(document.querySelectorAll('#desktop-release-safety input[type="file"],#desktop-release-safety [data-candidate],#desktop-custom-selected,#desktop-pack-selected,#desktop-own-pack-selected').length,0);
     assert.equal(document.querySelector('[data-security-action="activate"]'),null);
     const beforePin=count(base+'/baseline-pin');
     await byId('desktop-baseline-pin').onclick();
@@ -219,13 +223,18 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     const beforeProtection=calls.filter(c=>c.method==='POST').length,publishedBeforeProtection=count(base+'/activate'),protection=w.showDesktopExecutableProtection();
     await waitFor(()=>byId('desktop-protection-modal'),'separate executable protection');
     assert.equal(calls.filter(c=>c.method==='POST').length,beforeProtection);
-    assert.equal(document.querySelectorAll('#desktop-protection-modal input[type="file"],#desktop-baseline-pin,[data-security-action="activate"]').length,0);
+    assert.equal(document.querySelectorAll('#desktop-protection-modal input[type="file"]').length,1);
+    assert.equal(byId('desktop-own-profile-file').getAttribute('accept'),'.json,application/json');
+    assert.equal(document.querySelectorAll('#desktop-baseline-pin,[data-security-action="activate"]').length,0);
     assert.equal(document.querySelectorAll('[data-protection-candidate]').length,3);
     assert.equal(document.querySelectorAll('[data-active-packing]').length,3);
     assert.match(document.querySelector('[data-active-packing="A"]').textContent,/워커 변환 기록 연결됨/);
     assert.match(document.querySelector('[data-active-packing="A"]').textContent,new RegExp(candidates[0].sha512));
     assert.match(document.querySelector('[data-active-packing="B"]').textContent,/연결된 서버 패킹 기록 없음/,'A mismatched output hash cannot display a linked worker record');
-    assert.match(byId('desktop-protection-issued-config').textContent,/평문 JSON/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/기존 형식 A.*평문 JSON/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/새 자체 보호 형식 A.*바이너리 설정 형식/);
+    assert.match(byId('desktop-protection-modal').textContent,/임의의 Delphi 소스 자동 변환이나 EXE 전체 보호는 지원하지 않습니다/);
+    assert.match(byId('desktop-protection-modal').textContent,/봉인 전에는 실행되지 않습니다/);
     assert.match(byId('desktop-protection-modal').textContent,/A 발급·B\/O 배포에는 적용되지 않습니다/);
     assert.equal(byId('desktop-custom-selected').textContent,'암호화 보관 파일 만들기');
     assert.equal(new Set([...document.querySelectorAll('[id]')].map(e=>e.id)).size,document.querySelectorAll('[id]').length,'No duplicate modal IDs');
@@ -252,17 +261,109 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     assert.equal(byId('desktop-pack-result').querySelectorAll('a[download]').length,4);
     assert.match(byId('desktop-pack-result').textContent,/A\/B\/O 워커 변환 기록 저장됨/);
     assert.match(byId('desktop-pack-result').textContent,/A 출력 SHA-512: 5{128}/);
-    assert.match(byId('desktop-pack-result').textContent,/발급된 A의 새 평문 JSON 보호는 완료되지 않았습니다/);
+    assert.match(byId('desktop-pack-result').textContent,/기존 형식 A의 새 평문 JSON 보호는 완료되지 않았습니다/);
     packingEvidenceAvailable=false;
     await byId('desktop-pack-selected').onclick();
     assert.match(byId('desktop-pack-result').textContent,/서버 변환 기록을 확인하지 못했습니다/);
     assert.doesNotMatch(byId('desktop-pack-result').textContent,/워커 변환 기록 저장됨/,'A completed job without durable evidence cannot claim a linked record');
     packingEvidenceAvailable=true;
+    ownEngineConfigured=false;
+    const beforeOwn=count('/api/desktop/bootstrap/packing/jobs');
+    await byId('desktop-own-pack-selected').onclick();
+    assert.equal(count('/api/desktop/bootstrap/packing/jobs'),beforeOwn,'An unavailable own engine cannot submit a job');
+    ownEngineConfigured=true;packingConfigured=false;
+    await byId('desktop-own-pack-selected').onclick();
+    assert.deepEqual(last('/api/desktop/bootstrap/packing/jobs').body,{A:'A1',B:'B2',O:'O4',mode:'COZY_VM_V1'});
+    assert.equal(byId('desktop-own-pack-result').querySelectorAll('a[download]').length,4);
+    assert.match(byId('desktop-own-pack-result').textContent,/지정한 식 함수의 암호화 바이트코드와 새 형식 A 발급 설정/);
+    assert.match(byId('desktop-own-pack-result').textContent,/임의의 Delphi 함수나 EXE 전체가 보호됐다는 뜻은 아닙니다/);
+    assert.match(byId('desktop-own-pack-result').textContent,/현재 운영 파일을 게시하거나 A를 발급하지 않습니다/);
+    assert.match(byId('desktop-own-pack-result').textContent,/A\/B\/O 자체 엔진 변환 기록 저장됨/);
+    const expressionProfile={version:1,functions:[{id:2,args:1,body:{op:'xor',left:{op:'arg',index:0},right:{op:'const',value:12345}}}]},profileText=JSON.stringify(expressionProfile);
+    ownProfileFile(profileText);
+    await byId('desktop-own-pack-selected').onclick();
+    assert.deepEqual(last('/api/desktop/bootstrap/packing/jobs').body,{A:'A1',B:'B2',O:'O4',mode:'COZY_VM_V1',profile:expressionProfile});
+    packingConfigured=true;
+    await byId('desktop-pack-selected').onclick();
+    assert.deepEqual(last('/api/desktop/bootstrap/packing/jobs').body,{A:'A1',B:'B2',O:'O4'},'External packing never receives a selected own-engine profile');
+    packingConfigured=false;
+    for(const invalid of [
+      {text:'{',message:/JSON 형식이 올바르지 않습니다/},
+      {text:JSON.stringify({...expressionProfile,script:'not executable'}),message:/정수식 IR만 지원합니다/},
+      {text:JSON.stringify({version:1,functions:[{...expressionProfile.functions[0],script:'not executable'}]}),message:/정수식 IR만 지원합니다/},
+      {text:JSON.stringify({version:1,functions:[{id:1,args:0,body:{op:'const',value:1}}]}),message:/정수식 IR만 지원합니다/},
+      {text:profileText,overrides:{name:'functions.js'},message:/\.json 파일/}
+    ]){
+      ownProfileFile(invalid.text,invalid.overrides);const beforeInvalid=calls.length;
+      await byId('desktop-own-pack-selected').onclick();
+      assert.equal(calls.length,beforeInvalid,'Malformed or unsupported profile data must not make any API request');
+      assert.match(byId('desktop-own-pack-result').textContent,invalid.message);
+    }
+    let oversizedReads=0;
+    ownProfileFile(profileText,{size:65537,text:async()=>{oversizedReads++;return profileText;}});const beforeOversized=calls.length;
+    await byId('desktop-own-pack-selected').onclick();
+    assert.equal(calls.length,beforeOversized);assert.equal(oversizedReads,0,'Oversized profile is rejected before reading its content');
+    assert.match(byId('desktop-own-pack-result').textContent,/64 KiB/);
+    ownProfileFile(profileText,{size:32,text:async()=>profileText+' '.repeat(65537)});const beforeDecodedOversized=calls.length;
+    await byId('desktop-own-pack-selected').onclick();
+    assert.equal(calls.length,beforeDecodedOversized);assert.match(byId('desktop-own-pack-result').textContent,/UTF-8 기준 64 KiB/);
+    const boundaryText=profileText+' '.repeat(65536-Buffer.byteLength(profileText));ownProfileFile(boundaryText);
+    await byId('desktop-own-pack-selected').onclick();
+    assert.deepEqual(last('/api/desktop/bootstrap/packing/jobs').body.profile,expressionProfile,'Exactly 64 KiB valid JSON is accepted');
+    byId('desktop-own-profile-clear').onclick();
+    assert.match(byId('desktop-own-profile-status').textContent,/기본 프로필: 필수 시작 함수 1만/);
+    await byId('desktop-own-pack-selected').onclick();
+    assert.deepEqual(last('/api/desktop/bootstrap/packing/jobs').body,{A:'A1',B:'B2',O:'O4',mode:'COZY_VM_V1'},'Clearing the optional profile restores the default request');
+    ownSlotMissing=true;
+    await byId('desktop-own-pack-selected').onclick();
+    assert.match(byId('desktop-own-pack-result').textContent,/COZY_PROTECTION_SLOT_MISSING/);
+    assert.equal(byId('desktop-own-pack-result').querySelector('code').textContent,'COZY_PROTECTION_SLOT_MISSING');
+    assert.equal(byId('desktop-own-pack-result').querySelectorAll('a[download]').length,0);
+    ownSlotMissing=false;ownWrongEngine=true;
+    await byId('desktop-own-pack-selected').onclick();
+    assert.match(byId('desktop-own-pack-result').textContent,/요청한 자체 보호 엔진으로 생성한 결과인지 확인하지 못했습니다/);
+    assert.equal(byId('desktop-own-pack-result').querySelectorAll('a[download]').length,0,'An external result cannot be presented as own-engine output');
+    ownWrongEngine=false;packingConfigured=true;
     assert.equal(count(base+'/activate'),publishedBeforeProtection,'Packing and encryption do not publish artifacts');
-    await close(protection);
+    let finishProfileRead;
+    ownProfileFile(profileText,{text:()=>new Promise(resolve=>{finishProfileRead=resolve;})});
+    const pendingProfileRead=byId('desktop-own-pack-selected').onclick();
+    await waitFor(()=>finishProfileRead,'in-flight custom profile read');
+    const beforeProfileClose=calls.length;
+    await close(protection);finishProfileRead(profileText);await pendingProfileRead;
+    assert.equal(calls.length,beforeProfileClose,'Closing during profile reading cannot submit a late job');
     delete candidates[0].packingEvidence;delete candidates[1].packingEvidence;
     assert.equal(document.querySelector('[data-protection-candidate]'),null);
     console.log('PASS Encryption/packing uses existing candidates in a separate category, requires server capability and never uploads or publishes');
+
+    const previousActiveO=active.O;active.O='O3';
+    for(const [i,candidate]of candidates.slice(0,3).entries()){
+      candidate.ownProtection={engine:'COZY_VM_V1',state:'SEALED',version:1,role:candidate.component,slotBytes:4096,functionCount:2,configProtection:candidate.component==='A'?'COZY_A_CONFIG_V2':'NONE',windowsVerified:false,arbitraryDelphiTranslation:false};
+      candidate.packingEvidence={receiptId:String(i+7).repeat(128),jobId:'b'.repeat(32),scope:'TRANSFORMED_TEMPLATE',inputSha512:'c'.repeat(128),outputSha512:candidate.sha512,toolSha512:'d'.repeat(128),profileSha512:'e'.repeat(128),createdAt:1700000000000,windowsVerified:false,protectionVerified:false};
+    }
+    const ownActiveProtection=w.showDesktopExecutableProtection();
+    await waitFor(()=>byId('desktop-protection-active'),'own active template metadata');
+    assert.match(document.querySelector('[data-active-packing="A"]').textContent,/자체 VM 변환 기록 연결됨/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/같은 작업으로 봉인한 Cozy VM v1 묶음/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/COZY_A_CONFIG_V2 보호 바이너리 형식/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/Windows 실행 시험은 별도/);
+    await close(ownActiveProtection);
+    candidates[0].ownProtection.role='B';candidates[1].ownProtection={...candidates[1].ownProtection,state:'UNSEALED',role:null};
+    const wrongOwnMetadata=w.showDesktopExecutableProtection();
+    await waitFor(()=>byId('desktop-protection-active'),'wrong role and unsealed metadata');
+    assert.doesNotMatch(document.querySelector('[data-active-packing="A"]').textContent,/자체 VM 변환 기록 연결됨/);
+    assert.match(document.querySelector('[data-protection-candidate="B"] option[value="B2"]').textContent,/봉인 전 템플릿/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/자체 보호 형식·봉인 상태·같은 작업의 변환 기록을 확인하지 못했습니다/);
+    await close(wrongOwnMetadata);
+    candidates[0].ownProtection.role='A';candidates[1].ownProtection={...candidates[1].ownProtection,state:'SEALED',role:'B'};candidates[1].packingEvidence.jobId='c'.repeat(32);
+    const mixedOwnJobs=w.showDesktopExecutableProtection();
+    await waitFor(()=>byId('desktop-protection-active'),'different own-engine job bindings');
+    assert.match(document.querySelector('[data-active-packing="B"]').textContent,/자체 VM 변환 기록 연결됨/);
+    assert.doesNotMatch(byId('desktop-protection-issued-config').textContent,/같은 작업으로 봉인한 Cozy VM v1 묶음/,'Individual valid receipts cannot imply a single protected cohort');
+    assert.match(byId('desktop-protection-issued-config').textContent,/변환 기록을 확인하지 못했습니다/);
+    await close(mixedOwnJobs);
+    for(const candidate of candidates.slice(0,3)){delete candidate.ownProtection;delete candidate.packingEvidence;}active.O=previousActiveO;
+    console.log('PASS Own-engine UI binds role, sealed format, exact output and one shared A/B/O job without claiming Windows execution');
 
     customRunning=true;
     const pollingProtection=w.showDesktopExecutableProtection();
@@ -274,6 +375,16 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     assert.equal(calls.length,beforeClose,'Closing wakes and cancels the client polling wait');
     assert.equal([...timeouts.values()].some(x=>x.delay>=1000),false);
     customRunning=false;
+    ownRunning=true;
+    const pollingOwnProtection=w.showDesktopExecutableProtection();
+    await waitFor(()=>byId('desktop-own-pack-selected'),'own engine before polling cleanup');
+    const pendingOwn=byId('desktop-own-pack-selected').onclick();
+    await waitFor(()=>[...timeouts.values()].some(x=>x.delay>=2000),'owned own-engine poll wait');
+    const beforeOwnClose=calls.length;
+    await close(pollingOwnProtection);await pendingOwn;
+    assert.equal(calls.length,beforeOwnClose,'Closing cancels own-engine polling before another server read');
+    assert.equal([...timeouts.values()].some(x=>x.delay>=2000),false);
+    ownRunning=false;
     const snapshotProtection=w.showDesktopExecutableProtection();
     await waitFor(()=>byId('desktop-custom-selected'),'protection before selection snapshot');
     const initialO=document.querySelector('[data-protection-candidate="O"]').value;

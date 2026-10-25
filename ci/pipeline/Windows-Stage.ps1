@@ -123,6 +123,28 @@ try {
   'sdk-probe' { Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $PSScriptRoot '..\toolchain\Observe-SdkProbeInputs.ps1'),'-OutputFile',(Join-Path $Output 'sdk-probe-inputs.json')); Run-Checked $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Build_NativeAbi_SDK_Win64.bat')+'"')) }
   'abi-compare' { Run-Checked (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Compare-NativeAbi.ps1'),'-DelphiProbe',(Join-Path $native 'build\tests\native-probes\Cozy.NativeAbiProbe.exe'),'-SdkProbe',(Join-Path $native 'build\tests\native-sdk\Cozy.NativeAbiSdkProbe.exe')) }
   'security-authority' {
+   # Raw compiler outputs intentionally contain an unsealed protection slot.
+   # Runtime authority tests require the post-web protected artifacts and fresh
+   # approvals for those exact final bytes. This read-only check never packs.
+   $protectedCheck=@'
+'use strict';
+try {
+ const path=require('node:path');
+ const io=require(path.join(process.argv[1],'services','storage','peace.durable-file.js'));
+ const engine=require(path.join(process.argv[1],'services','artifacts','peace.cozy-protection-engine.js'));
+ for(const role of ['A','B','O']){
+  let bytes;
+  try{
+   bytes=io.ReadRegular(path.join(process.argv[2],role+'.exe'),64*1024*1024);
+   const metadata=engine.Inspect(bytes);
+   if(!metadata||metadata.engine!=='COZY_VM_V1'||metadata.version!==1||metadata.state!=='SEALED'||metadata.role!==role)throw Error('CI_PROTECTED_ARTIFACTS_REQUIRED');
+  }finally{if(bytes)bytes.fill(0);}
+ }
+ process.stdout.write('CI_PROTECTED_ARTIFACTS_CHECK_PASS\n');
+}catch(_){process.stderr.write('CI_PROTECTED_ARTIFACTS_REQUIRED\n');process.exitCode=1;}
+'@
+   Assert-PinnedExecutable $node
+   try{Run-Checked $node @('-e',$protectedCheck,'--',$web,$Output)}catch{throw 'CI_PROTECTED_ARTIFACTS_REQUIRED'}
    # The preceding overlay-contract stage compiles the fault object with the
    # reviewed compiler into the one audited object path used by the projects.
    $faultObject=Join-Path $native 'Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_fault_test.o'
