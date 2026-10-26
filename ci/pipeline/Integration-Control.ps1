@@ -1,6 +1,6 @@
 param([Parameter(Mandatory)][string]$WorkRoot,[Parameter(Mandatory)][string]$Output,[Parameter(Mandatory)][string]$PrivateRoot,[Parameter(Mandatory)][string]$Version,[ValidateSet('','observe','prohibit')][string]$MitigationMode='')
 . (Join-Path $PSScriptRoot 'CiCommon.ps1')
-$server=$null;$apps=$null;$bProcess=$null;$oProcess=$null;$success=$false;$result=@{version=1;outcome='FAIL';ready=$false;licenseConsumed=$false;overlayFirstFrame=$false;parentTransferred=$false;parentExited=$false;parentFilesDeleted=$false;overlayClosed=$false;serverSessionClosed=$false}
+$server=$null;$apps=$null;$bProcess=$null;$oProcess=$null;$success=$false;$result=@{version=1;outcome='FAIL';ready=$false;licenseConsumed=$false;overlayFirstFrame=$false;parentTransferred=$false;parentExited=$false;parentFilesDeleted=$false;overlayClosed=$false;serverSessionClosed=$false;fixtureEnrollmentApprovalUsed=$false;fixtureClaimObservationBarrierUsed=$false}
 function Save-FixtureFailure {
  # The private fixture directory is removed when the runner exits. Preserve
  # only its bounded error identifier in the public result, never input.json,
@@ -39,12 +39,22 @@ try {
  do {
   Assert-FixtureRunning
   $status=Read-CiJson (Join-Path $run 'status.json')
+  if($status.ContainsKey('fixtureEnrollmentApprovalUsed')){$result.fixtureEnrollmentApprovalUsed=$status.fixtureEnrollmentApprovalUsed -eq $true}
+  if($status.ContainsKey('fixtureClaimObservationBarrierUsed')){$result.fixtureClaimObservationBarrierUsed=$status.fixtureClaimObservationBarrierUsed -eq $true}
   if($MitigationMode){if(-not $status.mitigationProfile.enabled -or $status.mitigationProfile.mode -ne $MitigationMode){throw 'CI_PROFILE_NOT_ACTIVE'};$result.mitigationMode=$MitigationMode;$result.profiledAuthorityStages=@($status.mitigationProfile.authorityStages)}
   if(-not $status.ready){Save-FixtureFailure;throw 'CI_FIXTURE_RUNTIME_FAILED'}
   $ids=@($apps.ProcessIds())
   if($bId -eq 0 -and $status.flowStatus -eq 'CLAIMED') {
    $children=@($ids|Where-Object{$_ -ne $apps.RootId})
-   if($children.Count -eq 1){$bId=[uint32]$children[0];$bProcess=[Diagnostics.Process]::GetProcessById([int]$bId);$null=$bProcess.Handle;if(-not $apps.OwnsProcess($bProcess.Handle)){throw 'CI_PROCESS_OWNERSHIP_LOST'};$bPath=Assert-CiOwnedPath ([GameCi.DesktopControl]::ImagePath($bId)) (Join-Path $run 'execution')}
+   if($children.Count -eq 1){
+    $bId=[uint32]$children[0];$bProcess=[Diagnostics.Process]::GetProcessById([int]$bId);$null=$bProcess.Handle
+    if(-not $apps.OwnsProcess($bProcess.Handle)){throw 'CI_PROCESS_OWNERSHIP_LOST'}
+    $bPath=Assert-CiOwnedPath ([GameCi.DesktopControl]::ImagePath($bId)) (Join-Path $run 'execution')
+    $signalPath=Join-Path $run 'b-process-observed.signal';$signalTemporary=$signalPath+'.next'
+    $signal=[IO.File]::Open($signalTemporary,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+    try{$bytes=[Text.Encoding]::ASCII.GetBytes("COZY_B_PROCESS_OBSERVED_V1`n");$signal.Write($bytes,0,$bytes.Length);$signal.Flush()}finally{$signal.Dispose()}
+    [IO.File]::Move($signalTemporary,$signalPath)
+   }
   }
   if($status.licenseUsed){$sent=$true;$input.licenseKey='';if(Test-Path -LiteralPath (Join-Path $run 'input.json')){Remove-Item -LiteralPath (Join-Path $run 'input.json') -Force}}
   if($bId -ne 0 -and -not $sent -and $input.licenseKey -and $ids -contains $bId){$sent=[GameCi.DesktopControl]::SubmitLicense($bId,[string]$input.licenseKey);if($sent){$input.licenseKey='';Remove-Item -LiteralPath (Join-Path $run 'input.json') -Force}}
@@ -64,7 +74,7 @@ try {
   }
   if($closed -and $ids -notcontains $oId){if(-not $oProcess.HasExited -or $oProcess.ExitCode -ne 0){throw 'CI_OVERLAY_EXIT_CODE'};$result.overlayClosed=$true}
   if($status.overlayStatus -eq 'CLOSED' -and $status.retiredOverlay){$result.serverSessionClosed=$true}
-  if($result.licenseConsumed -and $result.overlayFirstFrame -and $result.parentTransferred -and $result.parentExited -and $result.parentFilesDeleted -and $result.overlayClosed -and $result.serverSessionClosed){if($MitigationMode -and (@($result.profiledAuthorityStages).Count -ne 3 -or @('A','B','O').Where({$result.profiledAuthorityStages -notcontains $_}).Count -ne 0)){throw 'CI_PROFILE_AUTHORITY_OBSERVATION_MISSING'};$success=$true;break}
+  if($result.licenseConsumed -and $result.overlayFirstFrame -and $result.parentTransferred -and $result.parentExited -and $result.parentFilesDeleted -and $result.overlayClosed -and $result.serverSessionClosed -and $result.fixtureClaimObservationBarrierUsed){if($MitigationMode -and (@($result.profiledAuthorityStages).Count -ne 3 -or @('A','B','O').Where({$result.profiledAuthorityStages -notcontains $_}).Count -ne 0)){throw 'CI_PROFILE_AUTHORITY_OBSERVATION_MISSING'};$success=$true;break}
   if($clock.Elapsed.TotalSeconds -gt 180){throw 'CI_NATIVE_INTEGRATION_TIMEOUT'}
   if($ids.Count -eq 0 -and -not $closed){throw 'CI_NATIVE_EARLY_EXIT'}
   Start-Sleep -Milliseconds 100

@@ -8,8 +8,8 @@ function Clear(){if(current?.status==='RUNNING')return false;current?.lease?.rel
 function Prune(){if(current?.status!=='RUNNING'&&current?.expiresAt<Date.now())Clear();}
 const timer=setInterval(Prune,60000);timer.unref();
 function Check(session,method='POST'){const r=require("../authentication/peace.desktop-admin-guard").CheckSession(session,PREFIX,method);if(!r.ok)protocol.Fail(r.reason,r.status||403);if(!require("../../web/authentication/peace.web-auth").IsSessionActive(session))protocol.Fail('ADMIN_SESSION_EXPIRED',401);}
-function Source(id,c){const b=require("../bootstrap/peace.desktop-bootstrap"),row=b.Initialize().artifacts[id];if(!row||row.component!==c)protocol.Fail('PACKING_SOURCE_INVALID',409);b.AssertSecurityAvailable();return {row,bytes:b.ReadArtifactBytes(row)};}
-function View(job){return {id:job.id,status:job.status,engine:job.engine||'EXTERNAL',createdAt:job.createdAt,expiresAt:job.expiresAt||0,component:job.component||'',error:job.error||'',outputs:Object.fromEntries(Object.entries(job.outputs).map(([c,v])=>[c,{sha512:v.sha512,inputSha512:v.inputSha512,size:v.bytes.length,profileSha512:v.profileSha512,toolSha512:v.toolSha512}])),...(job.receiptIds?{evidence:{scope:'TRANSFORMED_TEMPLATES',receipts:{...job.receiptIds},windowsVerified:false,protectionVerified:false}}:{}),disposition:'UNAPPROVED_CANDIDATE',activeUnchanged:true,windowsVerified:false,allSourceVirtualizationVerified:false};}
+function Source(id,c){const b=require("../bootstrap/peace.desktop-bootstrap"),row=b.Initialize().artifacts[id];if(!row||row.component!==c)protocol.Fail('PACKING_SOURCE_INVALID',409);b.AssertSecurityAvailable();return {row,bytes:b.ReadArtifactBytes(row,{allowUnsealedPolicySource:true})};}
+function View(job){return {id:job.id,status:job.status,engine:job.engine||'EXTERNAL',protectionScope:job.engine==='COZY_SERVER_POLICY_V2'?'SERVER_POLICY_BINDING':'EXTERNAL_WORKER',createdAt:job.createdAt,expiresAt:job.expiresAt||0,component:job.component||'',error:job.error||'',outputs:Object.fromEntries(Object.entries(job.outputs).map(([c,v])=>[c,{sha512:v.sha512,inputSha512:v.inputSha512,size:v.bytes.length,profileSha512:v.profileSha512,toolSha512:v.toolSha512}])),...(job.receiptIds?{evidence:{scope:'TRANSFORMED_TEMPLATES',receipts:{...job.receiptIds},windowsVerified:false,protectionVerified:false}}:{}),disposition:'UNAPPROVED_CANDIDATE',activeUnchanged:true,windowsVerified:false,allSourceVirtualizationVerified:false};}
 function Get(id,session){Prune();if(!current||current.id!==id||current.owner!==session.id)protocol.Fail('PACKING_JOB_NOT_FOUND',404);return current;}
 function Output(id,c,session){const j=Get(id,session);if(j.status!=='COMPLETE'||!j.outputs[c])protocol.Fail('PACKING_OUTPUT_NOT_READY',409);return j.outputs[c];}
 function ValidateOutput(bytes,source){
@@ -22,7 +22,8 @@ function ValidateOutput(bytes,source){
 }
 function Begin(body,session){
  if(stopped)protocol.Fail('PACKING_STOPPED',503);Check(session);Prune();if(current?.status==='RUNNING')protocol.Fail('PACKING_BUSY',429);
- const own=body?.mode==='COZY_VM_V1',hasProfile=own&&Object.hasOwn(body,'profile');
+ if(body?.mode==='COZY_VM_V1')protocol.Fail('COZY_VM_V1_EMBEDDED_KEY_RETIRED',409);
+ const own=body?.mode==='COZY_SERVER_POLICY_V2',hasProfile=own&&Object.hasOwn(body,'profile');
  const fields=own?['A','B','O','mode',...(hasProfile?['profile']:[])]:['A','B','O'];
  if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).length!==fields.length||Object.keys(body).some(k=>!fields.includes(k))||['A','B','O'].some(c=>typeof body[c]!=='string'||!/^[A-F0-9]{24}$/.test(body[c])))protocol.Fail('PACKING_INPUT_INVALID');
  let profile;
@@ -38,7 +39,7 @@ function Begin(body,session){
  // serial job, then recheck current source/authorization after each await.
  const db=require("../bootstrap/peace.desktop-bootstrap").Initialize();for(const c of ['A','B','O'])if(db.artifacts[body[c]]?.component!==c||!Number.isSafeInteger(db.artifacts[body[c]].size)||db.artifacts[body[c]].size<1||db.artifacts[body[c]].size>64*1024*1024)protocol.Fail('PACKING_SOURCE_INVALID',409);
  const sources=Object.fromEntries(['A','B','O'].map(c=>[c,body[c]]));
- Clear();const lease=require("../runtime/peace.server-resource-budget").Admit('packing',{key:session.id,bytes:Math.max(64*1024*1024,Object.values(sources).reduce((n,id)=>n+db.artifacts[id].size,0)*5+8*1024*1024)});const job={id:crypto.randomBytes(16).toString('hex'),owner:session.id,engine:own?'COZY_VM_V1':'EXTERNAL',controller:new AbortController(),lease,status:'RUNNING',createdAt:Date.now(),outputs:{},sources};
+ Clear();const lease=require("../runtime/peace.server-resource-budget").Admit('packing',{key:session.id,bytes:Math.max(64*1024*1024,Object.values(sources).reduce((n,id)=>n+db.artifacts[id].size,0)*5+8*1024*1024)});const job={id:crypto.randomBytes(16).toString('hex'),owner:session.id,engine:own?'COZY_SERVER_POLICY_V2':'EXTERNAL',controller:new AbortController(),lease,status:'RUNNING',createdAt:Date.now(),outputs:{},sources};
  try{require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_PACKING_STARTED',JSON.stringify({jobId:job.id,artifactIds:sources,engine:job.engine}));}catch(e){lease.release();throw e;}
  current=job;
  pending=Promise.resolve().then(async()=>{
@@ -46,7 +47,9 @@ function Begin(body,session){
    for(const c of ['A','B','O']){
     if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);job.component=c;Check(session,'GET');const original=Source(body[c],c);let result;
     try{
-     result=own?require('./peace.cozy-protection-engine').Pack(original.bytes,c,profile):await client.Pack(c,original.bytes,crypto.randomBytes(16).toString('hex'),{signal:job.controller.signal});if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session,'GET');
+     result=own?await require('../runtime/peace.desktop-work-queue').pe.run({kind:'server-policy-bind',bytes:original.bytes,role:c,profile},30000,{key:session.id}):await client.Pack(c,original.bytes,crypto.randomBytes(16).toString('hex'),{signal:job.controller.signal});
+     if(own){if(!(result?.bytes instanceof Uint8Array)||result.bytes.byteLength>64*1024*1024)protocol.Fail('PACKING_WORKER_RESULT_INVALID',503);result.bytes=Buffer.from(result.bytes.buffer,result.bytes.byteOffset,result.bytes.byteLength);}
+     if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session,'GET');
      const after=Source(body[c],c);try{if(after.row.sha512!==original.row.sha512||protocol.Sha512(after.bytes)!==result.inputSha512)protocol.Fail('PACKING_SOURCE_CHANGED',409);}finally{after.bytes.fill(0);}
      await require('./peace.release-exposure').Prepare(result.bytes,session.id);if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session,'GET');
      ValidateOutput(result.bytes,original.row);job.outputs[c]=result;result=null;
@@ -57,7 +60,8 @@ function Begin(body,session){
    // their worker. Recheck all sources before the single durable receipt commit.
    for(const c of ['A','B','O']){const source=Source(body[c],c);try{if(protocol.Sha512(source.bytes)!==job.outputs[c].inputSha512||protocol.Sha512(job.outputs[c].bytes)!==job.outputs[c].sha512)protocol.Fail('PACKING_SOURCE_CHANGED',409);}finally{source.bytes.fill(0);}}
    const records=['A','B','O'].map(component=>{const out=job.outputs[component];return {version:1,purpose:evidence.DOMAIN,jobId:job.id,component,sourceArtifactId:body[component],inputSha512:out.inputSha512,outputSha512:out.sha512,size:out.bytes.length,toolSha512:out.toolSha512,profileSha512:out.profileSha512,createdAt:job.createdAt,actorHash:protocol.Sha512(Buffer.from(String(session.id),'utf8'))};});
-   const receiptIds=require("../storage/peace.desktop-operation-audit").Run('PACKING_EVIDENCE_RECORDED',session.id,{subject:crypto.createHash('sha256').update(job.id).digest('hex'),count:3,bytes:Object.values(job.outputs).reduce((n,out)=>n+out.bytes.length,0),assurance:'TRANSFORMED_TEMPLATES'},db=>{if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session);return evidence.RecordJob(db,records);});
+   const receiptIds=require("../storage/peace.desktop-operation-audit").Run('PACKING_EVIDENCE_RECORDED',session.id,{subject:crypto.createHash('sha256').update(job.id).digest('hex'),count:3,bytes:Object.values(job.outputs).reduce((n,out)=>n+out.bytes.length,0),assurance:own?'SERVER_POLICY_BINDING':'TRANSFORMED_TEMPLATES'},db=>{if(stopped||current!==job)protocol.Fail('PACKING_CANCELLED',503);Check(session);const ids=evidence.RecordJob(db,records);if(own)require('../security/peace.server-policy-registry').RecordJob(db,records,job.outputs);return ids;});
+   for(const out of Object.values(job.outputs))delete out.serverPolicy;
    job.receiptIds=receiptIds;job.status='COMPLETE';job.lease?.retain();job.expiresAt=Date.now()+600000;
    try{require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_PACKING_COMPLETED',JSON.stringify({jobId:job.id,sha512:Object.fromEntries(Object.entries(job.outputs).map(([c,v])=>[c,v.sha512])),receiptIds,disposition:'UNAPPROVED_CANDIDATE'}));}catch(_){console.error('PACKING_COMPLETION_AUDIT_PENDING');}
   }catch(e){job.lease?.release();for(const out of Object.values(job.outputs))out.bytes.fill(0);job.outputs={};job.status='FAILED';job.expiresAt=Date.now()+600000;job.error=/^[A-Z][A-Z0-9_]{1,100}$/.test(e.message)?e.message:'PACKING_FAILED';require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_PACKING_FAILED',JSON.stringify({jobId:job.id,component:job.component,reason:job.error}));}
@@ -65,5 +69,5 @@ function Begin(body,session){
  return View(job);
 }
 async function Stop(){if(stopped)return pending;stopped=true;clearInterval(timer);const job=current;job?.controller?.abort();job?.lease?.release();for(const out of Object.values(job?.outputs||{}))out.bytes.fill(0);if(job)job.outputs={};current=undefined;await pending;}
-function Status(){return {...client.Status(),ownEngine:{configured:true,engine:'COZY_VM_V1',requiresRebuiltTemplate:true,scope:'SELECTED_EXPRESSION_VM',windowsVerified:false}};}
+function Status(){return {...client.Status(),ownEngine:{configured:true,engine:'COZY_SERVER_POLICY_V2',requiresRebuiltTemplate:true,scope:'SERVER_POLICY_BINDING',clientContainsPolicyProgram:false,requiresFirstDeviceApproval:true,windowsVerified:false}};}
 module.exports={Begin,Get,View,Output,ValidateOutput,Status,Stop};

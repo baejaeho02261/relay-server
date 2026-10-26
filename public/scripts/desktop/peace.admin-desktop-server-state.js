@@ -140,6 +140,7 @@ async function showDesktopServerState(){
    <p class="small-note">활성 실행을 종료한 점검 시간에 사용하세요. PC 차단 세대와 요청 지문은 유지합니다. 감사 보존은 기간이 지난 상세 기록만 삭제하고 중복 요청 방지 지문과 체인 기준점을 보존합니다. 미전송 감사 이벤트는 압축하지 않습니다.</p>
    <label>작업<select id="server-storage-action"><option value="MACHINE_CHECKPOINT">PC 정책 checkpoint</option><option value="MACHINE_ARCHIVE_RETENTION">PC 정책 이전 segment 보존 기간 적용</option><option value="OUTBOX_COMPACT">전송 완료 감사 발신함 압축</option><option value="AUDIT_RETENTION">감사 상세 기록 보존 기간 적용</option></select></label>
    <label>보존 일수 (PC segment 최소 7일)<input id="server-storage-days" type="number" min="1" max="3650" value="90"></label>${button('storage','서버 저장소 유지관리')}</details>
+   <details><summary>최초 기기 연결 승인 · 서버 정책 연결 A</summary><p class="small-note">새 A의 키 소유 증명 요청을 조회하고 외부에서 확인한 고객·기기만 승인합니다. 키 소유 증명은 고객 신원 또는 TPM 증명이 아니며 자동 승인하지 않습니다.</p>${button('first-device-approval','새 A 최초 기기 연결 승인 열기')}</details>
    <details><summary>장치 식별 · 앱 키 소유 증명</summary><p class="small-note">LEGACY_PC_HASH_V1 식별은 유지합니다. APP_KEY_POSSESSION은 현재 앱 키의 서명 증명이며 TPM 증명이 아닙니다. 상세 키 증명은 30일 후 정리하지만 폐기 tombstone은 유지합니다.</p>
    <pre class="desktop-security-result">${esc(JSON.stringify(devices,null,2))}</pre>
    <label>폐기할 기존 장치<select id="server-device-old"><option value="">장치 선택</option>${devices.items.filter(x=>x.status==='REGISTERED').map(x=>`<option value="${esc(x.id)}">${esc(x.id)}</option>`).join('')}</select></label>
@@ -167,6 +168,10 @@ async function showDesktopServerState(){
   const target=event.target.closest('[data-server-state-action]');if(!target||!alive()||busy)return;const action=target.dataset.serverStateAction;busy=true;target.disabled=true;
   try{
    if(action==='refresh'){await reload();await Promise.all([loadLifecycle(),loadPerformance()]);return;}
+   if(action==='first-device-approval'){
+    modalCancel.click();await new Promise(resolve=>setTimeout(resolve,0));
+    if(session?.csrf===owner&&roleIsAdmin())await showDesktopFirstDeviceApproval();return;
+   }
    if(action==='verification-context'){await saveVerificationContext();return;}
    if(action==='lifecycle-load'){await loadLifecycle();return;}
    if(action==='performance-load'){await loadPerformance();return;}

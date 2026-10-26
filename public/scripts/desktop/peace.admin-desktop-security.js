@@ -19,6 +19,10 @@ async function showDesktopSecurityOperations(initialPair=null) {
   const button=(action,label)=>`<button type="button" data-security-action="${action}">${label}</button>`;
   const sections=()=>Array.from(root.children).filter(x=>x.tagName==='DETAILS');
   const reasonText=reason=>({
+    COZY_VM_V1_EMBEDDED_KEY_RETIRED:'내장 키가 있는 기존 VM v1의 새 게시는 중단됐습니다. 최신 V2 소스로 A/B/O를 다시 빌드해야 합니다.',
+    COZY_SERVER_POLICY_WINDOWS_CI_REQUIRED:'최종 A/B/O의 실제 Windows 빌드·API·실행 시험과 신뢰된 CI 서명 증거가 필요합니다.',
+    COZY_SERVER_POLICY_FINAL_ISSUED_SIGNING_REQUIRED:'최종 발급 A의 서명 연결이 아직 완료되지 않았습니다. 발급 설정을 붙인 뒤의 최종 파일까지 검증해야 하므로 새 형식 운영 게시를 보류합니다.',
+    COZY_SERVER_POLICY_ENFORCED_POLICY_REQUIRED:'새 형식은 읽기 전용 API·전체 CRC·배포 승인 서명을 강제하는 정책이 필요합니다.',
     INTEGRITY_MEASUREMENT_BUILD_UPGRADE_REQUIRED:'A/B/O를 새 측정 규격으로 모두 다시 빌드·검증해 등록하세요.',
     TLS_PIN_ACTIVE_BUILD_UPGRADE_REQUIRED:'현재 운영 A/B/O 모두 새 pin 전환 규격을 지원해야 합니다.',
     TLS_PIN_GENERATION_CONFLICT:'pin 전환 세대가 바뀌었습니다. 새로고침 후 확인하세요.',

@@ -13,6 +13,19 @@ function PE(slot=true){
 function Codes(bytes,role='A'){return audit.InspectBytes(bytes,role).findings.map(x=>x.code);}
 function Fixture(fn){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'client-secret-audit-'));try{const files=['A','B','O'].map(role=>path.join(dir,role+'.exe'));for(const file of files)fs.writeFileSync(file,PE(),{mode:0o600});return fn({dir,files});}finally{fs.rmSync(dir,{recursive:true,force:true});}}
 function Cli(files){const r=cp.spawnSync(process.execPath,[TOOL,...files],{encoding:'utf8',timeout:15000,maxBuffer:65536});assert.equal(r.error,undefined);assert.equal(r.stderr,'');return {exit:r.status,report:JSON.parse(r.stdout),text:r.stdout};}
+test('keyless public commitments pass without being mistaken for private keys',()=>{
+ const policy=require('../../services/artifacts/peace.server-policy-protection');
+ for(const role of ['A','B','O']){
+  const original=PE(false);policy.CreateUnsealedSlot().copy(original,SLOT);
+  const bound=policy.BindTemplate(original,role);
+  assert.equal(audit.InspectBytes(bound.bytes,role).status,'PASS');
+  assert(!bound.bytes.includes(Buffer.from(bound.serverPolicy.programBase64,'base64')));
+  assert(Codes(bound.bytes,role==='A'?'B':'A').includes('COZY_V2_POLICY_ROLE_OR_STATE_INVALID'));
+  bound.bytes[SLOT+1500]=1;
+  assert(Codes(bound.bytes,role).includes('COZY_V2_POLICY_SLOT_INVALID'));
+  bound.bytes.fill(0);original.fill(0);
+ }
+});
 test('unsealed known slots and ordinary PE files pass without a secrecy guarantee',()=>{
  for(const bytes of [PE(),PE(false)])assert.equal(audit.InspectBytes(bytes,'A').status,'PASS');
  Fixture(({files})=>{const {exit,report}=Cli(files);assert.equal(exit,0);assert.equal(report.status,'PASS');assert.equal(report.guaranteesAbsenceOfSecrets,false);assert.equal(report.unknownOrEncodedSecretsVerified,false);assert.equal(report.publicTrustAnchorsAreSecrets,false);assert.equal(report.executablesRun,false);assert.equal(report.filesWritten,false);assert.equal(report.artifacts.length,3);});

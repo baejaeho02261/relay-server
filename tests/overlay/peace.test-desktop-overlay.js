@@ -71,11 +71,11 @@ check('O refresh verifies license, session, machine and image while B remains li
 });
 check('Revoking parent B immediately invalidates child O',()=>{
  bootstrap.Revoke(session.sessionId,{reason:'TEST_PARENT_REVOKED'},'TEST');
- reject(()=>overlay.AuthenticateIntegrityReport({stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId}),'BOOTSTRAP_FLOW_INVALID');
+ reject(()=>overlay.AuthenticateIntegrityReport({stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId}),'BOOTSTRAP_REVOKED');
 });
-check('Close retires O token material and store remains valid',()=>{
+check('Close acknowledges revoked O without downgrading terminal state; token material is retired',()=>{
  bootstrap.Execute({action:'overlayClose',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken});
- const row=Object.values(bootstrap.Initialize().overlays)[0];assert.equal(row.status,'CLOSED');assert.equal(row.sessionNonce,undefined);assert.equal(row.ticketNonce,undefined);
+ const row=Object.values(bootstrap.Initialize().overlays)[0];assert.equal(row.status,'REVOKED');assert.equal(row.sessionNonce,undefined);assert.equal(row.ticketNonce,undefined);
  overlay.ValidateStore(bootstrap.Initialize());
  reject(()=>overlay.AuthenticateIntegrityReport({stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId}));
 });

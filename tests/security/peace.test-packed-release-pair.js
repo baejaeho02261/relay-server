@@ -23,17 +23,26 @@ function ProtectedFixture(){
 function reason(view,code){assert.equal(view.eligible,false);assert.ok(view.reasons.includes(code),JSON.stringify(view.reasons));}
 function OwnMetadata(c){for(const row of c.rows)row.ownProtection={engine:'COZY_VM_V1',state:'SEALED',version:1,role:row.component,slotBytes:4096,functionCount:1,configProtection:row.component==='A'?'COZY_A_CONFIG_V2':'NONE',windowsVerified:false,arbitraryDelphiTranslation:false};return c;}
 
-test('own-engine cohorts require all sealed roles, encrypted A format and a recorded packing job',()=>{
+test('legacy VM cohort validation remains strict while new production publication is retired',()=>{
   const f=ProtectedFixture();OwnMetadata(f.output);
   reason(f.ops.PreviewProductionPair(f.output.select),'PACKING_EVIDENCE_REQUIRED');
   f.record(f.source,f.output);
-  const view=f.ops.PreviewProductionPair(f.output.select);assert.equal(view.eligible,true);assert.equal(view.packing.issuedAConfigurationProtected,true);assert.equal(view.packing.windowsVerified,false);assert.equal(view.packing.proofScope,'SELECTED_EXPRESSION_VM');
+  const before=JSON.stringify(f.db),view=f.ops.PreviewProductionPair(f.output.select);
+  reason(view,'COZY_VM_V1_EMBEDDED_KEY_RETIRED');
+  assert.equal(view.packing.issuedAConfigurationProtected,true);assert.equal(view.packing.windowsVerified,false);assert.equal(view.packing.proofScope,'LEGACY_SELECTED_EXPRESSION_VM');
+  assert.throws(()=>f.activate(f.output),/COZY_VM_V1_EMBEDDED_KEY_RETIRED/);
+  assert.equal(JSON.stringify(f.db),before);
   f.output.rows[1].ownProtection.state='UNSEALED';reason(f.ops.PreviewProductionPair(f.output.select),'COZY_PROTECTION_COHORT_INCOMPLETE');
   f.output.rows[1].ownProtection.state='SEALED';f.output.rows[0].ownProtection.configProtection='NONE';reason(f.ops.PreviewProductionPair(f.output.select),'COZY_PROTECTION_CONFIG_REQUIRED');
 });
 
-test('own-engine activation latches its floor and rejects legacy, rollback and mixed-engine replacements',()=>{
-  const f=ProtectedFixture();OwnMetadata(f.output);f.record(f.source,f.output);assert.equal(f.activate(f.output).eligible,true);
+test('an isolated historical VM activation retains its floor without permitting new production publication',()=>{
+  const f=ProtectedFixture();OwnMetadata(f.output);f.record(f.source,f.output);
+  // Internal nonproduction activation simulates a cohort that was published
+  // before V1 retirement. It is not a production publication bypass.
+  const activated=f.ops.ActivatePair({...f.output.select,expectedRevision:f.ops.Revision(),expectedPolicyRevision:f.auth.Policy().revision},'HISTORICAL_VM_TEST_FIXTURE');
+  assert.equal(activated.eligible,true);assert.doesNotThrow(()=>f.ops.RequireRuntimePair(...f.output.rows));
+  reason(f.ops.PreviewProductionPair(f.output.select),'COZY_VM_V1_EMBEDDED_KEY_RETIRED');
   assert.equal(f.ops.State().requireCozyProtection,true);
   assert.throws(()=>f.ops.RequireRuntimePair(...f.source.rows),/COZY_PROTECTION_REQUIRED/);
   reason(f.ops.PreviewProductionPair(f.source.select),'COZY_PROTECTION_REQUIRED');

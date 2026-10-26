@@ -109,7 +109,23 @@ function Payload(text){
   // authority observation. Do not accept client-supplied paths or free text.
   Keys(p,['version','hashVersion','check','reason']);if(!OVERLAY_START_REASONS.has(p.reason))Fail('INTEGRITY_REPORT_INVALID');return p;
  }
- if(p.own){Keys(p.own,['codeSha512','codeCrc64','status','fileXxh3_128','fileBlake3','codeXxh3_128','codeBlake3']);if(!measurementStatus.IsStatus(p.own.status))Fail('INTEGRITY_REPORT_INVALID');const own={status:p.own.status,codeSha512:Digest(p.own.codeSha512,128),codeCrc64:Digest(p.own.codeCrc64,16)};for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh3_128')?32:64);p.own=own;if(own.status==='MEASURED'&&(!own.codeSha512||!own.codeCrc64||p.hashVersion===3&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');}
+ if(p.own){
+  Keys(p.own,['codeSha512','codeCrc64','fileSha512','fileCrc64','status','fileXxh3_128','fileBlake3','codeXxh3_128','codeBlake3']);
+  if(!measurementStatus.IsStatus(p.own.status))Fail('INTEGRITY_REPORT_INVALID');
+  const own={status:p.own.status,codeSha512:Digest(p.own.codeSha512,128),codeCrc64:Digest(p.own.codeCrc64,16)};
+  // Older approved clients omit this pair. If either field is sent, require
+  // both and compare the exact pinned file separately from normalized code.
+  // In particular A is compared with its issued bytes, not the A template.
+  const hasFileSha=Object.hasOwn(p.own,'fileSha512'),hasFileCrc=Object.hasOwn(p.own,'fileCrc64');
+  if(hasFileSha!==hasFileCrc)Fail('INTEGRITY_REPORT_INVALID');
+  if(hasFileSha){
+   own.fileSha512=Digest(p.own.fileSha512,128);own.fileCrc64=Digest(p.own.fileCrc64,16);
+   if(own.status==='MEASURED'&&(!own.fileSha512||!own.fileCrc64))Fail('INTEGRITY_REPORT_INVALID');
+  }
+  for(const key of EXTENDED_FIELDS.slice(0,4))own[key]=ExtendedDigest(p.own[key],key.endsWith('Xxh3_128')?32:64);
+  p.own=own;
+  if(own.status==='MEASURED'&&(!own.codeSha512||!own.codeCrc64||p.hashVersion===3&&(!HasExtendedPair(own,'file')||!HasExtendedPair(own,'code'))))Fail('INTEGRITY_REPORT_INVALID');
+ }
  if(p.check==='OWN_IMAGE'&&!p.own)Fail('INTEGRITY_REPORT_INVALID');
  if((p.own?.status==='MEASURED'||p.crcLayers!==undefined)&&!require("../runtime/peace.desktop-crc-policy").Validate(p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
  if(p.ownMeasurement!==undefined&&!measurementPlan.ValidateOwnMetadata(p.ownMeasurement,p.own?.status,p.crcLayers))Fail('INTEGRITY_REPORT_INVALID');
@@ -133,6 +149,14 @@ function Record(input){
   expectedSha512:Digest(input.expectedSha512,128),observedSha512:Digest(input.observedSha512,128),expectedCrc64:Digest(input.expectedCrc64,16),observedCrc64:Digest(input.observedCrc64,16),hashVersion:3,extendedHashesVerified:input.hashVersion===3&&input.extendedHashesVerified===true};
  for(const prefix of ['expected','observed','expectedFile','observedFile'])for(const algorithm of ['Xxh3_128','Blake3'])record[prefix+algorithm]=ExtendedDigest(input[prefix+algorithm],algorithm==='Xxh3_128'?32:64);
  if(input.check==='OWN_CODE')for(const field of ['fileExtendedVerified','codeExtendedVerified'])record[field]=input.hashVersion===3&&input[field]===true;
+ if(input.check==='OWN_CODE'){
+  record.fileHashesReported=input.fileHashesReported===true;
+  record.fileHashesVerified=record.fileHashesReported&&input.fileHashesVerified===true;
+  if(record.fileHashesReported)for(const prefix of ['expectedFile','observedFile']){
+   record[prefix+'Sha512']=Digest(input[prefix+'Sha512'],128);
+   record[prefix+'Crc64']=Digest(input[prefix+'Crc64'],16);
+  }
+ }
  if(input.modules){record.modules=input.modules.map(row=>Module(row,record.hashVersion)).map(row=>CompareModule(row,record.hashVersion));if(record.modules.some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){record.status='REJECTED';record.reason='KNOWN_MODULE_CODE_MISMATCH';record.source='SERVER_COMPARISON';}}
  if(input.crcComparison)record.crcComparison=input.crcComparison;
  for(const key of ['ownMeasurement','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','snapshotStatus','snapshotReceivedBatches','snapshotReasons','snapshotDiagnostics','snapshotFinal','strictPolicyRevision','planAssurance','requiredMeasurementPlanVersion','requiredModuleResults','duplicateModuleNames','duplicateModuleCount','measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','moduleGenerationStatus','threadInventory','deviceSignals','coverage'])if(input[key]!==undefined)record[key]=input[key];
@@ -200,13 +224,14 @@ function Submit(body){
   return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
  if(payload.own){if(payload.ownMeasurement)fields.ownMeasurement=payload.ownMeasurement;const own=payload.own,crcComparison=require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
-  const rejectionReason=measurementStatus.IsFailure(own.status)?(own.status==='READ_ERROR'?'MEASUREMENT_FAILED':own.status):!crcComparison.matched?crcComparison.reason:own.codeSha512!==artifact.codeSha512||own.codeCrc64!==artifact.codeCrc64?'CODE_HASH_MISMATCH':codeComparison.mismatch?'CODE_EXTENDED_HASH_MISMATCH':fileComparison.mismatch?'FILE_EXTENDED_HASH_MISMATCH':require("../security/peace.desktop-security-authority").Policy().requireCompleteCrcLayers&&!crcComparison.complete?'CRC_COVERAGE_INCOMPLETE':'';
+  const fileHashesReported=Object.hasOwn(own,'fileSha512'),fileHashesVerified=own.status==='MEASURED'&&fileHashesReported&&own.fileSha512===artifact.sha512&&own.fileCrc64===artifact.crc64;
+  const rejectionReason=measurementStatus.IsFailure(own.status)?(own.status==='READ_ERROR'?'MEASUREMENT_FAILED':own.status):!crcComparison.matched?crcComparison.reason:own.codeSha512!==artifact.codeSha512||own.codeCrc64!==artifact.codeCrc64?'CODE_HASH_MISMATCH':fileHashesReported&&!fileHashesVerified?'FILE_HASH_MISMATCH':codeComparison.mismatch?'CODE_EXTENDED_HASH_MISMATCH':fileComparison.mismatch?'FILE_EXTENDED_HASH_MISMATCH':require("../security/peace.desktop-security-authority").Policy().requireCompleteCrcLayers&&!crcComparison.complete?'CRC_COVERAGE_INCOMPLETE':'';
   const matches=!rejectionReason,fileExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&fileComparison.verified,codeExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&codeComparison.verified;
   // Pair equality is an independent observation, not an overall execution PASS.
   // Incomplete CRC coverage must not turn matching file/code hashes into failures.
   const extendedHashesVerified=fileExtendedVerified&&codeExtendedVerified,unverifiedExtended=payload.hashVersion===3&&matches&&!extendedHashesVerified;
   if(!matches)require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason:'INTEGRITY_'+rejectionReason},'INTEGRITY_REPORT');
-  result=Record({...fields,check:'OWN_CODE',measurementStatus:own.status,status:matches?unverifiedExtended?'CLIENT_DIAGNOSTIC':'VERIFIED':'REJECTED',reason:matches?unverifiedExtended?'EXTENDED_BASELINE_UNAVAILABLE':'BASELINE_MATCH':rejectionReason,trusted:true,extendedHashesVerified,fileExtendedVerified,codeExtendedVerified,crcComparison,expectedSha512:artifact.codeSha512,observedSha512:own.codeSha512,expectedCrc64:artifact.codeCrc64,observedCrc64:own.codeCrc64,expectedXxh3_128:artifact.codeXxh3_128,observedXxh3_128:own.codeXxh3_128,expectedBlake3:artifact.codeBlake3,observedBlake3:own.codeBlake3,expectedFileXxh3_128:artifact.fileXxh3_128,observedFileXxh3_128:own.fileXxh3_128,expectedFileBlake3:artifact.fileBlake3,observedFileBlake3:own.fileBlake3});
+  result=Record({...fields,check:'OWN_CODE',measurementStatus:own.status,status:matches?unverifiedExtended?'CLIENT_DIAGNOSTIC':'VERIFIED':'REJECTED',reason:matches?unverifiedExtended?'EXTENDED_BASELINE_UNAVAILABLE':'BASELINE_MATCH':rejectionReason,trusted:true,extendedHashesVerified,fileExtendedVerified,codeExtendedVerified,fileHashesReported,fileHashesVerified,...(fileHashesReported?{expectedFileSha512:artifact.sha512,observedFileSha512:own.fileSha512,expectedFileCrc64:artifact.crc64,observedFileCrc64:own.fileCrc64}:{}),crcComparison,expectedSha512:artifact.codeSha512,observedSha512:own.codeSha512,expectedCrc64:artifact.codeCrc64,observedCrc64:own.codeCrc64,expectedXxh3_128:artifact.codeXxh3_128,observedXxh3_128:own.codeXxh3_128,expectedBlake3:artifact.codeBlake3,observedBlake3:own.codeBlake3,expectedFileXxh3_128:artifact.fileXxh3_128,observedFileXxh3_128:own.fileXxh3_128,expectedFileBlake3:artifact.fileBlake3,observedFileBlake3:own.fileBlake3});
   if(!matches){return Complete({accepted:true,status:'REJECTED',reportId:result.id,terminate:true});}
  }
  if(payload.check==='MODULE_INVENTORY'){Load();if(payload.modules.map(module=>CompareModule(module,payload.hashVersion)).some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason:'INTEGRITY_KNOWN_MODULE_CODE_MISMATCH'},'INTEGRITY_REPORT');result=Record({...fields,status:'CLIENT_DIAGNOSTIC',modules:payload.modules,trusted:false});}else result=AcceptSnapshot(row,fields,payload); }

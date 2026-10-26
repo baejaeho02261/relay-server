@@ -24,6 +24,11 @@ parentPort.on('message',message=>{
    const tpm=require("../devices/peace.desktop-tpm-attestation"),secret=Buffer.from(task.secret),nonce=Buffer.from(task.nonce);
    try{if(secret.length!==32||nonce.length!==32)throw Error('WORK_TASK_INVALID');const verified=tpm.VerifyCertify(task.evidence,nonce,task.publicKey,task.trust);value={rootSha256:verified.rootSha256,notAfter:verified.notAfter,activationBlob:tpm.MakeCredential(verified.ekPublic,verified.akName,secret).toString('base64')};}
    finally{secret.fill(0);nonce.fill(0);task.secret.fill(0);task.nonce.fill(0);}
+  }else if(task.kind==='server-policy-bind'){
+   const bytes=Buffer.from(task.bytes);let bound;
+   try{bound=require('../artifacts/peace.server-policy-protection').BindTemplate(bytes,task.role,task.profile);parentPort.postMessage({id:message.id,value:bound});}
+   finally{bytes.fill(0);task.bytes.fill(0);bound?.bytes?.fill(0);if(bound?.serverPolicy)bound.serverPolicy.programBase64='';}
+   return;
   }else if(task.kind==='exposure'){
    const bytes=Buffer.from(task.bytes);try{value=require("../artifacts/peace.release-exposure").ScanBytes(bytes);}finally{bytes.fill(0);task.bytes.fill(0);}
   }else if(task.kind==='pe'){
@@ -32,5 +37,5 @@ parentPort.on('message',message=>{
    finally{bytes.fill(0);} // upload source remains with the single-writer parent
   }else throw Error('WORK_TASK_INVALID');
   parentPort.postMessage({id:message.id,value});
- }catch(error){parentPort.postMessage({id:message.id,error:(['BOOTSTRAP_PE_INVALID','CONNECT_KEY_INVALID'].includes(error.message)||error.desktopError&&/^DEVICE_TPM_[A-Z_]+$/.test(error.message))?error.message:'WORK_TASK_FAILED'});}
+ }catch(error){parentPort.postMessage({id:message.id,error:(['BOOTSTRAP_PE_INVALID','CONNECT_KEY_INVALID'].includes(error.message)||error.desktopError&&/^(?:DEVICE_TPM|COZY_SERVER_POLICY|COZY_PROTECTION)_[A-Z_]+$/.test(error.message))?error.message:'WORK_TASK_FAILED'});}
 });

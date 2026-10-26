@@ -8,6 +8,7 @@ function Add(names, domain, role, id, retry) {
 Add('admin.license.create admin.license.reissue admin.license.revoke', 'ADMIN_SESSION_CSRF', 'ADMIN', 'requestId (mandatory for every version; v2 recommended)', 'durable outcome; current admin authorization');
 Add('admin.launcher.issue', 'ADMIN_SESSION_CSRF', 'ADMIN', 'requestId', 'durable issue receipt; current authorization');
 Add('admin.launcher.download', 'ADMIN_SESSION_CSRF', 'ADMIN', 'launcherId', 'same bytes only while capability is live');
+Add('bootstrap.keylessPolicy bootstrap.keylessChallenge bootstrap.keylessProve bootstrap.keylessStatus bootstrap.beginKeyless','COZY-KEYLESS-BOOTSTRAP-V1','A','signed one-use challenge + explicit administrator approval','bounded proof/approval; exact consume retry; no bearer ticket in EXE');
 Add('bootstrap.begin', 'LAUNCHER_CAPABILITY (inside GAME-CONNECT-4)', 'A', 'requestId', 'existing flow; live launcher and device');
 Add('bootstrap.download', 'DOWNLOAD_CAPABILITY', 'A', 'flowId + offset', 'live capability; same bytes');
 Add('bootstrap.finish', 'GAME-A85-FINISH-V2', 'A', 'flowId', 'live exact flow; no new handoff lifetime');
@@ -32,7 +33,7 @@ Add('device.policy device.challenge device.complete device.tpmActivate','GAME-DE
 Object.freeze(catalog);
 function Purpose(name) { const value = Object.hasOwn(catalog,name) ? catalog[name] : null; if (!value) throw Error('DESKTOP_PURPOSE_INVALID'); return value; }
 function Resolve(operation, action) {
-  const bootstrap={begin:'bootstrap.begin',chunk:'bootstrap.download',finish:'bootstrap.finish',claim:'bootstrap.claim',status:'bootstrap.status',close:'bootstrap.close',abort:'bootstrap.abort',overlayChunk:'overlay.download',overlayFinish:'overlay.finish',overlayClaim:'overlay.claim',overlayVerify:'overlay.verify',overlayProgress:'overlay.progress',overlayCommit:'overlay.commit',overlayClose:'overlay.close',overlayAbort:'overlay.abort'};
+  const bootstrap={keylessPolicy:'bootstrap.keylessPolicy',keylessChallenge:'bootstrap.keylessChallenge',keylessProve:'bootstrap.keylessProve',keylessStatus:'bootstrap.keylessStatus',beginKeyless:'bootstrap.beginKeyless',begin:'bootstrap.begin',chunk:'bootstrap.download',finish:'bootstrap.finish',claim:'bootstrap.claim',status:'bootstrap.status',close:'bootstrap.close',abort:'bootstrap.abort',overlayChunk:'overlay.download',overlayFinish:'overlay.finish',overlayClaim:'overlay.claim',overlayVerify:'overlay.verify',overlayProgress:'overlay.progress',overlayCommit:'overlay.commit',overlayClose:'overlay.close',overlayAbort:'overlay.abort'};
   let name;
   if(operation==='device'&&['policy','challenge','complete','tpmActivate'].includes(action))name='device.'+action;
   else if(operation==='bootstrap')name=action==='lifecycleChallenge'?'lifecycle.challenge':action==='lifecycleReport'?'lifecycle.report':Object.hasOwn(bootstrap,action)?bootstrap[action]:undefined;

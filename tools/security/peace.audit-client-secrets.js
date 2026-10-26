@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const exposure=require('../../services/artifacts/peace.release-exposure');
 const MAX_BYTES=64*1024*1024,ROLES=['A','B','O'];
 const HEAD=Buffer.from('COZY-VM-SLOT-V1\0','ascii'),TAIL=Buffer.from('COZY-VM-END--V1\0','ascii');
-const COVERAGE=Object.freeze(['KNOWN_PEM_AND_CREDENTIAL_PATTERNS_ASCII_UTF16','PE_DEBUG_METADATA','KNOWN_COZY_VM_V1_EMBEDDED_KEY']);
+const COVERAGE=Object.freeze(['KNOWN_PEM_AND_CREDENTIAL_PATTERNS_ASCII_UTF16','PE_DEBUG_METADATA','KNOWN_COZY_VM_V1_EMBEDDED_KEY','COZY_V2_PUBLIC_SLOT_LAYOUT']);
 function Fail(code){const e=Error(code);e.auditCode=code;throw e;}
 function PeSections(bytes){
  if(bytes.length<512||bytes.readUInt16LE(0)!==0x5a4d)Fail('CLIENT_AUDIT_PE_INVALID');
@@ -45,6 +45,10 @@ function InspectBytes(bytes,role){
   if(state===0){if(slot[24]!==0||length!==0||slot.subarray(40,100).some(x=>x!==0)||slot.subarray(128,4080).some(x=>x!==0))codes.add('COZY_VM_V1_SLOT_INVALID');}
   else if(state!==1||![1,2,3].includes(slot[24])||!keyPresent||length<16||length>3952||slot.subarray(128+length,4080).some(x=>x!==0))codes.add('COZY_VM_V1_SLOT_INVALID');
   if(state===1&&slot[24]!==ROLES.indexOf(role)+1)codes.add('COZY_VM_V1_ROLE_MISMATCH');
+ }
+ if(bytes.includes(Buffer.from('COZY-POLICY-V2\0\0','ascii'))||bytes.includes(Buffer.from('COZY-POLEND-V2\0\0','ascii'))){
+  try{const own=require('../../services/artifacts/peace.server-policy-protection').Inspect(bytes);if(!own||own.state!=='BOUND'||own.role!==role)codes.add('COZY_V2_POLICY_ROLE_OR_STATE_INVALID');}
+  catch(_){codes.add('COZY_V2_POLICY_SLOT_INVALID');}
  }
  return {role,sha512,size:bytes.length,status:codes.size?'BLOCKED':'PASS',findings:[...codes].sort().map(code=>({code,role,sha512}))};
 }

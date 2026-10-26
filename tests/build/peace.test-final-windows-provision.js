@@ -12,9 +12,10 @@ const ROLES=['A','B','O'];
 const sha=value=>crypto.createHash('sha512').update(value).digest('hex');
 const json=(file,value)=>fs.writeFileSync(file,JSON.stringify(value),{mode:0o600});
 
-function CreateInputs(run){
+function CreateInputs(run,keyless=false){
   const tool=require('../../ci/pipeline/peace.final-windows-inputs');
   const engine=require('../../services/artifacts/peace.cozy-protection-engine');
+  const v2=require('../../services/artifacts/peace.server-policy-protection');
   const evidence=require('../../services/artifacts/peace.desktop-packing-evidence');
   const authority=require('../../services/security/peace.desktop-security-authority');
   const provenance=require('../../services/artifacts/peace.desktop-release-provenance');
@@ -23,19 +24,20 @@ function CreateInputs(run){
   json(path.join(source,'Relay Server','maintenance','source-manifest.json'),
     {version:2,algorithm:'sha512',files:{'synthetic.pas':sha('nonexecutable fixture source')}});
   const jobId=crypto.randomBytes(16).toString('hex'),createdAt=Date.now();
-  const records=[],artifacts={},expected={},sourceRows={};
+  const records=[],artifacts={},expected={},sourceRows={},serverPolicies=[];
   for(const [index,role]of ROLES.entries()){
     const original=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture')
       .PE(role,'GAME-HANDOFF-V3 GAME-MEASUREMENT-PLAN-V1 FINAL FIXTURE TEST DATA');
-    const slot=engine.CreateUnsealedSlot(),input=Buffer.concat([original,slot]);
+    const slot=keyless?v2.CreateUnsealedSlot():engine.CreateUnsealedSlot(),input=Buffer.concat([original,slot]);
     // Extend the last real PE section to include the protection slot.
     const pe=input.readUInt32LE(60),optional=pe+24,table=optional+input.readUInt16LE(pe+20);
     const last=table+(input.readUInt16LE(pe+6)-1)*40,size=input.readUInt32LE(last+16)+slot.length;
     input.writeUInt32LE(size,last+8);input.writeUInt32LE(size,last+16);
     input.writeUInt32LE(Math.ceil((input.readUInt32LE(last+12)+size)/4096)*4096,optional+56);
     try{
-      const result=engine.Pack(input,role),id=String(index+1).repeat(24);
+      const result=keyless?v2.BindTemplate(input,role):engine.Pack(input,role),id=String(index+1).repeat(24);
       try{
+        if(keyless)serverPolicies.push(result.serverPolicy);
         expected[role]={sha512:result.sha512,size:result.bytes.length};
         artifacts[role]=path.join(run,role+'.exe');
         fs.writeFileSync(artifacts[role],result.bytes,{mode:0o600});
@@ -60,7 +62,9 @@ function CreateInputs(run){
   const policyFile=path.join(run,'reviewed-policy.json'),packingReceiptsFile=path.join(run,'receipts.json');
   json(policyFile,policy);json(packingReceiptsFile,records);
   const configFile=path.join(run,'inputs.json');
-  json(configFile,{version:1,releaseVersion:'1.0.0',artifacts,packingReceiptsFile,policyFile});
+  const config={version:1,releaseVersion:'1.0.0',artifacts,packingReceiptsFile,policyFile};
+  if(keyless){config.serverPoliciesFile=path.join(run,'server-policies.json');json(config.serverPoliciesFile,serverPolicies);}
+  json(configFile,config);
   const summary=tool.Prepare(configFile,source,out);
   assert.equal(summary.productionApproved,false);assert.equal(summary.windowsExecuted,false);
   assert.equal(summary.buildProvenance,'NOT_ATTESTED');
@@ -70,14 +74,14 @@ function CreateInputs(run){
   for(const file of fs.readdirSync(out))if(!file.endsWith('.exe'))
     assert.doesNotMatch(fs.readFileSync(path.join(out,file),'utf8'),/-----BEGIN PRIVATE KEY-----/);
   assert.equal(fs.existsSync(path.join(out,'ci-evidence.json')),false);
-  return {out,summary,records,receiptIds,expected,jobId,artifacts};
+  return {out,summary,records,receiptIds,expected,jobId,artifacts,serverPolicies};
 }
 
 function Scenario(name,run){
   assert.equal(path.resolve(process.env.DATA_DIR),path.join(fs.realpathSync(run),'server-data'));
   assert.equal(fs.readFileSync(path.join(run,'ci-owned-marker'),'utf8'),'SYNTHETIC_TEST_ONLY');
   require('../../core/peace.utilities').EnsureDirs();
-  const f=CreateInputs(run),fixture=require('../../ci/fixtures/peace.fixture-services');
+  const keyless=name.startsWith('v2-'),f=CreateInputs(run,keyless),fixture=require('../../ci/fixtures/peace.fixture-services');
   const store=require('../../services/bootstrap/peace.desktop-bootstrap-store');
   const ops=require('../../services/security/peace.desktop-security-operations');
   const authority=require('../../services/security/peace.desktop-security-authority');
@@ -87,8 +91,9 @@ function Scenario(name,run){
     const db=store.Load();
     assert.deepEqual(db.active,{});assert.equal(Object.keys(db.artifacts).length,0);
     assert.equal(Object.keys(db.flows).length,0);assert.equal(Object.keys(db.packingEvidence||{}).length,0);
+    assert.equal(Object.keys(db.serverPolicies||{}).length,0);
   };
-  if(name==='positive'){
+  if(name==='positive'||name==='v2-positive'){
     const selected=fixture.Provision(run,f.out,'1.0.0'),db=store.Load();
     assert.deepEqual(db.active,Object.fromEntries(ROLES.map(role=>[role,selected[role].id])));
     assert.equal(Object.keys(db.artifacts).length,3);assert.equal(Object.keys(db.packingEvidence).length,3);
@@ -96,7 +101,8 @@ function Scenario(name,run){
     for(const role of ROLES){
       const row=db.artifacts[selected[role].id];
       assert.equal(row.sha512,f.expected[role].sha512);assert.equal(row.size,f.expected[role].size);
-      assert.equal(row.ownProtection.state,'SEALED');assert.equal(row.ownProtection.role,role);
+      assert.equal(row.ownProtection.state,keyless?'BOUND':'SEALED');assert.equal(row.ownProtection.role,role);
+      if(keyless){assert.equal(row.ownProtection.engine,'COZY_SERVER_POLICY_V2');assert.deepEqual(db.serverPolicies[row.ownProtection.policyId],f.serverPolicies.find(p=>p.role===role));}
       assert.equal(row.packingReceiptId,f.receiptIds[role]);
       const receipt=evidence.FindReceipt(db,row);assert.equal(receipt.record.jobId,f.jobId);
       assert.deepEqual(receipt.record,f.records.find(record=>record.component===role));
@@ -116,6 +122,52 @@ function Scenario(name,run){
     const before=JSON.stringify(store.Load());
     assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/CI_FIXTURE_MUST_BE_EMPTY/);
     assert.equal(JSON.stringify(store.Load())===before,true,'a retry cannot replace populated fixture state');
+    return;
+  }
+  if(name==='v2-changed-policy'){
+    const policies=structuredClone(f.serverPolicies);policies[0].programBase64='AAAA';
+    json(path.join(f.out,'server-policies.json'),policies);
+    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/COZY_SERVER_POLICY_/);empty();return;
+  }
+  if(name==='v2-missing-policy'){
+    fs.unlinkSync(path.join(f.out,'server-policies.json'));
+    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'));empty();return;
+  }
+  if(name==='v2-approval-scope'){
+    fixture.Provision(run,f.out,'1.0.0');
+    Object.assign(process.env,{DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'1',WEB_ADMIN_PORT:'0'});
+    const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Isolated fixture approval scope'},'ISOLATED_WINDOWS_CI');
+    const row=store.Load().launchers[issue.launcherId],keylessService=require('../../services/bootstrap/peace.keyless-bootstrap');
+    const saved={ListPending:keylessService.ListPending,Approve:keylessService.Approve};let pending=[],calls=0;
+    // This is a callback scope test. The real dual-key proof/approval protocol
+    // is tested separately; these stubs never claim a Windows execution PASS.
+    keylessService.ListPending=()=>({requests:pending});
+    keylessService.Approve=(id,body,actor)=>{calls++;assert.equal(actor,'ISOLATED_WINDOWS_CI');assert.equal(body.launcherId,row.id);assert.equal(body.persistentKeyId,pending[0].persistentKeyId);assert.equal(body.identityConfirmed,true);return{id,status:'APPROVED'};};
+    try{
+      const approve=fixture.KeylessApproval(run,f.out,issue);assert.equal(approve(),false);
+      const expected={id:'a'.repeat(48),launcherId:row.id,launcherSha512:row.sha512,status:'PENDING_APPROVAL',proof:'PERSISTENT_KEY_POSSESSION',hardwareAttested:false,persistentKeyId:'B'.repeat(64)};
+      for(const edit of [p=>p.launcherId='0'.repeat(24),p=>p.launcherSha512='0'.repeat(128),p=>p.proof='UNVERIFIED',p=>p.status='PROOF_REQUIRED',p=>p.hardwareAttested=true]){
+        const p=structuredClone(expected);edit(p);pending=[p];assert.throws(approve,/CI_KEYLESS_REQUEST_MISMATCH/);assert.equal(calls,0);
+      }
+      pending=[expected,structuredClone(expected)];assert.throws(approve,/CI_KEYLESS_REQUEST_AMBIGUOUS/);assert.equal(calls,0);
+      pending=[expected];process.env.DESKTOP_PUBLIC_HOST='example.invalid';assert.throws(approve,/CI_KEYLESS_LOOPBACK_FIXTURE_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
+      assert.equal(approve(),true);assert.equal(approve(),true);assert.equal(calls,1);
+    }finally{keylessService.ListPending=saved.ListPending;keylessService.Approve=saved.Approve;}
+    return;
+  }
+  if(name==='v2-claim-observer'){
+    Object.assign(process.env,{DESKTOP_PUBLIC_HOST:'127.0.0.1',WEB_ADMIN_PORT:'0'});
+    const original=boot.Execute,ack=path.join(run,'b-process-observed.signal');let calls=0,ticks=0,barrier;
+    boot.Execute=body=>{calls++;if(body.deny)throw Error('REAL_CLAIM_DENIED');return {existingAuthorization:'unchanged'};};
+    try{
+      barrier=fixture.ClaimObservationBarrier(run,()=>{if(++ticks===3)fs.writeFileSync(ack,'COZY_B_PROCESS_OBSERVED_V1\n',{flag:'wx',mode:0o600});});
+      assert.throws(()=>boot.Execute({action:'claim',deny:true}),/REAL_CLAIM_DENIED/);assert.equal(ticks,0);assert.equal(barrier.Used(),false);
+      assert.deepEqual(boot.Execute({action:'status'}),{existingAuthorization:'unchanged'});assert.equal(ticks,0);
+      assert.deepEqual(boot.Execute({action:'claim'}),{existingAuthorization:'unchanged'});assert.equal(ticks,3);assert.equal(barrier.Used(),true);assert.equal(calls,3);
+      barrier.Restore();barrier=null;assert.throws(()=>fixture.ClaimObservationBarrier(run,()=>{}),/NEW_SIGNAL_REQUIRED/);
+      fs.unlinkSync(ack);ticks=0;barrier=fixture.ClaimObservationBarrier(run,()=>{if(++ticks===1)fs.writeFileSync(ack,'invalid',{flag:'wx'});});
+      assert.throws(()=>boot.Execute({action:'claim'}),/SIGNAL_INVALID/);assert.equal(barrier.Used(),false);
+    }finally{barrier?.Restore();boot.Execute=original;}
     return;
   }
   if(name==='mixed-receipts'){
@@ -171,6 +223,11 @@ if(process.argv[2]==='--scenario'){
   const test=require('node:test');
   const scenarios=[
     ['positive','real fixture services approve and activate only the exact sealed synthetic A/B/O cohort'],
+    ['v2-positive','real fixture services bind private V2 policies and activate only their exact A/B/O cohort'],
+    ['v2-changed-policy','changed V2 private server program cannot stage or activate any final file'],
+    ['v2-missing-policy','missing V2 private server policy cannot stage or activate any final file'],
+    ['v2-approval-scope','isolated enrollment callback accepts only its one expected already-proven launcher'],
+    ['v2-claim-observer','fixture observation barrier retains real claim result and requires a fresh controller signal'],
     ['mixed-receipts','a mixed-job receipt set cannot stage or activate any final file'],
     ['changed-receipt','a receipt naming another final digest cannot stage or activate files'],
     ['changed-file','a changed final executable fails before fixture artifact import'],
@@ -179,7 +236,7 @@ if(process.argv[2]==='--scenario'){
   for(const [scenario,name]of scenarios)test(name,()=>{
     const run=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-final-windows-provision-'));
     try{
-      fs.writeFileSync(path.join(run,'ci-owned-marker'),'SYNTHETIC_TEST_ONLY',{mode:0o600});
+      require('../fixtures/runtime/peace.private-ci-test-directory').Prepare(run);
       const result=child.spawnSync(process.execPath,[__filename,'--scenario',scenario,run],{
         env:{...process.env,DATA_DIR:path.join(run,'server-data'),STORAGE_ENGINE:'json',HA_ENABLED:'0'},
         encoding:'utf8',timeout:30000,maxBuffer:2*1024*1024

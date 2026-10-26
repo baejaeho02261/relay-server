@@ -105,7 +105,7 @@ function CoverageReason(artifact, policy) {
 function ArtifactReason(artifact, policy) {
   return ArtifactMetadataReason(artifact, policy) || CoverageReason(artifact, policy);
 }
-function RequireArtifact(artifact) { const reason = ArtifactReason(artifact, Policy()) || require('./peace.desktop-security-operations').ArtifactReason(artifact); if (reason) Fail(reason); }
+function RequireArtifact(artifact,{allowUnsealedPolicySource=false}={}) { const reason = ArtifactReason(artifact, Policy()) || require('./peace.desktop-security-operations').ArtifactReason(artifact) || require('./peace.server-policy-registry').Reason(store.Load(),artifact,{allowUnsealed:allowUnsealedPolicySource}); if (reason) Fail(reason); }
 function PeCapabilities(bytes) {
   const {authorityVersion,compiledCfg}=require("../artifacts/peace.desktop-pe-cache").Get(bytes,'capabilities') || require("../artifacts/peace.pe-capabilities").PeCapabilities(bytes);
   return {authorityVersion,compiledCfg};
@@ -330,6 +330,7 @@ function RequireFresh(row, stage, intent, binding) {
   else if (policy.mode === 'enforce' && item.status === 'MISMATCH') code = 'SECURITY_OBSERVATION_MISMATCH';
   else if (policy.mode === 'enforce' && item.status !== 'PASS') code = 'SECURITY_OBSERVATION_INDETERMINATE';
   if (code) { Audit('HOLD', code, { ...row, stage }, { revision: policy.revision, intent }); Fail(code); }
+  require('./peace.server-policy-registry').RequireOperation(store.Load(),row,stage,{mode:policy.mode,status:item.status,measurementComplete:item.measurementComplete});
 }
 function RenewalIdentity(row, stage, intent, binding) {
   RequireFresh(row,stage,intent,binding);Prune();

@@ -22,6 +22,10 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   if(method==='GET'&&pathname===prefix+'/tls-pin-transition'){Json(res,200,{ok:true,...require("../../../services/network/peace.desktop-tls-pin-transition").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/release-safety'){Json(res,200,{ok:true,...require("../../../services/artifacts/peace.desktop-release-safety").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/publication-status'){Json(res,200,{ok:true,publication:operations.ProductionStatus()});return true;}
+  if(method==='GET'&&pathname===prefix+'/keyless-approvals'){
+    const check=guard.CheckSession(session,pathname,method);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
+    Json(res,200,{ok:true,...require('../../../services/bootstrap/peace.keyless-bootstrap').ListPending()});return true;
+  }
   if(method==='GET'&&pathname===prefix+'/packed-release-jobs'){Json(res,200,{ok:true,...require('../../../services/artifacts/peace.packed-release-manifest').List()});return true;}
   const receiptExport=/^\/packed-release-jobs\/([^/]+)\/receipts$/.exec(pathname.slice(prefix.length));
   if(receiptExport&&method!=='GET'){ApiError(res,405,'METHOD_NOT_ALLOWED');return true;}
@@ -40,6 +44,8 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   const live=guard.CheckSession(session,pathname,method);
   if(!live.ok){ApiError(res,live.status||403,live.reason);return true;}
   const action=pathname.slice(prefix.length+1),actor=guard.Identity(session)||'ADMIN:'+session.id;
+  const keylessApproval=/^keyless-approvals\/([a-f0-9]{48})\/approve$/.exec(action);
+  if(keylessApproval){Json(res,200,{ok:true,...require('../../../services/bootstrap/peace.keyless-bootstrap').Approve(keylessApproval[1],body,actor)});return true;}
   if(action==='registration-reset'){
     const reset=require('../../../services/operations/peace.registration-reset'),result=reset.Schedule(body,session,desktopAuthorization?.ticket);
     if(result.restartRequired)reset.AfterResponse(res);

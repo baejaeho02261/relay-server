@@ -10,7 +10,28 @@ function Isolated(relative,names=[],overrides={}){
  loaded.require=sourceLayout.MockRequire(filename,overrides);
  loaded._compile(fs.readFileSync(filename,'utf8')+'\nmodule.exports.__probe={'+names.join(',')+'};\n',filename);return loaded.exports;
 }
-function PE(role='O',manifest=fs.readFileSync(path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Projects/Cozy.Overlay/Cozy.Overlay.manifest")),cfg=false){
+function DefaultManifest(){
+ const catalog=JSON.parse(fs.readFileSync(path.resolve(MODULE_RESOURCE_ROOT,'../maintenance/source-manifest.json'),'utf8'));
+ if(catalog.scope==='relay-server-only'){
+  // The public relay snapshot intentionally contains no private native tree.
+  // This independent XML is explicitly synthetic parser input, not a copy of
+  // a native manifest or evidence that an Overlay was built/executed.
+  return Buffer.from('<?xml version="1.0" encoding="UTF-8"?>\n'+
+   '<assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">'+
+   '<assemblyIdentity version="1.0.0.0" processorArchitecture="amd64" name="Synthetic.Parser.Fixture" type="win32"/>'+
+   '<description>SYNTHETIC TEST DATA ONLY</description>'+
+   '<trustInfo xmlns="urn:schemas-microsoft-com:asm.v3"><security><requestedPrivileges><requestedExecutionLevel level="asInvoker" uiAccess="false"/></requestedPrivileges></security></trustInfo>'+
+   '<application xmlns="urn:schemas-microsoft-com:asm.v3"><windowsSettings>'+
+   '<dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>'+
+   '<dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2, PerMonitor</dpiAwareness>'+
+   '</windowsSettings></application>'+
+   '<compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1"><application><supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}"/></application></compatibility></assembly>','utf8');
+ }
+ // Full-source packages retain the strict real-native dependency. Missing or
+ // unreadable native inputs must not silently become a synthetic fixture.
+ return fs.readFileSync(path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Projects/Cozy.Overlay/Cozy.Overlay.manifest"));
+}
+function PE(role='O',manifest=DefaultManifest(),cfg=false){
  const original=require("../bootstrap/peace.desktop-bootstrap-fixture").PE(role,'GAME-HANDOFF-V3 GAME-MEASUREMENT-PLAN-V1 GAME-TLS-PIN-WINDOW-V1 SYNTHETIC_ONLY'),rsrc=cfg?2048:1536,sectionSize=Math.ceil((96+manifest.length)/512)*512;
  const b=Buffer.alloc(rsrc+sectionSize);original.copy(b);const pe=b.readUInt32LE(60),opt=pe+24,table=opt+240,base=b.readBigUInt64LE(opt+24);
  b.writeUInt16LE(3,pe+6);b.writeUInt32LE(0x3000+Math.ceil(sectionSize/4096)*4096,opt+56);

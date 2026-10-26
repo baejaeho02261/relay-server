@@ -22,6 +22,7 @@ function TaskBytes(task){
  }
  walk(task,0);return total;
 }
+function WipeResult(value){value?.key?.fill(0);value?.bytes?.fill(0);if(value?.serverPolicy)value.serverPolicy.programBase64='';}
 class WorkQueue {
  constructor(name,workers,capacity,options={}){this.maxPerKey=options.maxPerKey||workers+capacity;this.lastKey='';this.name=name;this.maxTaskBytes=options.maxTaskBytes||1048576;this.maxQueuedBytes=options.maxQueuedBytes||8*MiB;this.pendingBytes=0;this.heapMb=options.heapMb||64;this.workers=workers;this.capacity=capacity;this.queue=[];this.slots=[];this.serial=0;this.closed=false;this.stats={submitted:0,dispatched:0,completed:0,rejected:0,failed:0,timedOut:0,queueHighWater:0,byteHighWater:0,terminated:0,waitSamples:0,runSamples:0,totalWaitMs:0,totalRunMs:0,maxWaitMs:0,maxRunMs:0};}
  observe(rejected=false){if(!['authentication','pe-analysis','device-proof','renewal-proof','tpm-attestation'].includes(this.name))return;try{require("../observability/peace.desktop-performance-metrics").QueueState(this.name,this.slots.filter(s=>s.job).length,this.queue.filter(j=>!j.settled).length,this.workers,this.capacity,rejected);}catch(_){}}
@@ -45,7 +46,7 @@ class WorkQueue {
    this.stats.submitted++;this.queue.push(job);this.stats.queueHighWater=Math.max(this.stats.queueHighWater,this.queue.length);this.observe();this.pump();this.observe();});
  }
  releaseBytes(job){if(!job||job.bytesReleased)return;job.bytesReleased=true;this.pendingBytes=Math.max(0,this.pendingBytes-job.taskBytes);}
- settle(job,error,value){clearTimeout(job.timer);if(job.settled){if(value?.key)value.key.fill(0);return;}job.settled=true;job.task?.secret?.fill(0);job.task=null;if(error){if(error.message==='WORK_DEADLINE')this.stats.timedOut++;else this.stats.failed++;if(value?.key)value.key.fill(0);job.reject(error);}else{this.stats.completed++;job.resolve(value);}}
+ settle(job,error,value){clearTimeout(job.timer);if(job.settled){WipeResult(value);return;}job.settled=true;job.task?.secret?.fill(0);job.task=null;if(error){if(error.message==='WORK_DEADLINE')this.stats.timedOut++;else this.stats.failed++;WipeResult(value);job.reject(error);}else{this.stats.completed++;job.resolve(value);}}
  finishRun(job){
   // Runtime is measured until the worker actually stops using the task, even
   // if the caller's deadline fired earlier. Count the same population in the
@@ -57,11 +58,10 @@ class WorkQueue {
  makeSlot(){
   const worker=new Worker(path.join(MODULE_RESOURCE_ROOT,"runtime/peace.desktop-cpu-worker.js"),{resourceLimits:{maxOldGenerationSizeMb:this.heapMb,maxYoungGenerationSizeMb:16,stackSizeMb:4}}),slot={worker,job:null,exited:false};this.slots.push(slot);worker.unref();
   slot.exitPromise=new Promise(resolve=>worker.once('exit',()=>{slot.exited=true;resolve();}));
-  worker.on('message',message=>{const job=slot.job;if(!job||message.id!==job.id){if(message.value?.key)message.value.key.fill(0);return;}
+  worker.on('message',message=>{const job=slot.job;if(!job||message.id!==job.id){WipeResult(message.value);return;}
    slot.job=null;worker.unref();this.finishRun(job);
    if(performance.now()>=job.deadline)this.settle(job,Error('WORK_DEADLINE'),message.value);
    else this.settle(job,message.error?Error(message.error):null,message.value);
-   if(job.settled&&message.value?.key&&performance.now()>=job.deadline)message.value.key.fill(0);
    this.pump();this.observe();});
   worker.on('error',error=>{slot.broken=true;if(slot.job)this.settle(slot.job,Error('WORKER_FAILED'));slot.worker.terminate().catch(()=>{});this.observe();});
   worker.on('exit',()=>{if(slot.job){this.finishRun(slot.job);this.settle(slot.job,Error('WORKER_EXITED'));slot.job=null;}this.slots=this.slots.filter(x=>x!==slot);this.pump();this.observe();});

@@ -2,6 +2,7 @@ param(
  [string]$SourceRoot=(Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))),
  [Parameter(Mandatory)][string]$AFile,[Parameter(Mandatory)][string]$BFile,[Parameter(Mandatory)][string]$OFile,
  [Parameter(Mandatory)][string]$PackingReceiptsFile,[Parameter(Mandatory)][string]$PolicyFile,
+ [string]$ServerPoliciesFile,
  [Parameter(Mandatory)][ValidatePattern('^\d+(?:\.\d+){0,3}$')][string]$Version,
  [Parameter(Mandatory)][string]$ResultFile
 )
@@ -48,11 +49,14 @@ try {
  $npm=(Get-Command npm.cmd -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $null=Run-Observed 'dependencies' $env:ComSpec @('/d','/c',('"'+$npm+'" ci --engine-strict --ignore-scripts --no-audit --no-fund')) $web 900
  $inputFile=Join-Path $private 'selected-inputs.json'
- Write-CiJson $inputFile @{version=1;releaseVersion=$Version;artifacts=@{A=[IO.Path]::GetFullPath($AFile);B=[IO.Path]::GetFullPath($BFile);O=[IO.Path]::GetFullPath($OFile)};packingReceiptsFile=[IO.Path]::GetFullPath($PackingReceiptsFile);policyFile=[IO.Path]::GetFullPath($PolicyFile)}
+ $selectedInputs=@{version=1;releaseVersion=$Version;artifacts=@{A=[IO.Path]::GetFullPath($AFile);B=[IO.Path]::GetFullPath($BFile);O=[IO.Path]::GetFullPath($OFile)};packingReceiptsFile=[IO.Path]::GetFullPath($PackingReceiptsFile);policyFile=[IO.Path]::GetFullPath($PolicyFile)}
+ if($ServerPoliciesFile){$selectedInputs.serverPoliciesFile=[IO.Path]::GetFullPath($ServerPoliciesFile)}
+ Write-CiJson $inputFile $selectedInputs
  $helper=Join-Path $web 'ci\pipeline\peace.final-windows-inputs.js'
  $null=Run-Observed 'prepare' $node @($helper,'prepare',$inputFile,$work,$bundle) $web 120
  $input=Read-CiJson (Join-Path $bundle 'final-execution-inputs.json')
  $result.artifacts=$input.artifacts;$result.sourceManifestSha512=$input.sourceManifestSha512;$result.reviewedPolicySha512=$input.reviewedPolicySha512
+ if($input.ContainsKey('protectionEngine')){$result.protectionEngine=$input.protectionEngine;$result.fixtureEnrollmentApproval=$input.fixtureEnrollmentApproval;$result.serverPolicyAuthenticity=$input.serverPolicyAuthenticity}
  $secretExit=Run-Observed 'client-secrets' $node @((Join-Path $web 'tools\security\peace.audit-client-secrets.js'),(Join-Path $bundle 'A.exe'),(Join-Path $bundle 'B.exe'),(Join-Path $bundle 'O.exe')) $web 120 @(0,1)
  $secret=Read-CiJson (Join-Path $private 'client-secrets.log')
  if($secret.kind -ne 'CLIENT_STATIC_SECRET_CHECK' -or ($secretExit -eq 0 -and $secret.status -ne 'PASS') -or ($secretExit -eq 1 -and $secret.status -ne 'BLOCKED')){throw 'CI_FINAL_SECRET_REPORT_INVALID'}
@@ -68,7 +72,12 @@ try {
  $result.integrationAttempted=$true
  $null=Run-Observed 'integration' (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $web 'ci\pipeline\Integration-Control.ps1'),'-WorkRoot',$work,'-Output',$bundle,'-PrivateRoot',$private,'-Version',$Version) $work 300
  $integration=Read-CiJson (Join-Path $bundle 'integration-result.json')
- if($integration.outcome -ne 'PASS' -or @('ready','licenseConsumed','overlayFirstFrame','parentTransferred','parentExited','parentFilesDeleted','overlayClosed','serverSessionClosed').Where({$integration[$_] -ne $true}).Count -ne 0){throw 'CI_FINAL_INTEGRATION_INCOMPLETE'}
+ if($integration.outcome -ne 'PASS' -or @('ready','licenseConsumed','overlayFirstFrame','parentTransferred','parentExited','parentFilesDeleted','overlayClosed','serverSessionClosed','fixtureClaimObservationBarrierUsed').Where({$integration[$_] -ne $true}).Count -ne 0){throw 'CI_FINAL_INTEGRATION_INCOMPLETE'}
+ $result.fixtureClaimObservationBarrierUsed=$true
+ if($input.ContainsKey('protectionEngine') -and $input.protectionEngine -eq 'COZY_SERVER_POLICY_V2'){
+  if($integration.fixtureEnrollmentApprovalUsed -ne $true){throw 'CI_FINAL_FIXTURE_APPROVAL_INCOMPLETE'}
+  $result.fixtureEnrollmentApprovalUsed=$true
+ }
  $null=Run-Observed 'verify' $node @($helper,'verify',$bundle) $web 120
  $result.finalExecutionVerified=$true;$result.integration='PASS';$result.outcome=if($result.secretBoundary -eq 'PASS'){'PASS'}else{'BLOCKED'};$exit=if($result.outcome -eq 'PASS'){0}else{2}
 }catch{

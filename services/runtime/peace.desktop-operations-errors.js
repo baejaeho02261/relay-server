@@ -1,6 +1,12 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ COZY_VM_V1_EMBEDDED_KEY_RETIRED:['내장 키를 사용하는 기존 VM v1의 새 발급·게시가 중단됐습니다.','기존에 다운로드한 파일의 키가 제거된 것은 아닙니다.','최신 V2 소스로 A/B/O를 다시 빌드하고 Windows 실행·최종 서명 검증을 준비하세요.','deploy'],
+ COZY_SERVER_POLICY_SLOT_MISSING:['새 서버 정책 슬롯이 없는 템플릿입니다.','이 파일을 새 형식으로 변환하지 않았습니다.','최신 전체 소스의 A/B/O를 Win64 Release로 다시 빌드하세요.','deploy'],
+ COZY_SERVER_POLICY_LEGACY_FORMAT_REJECTED:['기존 VM 슬롯이 포함된 파일입니다.','기존 내장 키를 유지하는 변환을 거부했습니다.','최신 V2 소스에서 새 원본 A/B/O를 빌드하세요.','deploy'],
+ COZY_SERVER_POLICY_WINDOWS_CI_REQUIRED:['최종 A/B/O의 실제 Windows 검증이 필요합니다.','새 형식의 운영 게시를 보류했습니다.','Windows 빌드·API·실행 시험을 수행하고 신뢰된 CI 서명 증거를 준비하세요.','deploy'],
+ COZY_SERVER_POLICY_FINAL_ISSUED_SIGNING_REQUIRED:['최종 발급 A의 서명 절차가 아직 연결되지 않았습니다.','템플릿 뒤에 발급 설정을 붙인 파일은 템플릿 서명만으로 승인하지 않습니다.','최종 발급 파일 서명 또는 고정 서명 실행기 구조를 연결한 뒤 새 형식을 게시하세요.','deploy'],
+ COZY_SERVER_POLICY_ENFORCED_POLICY_REQUIRED:['새 형식에는 강제 검증 정책이 필요합니다.','관찰 모드나 불완전한 측정 정책으로 새 형식을 실행하지 않습니다.','읽기 전용 API·전체 CRC·배포 승인 서명을 포함한 강제 검증 정책을 설정하세요.','security'],
  ARTIFACT_EXPOSURE_BLOCKED:["배포물에서 비밀 또는 개발 정보 노출이 발견됐습니다.", "새 파일을 승인하거나 활성화하지 않았습니다.", "보안 자동 시험 · 탐지 · 배포물 검사에서 규칙과 위치를 확인하고, 개발 자료·비밀을 제외한 새 최종 파일로 검증하세요.", "deploy"],
  ARTIFACT_EXPOSURE_SCAN_REQUIRED:["이 최종 파일의 서버 검사 결과가 필요합니다.", "서버 재시작 또는 검사 캐시 정리 이후 아직 검사하지 않은 파일입니다.", "보안 자동 시험 · 탐지 · 배포물 검사에서 선택 A/B/O를 검사한 뒤 다시 활성화하세요. 현재 실행은 자동 폐기하지 않습니다.", "deploy"],
  RESOURCE_BACKGROUND_HELD:["새 고비용 작업이 일시 보류 중입니다.", "기존 실행 권한을 변경하거나 새 권한을 발급하지 않습니다.", "보안 탐지 화면에서 보류 사유·남은 시간을 확인하세요.", "security"],

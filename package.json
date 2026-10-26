@@ -121,7 +121,8 @@
     "test:packing:linkage": "node --test tests/artifacts/peace.test-packing-evidence.js tests/security/peace.test-packed-release-pair.js tests/artifacts/peace.test-packing-jobs.js",
     "test:protection:own": "node --test tests/artifacts/peace.test-cozy-protection-engine.js tests/bootstrap/peace.test-launcher-config.js tests/artifacts/peace.test-packing-jobs.js tests/security/peace.test-packed-release-pair.js",
     "test:server-authority:bypass": "node --test tests/security/peace.test-server-authority-bypass.js",
-    "security:client-secrets": "node tools/security/peace.audit-client-secrets.js"
+    "security:client-secrets": "node tools/security/peace.audit-client-secrets.js",
+    "test:server-keyless": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js tests/security/peace.test-server-policy-registry.js tests/runtime/peace.test-server-policy-worker.js tests/runtime/peace.test-worker-result-ownership.js"
   },
   "engines": {
     "node": "24.22.1"

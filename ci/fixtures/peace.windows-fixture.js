@@ -12,12 +12,16 @@ function Write(name,value){const target=path.join(run,name),tmp=target+'.next';f
  // Never publish audit rows, HWID, ephemeral tokens or license input in CI logs.
  console.log=()=>{};console.error=()=>{};
  require("../../services/storage/peace.desktop-single-writer").Acquire(data);require("../../core/peace.utilities.js").EnsureDirs();require("../../storage/snapshots/peace.database.js").LoadDatabase();require("../../services/devices/peace.desktop-machine-policy").Load();require("../../services/licensing/peace.desktop-licenses").ReconcileOperations();
- const {Provision,Status}=require('./peace.fixture-services');const bootstrap=require("../../services/bootstrap/peace.desktop-bootstrap");Provision(run,out,version);
+ const {Provision,Status,KeylessApproval,ClaimObservationBarrier}=require('./peace.fixture-services');const bootstrap=require("../../services/bootstrap/peace.desktop-bootstrap");Provision(run,out,version);
  const profileState=profileMode?require('./peace.profile-fixture').Register(run,out,profileMode):null;
- function CurrentStatus(){const status=Status();if(profileState)status.mitigationProfile=require('./peace.profile-fixture').Status(profileState);return status;}
+ let approveFixtureEnrollment=null,claimBarrier=null;
+ function CurrentStatus(){const status=Status();status.fixtureEnrollmentApprovalUsed=approveFixtureEnrollment?approveFixtureEnrollment():false;status.fixtureClaimObservationBarrierUsed=claimBarrier?claimBarrier.Used():false;if(profileState)status.mitigationProfile=require('./peace.profile-fixture').Status(profileState);return status;}
  listener=require("../../services/network/peace.desktop-connect").CreateServer();await new Promise((resolve,reject)=>{listener.once('error',reject);listener.listen(0,'127.0.0.1',resolve);});process.env.DESKTOP_PUBLIC_PORT=String(listener.address().port);
  const license=require("../../services/licensing/peace.desktop-licenses").Create({requestId:crypto.randomUUID(),label:'Ephemeral Windows CI'},'ISOLATED_WINDOWS_CI');
  const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Ephemeral Windows CI',licenseId:license.license.id},'ISOLATED_WINDOWS_CI');
+ approveFixtureEnrollment=KeylessApproval(run,out,issue);
+ claimBarrier=ClaimObservationBarrier(run,()=>Write('status.json',CurrentStatus()));
+ process.once('exit',()=>claimBarrier.Restore());
  license.licenseKey=''; // Assigned server-side; do not persist an unused plaintext copy.
  const launchDir=path.join(run,'execution');fs.mkdirSync(launchDir);const launcher=path.join(launchDir,issue.downloadName);fs.writeFileSync(launcher,bootstrap.LauncherBytes(issue.launcherId),{flag:'wx',mode:0o600});
  Write('input.json',{launcher,licenseKey:''});Write('status.json',CurrentStatus());let stopping=false;

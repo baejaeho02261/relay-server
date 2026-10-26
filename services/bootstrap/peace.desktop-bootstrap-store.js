@@ -26,7 +26,7 @@ function Crc(x){return typeof x==='string'&&/^[A-F0-9]{16}$/.test(x);}
 function ExtendedFields(row){return ['xxh3_128','codeXxh3_128'].every(key=>row[key]===undefined||typeof row[key]==='string'&&/^[a-f0-9]{32}$/.test(row[key]))&&['blake3','codeBlake3'].every(key=>row[key]===undefined||Digest(row[key]));}
 function Machine(x){return typeof x==='string'&&/^[A-F0-9]{64}$/.test(x);}
 function Invalid(){throw Error('BOOTSTRAP_STORAGE_INVALID');}
-function OwnProtection(v,role){try{require('../artifacts/peace.cozy-protection-engine').ValidateMetadata(v);if(v.state==='SEALED'&&v.role!==role)Invalid();}catch(_){Invalid();}}
+function OwnProtection(v,role){try{require('../artifacts/peace.cozy-protection-engine').ValidateMetadata(v);if(['SEALED','BOUND'].includes(v.state)&&v.role!==role)Invalid();}catch(_){Invalid();}}
 
 function TokenHash(secret,domain,id,nonce,legacy=false){return crypto.createHash('sha256').update(crypto.createHmac('sha256',Buffer.from(secret,'hex')).update([legacy?LEGACY_TOKEN_DOMAIN:'GAME-A80',domain,id,nonce].join('|')).digest('base64url')).digest('hex');}
 function Load(){
@@ -49,6 +49,7 @@ function Load(){
   if(value.serverAuditOutbox!==undefined)require("../storage/peace.desktop-operation-audit").Validate(value.serverAuditOutbox);
   if(value.deviceRegistry!==undefined)require("../devices/peace.desktop-device-registry").Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require("../devices/peace.desktop-device-identity").Validate(value.deviceIdentity);
+  if(value.serverPolicies!==undefined)require('../security/peace.server-policy-registry').ValidateStore(value);
   if(value.orphanQuarantine!==undefined)require("../storage/peace.desktop-orphan-files").Validate(value.orphanQuarantine);
   if(value.manualVerifications!==undefined)require("../runtime/peace.desktop-manual-verification").Validate(value.manualVerifications);
   if(value.adminCredentialRevocations!==undefined)require("../authentication/peace.admin-credential-revocations").Validate(value.adminCredentialRevocations);
@@ -93,8 +94,9 @@ function Load(){
    if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!StrongDigest(row.sha512)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
    if(row.assignedLicenseId!==undefined&&!Identifier(row.assignedLicenseId,'DL'))Invalid();
    const own=value.artifacts[row.artifactId].ownProtection;
-   if(row.configFormat!==undefined){if(row.configFormat!=='COZY_A_CONFIG_V2'||own?.state!=='SEALED'||own.role!=='A'||(row.retiredAt===undefined?typeof row.configNonce!=='string'||!/^[a-f0-9]{24}$/.test(row.configNonce):row.configNonce!==undefined))Invalid();}
-   else if(row.configNonce!==undefined||own?.state==='SEALED')Invalid();
+   if(row.configFormat==='COZY_A_CONFIG_V3'){if(own?.engine!=='COZY_SERVER_POLICY_V2'||own.state!=='BOUND'||own.role!=='A'||row.configNonce!==undefined)Invalid();}
+   else if(row.configFormat!==undefined){if(row.configFormat!=='COZY_A_CONFIG_V2'||own?.state!=='SEALED'||own.role!=='A'||(row.retiredAt===undefined?typeof row.configNonce!=='string'||!/^[a-f0-9]{24}$/.test(row.configNonce):row.configNonce!==undefined))Invalid();}
+   else if(row.configNonce!==undefined||['SEALED','BOUND'].includes(own?.state))Invalid();
 
    if(row.releaseSelection!==undefined){try{require("../artifacts/peace.desktop-release-safety").ValidateSelection(value,row.releaseSelection);if(row.releaseSelection.A.id!==row.artifactId)Invalid();}catch(_){Invalid();}}
    if(row.crc64!==undefined&&!Crc(row.crc64)||!ExtendedFields(row))Invalid();
@@ -105,6 +107,7 @@ function Load(){
   }
   const sessionIds=new Set();
   for(const [id,row]of Object.entries(value.flows)){
+   if(value.launchers[row.launcherId]?.configFormat==='COZY_A_CONFIG_V3'){if(typeof row.keylessPersistentKeyId!=='string'||!/^[A-F0-9]{64}$/.test(row.keylessPersistentKeyId))Invalid();}else if(row.keylessPersistentKeyId!==undefined)Invalid();
    if(!Identifier(id,'BF')||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED','EXPIRED'].includes(row.status)||!Identifier(row.sessionId,'DS')||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!StrongDigest(row.launcherSha512)||!Digest(row.downloadHash)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
    try{require('./peace.desktop-handoff-delegation').ValidateIdentity(row);}catch(_){Invalid();}
    if(require('./peace.desktop-handoff-delegation').Version(row)!==require('./peace.desktop-handoff-delegation').Version(value.artifacts[row.releaseId])||require('./peace.desktop-handoff-delegation').Version(row)!==require('./peace.desktop-handoff-delegation').Version(value.artifacts[value.launchers[row.launcherId].artifactId])||row.overlayReleaseId&&require('./peace.desktop-handoff-delegation').Version(row)!==require('./peace.desktop-handoff-delegation').Version(value.artifacts[row.overlayReleaseId]))Invalid();

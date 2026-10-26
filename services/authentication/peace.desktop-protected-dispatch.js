@@ -5,6 +5,11 @@
 const crypto=require('node:crypto'),protocol=require("../protocol/peace.desktop-request-protocol");
 const tickets=new WeakMap();
 const ROUTES=Object.freeze({
+ 'bootstrap.keylessPolicy': ['bootstrap','PUBLIC_LIVE_V3_LAUNCHER','PUBLIC_DEVICE_POLICY_ONLY'],
+ 'bootstrap.keylessChallenge': ['bootstrap','EXACT_V3_FILE_AND_DEVICE_POLICY','BOUNDED_NONCE_NOT_AUTHORITY'],
+ 'bootstrap.keylessProve': ['bootstrap','DUAL_SIGNED_NONCE','REQUEST_ADMIN_APPROVAL_ONLY'],
+ 'bootstrap.keylessStatus': ['bootstrap','DUAL_SIGNED_BOUND_REQUEST','APPROVAL_STATUS_NO_RENEWAL'],
+ 'bootstrap.beginKeyless': ['bootstrap','DUAL_PROOF_AND_EXPLICIT_ADMIN_APPROVAL','CONSUME_ONCE_BOUND_FLOW'],
  'bootstrap.begin': ['bootstrap','LAUNCHER_TICKET_AND_COHORT','CREATE_BOUND_FLOW'],
  'bootstrap.download': ['bootstrap','DOWNLOAD_TICKET_LIVE_FLOW_COHORT','READ_EXACT_B_BYTES'],
  'bootstrap.finish': ['bootstrap','SIGNED_FINISH_AND_FRESH_MEASUREMENT','ISSUE_CHILD_HANDOFF'],

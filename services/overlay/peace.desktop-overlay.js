@@ -144,6 +144,17 @@ function RetireForParent(db,parent){
   item.reason='PARENT_'+item.status;Retire(item);
  }
 }
+// A failed child lease/revocation invalidates the still-running parent in the
+// same durable transaction. Normal optional-overlay close/abort does not. A
+// completed B->O transfer already retired B and remains a one-way transition.
+// This is server lease retirement, not client suspension/debugger detection.
+function RetireParentForFailure(db,row,status){
+ const parent=db.flows[row.parentFlowId];
+ if(!parent||parent.sessionId!==row.parentSessionId||parent.status!=='CLAIMED')return;
+ parent.status=status;parent.reason='OVERLAY_'+status;
+ if(status==='REVOKED')parent.revokedAt=now();else parent.closedAt=now();
+ Boot().RetireFlow(parent,db);
+}
 function AbortCanonical(parentId,scope,identifier){return ['GAME-OVERLAY-ABORT-V3',parentId,scope,identifier].join('\n');}
 function AbortResult(parent,row){return {handoffVersion:3,parentSessionId:parent.sessionId,overlayId:row?.id||'',status:row?.status||'NOT_PREPARED'};}
 function Abort(body){
@@ -173,8 +184,8 @@ function ValidateParentCancellation(db,parent){
  if(value.overlayId){const row=db.overlays?.[value.overlayId];if(!row||row.parentFlowId!==parent.id||row.requestId!==value.requestId||!TERMINAL.includes(row.status)||row.transferVersion!==undefined)throw Error('OVERLAY_STORE_INVALID');}
  else if(Object.values(db.overlays||{}).some(row=>row.parentFlowId===parent.id))throw Error('OVERLAY_STORE_INVALID');
 }
-function Revoke(sessionId,body,actor){const row=Object.values(Rows()).find(r=>r.sessionId===sessionId);if(!row)Fail('BOOTSTRAP_SESSION_INVALID',404);Atomic('OVERLAY_REVOKE',actor,next=>{const item=next.overlays[row.id];item.status='REVOKED';item.revokedAt=now();item.reason=String(body.reason||'REVOKED').slice(0,300);Retire(item);});Audit('REVOKED',row);return View(Rows()[row.id]);}
-function Prune(){const expired=Object.values(Rows()).filter(r=>!TERMINAL.includes(r.status)&&Expired(r)),receipts=Object.values(store.Load().flows).filter(r=>r.transferRecoveryUntil!==undefined&&require("../runtime/peace.desktop-deadline").persistent.expired('O.transfer-recovery:'+r.id,r.transferredAt,r.transferRecoveryUntil));if(expired.length||receipts.length)Atomic('OVERLAY_PRUNE','SERVER',next=>{for(const row of expired){const item=next.overlays[row.id];item.status='EXPIRED';Retire(item);}for(const row of receipts){const item=next.flows[row.id];delete item.transferReceiptHash;delete item.transferFingerprint;delete item.transferRecoveryUntil;store.AfterCommit(()=>require("../runtime/peace.desktop-deadline").persistent.forget('O.transfer-recovery:'+row.id));}});}
+function Revoke(sessionId,body,actor){const row=Object.values(Rows()).find(r=>r.sessionId===sessionId);if(!row)Fail('BOOTSTRAP_SESSION_INVALID',404);Atomic('OVERLAY_REVOKE',actor,next=>{const item=next.overlays[row.id];item.status='REVOKED';item.revokedAt=now();item.reason=String(body.reason||'REVOKED').slice(0,300);Retire(item);RetireParentForFailure(next,item,'REVOKED');});Audit('REVOKED',row);return View(Rows()[row.id]);}
+function Prune(){const expired=Object.values(Rows()).filter(r=>!TERMINAL.includes(r.status)&&Expired(r)),receipts=Object.values(store.Load().flows).filter(r=>r.transferRecoveryUntil!==undefined&&require("../runtime/peace.desktop-deadline").persistent.expired('O.transfer-recovery:'+r.id,r.transferredAt,r.transferRecoveryUntil));if(expired.length||receipts.length)Atomic('OVERLAY_PRUNE','SERVER',next=>{for(const row of expired){const item=next.overlays[row.id];item.status='EXPIRED';item.reason='LEASE_EXPIRED';Retire(item);RetireParentForFailure(next,item,'EXPIRED');}for(const row of receipts){const item=next.flows[row.id];delete item.transferReceiptHash;delete item.transferFingerprint;delete item.transferRecoveryUntil;store.AfterCommit(()=>require("../runtime/peace.desktop-deadline").persistent.forget('O.transfer-recovery:'+row.id));}});}
 function View(row){return {id:row.sessionId,flowId:row.id,parentSessionId:row.parentSessionId,component:'O',status:row.status,online:row.status==='CLAIMED'&&row.sessionExpiresAt>now(),deviceId:row.deviceId,machineId:row.machineId,releaseId:row.releaseId,licenseId:row.licenseId,createdAt:row.createdAt,claimedAt:row.claimedAt||0,expiresAt:row.sessionExpiresAt||row.expiresAt,lastVerifiedAt:row.lastVerifiedAt,reason:row.reason||'',startup:require('./peace.desktop-overlay-startup').View(row.sessionId)};}
 function List(){Prune();return Object.values(Rows()).map(View);}
 function Audit(kind,row){try{require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_OVERLAY_'+kind,JSON.stringify({overlayId:row.id,sessionId:row.sessionId,parentSessionId:row.parentSessionId,licenseId:row.licenseId,releaseId:row.releaseId}));}catch(_){console.error('OVERLAY_AUDIT_FAILED');}}

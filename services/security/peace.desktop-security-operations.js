@@ -173,6 +173,11 @@ function RequirePairEvidence(a,b,s=State(),o=null) { const e=s.pairEvidence[Pair
 function CozyProtectionReason(a,b,o,s){
   const rows=[a,b,o],metadata=rows.map(row=>row?.ownProtection);
   if(!metadata.some(Boolean))return s.requireCozyProtection?'COZY_PROTECTION_REQUIRED':'';
+  if(metadata.some(m=>m?.engine==='COZY_SERVER_POLICY_V2')){
+    if(metadata.some((m,i)=>!m||m.engine!=='COZY_SERVER_POLICY_V2'||m.version!==2||m.state!=='BOUND'||m.role!==['A','B','O'][i]))return 'COZY_PROTECTION_COHORT_INCOMPLETE';
+    for(const row of rows){const reason=require('./peace.server-policy-registry').Reason(store.Load(),row);if(reason)return reason;}
+    return '';
+  }
   if(metadata.some((m,i)=>!m||m.engine!=='COZY_VM_V1'||m.version!==1||m.state!=='SEALED'||m.role!==['A','B','O'][i]))return 'COZY_PROTECTION_COHORT_INCOMPLETE';
   if(metadata[0].configProtection!=='COZY_A_CONFIG_V2')return 'COZY_PROTECTION_CONFIG_REQUIRED';
   return '';
@@ -185,9 +190,10 @@ function PackingView(db,a,b,o,s){
   // execution and arbitrary source translation are separate claims.
   return {status:reason?'REJECTED':recorded?'RECEIPTS_VERIFIED':'NOT_RECORDED',reason,
     required:s.requirePackingEvidence===true,receiptsVerified:recorded&&!reason,
-    ownEngine:own?'COZY_VM_V1':null,ownEngineRequired:s.requireCozyProtection===true,
-    proofScope:own?'SELECTED_EXPRESSION_VM':'TRANSFORMED_TEMPLATES_ONLY',windowsVerified:false,
-    issuedAConfigurationProtected:own};
+    ownEngine:own?a.ownProtection.engine:null,ownEngineRequired:s.requireCozyProtection===true,
+    proofScope:own?(a.ownProtection.engine==='COZY_SERVER_POLICY_V2'?'SERVER_POLICY_BINDING':'LEGACY_SELECTED_EXPRESSION_VM'):'TRANSFORMED_TEMPLATES_ONLY',windowsVerified:false,
+    keylessBootstrap:own&&a.ownProtection.engine==='COZY_SERVER_POLICY_V2',
+    issuedAConfigurationProtected:own&&a.ownProtection.engine==='COZY_VM_V1'};
 }
 function RequireRuntimePair(a,b,o=null) {
   // Role order and protocol compatibility are mandatory even with legacy optional QA policy.
@@ -211,6 +217,14 @@ function PreviewPair(body, production = false) {
   const packing=PackingView(store.Load(),a,b,o,s);if(packing.reason)reasons.push(packing.reason);
   const e=s.pairEvidence[PairKey(a,b,o)]||null;
   const release=ReleaseView(a,b,o,s);if(release.reason)reasons.push(release.reason);
+  const keyless=selectedRows.some(row=>row.ownProtection?.engine==='COZY_SERVER_POLICY_V2');
+  if(keyless&&(p.mode!=='enforce'||!p.requireReadonlyApi||!p.requireCompleteCrcLayers||!p.requireReleaseSignature))reasons.push('COZY_SERVER_POLICY_ENFORCED_POLICY_REQUIRED');
+  if(production&&keyless&&(release.ciVerification!=='SIGNATURE_VERIFIED'||!release.ciOutcomes||['nativeBuild','apiProbe','integration'].some(k=>release.ciOutcomes[k]!=='PASS')))reasons.push('COZY_SERVER_POLICY_WINDOWS_CI_REQUIRED');
+  // V3 issuance appends public bootstrap bytes after the template. Until the
+  // final issued A is independently signed (or issuance uses a fixed signed
+  // launcher), template signatures and Windows CI cannot approve those bytes.
+  if(production&&keyless)reasons.push('COZY_SERVER_POLICY_FINAL_ISSUED_SIGNING_REQUIRED');
+  if(production&&selectedRows.some(row=>row.ownProtection?.engine==='COZY_VM_V1'))reasons.push('COZY_VM_V1_EMBEDDED_KEY_RETIRED');
   const publicationSafety=production?require("../artifacts/peace.desktop-release-safety").EvaluateCohort(store.Load(),[a,b,o],release.manifestId,{sameActive:true}):null;
   if(publicationSafety&&!publicationSafety.eligible)reasons.push(publicationSafety.reason);
   if(s.requireTestEvidence&&(!e||['nativeBuild','apiProbe','integration'].some(k=>e[k]!=='PASS'))) reasons.push('SECURITY_TEST_EVIDENCE_REQUIRED');
@@ -228,7 +242,7 @@ function ActivatePair(body,actor,recoveryId='',production=false) {
   // One-way transition: only activation of a fully receipt-bound A/B/O set
   // enables this floor. No HTTP setter clears it, including recovery paths.
   if(view.packing.receiptsVerified)s.requirePackingEvidence=true;
-  if(view.packing.ownEngine==='COZY_VM_V1')s.requireCozyProtection=true;
+  if(['COZY_VM_V1','COZY_SERVER_POLICY_V2'].includes(view.packing.ownEngine))s.requireCozyProtection=true;
   if(production)s.releaseGovernance.minimumSecurityVersion=Math.max(s.releaseGovernance.minimumSecurityVersion,view.release.securityVersion);
   s.revision++;s.activations.push({at:Date.now(),actor:Actor(actor),aId:a.id,bId:b.id,aSha512:a.sha512,bSha512:b.sha512,previousA:db.active.A||'',previousB:db.active.B||'',...(o||db.active.O?{oId:o?.id||'',oSha512:o?.sha512||'',previousO:db.active.O||''}:{}),policyRevision:body.expectedPolicyRevision,operationsRevision:s.revision,...(view.release.manifestId?{manifestId:view.release.manifestId}:{}),...(recoveryId?{recoveryId}:{})});s.activations=s.activations.slice(-100);
   if(recoveryId){const plan=s.releaseGovernance.recoveryPlans[recoveryId];if(!plan||plan.status!=='PREPARED')Fail('SECURITY_RECOVERY_INVALID');plan.status='APPLIED';plan.appliedAt=Date.now();}

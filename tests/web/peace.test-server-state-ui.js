@@ -41,6 +41,8 @@ async function waitFor(test){for(let i=0;i<100;i++){if(test())return;await new P
  await waitFor(()=>w.document.querySelector('#server-state-status')?.textContent==='서버에서 처리를 확정했습니다.');
  const posts=calls.filter(c=>c.options?.method==='POST');assert.equal(posts.length,2);assert.equal(posts[1].options.body.expectedRevision,1);assert.notEqual(posts[1].options.body.requestId,posts[0].options.body.requestId);
  assert([...w.document.querySelectorAll('#server-capabilities-table .server-state-values>div')].some(row=>row.querySelector('dt')?.textContent==='revision'&&row.querySelector('dd')?.textContent==='2'));
- close(false);await done;assert.equal(w.document.querySelector('#desktop-server-state-root').childNodes.length,0);
+ let approvalsOpened=0;w.showDesktopFirstDeviceApproval=async()=>{approvalsOpened++;};w.modalCancel={click:()=>close(false)};
+ w.document.querySelector('[data-server-state-action="first-device-approval"]').click();
+ await waitFor(()=>approvalsOpened===1);await done;assert.equal(w.document.querySelector('#desktop-server-state-root').childNodes.length,0);
  console.log('SERVER STATE UI PASS: capability/configuration/verification separated and escaped; unfinished compaction explicit; refreshed revision; modal state cleared.');
 }finally{dom.window.close();}})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -81,7 +81,7 @@ test('Shutdown reporter uses shared deadlines and never claims its own observed 
 });
 test('A and B obtain permits before authority handoff and refresh during long active lifetimes', () => {
   const runA = launcher.split('function RunLauncher: Integer;')[2];
-  order(runA, ['Client.BeginFlow(', "Lifecycle.Prepare('A'", 'Client.ReportIntegrity(']);
+  order(runA, ['Client.BeginKeylessFlow(', "Lifecycle.Prepare('A'", 'Client.ReportIntegrity(']);
   order(runA, ["Lifecycle.Prepare('A'", 'Grant := Client.Finish(', 'HandoffSucceeded := LaunchWithHandoff(']);
   assert.match(launcher, /Bytes := Client\.Chunk\(Flow, Offset\);\s+if Lifecycle <> nil then Lifecycle\.Prepare\('A'/);
   order(consoleSource, ['Session := Bootstrap.Claim(', "Lifecycle.Prepare('B'", "Lifecycle.Prepare('A'", 'Context.CompleteClaimAndCleanup(']);

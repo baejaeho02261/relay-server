@@ -124,15 +124,15 @@ function Scenario(name){
     assert.ok(beforeRegistration.reasons.includes('SECURITY_RELEASE_MANIFEST_NOT_REGISTERED'));
     m.ops.RecordReleaseManifest({expectedRevision:m.ops.Revision(),manifestId:plan.manifestId,manifest:plan.manifest},'SYNTHETIC_OPERATOR');
     const preview=m.ops.PreviewProductionPair(Select(rows));
-    assert.equal(preview.eligible,true,JSON.stringify(preview.reasons));
+    assert.equal(preview.eligible,false);
+    assert.ok(preview.reasons.includes('COZY_VM_V1_EMBEDDED_KEY_RETIRED'),JSON.stringify(preview.reasons));
     assert.equal(preview.packing.windowsVerified,false);
     assert.equal(preview.packing.receiptsVerified,true);
     assert.equal(preview.release.ciVerification,'NOT_PROVIDED');
-    const published=m.ops.ActivateProductionPair({...Select(rows),expectedRevision:m.ops.Revision(),expectedPolicyRevision:m.auth.Policy().revision},'SYNTHETIC_OPERATOR');
-    assert.equal(published.eligible,true);
-    assert.deepEqual(m.store.Load().active,Object.fromEntries(ROLES.map(role=>[role,rows[role].id])));
-    assert.equal(m.ops.State().requireCozyProtection,true);
-    assert.equal(m.ops.State().requirePackingEvidence,true);
+    ReadOnlyFailure(m,()=>m.ops.ActivateProductionPair({...Select(rows),expectedRevision:m.ops.Revision(),expectedPolicyRevision:m.auth.Policy().revision},'SYNTHETIC_OPERATOR'),'COZY_VM_V1_EMBEDDED_KEY_RETIRED');
+    assert.deepEqual(m.store.Load().active,{});
+    assert.equal(m.ops.State().requireCozyProtection,false);
+    assert.equal(m.ops.State().requirePackingEvidence,false);
     assert.equal(m.auth.Policy().requireReleaseSignature,true);
     assert.equal(JSON.stringify(m.ops.State().releaseGovernance.manifests[original.manifestId]),originalRecord);
     return;
@@ -192,7 +192,7 @@ if(process.argv[2]==='--scenario'){
 }else{
   const test=require('node:test');
   const scenarios=[
-    ['publish','sealed outputs get a distinct manifest and exact new signatures before real three-role publication'],
+    ['publish','legacy VM outputs retain exact manifest and signature checks but production publication is retired'],
     ['invalid-request','revision, policy, job and undeclared hash substitution fail without state mutation'],
     ['policy-change','a policy change cannot silently rewrite an already planned output cohort'],
     ['revoked-source','revoked source approvals cannot authorize a new packed declaration'],

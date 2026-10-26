@@ -27,6 +27,7 @@ function makeContext(stage){
  return {stage,device,bytes:Buffer.concat(chunks),artifactId:claimed.release.id,sessionId:claimed.sessionId,overlayId:prepared.overlayId,parentSessionId:session.sessionId,auth:{stage,sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:device.machineId}};
 }
 function ownPayload(ctx){const file=integrity.Digests(ctx.bytes),code=integrity.CodeImage(ctx.bytes);return {version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:code.sha512,codeCrc64:code.crc64,fileXxh3_128:file.xxh3_128,fileBlake3:file.blake3,codeXxh3_128:code.xxh3_128,codeBlake3:code.blake3},crcLayers:code.crcLayers};}
+function ownFilePayload(ctx){const payload=ownPayload(ctx),file=integrity.Digests(ctx.bytes);Object.assign(payload.own,{fileSha512:file.sha512,fileCrc64:file.crc64});return payload;}
 function signed(ctx,payload){const challenge=reports.Execute({...ctx.auth,action:'challenge'}),text=JSON.stringify(payload);return {...ctx.auth,action:'submit',reportId:challenge.reportId,payload:text,signature:fixture.Sign(ctx.device,reports.Canonical(ctx.auth.sessionId,challenge,text))};}
 function state(ctx){const db=bootstrap.Initialize();return ctx.stage==='O'?db.overlays[ctx.overlayId]:db.flows[ctx.flowId];}
 function record(ctx){return reports.List({sessionId:ctx.sessionId}).items.find(item=>item.check==='OWN_CODE');}
@@ -54,7 +55,33 @@ try{
   if(stage==='A'){const artifact=bootstrap.Initialize().artifacts[ctx.artifactId];assert.notEqual(integrity.Digests(ctx.bytes).sha512,artifact.sha512);assert.equal(payload.own.codeSha512,artifact.codeSha512);}
   assert.equal(reports.Execute(signed(ctx,payload)).status,'VERIFIED');
   withLegacyBaseline(ctx,partial=>{payload.crcLayers=partial;const row=expectRejected(ctx,payload,'CRC_COVERAGE_INCOMPLETE');assert.equal(row.crcComparison.matched,true);assert.equal(row.crcComparison.complete,false);});
-  if(stage==='O')assert.equal(Object.values(bootstrap.Initialize().flows).find(row=>row.sessionId===ctx.parentSessionId).status,'CLAIMED');
+  if(stage==='O'){
+   const parent=Object.values(bootstrap.Initialize().flows).find(row=>row.sessionId===ctx.parentSessionId);
+   assert.equal(parent.status,'REVOKED');assert.equal(parent.sessionNonce,undefined);assert.equal(parent.downloadNonce,undefined);
+  }
+ });
+ for(const stage of ['A','B','O'])check(stage+': exact issued file SHA-512 and CRC64 are compared independently',()=>{
+  const ctx=makeContext(stage),payload=ownFilePayload(ctx);
+  if(stage==='A')assert.notEqual(payload.own.fileSha512,bootstrap.Initialize().artifacts[ctx.artifactId].sha512);
+  assert.equal(reports.Execute(signed(ctx,payload)).status,'VERIFIED');
+  const row=record(ctx);assert.equal(row.fileHashesReported,true);assert.equal(row.fileHashesVerified,true);
+  assert.equal(row.observedFileSha512,payload.own.fileSha512);assert.equal(row.expectedFileSha512,payload.own.fileSha512);
+  assert.equal(row.observedFileCrc64,payload.own.fileCrc64);assert.equal(row.expectedFileCrc64,payload.own.fileCrc64);
+ });
+ for(const stage of ['A','B','O'])for(const field of ['fileSha512','fileCrc64'])check(stage+': '+field+' mismatch revokes the matching session',()=>{
+  const ctx=makeContext(stage),payload=ownFilePayload(ctx);payload.own[field]=different(payload.own[field]);
+  const row=expectRejected(ctx,payload,'FILE_HASH_MISMATCH');assert.equal(row.fileHashesReported,true);assert.equal(row.fileHashesVerified,false);
+ });
+ check('Legacy file-field omission is explicit and never claims a file SHA-512/CRC64 comparison',()=>{
+  const ctx=makeContext('A');assert.equal(reports.Execute(signed(ctx,ownPayload(ctx))).status,'VERIFIED');
+  const row=record(ctx);assert.equal(row.fileHashesReported,false);assert.equal(row.fileHashesVerified,false);
+  assert.equal(Object.hasOwn(row,'observedFileSha512'),false);assert.equal(Object.hasOwn(row,'observedFileCrc64'),false);
+ });
+ check('Partial, empty and malformed file digest pairs are rejected before evidence is recorded',()=>{
+  for(const change of [p=>delete p.own.fileSha512,p=>delete p.own.fileCrc64,p=>{p.own.fileSha512='';p.own.fileCrc64='';},p=>{p.own.fileCrc64='not-a-crc';}]){
+   const ctx=makeContext('A'),payload=ownFilePayload(ctx);change(payload);
+   assert.throws(()=>reports.Execute(signed(ctx,payload)),/INTEGRITY_REPORT_INVALID/);assert.equal(state(ctx).status,'STARTED');assert.equal(record(ctx),undefined);
+  }
  });
  check('Code SHA512/CRC64 mismatch keeps its existing failure code',()=>{
   for(const field of ['codeSha512','codeCrc64']){const ctx=makeContext('A'),payload=ownPayload(ctx);payload.own[field]=different(payload.own[field]);expectRejected(ctx,payload,'CODE_HASH_MISMATCH');}
