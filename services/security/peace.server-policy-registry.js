@@ -122,4 +122,15 @@ function RequireOperation(db, row, stage, grant) {
   const record = db.serverPolicies[artifact.ownProtection.policyId];
   if (policy.EvaluateServerPolicy(record, 1, [ROLES.indexOf(stage) + 1, 1, 1]) !== 1) Fail('OPERATION_REJECTED', 403);
 }
-module.exports = { MAX, ValidateStore, RecordJob, RecordPoliciesForExistingReceipts, Reason, RequireOperation };
+function InvocationRecord(db, row, stage, policyId, functionId, args) {
+  if (!plain(db) || !plain(db.artifacts) || !ROLES.includes(stage) || !plain(row)) Fail('OPERATION_CONTEXT_INVALID', 403);
+  const artifact = stage === 'A' ? db.artifacts[db.launchers?.[row.launcherId]?.artifactId] : db.artifacts[row.releaseId];
+  if (!artifact || artifact.component !== stage || artifact.ownProtection?.engine !== policy.ENGINE ||
+      artifact.ownProtection.policyId !== policyId) Fail('OPERATION_POLICY_MISMATCH', 403);
+  const reason = Reason(db, artifact);
+  if (reason) { const error = Error(reason); error.desktopError = true; error.status = 403; throw error; }
+  const record = db.serverPolicies[policyId];
+  policy.ValidateInvocation(record, functionId, args);
+  return record; // Internal only: never serialize this return value to clients.
+}
+module.exports = { MAX, ValidateStore, RecordJob, RecordPoliciesForExistingReceipts, Reason, RequireOperation, InvocationRecord };

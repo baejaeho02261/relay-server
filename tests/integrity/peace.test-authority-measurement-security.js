@@ -9,12 +9,12 @@ const keys=crypto.generateKeyPairSync('rsa',{modulusLength:2048});
 function Fixture(mode='enforce'){
  const artifact={id:'BUILD-B',component:'B',version:'1.0',authorityVersion:1,hashVersion:3,ownMeasurementVersion:1,sha512:'a'.repeat(128),crc64:'A'.repeat(16),codeSha512:baseline.sha512,codeCrc64:baseline.crc64,codeXxh3_128:baseline.xxh3_128,codeBlake3:baseline.blake3,crcLayers:structuredClone(baseline.crcLayers)};
  const row={id:'FLOW',sessionId:'SESSION',releaseId:artifact.id,machineId:'A'.repeat(64),publicKey:'ISOLATED_PUBLIC_KEY',integrityArtifact:artifact};
- const db={artifacts:{[artifact.id]:artifact},launchers:{}};let operationsRevision=1,enabled=true;
+ const db={artifacts:{[artifact.id]:artifact},launchers:{}};let operationsRevision=1,enabled=true,revoked=0;
  const fail=code=>{const e=Error(code);e.desktopError=true;throw e;};
- const ops={EffectivePolicy:p=>p,Revision:()=>operationsRevision,ArtifactReason:()=>'',EvaluateContract:()=>null};
+ const ops={PointerGraphSlots:()=>10,EffectivePolicy:p=>p,Revision:()=>operationsRevision,ArtifactReason:()=>'',EvaluateContract:()=>null};
  const auth=Isolated("services/security/peace.desktop-security-authority.js",['pending','decisions','receipts'],{
   "../bootstrap/peace.desktop-bootstrap-store":{Load:()=>db},"../../storage/audit/peace.audit.js":{LogEvent(){}},'./peace.desktop-security-operations':ops,
-  "../bootstrap/peace.desktop-bootstrap":{EnsureSecurityAvailable(){if(!enabled)fail('SERVICE_DISABLED');},AuthenticateIntegrityReport(body){if(body.sessionId!==row.sessionId||body.sessionToken!=='SESSION_SECRET'||body.machineId!==row.machineId)fail('SESSION_INVALID');return row;}},
+  "../bootstrap/peace.desktop-bootstrap":{Revoke(id){assert.equal(id,row.sessionId);revoked++;},EnsureSecurityAvailable(){if(!enabled)fail('SERVICE_DISABLED');},AuthenticateIntegrityReport(body){if(body.sessionId!==row.sessionId||body.sessionToken!=='SESSION_SECRET'||body.machineId!==row.machineId)fail('SESSION_INVALID');return row;}},
   "../devices/peace.desktop-device-identity":{AssertSession(){}},'./peace.desktop-mitigation-profiles':{Select:()=>undefined,RequireCurrent(){},Check:()=>''},
   "../licensing/peace.desktop-licenses":{ParseKey:()=>({key:keys.publicKey})},"../integrity/peace.desktop-proof-work":{Verify:(_pub,text,signature)=>crypto.verify('sha256',Buffer.from(text),keys.publicKey,Buffer.from(signature,'base64'))}
  });
@@ -24,7 +24,7 @@ function Fixture(mode='enforce'){
  function Signed(c,v=Value(),b=body){const payload=JSON.stringify(v);return {...b,action:'submit',challengeId:c.challengeId,payload,signature:crypto.sign('sha256',Buffer.from(auth.Canonical(b,c,payload)),keys.privateKey).toString('base64')};}
  function Observe(v=Value(),b=body){const c=auth.Execute(b),signed=Signed(c,v,b);return {response:auth.Execute(signed),signed};}
  const Fresh=(b=body)=>auth.RequireFresh(row,'B',b.intent,b.binding);
- return {auth,db,artifact,row,body,Value,Signed,Observe,Fresh,setOps:()=>operationsRevision++,disable:()=>enabled=false};
+ return {auth,db,artifact,row,body,Value,Signed,Observe,Fresh,revoked:()=>revoked,setOps:()=>operationsRevision++,disable:()=>enabled=false};
 }
 test('FULL bundle with complete CRC passes actual RSA submit and fresh guard',()=>{const f=Fixture(),{response,signed}=f.Observe();assert.equal(response.proceed,true);assert.equal(response.status,'PASS');f.Fresh();assert.deepEqual(f.auth.Execute(signed),response);assert.equal(Object.keys(response).length,8);});
 for(const mode of ['enforce','observe']){
@@ -49,3 +49,15 @@ test('client normal/proceed fields are rejected instead of granting authority',(
 test('expiry and policy/operations revision changes prevent fresh use',()=>{for(const mutate of [f=>f.auth.__probe.decisions.values().next().value.deadline=0,f=>f.db.securityAuthorityPolicy.revision++,f=>f.setOps()]){const f=Fixture();f.Observe();mutate(f);assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);}});
 test('expired challenge, invalid signature and failure invalidation never renew a decision',()=>{const f=Fixture();f.Observe();let c=f.auth.Execute(f.body),signed=f.Signed(c);signed.signature=Buffer.alloc(256).toString('base64');assert.throws(()=>f.auth.Execute(signed),/SIGNATURE_INVALID/);assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);f.auth.__probe.pending.get(c.challengeId).deadline=0;assert.throws(()=>f.auth.Execute(f.Signed(c)),/CHALLENGE_INVALID/);f.Observe();f.auth.Invalidate(f.row,'B','TEST_FAILURE');assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);});
 test('service disabled and unknown action fail closed',()=>{const f=Fixture();f.disable();assert.throws(()=>f.auth.Execute(f.body),/SERVICE_DISABLED/);assert.throws(()=>Fixture().auth.Execute({...f.body,action:'permit'}),/SECURITY_INPUT_INVALID/);});
+
+function GraphValue(f){const v=f.Value();f.artifact.ownMeasurementVersion=2;v.ownMeasurement={...v.ownMeasurement,contract:contract.OWN_GRAPH_CONTRACT,version:2,pointerGraph:require('../../services/integrity/peace.pointer-graph-contract').Expected(10)};return v;}
+test('new approved pointer graph passes signed authority and fresh guard',()=>{const f=Fixture(),v=GraphValue(f);assert.equal(f.Observe(v).response.proceed,true);f.Fresh();assert.equal(f.revoked(),0);});
+for(const edit of [v=>delete v.ownMeasurement,v=>{v.ownMeasurement={...v.ownMeasurement,contract:contract.OWN_CONTRACT,version:1};delete v.ownMeasurement.pointerGraph;},v=>v.ownMeasurement.pointerGraph.sha512='0'.repeat(128),v=>v.ownMeasurement.pointerGraph=require('../../services/integrity/peace.pointer-graph-contract').Expected(9)])test('signed pointer omission/downgrade/tamper retires related context',()=>{const f=Fixture(),v=GraphValue(f);f.Observe(v);edit(v);assert.throws(()=>f.Observe(v),/SECURITY_POINTER_GRAPH/);assert.equal(f.revoked(),1);assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);});
+test('unsigned pointer mismatch cannot revoke a session',()=>{const f=Fixture(),v=GraphValue(f);v.ownMeasurement.pointerGraph.sha512='0'.repeat(128);const c=f.auth.Execute(f.body),signed=f.Signed(c,v);signed.signature=Buffer.alloc(256).toString('base64');assert.throws(()=>f.auth.Execute(signed),/SIGNATURE_INVALID/);assert.equal(f.revoked(),0);});
+
+for(const mode of ['enforce','observe'])test(mode+': failed/omitted graph in incomplete measurement cannot renew or imply tamper',()=>{
+ const f=Fixture(mode),v=GraphValue(f);f.Observe(v);v.measurement='READ_ERROR';for(const k of ['fileSha512','fileCrc64','codeSha512','codeCrc64','codeXxh3_128','codeBlake3'])v[k]='';delete v.crcLayers;
+ Object.assign(v.ownMeasurement,{coverage:'PARTIAL',fileStatus:'READ_ERROR',codeStatus:'NOT_MEASURED',crcStatus:'NOT_MEASURED',imageStable:false,pointerGraph:{version:1,scope:'SEALED_API_ARENA',status:'FAILED',slots:0,nodes:0,edges:0,depth:0,sha512:'',crc64:''}});
+ assert.equal(f.Observe(v).response.proceed,false);assert.throws(()=>f.Fresh(),/MEASUREMENT_INCOMPLETE/);assert.equal(f.revoked(),0);
+ delete v.ownMeasurement;assert.equal(f.Observe(v).response.proceed,false);assert.throws(()=>f.Fresh(),/MEASUREMENT_INCOMPLETE/);assert.equal(f.revoked(),0);
+});

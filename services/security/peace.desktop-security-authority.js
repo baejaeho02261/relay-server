@@ -180,8 +180,8 @@ function SetPolicy(body, actor) {
   Audit('POLICY','POLICY_CHANGED',null,{revision:next.revision,actor});
   return Policy();
 }
-function InvalidateAll() { pending.clear(); decisions.clear(); receipts.clear(); }
-function RetireContext(row,stage){const context=Context(row,stage);for(const [id,value]of pending)if(value.context===context)pending.delete(id);for(const id of decisions.keys())if(id.startsWith(context+':'))decisions.delete(id);receipts.deleteWhere(meta=>meta.context===context);rates.delete(context);observations.delete(context);}
+function InvalidateAll() { require('./peace.server-policy-operations').Stop(); pending.clear(); decisions.clear(); receipts.clear(); }
+function RetireContext(row,stage){require('./peace.server-policy-operations').RetireContext(row,stage);const context=Context(row,stage);for(const [id,value]of pending)if(value.context===context)pending.delete(id);for(const id of decisions.keys())if(id.startsWith(context+':'))decisions.delete(id);receipts.deleteWhere(meta=>meta.context===context);rates.delete(context);observations.delete(context);}
 function Context(row, stage) { return stage + ':' + (stage === 'A' ? row.id : row.sessionId); }
 function Binding(operationId, payloadHash) { return sha(operationId + '|' + payloadHash); }
 function RowArtifact(row, stage) {
@@ -250,7 +250,7 @@ function Payload(text) {
   return value;
 }
 function Evaluate(value, baseline, policy, artifact) {
-  require("../integrity/peace.measurement-plan-contract").AssertOwn({check:'OWN_IMAGE',own:{status:value.measurement},ownMeasurement:value.ownMeasurement,crcLayers:value.crcLayers},artifact);
+  require("../integrity/peace.measurement-plan-contract").AssertOwn({check:'OWN_IMAGE',own:{status:value.measurement},ownMeasurement:value.ownMeasurement,crcLayers:value.crcLayers},artifact,artifact?.ownMeasurementVersion>=2?require('./peace.desktop-security-operations').PointerGraphSlots(artifact):0);
   if(value.hashVersion!==3||baseline.hashVersion!==3)return {status:'INDETERMINATE',reason:'HASH_VERSION_MISMATCH'};
   if (value.measurement !== 'MEASURED') return { status: 'INDETERMINATE', reason: measurementStatus.FailureReason(value.measurement) };
   if (value.fileSha512 !== baseline.sha512 || value.fileCrc64 !== baseline.crc64 || value.codeSha512 !== baseline.codeSha512 || value.codeCrc64 !== baseline.codeCrc64 || value.codeXxh3_128!==baseline.codeXxh3_128 || value.codeBlake3!==baseline.codeBlake3) return { status: 'MISMATCH', reason: 'IMAGE_DIGEST_MISMATCH' };
@@ -267,7 +267,7 @@ function MeasurementComplete(value,artifact) {
   if(value.measurement!=='MEASURED')return false;
   const comparison=require("../runtime/peace.desktop-crc-policy").Compare(value.crcLayers,value.crcLayers);
   if(!comparison.matched||!comparison.complete)return false;
-  if(artifact?.ownMeasurementVersion===1&&value.ownMeasurement===undefined)return false;
+  if(artifact?.ownMeasurementVersion>=1&&value.ownMeasurement===undefined)return false;
   return value.ownMeasurement===undefined||require("../integrity/peace.measurement-plan-contract").ValidateOwnMetadata(value.ownMeasurement,value.measurement,value.crcLayers);
 }
 function Submit(body) {
@@ -299,6 +299,12 @@ function Submit(body) {
   require('./peace.desktop-mitigation-profiles').RequireCurrent(challenge.mitigationProfile,artifact);
   const profileReason=require('./peace.desktop-mitigation-profiles').Check(challenge.mitigationProfile,value.mitigationDiagnostics);
   if(profileReason)Fail(profileReason,403);
+  const graphReason=require('../integrity/peace.measurement-plan-contract').GraphReason({own:{status:value.measurement},ownMeasurement:value.ownMeasurement},artifact,artifact?.ownMeasurementVersion>=2?require('./peace.desktop-security-operations').PointerGraphSlots(artifact):0);
+  if(graphReason){
+    Invalidate(row,body.stage,graphReason);
+    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_'+graphReason},'INTEGRITY_REPORT');
+    Fail('SECURITY_'+graphReason,403);
+  }
   const result = Evaluate(value, row.integrityArtifact, challenge.mitigationProfile?{...policy,dynamicCode:challenge.mitigationProfile.dynamicCode,requireCfg:policy.requireCfg||challenge.mitigationProfile.requireCfg}:policy, artifact);
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
   if(observations.size>=4096&&!observations.has(context)) observations.delete(observations.keys().next().value);

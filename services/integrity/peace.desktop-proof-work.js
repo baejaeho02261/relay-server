@@ -47,6 +47,7 @@ async function Run(jobs,execute,{deadline,key='',renewal=false}={}){
 }
 function Prepare(operation,body){
  try{
+ if(operation==='policy')return require('../security/peace.server-policy-operations').ProofTasks(body);
  if(operation==='execute')return require("../licensing/peace.desktop-licenses").ProofTasks(body);
  if(operation==='bootstrap')return require("../bootstrap/peace.desktop-bootstrap").ProofTasks(body);
  if(operation==='security')return require("../security/peace.desktop-security-authority").ProofTasks(body);

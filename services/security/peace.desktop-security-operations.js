@@ -102,6 +102,11 @@ function EffectivePolicy(policy, artifact) {
   const s=State(),r=s.rollout;
   return r.enabled && artifact && r.artifactKeys.includes(BuildKey(artifact)) ? {...policy,...r.patch} : policy;
 }
+function PointerGraphSlots(artifact) {
+  if (!artifact || artifact.ownMeasurementVersion !== 2) return 0;
+  const c=State().contracts[BuildKey(artifact)];
+  return c && Number.isInteger(c.minApiSlots) && c.minApiSlots>=1 && c.minApiSlots<=1024 && c.minApiSlots===c.maxApiSlots ? c.minApiSlots : 0;
+}
 function EvaluateContract(value, artifact) {
   const s=State(),c=artifact && s.contracts[BuildKey(artifact)];
   if (!c) return s.requireBuildContract ? {status:'INDETERMINATE',reason:'BUILD_CONTRACT_REQUIRED'} : null;
@@ -418,4 +423,4 @@ function List() {
     storage:'SERVER_ONLY',keyPurposes:require('./peace.desktop-key-purposes').Summary(),testEvidenceTrust:'OPERATOR_RECORDED_NOT_ATTESTATION',ciEvidenceTrust:'TRUSTED_CI_SIGNATURE_NOT_HARDWARE_ATTESTATION',policySha512:provenance.PolicyDigest(require('./peace.desktop-security-authority').Policy()),
     candidates:Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,createdAt:a.createdAt,deploymentManifestId:a.deploymentManifestId||'',active:db.active[a.component]===a.id,contract:s.contracts[BuildKey(a)]||null,packingEvidence:packingEvidence.Projection(db,a)}))};
 }
-module.exports={PublicationState,PreviewProductionPair,ActivateProductionPair,PrepareProductionRecovery,ApplyProductionRecovery,SetProductionGovernance,ProductionStatus,ReserveKnownKeyPurposes,PlanReleaseManifest,ValidateCandidateArtifact,PrepareRecovery,ApplyRecovery,RememberReleaseKeys,AssertReleaseKeyPurpose,SetReleaseGovernance,RecordReleaseManifest,SetCiSigner,RecordCiEvidence,ReleaseView,Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};
+module.exports={PointerGraphSlots,PublicationState,PreviewProductionPair,ActivateProductionPair,PrepareProductionRecovery,ApplyProductionRecovery,SetProductionGovernance,ProductionStatus,ReserveKnownKeyPurposes,PlanReleaseManifest,ValidateCandidateArtifact,PrepareRecovery,ApplyRecovery,RememberReleaseKeys,AssertReleaseKeyPurpose,SetReleaseGovernance,RecordReleaseManifest,SetCiSigner,RecordCiEvidence,ReleaseView,Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};

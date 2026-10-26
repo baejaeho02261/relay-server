@@ -5,9 +5,10 @@ const {Isolated}=require("../fixtures/protocol/peace.completion-6-10-fixture"),c
 const baseline=require("../../services/integrity/peace.desktop-integrity").CodeImage(require("../fixtures/runtime/peace.crc-test-fixture").crcTestFixture()),keys=crypto.generateKeyPairSync('rsa',{modulusLength:2048});
 const artifact={id:'OWN_ARTIFACT',ownMeasurementVersion:1,codeSha512:baseline.sha512,codeCrc64:baseline.crc64,codeXxh3_128:baseline.xxh3_128,codeBlake3:baseline.blake3,fileXxh3_128:'e'.repeat(32),fileBlake3:'f'.repeat(64),crcLayers:baseline.crcLayers};
 const row={id:'OWN_FLOW',sessionId:'OWN_SESSION',reportContextId:'OWN_SESSION',releaseId:artifact.id,stage:'B',machineId:'A'.repeat(64),publicKey:require("../../services/network/peace.connect-transport-key").PublicBlob(keys.publicKey).toString('base64'),integrityArtifact:artifact};
-const reports=Isolated("services/integrity/peace.desktop-integrity-reports.js",[],{"../bootstrap/peace.desktop-bootstrap":{AuthenticateIntegrityReport:()=>row,AuthenticateIntegrityReceipt:()=>row,Revoke:()=>{}},"../security/peace.desktop-security-authority":{Policy:()=>({revision:1,requireCompleteCrcLayers:true}),UsesAuthority:()=>false},"../../storage/audit/peace.audit.js":{LogEvent:()=>{}}});
+let graphRevoked=0,graphInvalidated=0;
+const reports=Isolated("services/integrity/peace.desktop-integrity-reports.js",[],{"../bootstrap/peace.desktop-bootstrap":{AuthenticateIntegrityReport:()=>row,AuthenticateIntegrityReceipt:()=>row,Revoke:id=>{assert.equal(id,row.sessionId);graphRevoked++;}},"../security/peace.desktop-security-authority":{Policy:()=>({revision:1,requireCompleteCrcLayers:true}),UsesAuthority:()=>false,Invalidate:()=>{graphInvalidated++;}},"../../storage/audit/peace.audit.js":{LogEvent:()=>{}}});
 const common={stage:'B',sessionId:row.sessionId,sessionToken:'TEST_TOKEN',machineId:row.machineId};
-function submit(p){const c=reports.Execute({...common,action:'challenge'}),payload=JSON.stringify(p);return reports.Execute({...common,action:'submit',reportId:c.reportId,payload,signature:crypto.sign('sha256',Buffer.from(reports.Canonical(row.reportContextId,c,payload)),keys.privateKey).toString('base64')});}
+function submit(p,validSignature=true){const c=reports.Execute({...common,action:'challenge'}),payload=JSON.stringify(p);return reports.Execute({...common,action:'submit',reportId:c.reportId,payload,signature:validSignature?crypto.sign('sha256',Buffer.from(reports.Canonical(row.reportContextId,c,payload)),keys.privateKey).toString('base64'):Buffer.alloc(256).toString('base64')});}
 function payload(){return {version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:baseline.sha512,codeCrc64:baseline.crc64,codeXxh3_128:baseline.xxh3_128,codeBlake3:baseline.blake3,fileXxh3_128:artifact.fileXxh3_128,fileBlake3:artifact.fileBlake3},crcLayers:structuredClone(baseline.crcLayers),ownMeasurement:{contract:contract.OWN_CONTRACT,version:1,startedTick:100,finishedTick:200,coverage:'FULL',fileStatus:'MEASURED',codeStatus:'MEASURED',crcStatus:'MEASURED',imageStable:true}};}
 try{
  assert(crc.Compare(baseline.crcLayers,baseline.crcLayers).complete);
@@ -24,5 +25,15 @@ try{
  }
  const old=payload();delete old.ownMeasurement;artifact.ownMeasurementVersion=0;assert.equal(submit(old).status,'VERIFIED','explicit approvedlegacy capability retained');
  const fixture=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture").PE('A','plain');assert.equal(contract.ArtifactOwnVersion(Buffer.concat([fixture,Buffer.from(contract.OWN_CONTRACT)])),0);Buffer.from(contract.OWN_CONTRACT).copy(fixture,600);assert.equal(contract.ArtifactOwnVersion(fixture),1);
+ const graph=require('../../services/integrity/peace.pointer-graph-contract');
+ artifact.ownMeasurementVersion=2;artifact.pointerGraphSlots=2;
+ const graphPayload=()=>{const p=payload();Object.assign(p.ownMeasurement,{contract:contract.OWN_GRAPH_CONTRACT,version:2,pointerGraph:graph.Expected(2)});return p;};
+ const good=submit(graphPayload());assert.equal(good.status,'VERIFIED');assert.equal(reports.List({sessionId:row.sessionId}).items.find(x=>x.id===good.reportId).pointerGraphVerified,true);
+ for(const edit of [p=>delete p.ownMeasurement,p=>{p.ownMeasurement=payload().ownMeasurement;},p=>p.ownMeasurement.pointerGraph.sha512='0'.repeat(128),p=>{p.check='MODULE_INVENTORY';Object.assign(p,{snapshotId:'GRAPH_BATCH',batchIndex:0,batchCount:1,complete:true,truncated:false,totalModules:0,measuredModules:0,modules:[]});p.ownMeasurement=payload().ownMeasurement;}]){
+  const p=graphPayload();edit(p);const before=graphRevoked,invalidBefore=graphInvalidated;
+  assert.throws(()=>submit(p,false),/SIGNATURE_INVALID/);assert.equal(graphRevoked,before);assert.equal(graphInvalidated,invalidBefore);
+  const denied=submit(p);assert.equal(denied.terminate,true);assert.equal(denied.status,'REJECTED');assert.equal(graphRevoked,before+1);assert.equal(graphInvalidated,invalidBefore+1);
+ }
+ Buffer.from(contract.OWN_GRAPH_CONTRACT).copy(fixture,600);assert.equal(contract.ArtifactOwnVersion(fixture),2);
  console.log('PASS own bundle: actual RSA signed FULL/omitted/stale/unsafe metadata, nine independent failed roles preserve eight valid results, stale digest rejection, artifact capability and explicit legacy contract');
 }finally{fs.rmSync(temp,{recursive:true,force:true});}

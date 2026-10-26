@@ -147,6 +147,30 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       boot.Revoke(s.b.sessionId, {reason: 'COHORT_TEST_PARENT_REVOKE'}, 'COHORT_TEST');
       terminal(s, 'REVOKED');
     });
+    for(const stage of ['A','B','O'])await t.test('signed '+stage+' pointer mismatch retires only its real durable cohort',()=>{
+      const unrelated=setup(),s=stage==='A'?null:setup(),device=s?s.device:fixture.Device();
+      const invitation=s?s.invitation:fixture.Begin(device),begin=invitation.begin;
+      const context=stage==='A'?{stage,sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:device.machineId}:stage==='B'?{stage,sessionId:s.b.sessionId,sessionToken:s.b.sessionToken,machineId:device.machineId}:s.context;
+      const artifactId=boot.AuthenticateIntegrityReport(context).integrityArtifact.id;
+      store.Atomic(db=>{db.artifacts[artifactId].ownMeasurementVersion=2;});
+      const operations=require('../../services/security/peace.desktop-security-operations');
+      operations.SetContract({expectedRevision:operations.Revision(),artifactId,contract:{version:1,evidenceVersion:1,minApiSlots:60,maxApiSlots:60,requiredChecks:['ownImage','apiStorage','mitigations']}},'POINTER_TEST');
+      const base=boot.AuthenticateIntegrityReport(context).integrityArtifact;
+      assert.equal(base.pointerGraphSlots,60);
+      const graph=require('../../services/integrity/peace.pointer-graph-contract').Expected(60);graph.sha512='0'.repeat(128);
+      const payload=JSON.stringify({version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,fileXxh3_128:base.fileXxh3_128,fileBlake3:base.fileBlake3,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3},crcLayers:base.crcLayers,ownMeasurement:{contract:'GAME-OWN-MEASUREMENT-BUNDLE-V2',version:2,startedTick:1,finishedTick:2,coverage:'FULL',fileStatus:'MEASURED',codeStatus:'MEASURED',crcStatus:'MEASURED',imageStable:true,pointerGraph:graph}});
+      let challenge=reports.Execute({...context,action:'challenge'});
+      reject(()=>reports.Execute({...context,action:'submit',reportId:challenge.reportId,payload,signature:Buffer.alloc(256).toString('base64')}));
+      assert.equal(store.Load().flows[begin.flowId].status,stage==='A'?'STARTED':'CLAIMED');
+      challenge=reports.Execute({...context,action:'challenge'});
+      const response=reports.Execute({...context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(device,reports.Canonical(stage==='A'?begin.flowId:context.sessionId,challenge,payload))});
+      assert.equal(response.status,'REJECTED');assert.equal(response.terminate,true);
+      assert.equal(store.Load().flows[begin.flowId].status,'REVOKED');
+      if(s)terminal(s,'REVOKED');
+      else{assert.equal(store.Load().launchers[invitation.issue.launcherId].status,'REVOKED');reject(()=>boot.Execute(invitation.body));}
+      assert.equal(parent(unrelated).status,'CLAIMED');assert.equal(child(unrelated).status,'CLAIMED');
+      store.Atomic(db=>{db.artifacts[artifactId].ownMeasurementVersion=0;});
+    });
     await t.test('retired cohorts survive a fresh store load without restoring runtime capabilities', () => {
       const script = 'const out=console.log;console.log=()=>{};Date.now=()=>Number(process.argv[1]);const boot=require(process.argv[2]),overlay=require(process.argv[3]);const db=boot.Initialize();overlay.ValidateStore(db);overlay.ValidateTransferRows(db);for(const row of [...Object.values(db.flows),...Object.values(db.overlays)]){if(["CLOSED","REVOKED","EXPIRED"].includes(row.status)&&row.sessionNonce!==undefined)throw Error("RETIRED_CAPABILITY_RESTORED");}boot.Stop();out("COHORT_RELOAD_OK");';
       const result = require('node:child_process').spawnSync(process.execPath, ['-e', script, String(clock),

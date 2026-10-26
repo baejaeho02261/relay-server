@@ -17,6 +17,6 @@ COPY ["package.json", "package-lock.json", "./"]
 # runtime dependencies are script-free; the SQL smoke check loads the real addon.
 RUN npm ci --omit=dev --ignore-scripts && node -e "const D=require('better-sqlite3');const d=new D(':memory:');d.prepare('SELECT 1').get();d.close();"
 COPY ["./", "/app/cozy-peace/Relay Server/"]
-RUN node tools/build/peace.verify-relay-source.js && node tests/runtime/peace.test-railway-process-lifecycle.js && node --test tests/security/peace.test-server-authority-bypass.js tests/bootstrap/peace.test-keyless-bootstrap.js tests/security/peace.test-server-policy-registry.js tests/runtime/peace.test-server-policy-worker.js tests/runtime/peace.test-worker-result-ownership.js
+RUN node tools/build/peace.verify-relay-source.js && node tests/runtime/peace.test-railway-process-lifecycle.js && node --test tests/security/peace.test-server-authority-bypass.js tests/bootstrap/peace.test-keyless-bootstrap.js tests/security/peace.test-server-policy-registry.js tests/runtime/peace.test-server-policy-worker.js tests/runtime/peace.test-worker-result-ownership.js tests/security/peace.test-server-policy-operations.js tests/integrity/peace.test-owned-pointer-graph.js tests/integrity/peace.test-authority-measurement-security.js tests/overlay/peace.test-cohort-retirement.js
 ENV NODE_ENV=production
 CMD ["node", "peace.relay-server.js"]

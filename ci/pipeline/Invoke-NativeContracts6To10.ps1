@@ -6,7 +6,7 @@ param(
 # Compiled TEST probes only. No product A/B/O build, GPU acceptance or CI signing.
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 $private=$null;$output=$null;$logs=$null;$exit=1;$active=$null;$createdResult=$false
-$names=@('snapshot','compile-probes','sdk-probe','abi-compare','Cozy.HardeningContractsProbe','Cozy.TlsPinWindowProbe','Cozy.TlsContractProbe','Cozy.HashContracts','Cozy.IntegrityHashProbe','Cozy.CrcProbe','Cozy.ServerPolicyLocalProbe','Cozy.ProcessMitigationProfileProbe','Cozy.NativeApiContractsProbe','Cozy.MeasurementLifetimeProbe','Cozy.JsonEnvelopeProbe','Cozy.ThreadInventoryProbe','Cozy.Blake3ParallelProbe','Cozy.HandoffKdfProbe','pe-corpus','native-hash-compare')
+$names=@('snapshot','compile-probes','sdk-probe','abi-compare','Cozy.HardeningContractsProbe','Cozy.TlsPinWindowProbe','Cozy.TlsContractProbe','Cozy.HashContracts','Cozy.IntegrityHashProbe','Cozy.CrcProbe','Cozy.ServerPolicyLocalProbe','Cozy.ProcessMitigationProfileProbe','Cozy.NativeApiContractsProbe','Cozy.MeasurementLifetimeProbe','Cozy.JsonEnvelopeProbe','Cozy.ThreadInventoryProbe','Cozy.Blake3ParallelProbe','Cozy.HandoffKdfProbe','Cozy.ServerOperationsProtocolProbe','Cozy.PointerGraphProbe','pe-corpus','native-hash-compare')
 $result=[ordered]@{version=1;scope='NATIVE_TEST_CONTRACTS_6_TO_10';windowsExecuted=$false;outcome='NOT_RUN';productBuild='NOT_RUN';productIntegration='NOT_RUN';signedCiEvidence=$false;stages=[ordered]@{}}
 foreach($name in $names){$result.stages[$name]=[ordered]@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
 function Save-ContractResults {

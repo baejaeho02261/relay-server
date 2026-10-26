@@ -150,6 +150,8 @@ function Record(input){
  for(const prefix of ['expected','observed','expectedFile','observedFile'])for(const algorithm of ['Xxh3_128','Blake3'])record[prefix+algorithm]=ExtendedDigest(input[prefix+algorithm],algorithm==='Xxh3_128'?32:64);
  if(input.check==='OWN_CODE')for(const field of ['fileExtendedVerified','codeExtendedVerified'])record[field]=input.hashVersion===3&&input[field]===true;
  if(input.check==='OWN_CODE'){
+  record.pointerGraphReported=input.ownMeasurement?.pointerGraph!==undefined;
+  record.pointerGraphVerified=input.pointerGraphVerified===true;
   record.fileHashesReported=input.fileHashesReported===true;
   record.fileHashesVerified=record.fileHashesReported&&input.fileHashesVerified===true;
   if(record.fileHashesReported)for(const prefix of ['expectedFile','observedFile']){
@@ -199,7 +201,7 @@ function Submit(body){
  }
  const row=Auth(body),context=row.reportContextId||row.sessionId;Prune();const challenge=pending.get(body.reportId);
  if(!challenge||challenge.sessionId!==context)Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);pending.delete(body.reportId);
- const payload=Payload(body.payload);try{measurementPlan.Assert(payload,row.integrityArtifact);}catch(error){Fail(error.message,400);}if(typeof body.signature!=='string'||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
+ const payload=Payload(body.payload);try{measurementPlan.Assert(payload,row.integrityArtifact,row.integrityArtifact.pointerGraphSlots,{graph:false});}catch(error){Fail(error.message,400);}if(typeof body.signature!=='string'||!/^[A-Za-z0-9+/]{342}==$/.test(body.signature))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
  const bytes=Buffer.from(body.signature,'base64'),key=require("../licensing/peace.desktop-licenses").ParseKey(row.publicKey).key;
  if(bytes.length!==256||bytes.toString('base64')!==body.signature||!require('./peace.desktop-proof-work').Verify(row.publicKey,Canonical(context,challenge,body.payload),body.signature))Fail('INTEGRITY_REPORT_SIGNATURE_INVALID',401);
  // Parsing and native signature verification can cross the issued deadline.
@@ -210,6 +212,13 @@ function Submit(body){
  function Complete(response){receipts.put(body.reportId,'report.submit',body,response,{context,publicKey:row.publicKey,binding});return response;}
  const fields={stage:row.stage||'B',machineId:row.machineId,sessionId:row.sessionId,flowId:row.id,artifactId:artifact.id,check:payload.check,reason:payload.reason,hashVersion:payload.hashVersion};
  let result;
+ const graphReason=measurementPlan.GraphReason(payload,artifact,artifact.pointerGraphSlots);
+ if(graphReason){
+  require('../security/peace.desktop-security-authority').Invalidate(row,row.stage||'B',graphReason);
+  require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_'+graphReason},'INTEGRITY_REPORT');
+  result=Record({...fields,check:'OWN_CODE',status:'REJECTED',reason:graphReason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,pointerGraphVerified:false,trusted:true});
+  return Complete({accepted:true,status:'REJECTED',reportId:result.id,terminate:true});
+ }
  if(payload.check==='OVERLAY_START'){
   if(fields.stage!=='B')Fail('INTEGRITY_REPORT_INVALID');
   result=Record({...fields,status:'CLIENT_DIAGNOSTIC',trusted:false});
@@ -223,7 +232,7 @@ function Submit(body){
   result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,crcComparison:require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),trusted:false});
   return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
- if(payload.own){if(payload.ownMeasurement)fields.ownMeasurement=payload.ownMeasurement;const own=payload.own,crcComparison=require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
+ if(payload.own){if(payload.ownMeasurement)fields.ownMeasurement=payload.ownMeasurement;fields.pointerGraphVerified=payload.own.status==='MEASURED'&&artifact.ownMeasurementVersion>=2&&require('./peace.pointer-graph-contract').Compare(payload.ownMeasurement?.pointerGraph,artifact.pointerGraphSlots).matched;const own=payload.own,crcComparison=require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
   const fileHashesReported=Object.hasOwn(own,'fileSha512'),fileHashesVerified=own.status==='MEASURED'&&fileHashesReported&&own.fileSha512===artifact.sha512&&own.fileCrc64===artifact.crc64;
   const rejectionReason=measurementStatus.IsFailure(own.status)?(own.status==='READ_ERROR'?'MEASUREMENT_FAILED':own.status):!crcComparison.matched?crcComparison.reason:own.codeSha512!==artifact.codeSha512||own.codeCrc64!==artifact.codeCrc64?'CODE_HASH_MISMATCH':fileHashesReported&&!fileHashesVerified?'FILE_HASH_MISMATCH':codeComparison.mismatch?'CODE_EXTENDED_HASH_MISMATCH':fileComparison.mismatch?'FILE_EXTENDED_HASH_MISMATCH':require("../security/peace.desktop-security-authority").Policy().requireCompleteCrcLayers&&!crcComparison.complete?'CRC_COVERAGE_INCOMPLETE':'';
   const matches=!rejectionReason,fileExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&fileComparison.verified,codeExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&codeComparison.verified;

@@ -174,6 +174,15 @@ function EvaluateServerPolicy(value, functionId, args) {
   try { return vm.Evaluate(program, functionId, args, { maxSteps: value.maxSteps, role: value.role }); }
   finally { program.fill(0); }
 }
+function ValidateInvocation(value, functionId, args) {
+  if (!Number.isInteger(functionId) || functionId < 2 || functionId > 65535 ||
+      !Array.isArray(args) || args.length > 8 || !args.every(x => Number.isInteger(x) && x >= -2147483648 && x <= 2147483647)) Fail('INVOCATION_INVALID');
+  const program = OpenServerPolicy(value);
+  try {
+    const fn = vm.ValidateProgram(program, value.role).get(functionId);
+    if (!fn || fn.args !== args.length) Fail('FUNCTION_NOT_ALLOWED');
+  } finally { program.fill(0); }
+}
 function BindTemplate(bytes, role, profile) {
   Role(role); const pe = ParsePE(bytes);
   if (pe.signed) Fail('SIGNED_INPUT_REQUIRES_NEW_SIGNATURE');
@@ -198,4 +207,4 @@ function BindTemplate(bytes, role, profile) {
   finally { program.fill(0); }
 }
 module.exports = { ENGINE, SLOT_BYTES, HEADER_BYTES, TAIL_OFFSET, FORMAT, TOOL_SHA512,
-  CreateUnsealedSlot, Inspect, ValidateMetadata, PolicyId, BindTemplate, ValidateServerPolicy, EvaluateServerPolicy };
+  CreateUnsealedSlot, Inspect, ValidateMetadata, PolicyId, BindTemplate, ValidateServerPolicy, EvaluateServerPolicy, ValidateInvocation };

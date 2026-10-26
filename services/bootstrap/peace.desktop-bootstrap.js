@@ -314,7 +314,7 @@ function AuthenticateIntegrityReport(body){
   artifact=DB().artifacts[row.releaseId];
  }
  if(body.machineId!==undefined&&MachinePolicy().Validate(body.machineId)!==row.machineId)Fail('BOOTSTRAP_SESSION_INVALID',403);
- return {...row,...(stage==='A'?delegation.Parent(row):{}),stage,reportContextId:stage==='A'?row.id:row.sessionId,integrityArtifact:{id:artifact.id,measurementPlanVersion:artifact.measurementPlanVersion||0,ownMeasurementVersion:artifact.ownMeasurementVersion||0,hashVersion:3,sha512:stage==='A'?row.launcherSha512:artifact.sha512,crc64:stage==='A'?row.launcherCrc64:artifact.crc64,fileXxh3_128:stage==='A'?DB().launchers[row.launcherId].xxh3_128:artifact.xxh3_128,fileBlake3:stage==='A'?DB().launchers[row.launcherId].blake3:artifact.blake3,codeSha512:artifact.codeSha512,codeCrc64:artifact.codeCrc64,codeXxh3_128:artifact.codeXxh3_128,codeBlake3:artifact.codeBlake3,crcLayers:artifact.crcLayers}};
+ return {...row,...(stage==='A'?delegation.Parent(row):{}),stage,reportContextId:stage==='A'?row.id:row.sessionId,integrityArtifact:{id:artifact.id,pointerGraphSlots:artifact.ownMeasurementVersion>=2?require('../security/peace.desktop-security-operations').PointerGraphSlots(artifact):0,measurementPlanVersion:artifact.measurementPlanVersion||0,ownMeasurementVersion:artifact.ownMeasurementVersion||0,hashVersion:3,sha512:stage==='A'?row.launcherSha512:artifact.sha512,crc64:stage==='A'?row.launcherCrc64:artifact.crc64,fileXxh3_128:stage==='A'?DB().launchers[row.launcherId].xxh3_128:artifact.xxh3_128,fileBlake3:stage==='A'?DB().launchers[row.launcherId].blake3:artifact.blake3,codeSha512:artifact.codeSha512,codeCrc64:artifact.codeCrc64,codeXxh3_128:artifact.codeXxh3_128,codeBlake3:artifact.codeBlake3,crcLayers:artifact.crcLayers}};
 }
 function LicenseState(row){
  if(!row.licenseId)return {licenseStatus:'',licenseLastVerifiedAt:0};
@@ -417,6 +417,7 @@ function RetireFlow(row,db){store.AfterCommit(()=>{for(const kind of ['A.flow:',
 function RetireRuntime(row){require("../devices/peace.desktop-device-identity").RetireContext(row,'A');require("../devices/peace.desktop-device-identity").RetireContext(row,'B');require("../security/peace.desktop-security-authority").RetireContext(row,'A');require("../security/peace.desktop-security-authority").RetireContext(row,'B');require("../integrity/peace.desktop-integrity-reports").RetireContext(row);require("../licensing/peace.desktop-licenses").RetireRuntime(row);for(const key of integritySuccessTimes.keys())if(key.includes(':'+row.sessionId+':'))integritySuccessTimes.delete(key);}
 function Prune(){
  require('./peace.keyless-bootstrap').Maintain();
+ require('../security/peace.server-policy-operations').Maintain();
  const db=DB(),at=now(),launchers=Object.values(db.launchers).filter(row=>row.status==='AVAILABLE'&&row.expiresAt<=at||row.status!=='AVAILABLE'&&!row.retiredAt),flows=Object.values(db.flows).filter(row=>!['CLOSED','REVOKED','EXPIRED'].includes(row.status)&&FlowExpired(row)||['CLOSED','REVOKED','EXPIRED'].includes(row.status)&&!row.retiredAt);
  if(!launchers.length&&!flows.length)return;
  Atomic('BOOTSTRAP_PRUNE','SERVER',next=>{
@@ -426,7 +427,7 @@ function Prune(){
 }
 function Initialize(){DB();Prune();if(!retirementTimer){retirementTimer=setInterval(()=>{try{Prune();require("../overlay/peace.desktop-overlay").Prune();require("../observability/peace.desktop-lifecycle-trace").Maintain();require("../devices/peace.desktop-device-identity").Maintain();}catch(_){console.error('BOOTSTRAP_RETIREMENT_FAILED');}},1000);retirementTimer.unref();}return DB();}
 // Stop the periodic authority sweeper before disposing an isolated DATA_DIR.
-function Stop(){if(retirementTimer){clearInterval(retirementTimer);retirementTimer=null;}require('./peace.keyless-bootstrap').Stop();return {stopped:true};}
+function Stop(){if(retirementTimer){clearInterval(retirementTimer);retirementTimer=null;}require('./peace.keyless-bootstrap').Stop();require('../security/peace.server-policy-operations').Stop();return {stopped:true};}
 function Overview(){
  Prune();const db=DB();return {artifacts:{A:Artifact(db.artifacts[db.active.A]),B:Artifact(db.artifacts[db.active.B]),O:Artifact(db.artifacts[db.active.O])},launchers:Object.values(db.launchers).map(row=>({id:row.id,downloadName:LauncherName(row),label:row.label,issuedAt:row.issuedAt,expiresAt:row.expiresAt,status:row.status==='AVAILABLE'&&row.expiresAt<=now()?'EXPIRED':row.status,flowId:row.flowId||'',sha512:row.sha512,crc64:row.crc64})).sort((a,b)=>b.issuedAt-a.issuedAt),sessions:[...Object.values(db.flows).map(SessionView),...require("../overlay/peace.desktop-overlay").List()].sort((a,b)=>b.createdAt-a.createdAt),limits:{maxArtifactBytes:MAX_ARTIFACT_BYTES,chunkSize:CHUNK_SIZE,launcherLifetimeMs:LAUNCHER_MS,flowLifetimeMs:FLOW_MS,sessionLifetimeMs:SESSION_MS},serverTime:now()};
 }
