@@ -5,7 +5,8 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $toolRoot=$PSScriptRoot
-$sourceRoot=[IO.Path]::GetFullPath((Join-Path $toolRoot '..\..'))
+# tools/build is three levels below cozy-peace, which contains both source trees.
+$sourceRoot=[IO.Path]::GetFullPath((Join-Path $toolRoot '..\..\..'))
 $helper=Join-Path $toolRoot 'peace.ci-workflow.js'
 $exitCode=1;$transcript=$false
 $log=Join-Path $toolRoot ('ci-workflow-'+$Action+'-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)+'.log')
@@ -63,7 +64,7 @@ function Assert-Environment {
  foreach($name in @('bin\dcc64.exe','bin\bcc64.exe','bin\brcc32.exe','bin\rsvars.bat','include\windows\sdk\d3d11.h')){Require-File (Join-Path $script:BdsRoot $name) 'Install the RAD Studio classic Win64 Delphi/C++ compiler and Windows SDK headers.'}
  $env:BDS=$script:BdsRoot
  foreach($name in @('spec.json','deployment-policy.json','reviewed-build-inputs.json')){
-  $instructions=switch($name){'spec.json'{'Run Create_Spec.bat and enter the actual release/security versions.'};'deployment-policy.json'{'Export the CURRENT policy from the administrator Security / Deployment page and place it beside this BAT. Do not use an empty policy.'};'reviewed-build-inputs.json'{'Run Observe_Build_Inputs.bat, independently review the observed inputs, then run Approve_Build_Inputs.bat with the reviewed digest.'}}
+  $instructions=switch($name){'spec.json'{'Run Create_Spec.bat and enter the actual release/security versions, then copy tools\artifacts\spec.json to tools\build\spec.json.'};'deployment-policy.json'{'Export the CURRENT policy from the administrator Security / Deployment page and save it as tools\build\deployment-policy.json. Do not use an empty policy.'};'reviewed-build-inputs.json'{'Run Observe_Build_Inputs.bat, independently review the observed inputs, then run Approve_Build_Inputs.bat with the reviewed digest. Copy tools\reviewed-build-inputs.json to tools\build\reviewed-build-inputs.json.'}}
   Require-File (Join-Path $toolRoot $name) $instructions
  }
  Write-Host 'Checking source hashes and release prerequisites...'
@@ -104,7 +105,7 @@ try {
   'run' {
    $spec=Assert-Environment
    if($CiKeyFile -or $ReleaseKeyFile){throw 'Do not supply production private keys to the build/test host. Use the separate offline signing procedure.'}
-   if($OutputDirectory){throw 'Run_Windows_CI always writes a NEW run folder under tools\ci-runs. OutputDirectory is only for Check_CI_Output.'}
+   if($OutputDirectory){throw 'Run_Windows_CI always writes a NEW run folder under tools\build\ci-runs. OutputDirectory is only for Check_CI_Output.'}
    $runId='windows-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
    $runs=Join-Path $toolRoot 'ci-runs';if(-not(Test-Path -LiteralPath $runs)){[IO.Directory]::CreateDirectory($runs)|Out-Null}
    $OutputDirectory=Join-Path $runs $runId
@@ -120,8 +121,8 @@ try {
    Write-Host 'Review bundle-review-sha512.txt and the actual results. Transfer the bundle to the separate release signer, then the distinct CI attester. See Security_7-10_Apply.ko.md.'
   }
   'check-output' {
-   $OutputDirectory=Input-Path $OutputDirectory 'Completed CI run folder absolute path (tools\ci-runs\windows-...)'
-   Require-File (Join-Path $toolRoot 'ci-public-key.json') 'Export the expected CI signer public JSON beside this BAT first.'
+   $OutputDirectory=Input-Path $OutputDirectory 'Completed CI run folder absolute path (tools\build\ci-runs\windows-...)'
+   Require-File (Join-Path $toolRoot 'ci-public-key.json') 'Run Export_CI_Public_Key.bat first; its public JSON is saved as tools\build\ci-public-key.json.'
    $null=Invoke-Helper @('check-output',$OutputDirectory,(Join-Path $toolRoot 'ci-public-key.json'))
    Write-Host 'Local signature, final-file bindings, logs and three PASS outcomes verified. Server signer trust and publication eligibility are NOT asserted here.'
   }

@@ -30,8 +30,12 @@ async function showDesktopSecurityOperations(initialPair=null) {
     SECURITY_RELEASE_MIXED_MANIFEST:'선택한 A/B/O의 명세 ID가 다르거나 누락되었습니다. 같은 명세로 등록한 세 후보를 선택하세요.',
     SECURITY_RELEASE_MANIFEST_NOT_REGISTERED:'계획 등록만 완료된 명세입니다. 아래 명세 영역에서 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.',
     SECURITY_RELEASE_MANIFEST_REQUIRED:'선택한 후보에 등록된 배포 명세가 필요합니다.',
-    SECURITY_CI_EVIDENCE_REQUIRED:'기존 실행에 저장된 CI 요구가 남아 있습니다. 배포 명세 영역에서 현재 조합에 수동 배포 정책을 적용하거나, 승인한 최종 A/B/O와 명세로 새 조합을 검증·게시하세요. CI 시험 PASS는 생성하지 않습니다.',
-    SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시에는 최종 A/B/O의 유효한 EXE 승인 서명, 등록 완료된 동일 명세와 보안 버전 1 이상이 필요합니다. 아래 수동 배포 순서로 준비하세요. CI 증거 JSON은 요구하지 않습니다.',
+    SECURITY_CI_EVIDENCE_REQUIRED:'같은 최종 A/B/O 명세에 연결된 유효한 CI 서명 증거가 필요합니다. 아래 CI 공개키 · Windows 시험 증거에서 실제 시험 결과를 등록한 뒤 조합을 다시 검증하세요.',
+    SECURITY_CI_SIGNER_NOT_ACTIVE:'이 증거의 CI 키가 등록되지 않았거나 ACTIVE 상태·유효기간을 충족하지 않습니다. 증거를 서명한 공개키와 유효기간을 확인하세요.',
+    SECURITY_CI_SIGNATURE_INVALID:'CI 증거 서명을 검증하지 못했습니다. 등록한 CI 공개키와 원본 ci-evidence.json이 일치하는지 확인하세요.',
+    SECURITY_CI_EVIDENCE_INVALID:'CI 시험 증거 형식이 올바르지 않습니다. 분리 서명 도구가 만든 원본 ci-evidence.json을 선택하세요.',
+    SECURITY_CI_EVIDENCE_STALE:'같은 명세에 더 새로운 CI 증거가 이미 저장돼 있습니다. 최신 서명 증거를 확인하세요.',
+    SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED:'운영 게시에는 최종 A/B/O의 유효한 EXE 승인 서명, 등록 완료된 동일 명세와 보안 버전 1 이상이 필요합니다. Cozy v2에는 실제 Windows 빌드·API·실행 시험의 유효한 CI 서명 증거와 발급 A 검증도 필요합니다.',
     SECURITY_RELEASE_MANIFEST_INVALID:'명세 내용 또는 ID가 유효하지 않습니다. 생성 도구의 원본 JSON을 확인하세요.',
     SECURITY_MANIFEST_ARTIFACT_MISMATCH:'이 파일의 해시와 명세가 다릅니다. 패킹 결과는 원본 명세 ID를 재사용할 수 없습니다. 라이선스 관리의 [보호 결과 등록]에서 최종 결과용 새 명세를 연결하세요.'
   }[reason]||reason);
@@ -52,7 +56,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
     node('sec-activate').disabled=busy||!ready;
     if(view){view.dataset.state=ready?'ready':'pending';view.textContent=message||(ready?'조합 검증을 통과했습니다. 선택한 A/B/O를 운영 게시할 수 있습니다.':'선택한 A/B/O 조합을 먼저 검증해주세요.');}
     const release=pairPreview?.result?.release,ciVerified=release?.evidenceType==='CI_SIGNED_VERIFIED'&&release?.ciVerification==='SIGNATURE_VERIFIED';
-    node('sec-ci-status').textContent=ciVerified?'CI 서명 증거 확인됨 · 하드웨어 실행 증명이 아닙니다.':'CI 미실행/미검증 · 수동 배포의 서명·명세 확인은 Windows 시험 PASS가 아닙니다.';
+    node('sec-ci-status').textContent=ciVerified?'CI 서명 증거 확인됨 · 하드웨어 실행 증명이 아닙니다.':'CI 미실행/미검증 · EXE 승인·명세 확인은 Windows 시험 PASS가 아닙니다. Cozy v2 게시에는 유효한 CI 시험 증거가 필요합니다.';
     const rows=data.operations.candidates,governance=data.operations.operations.releaseGovernance||{};
     const selected=Object.entries(pairBody()).map(([key,id])=>({component:key[0].toUpperCase(),candidate:rows.find(row=>row.id===id)}));
     node('sec-candidate-summary').innerHTML=selected.map(({component,candidate})=>`<div><strong>${component}</strong> ${candidate?`<span>${esc(candidate.id)}</span><small>명세 ${esc(candidate.deploymentManifestId?candidate.deploymentManifestId.slice(0,20)+'…':'미연결')}</small>`:'<span>선택 안 함</span>'}</div>`).join('');
@@ -97,12 +101,12 @@ async function showDesktopSecurityOperations(initialPair=null) {
       <div class="actions">${button('preview-policy','영향 미리보기')}${button('save-policy','미리본 정책 적용')}</div><pre id="sec-policy-preview" class="desktop-security-result"></pre>
       <p class="small-note">선택적 장치 관측은 지원하는 새 클라이언트에만 요청하며 기본값은 꺼짐입니다. 세션·Challenge 범위의 해시만 진단용으로 받고 기존 장치 Binding이나 실행 승인 기준을 바꾸지 않습니다. 전역 정책 적용은 진행 중인 빌드별 시험 적용을 종료합니다. 연결되지 않은 PC의 호환성은 판정하지 않습니다.</p></details>
       <details><summary>Windows · GPU 호환성별 완화 정책</summary>
-      <p class="small-note">CI는 선택 사항입니다. IDE에서 cozy.ProcessMitigationProfileProbe와 cozy.OverlayMitigationProbe를 빌드한 뒤 Run_Mitigation_Compatibility.bat으로 관측 JSON을 만드세요. 같은 최종 A/B/O·등록 명세·소스 기록과 연결하며, O의 GPU fingerprint에는 실제 DXGI 어댑터와 UMD 드라이버 버전이 포함됩니다.</p>
+      <p class="small-note">이 수동 호환성 관측은 CI 없이 등록할 수 있습니다. Cozy v2 게시의 CI 시험 요구는 별도로 유지됩니다. IDE에서 Cozy.ProcessMitigationProfileProbe와 Cozy.OverlayMitigationProbe를 빌드한 뒤 Run_Mitigation_Compatibility.bat으로 관측 JSON을 만드세요. 같은 최종 A/B/O·등록 명세·소스 기록과 연결하며, O의 GPU fingerprint에는 실제 DXGI 어댑터와 UMD 드라이버 버전이 포함됩니다.</p>
       <label>수동 호환성 관측 JSON<input id="sec-compatibility-report" type="file" accept=".json,application/json"></label>
       ${button('import-mitigation-compatibility','호환성 관측 기록 등록')}
       <p class="small-note">읽어 온 정책 값과 오류 코드를 표시합니다. probe 통과는 실제 A/B/O 전체 흐름 통과·하드웨어 증명으로 바뀌지 않습니다. 미실행·미지원·변경·만료는 별도로 표시하며 이 기록으로 정책을 자동 적용하거나 완화하지 않습니다.</p>
       ${compatibilityMatrix()}
-      <details><summary>선택적 CI 서명 프로필 적용</summary><p class="small-note">아래 프로필 기능만 실제 Windows 시험과 전용 CI 서명·동일 빌드·OS·GPU 결속이 필요합니다. 일반 게시나 위 수동 관측 등록의 필수 조건은 아닙니다. CFG 메타데이터만으로 전체 호출부 보호를 인정하지 않습니다.</p>
+      <details><summary>선택적 CI 서명 프로필 적용</summary><p class="small-note">아래 프로필 기능은 실제 Windows 시험과 전용 CI 서명·동일 빌드·OS·GPU 결속이 필요합니다. 수동 관측 등록은 CI 증거를 대신하지 않으며, Cozy v2 운영 게시의 CI 시험 요구도 별도로 유지됩니다. CFG 메타데이터만으로 전체 호출부 보호를 인정하지 않습니다.</p>
       <label>서명된 호환성 시험 증빙 JSON<input id="sec-mitigation-evidence" type="file" accept=".json,application/json"></label>
       ${checkbox('sec-mitigation-enabled','검증된 조합에 프로필 사용',true)}
       ${button('save-mitigation-profile','서명 증빙 확인 후 프로필 저장')}
@@ -120,36 +124,38 @@ async function showDesktopSecurityOperations(initialPair=null) {
       <div id="sec-candidate-summary" class="security-candidate-summary"></div><p id="sec-release-stage" class="security-release-stage"></p>
       <label>이번 변경 내용 (서버에 보관)<textarea id="sec-release-notes" maxlength="1000"></textarea></label>
       <div class="actions">${button('preview-pair','조합 검증')}<button type="button" id="sec-activate" data-security-action="activate" disabled>검증한 A/B/O 조합 운영 게시</button></div><p id="sec-pair-status" class="security-pair-status" role="status" aria-live="polite"></p><pre id="sec-pair-preview" class="desktop-security-result"></pre>
-      <p id="sec-ci-status" class="small-note">CI 미실행/미검증 · 수동 배포의 서명·명세 확인은 Windows 시험 PASS가 아닙니다.</p>
+      <p id="sec-ci-status" class="small-note">CI 미실행/미검증 · EXE 승인·명세 확인은 Windows 시험 PASS가 아닙니다. Cozy v2 게시에는 유효한 CI 시험 증거가 필요합니다.</p>
       <details><summary>선택 사항 · 운영자 시험 기록</summary><label>시험 결과 JSON (Windows 수집 도구 결과 또는 운영자 확인 자료)<input type="file" id="sec-evidence-file" accept=".json,application/json"></label>${button('record-evidence','선택 A/B/O에 시험 결과 기록')}
       <p class="small-note">nativeBuild · apiProbe · integration은 PASS / FAIL / NOT_RUN을 구분합니다. 실제 실행하지 않은 항목을 PASS로 표시하지 마세요. 이 기록은 CI 서명을 대신하지 않습니다.</p></details>
       <pre class="desktop-security-result">${esc(JSON.stringify(s.activations.slice(-10).reverse(),null,2))}</pre></details>
       <details><summary>배포 명세 · 수동 배포 · 최소 보안 버전</summary>
-      <p class="small-note">수동 빌드한 최종 A/B/O의 EXE 승인 서명, 하나의 등록 완료된 배포 명세, 보안 버전 1 이상을 서버가 확인합니다. CI 증거 JSON은 요구하지 않습니다. 서명·명세 확인만으로 실제 Windows 시험을 통과했다고 표시하지 않습니다.</p>
+      <p class="small-note">최종 A/B/O의 EXE 승인 서명, 하나의 등록 완료된 배포 명세, 보안 버전 1 이상을 서버가 확인합니다. Cozy v2 운영 게시에는 같은 최종 명세의 Windows 빌드·API·실행 시험과 신뢰된 CI 서명 증거가 추가로 필요합니다. 서명·명세 확인만으로 실제 Windows 시험을 통과했다고 표시하지 않습니다.</p>
       <div class="desktop-security-grid">${checkbox('sec-manifest-required','하나의 A/B/O 배포 명세 필수',true,true)}${input('sec-security-floor','최소 보안 배포 버전 (1 이상 · 낮출 수 없음)',publicationFloor,'number')}</div>
-      <p id="sec-ci-requirement" class="small-note">신규 운영 게시: CI 증거 요구 안 함 · EXE 승인 서명 및 명세 검사 유지</p>
+      <p id="sec-ci-requirement" class="small-note">기본 수동 배포 정책과 Cozy v2 추가 검증은 별개입니다. Cozy v2의 CI 시험·발급 A 검증 요구는 이 버튼으로 해제되지 않습니다.</p>
       ${button('save-release-governance','현재 조합에 수동 배포 정책 적용')}
-      <p id="sec-runtime-governance" class="small-note">${legacyRuntime?'기존 실행: 과거 저장 정책 유지. 현재 조합에 수동 배포 정책을 적용하거나 새 조합을 게시하면 CI 요구를 해제하고 명세·보안 버전 조건을 저장합니다.':'기존 실행에도 수동 배포의 명세·최소 보안 버전 정책이 적용되어 있습니다.'}${g.requireCiEvidence?' 현재 저장된 기존 실행 정책: CI 증거 요구 켜짐.':''}</p>
+      <p id="sec-runtime-governance" class="small-note">${legacyRuntime?'기존 실행: 과거 저장 정책 유지. 현재 조합에 수동 배포 정책을 적용하거나 새 조합을 게시하면 기본 수동 배포의 명세·보안 버전 조건을 저장합니다. Cozy v2의 추가 CI 시험 요구는 유지됩니다.':'기존 실행에도 수동 배포의 명세·최소 보안 버전 정책이 적용되어 있습니다.'}${g.requireCiEvidence?' 현재 저장된 기존 실행 정책: CI 증거 요구 켜짐.':''}</p>
       <p class="small-note">현재 운영 조합도 서명·명세 검증을 통과해야 이 조건을 저장할 수 있습니다. 명세가 없는 기존 조합은 승인한 최종 A/B/O로 명세를 준비해 새로 게시하세요. 실패하면 기존 운영 조합과 정책을 바꾸지 않습니다.</p>
-      <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">내려받은 deployment-policy.json을 BAT가 있는 Relay Server/tools 폴더에 저장하세요. 현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
+      <div class="actions">${button('download-policy','명세 생성용 현재 정책 JSON 저장')}</div><p class="small-note">명세 생성용 deployment-policy.json은 Relay Server/tools/artifacts에 저장하세요. Windows CI 입력용 사본은 Relay Server/tools/build에 저장합니다. 현재 정책 SHA-512: <code>${esc(box.policySha512||'현재 정책을 새로고침하세요.')}</code></p>
       <div class="small-note" id="sec-manual-workflow"><strong>IDE 수동 빌드부터 운영 게시까지</strong>
       <ol><li>필요할 때 <code>Prepare_ImGui.bat</code>으로 ImGui 브리지를 준비하고, IDE에서 A/B/O를 Win64 Release로 빌드합니다. 최종 EXE는 <code>Railway/Cozy.Projects/Cozy.Launcher/Cozy.Launcher.exe</code>, <code>Railway/Cozy.Projects/Cozy.Client/Cozy.Client.exe</code>, <code>Railway/Cozy.Projects/Cozy.Overlay/Cozy.Overlay.exe</code>에 생성됩니다.</li>
-      <li><code>Create_Spec.bat</code>으로 실제 버전의 <code>tools/spec.json</code>을 준비하고, 위 버튼으로 현재 서버 정책을 <code>tools/deployment-policy.json</code>에 저장합니다. 사용할 EXE 승인 공개키가 이 정책의 신뢰 서명자에 있어야 합니다.</li>
+      <li><code>Create_Spec.bat</code>으로 실제 버전의 <code>tools/artifacts/spec.json</code>을 준비하고, 위 버튼으로 현재 서버 정책을 <code>tools/artifacts/deployment-policy.json</code>에 저장합니다. 사용할 EXE 승인 공개키가 이 정책의 신뢰 서명자에 있어야 합니다.</li>
       <li>같은 최종 A/B/O 각각에 <code>Create_Approval.bat</code> → <code>Check_Approval.bat</code>을 실행합니다. 승인 도구 처리가 끝난 최종 파일과 승인 JSON을 보관합니다.</li>
-      <li>그 세 파일로 <code>Create_Release_Manifest.bat</code> → <code>Check_Release_Manifest.bat</code>을 실행해 <code>tools/release-manifest.json</code>을 준비합니다.</li>
+      <li>그 세 파일로 <code>Create_Release_Manifest.bat</code> → <code>Check_Release_Manifest.bat</code>을 실행해 <code>tools/artifacts/release-manifest.json</code>을 준비합니다.</li>
       <li>아래에서 명세를 계획 등록하고, 최종 A/B/O와 각 승인 JSON을 같은 명세 ID로 후보 등록합니다. 같은 명세 JSON으로 등록을 완료한 뒤 <strong>조합 검증 → 운영 게시</strong>를 진행합니다.</li></ol>
-      <p>승인이나 명세 생성 후 EXE를 다시 빌드·변경했다면 새 최종 파일로 승인·명세를 다시 준비하세요. CI 키 생성과 Windows CI 실행은 이 수동 배포 순서에 포함되지 않습니다.</p></div>
-      <label>배포 명세 JSON (tools/release-manifest.json)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
+      <p>승인이나 명세 생성 후 EXE를 다시 빌드·변경했다면 새 최종 파일로 승인·명세를 다시 준비하세요. Cozy v2는 이 파일 등록 순서 외에 실제 Windows 시험과 CI 서명 증거가 필요합니다. 이미 빌드한 파일을 다시 빌드하는 것으로 시험 증거가 생성되지는 않습니다.</p></div>
+      <label>배포 명세 JSON (tools/artifacts/release-manifest.json)<input type="file" id="sec-manifest-file" accept=".json,application/json"></label>${button('plan-manifest','파일 업로드 전 명세 계획 등록')}${button('record-manifest','세 파일 확인 후 명세 등록 완료')}
       <div class="security-manifest-list">${Object.entries(g.manifests).map(([id,r])=>`<article class="security-manifest-card"><div><strong>${esc(r.manifest.releaseName)}</strong><span class="security-manifest-state" data-state="${esc(r.registration||'REGISTERED')}">${(r.registration||'REGISTERED')==='REGISTERED'?'등록 완료 · REGISTERED':'계획 등록 · PLANNED'}</span></div><code>${esc(id)}</code><p>${(r.registration||'REGISTERED')==='REGISTERED'?'후보를 선택하고 조합 검증을 진행하세요.':'A/B/O 후보 등록 후 같은 JSON으로 [세 파일 확인 후 명세 등록 완료]를 실행하세요.'}</p></article>`).join('')||'<p class="empty">등록된 배포 명세가 없습니다.</p>'}</div>
       <pre class="desktop-security-result">${esc(JSON.stringify(Object.entries(g.manifests).map(([id,r])=>({manifestId:id,releaseName:r.manifest.releaseName,securityVersion:r.manifest.securityVersion,handoffVersion:r.manifest.handoffVersion,recordedAt:r.recordedAt,registration:r.registration||'REGISTERED'})),null,2))}</pre><p class="small-note">위 목록은 저장 기록입니다. 현재 유효성은 [조합 검증]에서 키 상태와 정책을 다시 검사합니다.</p></details>
       <details><summary>긴급 복구 · 승인한 조합으로 전환</summary><p class="small-note">위 A/B/O 선택을 대상으로 복구 내용을 준비한 뒤 명시적으로 승인·적용합니다. 보안 버전 하한·EXE 승인 서명·명세·실제 파일 검증을 그대로 적용하며 낮은 버전 예외 통과는 없습니다. 계획은 현재 정책/운영 revision에 결속되고 5분 후 만료됩니다.</p>
       ${input('sec-recovery-reason','복구 사유','')}<div class="actions">${button('prepare-recovery','선택 조합의 복구 내용 준비')}<button type="button" id="sec-recovery-apply" data-security-action="apply-recovery" disabled>준비한 복구 승인·적용</button></div><pre id="sec-recovery-preview" class="desktop-security-result"></pre>
       <pre class="desktop-security-result">${esc(JSON.stringify(Object.entries(g.recoveryPlans||{}).map(([recoveryId,r])=>({recoveryId,reason:r.reason,status:r.status,createdAt:r.createdAt,appliedAt:r.appliedAt,manifestId:r.manifestId})),null,2))}</pre></details>
-      <details id="sec-optional-ci"><summary>선택 사항 · 기존 CI 공개키와 시험 이력</summary>
+      <details id="sec-optional-ci"><summary>CI 공개키 · Windows 시험 증거</summary>
       <label>CI 공개키 JSON (Export_CI_Public_Key.bat의 ci-public-key.json · 개인키 금지)<input type="file" id="sec-ci-key-file" accept=".json,application/json"></label>${button('record-ci-key','CI 전용 공개키 등록')}
-      <p class="small-note">수동 운영 게시에는 CI 키가 필요하지 않습니다. 기존 키와 시험 기록은 보존합니다. ACTIVE는 선택적인 새 CI 증거를 허용합니다. RETIRING은 기존 증거만 유지하며 REVOKED는 기존 증거도 무효화합니다. 키 철회는 복원할 수 없으며 현재 실행에도 영향을 줍니다. 키 유효기간은 발급 후 변경하지 않습니다.</p>
+      <p class="small-note">Cozy v2 운영 게시에는 실제 Windows 빌드·API·실행 시험을 수행한 결과와 전용 CI 키의 서명이 필요합니다. 공개키 등록은 시험 실행이나 PASS 생성이 아닙니다. 기존 키와 시험 기록은 보존합니다. ACTIVE는 새 CI 증거 등록을 허용합니다. RETIRING은 기존 증거만 유지하며 REVOKED는 기존 증거도 무효화합니다. 키 철회는 복원할 수 없으며 현재 실행에도 영향을 줍니다. 키 유효기간은 발급 후 변경하지 않습니다.</p>
       ${Object.values(g.ciKeys).map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('ci-signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],k.state)}<button type="button" data-security-action="ci-signer" data-key="${esc(k.keyId)}">CI 키 상태 저장</button></div>`).join('')||'<p>등록된 CI 키가 없습니다.</p>'}
-      <pre class="desktop-security-result">${esc(JSON.stringify(g.ciEvidence||{},null,2))}</pre><p class="small-note">저장된 시험 기록만 표시합니다. 키 등록이나 이력 보존으로 CI PASS를 새로 만들지 않습니다.</p></details>
+      <label>서명된 Windows CI 증거 JSON (ci-evidence.json · 개인키·수동 시험 보고서 금지)<input type="file" id="sec-ci-evidence-file" accept=".json,application/json"></label>${button('record-ci-evidence','서명된 CI 시험 증거 등록')}
+      <p class="small-note">분리 서명 도구가 만든 원본 ci-evidence.json을 선택하세요. 같은 최종 A/B/O의 배포 명세가 먼저 등록돼 있어야 합니다. 서버가 CI 키·서명·명세·발급 시각을 검사하며, FAIL과 NOT_RUN은 PASS로 바꾸지 않습니다. 등록 후 선택한 A/B/O의 조합 검증을 다시 실행하세요.</p>
+      <pre id="sec-ci-evidence-history" class="desktop-security-result">${esc(JSON.stringify(g.ciEvidence||{},null,2))}</pre><p class="small-note">저장된 시험 기록만 표시합니다. 키 등록이나 이력 보존으로 CI PASS를 새로 만들지 않습니다. 최종 발급 A 검증은 별도 게시 조건입니다.</p></details>
       <details><summary>서버·승인·CI 키 용도 분리</summary><p class="small-note">서버 통신/TLS/EXE 승인/CI 키의 정규화한 공개키 지문으로 중복 용도를 거절합니다. 저장하는 정보는 공개 지문과 용도뿐이며 이 화면에서 서버 개인키를 내보내지 않습니다.</p><pre class="desktop-security-result">${esc(JSON.stringify(box.keyPurposes||{},null,2))}</pre></details>
       <details><summary>서명 키 전환 · 철회</summary><p class="small-note">ACTIVE: 신규 서명 배포 허용. RETIRING: 기존 배포 검증만 허용. REVOKED: 기존 배포도 거절하며 복원 불가. 현재 운영 키 철회는 세션 작업을 막을 수 있습니다.</p>
       ${p.trustedReleaseKeys.map(k=>`<div class="desktop-security-signer"><code>${esc(k.keyId)}</code>${select('signer-'+k.keyId,[['ACTIVE','정상 사용'],['RETIRING','전환 중'],['REVOKED','긴급 철회']],s.signerStates[k.keyId]?.state||'ACTIVE')}<button type="button" data-security-action="signer" data-key="${esc(k.keyId)}">상태 저장</button></div>`).join('')||'<p>등록된 신뢰 서명자가 없습니다.</p>'}</details>
@@ -262,13 +268,25 @@ async function showDesktopSecurityOperations(initialPair=null) {
         if(action==='record-manifest'||action==='plan-manifest'){
           if(!value||!value.manifest||typeof value.manifestId!=='string'||Object.keys(value).sort().join(',')!=='manifest,manifestId')throw Error('명세 생성 도구의 원본 JSON을 선택해주세요.');
           await api(base+(action==='plan-manifest'?'/plan-release':'/release-manifests'),{method:'POST',body:{expectedRevision:revision,manifestId:value.manifestId,manifest:value.manifest}});
-          successMessage=action==='plan-manifest'?'명세 계획 등록(PLANNED)을 완료했습니다. 같은 명세 ID로 A/B/O 후보를 등록한 뒤 [세 파일 확인 후 명세 등록 완료]를 진행하세요.':'명세 등록 완료(REGISTERED). 같은 명세의 A/B/O 후보를 선택해 조합 검증·운영 게시하세요. CI 증거 JSON은 필요하지 않습니다.';
+          successMessage=action==='plan-manifest'?'명세 계획 등록(PLANNED)을 완료했습니다. 같은 명세 ID로 A/B/O 후보를 등록한 뒤 [세 파일 확인 후 명세 등록 완료]를 진행하세요.':'명세 등록 완료(REGISTERED). 같은 명세의 A/B/O 후보를 선택하세요. Cozy v2는 CI 시험 증거와 발급 A 검증을 연결한 뒤 조합 검증·운영 게시를 진행합니다.';
         }else {
           if(!value||Object.keys(value).sort().join(',')!=='keyId,notAfter,notBefore,publicKey,state')throw Error('CI 공개키 도구의 원본 JSON을 선택해주세요. 개인키는 등록하지 않습니다.');
           await api(base+'/ci-signers',{method:'POST',body:{expectedRevision:revision,...value}});
-          successMessage='선택적인 CI 전용 공개키를 등록했습니다. 수동 운영 게시에는 CI 증거가 필요하지 않습니다.';
+          successMessage='CI 전용 공개키를 등록했습니다. 다음은 같은 최종 A/B/O 명세의 서명된 CI 시험 증거 등록입니다. 공개키 등록만으로 시험 PASS나 게시 승인을 만들지 않습니다.';
         }
         changed=true;
+      }else if(action==='record-ci-evidence'){
+        const field=node('sec-ci-evidence-file'),file=field.files?.[0];
+        if(!file||file.size<=0||file.size>65536)throw Error('64KiB 이하의 원본 ci-evidence.json을 선택해주세요.');
+        const text=await file.text();if(!alive())return;
+        if(field.files?.[0]!==file)throw Error('파일 선택이 변경되었습니다. 현재 CI 증거 파일로 다시 등록해주세요.');
+        if(text.includes('PRIVATE KEY'))throw Error('개인키는 업로드할 수 없습니다. 서명된 ci-evidence.json만 선택하세요.');
+        let envelope;try{envelope=JSON.parse(text);}catch(_){throw Error('CI 증거 JSON을 읽지 못했습니다. 분리 서명 도구가 만든 원본 파일을 선택하세요.');}
+        if(!envelope||Array.isArray(envelope)||Object.keys(envelope).sort().join(',')!=='keyId,signature,statement'||typeof envelope.keyId!=='string'||typeof envelope.signature!=='string'||!envelope.statement||typeof envelope.statement!=='object'||Array.isArray(envelope.statement))throw Error('서명된 CI 증거 형식이 아닙니다. 공개키 JSON이나 수동 시험 보고서는 등록할 수 없습니다.');
+        const statement=envelope.statement,fields=['version','purpose','manifestId','runId','issuedAt','nativeBuild','apiProbe','integration','logsSha512',...(statement.version===2?['buildInputSha512','compatibilitySha512']:[])];
+        if(![1,2].includes(statement.version)||statement.purpose!=='GAME-CI-ATTESTATION-V1'||Object.keys(statement).sort().join(',')!==fields.sort().join(','))throw Error('CI 증거의 시험 진술 형식이 올바르지 않습니다. 수동 보고서나 수정한 JSON 대신 원본 ci-evidence.json을 선택하세요.');
+        await api(base+'/ci-evidence',{method:'POST',body:{expectedRevision:revision,envelope}});changed=true;
+        successMessage='서명된 CI 시험 증거를 등록했습니다. 선택한 A/B/O의 조합 검증을 다시 실행하세요. 등록은 시험을 실행하거나 결과를 PASS로 바꾸지 않습니다.';
       }else if(action==='prepare-recovery'){
         const selection=pairBody(),reason=node('sec-recovery-reason').value.trim();if(!reason||reason.length>500)throw Error('500자 이하의 복구 사유를 입력해주세요.');
         const draft=JSON.stringify({selection,reason,policyRevision:data.policy.revision});if(draft!==recoveryDraft){recoveryRequestId=crypto.randomUUID();recoveryDraft=draft;}

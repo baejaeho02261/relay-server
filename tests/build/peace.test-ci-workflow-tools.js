@@ -6,6 +6,25 @@ const workflow=require("../../tools/build/peace.ci-workflow"),provenance=require
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ci-workflow-tools-')),root=path.join(dir,'source with spaces'),keys=path.join(dir,'private'),out=path.join(root,'Relay Server/tools/ci-runs/test');
 const sha=b=>crypto.createHash('sha512').update(b).digest('hex'),write=(name,v)=>fs.writeFileSync(path.join(out,name),JSON.stringify(v,null,2)+'\n');
 try{
+ // Resolve the actual relocated PowerShell entry point, including Windows paths
+ // with spaces. Its root must include Railway as well as Relay Server: otherwise
+ // source reads gain a duplicate Relay Server segment and keys can enter Railway.
+ const entry=path.resolve(__dirname,'../../tools/build/ci-workflow.ps1');
+ const script=fs.readFileSync(entry,'utf8');
+ const rootDeclaration=script.match(/^\$sourceRoot=\[IO\.Path\]::GetFullPath\(\(Join-Path \$toolRoot '([^']+)'\)\)$/m);
+ assert.ok(rootDeclaration,'CI entry point declares its package root');
+ const fullSource=path.resolve(path.dirname(entry),...rootDeclaration[1].split('\\'));
+ assert.equal(fullSource,path.resolve(__dirname,'../../..'));
+ const relayRoot=path.resolve(__dirname,'../..');
+ for(const name of ['Relay Server/services/artifacts/peace.bounded-artifact-read.js','Relay Server/services/artifacts/peace.desktop-release-provenance.js','Relay Server/services/protocol/peace.strict-json.js','Relay Server/tools/artifacts/peace.release-provenance.js','Relay Server/tools/build/peace.ci-workflow.js','Relay Server/ci/pipeline/CiCommon.ps1','Relay Server/ci/pipeline/WindowsJob.cs','Relay Server/ci/pipeline/Invoke-WindowsCI.ps1','Relay Server/maintenance/source-manifest.json']){
+  assert.ok(fs.statSync(path.join(relayRoot,name.slice('Relay Server/'.length))).isFile(),'CI package dependency: '+name);
+ }
+ const windowsSource='C:\\Users\\Administrator\\Documents\\Cozy-Peace-Full-Source (3)\\cozy-peace';
+ const windowsRoot=path.win32.resolve(windowsSource,'Relay Server\\tools\\build',rootDeclaration[1]);
+ assert.equal(windowsRoot,windowsSource);
+ assert.equal(path.win32.join(windowsRoot,'Relay Server\\services\\artifacts\\peace.bounded-artifact-read.js'),windowsSource+'\\Relay Server\\services\\artifacts\\peace.bounded-artifact-read.js');
+ assert.throws(()=>workflow.externalKeyPath(fullSource,path.join(fullSource,'Railway','ci-private.pem')),/OUTSIDE_SOURCE/);
+ assert.throws(()=>workflow.externalKeyPath(fullSource,path.join(fullSource,'Relay Server','ci-private.pem')),/OUTSIDE_SOURCE/);
  // The real runner supplies this allowlist to every subprocess. Python options
  // accepted by preflight must survive that boundary for npm/node-gyp rebuilds.
  const common=fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../ci/pipeline/CiCommon.ps1"),'utf8');
