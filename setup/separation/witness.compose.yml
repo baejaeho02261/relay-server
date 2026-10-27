@@ -21,7 +21,7 @@ services:
       GAME_SERVICE_ROLE: witness
       GAME_SERVICE_UID: '10004'
       GAME_READONLY_PATHS_JSON: '["/app"]'
-      GAME_FORBIDDEN_PATHS_JSON: '["/data","/keys-release","/keys-ci"]'
+      GAME_FORBIDDEN_PATHS_JSON: '["/data","/keys-release"]'
       GAME_WRITABLE_PATHS_JSON: '["/witness"]'
       WITNESS_DATA_DIR: /witness
       WITNESS_PORT: ${WITNESS_PORT:?set listener port}

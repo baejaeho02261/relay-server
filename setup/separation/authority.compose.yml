@@ -21,7 +21,7 @@ services:
       GAME_SERVICE_ROLE: authority
       GAME_SERVICE_UID: '10001'
       GAME_READONLY_PATHS_JSON: '["/app"]'
-      GAME_FORBIDDEN_PATHS_JSON: '["/witness","/keys-release","/keys-ci"]'
+      GAME_FORBIDDEN_PATHS_JSON: '["/witness","/keys-release"]'
       GAME_WRITABLE_PATHS_JSON: '["/data"]'
       WEB_ADMIN_TRANSPORT: direct
       WEB_ADMIN_HOST: ${WEB_ADMIN_HOST:?set listener bind address}

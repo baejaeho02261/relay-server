@@ -21,7 +21,7 @@ services:
       GAME_SERVICE_ROLE: packer
       GAME_SERVICE_UID: '10003'
       GAME_READONLY_PATHS_JSON: '["/app","/tool","/profiles"]'
-      GAME_FORBIDDEN_PATHS_JSON: '["/data","/keys-release","/keys-ci"]'
+      GAME_FORBIDDEN_PATHS_JSON: '["/data","/keys-release"]'
       GAME_WRITABLE_PATHS_JSON: '["/work"]'
       PACKER_HOST: ${PACKER_HOST:?set listener bind address}
       PACKER_PORT: ${PACKER_PORT:?set listener port}

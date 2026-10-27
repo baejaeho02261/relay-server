@@ -1,8 +1,8 @@
 {
   "webAdminVersion": "5.0.1",
-  "uiRevision": "cozy-peace-v8-ci-evidence",
+  "uiRevision": "cozy-peace-v9-release-operations",
   "files": {
-    "index.html": "c570c03a4defe3491ad105fb49048bb00827e69bef9b7407dd11bdbde1f19d7f",
+    "index.html": "1bd925622fde4e11c8461bded2ed2ff4d205b27f12f896773d8436aea66e2130",
     "styles/admin.css": "8f5b6f4da0b2bf171e0ce4cef1a75e685d65cc858a4a6e64b66dce9489c552fa",
     "styles/admin-theme.css": "0e709f9223126d6673528a8c62cc123beaa424d6c9a3a20789ff8ed3fc7166dc",
     "styles/admin-appearance.css": "1a9e580248e60461981856398dc1ea4a8ff45a41b8d142c6a2ffd85507db5176",
@@ -12,7 +12,7 @@
     "scripts/interface/peace.admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "styles/admin-navigation.css": "66438652d4f16eddf1ee5b4a53f3aa613b0abf67c339debb4ded9f92074cac38",
     "scripts/interface/peace.admin-i18n.js": "f1c8e482ab6449d39a751aa3ac049d2d1d0d414e5c40476fabd757155c3fa99c",
-    "scripts/application/peace.admin.js": "4491b75df5f2c32cd11ef0a68a2e62d9e1cbf19647a1af92a7a5bdfc29f41003",
+    "scripts/application/peace.admin.js": "21ac7d481fdb8c168edf7327caf62fa50361c6e9a7abdd45eef6578e79ef681f",
     "scripts/interface/peace.admin-navigation.js": "bb81a50193f739f017ef7c961add6e5cfeba2bdaf40d19b83ef25ed087a59f77",
     "scripts/pages/peace.admin-pages-monitoring.js": "3e5ce63308968502a229d6e800fd39efeb28046bfefad3c5748bdf78eaedb8f1",
     "scripts/application/peace.admin-terminal.js": "55bf9bce7e1629e589b44cbd30c4f2a432e8cfa90c35732c5fbe4e903023c483",
@@ -42,13 +42,13 @@
     "manifest.json": "b7be84847c913e869f39011ce81215c652de36047a42a33095e0e35b2814c5f1",
     "scripts/interface/peace.admin-palette.js": "a3d76c47d56466c01334f1cd7fd7b1aa683ca2b2f5111fcd76aaf3ff6efc8c30",
     "scripts/desktop/peace.admin-desktop-licenses.js": "d540435bf098f6de61f1e695014d9a45fece1e01a9122c57690cce0a54998102",
-    "scripts/desktop/peace.admin-desktop-security.js": "d2ffd5c9702d6784105cfac06a21231ee068a8f094a1598b7f2c307ae37bce7d",
-    "scripts/desktop/peace.admin-desktop-server-state.js": "a8739984f111352950096efa3df82c0fee33e7469902d906b1bdc1e766026dcf",
+    "scripts/desktop/peace.admin-desktop-security.js": "0170b53ecbc15394e8fca53714dad2f0c1324c42ae663ca80f432c4338b548b2",
+    "scripts/desktop/peace.admin-desktop-server-state.js": "6d164d7b4f2dbaea4f369856622472282466f83b8d831133e3ddd35461d4f5f9",
     "scripts/desktop/peace.admin-desktop-workflow.js": "5535e9f80fa69d19c31f7fe3f44f6fef9b917fa9492921375cbb1e27e0da3698",
     "scripts/desktop/peace.admin-desktop-packed-release.js": "8fe50bf705ea30dcbdc866846456d99a76ed64ff7f4882bf5bf41ac3dd89aaac",
     "styles/admin-desktop.css": "74e5d99c230b09f6cfd33170a263eea85839b8d888cbf5039bf6c867d1ae0572",
     "scripts/pages/peace.admin-pages-production.js": "6a04c0ca482df7c28fc39e80e6d48e84a3f22c819a4ecfd18d54aff0b74c02d9",
-    "peace.service-worker.js": "d8bcee065131922626635301a8085d1527c68b8c0c61d352b93c987c7d215316",
+    "peace.service-worker.js": "69b944e52d2a410b39cb8340c79070367a4e72f7f970a7f2cf8c9b49e64c78fb",
     "ui-refresh.html": "1660495bfe2bb41823b6a15b442e552b449a6c7063d31369c5689507f08d5e62",
     "scripts/application/peace.ui-refresh.js": "5785d4b8b5797212506f84146f3d76a24ec7f6e41e7eaf5610168dccfd8dacfa"
   }

@@ -58,7 +58,6 @@
     "test:build:inputs": "node tests/build/peace.test-build-input-lock.js",
     "test:mitigation:profiles": "node tests/security/peace.test-mitigation-profiles.js",
     "test:device:handoff": "node tests/devices/peace.test-device-identity-handoff.js",
-    "test:ci:profile:fixture": "node tests/fixtures/build/peace.test-ci-profile-fixture.js",
     "test:probe:build-output": "node tests/build/peace.test-probe-build-output.js",
     "test:crc:pe-independent": "node tests/artifacts/peace.test-crc-pe-comparison.js",
     "test:overlay:environment": "node tests/overlay/peace.test-overlay-environment.js",
@@ -123,7 +122,8 @@
     "test:server-authority:bypass": "node --test tests/security/peace.test-server-authority-bypass.js",
     "security:client-secrets": "node tools/security/peace.audit-client-secrets.js",
     "test:server-keyless": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js tests/security/peace.test-server-policy-registry.js tests/runtime/peace.test-server-policy-worker.js tests/runtime/peace.test-worker-result-ownership.js",
-    "test:server-operations": "node --test tests/security/peace.test-server-policy-operations.js tests/integrity/peace.test-owned-pointer-graph.js tests/integrity/peace.test-authority-measurement-security.js"
+    "test:server-operations": "node --test tests/security/peace.test-server-policy-operations.js tests/integrity/peace.test-owned-pointer-graph.js tests/integrity/peace.test-authority-measurement-security.js",
+    "test:profile:fixture": "node tests/fixtures/build/peace.test-profile-fixture.js"
   },
   "engines": {
     "node": "24.22.1"
