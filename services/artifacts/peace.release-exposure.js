@@ -8,7 +8,7 @@ const RULES=Object.freeze([
  {id:'PRIVATE_KEY_PEM',source:'-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----[\\r\\n ]+[A-Za-z0-9+/=\\r\\n ]{48,16000}-----END (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----'},
  {id:'GITHUB_TOKEN',source:'\\b(?:gh[pousr]_[A-Za-z0-9]{36,255}|github_pat_[A-Za-z0-9_]{60,255})\\b'},
  {id:'SLACK_TOKEN',source:'\\bxox[baprs]-[A-Za-z0-9-]{24,200}\\b'},
- {id:'CREDENTIAL_ASSIGNMENT',source:'(?:ADMIN_SECRET|GAME_RELEASE_APPROVAL_KEY_B64|GAME_CI_ATTESTATION_KEY_B64|AWS_SECRET_ACCESS_KEY|DATABASE_PASSWORD)["\']?\\s*[=:]\\s*["\']?([A-Za-z0-9+/=_-]{20,512})'}
+ {id:'CREDENTIAL_ASSIGNMENT',source:'(?:ADMIN_SECRET|GAME_RELEASE_APPROVAL_KEY_B64|[A-Z][A-Z0-9_]{0,64}_SIGNING_KEY_B64|AWS_SECRET_ACCESS_KEY|DATABASE_PASSWORD)["\']?\\s*[=:]\\s*["\']?([A-Za-z0-9+/=_-]{20,512})'}
 ]);
 const completed=new Map();let backgroundRequired=false;
 const DEV_EXT=/\.(?:pas|dpr|dproj|inc|cpp|c|h|hpp|map|pdb|dcu|obj|o|ilk|idb|mdb|tds|vmp|bak|log)$/i;

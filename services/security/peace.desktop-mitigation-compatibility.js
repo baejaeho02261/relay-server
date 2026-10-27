@@ -1,6 +1,7 @@
 'use strict';
+function LegacyReport(value){if(value&&Object.hasOwn(value,'ciEvidenceCreated')){if(value.ciEvidenceCreated!==false)Fail();value={...value};delete value.ciEvidenceCreated;}return value;}
 // Optional operator records of actual linked-native-unit trials. Reports never
-// become execution authority, CI evidence or full A/B/O workflow attestation.
+// become execution authority, full A/B/O workflow attestation.
 const crypto=require('node:crypto'),stable=require("../artifacts/peace.desktop-release-provenance").Stable;
 const HASH=/^[a-f0-9]{128}$/,MODES=['observe','prohibit'],SCOPES=['AB','O'];
 const plain=x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
@@ -39,8 +40,9 @@ function Outcome(row){
  return 'PASS';
 }
 function ValidateReport(r){
- Shape(r,['version','kind','runId','startedAt','finishedAt','platform','architecture','sourceManifestSha512','sourceManifestUnchanged','artifacts','probes','rows','windowsExecuted','hardwareAttested','ciEvidenceCreated','publicationApproval','scope']);
- if(r.version!==1||r.kind!=='MITIGATION_COMPATIBILITY_OBSERVATION'||typeof r.runId!=='string'||!/^mitigation-[A-Za-z0-9_-]{1,100}$/.test(r.runId)||!Time(r.startedAt)||!Time(r.finishedAt)||Date.parse(r.finishedAt)<Date.parse(r.startedAt)||r.platform!=='win32'||r.architecture!=='x64'||!Digest(r.sourceManifestSha512)||typeof r.sourceManifestUnchanged!=='boolean'||typeof r.windowsExecuted!=='boolean'||r.hardwareAttested!==false||r.ciEvidenceCreated!==false||r.publicationApproval!==false||r.scope!=='LINKED_RELEASE_UNITS_ONLY_NOT_PRODUCT_WORKFLOW')Fail();
+ r=LegacyReport(r);
+ Shape(r,['version','kind','runId','startedAt','finishedAt','platform','architecture','sourceManifestSha512','sourceManifestUnchanged','artifacts','probes','rows','windowsExecuted','hardwareAttested','publicationApproval','scope']);
+ if(r.version!==1||r.kind!=='MITIGATION_COMPATIBILITY_OBSERVATION'||typeof r.runId!=='string'||!/^mitigation-[A-Za-z0-9_-]{1,100}$/.test(r.runId)||!Time(r.startedAt)||!Time(r.finishedAt)||Date.parse(r.finishedAt)<Date.parse(r.startedAt)||r.platform!=='win32'||r.architecture!=='x64'||!Digest(r.sourceManifestSha512)||typeof r.sourceManifestUnchanged!=='boolean'||typeof r.windowsExecuted!=='boolean'||r.hardwareAttested!==false||r.publicationApproval!==false||r.scope!=='LINKED_RELEASE_UNITS_ONLY_NOT_PRODUCT_WORKFLOW')Fail();
  Shape(r.artifacts,['A','B','O']);for(const row of Object.values(r.artifacts)){Shape(row,['sha512','unchanged']);if(!Digest(row.sha512)||typeof row.unchanged!=='boolean')Fail();}
  Shape(r.probes,['AB','O']);for(const p of Object.values(r.probes)){Shape(p,['sha512','unchanged']);if(p.sha512!==null&&!Digest(p.sha512)||typeof p.unchanged!=='boolean'||p.sha512===null&&p.unchanged)Fail();}
  if(!Array.isArray(r.rows)||r.rows.length!==4)Fail();const seen=new Set();let windowsBuild;const gpu=new Set();
@@ -60,7 +62,7 @@ function ValidateReport(r){
 const ReportId=r=>hash(stable(ValidateReport(r)));
 function Validate(rows){
  if(!plain(rows)||Object.keys(rows).length>32)Fail('MITIGATION_COMPATIBILITY_STORAGE_INVALID',503);
- try{for(const[id,row]of Object.entries(rows)){Shape(row,['report','manifestId','recordedAt','actorHash']);if(!Digest(id)||!Digest(row.manifestId)||!Number.isSafeInteger(row.recordedAt)||row.recordedAt<1||!Digest(row.actorHash)||ReportId(row.report)!==id)Fail();}}
+ try{for(const[id,row]of Object.entries(rows)){Shape(row,['report','manifestId','recordedAt','actorHash']);if(!Digest(id)||!Digest(row.manifestId)||!Number.isSafeInteger(row.recordedAt)||row.recordedAt<1||!Digest(row.actorHash)||ReportId(row.report)!==id&&!(row.report.ciEvidenceCreated===false&&hash(stable(row.report))===id))Fail();}}
  catch(_){Fail('MITIGATION_COMPATIBILITY_STORAGE_INVALID',503);}
  return rows;
 }
@@ -72,7 +74,7 @@ function Summary(id,row,db,now=Date.now()){
  const r=row.report,unchanged=r.sourceManifestUnchanged&&Object.values(r.artifacts).every(a=>a.unchanged)&&Object.values(r.probes).every(p=>p.sha512===null||p.unchanged);
  const active=['A','B','O'].every(role=>db.artifacts?.[db.active?.[role]]?.sha512===r.artifacts[role].sha512&&db.artifacts[db.active[role]].deploymentManifestId===row.manifestId);
  let current=true;try{current=Binding(db,r)===row.manifestId;}catch(_){current=false;}
- return {id,runId:r.runId,manifestId:row.manifestId,recordedAt:row.recordedAt,finishedAt:r.finishedAt,artifacts:r.artifacts,currentBinding:current,activeArtifacts:active,evidenceType:'OPERATOR_RECORDED',windowsExecuted:r.windowsExecuted,scope:r.scope,productWorkflow:'NOT_RUN',hardwareAttested:false,ciEvidenceCreated:false,usedForAuthorization:false,rows:r.rows.map(x=>{const result=x.result,environment=result?.environment||null,stale=now-Date.parse(r.finishedAt)>30*86400000;let judgement='NOT_RUN';if(!unchanged||!current)judgement='INPUT_OR_RELEASE_CHANGED';else if(stale)judgement='STALE_RETEST_REQUIRED';else if(x.status==='FAIL'||x.status==='UNSUPPORTED')judgement='DO_NOT_APPLY';else if(x.status==='PASS')judgement='PROBE_PASS_PRODUCT_VALIDATION_REQUIRED';return{mode:x.mode,componentScope:x.componentScope,status:x.status,environment,environmentId:environment?hash(stable(environment)):null,driverBinding:x.componentScope==='O'?'DXGI_ADAPTER_AND_UMD_VERSION_SHA512':'NOT_GRAPHICS_TESTED',settings:result?.settings||null,observation:result?.observation||null,renderer:result?.renderer||'NOT_RUN',judgement};})};
+ return {id,runId:r.runId,manifestId:row.manifestId,recordedAt:row.recordedAt,finishedAt:r.finishedAt,artifacts:r.artifacts,currentBinding:current,activeArtifacts:active,evidenceType:'OPERATOR_RECORDED',windowsExecuted:r.windowsExecuted,scope:r.scope,productWorkflow:'NOT_RUN',hardwareAttested:false,usedForAuthorization:false,rows:r.rows.map(x=>{const result=x.result,environment=result?.environment||null,stale=now-Date.parse(r.finishedAt)>30*86400000;let judgement='NOT_RUN';if(!unchanged||!current)judgement='INPUT_OR_RELEASE_CHANGED';else if(stale)judgement='STALE_RETEST_REQUIRED';else if(x.status==='FAIL'||x.status==='UNSUPPORTED')judgement='DO_NOT_APPLY';else if(x.status==='PASS')judgement='PROBE_PASS_PRODUCT_VALIDATION_REQUIRED';return{mode:x.mode,componentScope:x.componentScope,status:x.status,environment,environmentId:environment?hash(stable(environment)):null,driverBinding:x.componentScope==='O'?'DXGI_ADAPTER_AND_UMD_VERSION_SHA512':'NOT_GRAPHICS_TESTED',settings:result?.settings||null,observation:result?.observation||null,renderer:result?.renderer||'NOT_RUN',judgement};})};
 }
 function Import(body,actor){
  Shape(body,['reportText']);if(typeof body.reportText!=='string')Fail();let report;
@@ -89,6 +91,6 @@ function Import(body,actor){
  });
 }
 function Status(db=require("../bootstrap/peace.desktop-bootstrap-store").Load()){
- const rows=Validate(db.mitigationCompatibility||{});return {version:1,kind:'OPTIONAL_OPERATOR_COMPATIBILITY_MATRIX',recordCount:Object.keys(rows).length,records:Object.entries(rows).sort((a,b)=>b[1].recordedAt-a[1].recordedAt).map(([id,row])=>Summary(id,row,db)),defaultJudgement:'NOT_RUN',usedForAuthorization:false,ciRequired:false,hardwareAttested:false,automaticPolicyChange:false};
+ const rows=Validate(db.mitigationCompatibility||{});return {version:1,kind:'OPTIONAL_OPERATOR_COMPATIBILITY_MATRIX',recordCount:Object.keys(rows).length,records:Object.entries(rows).sort((a,b)=>b[1].recordedAt-a[1].recordedAt).map(([id,row])=>Summary(id,row,db)),defaultJudgement:'NOT_RUN',usedForAuthorization:false,hardwareAttested:false,automaticPolicyChange:false};
 }
 module.exports={PolicyReadback,NativeResult,Outcome,ValidateReport,ReportId,Validate,Import,Status};

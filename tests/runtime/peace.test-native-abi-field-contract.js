@@ -35,8 +35,8 @@ test('5.1 no floating-point rounding when a malicious probe emits large integer 
 test('5.1 malformed UTF-8/BOM and overlong output are rejected',()=>{
  reject(()=>abi.Parse(Buffer.from([0xff])),'ABI_OUTPUT_UTF8');reject(()=>abi.Parse(Buffer.concat([Buffer.from([0xef,0xbb,0xbf]),bytes])),'ABI_OUTPUT_FORMAT');reject(()=>abi.Parse(Buffer.alloc(65537)),'ABI_OUTPUT_LIMIT');
 });
-test('5.1 PowerShell and Windows CI use this comparator rather than a separate permissive parser',()=>{
- const ps=fs.readFileSync(path.resolve(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Tests/Cozy.Platform/Cozy.Compare-NativeAbi.ps1"),'utf8'),ci=fs.readFileSync(sourceLayout.RelayFile('Windows-Stage.ps1'),'utf8');
- assert(ps.includes('Cozy.compare-native-abi.js'));assert(ps.includes('$LASTEXITCODE -ne 0'));assert(ci.includes('Cozy.Compare-NativeAbi.ps1'));
+test('5.1 PowerShell and manual Windows tests use this comparator rather than a separate permissive parser',()=>{
+ const ps=fs.readFileSync(path.resolve(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Tests/Cozy.Platform/Cozy.Compare-NativeAbi.ps1"),'utf8'),manual=fs.readFileSync(sourceLayout.RelayFile('peace.manual-windows-tests.js'),'utf8');
+ assert(ps.includes('Cozy.compare-native-abi.js'));assert(ps.includes('$LASTEXITCODE -ne 0'));assert(manual.includes('Cozy.compare-native-abi.js'));
 });
 console.log(JSON.stringify({scope:'REAL_ABI_PARSER_WITH_SYNTHETIC_NUMBERS_AND_EXPORTER_SOURCE_CHECK',groups,fields:fields.length,missingCases,mismatchCases,nativeExecuted:false,windowsExecuted:false}));

@@ -2,7 +2,7 @@
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Runs existing IDE-built probes only. Does not build A/B/O, request keys,
-// create CI evidence or change a server/process outside these test children.
+// create publication approval or change a server/process outside these test children.
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),crypto=require('node:crypto'),cp=require('node:child_process');
 const contract=require("../../services/security/peace.desktop-mitigation-compatibility"),read=require("../artifacts/peace.manual-release-check").read;
 const hash=b=>crypto.createHash('sha512').update(b).digest('hex');
@@ -59,9 +59,9 @@ async function Main(args,home=MODULE_RESOURCE_ROOT){
   for(const [i,role]of roles.entries())artifacts[role].unchanged=Unchanged(snapshots[i]);
   for(const scope of ['AB','O'])if(native[scope])probes[scope].unchanged=Unchanged(native[scope]);
   let sourceManifestUnchanged=false;try{sourceManifestUnchanged=require("../artifacts/peace.manual-release-check").inventory(home).sourceManifestSha512===source;}catch(_){sourceManifestUnchanged=false;}
-  const report=contract.ValidateReport({version:1,kind:'MITIGATION_COMPATIBILITY_OBSERVATION',runId,startedAt,finishedAt:new Date().toISOString(),platform:'win32',architecture:'x64',sourceManifestSha512:source,sourceManifestUnchanged,artifacts,probes,rows,windowsExecuted:rows.some(row=>row.result!==null),hardwareAttested:false,ciEvidenceCreated:false,publicationApproval:false,scope:'LINKED_RELEASE_UNITS_ONLY_NOT_PRODUCT_WORKFLOW'});
+  const report=contract.ValidateReport({version:1,kind:'MITIGATION_COMPATIBILITY_OBSERVATION',runId,startedAt,finishedAt:new Date().toISOString(),platform:'win32',architecture:'x64',sourceManifestSha512:source,sourceManifestUnchanged,artifacts,probes,rows,windowsExecuted:rows.some(row=>row.result!==null),hardwareAttested:false,publicationApproval:false,scope:'LINKED_RELEASE_UNITS_ONLY_NOT_PRODUCT_WORKFLOW'});
   const out=path.join(home,runId+'.json');fs.writeFileSync(out,JSON.stringify(report,null,2)+'\n',{flag:'wx',mode:0o600});console.log('Compatibility report: '+out);
-  console.log('Only linked policy/renderer probes ran. Full product workflow, hardware attestation, CI and publication authorization were not created.');
+  console.log('Only linked policy/renderer probes ran. Full product workflow, hardware attestation and publication authorization were not created.');
   if(!sourceManifestUnchanged||Object.values(artifacts).some(x=>!x.unchanged)||Object.values(probes).some(x=>x.sha512!==null&&!x.unchanged)||rows.some(x=>x.status==='FAIL'))process.exitCode=1;
   return report;
  }finally{fs.rmSync(scratch,{recursive:true,force:true});}

@@ -1,7 +1,7 @@
 'use strict';
 // Real authenticated authority files, Ed25519 EXE approvals and Cozy slot
 // transforms over synthetic PE data. These tests never execute a Windows EXE
-// and never manufacture a Windows test or CI approval.
+// and never manufacture a Windows test or automatic approval.
 const assert=require('node:assert/strict');
 const crypto=require('node:crypto');
 const fs=require('node:fs');
@@ -128,7 +128,7 @@ function Scenario(name){
     assert.ok(preview.reasons.includes('COZY_VM_V1_EMBEDDED_KEY_RETIRED'),JSON.stringify(preview.reasons));
     assert.equal(preview.packing.windowsVerified,false);
     assert.equal(preview.packing.receiptsVerified,true);
-    assert.equal(preview.release.ciVerification,'NOT_PROVIDED');
+    assert.equal(preview.release.hardwareAttested,false);
     ReadOnlyFailure(m,()=>m.ops.ActivateProductionPair({...Select(rows),expectedRevision:m.ops.Revision(),expectedPolicyRevision:m.auth.Policy().revision},'SYNTHETIC_OPERATOR'),'COZY_VM_V1_EMBEDDED_KEY_RETIRED');
     assert.deepEqual(m.store.Load().active,{});
     assert.equal(m.ops.State().requireCozyProtection,false);

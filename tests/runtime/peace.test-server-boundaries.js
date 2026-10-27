@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),https=require('node:https'),crypto=require('node:crypto');
 const isolation=require("../../services/security/peace.service-isolation"),tls=require("../../services/network/peace.server-peer-tls");
-test('no role may inherit production signing secrets from environment',()=>{for(const role of isolation.ROLES)for(const key of ['GAME_RELEASE_APPROVAL_KEY_B64','GAME_CI_ATTESTATION_KEY_B64'])assert.throws(()=>isolation.Check(role,{[key]:'test-only-secret'}),/SCOPE_VIOLATION/);});
+test('no role may inherit production signing secrets from environment',()=>{for(const role of isolation.ROLES)for(const key of ['GAME_RELEASE_APPROVAL_KEY_B64'])assert.throws(()=>isolation.Check(role,{[key]:'test-only-secret'}),/SCOPE_VIOLATION/);});
 test('gateway/packer/witness cannot inherit authority storage or admin credentials',()=>{for(const role of ['gateway','packer','witness'])for(const key of ['DATA_DIR','ADMIN_SECRET','QR_APPROVAL_SECRET','DESKTOP_RECOVERY_WITNESS_DIR'])assert.throws(()=>isolation.Check(role,{[key]:'not-allowed'}),/SCOPE_VIOLATION/);});
 test('strict role cannot be inferred from empty config',()=>{assert.throws(()=>isolation.Check('gateway',{GAME_ISOLATION_REQUIRED:'1'}),/ROLE_REQUIRED/);assert.throws(()=>isolation.Check('gateway',{GAME_ISOLATION_REQUIRED:'1',GAME_SERVICE_ROLE:'gateway',GAME_SERVICE_UID:'0'}),/UID_MISMATCH|PLATFORM/);});
 test('role mismatch is not accepted',()=>{assert.throws(()=>isolation.Check('witness',{GAME_SERVICE_ROLE:'authority'}),/ROLE_MISMATCH/);});

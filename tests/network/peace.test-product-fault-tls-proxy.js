@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),tls=require('node:tls');
-const {Certificates}=require("../../tools/integrity/peace.native-receive-fixture"),{Start}=require("../../ci/fixtures/peace.product-fault-tls-proxy");
+const {Certificates}=require("../../tools/integrity/peace.native-receive-fixture"),{Start}=require("../../tools/fixtures/peace.product-fault-tls-proxy");
 function Request(port){return new Promise(resolve=>{let bytes=Buffer.alloc(0),error='';const socket=tls.connect({host:'127.0.0.1',port,servername:'localhost',minVersion:'TLSv1.2',maxVersion:'TLSv1.2',rejectUnauthorized:false},()=>socket.write('owned-request'));const timer=setTimeout(()=>socket.destroy(Error('PROXY_TEST_TIMEOUT')),5000);socket.on('data',b=>{bytes=Buffer.concat([bytes,b]);});socket.on('error',e=>{error=e.code||e.message;});socket.on('close',()=>{clearTimeout(timer);resolve({bytes,error});});});}
 (async()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'product-proxy-test-'));let upstream,proxy;const sockets=new Set();

@@ -6,7 +6,7 @@ set "GAME_TOOL_RESULT=1"
 set "GAME_TOOL_PAUSE=1"
 if /i "%~3"=="/nopause" set "GAME_TOOL_PAUSE=0"
 if /i "%~4"=="/nopause" set "GAME_TOOL_PAUSE=0"
-echo Offline isolated recovery drill. No server, CI key, Windows binary or physical TPM is exercised.
+echo Offline isolated recovery drill. No server, Windows binary or physical TPM is exercised.
 echo Use a complete stopped-server backup or coherent snapshot, never a live DATA_DIR.
 if not exist "%~dp0peace.recovery-drill.js" goto missing_helper
 "%SystemRoot%\System32\where.exe" node.exe >nul 2>&1

@@ -8,7 +8,7 @@ if /i "%~2"=="/nopause" set "GAME_TOOL_PAUSE=0"
 echo Usage: Test_Native_1-5.bat [/nopause]
 if not "%~1"=="" if /i not "%~1"=="/nopause" goto usage
 if not "%~2"=="" goto usage
-if not exist "%~dp0..\..\ci\pipeline\Invoke-NativeContracts1To5.ps1" goto missing_helper
+if not exist "%~dp0..\..\tools\windows\Invoke-NativeContracts1To5.ps1" goto missing_helper
 "%SystemRoot%\System32\where.exe" node.exe >nul 2>&1
 if errorlevel 1 goto missing_node
 "%SystemRoot%\System32\where.exe" pwsh.exe >nul 2>&1
@@ -17,7 +17,7 @@ if not defined BDS goto missing_bds
 if not exist "%BDS%\bin\dcc64.exe" goto missing_bds
 "%SystemRoot%\System32\where.exe" cl.exe >nul 2>&1
 if errorlevel 1 goto missing_sdk
-pwsh.exe -NoLogo -NoProfile -NonInteractive -File "%~dp0..\..\ci\pipeline\Invoke-NativeContracts1To5.ps1" -ResultsDirectory "%~dp0.." -BdsRoot "%BDS%"
+pwsh.exe -NoLogo -NoProfile -NonInteractive -File "%~dp0..\..\tools\windows\Invoke-NativeContracts1To5.ps1" -ResultsDirectory "%~dp0.." -BdsRoot "%BDS%"
 set "GAME_TOOL_RESULT=%errorlevel%"
 goto finish
 :missing_pwsh

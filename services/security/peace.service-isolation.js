@@ -2,8 +2,8 @@
 // Deployment guard, not a replacement for kernel ACLs/namespaces. Strict mode
 // checks the identity and the configured boundary from the actual process.
 const fs=require('node:fs'),path=require('node:path');
-const ROLES=['authority','gateway','packer','witness','release-signer','ci-signer'];
-const SIGNING=['GAME_RELEASE_APPROVAL_KEY_B64','GAME_CI_ATTESTATION_KEY_B64','GAME_RELEASE_APPROVAL_KEY_FILE','GAME_CI_ATTESTATION_KEY_FILE'];
+const ROLES=['authority','gateway','packer','witness','release-signer'];
+const SIGNING=['GAME_RELEASE_APPROVAL_KEY_B64','GAME_RELEASE_APPROVAL_KEY_FILE'];
 const CLOUD=['RAILWAY_TOKEN','RAILWAY_API_TOKEN','AWS_SECRET_ACCESS_KEY','AWS_SESSION_TOKEN','GOOGLE_APPLICATION_CREDENTIALS','GITHUB_TOKEN','GH_TOKEN','DOCKER_AUTH_CONFIG'];
 const ADMIN=['ADMIN_SECRET','OPERATOR_SECRET','VIEWER_SECRET','QR_APPROVAL_SECRET','MEMBER_OAUTH_TOKEN_KEY','GOOGLE_OAUTH_CLIENT_SECRET','KAKAO_OAUTH_CLIENT_SECRET'];
 function Fail(code){throw Error(code);}
@@ -15,7 +15,7 @@ function ChildEnvironment(env=process.env){
 }
 function Check(role,env=process.env){
  if(!ROLES.includes(role))Fail('ISOLATION_ROLE_INVALID');
- const blocked=role==='authority'?SIGNING:role==='release-signer'||role==='ci-signer'?[...ADMIN,...CLOUD,'DATA_DIR','DESKTOP_RECOVERY_WITNESS_URL',...SIGNING]:[...ADMIN,...CLOUD,...SIGNING,'DATA_DIR','DESKTOP_RECOVERY_WITNESS_URL','DESKTOP_RECOVERY_WITNESS_DIR'];
+ const blocked=role==='authority'?SIGNING:role==='release-signer'?[...ADMIN,...CLOUD,'DATA_DIR','DESKTOP_RECOVERY_WITNESS_URL',...SIGNING]:[...ADMIN,...CLOUD,...SIGNING,'DATA_DIR','DESKTOP_RECOVERY_WITNESS_URL','DESKTOP_RECOVERY_WITNESS_DIR'];
  if(blocked.some(k=>env[k]))Fail('ISOLATION_SECRET_SCOPE_VIOLATION');
  if(env.GAME_SERVICE_ROLE&&env.GAME_SERVICE_ROLE!==role)Fail('ISOLATION_ROLE_MISMATCH');
  const strict=env.GAME_ISOLATION_REQUIRED==='1';

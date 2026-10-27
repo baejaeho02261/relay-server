@@ -54,7 +54,7 @@ try{
  // The final EXE/approval policy are linked to captured bytes, not just to each
  // other. A valid new approval cannot conceal a changed native output.
  const key=crypto.generateKeyPairSync('ed25519'),finalFile=path.join(root,'A-final.exe'),approvalFile=path.join(root,'A.approval.json'),policyFile=path.join(root,'policy.json');put(finalFile,pe);approve('A',pe,approvalFile,policyFile,key);
- const sealed=observation.seal(run,'A',finalFile,approvalFile,policyFile,traceFile,pid);assert.equal(sealed.result.independentProvenance,'NOT_PROVEN');assert.equal(sealed.result.ciEvidence,false);assert.equal(observation.verify(sealed.seal,sealed.sha512,finalFile,approvalFile,policyFile).traceCorroborated,true);
+ const sealed=observation.seal(run,'A',finalFile,approvalFile,policyFile,traceFile,pid);assert.equal(sealed.result.independentProvenance,'NOT_PROVEN');assert.equal(observation.verify(sealed.seal,sealed.sha512,finalFile,approvalFile,policyFile).traceCorroborated,true);
  assert.throws(()=>observation.verify(sealed.seal,'',finalFile,approvalFile,policyFile),/EXTERNAL_DIGEST_REQUIRED/);assert.throws(()=>observation.seal(run,'A',finalFile,approvalFile,policyFile,traceFile,pid),/EEXIST/);
  const saved=fs.readFileSync(sealed.seal);fs.appendFileSync(sealed.seal,' ');assert.throws(()=>observation.verify(sealed.seal,sealed.sha512,finalFile,approvalFile,policyFile),/SEAL_DIGEST_MISMATCH/);put(sealed.seal,saved);
  const retainedTrace=fs.readFileSync(traceFile);fs.appendFileSync(traceFile,'\n');assert.throws(()=>observation.verify(sealed.seal,sealed.sha512,finalFile,approvalFile,policyFile),/SEALED_ARCHIVE_MISMATCH/);put(traceFile,retainedTrace);

@@ -139,15 +139,15 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
  assert.equal(trust.status,200,JSON.stringify(trust.json));
  let candidates={};
  await test('Duplicate candidate upload reuses the same verified bytes instead of creating a second artifact',async()=>{for(const c of ['A','B','O']){const bytes=bootstrapFixture.PE(c,c==='B'?'manual key console':'user launcher');const one=await upload(c,bytes,auth),two=await upload(c,bytes,auth);assert.equal(one.status,200);assert.equal(two.status,200);assert.equal(two.json.artifact.id,one.json.artifact.id);candidates[c]=one.json.artifact;}});
- await test('Manual publication requires signed A/B/O and a complete manifest without manufacturing CI evidence',async()=>{
+ await test('Manual publication requires signed A/B/O and a complete manifest with unchanged release security checks',async()=>{
   const op='/api/desktop/bootstrap/security-operations',cohort={aId:candidates.A.id,bId:candidates.B.id,oId:candidates.O.id};
   const before=await call(op+'/preview-pair',cohort,auth);assert.equal(before.json.preview.eligible,false);assert(before.json.preview.reasons.includes('SECURITY_RELEASE_MANIFEST_REQUIRED'));
   await bootstrapFixture.RegisterSyntheticRelease({call,auth,candidates,label:'SYNTHETIC WORKSPACE HTTP CONTRACT ONLY',afterManifest:async()=>assert.equal((await call(op+'/preview-pair',cohort,auth)).json.preview.eligible,true)});
   assert.equal((await call(op+'/preview-pair',{aId:candidates.A.id,bId:candidates.B.id},auth)).json.preview.eligible,false);
   const p=await call(op+'/preview-pair',cohort,auth);assert.equal(p.json.preview.eligible,true,JSON.stringify(p.json));
-  assert.equal(p.json.preview.release.ciOutcomes,null);assert.equal(p.json.preview.hardwareAttested,false);
+  assert.equal(p.json.preview.hardwareAttested,false);
   const beforeActivation=(await call(security,undefined,auth)).json.operations.operations.releaseGovernance;
-  assert.deepEqual(beforeActivation.ciEvidence,{});assert.deepEqual(beforeActivation.ciKeys,{});
+  assert.equal(beforeActivation.minimumSecurityVersion>=0,true);
   const r=await call(op+'/activate',{...cohort,expectedRevision:p.json.preview.operationsRevision,expectedPolicyRevision:p.json.preview.policyRevision},auth);assert.equal(r.status,200,JSON.stringify(r.json));
  });
  let issued,dev,manualKey;

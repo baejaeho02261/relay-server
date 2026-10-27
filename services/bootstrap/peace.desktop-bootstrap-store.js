@@ -39,7 +39,13 @@ function Load(){
   let value,raw;try{raw=require("../storage/peace.durable-file").ReadRegular(FILE);value=require("../protocol/peace.strict-json").Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});}catch(_){throw Error('BOOTSTRAP_STORAGE_INVALID');}
   if(!Plain(value)||![1,2,3,4,5].includes(value.schema)||!Number.isSafeInteger(value.revision)||value.revision<0||!/^[a-f0-9]{64}$/.test(value.secret)||!['artifacts','active','launchers','flows','issueReceipts'].every(key=>Plain(value[key])))throw Error('BOOTSTRAP_STORAGE_INVALID');
 
+  if(value.securityOperations?.releaseGovernance&&['requireCiEvidence','ciKeys','ciEvidence'].some(k=>Object.hasOwn(value.securityOperations.releaseGovernance,k))){
+   require('../storage/peace.desktop-single-writer').Acquire(config.DATA_DIR,{haEnabled:config.HA_ENABLED});
+   if(!raw.equals(require('../storage/peace.durable-file').ReadRegular(FILE)))throw Error('BOOTSTRAP_STORAGE_RESTART_REQUIRED');
+  }
   Anchor(value).Open(Mark(value,raw),!fs.existsSync(HEAD));
+  let retiredGovernanceRemoved=false;
+  if(value.securityOperations?.releaseGovernance){const old=value.securityOperations.releaseGovernance,upgraded=require('../artifacts/peace.desktop-release-provenance').UpgradeStoredState(old);retiredGovernanceRemoved=upgraded.changed;if(upgraded.changed)require('../security/peace.desktop-mitigation-profiles').MigrateProfileTrust(value,old);value.securityOperations.releaseGovernance=upgraded.value;}
   if(value.transportKeyRotation!==undefined)require("../network/peace.desktop-transport-rotation").Validate(value.transportKeyRotation);
   if(value.mitigationProfiles!==undefined)require("../security/peace.desktop-mitigation-profiles").ValidateStore(value.mitigationProfiles);
   if(value.mitigationCompatibility!==undefined)require("../security/peace.desktop-mitigation-compatibility").Validate(value.mitigationCompatibility);
@@ -133,6 +139,7 @@ function Load(){
   if(value.overlays!==undefined){try{require("../overlay/peace.desktop-overlay").ValidateStore(value);require("../overlay/peace.desktop-overlay").ValidateTransferRows(value);}catch(_){Invalid();}}
   for(const receipt of Object.values(value.issueReceipts))if(!Plain(receipt)||!Digest(receipt.fingerprint)||!value.launchers[receipt.launcherId])Invalid();
   require("../security/peace.desktop-security-operations").ReserveKnownKeyPurposes(value);
+  if(retiredGovernanceRemoved){require('../storage/peace.desktop-single-writer').Acquire(config.DATA_DIR,{haEnabled:config.HA_ENABLED});value.revision++;value.securityOperations.revision++;Write(value);}
   current=value;
  }else{
   current={schema:5,revision:0,secret:crypto.randomBytes(32).toString('hex'),artifacts:{},active:{},launchers:{},flows:{},issueReceipts:{}};

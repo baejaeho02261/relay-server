@@ -9,5 +9,5 @@ function fixture(root){
  }
  return tools;
 }
-function recipes(web){for(const name of ['toolchain/peace.build-input-lock.js','pipeline/Invoke-WindowsCI.ps1','pipeline/Windows-Stage.ps1','pipeline/CiCommon.ps1']){const file=path.join(web,'ci',...name.split('/'));fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'SYNTHETIC recipe '+name);}}
+function recipes(web){for(const name of ['build/peace.build-input-lock.js','windows/Invoke-FinalWindowsTests.ps1','windows/WindowsCommon.ps1']){const file=path.join(web,'tools',...name.split('/'));fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'SYNTHETIC recipe '+name);}}
 module.exports={fixture,recipes};

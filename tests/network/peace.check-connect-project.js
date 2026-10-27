@@ -45,6 +45,8 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   assert.ok(project.includes('<DCC_ExeOutput>$(MSBuildProjectDirectory)</DCC_ExeOutput>'));
   const finalization=project.match(/<Target Name="FinalizeProjectExecutable"[\s\S]*?<\/Target>/)[0];
   assert.doesNotMatch(finalization, /<(?:Move|Delete|RemoveDir)\b/, 'The final EXE stays in its own project folder');
+  const rcBytes=fs.readFileSync(path.join(directory,name+'.rc'));
+  assert(rcBytes.every(value=>value<128),'Legacy brcc32 resource scripts must be ASCII without a UTF-8 BOM: '+name);
   assert.doesNotMatch(project, /PublishRandomExecutable|RandomArtifactName|RandomArtifactDirectory/);
   const localProperties=project.match(/TreatAsLocalProperty="([^"]+)"/)[1].split(';');
   for(const property of ['CozyNativeRoot','CompiledArtifact','DCC_UnitSearchPath','DCC_IncludePath','DCC_ObjPath'])assert(localProperties.includes(property),'Global build properties must not redirect '+property);

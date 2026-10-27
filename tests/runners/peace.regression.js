@@ -5,6 +5,7 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["security/peace.test-retired-governance-migration.js"],
   ["storage/peace.test-registration-reset-journal.js"],
   ["runtime/peace.test-registration-reset-bootstrap.js"],
   ["storage/peace.test-registration-reset-stores.js"],
@@ -36,15 +37,15 @@ const checks = [
   ["observability/peace.test-work-queue-observability.js"],
   ["protocol/peace.test-remaining-auth-protocol.js"], ["network/peace.test-transport-key-rotation.js"],
   ["integrity/peace.test-remaining-own-measurement.js"], ["devices/peace.test-desktop-device-identity.js"], ["devices/peace.test-device-identity-handoff.js"],
-  ["storage/peace.test-storage-retention-remaining.js"], ["build/peace.test-build-input-lock.js"], ["security/peace.test-mitigation-profiles.js"], ["fixtures/build/peace.test-ci-profile-fixture.js"],
+  ["storage/peace.test-storage-retention-remaining.js"], ["build/peace.test-build-input-lock.js"], ["build/peace.test-source-snapshot.js"], ["build/peace.test-separated-signing-security.js"], ["security/peace.test-mitigation-profiles.js"], ["fixtures/build/peace.test-profile-fixture.js"],
   ["web/peace.test-desktop-workspace.js"], ["web/peace.test-workspace-http.js"],
   ["security/peace.test-security-activation.js"],
   ["authentication/peace.test-web-auth-hardening.js"], ["runtime/peace.test-desktop-deadlines.js"], ["storage/peace.test-desktop-single-writer.js"],
   ["recovery/peace.test-desktop-license-recovery.js"], ["bootstrap/peace.test-handoff-delegation.js"], ["artifacts/peace.test-release-provenance.js"],
-  ["bootstrap/peace.test-handoff-native-contract.js"], ["artifacts/peace.test-release-provenance-ui.js"], ["artifacts/peace.test-release-tools-split.js"], ["build/peace.test-ci-workflow-tools.js"], ["web/peace.test-admin-modal-isolation.js"],
+  ["bootstrap/peace.test-handoff-native-contract.js"], ["artifacts/peace.test-release-provenance-ui.js"], ["artifacts/peace.test-release-tools-split.js"], ["web/peace.test-admin-modal-isolation.js"],
   ["storage/peace.test-desktop-audit-append.js"], ["storage/peace.test-desktop-audit-outbox.js"], ["runtime/peace.test-desktop-request-receipts.js"],
   ["recovery/peace.test-handoff-recovery.js"], ["bootstrap/peace.test-handoff-completion-contract.js"],
-  ["security/peace.test-key-purposes.js"], ["artifacts/peace.test-release-governance-complete.js"], ["build/peace.test-windows-ci.js"],
+  ["security/peace.test-key-purposes.js"], ["artifacts/peace.test-release-governance-complete.js"],
   ["security/peace.test-security-operations.js"], ["security/peace.test-security-admin.js"], ["security/peace.test-security-evidence.js"], ["security/peace.test-security-native-contract.js"],
   ["security/peace.test-security-authority.js"], ["security/peace.test-security-tools.js"], ["security/peace.test-security-wire.js"],
   ["runners/peace.check-modules.js"], ["web/peace.check-web-ui.js"], ["network/peace.check-connect-project.js"],

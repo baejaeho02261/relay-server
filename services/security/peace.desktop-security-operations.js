@@ -212,7 +212,7 @@ function RequireRuntimePair(a,b,o=null) {
 function PreviewPair(body, production = false) {
   Fields(body,['aId','bId','oId'],['aId','bId']); const [a,b]=Pair(body.aId,body.bId),o=SelectedOverlay(body),s=production?PublicationState():State(),auth=require('./peace.desktop-security-authority'),p=auth.Policy();
   const selectedRows=[a,b,...(o?[o]:[])];
-  // Manual publication removes only the CI gate. Every final executable still
+  // Every final executable still
   // needs its own trusted approval, even if a legacy runtime policy is optional.
   const artifactPolicy=production?{...p,requireReleaseSignature:true}:p;
   const reasons=selectedRows.map(row=>auth.ArtifactReason(row,artifactPolicy)||ArtifactReason(row,s)).filter(Boolean);
@@ -224,10 +224,9 @@ function PreviewPair(body, production = false) {
   const release=ReleaseView(a,b,o,s);if(release.reason)reasons.push(release.reason);
   const keyless=selectedRows.some(row=>row.ownProtection?.engine==='COZY_SERVER_POLICY_V2');
   if(keyless&&(p.mode!=='enforce'||!p.requireReadonlyApi||!p.requireCompleteCrcLayers||!p.requireReleaseSignature))reasons.push('COZY_SERVER_POLICY_ENFORCED_POLICY_REQUIRED');
-  if(production&&keyless&&(release.ciVerification!=='SIGNATURE_VERIFIED'||!release.ciOutcomes||['nativeBuild','apiProbe','integration'].some(k=>release.ciOutcomes[k]!=='PASS')))reasons.push('COZY_SERVER_POLICY_WINDOWS_CI_REQUIRED');
   // V3 issuance appends public bootstrap bytes after the template. Until the
   // final issued A is independently signed (or issuance uses a fixed signed
-  // launcher), template signatures and Windows CI cannot approve those bytes.
+  // launcher), template signatures cannot approve those bytes.
   if(production&&keyless)reasons.push('COZY_SERVER_POLICY_FINAL_ISSUED_SIGNING_REQUIRED');
   if(production&&selectedRows.some(row=>row.ownProtection?.engine==='COZY_VM_V1'))reasons.push('COZY_VM_V1_EMBEDDED_KEY_RETIRED');
   const publicationSafety=production?require("../artifacts/peace.desktop-release-safety").EvaluateCohort(store.Load(),[a,b,o],release.manifestId,{sameActive:true}):null;
@@ -272,9 +271,10 @@ function ActivatePair(body,actor,recoveryId='',production=false) {
 
 function authPolicyDefaults(){return require('./peace.desktop-security-authority').Defaults();}
 function ReserveKnownKeyPurposes(db){
-  const registry=require('./peace.desktop-key-purposes'),release=db.securityAuthorityPolicy?.trustedReleaseKeys||[],ci=Object.values(db.securityOperations?.releaseGovernance?.ciKeys||{});
-  for(const k of release)registry.Assert(k.publicKey,'RELEASE_APPROVAL');for(const k of ci)registry.Assert(k.publicKey,'CI_ATTESTATION');
-  for(const k of release)registry.Reserve(k.publicKey,'RELEASE_APPROVAL');for(const k of ci)registry.Reserve(k.publicKey,'CI_ATTESTATION');
+  const registry=require('./peace.desktop-key-purposes'),release=db.securityAuthorityPolicy?.trustedReleaseKeys||[];
+  registry.RemoveRetiredReservations();
+  for(const k of release)registry.Assert(k.publicKey,'RELEASE_APPROVAL');
+  for(const k of release)registry.Reserve(k.publicKey,'RELEASE_APPROVAL');
 }
 function KnownReleaseKeyIds(db=store.Load(),extra=[]) {
   return [...new Set([...(db.securityOperations?.releaseGovernance?.releaseKeyIds||[]),...Object.keys(db.securityOperations?.signerStates||{}),...(db.securityAuthorityPolicy?.trustedReleaseKeys||[]).map(k=>k.keyId),...Object.values(db.artifacts).map(a=>a.releaseApproval?.keyId).filter(Boolean),...extra.map(k=>k.keyId)])].sort();
@@ -284,12 +284,9 @@ function RememberReleaseKeys(db,keys) {
   const ids=KnownReleaseKeyIds(db,keys),old=db.securityOperations?.releaseGovernance?.releaseKeyIds||[];
   if(ids.length===old.length&&ids.every((id,i)=>id===[...old].sort()[i]))return false;
   const s=structuredClone(db.securityOperations||Defaults());s.releaseGovernance=s.releaseGovernance||provenance.Defaults();
-  if(ids.some(id=>Object.hasOwn(s.releaseGovernance.ciKeys,id)))Fail('SECURITY_CI_KEY_PURPOSE_CONFLICT',409);
   s.releaseGovernance.releaseKeyIds=ids;ValidateState(s);db.securityOperations=s;return true;
 }
 function AssertReleaseKeyPurpose(keys) {
-  const known=State().releaseGovernance.ciKeys;
-  if(keys.some(k=>Object.hasOwn(known,k.keyId)))Fail('SECURITY_CI_KEY_PURPOSE_CONFLICT',409);
   for(const k of keys)require('./peace.desktop-key-purposes').Assert(k.publicKey,'RELEASE_APPROVAL');
 }
 function ReleaseView(a,b,o,s=State()) {
@@ -298,9 +295,9 @@ function ReleaseView(a,b,o,s=State()) {
   return retired?{...view,reason:retired}:view;
 }
 function SetReleaseGovernance(body,actor) {
-  Fields(body,['expectedRevision','requireManifest','requireCiEvidence','minimumSecurityVersion'],['expectedRevision']);CheckRevision(body);
+  Fields(body,['expectedRevision','requireManifest','minimumSecurityVersion'],['expectedRevision']);CheckRevision(body);
   const s=State(),g=s.releaseGovernance;
-  for(const k of ['requireManifest','requireCiEvidence','minimumSecurityVersion'])if(Object.hasOwn(body,k))g[k]=body[k];
+  for(const k of ['requireManifest','minimumSecurityVersion'])if(Object.hasOwn(body,k))g[k]=body[k];
   if(g.minimumSecurityVersion<State().releaseGovernance.minimumSecurityVersion)Fail('SECURITY_RELEASE_FLOOR_IRREVERSIBLE',409);
   provenance.ValidateState(g);ValidateActive(s);s.revision++;return Commit(s,actor,'RELEASE_GOVERNANCE_CHANGED');
 }
@@ -319,34 +316,6 @@ function RecordReleaseManifest(body,actor,planning=false) {
   if(!existing&&m.policySha512!==provenance.PolicyDigest(require('./peace.desktop-security-authority').Policy()))Fail('SECURITY_MANIFEST_POLICY_MISMATCH',409);
   g.manifests[id]={manifest:m,recordedAt:existing?.recordedAt||Date.now(),recordedBy:existing?.recordedBy||Actor(actor),registration:planning?'PLANNED':'REGISTERED',...(existing?.planReceipt?{planReceipt:existing.planReceipt}:{}),[planning?'planReceipt':'registerReceipt']:RegistrationReceipt(body,actor)};s.revision++;return Commit(s,actor,planning?'RELEASE_MANIFEST_PLANNED':'RELEASE_MANIFEST_REGISTERED');
 }
-function SetCiSigner(body,actor) {
-  Fields(body,['expectedRevision','keyId','state','publicKey','notBefore','notAfter'],['expectedRevision','keyId','state']);CheckRevision(body);
-  const s=State(),g=s.releaseGovernance,previous=g.ciKeys[body.keyId],now=Date.now();
-  if(!KEY_ID.test(body.keyId)||!['ACTIVE','RETIRING','REVOKED'].includes(body.state))Fail('SECURITY_CI_SIGNER_INVALID');
-  if(KnownReleaseKeyIds().includes(body.keyId))Fail('SECURITY_CI_KEY_PURPOSE_CONFLICT',409);
-  if(previous){
-    if(['publicKey','notBefore','notAfter'].some(k=>Object.hasOwn(body,k)&&body[k]!==previous[k]))Fail('SECURITY_CI_SIGNER_IMMUTABLE',409);
-    if(previous.state==='REVOKED'&&body.state!=='REVOKED')Fail('SECURITY_CI_SIGNER_REVOKE_FINAL',409);
-  }else if(body.state!=='ACTIVE'||!['publicKey','notBefore','notAfter'].every(k=>Object.hasOwn(body,k)))Fail('SECURITY_CI_SIGNER_INVALID');
-  const k=provenance.ValidateKey({...previous,keyId:body.keyId,publicKey:previous?.publicKey||body.publicKey,purpose:provenance.CI_DOMAIN,state:body.state,notBefore:previous?.notBefore||body.notBefore,notAfter:previous?.notAfter||body.notAfter,changedAt:now,changedBy:Actor(actor)});
-  require('./peace.desktop-key-purposes').Reserve(k.publicKey,'CI_ATTESTATION');
-  g.ciKeys[k.keyId]=k;s.revision++;
-  // Emergency revocation may invalidate a current release; runtime gates close.
-  return Commit(s,actor,'CI_SIGNER_'+body.state);
-}
-function RecordCiEvidence(body,actor) {
-  Fields(body,['expectedRevision','envelope']);if(!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0)Fail('SECURITY_OPERATIONS_CONFLICT',409);
-  const e=structuredClone(provenance.ValidateEnvelope(body.envelope)),s=State(),g=s.releaseGovernance,k=g.ciKeys[e.keyId],now=Date.now();
-  if(!g.manifests[e.statement.manifestId])Fail('SECURITY_RELEASE_MANIFEST_REQUIRED',409);
-  if(!k||k.state!=='ACTIVE'||now<k.notBefore||now>k.notAfter)Fail('SECURITY_CI_SIGNER_NOT_ACTIVE',409);
-  if(e.statement.issuedAt>now+300000||!provenance.VerifyEnvelope(e,k,require('./peace.desktop-security-authority').Policy().trustedReleaseKeys))Fail('SECURITY_CI_SIGNATURE_INVALID',409);
-  const old=g.ciEvidence[e.statement.manifestId];
-  if(old&&provenance.Stable(old.envelope)===provenance.Stable(e)){if(!RegistrationRetry(old.requestReceipt,body,actor))CheckRevision(body);return s;}CheckRevision(body);
-  if(old&&e.statement.issuedAt<=old.envelope.statement.issuedAt)Fail('SECURITY_CI_EVIDENCE_STALE',409);
-  g.ciEvidence[e.statement.manifestId]={envelope:e,recordedAt:now,recordedBy:Actor(actor),evidenceType:'CI_SIGNED_VERIFIED',requestReceipt:RegistrationReceipt(body,actor)};s.revision++;return Commit(s,actor,'CI_EVIDENCE_VERIFIED');
-}
-
-
 function PlanReleaseManifest(body,actor){return RecordReleaseManifest(body,actor,true);}
 function ValidateCandidateArtifact(artifact,deploymentManifestId=''){
   const g=State().releaseGovernance;
@@ -384,7 +353,7 @@ function ApplyRecovery(body,actor,production=false){
 // Production entry points. Do not route an HTTP request to the version-1
 // compatibility helpers above. Manual publication retains executable approvals,
 // registered manifest binding and the monotonic security floor. It does not
-// manufacture a Windows test result. Historical CI records remain readable.
+// manufacture a Windows test result.
 function PublicationState(s=State()) {
   return {...s, releaseGovernance:provenance.PublicationPolicy(s.releaseGovernance)};
 }
@@ -393,20 +362,19 @@ function ActivateProductionPair(body,actor) { return ActivatePair(body,actor,'',
 function PrepareProductionRecovery(body,actor) { return PrepareRecovery(body,actor,true); }
 function ApplyProductionRecovery(body,actor) { return ApplyRecovery(body,actor,true); }
 function SetProductionGovernance(body,actor) {
-  Fields(body,['expectedRevision','requireManifest','requireCiEvidence','minimumSecurityVersion'],['expectedRevision']);
+  Fields(body,['expectedRevision','requireManifest','minimumSecurityVersion'],['expectedRevision']);
   if (Object.hasOwn(body,'requireManifest')&&body.requireManifest!==true ||
-      Object.hasOwn(body,'requireCiEvidence')&&body.requireCiEvidence!==false ||
       Object.hasOwn(body,'minimumSecurityVersion')&&(!Number.isSafeInteger(body.minimumSecurityVersion)||body.minimumSecurityVersion<1))
     Fail('SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED',409);
   const minimum=provenance.PublicationPolicy(State().releaseGovernance).minimumSecurityVersion;
   return SetReleaseGovernance({expectedRevision:body.expectedRevision,requireManifest:true,
-    requireCiEvidence:false,minimumSecurityVersion:body.minimumSecurityVersion??minimum},actor);
+    minimumSecurityVersion:body.minimumSecurityVersion??minimum},actor);
 }
 function ProductionStatus(s=State()) {
   const g=s.releaseGovernance,requirements=provenance.PublicationRequirements(g);
-  return {requirements:{...requirements,requirePackingEvidence:s.requirePackingEvidence===true}, runtime:{requireManifest:g.requireManifest,requireCiEvidence:g.requireCiEvidence,
+  return {requirements:{...requirements,requirePackingEvidence:s.requirePackingEvidence===true}, runtime:{requireManifest:g.requireManifest,
     minimumSecurityVersion:g.minimumSecurityVersion,requirePackingEvidence:s.requirePackingEvidence===true},
-    legacyRuntimePolicy:!g.requireManifest||g.requireCiEvidence||g.minimumSecurityVersion<1,
+    legacyRuntimePolicy:!g.requireManifest||g.minimumSecurityVersion<1,
     transition:'VERIFIED_COHORT_AND_RUNTIME_POLICY_COMMITTED_ATOMICALLY',
     failedPublicationLeavesActiveUnchanged:true, readOnly:true};
 }
@@ -420,7 +388,7 @@ function List() {
   const s=State(),db=store.Load();
   return {operations:s,productionPublication:ProductionStatus(s),releaseSafety:require("../artifacts/peace.desktop-release-safety").Status(),protectedOperations:require("../authentication/peace.desktop-protected-dispatch").Inventory(),active:{...db.active},auditHealth:require("../../storage/audit/peace.audit.js").WriteHealth(),
     adminProtection:require("../authentication/peace.desktop-admin-guard").Status(),
-    storage:'SERVER_ONLY',keyPurposes:require('./peace.desktop-key-purposes').Summary(),testEvidenceTrust:'OPERATOR_RECORDED_NOT_ATTESTATION',ciEvidenceTrust:'TRUSTED_CI_SIGNATURE_NOT_HARDWARE_ATTESTATION',policySha512:provenance.PolicyDigest(require('./peace.desktop-security-authority').Policy()),
+    storage:'SERVER_ONLY',keyPurposes:require('./peace.desktop-key-purposes').Summary(),testEvidenceTrust:'OPERATOR_RECORDED_NOT_ATTESTATION',policySha512:provenance.PolicyDigest(require('./peace.desktop-security-authority').Policy()),
     candidates:Object.values(db.artifacts).map(a=>({id:a.id,component:a.component,version:a.version,sha512:a.sha512,createdAt:a.createdAt,deploymentManifestId:a.deploymentManifestId||'',active:db.active[a.component]===a.id,contract:s.contracts[BuildKey(a)]||null,packingEvidence:packingEvidence.Projection(db,a)}))};
 }
-module.exports={PointerGraphSlots,PublicationState,PreviewProductionPair,ActivateProductionPair,PrepareProductionRecovery,ApplyProductionRecovery,SetProductionGovernance,ProductionStatus,ReserveKnownKeyPurposes,PlanReleaseManifest,ValidateCandidateArtifact,PrepareRecovery,ApplyRecovery,RememberReleaseKeys,AssertReleaseKeyPurpose,SetReleaseGovernance,RecordReleaseManifest,SetCiSigner,RecordCiEvidence,ReleaseView,Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};
+module.exports={PointerGraphSlots,PublicationState,PreviewProductionPair,ActivateProductionPair,PrepareProductionRecovery,ApplyProductionRecovery,SetProductionGovernance,ProductionStatus,ReserveKnownKeyPurposes,PlanReleaseManifest,ValidateCandidateArtifact,PrepareRecovery,ApplyRecovery,RememberReleaseKeys,AssertReleaseKeyPurpose,SetReleaseGovernance,RecordReleaseManifest,ReleaseView,Defaults,ValidateState,State,Revision,BuildKey,PairKey,ValidateContract,ValidateEvidence,ValidateRollout,ProposedRollout,SignerAllowed,SignerState,ArtifactReason,EffectivePolicy,EvaluateContract,SetControls,SetContract,SetSignerState,SetRollout,RecordEvidence,RequirePairEvidence,RequireRuntimePair,PreviewPair,ActivatePair,Stage,List,AuditIntent,sha512};

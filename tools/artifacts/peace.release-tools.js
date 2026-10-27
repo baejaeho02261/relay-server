@@ -1,6 +1,6 @@
 'use strict';
 
-// Local workflow helpers. Never builds EXEs, registers releases or invents CI evidence.
+// Local workflow helpers. Never builds EXEs, registers releases or invents test results.
 const fs = require('node:fs');
 const path = require('node:path');
 const readline = require('node:readline');
@@ -148,7 +148,7 @@ async function promptSpec(home) {
   if (fs.existsSync(p.spec)) fail('spec.json already exists beside the BAT and was preserved. Edit it directly, or archive it before creating a new one.');
   const example = readJson(p.example);
   if (example.version !== 1 || example.protocol !== 'GAME-CONNECT-4' || example.hashVersion !== 3 || ![1, 3].includes(example.handoffVersion)) fail('Unsupported spec example. Use the matching full source package.');
-  console.log('Enter ACTUAL final-build versions. These are operator records, not CI evidence.');
+  console.log('Enter ACTUAL final-build versions. These are operator records.');
   console.log('Check the admin minimum security version; it is separate from the exported deployment policy.');
   const q = questions(), text = s => s.length > 0 && s.length <= 160 && !/[\x00-\x1f\x7f]/.test(s);
   try {
@@ -166,8 +166,8 @@ async function promptSpec(home) {
 }
 async function promptFiles(home) {
   const p = locations(home), files = [], q = questions();
-  console.log('Manual manifest tools do not execute Windows CI or create CI-signed PASS evidence.');
-  console.log('Manual publication uses final IDE-built A/B/O, their approval JSONs and this release-manifest.json. CI evidence is optional.');
+  console.log('Manifest generation does not execute Windows tests.');
+  console.log('Manual publication uses final IDE-built A/B/O, their approval JSONs and this release-manifest.json.');
   console.log('Finish Create_Approval and Check_Approval for every role BEFORE creating the manifest; O preparation can change EXE bytes.');
   console.log('Select the same FINAL EXEs used by Create_Approval and Check_Approval.');
   console.log('Final EXEs are in Railway/Cozy.Projects/Cozy.Launcher, Cozy.Client and Cozy.Overlay.');
@@ -197,7 +197,7 @@ async function main(args, home = __dirname) {
     console.log('SUCCESS: ' + file);
     console.log('Server policy: register the EXE approval public key, enable release signature enforcement, apply the policy, then export CURRENT deployment-policy.json beside this BAT.');
     console.log('Manual release: Prepare_ImGui.bat -> IDE Win64 Release build -> Create_Approval.bat / Check_Approval.bat for A/B/O -> Create_Release_Manifest.bat -> Check_Manual_Release.bat (files + approvals + manifest).');
-    console.log('Follow Release_Workflow.html. CI key, reviewed-build-inputs.json and ci-evidence.json are not required for the manual release workflow.');
+    console.log('Follow Release_Workflow.html for final A/B/O, approvals and release manifest registration.');
     return;
   }
   if (!['manifest', 'check'].includes(action) || ![0, 3, 4].includes(params.length)) fail('Usage: Create_Release_Manifest.bat [A.exe B.exe O.exe [NEW_OUTPUT.json]] or Check_Release_Manifest.bat [A.exe B.exe O.exe [MANIFEST.json]]');
@@ -208,7 +208,7 @@ async function main(args, home = __dirname) {
   const result = action === 'manifest' ? makeManifest(home, files, params[3]) : checkManifest(home, files, params[3]);
   console.log('SUCCESS: ' + result.file + '\nManifest ID:\n' + result.manifestId);
   console.log(action === 'manifest' ? 'Register this JSON as a plan, upload FINAL A/B/O with this SAME ID, then complete manifest registration before combination validation.' : 'Local files match. Server registration, trusted approval keys and deployment policy are still checked by the server.');
-  console.log('No server registration or CI PASS evidence was created.');
+  console.log('No server registration or Windows execution result was created.');
 }
 if (require.main === module) main(process.argv.slice(2)).catch(error => {
   const message = error.code === 'EEXIST' ? 'Output already exists and was preserved.' : error.code === 'ENOENT' ? 'Required file was not found: ' + (error.path || '') : error.message;

@@ -1,7 +1,7 @@
 'use strict';
 // Run on a SEPARATE, restricted packing machine/container. Never on the
 // production licensing/signing host. This runs the configured VMProtect CLI,
-// not the uploaded PE. No private release/CI keys are accepted or accessed.
+// not the uploaded PE. No private release keys are accepted or accessed.
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),https=require('node:https'),{spawn}=require('node:child_process');
 const p=require("../../services/artifacts/peace.desktop-packing-protocol");
 function Trusted(file,digest,maximum){
@@ -12,7 +12,7 @@ function Trusted(file,digest,maximum){
 function Config(){
  require("../../services/security/peace.service-isolation").Check('packer');
  const e=process.env;
- if(['ADMIN_SECRET','GAME_RELEASE_APPROVAL_KEY_B64','GAME_CI_ATTESTATION_KEY_B64','QR_APPROVAL_SECRET'].some(k=>e[k]))throw Error('PACKER_ISOLATION_REQUIRED');
+ if(['ADMIN_SECRET','GAME_RELEASE_APPROVAL_KEY_B64','QR_APPROVAL_SECRET'].some(k=>e[k]))throw Error('PACKER_ISOLATION_REQUIRED');
  const profiles={};for(const c of ['A','B','O']){profiles[c]={file:e['PACKER_PROFILE_'+c+'_FILE'],sha512:e['PACKER_PROFILE_'+c+'_SHA512'],inputSha512:e['PACKER_INPUT_'+c+'_SHA512']};if(!p.IsDigest(profiles[c].inputSha512))throw Error('PACKER_PROFILE_INPUT_REQUIRED');Trusted(profiles[c].file,profiles[c].sha512,1024*1024);}
  Trusted(e.PACKER_TOOL_FILE,e.PACKER_TOOL_SHA512,p.MAX_BYTES);
  if(!p.IsDigest(e.PACKER_CLIENT_SPKI_SHA512))throw Error('PACKER_CLIENT_PIN_INVALID');

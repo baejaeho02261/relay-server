@@ -48,11 +48,11 @@ try{
  test(()=>assert.equal(t.Evaluate({validator:'integration'},0,'PASS',{outcome:'PASS'}).outcome,'FAIL'));
  const integration={outcome:'PASS',ready:true,licenseConsumed:true,overlayFirstFrame:true,parentTransferred:true,parentExited:true,parentFilesDeleted:true,overlayClosed:true,serverSessionClosed:true};
  test(()=>assert.equal(t.Evaluate({validator:'integration'},0,'',integration).outcome,'PASS'));
- const run=path.join(dir,'run'),priv=path.join(dir,'private');for(const p of [run,priv]){fs.mkdirSync(p);fs.writeFileSync(path.join(p,'ci-owned-marker'),'test');}
+ const run=path.join(dir,'run'),priv=path.join(dir,'private');for(const p of [run,priv]){fs.mkdirSync(p);fs.writeFileSync(path.join(p,'test-owned-marker'),'test');}
  const conf=path.join(dir,'input.json');fs.writeFileSync(conf,JSON.stringify(valid));
  let plan;test(()=>{plan=t.Prepare(conf,run,priv,process.execPath,'pwsh',false);assert(plan.stages.filter(x=>x.id!=='probe-build-output-contracts').every(x=>x.skip));assert.equal(plan.stages.find(x=>x.id==='probe-build-output-contracts').skip,undefined);assert.equal(plan.kind,'MANUAL_EXECUTION');assert.equal(plan.stages.find(x=>x.id==='abo-integration').skip,'OPERATOR_DID_NOT_SELECT_ISOLATED_ABO_EXECUTION');});
  test(()=>{
-  const run2=path.join(dir,'run-finals'),priv2=path.join(dir,'private-finals');for(const p of [run2,priv2]){fs.mkdirSync(p);fs.writeFileSync(path.join(p,'ci-owned-marker'),'test');}
+  const run2=path.join(dir,'run-finals'),priv2=path.join(dir,'private-finals');for(const p of [run2,priv2]){fs.mkdirSync(p);fs.writeFileSync(path.join(p,'test-owned-marker'),'test');}
   const input=path.join(dir,'input-finals.json'),artifacts=Object.fromEntries(['A','B','O'].map(role=>[role,src]));
   fs.writeFileSync(input,JSON.stringify({...valid,probes:{"Cozy.CrcPeProbe":src},artifacts}));
   const p=t.Prepare(input,run2,priv2,process.execPath,'pwsh',false),stage=p.stages.find(x=>x.id==='independent-crc-pe');
@@ -61,7 +61,7 @@ try{
   assert.equal(p.stages.find(x=>x.id==='abo-integration').skip,'OPERATOR_DID_NOT_SELECT_ISOLATED_ABO_EXECUTION');
  });
  fs.writeFileSync(path.join(run,'execution.json'),JSON.stringify({startedAt:'TEST',environment:{platform:'portable-test'},stages:[]}));
- test(()=>{const r=t.Finalize(run,path.join(dir,'result.json'));assert.equal(r.outcome,'INCOMPLETE');assert.equal(r.nativeBuild,'NOT_RUN');assert.equal(r.ciEvidenceCreated,false);assert.equal(r.hardwareAttested,false);assert.equal(r.publicationApproval,false);assert(r.stages.every(x=>x.outcome==='NOT_RUN'));});
+ test(()=>{const r=t.Finalize(run,path.join(dir,'result.json'));assert.equal(r.outcome,'INCOMPLETE');assert.equal(r.nativeBuild,'NOT_RUN');assert.equal(Object.hasOwn(r,'ciEvidenceCreated'),false);assert.equal(r.hardwareAttested,false);assert.equal(r.publicationApproval,false);assert(r.stages.every(x=>x.outcome==='NOT_RUN'));});
  test(()=>{const p=JSON.parse(fs.readFileSync(path.join(run,'plan.json'),'utf8'));p.stages[p.stages.length-1].preparationError='MANUAL_ABO_RELEASE_BUILD_REQUIRED';fs.writeFileSync(path.join(run,'plan.json'),JSON.stringify(p));const r=t.Finalize(run,path.join(dir,'invalid-final-result.json'));assert.equal(r.outcome,'FAIL');assert.equal(r.stages.at(-1).outcome,'FAIL');});
  test(()=>{
   // Synthetic Windows-shaped report checks serialization only, not execution.
@@ -77,7 +77,7 @@ try{
   assert.equal(exported.publicationApproval,false);assert.equal(exported.hardwareAttested,false);
   assert(!JSON.stringify(exported).includes(dir));assert(!Object.hasOwn(first.environment,'nodePath'));assert(!first.stages.some(stage=>Object.hasOwn(stage,'log')));assert(!Object.hasOwn(first.inputs.A,'source'));assert(!Object.hasOwn(first.inputs.A,'executedCopy'));assert.equal(exported.stages.length,require("../../services/runtime/peace.desktop-manual-verification").CURRENT_STAGES.length);
  });
- test(()=>{const ps=fs.readFileSync(path.join(root,"Relay Server/tools/runtime/manual-windows-tests.ps1"),'utf8'),bat=fs.readFileSync(path.join(root,"Relay Server/tools/runtime/Run_Manual_Windows_Tests.bat"),'utf8');assert(!/dcc64\.exe|msbuild\.exe|ci-evidence\.json|Run_Windows_CI/i.test(ps+bat));assert(ps.includes('WindowsJob]::Start'));assert(ps.includes('Get-CiEnvironment'));assert(ps.includes('MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED'));});
+ test(()=>{const ps=fs.readFileSync(path.join(root,"Relay Server/tools/runtime/manual-windows-tests.ps1"),'utf8'),bat=fs.readFileSync(path.join(root,"Relay Server/tools/runtime/Run_Manual_Windows_Tests.bat"),'utf8');assert(!/dcc64\.exe|msbuild\.exe|ci-evidence\.json|Run_Windows_CI/i.test(ps+bat));assert(ps.includes('WindowsJob]::Start'));assert(ps.includes('Get-TestEnvironment'));assert(ps.includes('MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED'));});
  test(()=>{const props=fs.readFileSync(path.join(root,"Railway/Cozy.Tests/Cozy.Build/Cozy.ManualProbe.props"),'utf8');assert(props.includes('units\\$(ProjectName)\\$(Platform)\\$(Config)'));assert(!props.includes('GAME_APPLICATION_BUILD'));for(const name of t.PROBES.filter(x=>!["Cozy.NativeAbiSdkProbe","Cozy.OverlayGpuFaultProbe"].includes(x)))assert(fs.existsSync(NativeFile(name+'.dproj')),name);});
- console.log(JSON.stringify({suite:'MANUAL_WINDOWS_TOOL_CONTRACTS',checks,status:'PASS',windowsExecuted:false,nativeBuild:'NOT_RUN',ciEvidenceCreated:false}));
+ console.log(JSON.stringify({suite:'MANUAL_WINDOWS_TOOL_CONTRACTS',checks,status:'PASS',windowsExecuted:false,nativeBuild:'NOT_RUN'}));
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

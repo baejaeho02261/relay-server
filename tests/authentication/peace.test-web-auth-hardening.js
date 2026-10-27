@@ -174,7 +174,7 @@ try {
     await atest('Viewer/operator direct mutation and raw upload attempts are denied before mutation', async () => {
         for (const role of ['viewer', 'operator']) {
             const session = web.CreateSession(req(), role);
-            for (const route of ['/api/desktop/bootstrap/security-authority', '/api/desktop/bootstrap/security-operations/signers', '/api/desktop/bootstrap/security-operations/ci-signers', '/api/desktop/bootstrap/security-operations/plan-release', '/api/desktop/bootstrap/security-operations/recovery/prepare', '/api/desktop/bootstrap/security-operations/recovery/apply', '/api/desktop/bootstrap/artifacts?component=O&version=1.0.0&fileName=O.exe'])
+            for (const route of ['/api/desktop/bootstrap/security-authority', '/api/desktop/bootstrap/security-operations/signers', '/api/desktop/bootstrap/security-operations/plan-release', '/api/desktop/bootstrap/security-operations/recovery/prepare', '/api/desktop/bootstrap/security-operations/recovery/apply', '/api/desktop/bootstrap/artifacts?component=O&version=1.0.0&fileName=O.exe'])
                 assert.equal((await call(route, {}, session)).status, 403, route);
         }
     });

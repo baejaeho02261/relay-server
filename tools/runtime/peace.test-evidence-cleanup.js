@@ -9,8 +9,8 @@ function OwnedRoot(value){
  if(typeof value!=='string'||!path.isAbsolute(value)||path.dirname(value)===value)throw Error('EXECUTION_SCRATCH_ROOT_INVALID');
  const stat=fs.lstatSync(value);if(!stat.isDirectory()||stat.isSymbolicLink())throw Error('EXECUTION_SCRATCH_LINK_REJECTED');
  for(let dir=path.resolve(value);path.dirname(dir)!==dir;dir=path.dirname(dir))if(fs.lstatSync(dir).isSymbolicLink())throw Error('EXECUTION_SCRATCH_LINK_REJECTED');
- const root=fs.realpathSync(value),marker=path.join(root,'ci-owned-marker'),m=fs.lstatSync(marker);
- if(!m.isFile()||m.isSymbolicLink()||m.nlink!==1||read(marker,128).toString()!=='GAME_WINDOWS_CI_V1')throw Error('EXECUTION_SCRATCH_MARKER_INVALID');
+ const root=fs.realpathSync(value),marker=path.join(root,'test-owned-marker'),m=fs.lstatSync(marker);
+ if(!m.isFile()||m.isSymbolicLink()||m.nlink!==1||read(marker,128).toString()!=='GAME_WINDOWS_TEST_V1')throw Error('EXECUTION_SCRATCH_MARKER_INVALID');
  return root;
 }
 function Remove(root){
@@ -45,7 +45,7 @@ function Publish(run,privateRoot,pending,output){
 }
 function Failure(output,kind,reason){
  if(!path.isAbsolute(output)||!['PRODUCT_FAULT_EXECUTION','MANUAL_EXECUTION'].includes(kind)||!/^[-A-Z0-9_]{1,100}$/.test(reason))throw Error('EXECUTION_FAILURE_ARGUMENTS_INVALID');
- const value={version:1,kind,outcome:'FAIL',reason,nativeBuild:'NOT_RUN',ciEvidenceCreated:false,hardwareAttested:false,publicationApproval:false};
+ const value={version:1,kind,outcome:'FAIL',reason,nativeBuild:'NOT_RUN',hardwareAttested:false,publicationApproval:false};
  fs.writeFileSync(output,JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o600});return value;
 }
 if(require.main===module){try{const [action,...args]=process.argv.slice(2);if(action==='publish'&&args.length===4)console.log(JSON.stringify(Publish(...args)));else if(action==='publish-one'&&args.length===3)console.log(JSON.stringify(Publish(args[0],null,args[1],args[2])));else if(action==='failure'&&args.length===3)Failure(...args);else if(action==='cleanup'&&args.length===1){if(fs.existsSync(args[0]))Remove(args[0]);}else throw Error('EXECUTION_SCRATCH_ARGUMENTS_INVALID');}catch(e){console.error(/^[A-Z0-9_]+$/.test(e.message)?e.message:'EXECUTION_SCRATCH_OPERATION_FAILED');process.exitCode=1;}}

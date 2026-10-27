@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
-rem Read-only files/approval/manifest inspection, no CI or compiler required.
+rem Read-only files/approval/manifest inspection, no compiler required.
 rem Usage: Check_Manual_Release.bat [/pre-manifest] [/verify-build-inputs] [A.exe A.json B.exe B.json O.exe O.json]
 rem /verify-build-inputs measures current BDS inputs against an existing reviewed record; no compiler is run.
 set "GCMR_EXIT=1"

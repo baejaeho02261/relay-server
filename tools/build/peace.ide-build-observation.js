@@ -167,7 +167,7 @@ function seal(run,role,finalFile,approvalFile,policyFile,traceFile,pid){
  const s=parse(contents.session),b=parse(contents.before),a=parse(contents.after),raw=contents.nativeOutput,final=contents.final;
  const r=parse(contents.ready);if(b.sessionSha512!==files.session.sha512||a.beforeSha512!==files.before.sha512||a.readySha512!==files.ready.sha512||r.beforeSha512!==files.before.sha512||r.sessionId!==s.id||b.sessionId!==s.id||a.sessionId!==s.id||a.nativeOutput.sha512!==hash(raw)||a.inputsSha512!==s.inputs.sha512||b.role!==role||a.role!==role||r.role!==role||a.configuration!=='Release'||b.configuration!=='Release')fail('CHAIN_MISMATCH');
  pe64(final);const relation=normalizedRelation(raw,final,role),approval=approved(role,final,approvalFile,policyFile,parse(contents.approval),parse(contents.policy)),trace=traceFile?corroborate(run,role,traceFile,pid):{status:'NOT_RUN',reason:'EXTERNAL_TRACE_NOT_SUPPLIED'};
- const result={version:1,kind:'IDE_FINAL_BYTE_LINK',sessionId:s.id,role,createdAt:new Date().toISOString(),files,relation,approval,trace,independentProvenance:'NOT_PROVEN',windowsExecution:'HOOK_RECEIPTS_REQUIRE_EXTERNAL_CORROBORATION',ciEvidence:false,hardwareAttested:false,anchorRequirement:'RETAIN_SEAL_SHA512_OUTSIDE_BUILD_ACCOUNT_BEFORE_REVIEW'};
+ const result={version:1,kind:'IDE_FINAL_BYTE_LINK',sessionId:s.id,role,createdAt:new Date().toISOString(),files,relation,approval,trace,independentProvenance:'NOT_PROVEN',windowsExecution:'HOOK_RECEIPTS_REQUIRE_EXTERNAL_CORROBORATION',hardwareAttested:false,anchorRequirement:'RETAIN_SEAL_SHA512_OUTSIDE_BUILD_ACCOUNT_BEFORE_REVIEW'};
  // Recheck every input after parsing/verification; partial records are never a
  // successful seal, and existing records cannot be silently overwritten.
  for(const record of Object.values(result.files))if(fileRecord(record.path).sha512!==record.sha512)fail('CHAIN_INPUT_CHANGED');
@@ -184,7 +184,7 @@ function verify(sealFile,expectedDigest,finalFile,approvalFile,policyFile){
  if(canonical(normalizedRelation(inputs.nativeOutput,inputs.final,s.role))!==canonical(s.relation))fail('SEALED_RELATION_MISMATCH');
  approved(s.role,inputs.final,approvalFile,policyFile,parse(inputs.approval),parse(inputs.policy));
  for(const [name,file]of [['final',finalFile],['approval',approvalFile],['policy',policyFile]])if(fileRecord(file).sha512!==s.files[name].sha512)fail('SEALED_FILE_MISMATCH');
- return{status:'ANCHORED_RECORD_AND_FINAL_APPROVAL_MATCH',role:s.role,sealSha512:expectedDigest,traceCorroborated:s.trace?.kind==='EXTERNAL_PROCESS_MONITOR_CORROBORATION',independentProvenance:'NOT_PROVEN',anchorTrust:'CALLER_MUST_SUPPLY_INDEPENDENTLY_RETAINED_DIGEST',ciEvidence:false};
+ return{status:'ANCHORED_RECORD_AND_FINAL_APPROVAL_MATCH',role:s.role,sealSha512:expectedDigest,traceCorroborated:s.trace?.kind==='EXTERNAL_PROCESS_MONITOR_CORROBORATION',independentProvenance:'NOT_PROVEN',anchorTrust:'CALLER_MUST_SUPPLY_INDEPENDENTLY_RETAINED_DIGEST'};
 }
 function main(args){const [command,...a]=args;let result;
  if(command==='prepare'&&a.length===3)result=prepare(...a);else if(command==='before'&&a.length===4)result=before(...a);else if(command==='ready'&&a.length===4)result=ready(...a);else if(command==='after'&&a.length===2)result=after(...a);else if(command==='seal'&&[5,7].includes(a.length))result=seal(...a);else if(command==='verify'&&a.length===5)result=verify(...a);

@@ -75,7 +75,7 @@ test('all critical categories retain the freshness floor when optional flag is z
     const s = session(); stale(s);
     for (const route of [critical, '/api/desktop/bootstrap/security-authority', '/api/desktop/bootstrap/integrity-policy',
         '/api/desktop/bootstrap/security-operations/activate', '/api/desktop/bootstrap/security-operations/controls',
-        '/api/desktop/bootstrap/security-operations/ci-signers', '/api/desktop/bootstrap/security-operations/recovery/apply',
+        '/api/desktop/bootstrap/security-operations/recovery/apply',
         '/api/desktop/bootstrap/server-state/device-replacement', '/api/production/transport', '/api/production/config/apply',
         '/api/production/update/rollback', '/api/production/passkeys/revoke'])
         assert.equal(approvedGuard(s, 'POST', route, {}).reason, 'ADMIN_ACTION_REQUIRED', route);

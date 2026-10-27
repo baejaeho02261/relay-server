@@ -34,7 +34,7 @@ let active = { A: 'A1', B: 'B2', O: 'O3' }, uploadError = true;
 let policy = { revision: 8, mode: 'enforce', dynamicCode: 'observe', freshnessMs: 45000, challengeMs: 15000, minVersionA: '1', minVersionB: '2', minVersionO: '3.2.1', enforceLegacy: false, requireReadonlyApi: true, requireCfg: false, requireReleaseSignature: false, trustedReleaseKeys: [], revokedSha512: [] };
 const operations = { revision: 12, requireBuildContract: false, requireTestEvidence: false, rollout: { enabled: false, artifactKeys: [], patch: {} }, activations: [], signerStates: {} };
 const manifestId='a'.repeat(128),manifest={releaseName:'Verified operator baseline',securityVersion:3,artifacts:{A:candidates[0].sha512,B:candidates[1].sha512,O:candidates[2].sha512}};
-operations.releaseGovernance={requireManifest:false,requireCiEvidence:false,minimumSecurityVersion:3,manifests:{[manifestId]:{registration:'REGISTERED',manifest}},ciKeys:{},ciEvidence:{}};
+operations.releaseGovernance={requireManifest:false,minimumSecurityVersion:3,manifests:{[manifestId]:{registration:'REGISTERED',manifest}}};
 const releaseSafety={revision:4,baseline:null,revokedCohorts:{}};
 const listing = () => ({ active: { ...active }, candidates: candidates.map(a => ({ ...a, active: active[a.component] === a.id })), operations: { ...operations }, releaseSafety:clone(releaseSafety), auditHealth: { status: 'HEALTHY', failedWrites: 0 } });
 const clone = x => JSON.parse(JSON.stringify(x));

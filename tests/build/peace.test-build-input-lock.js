@@ -2,7 +2,7 @@
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
-const lock=require("../../ci/toolchain/peace.build-input-lock");
+const lock=require("../../tools/build/peace.build-input-lock");
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-build-lock-'));
 try{
  const native=path.join(temp,'native'),web=path.join(temp,'web'),bds=path.join(temp,'bds'),node=path.join(temp,'synthetic-tools/node/node.exe');
@@ -19,12 +19,12 @@ try{
  file('bds/bin/CodeGear.Delphi.Targets','altered MSBuild recipe');assert.throws(()=>lock.verify(observed,lock.collect(native,web,bds,node)),/UNAPPROVED/);file('bds/bin/CodeGear.Delphi.Targets');
  const forged=structuredClone(observed);forged.files['bds/bin/bcc64.exe']='0'.repeat(128);assert.throws(()=>lock.validate(forged),/DIGEST_INVALID/);
  file('bds/lib/win64/release/System.dcu','altered runtime');assert.throws(()=>lock.verify(observed,lock.collect(native,web,bds,node)),/UNAPPROVED/);
- const observedPath=path.join(temp,'observed.json'),reviewedPath=path.join(temp,'reviewed.json'),approve=path.resolve(MODULE_RESOURCE_ROOT,"../ci/toolchain/peace.approve-build-inputs.js"),spawn=require('node:child_process').spawnSync;
+ const observedPath=path.join(temp,'observed.json'),reviewedPath=path.join(temp,'reviewed.json'),approve=path.resolve(MODULE_RESOURCE_ROOT,"../tools/build/peace.approve-build-inputs.js"),spawn=require('node:child_process').spawnSync;
  fs.writeFileSync(observedPath,JSON.stringify(observed));
  assert.notEqual(spawn(process.execPath,[approve,observedPath,'f'.repeat(128),reviewedPath]).status,0);assert.equal(fs.existsSync(reviewedPath),false);
  assert.equal(spawn(process.execPath,[approve,observedPath,observed.inputSha512,reviewedPath]).status,0);assert.equal(JSON.parse(fs.readFileSync(reviewedPath)).inputSha512,observed.inputSha512);
  assert.notEqual(spawn(process.execPath,[approve,observedPath,observed.inputSha512,reviewedPath]).status,0);
  const cfgDir=path.join(temp,'cfg');fs.mkdirSync(cfgDir);for(const role of ['A','B','O'])fs.writeFileSync(path.join(cfgDir,role+'.exe'),require("../fixtures/protocol/peace.completion-6-10-fixture").PE(role,undefined,true));
- const cfg=require("../../ci/evidence/peace.cfg-evidence").Inspect(cfgDir,observed.inputSha512);for(const role of ['A','B','O']){assert.equal(cfg.artifacts[role].metadataValid,true);assert.equal(cfg.artifacts[role].instrumentation,'METADATA_ONLY_UNVERIFIED');assert.equal(cfg.artifacts[role].strictProfileSupported,false);}
+ const cfg=require("../../tools/build/peace.cfg-evidence").Inspect(cfgDir,observed.inputSha512);for(const role of ['A','B','O']){assert.equal(cfg.artifacts[role].metadataValid,true);assert.equal(cfg.artifacts[role].instrumentation,'METADATA_ONLY_UNVERIFIED');assert.equal(cfg.artifacts[role].strictProfileSupported,false);}
  console.log('PASS reviewed build lock: unchanged compiler/SDK, header mutation, added shadow header, compiler drift/foreign override, forged digest, RTL mutation, explicit approval digest/overwrite refusal, CFG metadata not instrumentation');
 }finally{fs.rmSync(temp,{recursive:true,force:true});}

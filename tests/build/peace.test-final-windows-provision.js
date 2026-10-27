@@ -13,7 +13,7 @@ const sha=value=>crypto.createHash('sha512').update(value).digest('hex');
 const json=(file,value)=>fs.writeFileSync(file,JSON.stringify(value),{mode:0o600});
 
 function CreateInputs(run,keyless=false){
-  const tool=require('../../ci/pipeline/peace.final-windows-inputs');
+  const tool=require('../../tools/windows/peace.final-windows-inputs');
   const engine=require('../../services/artifacts/peace.cozy-protection-engine');
   const v2=require('../../services/artifacts/peace.server-policy-protection');
   const evidence=require('../../services/artifacts/peace.desktop-packing-evidence');
@@ -79,9 +79,9 @@ function CreateInputs(run,keyless=false){
 
 function Scenario(name,run){
   assert.equal(path.resolve(process.env.DATA_DIR),path.join(fs.realpathSync(run),'server-data'));
-  assert.equal(fs.readFileSync(path.join(run,'ci-owned-marker'),'utf8'),'SYNTHETIC_TEST_ONLY');
+  assert.equal(fs.readFileSync(path.join(run,'test-owned-marker'),'utf8'),'SYNTHETIC_TEST_ONLY');
   require('../../core/peace.utilities').EnsureDirs();
-  const keyless=name.startsWith('v2-'),f=CreateInputs(run,keyless),fixture=require('../../ci/fixtures/peace.fixture-services');
+  const keyless=name.startsWith('v2-'),f=CreateInputs(run,keyless),fixture=require('../../tools/fixtures/peace.fixture-services');
   const store=require('../../services/bootstrap/peace.desktop-bootstrap-store');
   const ops=require('../../services/security/peace.desktop-security-operations');
   const authority=require('../../services/security/peace.desktop-security-authority');
@@ -113,14 +113,14 @@ function Scenario(name,run){
     }
     const view=ops.PreviewPair({aId:selected.A.id,bId:selected.B.id,oId:selected.O.id});
     assert.equal(view.eligible,true);assert.equal(view.packing.receiptsVerified,true);
-    assert.equal(view.packing.windowsVerified,false);assert.equal(view.release.ciVerification,'NOT_PROVIDED');
+    assert.equal(view.packing.windowsVerified,false);assert.equal(Object.hasOwn(view.release,'ciVerification'),false);
     assert.equal(view.testEvidence,null);assert.equal(ops.State().requirePackingEvidence,true);
     assert.equal(ops.State().requireCozyProtection,true);
     const manifest=JSON.parse(fs.readFileSync(path.join(f.out,'manifest.json')));
     assert.equal(view.release.manifestId,manifest.manifestId);
     assert.deepEqual(manifest.manifest.artifacts,Object.fromEntries(ROLES.map(role=>[role,f.expected[role].sha512])));
     const before=JSON.stringify(store.Load());
-    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/CI_FIXTURE_MUST_BE_EMPTY/);
+    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/WINDOWS_TEST_FIXTURE_MUST_BE_EMPTY/);
     assert.equal(JSON.stringify(store.Load())===before,true,'a retry cannot replace populated fixture state');
     return;
   }
@@ -136,21 +136,21 @@ function Scenario(name,run){
   if(name==='v2-approval-scope'){
     fixture.Provision(run,f.out,'1.0.0');
     Object.assign(process.env,{DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'1',WEB_ADMIN_PORT:'0'});
-    const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Isolated fixture approval scope'},'ISOLATED_WINDOWS_CI');
+    const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Isolated fixture approval scope'},'ISOLATED_WINDOWS_TEST');
     const row=store.Load().launchers[issue.launcherId],keylessService=require('../../services/bootstrap/peace.keyless-bootstrap');
     const saved={ListPending:keylessService.ListPending,Approve:keylessService.Approve};let pending=[],calls=0;
     // This is a callback scope test. The real dual-key proof/approval protocol
     // is tested separately; these stubs never claim a Windows execution PASS.
     keylessService.ListPending=()=>({requests:pending});
-    keylessService.Approve=(id,body,actor)=>{calls++;assert.equal(actor,'ISOLATED_WINDOWS_CI');assert.equal(body.launcherId,row.id);assert.equal(body.persistentKeyId,pending[0].persistentKeyId);assert.equal(body.identityConfirmed,true);return{id,status:'APPROVED'};};
+    keylessService.Approve=(id,body,actor)=>{calls++;assert.equal(actor,'ISOLATED_WINDOWS_TEST');assert.equal(body.launcherId,row.id);assert.equal(body.persistentKeyId,pending[0].persistentKeyId);assert.equal(body.identityConfirmed,true);return{id,status:'APPROVED'};};
     try{
       const approve=fixture.KeylessApproval(run,f.out,issue);assert.equal(approve(),false);
       const expected={id:'a'.repeat(48),launcherId:row.id,launcherSha512:row.sha512,status:'PENDING_APPROVAL',proof:'PERSISTENT_KEY_POSSESSION',hardwareAttested:false,persistentKeyId:'B'.repeat(64)};
       for(const edit of [p=>p.launcherId='0'.repeat(24),p=>p.launcherSha512='0'.repeat(128),p=>p.proof='UNVERIFIED',p=>p.status='PROOF_REQUIRED',p=>p.hardwareAttested=true]){
-        const p=structuredClone(expected);edit(p);pending=[p];assert.throws(approve,/CI_KEYLESS_REQUEST_MISMATCH/);assert.equal(calls,0);
+        const p=structuredClone(expected);edit(p);pending=[p];assert.throws(approve,/WINDOWS_TEST_KEYLESS_REQUEST_MISMATCH/);assert.equal(calls,0);
       }
-      pending=[expected,structuredClone(expected)];assert.throws(approve,/CI_KEYLESS_REQUEST_AMBIGUOUS/);assert.equal(calls,0);
-      pending=[expected];process.env.DESKTOP_PUBLIC_HOST='example.invalid';assert.throws(approve,/CI_KEYLESS_LOOPBACK_FIXTURE_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
+      pending=[expected,structuredClone(expected)];assert.throws(approve,/WINDOWS_TEST_KEYLESS_REQUEST_AMBIGUOUS/);assert.equal(calls,0);
+      pending=[expected];process.env.DESKTOP_PUBLIC_HOST='example.invalid';assert.throws(approve,/WINDOWS_TEST_KEYLESS_LOOPBACK_FIXTURE_REQUIRED/);process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';
       assert.equal(approve(),true);assert.equal(approve(),true);assert.equal(calls,1);
     }finally{keylessService.ListPending=saved.ListPending;keylessService.Approve=saved.Approve;}
     return;
@@ -173,17 +173,17 @@ function Scenario(name,run){
   if(name==='mixed-receipts'){
     const records=structuredClone(f.records);records[1].jobId=crypto.randomBytes(16).toString('hex');
     json(path.join(f.out,'packing-receipts.json'),records);
-    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/CI_FINAL_RECEIPT_COHORT_REQUIRED/);empty();return;
+    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/WINDOWS_TEST_FINAL_RECEIPT_COHORT_REQUIRED/);empty();return;
   }
   if(name==='changed-receipt'){
     const records=structuredClone(f.records);records[1].outputSha512=sha('different final B');
     json(path.join(f.out,'packing-receipts.json'),records);
-    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/CI_FINAL_RECEIPT_FILE_MISMATCH/);empty();return;
+    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/WINDOWS_TEST_FINAL_RECEIPT_FILE_MISMATCH/);empty();return;
   }
   if(name==='changed-file'){
     const file=path.join(f.out,'B.exe'),bytes=fs.readFileSync(file);bytes[900]^=1;
     try{fs.writeFileSync(file,bytes);}finally{bytes.fill(0);}
-    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/CI_FINAL_ARTIFACT_CHANGED/);empty();return;
+    assert.throws(()=>fixture.Provision(run,f.out,'1.0.0'),/WINDOWS_TEST_FINAL_ARTIFACT_CHANGED/);empty();return;
   }
   if(name==='wrong-signature'){
     const approval=JSON.parse(fs.readFileSync(path.join(f.out,'A.approval.json')));
@@ -236,7 +236,7 @@ if(process.argv[2]==='--scenario'){
   for(const [scenario,name]of scenarios)test(name,()=>{
     const run=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-final-windows-provision-'));
     try{
-      require('../fixtures/runtime/peace.private-ci-test-directory').Prepare(run);
+      require('../fixtures/runtime/peace.private-test-directory').Prepare(run);
       const result=child.spawnSync(process.execPath,[__filename,'--scenario',scenario,run],{
         env:{...process.env,DATA_DIR:path.join(run,'server-data'),STORAGE_ENGINE:'json',HA_ENABLED:'0'},
         encoding:'utf8',timeout:30000,maxBuffer:2*1024*1024

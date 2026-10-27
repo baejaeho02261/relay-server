@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $selectedRoot=$null;$node=$null;$exitCode=1
 try {
  if(-not $IsWindows -or [IntPtr]::Size -ne 8 -or $PSVersionTable.PSVersion.Major -lt 7){throw 'LIFECYCLE_WINDOWS_POWERSHELL7_X64_REQUIRED'}
- . (Join-Path $PSScriptRoot '..\..\ci\pipeline\CiCommon.ps1')
+ . (Join-Path $PSScriptRoot '..\..\tools\windows\WindowsCommon.ps1')
  $node=[string](Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
  $id='security-authority-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
@@ -15,7 +15,7 @@ try {
   if($config.version -ne 1 -or @($config.Keys|Where-Object{$_ -notin @('version','releaseVersion','artifacts','faultArtifacts','scenarios','nativeReceiveProbe','verificationContext','policyFile')}).Count -gt 0){throw 'LIFECYCLE_INPUT_INVALID'}
  } else {
   Write-Host 'Build normal Release A\B\O and the three tests\product-faults IDE projects first.'
-  Write-Host 'This runs existing files on a NEW isolated localhost server. No CI, command-line Delphi compiler, production key or server reset is required.'
+  Write-Host 'This runs existing files on a NEW isolated localhost server. No command-line Delphi compiler, production key or server reset is required.'
   $version=(Read-Host 'Actual numeric A/B/O release version [Enter: 1.0.0]').Trim();if(-not $version){$version='1.0.0'}
   $config=@{version=1;releaseVersion=$version;artifacts=@{};faultArtifacts=@{}}
   $names=@{A='Cozy.Launcher';B='Cozy.Client';O='Cozy.Overlay'}
@@ -36,7 +36,7 @@ try {
  $config.scenarios=@('lifecycle-cleanup-success','authority-measurement-skipped','authority-report-stopped','authority-local-stop-held')
  $null=$config.Remove('nativeReceiveProbe')
  $selectedRoot=Join-Path ([IO.Path]::GetTempPath()) ('GameLifecycleInputs-'+[Guid]::NewGuid().ToString('N'))
- New-CiPrivateDirectory $selectedRoot
+ New-TestPrivateDirectory $selectedRoot
  $selected=Join-Path $selectedRoot 'selected-inputs.json'
  [IO.File]::WriteAllText($selected,($config|ConvertTo-Json -Depth 12),[Text.UTF8Encoding]::new($false))
  $report=if($ResultFile){[IO.Path]::GetFullPath($ResultFile)}else{Join-Path $PSScriptRoot ($id+'-results.json')}
@@ -45,7 +45,7 @@ try {
  & (Join-Path $PSScriptRoot 'product-fault-tests.ps1') -InputFile $selected -ResultFile $report -GeneratedInputRoot $selectedRoot
  $exitCode=$LASTEXITCODE
  if($exitCode -eq 0){
-  $observed=Read-CiJson $report
+  $observed=Read-TestJson $report
   if($observed.outcome -ne 'PASS'){$exitCode=1}
  }
 } catch {

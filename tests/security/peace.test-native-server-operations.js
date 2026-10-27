@@ -83,7 +83,7 @@ test('Windows probe wiring includes actual execution and its required source dir
   assert.match(batch,/"%PROBE_OUT%\\%%P.exe"\n\s+if errorlevel 1 exit \/b 1/);
   assert.match(batch,/Cozy.ServerOperationsProtocolProbe.dpr/);
   assert.match(batch,/Cozy.PointerGraphProbe" set "PROBE_DEFINES=RELEASE;COZY_POINTER_GRAPH_PROBE"/);
-  const runner = fs.readFileSync(path.resolve(__dirname,'../../ci/pipeline/Invoke-NativeContracts6To10.ps1'),'utf8');
+  const runner = fs.readFileSync(path.resolve(__dirname,'../../tools/windows/Invoke-NativeContracts6To10.ps1'),'utf8');
   assert.match(runner,/'Cozy.ServerOperationsProtocolProbe','Cozy.PointerGraphProbe','pe-corpus'/);
   assert.match(runner,/foreach\(\$name in \$names\[4\.\.\(\$names.Count-3\)\]\).*Invoke-ContractCommand \$name/);
   const props = read('Cozy.Tests/Cozy.Build/Cozy.ManualProbe.props');

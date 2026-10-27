@@ -2,6 +2,16 @@
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process');
+// Standalone execution must not bind the server writer lock to the source tree.
+// A parent owns this temporary directory and removes it only after the child
+// process exits, when SQLite has released its OS lock (including on Windows).
+if(!process.env.DATA_DIR){
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-exposure-suite-'));let result;
+ try{result=cp.spawnSync(process.execPath,[...process.execArgv,__filename,...process.argv.slice(2)],{env:{...process.env,DATA_DIR:directory,HA_ENABLED:'0'},stdio:'inherit',timeout:120000});}
+ finally{fs.rmSync(directory,{recursive:true,force:true});}
+ if(result.error)throw result.error;
+ process.exit(result.status===null?1:result.status);
+}
 const scan=require("../../services/artifacts/peace.release-exposure"),{Pe}=require("../../services/security/peace.parser-fuzz-cases");
 const key=crypto.generateKeyPairSync('ed25519'),pem=key.privateKey.export({format:'pem',type:'pkcs8'}),pub=key.publicKey.export({format:'pem',type:'spki'});
 test('JSON quoted credential assignments are blocked without leaking values',()=>{const bytes=Buffer.from(JSON.stringify({ADMIN_SECRET:'SyntheticPrivatePassword123456789'})),r=scan.ScanBytes(bytes);assert.equal(r.status,'BLOCKED');assert(!JSON.stringify(r).includes('SyntheticPrivate'));});
@@ -18,7 +28,7 @@ test('findings are bounded while overflow remains a blocking result',()=>{const 
 test('final directory scan applies type allowlist and byte binding',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'release-scan-'));try{fs.writeFileSync(path.join(dir,'A.exe'),Pe());let r=scan.ScanDirectory(dir);assert.equal(r.status,'PASS');fs.writeFileSync(path.join(dir,'debug.pdb'),Buffer.from('debug'));r=scan.ScanDirectory(dir);assert.equal(r.status,'BLOCKED');assert(r.issues.some(x=>x.rule==='UNAPPROVED_FILE_TYPE'));}finally{fs.rmSync(dir,{recursive:true,force:true});}});
 test('directory link escape/hardlink refused',()=>{if(process.platform==='win32')return;const dir=fs.mkdtempSync(path.join(os.tmpdir(),'scan-link-'));try{fs.symlinkSync('/etc/passwd',path.join(dir,'A.exe'));assert.throws(()=>scan.ScanDirectory(dir),/LINK_FORBIDDEN/);fs.unlinkSync(path.join(dir,'A.exe'));fs.writeFileSync(path.join(dir,'a.exe'),Pe());fs.linkSync(path.join(dir,'a.exe'),path.join(dir,'b.exe'));assert.throws(()=>scan.ScanDirectory(dir),/LINK_FORBIDDEN/);}finally{fs.rmSync(dir,{recursive:true,force:true});}});
 test('worker scans real fixture bytes and returns redacted findings',async()=>{const q=new (require("../../services/runtime/peace.desktop-work-queue").WorkQueue)('exposure-test',1,1);try{const r=await q.run({kind:'exposure',bytes:Buffer.concat([Pe(),Buffer.from(pem)])},10000);assert.equal(r.status,'BLOCKED');assert(!JSON.stringify(r).includes(pem));}finally{await q.close();}});
-test('source gate rejects exposure before new candidate storage',()=>{const layout=require('../fixtures/source/peace.project-layout');for(const name of ['peace.desktop-bootstrap.js','peace.desktop-security-operations.js'])assert.match(fs.readFileSync(layout.RelayFile(name),'utf8'),/require\([\"']\.\.\/artifacts\/peace\.release-exposure[\"']\)\.AssertBytes\(/);assert.match(fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../ci/evidence/peace.separated-signing.js"),'utf8'),/CheckFinalExposure\(resolved\)/);});
+test('source gate rejects exposure before new candidate storage',()=>{const layout=require('../fixtures/source/peace.project-layout');for(const name of ['peace.desktop-bootstrap.js','peace.desktop-security-operations.js'])assert.match(fs.readFileSync(layout.RelayFile(name),'utf8'),/require\([\"']\.\.\/artifacts\/peace\.release-exposure[\"']\)\.AssertBytes\(/);assert.match(fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../tools/artifacts/peace.separated-signing.js"),'utf8'),/CheckFinalExposure\(resolved\)/);});
 
 test('actual production activation rejects exposed but correctly signed cohort',()=>{const f=require("../fixtures/runtime/peace.next123-fixture").Fixture(),old=f.cohort(1,'clean');f.active(old);const bad=f.cohort(2,'ADMIN_SECRET='+'Z'.repeat(32));const active={...f.db.active};assert.throws(()=>f.activate(bad),/ARTIFACT_EXPOSURE_BLOCKED/);assert.deepEqual(f.db.active,active);});
 test('offline manifest selection blocks exposed final EXE without executing it',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'exposure-tools-'));try{const names=['A','B','O'].map(c=>{const n=path.join(dir,c+'.exe');fs.writeFileSync(n,Buffer.concat([Pe(),c==='O'?Buffer.from(pem):Buffer.alloc(0)]));return n;});assert.throws(()=>require("../../tools/artifacts/peace.release-tools").finalFiles(names),/ARTIFACT_EXPOSURE_BLOCKED/);}finally{fs.rmSync(dir,{recursive:true,force:true});}});

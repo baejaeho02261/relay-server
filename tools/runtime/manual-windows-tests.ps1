@@ -11,7 +11,7 @@ function Run-Owned([string]$Exe,[string[]]$Arguments,[string]$Log,[int]$Seconds)
  $watch=[Diagnostics.Stopwatch]::StartNew();$job=$null
  $record=@{exitCode=$null;elapsedMs=0;outcome='FAIL'}
  try {
-  $job=[GameCi.WindowsJob]::Start($Exe,$Arguments,$private,(Get-CiEnvironment $private),$Log)
+  $job=[GameWindowsTests.WindowsJob]::Start($Exe,$Arguments,$private,(Get-TestEnvironment $private),$Log)
   while(-not $job.HasExited){
    if($watch.Elapsed.TotalSeconds -gt $Seconds){throw 'MANUAL_PROCESS_TIMEOUT'}
    if((Get-Item -LiteralPath $Log).Length -gt 67108864){throw 'MANUAL_LOG_LIMIT'}
@@ -33,7 +33,7 @@ function Run-Owned([string]$Exe,[string[]]$Arguments,[string]$Log,[int]$Seconds)
 }
 try {
  if(-not $IsWindows -or [IntPtr]::Size -ne 8 -or $PSVersionTable.PSVersion.Major -lt 7){throw 'MANUAL_WINDOWS_POWERSHELL7_X64_REQUIRED'}
- . (Join-Path $PSScriptRoot '..\..\ci\pipeline\CiCommon.ps1')
+ . (Join-Path $PSScriptRoot '..\..\tools\windows\WindowsCommon.ps1')
  $node=[string](Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $pwsh=[string](Get-Process -Id $PID).Path
  $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
@@ -41,13 +41,13 @@ try {
  $id='manual-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
  $run=Join-Path ([IO.Path]::GetTempPath()) ('GameManualResults-'+[Guid]::NewGuid().ToString('N'));$private=Join-Path ([IO.Path]::GetTempPath()) ('GameManual-'+[Guid]::NewGuid().ToString('N'))
  $report=Join-Path $PSScriptRoot ($id+'-results.json')
- New-CiPrivateDirectory $run;New-CiPrivateDirectory $private
- if(-not ('GameCi.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $root 'Relay Server\ci\fixtures\LifecycleFileObserver.cs')}
- $run=[GameCi.LifecycleFileObserver]::CanonicalDirectory($run)
- $private=[GameCi.LifecycleFileObserver]::CanonicalDirectory($private)
+ New-TestPrivateDirectory $run;New-TestPrivateDirectory $private
+ if(-not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $root 'Relay Server\tools\fixtures\LifecycleFileObserver.cs')}
+ $run=[GameWindowsTests.LifecycleFileObserver]::CanonicalDirectory($run)
+ $private=[GameWindowsTests.LifecycleFileObserver]::CanonicalDirectory($private)
  [IO.Directory]::CreateDirectory((Join-Path $run 'logs'))|Out-Null
  Write-Host 'Execution only: build the test projects in the RAD Studio IDE first.'
- Write-Host 'No command-line Delphi build, CI evidence, production key or production server is used.'
+ Write-Host 'No command-line Delphi build, production key or production server is used.'
  Write-Host ('IDE group: '+(Join-Path $root 'Railway\Cozy.Tests\Cozy.Build\Cozy.ManualNativeTests.groupproj'))
  if(-not $InputFile){
   $defaultBin=Join-Path $root 'Railway\build\tests\manual-ide'
@@ -73,13 +73,13 @@ try {
   $InputFile=Join-Path $run 'selected-inputs.json'
   $configuration=@{version=1;probeDirectory=$probeDirectory;probes=@{};artifacts=$artifacts;releaseVersion=$releaseVersion;runIntegration=$integration;collectHardwareSignals=$collectHardwareSignals}
   if($faultArtifacts.Count -eq 3){$configuration.faultArtifacts=$faultArtifacts};if($verificationContext){$configuration.verificationContext=$verificationContext}
-  Write-CiJson $InputFile $configuration
+  Write-TestJson $InputFile $configuration
  } else {$InputFile=[IO.Path]::GetFullPath($InputFile)}
  $execution=@{version=1;startedAt=[DateTime]::UtcNow.ToString('o');environment=@{os=[Environment]::OSVersion.VersionString;powerShell=$PSVersionTable.PSVersion.ToString();processBits=64;interactive=[Environment]::UserInteractive;sessionId=[Diagnostics.Process]::GetCurrentProcess().SessionId;nodePath=$node};stages=@()}
  $openssl=if(Get-Command openssl.exe -CommandType Application -ErrorAction SilentlyContinue){'true'}else{'false'}
  $prepare=Run-Owned $node @((Join-Path $PSScriptRoot 'peace.manual-windows-tests.js'),'prepare',$InputFile,$run,$private,$node,$pwsh,$openssl) (Join-Path $run 'prepare.log') 90
  if($prepare.exitCode -ne 0 -or $prepare.ContainsKey('error')){throw 'MANUAL_PREPARATION_FAILED_SEE_PREPARE_LOG'}
- $plan=Read-CiJson (Join-Path $run 'plan.json')
+ $plan=Read-TestJson (Join-Path $run 'plan.json')
  foreach($stage in $plan.stages){
   if($stage.id -in @('deterministic-state','independent-pe','independent-crc') -and -not $stage.ContainsKey('skip')){
    $pythonAvailable=$false
@@ -90,15 +90,15 @@ try {
   Write-Host ('RUN '+$stage.id)
   $record=Run-Owned ([string]$stage.exe) ([string[]]$stage.args) (Join-Path $run ('logs\'+$stage.id+'.log')) ([int]$stage.timeoutSeconds)
   $record.id=$stage.id;$execution.stages+=$record
-  Write-CiJson (Join-Path $run 'execution.json') $execution
+  Write-TestJson (Join-Path $run 'execution.json') $execution
  }
  if($plan.ContainsKey('overlayLeaseExpiry')){
   $leaseStage=$plan.overlayLeaseExpiry
   if($leaseStage.ContainsKey('skip')){$execution.overlayLeaseExpiry=@{outcome='NOT_RUN';reason=$leaseStage.skip};Write-Host ('overlay-lease-expiry NOT_RUN: '+$leaseStage.skip)}
   else{Write-Host 'RUN overlay-lease-expiry (real 120-second grant; dedicated test builds)';$execution.overlayLeaseExpiry=Run-Owned ([string]$leaseStage.exe) ([string[]]$leaseStage.args) (Join-Path $run 'logs\overlay-lease-expiry.log') ([int]$leaseStage.timeoutSeconds)}
  }
- Write-CiJson (Join-Path $run 'execution.json') $execution
- Write-CiJson (Join-Path $run 'plan.json') $plan
+ Write-TestJson (Join-Path $run 'execution.json') $execution
+ Write-TestJson (Join-Path $run 'plan.json') $plan
  # Validate actual source/copy hashes while pins and files still exist.
  # Keep pending diagnostics private until cleanup succeeds; exact bytes move
  # to public outputs afterwards, so no stale PASS or evidence hash can escape.
@@ -107,7 +107,7 @@ try {
  if($finish.ContainsKey('error') -or -not(Test-Path -LiteralPath $pending)){throw 'MANUAL_RESULT_FINALIZATION_FAILED'}
  & $node $cleanupTool publish $run $private $pending $report
  if($LASTEXITCODE -ne 0){throw 'MANUAL_PRIVATE_CLEANUP_OR_PUBLICATION_FAILED'}
- $value=Read-CiJson $report;Write-Host ('Result: '+$value.outcome+' / '+$report)
+ $value=Read-TestJson $report;Write-Host ('Result: '+$value.outcome+' / '+$report)
  if($value.ContainsKey('publicVerificationFile')){Write-Host ('Admin manual execution record: '+$value.publicVerificationFile)}
  if($value.ContainsKey('leaseVerificationFile')){Write-Host ('Admin build-linked expiry observation (dedicated test builds): '+$value.leaseVerificationFile)}
  if($value.ContainsKey('leaseEvidenceFile')){Write-Host ('Exact observed lease evidence: '+$value.leaseEvidenceFile)}

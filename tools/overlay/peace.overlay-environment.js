@@ -1,7 +1,7 @@
 'use strict';
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
-// Operator measurements of the real test renderer, never CI/publication evidence.
+// Operator measurements of the real test renderer, never publication approval.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process'),os=require('node:os');
 const ROOT=path.resolve(MODULE_RESOURCE_ROOT,'../..');
 const hash=bytes=>crypto.createHash('sha512').update(bytes).digest('hex');
@@ -60,7 +60,7 @@ function Evaluate(raw,confirmation,nonce){
   result('mixed-dpi-monitor-move',monitors.size>=2&&dpis.size>=2&&didDpi&&didFocus,'TWO_DISTINCT_LOCAL_DPI_VALUES_AND_OS_DPI_CHANGE_REQUIRED'),
   result('rdp-disconnect-reconnect',resumed&&didFocus&&registrationVerified,'WTS_REGISTRATION_AND_REAL_REMOTE_DISCONNECT_THEN_CONNECT_OF_SAME_SESSION_REQUIRED')
  ];
- return {version:1,kind:'OVERLAY_ENVIRONMENT_VERIFICATION',evidenceType:'OPERATOR_RECORDED_LOCAL_MEASUREMENT',outcome:errors.length?'FAIL':stages.every(x=>x.outcome==='PASS')?'PASS':'INCOMPLETE',stages,errors:[...new Set(errors)],measured:{events:rows.length,localMonitors:monitors.size,localDpis:[...dpis].sort((a,b)=>a-b),buttonMonitors:pointerMonitors.size,dragMonitors:dragMonitors.size,remoteDisconnectThenResume:resumed},confirmation,hardwareAttested:false,ciEvidenceCreated:false,publicationApproval:false,scope:'Local operator observations plus independently checked renderer telemetry; prebuilt probe source/build identity is not attested.'};
+ return {version:1,kind:'OVERLAY_ENVIRONMENT_VERIFICATION',evidenceType:'OPERATOR_RECORDED_LOCAL_MEASUREMENT',outcome:errors.length?'FAIL':stages.every(x=>x.outcome==='PASS')?'PASS':'INCOMPLETE',stages,errors:[...new Set(errors)],measured:{events:rows.length,localMonitors:monitors.size,localDpis:[...dpis].sort((a,b)=>a-b),buttonMonitors:pointerMonitors.size,dragMonitors:dragMonitors.size,remoteDisconnectThenResume:resumed},confirmation,hardwareAttested:false,publicationApproval:false,scope:'Local operator observations plus independently checked renderer telemetry; prebuilt probe source/build identity is not attested.'};
 }
 function Ask(prompt){process.stdout.write(prompt+' [YES / NO]: ');let s='',b=Buffer.alloc(1);while(fs.readSync(0,b,0,1,null)){const c=b.toString();if(c==='\n')break;if(c!=='\r')s+=c;if(s.length>256)throw Error('OVERLAY_ENVIRONMENT_INPUT_TOO_LONG');}return s.trim().toUpperCase()==='YES';}
 function Run(probe){
@@ -74,7 +74,7 @@ function Run(probe){
  const copy=path.join(dir,'cozy.OverlayEnvironmentProbe.exe'),rawFile=path.join(dir,'measurement.json'),log=path.join(dir,'probe.log');fs.writeFileSync(copy,bytes,{flag:'wx'});
  const startedAt=new Date().toISOString();
  console.log('Build tests/cozy.manual-ide/cozy.OverlayEnvironmentProbe.dproj in RAD Studio Win64 Release first.');
- console.log('This workflow needs real local monitors with DIFFERENT scale settings and real RDP reconnect. No CI is required.');
+ console.log('This workflow needs real local monitors with DIFFERENT scale settings and real RDP reconnect.');
  console.log('Window: click inside Injection, drag black background on EACH monitor, switch focus while holding input.');
  console.log('Perform the local monitor tests BEFORE connecting RDP. Return to same session. Release F6 for checkpoint, F10 to finish.');
  const child=cp.spawnSync(copy,['--interactive','--output',rawFile,'--nonce',nonce],{encoding:'utf8',timeout:31*60*1000,maxBuffer:8*1024*1024,windowsHide:false});fs.writeFileSync(log,(child.stdout||'')+(child.stderr||''),{flag:'wx'});
@@ -89,7 +89,7 @@ function Run(probe){
  if(!sourceUnchanged)throw Error('OVERLAY_ENVIRONMENT_SOURCE_INPUTS_CHANGED');
  report.runId=runId;report.startedAt=startedAt;report.finishedAt=new Date().toISOString();report.platform='win32';report.architecture='x64';report.windowsRelease=os.release();report.buildProvenance='IDE_PREBUILT_INPUTS_NOT_ATTESTED';report.probeSha512=hash(bytes);report.measurementSha512=hash(Read(rawFile));report.probeUnchanged=unchanged;
  report.sourceManifestSha512=sourceBefore.sourceManifestSha512;report.sourceFiles=sourceBefore.sourceFiles;report.sourceInputsUnchanged=sourceUnchanged;
- const reportFile=path.join(MODULE_RESOURCE_ROOT,runId+'.json');fs.writeFileSync(reportFile,JSON.stringify(report,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({outcome:report.outcome,reportFile,measurementFile:rawFile,stages:report.stages,ciEvidenceCreated:false},null,2));process.exitCode=report.outcome==='PASS'?0:report.outcome==='INCOMPLETE'?2:1;return report;
+ const reportFile=path.join(MODULE_RESOURCE_ROOT,runId+'.json');fs.writeFileSync(reportFile,JSON.stringify(report,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({outcome:report.outcome,reportFile,measurementFile:rawFile,stages:report.stages},null,2));process.exitCode=report.outcome==='PASS'?0:report.outcome==='INCOMPLETE'?2:1;return report;
 }
 if(require.main===module){try{const [action,probe]=process.argv.slice(2);if(action!=='run'||!probe||process.argv.length!==4)throw Error('Usage: node peace.overlay-environment.js run "ABSOLUTE_cozy.OverlayEnvironmentProbe.exe"');Run(probe);}catch(e){console.error(e.message);process.exitCode=1;}}
 module.exports={Validate,Evaluate,Run};

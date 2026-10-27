@@ -60,7 +60,7 @@ function RunHarness({measurement=Measurement(),afterSpawn,onConfirmation,error}=
   assert.equal(spawned,1);assert.equal(report.sourceInputsUnchanged,true);assert.equal(report.probeUnchanged,true);
   assert.equal(report.sourceManifestSha512,sourceHashes[inputs[0]]);
   for(const file of inputs.slice(1))assert.equal(report.sourceFiles[file],sourceHashes[file]);
-  assert.equal(report.hardwareAttested,false);assert.equal(report.ciEvidenceCreated,false);assert.equal(report.publicationApproval,false);
+  assert.equal(report.hardwareAttested,false);assert.equal(Object.hasOwn(report,'ciEvidenceCreated'),false);assert.equal(report.publicationApproval,false);
   assert.equal(fs.readdirSync(home).filter(f=>f.endsWith('.json')).length,1);
   return {outcome:report.outcome,exitCode:fakeProcess.exitCode};
  }finally{fs.rmSync(root,{recursive:true,force:true});}

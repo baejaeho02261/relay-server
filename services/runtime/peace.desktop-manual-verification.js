@@ -1,5 +1,6 @@
 'use strict';
-// An administrator's execution record, never a CI signature, hardware proof,
+function LegacyReport(value){if(value&&Object.hasOwn(value,'ciEvidenceCreated')){if(value.ciEvidenceCreated!==false)Fail();value={...value};delete value.ciEvidenceCreated;}return value;}
+// An administrator's execution record, never hardware proof,
 // compiler provenance or an input to execution/publication authorization.
 const crypto=require('node:crypto');
 const HASH=/^[a-f0-9]{128}$/;
@@ -12,8 +13,8 @@ const plain=x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
 function Fail(code='MANUAL_VERIFICATION_INVALID',status=400){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
 function Shape(x,keys){if(!plain(x)||Object.keys(x).length!==keys.length||keys.some(k=>!Object.hasOwn(x,k)))Fail();}
 function ValidateLegacyReport(value){
- Shape(value,['version','kind','runId','startedAt','finishedAt','platform','architecture','sourceManifestSha512','sourceManifestUnchanged','artifacts','stages','nativeBuild','hardwareAttested','ciEvidenceCreated','publicationApproval']);
- if(![1,2].includes(value.version)||value.kind!=='MANUAL_VERIFICATION'||typeof value.runId!=='string'||!/^[A-Za-z0-9_-]{1,120}$/.test(value.runId)||value.platform!=='win32'||value.architecture!=='x64'||!digest(value.sourceManifestSha512)||typeof value.sourceManifestUnchanged!=='boolean'||value.nativeBuild!=='NOT_RUN'||value.hardwareAttested!==false||value.ciEvidenceCreated!==false||value.publicationApproval!==false)Fail();
+ Shape(value,['version','kind','runId','startedAt','finishedAt','platform','architecture','sourceManifestSha512','sourceManifestUnchanged','artifacts','stages','nativeBuild','hardwareAttested','publicationApproval']);
+ if(![1,2].includes(value.version)||value.kind!=='MANUAL_VERIFICATION'||typeof value.runId!=='string'||!/^[A-Za-z0-9_-]{1,120}$/.test(value.runId)||value.platform!=='win32'||value.architecture!=='x64'||!digest(value.sourceManifestSha512)||typeof value.sourceManifestUnchanged!=='boolean'||value.nativeBuild!=='NOT_RUN'||value.hardwareAttested!==false||value.publicationApproval!==false)Fail();
  for(const k of ['startedAt','finishedAt'])if(typeof value[k]!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value[k])||!Number.isFinite(Date.parse(value[k]))||new Date(value[k]).toISOString()!==value[k])Fail();
  if(Date.parse(value.finishedAt)<Date.parse(value.startedAt))Fail();
  Shape(value.artifacts,['A','B','O']);for(const row of Object.values(value.artifacts)){Shape(row,['sha512','unchanged']);if(!digest(row.sha512)||typeof row.unchanged!=='boolean')Fail();}
@@ -21,14 +22,14 @@ function ValidateLegacyReport(value){
  if(!Array.isArray(value.stages)||value.stages.length!==expectedStages.length)Fail();
  const seen=new Set();for(const row of value.stages){Shape(row,['id','outcome']);if(!expectedStages.includes(row.id)||seen.has(row.id)||!['PASS','FAIL','PARTIAL','NOT_RUN'].includes(row.outcome))Fail();seen.add(row.id);}
  // Canonical order makes repeated uploads idempotent despite JSON field order.
- return {version:value.version,kind:'MANUAL_VERIFICATION',runId:value.runId,startedAt:value.startedAt,finishedAt:value.finishedAt,platform:'win32',architecture:'x64',sourceManifestSha512:value.sourceManifestSha512,sourceManifestUnchanged:value.sourceManifestUnchanged,artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,{sha512:value.artifacts[k].sha512,unchanged:value.artifacts[k].unchanged}])),stages:expectedStages.map(id=>({id,outcome:value.stages.find(x=>x.id===id).outcome})),nativeBuild:'NOT_RUN',hardwareAttested:false,ciEvidenceCreated:false,publicationApproval:false};
+ return {version:value.version,kind:'MANUAL_VERIFICATION',runId:value.runId,startedAt:value.startedAt,finishedAt:value.finishedAt,platform:'win32',architecture:'x64',sourceManifestSha512:value.sourceManifestSha512,sourceManifestUnchanged:value.sourceManifestUnchanged,artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,{sha512:value.artifacts[k].sha512,unchanged:value.artifacts[k].unchanged}])),stages:expectedStages.map(id=>({id,outcome:value.stages.find(x=>x.id===id).outcome})),nativeBuild:'NOT_RUN',hardwareAttested:false,publicationApproval:false};
 }
 const Digest=report=>crypto.createHash('sha512').update(JSON.stringify(report)).digest('hex');
 function Validate(rows){
  if(!plain(rows)||Object.keys(rows).length>64)Fail('MANUAL_VERIFICATION_STORAGE_INVALID',503);
  for(const [id,row] of Object.entries(rows)){
   Shape(row,['report','recordedAt','actorHash','manifestId']);
-  const report=ValidateReport(row.report);if(!digest(id)||!digest(row.manifestId)||Digest(report)!==id||report.version===3&&report.manifestId!==row.manifestId||!Number.isSafeInteger(row.recordedAt)||row.recordedAt<1||!/^[a-f0-9]{64}$/.test(row.actorHash))Fail('MANUAL_VERIFICATION_STORAGE_INVALID',503);
+  const report=ValidateReport(row.report);if(!digest(id)||!digest(row.manifestId)||Digest(report)!==id&&!(row.report.ciEvidenceCreated===false&&Digest(row.report)===id)||report.version===3&&report.manifestId!==row.manifestId||!Number.isSafeInteger(row.recordedAt)||row.recordedAt<1||!/^[a-f0-9]{64}$/.test(row.actorHash))Fail('MANUAL_VERIFICATION_STORAGE_INVALID',503);
  }
 }
 function PolicyStamp(db){
@@ -47,9 +48,10 @@ function ValidatePolicyStamp(value){
 }
 const catalog=require('./peace.desktop-verification-catalog');
 function ValidateReport(value){
+ value=LegacyReport(value);
  if(value?.version!==3)return ValidateLegacyReport(value);
- Shape(value,['version','kind','runId','startedAt','finishedAt','platform','architecture','manifestId','sourceManifestSha512','sourceManifestUnchanged','artifacts','policy','domains','nativeBuild','hardwareAttested','ciEvidenceCreated','publicationApproval']);
- if(value.kind!=='MANUAL_VERIFICATION'||typeof value.runId!=='string'||!/^[A-Za-z0-9_-]{1,120}$/.test(value.runId)||!['win32','linux','darwin'].includes(value.platform)||!['x64','arm64'].includes(value.architecture)||!digest(value.manifestId)||!digest(value.sourceManifestSha512)||typeof value.sourceManifestUnchanged!=='boolean'||value.nativeBuild!=='NOT_RUN'||value.hardwareAttested!==false||value.ciEvidenceCreated!==false||value.publicationApproval!==false)Fail();
+ Shape(value,['version','kind','runId','startedAt','finishedAt','platform','architecture','manifestId','sourceManifestSha512','sourceManifestUnchanged','artifacts','policy','domains','nativeBuild','hardwareAttested','publicationApproval']);
+ if(value.kind!=='MANUAL_VERIFICATION'||typeof value.runId!=='string'||!/^[A-Za-z0-9_-]{1,120}$/.test(value.runId)||!['win32','linux','darwin'].includes(value.platform)||!['x64','arm64'].includes(value.architecture)||!digest(value.manifestId)||!digest(value.sourceManifestSha512)||typeof value.sourceManifestUnchanged!=='boolean'||value.nativeBuild!=='NOT_RUN'||value.hardwareAttested!==false||value.publicationApproval!==false)Fail();
  for(const k of ['startedAt','finishedAt'])if(typeof value[k]!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value[k])||!Number.isFinite(Date.parse(value[k]))||new Date(value[k]).toISOString()!==value[k])Fail();
  if(Date.parse(value.finishedAt)<Date.parse(value.startedAt))Fail();
  Shape(value.artifacts,['A','B','O']);for(const row of Object.values(value.artifacts)){Shape(row,['sha512','unchanged']);if(!digest(row.sha512)||typeof row.unchanged!=='boolean')Fail();}
@@ -83,7 +85,7 @@ function ValidateReport(value){
   }
   domains.push({id:domain.id,checks:specification.checks.map(x=>checks.find(c=>c.id===x.id)).filter(Boolean)});
  }
- return {version:3,kind:'MANUAL_VERIFICATION',runId:value.runId,startedAt:value.startedAt,finishedAt:value.finishedAt,platform:value.platform,architecture:value.architecture,manifestId:value.manifestId,sourceManifestSha512:value.sourceManifestSha512,sourceManifestUnchanged:value.sourceManifestUnchanged,artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,{sha512:value.artifacts[k].sha512,unchanged:value.artifacts[k].unchanged}])),policy,domains:catalog.CATALOG.map(x=>domains.find(d=>d.id===x.id)).filter(Boolean),nativeBuild:'NOT_RUN',hardwareAttested:false,ciEvidenceCreated:false,publicationApproval:false};
+ return {version:3,kind:'MANUAL_VERIFICATION',runId:value.runId,startedAt:value.startedAt,finishedAt:value.finishedAt,platform:value.platform,architecture:value.architecture,manifestId:value.manifestId,sourceManifestSha512:value.sourceManifestSha512,sourceManifestUnchanged:value.sourceManifestUnchanged,artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,{sha512:value.artifacts[k].sha512,unchanged:value.artifacts[k].unchanged}])),policy,domains:catalog.CATALOG.map(x=>domains.find(d=>d.id===x.id)).filter(Boolean),nativeBuild:'NOT_RUN',hardwareAttested:false,publicationApproval:false};
 }
 function ReportChecks(r,domainId){
  if(r.version===3)return r.domains.find(x=>x.id===domainId)?.checks||[];
@@ -112,7 +114,7 @@ function DomainSummaries(entries,current){
 function Summary(id,row,current){
  const r=row.report,checks=r.version===3?r.domains.flatMap(x=>x.checks):r.stages;
  const totalChecks=catalog.CATALOG.reduce((n,d)=>n+d.checks.length,0),complete=r.version!==3||r.domains.length===14&&checks.length===totalChecks;
- return {id,version:r.version,runId:r.runId,manifestId:row.manifestId,sourceManifestSha512:r.sourceManifestSha512,recordedAt:row.recordedAt,finishedAt:r.finishedAt,evidenceType:'OPERATOR_RECORDED',outcome:!Unchanged(r)||checks.some(x=>x.outcome==='FAIL')?'FAIL':complete&&checks.every(x=>x.outcome==='PASS')?'PASS_REPORTED':'INCOMPLETE',coverage:r.version===3?{recordedChecks:checks.length,totalChecks,recordedDomains:r.domains.length,totalDomains:14}:null,reportScope:'LISTED_CHECKS_ONLY',artifacts:r.artifacts,stages:r.stages||[],domains:DomainSummaries([[id,row]],current),policy:r.policy||null,policyStatus:PolicyStatus(r,current),policyScope:'NAMED_SERVER_POLICIES_AND_DEPLOYMENT_SETTINGS_NOT_ENVIRONMENT_ATTESTATION',platform:r.platform,architecture:r.architecture,nativeBuild:'NOT_RUN',hardwareAttested:false,ciEvidenceCreated:false,publicationApproval:false,physicalChecks:'NOT_ATTESTED'};
+ return {id,version:r.version,runId:r.runId,manifestId:row.manifestId,sourceManifestSha512:r.sourceManifestSha512,recordedAt:row.recordedAt,finishedAt:r.finishedAt,evidenceType:'OPERATOR_RECORDED',outcome:!Unchanged(r)||checks.some(x=>x.outcome==='FAIL')?'FAIL':complete&&checks.every(x=>x.outcome==='PASS')?'PASS_REPORTED':'INCOMPLETE',coverage:r.version===3?{recordedChecks:checks.length,totalChecks,recordedDomains:r.domains.length,totalDomains:14}:null,reportScope:'LISTED_CHECKS_ONLY',artifacts:r.artifacts,stages:r.stages||[],domains:DomainSummaries([[id,row]],current),policy:r.policy||null,policyStatus:PolicyStatus(r,current),policyScope:'NAMED_SERVER_POLICIES_AND_DEPLOYMENT_SETTINGS_NOT_ENVIRONMENT_ATTESTATION',platform:r.platform,architecture:r.architecture,nativeBuild:'NOT_RUN',hardwareAttested:false,publicationApproval:false,physicalChecks:'NOT_ATTESTED'};
 }
 function MatchingManifest(db,r){
  for(const role of ['A','B','O'])if(!Object.values(db.artifacts).some(x=>x.component===role&&x.sha512===r.artifacts[role].sha512))Fail('MANUAL_VERIFICATION_ARTIFACT_NOT_REGISTERED',409);

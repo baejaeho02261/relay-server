@@ -1,6 +1,6 @@
 'use strict';
 // Shared wire constraints for the optional, separately hosted packer. No
-// release/CI keys or license decisions belong to this protocol.
+// release keys or license decisions belong to this protocol.
 const crypto=require('node:crypto');
 const MAX_BYTES=64*1024*1024,MAX_MS=180000;
 const Sha512=b=>crypto.createHash('sha512').update(b).digest('hex');

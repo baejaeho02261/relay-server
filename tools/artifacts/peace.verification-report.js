@@ -51,7 +51,7 @@ function Finalize(inputFile,output){
    return {id:check.id,outcome:check.outcome,scope:check.scope,execution:check.outcome==='NOT_RUN'?'NOT_EXECUTED':EXECUTION[check.scope],evidenceSha512,reasonCode:check.reasonCode,subjectArtifacts:check.subjectArtifacts};
   })};
  });
- const report=svc.ValidateReport({version:3,kind:'MANUAL_VERIFICATION',runId:input.runId,startedAt:input.startedAt,finishedAt:new Date().toISOString(),platform:input.platform,architecture:input.architecture,manifestId:input.binding.manifestId,sourceManifestSha512:input.binding.sourceManifestSha512,sourceManifestUnchanged,artifacts,policy:input.binding.policy,domains,nativeBuild:'NOT_RUN',hardwareAttested:false,ciEvidenceCreated:false,publicationApproval:false});
+ const report=svc.ValidateReport({version:3,kind:'MANUAL_VERIFICATION',runId:input.runId,startedAt:input.startedAt,finishedAt:new Date().toISOString(),platform:input.platform,architecture:input.architecture,manifestId:input.binding.manifestId,sourceManifestSha512:input.binding.sourceManifestSha512,sourceManifestUnchanged,artifacts,policy:input.binding.policy,domains,nativeBuild:'NOT_RUN',hardwareAttested:false,publicationApproval:false});
  // Reject files changing while the public report is assembled. The operator
  // report still does not prove an unmonitored input was never changed/restored.
  for(const [file,before] of evidenceFiles)if(hash(read(file,16*1024*1024))!==before)Fail('VERIFICATION_EVIDENCE_CHANGED');
@@ -73,7 +73,7 @@ async function Main(){
    console.log(output);console.log('All checks start as NOT_RUN. Record only observed outcomes, exact scope, reason code and existing evidenceFile. Then run Create_Verification_Report.bat with this input.');
   }else{
    if(args.length>1)Fail('VERIFICATION_TOOL_ARGUMENTS');const input=args[0]||await ask('Reviewed verification-input JSON path: '),output=path.join(MODULE_RESOURCE_ROOT,'verification-report-'+suffix+'.json');
-   const report=Finalize(path.resolve(input),output);console.log(output);console.log(JSON.stringify({operatorRecorded:true,inputsUnchanged:report.sourceManifestUnchanged&&Object.values(report.artifacts).every(x=>x.unchanged),ciEvidenceCreated:false,publicationApproval:false}));
+   const report=Finalize(path.resolve(input),output);console.log(output);console.log(JSON.stringify({operatorRecorded:true,inputsUnchanged:report.sourceManifestUnchanged&&Object.values(report.artifacts).every(x=>x.unchanged),publicationApproval:false}));
   }
  }finally{rl.close();}
 }

@@ -34,7 +34,7 @@ function validateNative(report, exitCode) {
 function validateBinding(report) {
   requireTrue(report && report.version === 1 && report.kind === 'CFG_RUNTIME_ENFORCEMENT' &&
     report.scope === 'MSVC_PROBE_ONLY' && report.windowsExecuted === true && report.productionCfgCoverage === false &&
-    report.ciEvidenceCreated === false && report.publicationApproval === false, 'CFG_BINDING_SCOPE');
+    report.publicationApproval === false, 'CFG_BINDING_SCOPE');
   validateNative(report.nativeReport, report.nativeExitCode);
   const expected = ['source', 'compiler', 'linker', 'guardedProbe', 'unguardedProbe'];
   requireTrue(report.bindings && typeof report.bindings === 'object', 'CFG_BINDING_MISSING');

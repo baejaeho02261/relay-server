@@ -1,9 +1,9 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),crypto=require('node:crypto');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-final-v2-inputs-'));
-require('../fixtures/runtime/peace.private-ci-test-directory').Prepare(temp);
+require('../fixtures/runtime/peace.private-test-directory').Prepare(temp);
 process.env.DATA_DIR=path.join(temp,'state');process.env.STORAGE_ENGINE='json';process.env.HA_ENABLED='0';
-const tool=require('../../ci/pipeline/peace.final-windows-inputs'),v2=require('../../services/artifacts/peace.server-policy-protection'),legacy=require('../../services/artifacts/peace.cozy-protection-engine'),evidence=require('../../services/artifacts/peace.desktop-packing-evidence'),authority=require('../../services/security/peace.desktop-security-authority');
+const tool=require('../../tools/windows/peace.final-windows-inputs'),v2=require('../../services/artifacts/peace.server-policy-protection'),legacy=require('../../services/artifacts/peace.cozy-protection-engine'),evidence=require('../../services/artifacts/peace.desktop-packing-evidence'),authority=require('../../services/security/peace.desktop-security-authority');
 const sha=b=>crypto.createHash('sha512').update(b).digest('hex'),write=(p,v)=>fs.writeFileSync(p,JSON.stringify(v));
 const source=path.join(temp,'source'),records=[],policies=[],artifacts={},blobs={},jobId=crypto.randomBytes(16).toString('hex'),createdAt=Date.now();
 fs.mkdirSync(path.join(source,'Relay Server','maintenance'),{recursive:true});write(path.join(source,'Relay Server','maintenance','source-manifest.json'),{version:2,algorithm:'sha512',files:{'test.pas':sha('synthetic')}});
@@ -24,7 +24,7 @@ test('V2 final inputs copy exact EXEs and keep server programs only in private f
 test('V2 preparation requires private server policies and rejects changed/mixed policy commitments',()=>{
  const {serverPoliciesFile:ignored,...without}=config;write(configFile,without);const no=output();assert.throws(()=>tool.Prepare(configFile,source,no),/SERVER_POLICIES_REQUIRED/);assert.equal(fs.existsSync(no),false);write(configFile,config);
  for(const mutate of [p=>p.pop(),p=>p[1]=p[0],p=>p[0].policyId='00'.repeat(32),p=>p[0].functionCount++,p=>p[0].programBase64='AAAA']){
-  const p=structuredClone(policies);mutate(p);write(serverPoliciesFile,p);const out=output();assert.throws(()=>tool.Prepare(configFile,source,out),/CI_FINAL_SERVER_POLICY_|COZY_SERVER_POLICY_/);assert.equal(fs.existsSync(out),false);
+  const p=structuredClone(policies);mutate(p);write(serverPoliciesFile,p);const out=output();assert.throws(()=>tool.Prepare(configFile,source,out),/WINDOWS_TEST_FINAL_SERVER_POLICY_|COZY_SERVER_POLICY_/);assert.equal(fs.existsSync(out),false);
  }write(serverPoliciesFile,policies);
 });
 test('verification binds private policy data and refuses omitted or falsified V2 context',()=>{
@@ -38,7 +38,7 @@ test('V1 and V2 artifacts cannot be mixed under one cohort',()=>{
 test('V2 server programs are not copied into an unowned or shared output parent',()=>{
  const parent=path.join(temp,'unowned');fs.mkdirSync(parent,{mode:0o700});const out=path.join(parent,'output');
  assert.throws(()=>tool.Prepare(configFile,source,out),/PRIVATE_SERVER_POLICY_PARENT_REQUIRED/);assert.equal(fs.existsSync(out),false);
- fs.writeFileSync(path.join(parent,'ci-owned-marker'),'SYNTHETIC_TEST_ONLY',{mode:0o600});
+ fs.writeFileSync(path.join(parent,'test-owned-marker'),'SYNTHETIC_TEST_ONLY',{mode:0o600});
  if(process.platform!=='win32'){fs.chmodSync(parent,0o755);assert.throws(()=>tool.Prepare(configFile,source,out),/PRIVATE_SERVER_POLICY_PERMISSIONS_REQUIRED/);assert.equal(fs.existsSync(out),false);}
 });
 test.after(()=>{for(const b of Object.values(blobs))b.fill(0);fs.rmSync(temp,{recursive:true,force:true});});

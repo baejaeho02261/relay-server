@@ -174,9 +174,9 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await call(operations+'/activate',{...unproved,expectedPolicyRevision:999},auth)).status,409);
         assert.equal((await call(operations+'/activate',unproved,auth)).json.error,'SECURITY_RELEASE_MANIFEST_REQUIRED');
         // Synthetic signed executables exist only in this ephemeral test server.
-        // Manual registration generates no CI key, evidence or Windows PASS.
+        // Manual registration does not claim an actual Windows execution result.
         await bootstrapFixture.RegisterSyntheticRelease({call,auth,candidates,label:'SYNTHETIC HTTP CONTRACT ONLY',
-            afterManifest:async()=>{const preview=(await call(operations+'/preview-pair',overlayPair,auth)).json.preview;assert.equal(preview.eligible,true);assert.equal(preview.release.ciOutcomes,null);assert.equal(preview.release.ciVerification,'NOT_PROVIDED');}});
+            afterManifest:async()=>{const preview=(await call(operations+'/preview-pair',overlayPair,auth)).json.preview;assert.equal(preview.eligible,true);assert.equal(preview.release.hardwareAttested,false);}});
         assert.equal((await call(operations+'/preview-pair',pair,auth)).json.preview.eligible,false,'A/B without manifest-bound O is no longer a production cohort');
         const overlayPreview=await call(operations+'/preview-pair',overlayPair,auth);
         assert.equal(overlayPreview.status,200);assert.equal(overlayPreview.json.preview.eligible,true);assert.equal(overlayPreview.json.preview.oId,candidates.O.id);assert.equal(overlayPreview.json.preview.oSha512,candidates.O.sha512);
@@ -189,9 +189,9 @@ async function bootstrapDevice(device, auth) {
         const overlayActivated=await call(operations+'/activate',activateOverlay,auth);assert.equal(overlayActivated.status,200,JSON.stringify(overlayActivated.json));
         settings=(await call(security,undefined,auth)).json;assert.deepEqual(settings.operations.active,{A:pair.aId,B:pair.bId,O:candidates.O.id});
         const runtime=settings.operations.operations.releaseGovernance;
-        assert.equal(runtime.requireManifest,true);assert.equal(runtime.requireCiEvidence,false);assert.deepEqual(runtime.ciKeys,{});assert.deepEqual(runtime.ciEvidence,{});assert.equal(runtime.minimumSecurityVersion,1);
+        assert.equal(runtime.requireManifest,true);assert.equal(runtime.minimumSecurityVersion,1);
         assert.equal((await call(operations+'/activate',activateOverlay,auth)).status,409,'Stale revision cannot repeat an Overlay activation');
-        console.log('PASS real HTTP server operations: candidate-only staging, required signed full cohort without CI evidence, CSRF, viewer rejection, atomic policy+activation, stale revision (synthetic signed EXEs, not Windows PASS)');
+        console.log('PASS real HTTP server operations: candidate-only staging, required signed full cohort, CSRF, viewer rejection, atomic policy+activation, stale revision (synthetic signed EXEs, not Windows PASS)');
         const dll = bootstrapFixture.PE('B'), peOffset = dll.readUInt32LE(0x3c);
         dll.writeUInt16LE(dll.readUInt16LE(peOffset + 22) | 0x2000, peOffset + 22);
         assert.equal((await uploadBaseline(dll)).status,401);

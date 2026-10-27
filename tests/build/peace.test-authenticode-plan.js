@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
-const tool=require('../../ci/pipeline/peace.authenticode-plan');
+const tool=require('../../tools/windows/peace.authenticode-plan');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-authenticode-lineage-'));
 function Pe(){const b=require('../fixtures/artifacts/peace.crc-pe-fixture').crcPeFixture('SYNTHETIC AUTHENTICODE LINEAGE DATA');b.writeUInt16LE(0x22,b.readUInt32LE(60)+22);return b;}
 function SyntheticCertificate(input,payloadBytes=9){
@@ -21,7 +21,7 @@ test('rejects changed code, read-only data and non-signature PE headers',()=>{
 test('rejects incomplete, unsupported, padded and unexplained certificate payload layouts',()=>{
  const input=Pe(),opt=input.readUInt32LE(60)+24,at=input.length;
  for(const change of [b=>b.writeUInt32LE(8,at),b=>b.writeUInt16LE(0x100,at+4),b=>b.writeUInt16LE(1,at+6),b=>b[b.length-1]=1,b=>b.writeUInt32LE(64,opt+148),b=>b.writeUInt32LE(at+8,opt+144)]){
-  const b=SyntheticCertificate(input);change(b);assert.throws(()=>tool.CompareBytes(input,b,'B'),/CI_AUTHENTICODE_/);
+  const b=SyntheticCertificate(input);change(b);assert.throws(()=>tool.CompareBytes(input,b,'B'),/WINDOWS_TEST_AUTHENTICODE_/);
  }
  const appended=Buffer.concat([SyntheticCertificate(input),Buffer.from('unexplained')]);assert.throws(()=>tool.CompareBytes(input,appended,'B'),/CERTIFICATE_APPEND_INVALID/);
 });
@@ -50,7 +50,7 @@ test('local file check rejects links and never writes sidecars or reports',()=>{
  fs.linkSync(a,link);assert.throws(()=>tool.Inspect(link,'A'),/AUDIT_FILE_INVALID/);fs.unlinkSync(link);
 });
 test('Windows wrapper requires separate signing provider and keeps final evidence boundaries',()=>{
- const ps=fs.readFileSync(path.join(__dirname,'../../ci/pipeline/Invoke-AuthenticodePreparation.ps1'),'utf8');
+ const ps=fs.readFileSync(path.join(__dirname,'../../tools/windows/Invoke-AuthenticodePreparation.ps1'),'utf8');
  assert.match(ps,/SignToolSha512/);assert.match(ps,/NodeSha512/);assert.match(ps,/CertificateSha256/);assert.match(ps,/SIGNTOOL_HASH_MISMATCH/);assert.match(ps,/NODE_HASH_MISMATCH/);assert.match(ps,/'verify','\/q','\/pa','\/all','\/tw'/);
  assert.match(ps,/TimeStamperCertificate/);assert.match(ps,/NON_SIGNATURE|onlySignatureMetadataChanged/);assert.match(ps,/windowsProductExecuted=\$false/);assert.match(ps,/productionApproved=\$false/);assert.match(ps,/publicationPerformed=\$false/);
  assert.doesNotMatch(ps,/Export-PfxCertificate|ConvertTo-SecureString|Set-ExecutionPolicy|\/p\b|\/f\b/);

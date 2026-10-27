@@ -32,7 +32,7 @@ if(process.argv[2]!=='--worker'){
    delegationSignature:f.Sign(a,delegation.Canonical('DELEGATION','B',finish.claimCanonical,b.deviceId,nonce)),
    signature:f.Sign(b,delegation.Canonical('CLAIM','B',finish.claimCanonical,b.deviceId,nonce)),
    binarySha512:begin.release.sha512,crc64:begin.release.crc64,bCodeSha512:begin.release.codeSha512,bCodeCrc64:begin.release.codeCrc64};
-  adapter=require("../../ci/fixtures/peace.product-fault-adapter").Install({scenario:'response-loss-claim-b'});
+  adapter=require("../../tools/fixtures/peace.product-fault-adapter").Install({scenario:'response-loss-claim-b'});
   server=transport.CreateServer();adapter.Attach(server);
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   process.env.DESKTOP_PUBLIC_PORT=String(server.address().port);

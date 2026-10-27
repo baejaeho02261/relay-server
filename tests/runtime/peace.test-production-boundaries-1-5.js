@@ -4,7 +4,7 @@ const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 // Production guard/session, route dispatch, receipt and governance code is run.
 // The route tests use a real loopback HTTP socket and a test-owned in-memory
 // authority store/audit/file reader. They are NOT the complete web server,
-// SQLite durability, a native PE test or a real Windows CI PASS.
+// SQLite durability, a native PE test or an actual Windows execution result.
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs');
 const path=require('node:path'),os=require('node:os'),http=require('node:http'),vm=require('node:vm'),Module=require('node:module');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-boundaries-1-5-'));
@@ -17,7 +17,7 @@ const realNow=Date.now,root=path.resolve(MODULE_RESOURCE_ROOT,'..');
 let checks=0,server,db,ops,simulatedReadFailure='',simulatedDebugBuild='',failBeforeCommit=false,commits=0;
 const test=(name,run)=>{run();checks++;console.log('PASS '+name);};
 const atest=async(name,run)=>{await run();checks++;console.log('PASS '+name);};
-const reject=(fn,code)=>assert.throws(fn,e=>e.message===code,code);
+const reject=(fn,code)=>assert.throws(fn,e=>{assert.equal(e.message,code);return true;},code);
 const sha=x=>crypto.createHash('sha512').update(x).digest('hex');
 const mutationRoot='/api/desktop/bootstrap/security-operations';
 const request=()=>({headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:true}});
@@ -67,14 +67,6 @@ const first=Object.fromEntries(['A','B','O'].map(k=>[k,artifact(k,1)])),second=O
 const selected=c=>({aId:c.A.id,bId:c.B.id,oId:c.O.id});
 const activation=c=>({expectedRevision:ops.Revision(),expectedPolicyRevision:policy.revision,...selected(c)});
 function manifest(c,n){return{version:1,releaseName:'SYNTHETIC-NOT-WINDOWS-'+n,securityVersion:n,protocol:'GAME-CONNECT-4',hashVersion:3,handoffVersion:3,sourceManifestSha512:'1'.repeat(128),policySha512:prov.PolicyDigest(policy),toolchain:{delphi:'NOT_RUN',cpp:'NOT_RUN',windowsSdk:'NOT_RUN',imgui:'SYNTHETIC'},artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,c[k].sha512]))};}
-function key(){const {publicKey,privateKey}=crypto.generateKeyPairSync('ed25519');return{privateKey,publicKey:publicKey.export({type:'spki',format:'pem'}).toString(),keyId:prov.KeyId(publicKey)};}
-const oldKey=key(),newKey=key();let issued=realNow();
-function addKey(k){return ops.SetCiSigner({expectedRevision:ops.Revision(),keyId:k.keyId,publicKey:k.publicKey,notBefore:realNow()-60000,notAfter:realNow()+3600000,state:'ACTIVE'},'SYNTHETIC');}
-function envelope(k,m,result='PASS'){
- const statement={version:1,purpose:prov.CI_DOMAIN,manifestId:prov.ManifestId(m),runId:'SYNTHETIC-UNIT-NOT-A-REAL-CI-RUN-'+(++issued),issuedAt:issued,nativeBuild:result,apiProbe:result,integration:result,logsSha512:'2'.repeat(128)};
- return{keyId:k.keyId,statement,signature:crypto.sign(null,Buffer.from(prov.Canonical(statement)),k.privateKey).toString('base64')};
-}
-function record(k,m,result='PASS'){return ops.RecordCiEvidence({expectedRevision:ops.Revision(),envelope:envelope(k,m,result)},'SYNTHETIC');}
 function call(route,body,session,csrf=true){
  return new Promise((resolve,rejectPromise)=>{
   const bytes=body===undefined?null:Buffer.from(JSON.stringify(body));
@@ -85,7 +77,7 @@ function call(route,body,session,csrf=true){
 }
 (async()=>{try{
  test('1.4 critical floor cannot be disabled by an unset/zero legacy environment flag',()=>{
-  const paths=['security-authority','integrity-policy','module-baselines',...['controls','contracts','signers','rollout','test-evidence','activate','enable-all','release-governance','ci-signers','ci-evidence','recovery/prepare','recovery/apply'].map(x=>'security-operations/'+x)];
+  const paths=['security-authority','integrity-policy','module-baselines',...['controls','contracts','signers','rollout','test-evidence','activate','enable-all','release-governance','recovery/prepare','recovery/apply'].map(x=>'security-operations/'+x)];
   for(const flag of ['', '0','1']){process.env.DESKTOP_ADMIN_REAUTH_REQUIRED=flag;for(const p of paths)assert(guard.ReauthenticationRequired('/api/desktop/bootstrap/'+p),p);}
   process.env.DESKTOP_ADMIN_REAUTH_REQUIRED='0';assert.equal(guard.Status().criticalReauthenticationMandatory,true);
  });
@@ -156,8 +148,16 @@ function call(route,body,session,csrf=true){
  });
  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  const admin=web.Login(request(),'admin',process.env.ADMIN_SECRET).session,viewer=web.Login(request(),'viewer',process.env.VIEWER_SECRET).session;
+ await atest('removed evidence and signer routes cannot read or mutate governance',async()=>{
+  for(const action of ['ci-signers','ci-evidence']){
+   const before=JSON.stringify(db);
+   assert.equal((await call(action,undefined,admin)).status,405);
+   assert.equal((await call(action,{expectedRevision:ops.Revision()},admin)).status,404);
+   assert.equal(JSON.stringify(db),before);
+  }
+ });
  await atest('1.6 production route rejects anonymous/viewer even when called without outer dispatcher',async()=>{
-  for(const session of [null,viewer])for(const action of ['activate','ci-signers','release-governance','recovery/prepare','recovery/apply']){const before=JSON.stringify(db);const out=await call(action,activation(first),session);assert.equal(out.status,403,action);assert.equal(JSON.stringify(db),before);}
+  for(const session of [null,viewer])for(const action of ['activate','release-governance','recovery/prepare','recovery/apply']){const before=JSON.stringify(db);const out=await call(action,activation(first),session);assert.equal(out.status,403,action);assert.equal(JSON.stringify(db),before);}
  });
  await atest('1.4 production route rejects stale reauthentication while preview remains readable',async()=>{
   const start=realNow();Date.now=()=>start+web.REAUTH_MS;
@@ -169,15 +169,15 @@ function call(route,body,session,csrf=true){
   const before=JSON.stringify(db);assert.equal((await call('activate',activation(first),admin,false)).body.reason,'CSRF_FAILED');assert.equal(JSON.stringify(db),before);
  });
  test('4.1/4.2 publication floor is strict even for a stored legacy false/false/0 state',()=>{
-  const before=JSON.stringify(db),status=ops.ProductionStatus();assert.equal(status.legacyRuntimePolicy,true);assert.equal(status.requirements.requireManifest,true);assert.equal(status.requirements.requireCiEvidence,false);assert.equal(status.requirements.minimumSecurityVersion,1);
+  const before=JSON.stringify(db),status=ops.ProductionStatus();assert.equal(status.legacyRuntimePolicy,true);assert.equal(status.requirements.requireManifest,true);assert.equal(status.requirements.minimumSecurityVersion,1);
   assert.equal(ops.PreviewPair(selected(first)).eligible,true);assert.equal(ops.PreviewProductionPair(selected(first)).eligible,false);assert.equal(JSON.stringify(db),before);
  });
- await atest('4.1 activation HTTP route cannot opt into the internal CI/legacy compatibility mode',async()=>{
+ await atest('4.1 activation HTTP route cannot opt into the internal legacy compatibility mode',async()=>{
   const before=JSON.stringify(db);assert.equal((await call('activate',activation(first),admin)).body.reason,'SECURITY_RELEASE_MANIFEST_REQUIRED');
   assert.equal((await call('activate',{...activation(first),production:false},admin)).body.reason,'SECURITY_OPERATIONS_INVALID');assert.equal(JSON.stringify(db),before);
  });
  await atest('4.1/4.2/4.5 publication policy HTTP route cannot lower the mandatory floor',async()=>{
-  for(const patch of [{requireManifest:false},{requireCiEvidence:true},{minimumSecurityVersion:0}]){
+  for(const patch of [{requireManifest:false},{minimumSecurityVersion:0}]){
    const before=JSON.stringify(db),out=await call('release-governance',{expectedRevision:ops.Revision(),...patch},admin);
    assert.equal(out.body.reason,'SECURITY_PUBLICATION_REQUIREMENTS_REQUIRED');assert.equal(JSON.stringify(db),before);
   }
@@ -190,18 +190,11 @@ function call(route,body,session,csrf=true){
   for(const row of Object.values(first))db.artifacts[row.id].deploymentManifestId=prov.ManifestId(m1);
   ops.RecordReleaseManifest({expectedRevision:ops.Revision(),manifest:m1},'SYNTHETIC');
  });
- test('4.2 manual publication has no fabricated CI result or required operator PASS',()=>{
-  const view=ops.PreviewProductionPair(selected(first));assert.equal(view.eligible,true);assert.equal(view.release.ciVerification,'NOT_PROVIDED');assert.equal(view.release.ciOutcomes,null);assert.deepEqual(ops.State().releaseGovernance.ciKeys,{});assert.deepEqual(ops.State().releaseGovernance.ciEvidence,{});
+ test('4.2 manual publication retains operator observations without manufacturing execution approval',()=>{
+  const view=ops.PreviewProductionPair(selected(first));assert.equal(view.eligible,true);
+  assert.equal(view.release.evidenceType,'OPERATOR_RECORDED');assert.equal(view.release.hardwareAttested,false);
   ops.RecordEvidence({expectedRevision:ops.Revision(),...selected(first),report:{version:1,aSha512:first.A.sha512,bSha512:first.B.sha512,oSha512:first.O.sha512,sourceManifestSha512:m1.sourceManifestSha512,logsSha512:'2'.repeat(128),nativeBuild:'PASS',apiProbe:'PASS',integration:'PASS',note:'SYNTHETIC UNIT FIXTURE; NOT WINDOWS'}},'SYNTHETIC');
-  assert.equal(ops.PreviewProductionPair(selected(first)).release.ciOutcomes,null);
- });
- test('4.2 optional signed CI FAIL/NOT_RUN stays accurately reported in manual mode',()=>{
-  addKey(oldKey);addKey(newKey);for(const result of ['FAIL','NOT_RUN']){record(oldKey,m1,result);const view=ops.PreviewProductionPair(selected(first));assert.equal(view.eligible,true);assert.equal(view.release.ciOutcomes.nativeBuild,result);}
-  record(oldKey,m1);assert.equal(ops.PreviewProductionPair(selected(first)).eligible,true);
- });
- test('4.3 changed purpose or tampered statement fails signature validation',()=>{
-  const e=envelope(oldKey,m1);e.statement.logsSha512='9'.repeat(128);reject(()=>ops.RecordCiEvidence({expectedRevision:ops.Revision(),envelope:e},'SYNTHETIC'),'SECURITY_CI_SIGNATURE_INVALID');
-  e.statement.purpose='GAME-RELEASE-APPROVAL-V2';reject(()=>ops.RecordCiEvidence({expectedRevision:ops.Revision(),envelope:e},'SYNTHETIC'),'SECURITY_CI_EVIDENCE_INVALID');
+  assert.equal(ops.PreviewProductionPair(selected(first)).release.evidenceType,'OPERATOR_RECORDED');
  });
  test('4.1 failed final artifact re-read leaves policy and active cohort unchanged',()=>{
   const before=JSON.stringify(db);simulatedReadFailure=first.B.id;try{reject(()=>ops.ActivateProductionPair(activation(first),'SYNTHETIC'),'BOOTSTRAP_ARTIFACT_INVALID');}finally{simulatedReadFailure='';}assert.equal(JSON.stringify(db),before);
@@ -219,16 +212,11 @@ function call(route,body,session,csrf=true){
  });
  await atest('4.1/4.2 activation route commits verified cohort and strict runtime policy together',async()=>{
   const before=commits,out=await call('activate',activation(first),admin);assert.equal(out.status,200,JSON.stringify(out.body));assert.equal(commits,before+1);
-  assert.equal(ops.State().releaseGovernance.requireManifest,true);assert.equal(ops.State().releaseGovernance.requireCiEvidence,false);assert.equal(ops.State().releaseGovernance.minimumSecurityVersion,1);
+  assert.equal(ops.State().releaseGovernance.requireManifest,true);assert.equal(ops.State().releaseGovernance.minimumSecurityVersion,1);
   assert.equal(ops.State().activations.at(-1).manifestId,prov.ManifestId(m1));assert.equal(ops.ProductionStatus().legacyRuntimePolicy,false);
  });
- test('4.4 retiring a CI key preserves earlier verified proof but rejects new records',()=>{
-  ops.SetCiSigner({expectedRevision:ops.Revision(),keyId:oldKey.keyId,state:'RETIRING'},'SYNTHETIC');assert.equal(ops.PreviewProductionPair(selected(first)).eligible,true);reject(()=>record(oldKey,m1),'SECURITY_CI_SIGNER_NOT_ACTIVE');
-  record(newKey,m1);ops.SetCiSigner({expectedRevision:ops.Revision(),keyId:oldKey.keyId,state:'REVOKED'},'SYNTHETIC');assert.equal(ops.PreviewProductionPair(selected(first)).eligible,true);
-  reject(()=>ops.SetCiSigner({expectedRevision:ops.Revision(),keyId:oldKey.keyId,state:'ACTIVE'},'SYNTHETIC'),'SECURITY_CI_SIGNER_REVOKE_FINAL');
- });
  test('4.6 valid signed release A cannot be mixed with another release O',()=>{
-  ops.RecordReleaseManifest({expectedRevision:ops.Revision(),manifest:m2},'SYNTHETIC');record(newKey,m2);
+  ops.RecordReleaseManifest({expectedRevision:ops.Revision(),manifest:m2},'SYNTHETIC');
   const body={...selected(first),oId:second.O.id};assert(ops.PreviewProductionPair(body).reasons.includes('SECURITY_RELEASE_MIXED_MANIFEST'));
   const before=JSON.stringify(db);reject(()=>ops.ActivateProductionPair({...activation(first),...body},'SYNTHETIC'),'SECURITY_RELEASE_MIXED_MANIFEST');assert.equal(JSON.stringify(db),before);
  });
@@ -240,13 +228,9 @@ function call(route,body,session,csrf=true){
  await atest('4.5 recovery HTTP route cannot use legacy compatibility to evade production checks',async()=>{
   const out=await call('recovery/prepare',{...activation(first),requestId:'synthetic-recovery-02',reason:'SYNTHETIC'},admin);assert.equal(out.body.reason,'SECURITY_RELEASE_DOWNGRADE');
  });
- test('4.4 optional CI signer revocation invalidates evidence without inventing PASS',()=>{
-  ops.SetCiSigner({expectedRevision:ops.Revision(),keyId:newKey.keyId,state:'REVOKED'},'SYNTHETIC');
-  ops.RequireRuntimePair(second.A,second.B,second.O);const view=ops.PreviewProductionPair(selected(second));assert.equal(view.eligible,true);assert.equal(view.release.ciVerification,'INVALID_OR_REVOKED');assert.equal(view.release.ciOutcomes,null);
- });
  test('1.5 logout blocks a delayed direct route mutation even with the old CSRF token',()=>{
   web.RevokeSession(admin.id);assert.equal(guard.CheckSession(admin,mutationRoot+'/activate').reason,'ADMIN_SESSION_EXPIRED');
  });
- console.log(JSON.stringify({scope:'PRODUCTION_CODE_WITH_IN_MEMORY_STORE_AND_ROUTE_ADAPTER',groups:checks,fullWebServer:false,nativeDatabase:false,windowsExecuted:false,syntheticSignaturesAreNotCiEvidence:true}));
+ console.log(JSON.stringify({scope:'PRODUCTION_CODE_WITH_IN_MEMORY_STORE_AND_ROUTE_ADAPTER',groups:checks,fullWebServer:false,nativeDatabase:false,windowsExecuted:false}));
 }finally{Date.now=realNow;if(server)await new Promise(resolve=>server.close(resolve));web.RevokeAllSessions();fs.rmSync(temp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -104,8 +104,7 @@ try {
     $nativeReport = $native.stdout | ConvertFrom-Json -AsHashtable -ErrorAction Stop
     $report = @{
         version = 1; kind = 'CFG_RUNTIME_ENFORCEMENT'; outcome = 'PASS'; windowsExecuted = $true
-        scope = 'MSVC_PROBE_ONLY'; productionCfgCoverage = $false; ciEvidenceCreated = $false
-        publicationApproval = $false; stages = $stages; nativeReport = $nativeReport
+        scope = 'MSVC_PROBE_ONLY'; productionCfgCoverage = $false;        publicationApproval = $false; stages = $stages; nativeReport = $nativeReport
         nativeExitCode = $native.exitCode; finishedAt = [DateTime]::UtcNow.ToString('o')
         environment = @{os = [Environment]::OSVersion.VersionString; processBits = 64
             powershell = $PSVersionTable.PSVersion.ToString(); windowsSdk = $env:WindowsSDKVersion
@@ -135,8 +134,7 @@ try {
     Write-Host $message
     if ($reportPath) {
         Write-ResultJson $reportPath @{version=1; kind='CFG_RUNTIME_ENFORCEMENT'; outcome='FAIL'
-            windowsExecuted=($stages.Count -gt 0); productionCfgCoverage=$false; ciEvidenceCreated=$false
-            publicationApproval=$false; error=$errorCode; detail=$message; stages=$stages
+            windowsExecuted=($stages.Count -gt 0); productionCfgCoverage=$false;            publicationApproval=$false; error=$errorCode; detail=$message; stages=$stages
             finishedAt=[DateTime]::UtcNow.ToString('o')}
     }
 } finally {

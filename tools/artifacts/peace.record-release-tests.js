@@ -1,5 +1,5 @@
 'use strict';
-// Run on the operator / CI machine, not inside the distributed Windows client.
+// Run on the operator machine, not inside the distributed Windows client.
 // The tool READS existing artifacts and logs. It never executes untrusted EXEs,
 // uploads private keys, infers PASS from a log, or fabricates Windows results.
 const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
@@ -7,7 +7,7 @@ const hash=x=>crypto.createHash('sha512').update(x).digest('hex');
 const plain=x=>!!x&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;
 function FileDigest(file,limit) {const st=fs.statSync(file);if(!st.isFile()||st.size>limit)throw Error('EVIDENCE_FILE_INVALID');const b=fs.readFileSync(file);if(b.length!==st.size)throw Error('EVIDENCE_FILE_CHANGED');return hash(b);}
 function Template(aFile,bFile,manifestFile,oFile) {
- return {version:1,...(oFile?{oSha512:FileDigest(oFile,128*1024*1024)}:{}),aSha512:FileDigest(aFile,128*1024*1024),bSha512:FileDigest(bFile,128*1024*1024),sourceManifestSha512:FileDigest(manifestFile,8*1024*1024),checks:Object.fromEntries(['nativeBuild','apiProbe','integration'].map(name=>[name,{status:'NOT_RUN',logs:[]}])),note:'Tests not executed. Update only from actual operator or CI results.'};
+ return {version:1,...(oFile?{oSha512:FileDigest(oFile,128*1024*1024)}:{}),aSha512:FileDigest(aFile,128*1024*1024),bSha512:FileDigest(bFile,128*1024*1024),sourceManifestSha512:FileDigest(manifestFile,8*1024*1024),checks:Object.fromEntries(['nativeBuild','apiProbe','integration'].map(name=>[name,{status:'NOT_RUN',logs:[]}])),note:'Tests not executed. Update only from actual operator results.'};
 }
 function Record(aFile,bFile,manifestFile,checksFile,oFile) {
  const aSha512=FileDigest(aFile,128*1024*1024),bSha512=FileDigest(bFile,128*1024*1024),sourceManifestSha512=FileDigest(manifestFile,8*1024*1024);

@@ -2,12 +2,12 @@
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Execution-only A/B/O fault runner. A PASS is scoped to observed fault cases;
-// no build, CI, hardware, physical GPU or publication attestation is produced.
+// no build, hardware, physical GPU or publication attestation is produced.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const ROOT=path.resolve(MODULE_RESOURCE_ROOT,'../..');
 const HANDOFF=['handoff-body-interrupt-ab','handoff-body-interrupt-bo','handoff-parent-exit-ab','handoff-parent-exit-bo','handoff-child-exit-ab','handoff-child-exit-bo'];
 const GPU=['gpu-create-e-outofmemory','gpu-resize-device-removed','gpu-present-device-reset'];
-const RESPONSE=Object.keys(require("../../ci/fixtures/peace.product-fault-adapter").TARGETS),REPLACEMENT=['signed-exe-replacement','signed-json-replacement'];
+const RESPONSE=Object.keys(require("../../tools/fixtures/peace.product-fault-adapter").TARGETS),REPLACEMENT=['signed-exe-replacement','signed-json-replacement'];
 const TLS=['tls-session-record-authentication-failure'];
 const LEASE=['overlay-lease-expiry'];
 const AUTHORITY=['authority-measurement-skipped','authority-report-stopped','authority-local-stop-held'];
@@ -47,7 +47,7 @@ function PrepareSet(sources,out,version,testBuild,basePolicy){
  write(path.join(out,'policy.json'),policy);write(path.join(out,'manifest.json'),{manifest,manifestId:provenance.ManifestId(manifest)});return inputs;
 }
 function Prepare(input,run,privateRoot){
- const c=Config(json(input));for(const root of [run,privateRoot])if(!fs.existsSync(path.join(root,'ci-owned-marker')))throw Error('PRODUCT_FAULT_OWNED_ROOT_REQUIRED');
+ const c=Config(json(input));for(const root of [run,privateRoot])if(!fs.existsSync(path.join(root,'test-owned-marker')))throw Error('PRODUCT_FAULT_OWNED_ROOT_REQUIRED');
  const policyService=require("../../services/security/peace.desktop-security-authority"),selectedPolicy=c.policyFile?policyService.ValidatePolicy(json(c.policyFile)):policyService.Defaults();
  if(c.policyFile&&selectedPolicy.requireReleaseSignature!==true)throw Error('PRODUCT_FAULT_SIGNED_POLICY_REQUIRED');
  const basePolicy={...selectedPolicy,requireReleaseSignature:true};
@@ -118,14 +118,14 @@ function BuildVerification(plan,result,evidenceSha512){
   checks.push({id:row.id,outcome,scope:group==='artifacts'?'SELECTED_FINAL_ABO':'DEDICATED_PRODUCT_TESTBUILD',execution:actual?'WINDOWS_EXECUTED':'NOT_EXECUTED',evidenceSha512:actual?evidenceSha512:null,reasonCode:outcome==='PASS'?'':actual&&changed?'PRODUCT_FAULT_INPUT_CHANGED':row.reason||'NATIVE_EXECUTION_NOT_OBSERVED',subjectArtifacts});
  }
  if(!checks.length)return null;
- return require("../../services/runtime/peace.desktop-manual-verification").ValidateReport({version:3,kind:'MANUAL_VERIFICATION',runId:result.runId+'-lifecycle',startedAt:plan.startedAt,finishedAt:result.finishedAt,platform:'win32',architecture:'x64',manifestId:binding.manifestId,sourceManifestSha512:plan.sourceManifestSha512,sourceManifestUnchanged:result.sourceManifestUnchanged,artifacts:Object.fromEntries(['A','B','O'].map(role=>[role,{sha512:binding.artifacts[role],unchanged:result.inputs.artifacts?.[role]?.unchanged===true&&result.inputs.artifacts[role].sha512===binding.artifacts[role]}])),policy:binding.policy,domains:[{id:'9',checks}],nativeBuild:'NOT_RUN',hardwareAttested:false,ciEvidenceCreated:false,publicationApproval:false});
+ return require("../../services/runtime/peace.desktop-manual-verification").ValidateReport({version:3,kind:'MANUAL_VERIFICATION',runId:result.runId+'-lifecycle',startedAt:plan.startedAt,finishedAt:result.finishedAt,platform:'win32',architecture:'x64',manifestId:binding.manifestId,sourceManifestSha512:plan.sourceManifestSha512,sourceManifestUnchanged:result.sourceManifestUnchanged,artifacts:Object.fromEntries(['A','B','O'].map(role=>[role,{sha512:binding.artifacts[role],unchanged:result.inputs.artifacts?.[role]?.unchanged===true&&result.inputs.artifacts[role].sha512===binding.artifacts[role]}])),policy:binding.policy,domains:[{id:'9',checks}],nativeBuild:'NOT_RUN',hardwareAttested:false,publicationApproval:false});
 }
 function Finalize(run,resultFile,publicResultFile=resultFile){
  const plan=json(path.join(run,'plan.json')),execution=json(path.join(run,'execution.json'));const cases=plan.scenarios.map(s=>{const r=execution.scenarios.find(x=>x.scenario===s.id);return {id:s.id,...(s.skip?{outcome:s.preparationFailed?'FAIL':'NOT_RUN',reason:s.skip}:r&&r.runId!==plan.runId?{outcome:'FAIL',reason:'PRODUCT_FAULT_RUN_BINDING_MISMATCH'}:Evaluate(s.id,r)),...(r?{evidence:r}:{})};});
  const inputs=Object.fromEntries(Object.entries(plan.inputs).map(([set,rows])=>[set,Object.fromEntries(Object.entries(rows).map(([role,row])=>{let unchanged=false;try{unchanged=sha(read(row.source))===row.beforeSha512&&sha(read(row.executedCopy))===row.beforeSha512;}catch(_){}return [role,{sha512:row.beforeSha512,unchanged}];}))]));
  let sourceManifestUnchanged=false;try{sourceManifestUnchanged=sha(read(path.join(ROOT,'Relay Server/maintenance/source-manifest.json'),8*1024*1024))===plan.sourceManifestSha512;}catch(_){}
  const unchanged=Object.values(inputs).every(rows=>Object.values(rows).every(x=>x.unchanged));
- const result={version:1,testPolicySha512:plan.testPolicySha512,policyScope:plan.policyScope,kind:'PRODUCT_FAULT_EXECUTION',runId:plan.runId,startedAt:plan.startedAt||null,finishedAt:new Date().toISOString(),sourceManifestSha512:plan.sourceManifestSha512,sourceManifestUnchanged,environment:execution.environment||{},nativeBuild:'NOT_RUN',ciEvidenceCreated:false,hardwareAttested:false,publicationApproval:false,inputs,inputsUnchanged:unchanged,cases,nativeReceive:EvaluateReceive(execution.nativeReceive,plan.inputs.tls?.probe?.beforeSha512),scope:'Only observed cases. Dedicated test builds are never final release artifacts. TLS receive corpus is an isolated real SChannel boundary test, not A/B/O session proof. Physical GPU/driver removal and native signed-file TOCTOU remain separate.',outcome:!unchanged||!sourceManifestUnchanged||cases.some(x=>x.outcome==='FAIL')?'FAIL':cases.some(x=>x.outcome!=='PASS')?'INCOMPLETE':'PASS'};
+ const result={version:1,testPolicySha512:plan.testPolicySha512,policyScope:plan.policyScope,kind:'PRODUCT_FAULT_EXECUTION',runId:plan.runId,startedAt:plan.startedAt||null,finishedAt:new Date().toISOString(),sourceManifestSha512:plan.sourceManifestSha512,sourceManifestUnchanged,environment:execution.environment||{},nativeBuild:'NOT_RUN',hardwareAttested:false,publicationApproval:false,inputs,inputsUnchanged:unchanged,cases,nativeReceive:EvaluateReceive(execution.nativeReceive,plan.inputs.tls?.probe?.beforeSha512),scope:'Only observed cases. Dedicated test builds are never final release artifacts. TLS receive corpus is an isolated real SChannel boundary test, not A/B/O session proof. Physical GPU/driver removal and native signed-file TOCTOU remain separate.',outcome:!unchanged||!sourceManifestUnchanged||cases.some(x=>x.outcome==='FAIL')?'FAIL':cases.some(x=>x.outcome!=='PASS')?'INCOMPLETE':'PASS'};
  if(result.nativeReceive.outcome==='FAIL')result.outcome='FAIL';else if(result.nativeReceive.outcome!=='PASS'&&result.outcome==='PASS'&&!plan.scenarios.every(s=>LEASE.includes(s.id)||AUTHORITY.includes(s.id)||LIFECYCLE.includes(s.id)))result.outcome='INCOMPLETE';
  const candidate=BuildVerification(plan,result,'0'.repeat(128));
  if(candidate)result.publicVerificationFile=path.join(path.dirname(publicResultFile),path.basename(publicResultFile,'.json')+'-verification.json');
@@ -133,5 +133,5 @@ function Finalize(run,resultFile,publicResultFile=resultFile){
  if(candidate){const evidenceSha512=sha(read(resultFile,16*1024*1024));write(path.join(path.dirname(resultFile),path.basename(resultFile,'.json')+'-verification.json'),BuildVerification(plan,result,evidenceSha512));}
  return result;
 }
-if(require.main===module){try{const [action,...args]=process.argv.slice(2);let result;if(action==='prepare'&&args.length===3)result=Prepare(...args);else if(action==='finalize'&&[2,3].includes(args.length))result=Finalize(...args);else throw Error('PRODUCT_FAULT_ARGUMENTS_INVALID');console.log(JSON.stringify({outcome:result.outcome||'PREPARED',ciEvidenceCreated:false}));if(result.outcome==='FAIL')process.exitCode=1;}catch(e){console.error(/^[A-Z0-9_]+$/.test(e.message)?e.message:'PRODUCT_FAULT_TOOL_FAILED');process.exitCode=1;}}
+if(require.main===module){try{const [action,...args]=process.argv.slice(2);let result;if(action==='prepare'&&args.length===3)result=Prepare(...args);else if(action==='finalize'&&[2,3].includes(args.length))result=Finalize(...args);else throw Error('PRODUCT_FAULT_ARGUMENTS_INVALID');console.log(JSON.stringify({outcome:result.outcome||'PREPARED'}));if(result.outcome==='FAIL')process.exitCode=1;}catch(e){console.error(/^[A-Z0-9_]+$/.test(e.message)?e.message:'PRODUCT_FAULT_TOOL_FAILED');process.exitCode=1;}}
 module.exports={SCENARIOS,HANDOFF,GPU,TLS,LEASE,AUTHORITY,LIFECYCLE,LIFECYCLE_FAULT,RESPONSE,REPLACEMENT,MARKER,Config,Marker,PrepareSet,Prepare,Evaluate,EvaluateReceive,BuildVerification,Finalize};

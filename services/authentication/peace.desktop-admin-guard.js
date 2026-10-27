@@ -13,7 +13,7 @@ function IsMutation(pathname) {
   if(SecurityCenterMutation(pathname))return true;
   if(AdditionalCritical(pathname)||(pathname==='/api/desktop/bootstrap/packing/jobs'||pathname==='/api/desktop/bootstrap/packing/custom/jobs'))return true;
   if(/^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-identity-policy|device-key-revoke|storage-maintenance|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint|manual-verification)$/.test(pathname))return true;
-  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:baseline-pin|retire-cohort|controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|ci-signers|ci-evidence|mitigation-compatibility|mitigation-profiles|tls-pin-transition|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
+  return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) || /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|artifacts|module-baselines)$/.test(pathname) || /^\/api\/desktop\/bootstrap\/security-operations\/(?:baseline-pin|retire-cohort|controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|release-manifests|mitigation-compatibility|mitigation-profiles|tls-pin-transition|plan-release|recovery\/(?:prepare|apply))$/.test(pathname);
 }
 function Identities() {
   const text=process.env.DESKTOP_APPROVER_IDENTITIES_JSON||'{}';
@@ -50,7 +50,7 @@ function CriticalMutation(pathname) {
   if (typeof pathname !== 'string') return false;
   return /^\/api\/production\/(?:dual-policy|passkeys\/(?:revoke|register\/(?:begin|finish)))$/.test(pathname) ||
     /^\/api\/desktop\/bootstrap\/(?:security-authority|integrity-policy|module-baselines)$/.test(pathname) ||
-    /^\/api\/desktop\/bootstrap\/security-operations\/(?:baseline-pin|retire-cohort|controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|ci-signers|ci-evidence|mitigation-compatibility|mitigation-profiles|tls-pin-transition|recovery\/(?:prepare|apply))$/.test(pathname) ||
+    /^\/api\/desktop\/bootstrap\/security-operations\/(?:baseline-pin|retire-cohort|controls|contracts|signers|rollout|test-evidence|activate|enable-all|release-governance|mitigation-compatibility|mitigation-profiles|tls-pin-transition|recovery\/(?:prepare|apply))$/.test(pathname) ||
     /^\/api\/desktop\/bootstrap\/server-state\/(?:recover-sessions|device-identity-policy|device-key-revoke|storage-maintenance|device-replacement|orphan-quarantine|orphan-delete|journal-checkpoint|manual-verification)$/.test(pathname);
 }
 function ReauthenticationRequired(pathname, method = 'POST') {

@@ -10,7 +10,7 @@ if not "%~2"=="" if /i not "%~2"=="/nopause" goto usage
 if not "%~3"=="" goto usage
 set "GAME_REVIEWED_DIGEST=%~1"
 if /i "%~1"=="/nopause" set "GAME_REVIEWED_DIGEST="
-if not exist "%~dp0..\..\ci\toolchain\peace.approve-build-inputs.js" goto missing_helper
+if not exist "%~dp0..\..\tools\build\peace.approve-build-inputs.js" goto missing_helper
 "%SystemRoot%\System32\where.exe" node.exe >nul 2>&1
 if errorlevel 1 goto missing_node
 if defined GAME_REVIEWED_DIGEST goto approve
@@ -21,7 +21,7 @@ set /p "GAME_REVIEWED_DIGEST=Reviewed SHA-512: "
 if not defined GAME_REVIEWED_DIGEST goto missing_digest
 :approve
 rem Pass prompted text through the environment, never as CMD executable text.
-node.exe -e "const a=process.argv;process.argv=[process.execPath,a[1],a[2],process.env.GAME_REVIEWED_DIGEST,a[3]];require(a[1]);" "%~dp0..\..\ci\toolchain\peace.approve-build-inputs.js" "%~dp0..\observed-build-inputs.json" "%~dp0..\reviewed-build-inputs.json"
+node.exe -e "const a=process.argv;process.argv=[process.execPath,a[1],a[2],process.env.GAME_REVIEWED_DIGEST,a[3]];require(a[1]);" "%~dp0..\..\tools\build\peace.approve-build-inputs.js" "%~dp0..\observed-build-inputs.json" "%~dp0..\reviewed-build-inputs.json"
 set "GAME_TOOL_RESULT=%errorlevel%"
 goto finish
 :missing_digest

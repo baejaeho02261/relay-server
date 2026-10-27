@@ -52,15 +52,15 @@ const identity=(patch={})=>({deviceIdentity:{version:2,revision:5,mode:'COMPATIB
   let s=capability.DeviceState(db,afterCertificateExpiry);assert.equal(s.tpmUnexpiredEnrollments,1);assert.equal(s.tpmCurrentRoots,0);assert.equal(s.tpmCurrentRootEnrollments,0);
   db.deviceIdentity.trust=trust();db.deviceIdentity.enrollments.a.attestedUntil=now+30000;s=capability.DeviceState(db,now);assert.equal(s.tpmCurrentRoots,1);assert.equal(s.tpmCurrentRootEnrollments,1);assert.equal(s.tpmAttestation,'ENROLLED_OPTIONAL');
  });
- test('Live policy projection is read-only and manual publication never manufactures CI PASS',()=>{
+ test('Live policy projection is read-only and manual publication never manufactures test results',()=>{
   const db=store.Load();require("../../services/licensing/peace.desktop-licenses").DB();authority.Policy();ops.State();
   // Simulate a loaded legacy runtime policy; a GET must not migrate it.
-  const old=db.securityOperations;db.securityOperations=structuredClone(ops.State());db.securityOperations.releaseGovernance.requireManifest=true;db.securityOperations.releaseGovernance.requireCiEvidence=true;
+  const old=db.securityOperations;db.securityOperations=structuredClone(ops.State());db.securityOperations.releaseGovernance.requireManifest=true;
   try{
    const before=JSON.stringify(db),s=capability.Status();assert.equal(JSON.stringify(db),before);
    assert.deepEqual(s.features.map(x=>x.id),Array.from({length:14},(_,i)=>String(i+1)));
-   assert.equal(feature(s,'4').configured.requirements.requireCiEvidence,false);
-   assert.equal(feature(s,'4').configured.runtime.requireCiEvidence,true);
+   assert.equal(feature(s,'4').configured.requirements.requireReleaseSignature,true);
+   assert.equal(feature(s,'4').configured.runtime.requireManifest,true);
    assert.equal(s.windowsVerification,'NOT_RECORDED');assert.equal(s.evidencePolicy,'NO_AUTOMATIC_PASS');
    assert(s.features.every(x=>x.verification.status==='NOT_RECORDED'&&x.verification.evidenceCreated===false));
    assert.equal(feature(s,'5').implementation,'PARTIAL');assert.equal(feature(s,'13').configured.requiredForPublication,false);

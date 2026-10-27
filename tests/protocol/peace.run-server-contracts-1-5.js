@@ -11,7 +11,7 @@ const TESTS=[
  "security/peace.test-security-authority.js","security/peace.test-security-wire.js","bootstrap/peace.test-handoff-delegation.js","recovery/peace.test-handoff-recovery.js",
  "bootstrap/peace.test-handoff-native-contract.js","bootstrap/peace.test-handoff-completion-contract.js","security/peace.test-key-purposes.js",
  "artifacts/peace.test-release-provenance.js","artifacts/peace.test-release-governance-complete.js","security/peace.test-security-operations.js","security/peace.test-security-evidence.js",
- "security/peace.test-security-native-contract.js","runtime/peace.test-native-abi-field-contract.js","artifacts/peace.test-release-provenance-ui.js","runtime/peace.test-desktop-http.js","build/peace.test-windows-ci.js"
+ "security/peace.test-security-native-contract.js","runtime/peace.test-native-abi-field-contract.js","artifacts/peace.test-release-provenance-ui.js","runtime/peace.test-desktop-http.js"
 ];
 function Classify(result,log){if(result.status===0&&!result.error)return'PASS';if(/Cannot find module|MODULE_NOT_FOUND|Could not locate the bindings file/.test(log))return'BLOCKED_DEPENDENCY';if(log.includes('DESKTOP_WRITER_LOCK_UNAVAILABLE'))return'BLOCKED_NATIVE_LOCK';if(result.error?.code==='ETIMEDOUT')return'TIMEOUT';return'FAIL';}
 function Main(directory){
@@ -20,7 +20,7 @@ function Main(directory){
  const id=new Date().toISOString().replace(/[-:.]/g,'')+'-'+crypto.randomBytes(6).toString('hex');
  const prefix='server-contracts-1-5-'+id,logs=path.join(out,prefix+'-logs'),file=path.join(out,prefix+'.json');
  fs.mkdirSync(logs,{mode:0o700});
- const summary={version:1,scope:'SERVER_AND_SOURCE_CONTRACTS_1_TO_5',generatedAt:new Date().toISOString(),node:process.version,requiredEngine:require("../../package.json").engines.node,platform:process.platform,architecture:process.arch,windowsProductBuildExecuted:false,physicalWindowsIntegrationExecuted:false,signedCiEvidence:false,suites:[]};
+ const summary={version:1,scope:'SERVER_AND_SOURCE_CONTRACTS_1_TO_5',generatedAt:new Date().toISOString(),node:process.version,requiredEngine:require("../../package.json").engines.node,platform:process.platform,architecture:process.arch,windowsProductBuildExecuted:false,physicalWindowsIntegrationExecuted:false,suites:[]};
  fs.writeFileSync(file,JSON.stringify(summary,null,2)+'\n',{flag:'wx',mode:0o600});
  const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'game-contract-suite-1-5-'));
  try{

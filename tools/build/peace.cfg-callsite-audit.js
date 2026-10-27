@@ -176,7 +176,7 @@ function Arguments(argv){
 function Main(argv){
  const a=Arguments(argv),tool=LocateTool(a['--disassembler']),artifacts={};
  for(const [role,file]of a['--file']?[['FILE',a['--file']]]:[['A',a['--a']],['B',a['--b']],['O',a['--o']]])artifacts[role]=Audit(path.resolve(file),tool);
- const result={version:1,kind:'CFG_FINAL_ARTIFACT_SET',recordedAt:new Date().toISOString(),artifacts,allRuntimeCallsitesVerified:false,windowsEnforcement:'NOT_RUN',ciEvidenceCreated:false,publicationApproval:false};
+ const result={version:1,kind:'CFG_FINAL_ARTIFACT_SET',recordedAt:new Date().toISOString(),artifacts,allRuntimeCallsitesVerified:false,windowsEnforcement:'NOT_RUN',publicationApproval:false};
  fs.writeFileSync(path.resolve(a['--out']),JSON.stringify(result,null,2)+'\n',{flag:'wx',mode:0o600});
  console.log(JSON.stringify({output:path.resolve(a['--out']),outcomes:Object.fromEntries(Object.entries(artifacts).map(([k,v])=>[k,v.outcome])),allRuntimeCallsitesVerified:false}));
  return Object.values(artifacts).some(x=>x.outcome!=='STATIC_SCAN_COMPLETE')?2:0;

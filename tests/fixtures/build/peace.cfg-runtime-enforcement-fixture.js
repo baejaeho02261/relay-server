@@ -64,13 +64,13 @@ try {
     bindings[name]={path:file,sha512:crypto.createHash('sha512').update(bytes).digest('hex')};
   }
   const report={version:1,kind:'CFG_RUNTIME_ENFORCEMENT',scope:'MSVC_PROBE_ONLY',outcome:'PASS',windowsExecuted:true,
-    productionCfgCoverage:false,ciEvidenceCreated:false,publicationApproval:false,
+    productionCfgCoverage:false,publicationApproval:false,
     nativeReport:valid,nativeExitCode:0,bindings,
     stages:['compile-guarded','link-guarded','compile-control','link-control'].map(id=>({id,exitCode:0}))};
   assert.equal(validateBinding(report),true);
   const inconsistentScope=copy(report);inconsistentScope.scope='PRODUCTION_ABO';
   assert.throws(()=>validateBinding(inconsistentScope),/CFG_BINDING_SCOPE/);
-  for (const field of ['productionCfgCoverage','ciEvidenceCreated','publicationApproval']) {
+  for (const field of ['productionCfgCoverage','publicationApproval']) {
     const changed=copy(report);changed[field]=true;assert.throws(()=>validateBinding(changed));
   }
   const overwrittenStages=copy(report);

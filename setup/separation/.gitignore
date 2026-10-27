@@ -1,0 +1,6 @@
+*.env
+tls/
+heads*.json
+*.key
+*.pem
+*.p12

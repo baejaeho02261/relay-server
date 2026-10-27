@@ -6,7 +6,7 @@ const audit=require('./peace.cfg-callsite-audit');
 async function Main(){
  let argv=process.argv.slice(2);
  if(!argv.length){
-  console.log('Read-only CFG instruction inspection. Select FINAL A/B/O. No rebuild, CI key or server reset.');
+  console.log('Read-only CFG instruction inspection. Select FINAL A/B/O. No rebuild or server reset.');
   const rl=createInterface({input:process.stdin,output:process.stdout});argv=[];
   try{for(const role of ['A','B','O']){const answer=(await rl.question(role+' full EXE path (Explorer Copy as path is accepted): ')).trim().replace(/^"(.*)"$/s,'$1');if(!answer||!path.isAbsolute(answer))throw Error('CFG_ABSOLUTE_EXE_PATH_REQUIRED');argv.push('--'+role.toLowerCase(),answer);}}
   finally{rl.close();}
@@ -17,7 +17,7 @@ async function Main(){
   artifacts[role]=audit.Audit(path.resolve(file),tool);
   console.log(role+': '+artifacts[role].outcome+'; indirect calls '+artifacts[role].counts.indirectCalls+'; unverified transfers '+artifacts[role].counts.unverified);
  }
- const result={version:1,kind:'CFG_FINAL_ARTIFACT_SET',recordedAt:new Date().toISOString(),artifacts,allRuntimeCallsitesVerified:false,windowsEnforcement:'NOT_RUN',ciEvidenceCreated:false,publicationApproval:false};
+ const result={version:1,kind:'CFG_FINAL_ARTIFACT_SET',recordedAt:new Date().toISOString(),artifacts,allRuntimeCallsitesVerified:false,windowsEnforcement:'NOT_RUN',publicationApproval:false};
  fs.writeFileSync(path.resolve(args['--out']),JSON.stringify(result,null,2)+'\n',{flag:'wx',mode:0o600});
  console.log('Report: '+path.resolve(args['--out']));
  console.log('UNSUPPORTED means the file lacks valid compiler CFG metadata. No PE flags or server requirements were changed.');

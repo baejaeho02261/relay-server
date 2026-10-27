@@ -3,7 +3,7 @@ const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Offline, single-writer maintenance. prepare stages a new same-name identity;
 // activate installs only the generation already announced through the audited
-// admin API. Neither action invents an authorization, deletes history or signs CI.
+// admin API. Neither action invents an authorization, deletes history or creates a signature.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),net=require('node:net');
 const config=require("../../config/peace.runtime-configuration"),identity=require("../../services/network/peace.connect-tls");
 async function Offline(){
