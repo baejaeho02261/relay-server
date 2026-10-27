@@ -7,7 +7,6 @@
   ],
   "preserved": [
     "A/B/O server authority and handoff flow",
-    "CI optional for manual publication",
     "EXE approval signatures and exact REGISTERED release manifest",
     "Default hardware collection off",
     "Existing PC fingerprint and license binding",
@@ -121,7 +120,6 @@
     "delphiWindowsBuild": "NOT_RUN",
     "windowsSdkAbiExecution": "NOT_RUN",
     "realD3d11CaptureTpmStorageNic": "NOT_RUN",
-    "ciEvidenceCreated": false,
     "publicationApprovalCreated": false,
     "portableExecuted": {
       "nativeBlake3OfficialCases": 3157,

@@ -26,16 +26,16 @@
       }
     },
     {
-      "purpose": "release and Windows CI evidence",
+      "purpose": "release approval and mitigation profiles",
       "algorithms": [
         "Ed25519"
       ],
       "domains": [
         "GAME-RELEASE-APPROVAL-V2",
         "GAME-DEPLOYMENT-MANIFEST-V1",
-        "GAME-CI-ATTESTATION-V1"
+        "GAME-MITIGATION-COMPATIBILITY-V1"
       ],
-      "keys": "release approval and CI attestation MUST be different"
+      "keys": "Trusted release approval keys; distinct signed domains prevent cross-purpose message reuse."
     },
     {
       "purpose": "device and challenge authentication",

@@ -105,7 +105,6 @@
       "seconds": 1.073,
       "log": "test-production-boundaries-1-5.js.log",
       "tail": [
-        "PASS 4.4 optional CI signer revocation invalidates evidence without inventing PASS",
         "PASS 1.5 logout blocks a delayed direct route mutation even with the old CSRF token",
         "{\"scope\":\"PRODUCTION_CODE_WITH_IN_MEMORY_STORE_AND_ROUTE_ADAPTER\",\"groups\":31,\"fullWebServer\":false,\"nativeDatabase\":false,\"windowsExecuted\":false,\"syntheticSignaturesAreNotCiEvidence\":true}"
       ]

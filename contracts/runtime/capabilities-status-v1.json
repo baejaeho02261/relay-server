@@ -7,7 +7,7 @@
   "fields": {
     "implementation": "IMPLEMENTED / PARTIAL / NOT_IMPLEMENTED describes source capability, not activation or test execution.",
     "configured": "Current validated server policy and metadata; no secret keys, session tokens, raw hardware identifiers or certificates.",
-    "verification": "NOT_RECORDED unless a manual execution report matches the current REGISTERED manifest, source-manifest SHA-512 and exact A/B/O hashes. Imported values remain OPERATOR_RECORDED, not independently attested CI/build/physical evidence; only listed checks are scoped.",
+    "verification": "NOT_RECORDED unless a manual execution report matches the current REGISTERED manifest, source-manifest SHA-512 and exact A/B/O hashes. Imported values remain OPERATOR_RECORDED, not independently attested build/physical evidence; only listed checks are scoped.",
     "limitations": "Known source capability or verification limits.",
     "deviceIdentity": "Current mode, policy revision, trust-expiry state and enrollment counts; counts are not a new attestation decision.",
     "tpmUnexpiredEnrollments": "Active TPM-labeled enrollment metadata whose attestedUntil is in the future, independent of current trust configuration. Not a current trust or session-validity result.",
@@ -18,10 +18,9 @@
     "persistentKeyRequiredForEnrolled": "Policy requires proof from enrolled devices when global requirement or requireForEnrolled is enabled; exact legacy-flow grace remains a separate authorization rule.",
     "persistentKeyRequirementScope": "ALL_DEVICES / ENROLLED_DEVICES / OPTIONAL describes server policy scope, not current process authorization.",
     "manualVerification": "Exact REGISTERED manifest/source/A/B/O build groups; per-check history and evidence-file digests; CURRENT/STALE/UNBOUND configuration binding. Missing checks are NOT_RECORDED; a partial V3 report cannot mark all domains complete.",
-    "operationalPerformance": "Persistent aggregate server request timings and authenticated client operation durations. Never a session authorization, whole-process exit attestation, CI approval or Windows execution proof."
+    "operationalPerformance": "Persistent aggregate server request timings and authenticated client operation durations. Never a session authorization, whole-process exit attestation, Windows execution proof."
   },
   "windowsExecuted": false,
-  "ciRequiredForManualPublication": false,
   "requiredPublicationGuards": [
     "trusted EXE approval signatures",
     "one exact REGISTERED A/B/O manifest",
@@ -94,7 +93,6 @@
     "renewalScope": "Complete request frame accepted through server response enqueue or failure; not TLS handshake or network RTT.",
     "quantiles": "Nearest-rank histogram interval and conservative upper bound; raw samples not retained; missing times not replaced with zero.",
     "shutdownScope": "Client-reported worker join, parent exit wait and file cleanup operation durations; different populations kept separate.",
-    "gaps": "Explicit unobserved restart, wall-clock changes, collection pauses and persistence failures; no extrapolation over offline periods.",
-    "ciRequired": false
+    "gaps": "Explicit unobserved restart, wall-clock changes, collection pauses and persistence failures; no extrapolation over offline periods."
   }
 }

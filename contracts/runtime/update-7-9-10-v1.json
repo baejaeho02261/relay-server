@@ -1,7 +1,6 @@
 {
   "version": 1,
   "scope": "Requested remaining portions of items 7, 9 and 10; existing 4-6 source kept",
-  "ciRequired": false,
   "implemented": {
     "crcIndependentSelectedPeStreams": {
       "roles": 9,
@@ -67,14 +66,13 @@
   },
   "executionFollowup": {
     "date": "2026-10-15",
-    "ciRequired": false,
     "crcFinalArtifactWiring": "Explicit A/B/O selection, snapshots, SHA-512 bindings, changed-input rejection and separate corpus-only status",
     "cfgRunnerStageNameCollision": "PowerShell case-insensitive iterator/parameter collision corrected; standalone scope checked",
     "overlayInteractiveRunner": "Incomplete exits 2; /nopause parsing fixed; selected source and probe checked before and after observations",
     "currentExecutionHost": "Linux x64; no Windows session, Delphi compiler, GPU or physical monitor/RDP access",
     "actualWindowsEvidenceCreated": false,
     "wholeProductionCfgVerified": false,
-    "manualProfileProductWorkflow": "NOT_CONNECTED: existing profiled product fixture requires CI-specific inputs; no fabricated substitute added",
+    "manualProfileProductWorkflow": "NOT_CONNECTED: a complete manual profiled-product workflow has not been connected; no fabricated substitute added",
     "manualBaselineProductWorkflow": "Existing optional isolated localhost A/B/O execution remains available",
     "serverResetRequired": false
   }

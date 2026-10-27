@@ -352,8 +352,7 @@
     "tpmAttestation": "IMPLEMENTED_OPTIONAL_REQUIRES_CONFIGURED_TRUST",
     "automaticNextPinSwitch": "EXPLICIT_OFFLINE_ACTIVATION_REQUIRED",
     "multiServerConsensus": "NOT_IMPLEMENTED",
-    "deviceIdentityMode": "COMPATIBLE",
-    "ciEvidenceRequiredForPublication": false
+    "deviceIdentityMode": "COMPATIBLE"
   },
   "laterCompletion6To10": {
     "reference": "completion-6-10.json",
@@ -370,7 +369,7 @@
     "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
     "configuration": "READ_FROM_CURRENT_SERVER_STATE",
     "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
-    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST",
     "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
   }
 }

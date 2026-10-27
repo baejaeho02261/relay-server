@@ -6,7 +6,7 @@
       "area": "Actual A/B/O build",
       "status": "NOT_RUN",
       "environment": "Actual declared RAD Studio Win64 installation + declared SDK/Node toolchain",
-      "procedure": "Build A/B/O with the supported licensed IDE, then run available manual diagnostics against those exact final files. Optional automated CI requires a license that permits command-line compilation; it is not a publication prerequisite.",
+      "procedure": "Build A/B/O with the supported licensed IDE, then run available manual diagnostics against those exact final files.",
       "acceptance": "A/B/O compile/link; actual compiler/SDK/Node hashes recorded; no stale DCU or probe code in final products.",
       "mandatoryBeforeProduction": false,
       "requiredForPublication": false,
@@ -149,8 +149,8 @@
       "area": "Policy activation and legacy rollout",
       "status": "NOT_RUN",
       "environment": "Isolated staging copy; never operating keys/data",
-      "procedure": "Verify critical-operation reauthentication and exact signed EXE/REGISTERED manifest/security-version checks for manual publication; publish one consistent v1 measurement A/B/O cohort and check legacy-to-required report transition without CI keys or evidence.",
-      "acceptance": "Critical reauthentication remains mandatory. New publication requires trusted approvals, exact registered manifest and security floor plus v1 measurement declarations. CI evidence is optional and manual publication creates no CI PASS. Legacy runtime is changed only by explicit governance application or verified publication.",
+      "procedure": "Verify critical-operation reauthentication and exact signed EXE/REGISTERED manifest/security-version checks for manual publication; publish one consistent v1 measurement A/B/O cohort and check legacy-to-required report transition.",
+      "acceptance": "Critical reauthentication remains mandatory. New publication requires trusted approvals, exact registered manifest and security floor plus v1 measurement declarations. Legacy runtime is changed only by explicit governance application or verified publication.",
       "mandatoryBeforeProduction": false,
       "requiredForPublication": false,
       "recommendedBeforeProduction": true
@@ -186,11 +186,10 @@
     "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
     "configuration": "READ_FROM_CURRENT_SERVER_STATE",
     "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
-    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST",
     "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
   },
   "current7_9_10": {
-    "ciRequired": false,
     "nativeCrcPeComparison": "tools/artifacts/Run_CRC_PE_Comparison.bat",
     "overlayPhysicalEnvironment": "tools/overlay/Run_Overlay_Environment.bat",
     "mitigationObservation": "tools/security/Run_Mitigation_Compatibility.bat",

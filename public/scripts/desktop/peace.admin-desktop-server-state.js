@@ -38,7 +38,7 @@ async function showDesktopServerState(){
   const rows=status.capabilities?.features;
   if(!Array.isArray(rows))return '<p class="small-note">기능 상태를 제공하지 않는 서버입니다. 검증 완료로 판단하지 않습니다.</p>';
   const selected=build(),record=histories().find(row=>row.id===selectedReport),domains=record?.domains||selected?.domains||manual().domains||[];
-  return `<p class="small-note">구현, 현재 설정, 실기 검증을 별도로 표시합니다. 결과는 선택한 명세와 정확히 같은 A/B/O에만 연결됩니다. 관리자 보고는 CI 서명·하드웨어 증명·운영 게시 승인이 아닙니다.</p>
+  return `<p class="small-note">구현, 현재 설정, 실기 검증을 별도로 표시합니다. 결과는 선택한 명세와 정확히 같은 A/B/O에만 연결됩니다. 관리자 보고는 하드웨어 증명·운영 게시 승인이 아닙니다.</p>
   <div class="server-state-build-bar"><label>대상 A/B/O 배포 조합<select id="server-verification-build"><option value="">등록된 배포 조합 ${builds().length?'선택':'없음'}</option>${builds().map(row=>`<option value="${esc(row.buildKey)}" ${row.buildKey===selectedBuild?'selected':''}>${row.active?'현재 운영 · ':row.registration&&row.registration!=='REGISTERED'?'현재 미등록 · ':''}${esc(short(row.manifestId))} · 기록 ${Number(row.recordCount)||0}개</option>`).join('')}</select></label>${button('verification-context','선택 조합의 시험 입력 JSON 저장',!selected||selected.registration&&selected.registration!=='REGISTERED')}</div>
   ${selected?`<details class="server-state-inline"><summary>선택한 명세 · 최종 A/B/O 해시 확인</summary><dl class="server-state-artifacts"><dt>배포 명세</dt><dd><code>${esc(selected.manifestId)}</code></dd>${['A','B','O'].map(role=>`<dt>${role} SHA-512</dt><dd><code>${esc(selected.artifacts?.[role]||'없음')}</code></dd>`).join('')}<dt>소스 명세</dt><dd><code>${esc(selected.sourceManifestSha512||'없음')}</code></dd></dl></details>`:'<p class="small-note">등록된 명세와 A/B/O가 있어야 대상 빌드의 시험 입력을 저장할 수 있습니다.</p>'}
   <label>선택 조합의 검증 이력<select id="server-verification-history"><option value="">분야별 최신 기록 합쳐 보기</option>${histories().map(row=>`<option value="${esc(row.id)}" ${row.id===selectedReport?'selected':''}>${esc(date(row.finishedAt||row.recordedAt))} · ${esc(textLabel(row.outcome))} · ${esc(row.runId||short(row.id))}</option>`).join('')}</select></label>
@@ -126,7 +126,7 @@ async function showDesktopServerState(){
    <details open><summary>1~14 기능 · 설정 · 검증 상태</summary><div id="server-capabilities-panel">${capabilityRows()}</div></details>
    <details><summary>분야별 실기 보고 등록 · 기존 Windows 시험 기록</summary><p class="small-note">1·2·4·8·11·12를 포함한 분야별 실기 보고와 기존 manual-…-results-verification.json을 등록합니다. 시험 도구가 생성한 실제 결과를 선택하세요. 서버가 등록된 명세·최종 A/B/O·현재 정책과 연결하며 실패·부분·미실행도 그대로 보존합니다.</p>
    <input id="server-manual-verification" type="file" accept=".json,application/json" aria-label="분야별 실기 또는 수동 Windows 시험 JSON">${button('manual-verification','시험 기록 등록')}
-   <p class="small-note">최대 64KiB. 검증 이력에서 대상을 선택하여 결과를 확인하세요. CI 서명이나 게시 승인을 만들지 않습니다.</p></details>
+   <p class="small-note">최대 64KiB. 검증 이력에서 대상을 선택하여 결과를 확인하세요. 게시 승인을 만들지 않습니다.</p></details>
    <details open><summary>A/B/O 종료 · 파일 정리 추적</summary><div id="server-lifecycle-panel">${lifecycleMarkup()}</div></details>
    <details open><summary>장기 운영 성능 · 갱신 · 포화 · 종료 지연</summary><div id="server-performance-panel">${performanceMarkup()}</div></details>
    <details open><summary>복구 세대 · 외부 최신 상태 증거</summary><div class="kv"><div>복구 세대</div><div>${status.epoch}</div><div>외부 증거</div><div>${esc(status.witness.status)}</div><div>미보충 감사</div><div>${status.auditPending}</div><div>오프라인 무기한 승인</div><div>허용하지 않음</div></div>

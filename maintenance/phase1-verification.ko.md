@@ -22,12 +22,12 @@ node tools/security/peace.audit-client-secrets.js A.exe B.exe O.exe
 
 ## 별도 Windows 환경에서 실행할 최종 파일 시험
 
-Windows x64, PowerShell 7, 소스에서 고정한 Node 버전, npm, OpenSSL 및 렌더링 가능한 격리된 테스트 데스크톱 세션이 필요합니다. 서비스의 Session 0에서 Overlay 화면 시험을 통과했다고 처리하지 않습니다. 새로 컴파일하는 전체 CI에는 정식 Delphi/C++ 도구와 검토한 빌드 입력 해시 기록이 추가로 필요합니다.
+Windows x64, PowerShell 7, 소스에서 고정한 Node 버전, npm, OpenSSL 및 렌더링 가능한 격리된 테스트 데스크톱 세션이 필요합니다. 서비스의 Session 0에서 Overlay 화면 시험을 통과했다고 처리하지 않습니다. 새로 컴파일할 때는 라이선스가 유효한 Delphi/C++ 도구가 필요합니다.
 
 전체 소스 ZIP을 새 폴더에 풀고, 동일한 패킹 작업에서 받은 최종 A/B/O 템플릿, 웹에서 내보낸 세 패킹 기록의 JSON 배열, 현재 공개 보안 정책 JSON을 준비합니다. 시험 정책은 mode=enforce이고 requireReadonlyApi, requireCompleteCrcLayers, requireReleaseSignature가 모두 true여야 합니다. 개인키나 운영 DATA_DIR는 입력하지 않습니다. 이미 고객용으로 발급한 A는 템플릿으로 사용할 수 없습니다.
 
 ```powershell
-pwsh -NoProfile -File '.\cozy-peace\Relay Server\ci\pipeline\Invoke-FinalWindowsTests.ps1' `
+pwsh -NoProfile -File '.\cozy-peace\Relay Server\tools\windows\Invoke-FinalWindowsTests.ps1' `
   -SourceRoot '.\cozy-peace' `
   -AFile 'C:\CozyTestInputs\A.exe' `
   -BFile 'C:\CozyTestInputs\B.exe' `
@@ -40,7 +40,7 @@ pwsh -NoProfile -File '.\cozy-peace\Relay Server\ci\pipeline\Invoke-FinalWindows
 
 경로와 Version은 실제 선택한 파일·버전에 맞춰야 합니다. 결과 파일의 부모 폴더는 미리 만들고, 결과 파일은 새 이름을 사용합니다. 원본 EXE를 변경하지 않으며 시험에 복사한 바이트를 전후로 확인합니다. 임시 승인 키는 시험 프로세스에서만 생성하고 운영 승인·서명으로 사용하지 않습니다.
 
-결과는 `FINAL_WINDOWS_EXECUTION_OBSERVATION_NOT_CI_ATTESTATION`입니다. `integrationAttempted`와 `finalExecutionVerified`, `secretBoundary`, 정리 결과를 각각 확인합니다. `buildProvenance=NOT_ATTESTED`, `productionApproved=false`이며, 입력한 패킹 기록의 운영 출처도 독립적으로 증명하지 않습니다. 이 파일은 운영 CI 증거나 게시 승인으로 등록할 수 없습니다. 현재 VM v1은 실행 시험을 통과해도 내장 키 검사 때문에 전체 결과가 BLOCKED입니다.
+결과는 `FINAL_WINDOWS_EXECUTION_OBSERVATION`입니다. `integrationAttempted`와 `finalExecutionVerified`, `secretBoundary`, 정리 결과를 각각 확인합니다. `buildProvenance=NOT_ATTESTED`, `productionApproved=false`이며, 입력한 패킹 기록의 운영 출처도 독립적으로 증명하지 않습니다. 이 파일은 게시 승인으로 등록할 수 없습니다. 현재 VM v1은 실행 시험을 통과해도 내장 키 검사 때문에 전체 결과가 BLOCKED입니다.
 
 시험 자료 다운로드는 관리자 전용 `GET /api/desktop/bootstrap/security-operations/packed-release-jobs/<jobId>/receipts`를 사용합니다. 이 읽기 작업은 게시·등록·발급을 실행하지 않습니다.
 

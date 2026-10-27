@@ -128,7 +128,7 @@
     "sourceGuard": "Release role-specific evaluated MSBuild property checks and fresh DCU directories; root DCU/CFG and foreign test/probe define/options/output rejected. Actual CodeGear execution unverified.",
     "cfg": "Final PE structural evidence is distinct from compiler call-site coverage and actual runtime enforcement. Flag-only checks are insufficient. Record compiler files/version/hash and Windows query results separately.",
     "policies": "Set success/error and actual GetProcessMitigationPolicy observations are separate. Preserve existing opt-in dynamic prohibit; no untested blanket strict-handle/image-loading/ACG enforcement.",
-    "finalArtifact": "Bounded explicit-offset read; all resource languages for RT_MANIFEST/1 must equal current source bytes; CFG check/dispatch slots mapped and GFID targets raw-backed immutable code. Windows XML parser disables DTD and validates DPI separately. CI approval requires same final-artifact audit hashes, not flags alone."
+    "finalArtifact": "Bounded explicit-offset read; all resource languages for RT_MANIFEST/1 must equal current source bytes; CFG check/dispatch slots mapped and GFID targets raw-backed immutable code. Windows XML parser disables DTD and validates DPI separately. Final-file approval requires the same final-artifact audit hashes, not flags alone."
   },
   "primaryReferences": [
     {

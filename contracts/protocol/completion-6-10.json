@@ -48,7 +48,7 @@
       "original": "기존 파일 고정의 검증 확대: 현재 핸들 고정 구조에 파일 이름 변경, 상위 경로 교체, reparse point, 읽기 도중 오류 시험을 추가합니다.",
       "status": "시험 유지·추가",
       "change": "기존 Windows reparse/parent/rename probe를 보존했습니다. 실제 임시 파일 이름 교체·읽기 오류·symlink/hardlink·크기 변화 시험을 추가했습니다. 권한 때문에 SKIP된 native 분기는 새 실행부에서 PASS가 아닙니다.",
-      "paths": "tests/protocol/peace.test-completion-artifacts-6-10.js; tests/cozy.HardeningContractsProbe.dpr; ci/pipeline/Invoke-NativeContracts6To10.ps1",
+      "paths": "tests/protocol/peace.test-completion-artifacts-6-10.js; tests/cozy.HardeningContractsProbe.dpr; tools/windows/Invoke-NativeContracts6To10.ps1",
       "verificationAndRemaining": "Linux 파일 I/O와 시험 모듈의 fault injection PASS. Windows NTFS/reparse/디스크 분리 NOT_RUN입니다."
     },
     {
@@ -75,7 +75,7 @@
       "original": "기준 생성과 측정 구현의 독립 비교: 같은 코드의 같은 오류가 기준값과 측정값 양쪽에 들어가는 것을 방지합니다.",
       "status": "부분 실행·native 연결",
       "change": "기존 독립 Python↔Node 해시·CRC·PE·요청 비교를 다시 실행했습니다. 새 native 실행부는 실제 Hash/IntegrityHash/CrcLayer/PE corpus probe를 호출하도록 연결했습니다.",
-      "paths": "tests/protocol/peace.test-independent-contracts-14.js; ci/pipeline/Invoke-NativeContracts6To10.ps1",
+      "paths": "tests/protocol/peace.test-independent-contracts-14.js; tools/windows/Invoke-NativeContracts6To10.ps1",
       "verificationAndRemaining": "독립 Python/Node 및 고정된 vendor 해시 비교 시험이 제공됩니다. 기존 portable 결과는 해당 시험 범위이며 실제 Delphi 산출물 비교·운영 Windows 실행은 미실행입니다."
     },
     {
@@ -155,8 +155,8 @@
       "sourceLine": 74,
       "original": "프로토콜 입력 엄격화: 중복 필드, 잘못된 UTF-8, 정수 범위 초과, 알 수 없는 중요 필드를 일관되게 처리합니다.",
       "status": "패스키 내부·도구 JSON 보완",
-      "change": "서명된 clientDataJSON을 canonical base64url·fatal UTF-8·중복 필드·정확한 type/challenge/origin으로 검사합니다. 서명 검증에는 원본 bytes를 사용합니다. 등록/인증 binary 크기·키/알고리즘·외부 허용 필드, CI/provenance/TLS pointer JSON도 엄격하게 연결했습니다.",
-      "paths": "services/authentication/peace.passkey-client-data.js; services/authentication/peace.passkey-auth.js; services/network/peace.connect-tls.js; ci/evidence/peace.ci-artifacts.js; tools/artifacts/peace.release-provenance.js",
+      "change": "서명된 clientDataJSON을 canonical base64url·fatal UTF-8·중복 필드·정확한 type/challenge/origin으로 검사합니다. 서명 검증에는 원본 bytes를 사용합니다. 등록/인증 binary 크기·키/알고리즘·외부 허용 필드, provenance/TLS pointer JSON도 엄격하게 연결했습니다.",
+      "paths": "services/authentication/peace.passkey-client-data.js; services/authentication/peace.passkey-auth.js; services/network/peace.connect-tls.js; tools/artifacts/peace.release-provenance.js",
       "verificationAndRemaining": "실제 EC 서명으로 잘못된 내부 JSON 거절 PASS. 계정 저장·세션 일부는 격리했으며 운영 로그인 통합 PASS가 아닙니다. 비중요 WebAuthn 확장 필드는 허용하며 미지원 중요 결속은 거절합니다."
     },
     {
@@ -228,7 +228,7 @@
       "original": "완화 정책 적용 결과 확인: 설정 요청 성공뿐 아니라 실제 적용 상태를 계속 구분합니다.",
       "status": "기존 요청/관측 구분 유지",
       "change": "완화 정책의 설정 시도 결과와 실제 GetProcessMitigationPolicy 관측 결과를 분리한 기존 코드를 유지했습니다. 새 probe 실행부에 관련 native 시험을 연결했습니다.",
-      "paths": "cozy.ProcessMitigations.pas; cozy.ServerAuthority.pas; ci/pipeline/Invoke-NativeContracts6To10.ps1",
+      "paths": "cozy.ProcessMitigations.pas; cozy.ServerAuthority.pas; tools/windows/Invoke-NativeContracts6To10.ps1",
       "verificationAndRemaining": "실제 A/B/O 완화 정책 값은 이 환경에서 수집하지 않았습니다. success 요청만으로 enforced를 표시하지 않습니다."
     },
     {
@@ -244,9 +244,9 @@
       "id": "10.3",
       "sourceLine": 90,
       "original": "CFG 산출물 검사: 설정 이름만 확인하지 말고, 컴파일러 지원과 최종 EXE의 실제 계측·메타데이터를 검사합니다. CFG는 컴파일과 실행 환경이 함께 관여합니다. Microsoft Learn",
-      "status": "최종 파일·CI·BAT 검사 강화",
-      "change": "CFG check/dispatch slot 매핑, 순서 있는 raw-backed immutable GFID 코드 범위와 제한된 load-config를 검사합니다. 승인 BAT의 독립 CFG 코드도 동일하게 맞추고 drift 시험을 추가했습니다. CI는 최종 audit 없이 승인 자료를 만들지 않으며 3개 파일의 실제 해시와 O manifest 결과를 다시 확인합니다.",
-      "paths": "services/artifacts/peace.pe-capabilities.js; tools/artifacts/Create_Approval.bat; tools/artifacts/peace.audit-final-artifacts.js; ci/evidence/peace.ci-artifacts.js",
+      "status": "최종 파일·BAT 검사 강화",
+      "change": "CFG check/dispatch slot 매핑, 순서 있는 raw-backed immutable GFID 코드 범위와 제한된 load-config를 검사합니다. 승인 BAT의 독립 CFG 코드도 동일하게 맞추고 drift 시험을 추가했습니다. 최종 audit으로 3개 파일의 실제 해시와 O manifest 결과를 확인합니다.",
+      "paths": "services/artifacts/peace.pe-capabilities.js; tools/artifacts/Create_Approval.bat; tools/artifacts/peace.audit-final-artifacts.js",
       "verificationAndRemaining": "합성 CFG/PE 및 실제 임시 파일 시험 PASS. 모든 간접 호출 계측·실제 Windows CFG 강제/최종 EXE 검증은 NOT_RUN이며 구조 결과로 대체하지 않습니다."
     },
     {
@@ -255,7 +255,7 @@
       "original": "시험용 빌드 완전 분리: 테스트 define뿐 아니라 외부 MSBuild 인수와 재사용 DCU까지 검사합니다. 제품 빌드와 probe 출력 디렉터리도 분리합니다.",
       "status": "기존 격리 유지·실행부 추가",
       "change": "이전 cozy.BuildIsolation.targets/.dproj 개별 수정본을 그대로 보존했습니다. native runner는 기존 WindowsJob/격리 source/probe DCU 경로를 사용하고 각 시험·exit code·로그를 저장하며 권한 SKIP을 성공으로 세지 않습니다.",
-      "paths": "cozy.BuildIsolation.targets; tests/cozy.Build_NativeProbes_Win64.bat; ci/pipeline/Invoke-NativeContracts6To10.ps1; tools/runtime/Test_Native_6-10.bat",
+      "paths": "cozy.BuildIsolation.targets; tests/cozy.Build_NativeProbes_Win64.bat; tools/windows/Invoke-NativeContracts6To10.ps1; tools/runtime/Test_Native_6-10.bat",
       "verificationAndRemaining": "XML·소스 계약 PASS. CodeGear MSBuild/dcc64·외부 인수/DCU 혼입 음성 시험은 NOT_RUN입니다."
     },
     {
@@ -263,8 +263,8 @@
       "sourceLine": 92,
       "original": "의존성 고정: ImGui 원본 버전, bridge 변경, 컴파일러·SDK·Node 의존성을 기록하고 보안 업데이트 때 같은 회귀 검사를 실행합니다.",
       "status": "버전 고정 유지·증거 갱신",
-      "change": "ImGui1.93.0 WIP/19298·bridge·npm lock의 기존 버전을 유지하고 변경된 bridge tool hash를 갱신했습니다. 실제 compiler/SDK 값은 Windows CI가 실행될 때 관측하도록 유지합니다.",
-      "paths": "contracts/runtime/dependency-provenance-v1.json; package-lock.json; ci/pipeline/Windows-Stage.ps1",
+      "change": "ImGui1.93.0 WIP/19298·bridge·npm lock의 기존 버전을 유지하고 변경된 bridge tool hash를 갱신했습니다. 실제 compiler/SDK 값은 Windows 빌드 입력 검토 도구로 관측합니다.",
+      "paths": "contracts/runtime/dependency-provenance-v1.json; package-lock.json",
       "verificationAndRemaining": "vendor·bridge·npm lock 검증 경로는 포함됩니다. 실제 설치된 compiler/SDK/Node와 source hash는 실행 환경에서 확인해야 하며, 고정 버전만으로 최신 보안 감사 완료를 주장하지 않습니다."
     }
   ],
@@ -274,7 +274,7 @@
     "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
     "configuration": "READ_FROM_CURRENT_SERVER_STATE",
     "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
-    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST",
     "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
   },
   "historicalSnapshot": true,

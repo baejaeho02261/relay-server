@@ -52,7 +52,7 @@
     "Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Memory/Cozy.game_imgui_arena.h": "1826d99923c50adf160c0fdd8fd2c1a832ab4f03e1e74cb2636b87151b64d3d52270489af22b00af615caf7ec3379fc054ebf47e9cfb51f29541d363713afa92"
   },
   "compilerAndSdk": "Exact installed executable hashes and versions recorded by Windows-Stage.ps1 only when it actually runs. Not fabricated for this Linux review.",
-  "regressionAfterSecurityUpdate": "Regenerate source/dependency manifests, run all registered suites including completion 6-10 and actual Windows native/ABI/PE corpus, TLS rotation, GPU/DPI and final build/CI approval. Do not reuse historical or synthetic PASS.",
+  "regressionAfterSecurityUpdate": "Regenerate source/dependency manifests, run all registered suites including completion 6-10 and actual Windows native/ABI/PE corpus, TLS rotation, GPU/DPI and final build and release approval. Do not reuse historical or synthetic PASS.",
   "vendorHashesBeforeRename": {
     "Railway/cozy.imgui/cozy.vendor/cozy.LICENSE.txt": "fff7ca4d8984277931e6e377563e42441b252836a5a0d6ab60879db92d37202b20877fe3c3602e13938b1d40838a199133ad444959a9f58f54094001493877b4",
     "Railway/cozy.imgui/cozy.vendor/cozy.backends/cozy.imgui_impl_dx11.cpp": "8757571319fee3d43878243daf6f3e17b81a4799114899accfb8c3e922c439107e01af7ca5f97dcd0c4d0788c11419fd79119612cd97606dec77bb24c85b3e63",

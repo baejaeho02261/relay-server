@@ -48,7 +48,7 @@
         "web/routes/security/peace.desktop-security-routes.js",
         "services/security/peace.desktop-security-activation.js"
       ],
-      "result": "중요 신뢰 변경·운영 게시·CI 키/증빙·복구는 최근 인증을 필수로 검사합니다. 환경변수 0/미설정으로 해제할 수 없습니다. 조회·후보 업로드·명세 계획/등록은 기본 재인증 대상에서 제외했습니다. 보안 정책 변경은 강화/완화 모두 중요 작업으로 취급합니다.",
+      "result": "중요 신뢰 변경·운영 게시·복구는 최근 인증을 필수로 검사합니다. 환경변수 0/미설정으로 해제할 수 없습니다. 조회·후보 업로드·명세 계획/등록은 기본 재인증 대상에서 제외했습니다. 보안 정책 변경은 강화/완화 모두 중요 작업으로 취급합니다.",
       "remaining": "실제 운영 서버에 소스를 적용한 것은 아닙니다. 기존 환경변수 1은 일반 선언된 수정 작업까지 범위를 넓히는 옵션으로만 남습니다."
     },
     {
@@ -207,7 +207,7 @@
         "../Railway/cozy.Handoff.pas",
         "tests/bootstrap/peace.test-handoff-native-contract.js"
       ],
-      "result": "기존 자식 환경변수 allowlist를 유지했습니다. 새 시험 runner 역시 기존 CI 환경 허용 목록을 재사용합니다.",
+      "result": "기존 자식 환경변수 allowlist를 유지했습니다. 새 시험 runner 역시 기존 시험 환경 허용 목록을 재사용합니다.",
       "remaining": "실제 Windows 자식 환경과 외부 설정 영향 시험은 미실행입니다."
     },
     {
@@ -218,7 +218,7 @@
       "paths": [
         "../Railway/cozy.tests/cozy.HandoffPipeProbe.dpr",
         "tests/recovery/peace.test-handoff-recovery.js",
-        "ci/pipeline/Invoke-NativeContracts1To5.ps1"
+        "tools/windows/Invoke-NativeContracts1To5.ps1"
       ],
       "result": "claim 전 실패·확정 후 응답 소실·READY 전 종료의 기존 규약을 유지하며 pipe/lifetime probe를 시간 제한이 있는 시험 Job 안에서 실행하도록 연결했습니다.",
       "remaining": "실제 부모/자식 종료·응답 소실·첫 프레임 상태의 Windows 통합 반복은 남아 있습니다."
@@ -237,29 +237,16 @@
       "remaining": "기존 실행 정책은 현재 조합에 대한 명시적 수동 배포 정책 적용 또는 검증된 새 조합 게시 전까지 유지합니다. 조회만으로 로컬 원장을 일괄 전환하지 않습니다."
     },
     {
-      "id": "4.2",
-      "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
-      "requirement": "CI 서명 증빙: 관리자가 입력한 PASS와 실제 Windows 시험 시스템이 서명한 PASS를 구분합니다. 현재 운영자가 기록하는 증거에 추가할 수 있습니다.",
-      "status": "수정 · 사용자 요청에 따라 수동 게시에서 CI 증거 필수 조건 제거",
-      "paths": [
-        "services/artifacts/peace.desktop-release-provenance.js",
-        "services/security/peace.desktop-security-operations.js",
-        "public/scripts/desktop/peace.admin-desktop-security.js"
-      ],
-      "result": "신규 수동 운영 게시와 복구에는 CI 키 또는 ci-evidence.json을 요구하지 않습니다. EXE 승인 서명·REGISTERED 명세·보안 버전 하한 검증은 유지합니다. 기존 CI 도구·공개키·증거 이력과 서명 검증은 선택 기능으로 보존하며, 수동 게시를 CI PASS로 표시하거나 시험 증거를 자동 생성하지 않습니다.",
-      "remaining": "이 환경에서는 실제 Windows CI 증빙을 생성하지 않았습니다. 신뢰 CI 서명을 검사하는 것이지 하드웨어 attestation이나 관리자에 의한 증빙 위조 불가능성을 보장하는 것은 아닙니다."
-    },
-    {
       "id": "4.3",
       "section": "배포·승인 도구 — ‘승인한 파일’과 ‘검증한 파일’ 연결",
-      "requirement": "서명 역할 분리: 실행 파일 승인키, 테스트 증빙키, 서버 통신키를 각각 다른 목적으로 관리합니다.",
+      "requirement": "서명 역할 분리: 실행 파일 승인키, 서버 통신키를 각각 다른 목적으로 관리합니다.",
       "status": "유지 · 분리/변조 시험",
       "paths": [
         "services/security/peace.desktop-key-purposes.js",
         "services/artifacts/peace.desktop-release-provenance.js",
-        "ci/fixtures/peace.fixture-services.js"
+        "tools/fixtures/peace.fixture-services.js"
       ],
-      "result": "승인키·CI키·통신키의 기존 용도 분리와 서버 측 키 관리 구조를 유지합니다. purpose 변경과 CI 본문 변조 거절을 추가 확인했습니다.",
+      "result": "승인키·통신키의 기존 용도 분리와 서버 측 키 관리 구조를 유지합니다. 용도가 다른 서명은 거절합니다.",
       "remaining": "실제 사용자 키 생성·교체는 하지 않았습니다. 기존 실행의 저장된 서명 정책은 유지하며, 신규 운영 게시에서는 각 EXE의 유효한 승인 서명을 반드시 검사합니다."
     },
     {
@@ -271,8 +258,8 @@
         "tests/runtime/peace.test-production-boundaries-1-5.js",
         "tests/artifacts/peace.test-release-governance-complete.js"
       ],
-      "result": "EXE 승인키와 선택적 CI 키의 ACTIVE/RETIRING/REVOKED 전이·변조 거절 시험을 제공합니다. 수동 게시 모드에서는 CI 키 폐기만으로 유효한 EXE 실행을 차단하지 않습니다. EXE 승인키 폐기는 새 승인과 해당 키에 의존한 실행의 다음 서버 검사에 적용됩니다.",
-      "remaining": "사용자 운영 EXE 승인키·선택적 CI 키·통신키의 실제 교체와 복구 훈련은 미실행입니다."
+      "result": "EXE 승인키의 ACTIVE/RETIRING/REVOKED 전이·변조 거절 시험을 제공합니다. EXE 승인키 폐기는 새 승인과 해당 키에 의존한 실행의 다음 서버 검사에 적용됩니다.",
+      "remaining": "사용자 운영 EXE 승인키·통신키의 실제 교체와 복구 훈련은 미실행입니다."
     },
     {
       "id": "4.5",
@@ -283,7 +270,7 @@
         "services/security/peace.desktop-security-operations.js",
         "services/artifacts/peace.desktop-release-provenance.js"
       ],
-      "result": "새 게시의 보안 버전 하한은 최소 1이며 기존보다 낮출 수 없습니다. 명세 요구 해제·0 지정은 production API에서 거절하고, 긴급 복구도 같은 하한을 사용합니다. 수동 게시의 CI 증거 요구는 false로 고정하며 실제 EXE 승인 서명 검증을 유지합니다.",
+      "result": "새 게시의 보안 버전 하한은 최소 1이며 기존보다 낮출 수 없습니다. 명세 요구 해제·0 지정은 production API에서 거절하고, 긴급 복구도 같은 하한을 사용합니다. 실제 EXE 승인 서명 검증을 유지합니다.",
       "remaining": "이미 실행 중인 legacy 세션은 새 정책 전환 전까지 기존 규칙을 따릅니다. 새 전환 후 증빙 없는 구 세션은 다음 서버 검사에서 거절될 수 있습니다."
     },
     {
@@ -345,7 +332,7 @@
       "paths": [
         "../Railway/cozy.Lifetime.pas",
         "../Railway/cozy.tests/cozy.LifetimeProbe.dpr",
-        "ci/pipeline/Invoke-NativeContracts1To5.ps1",
+        "tools/windows/Invoke-NativeContracts1To5.ps1",
         "../Railway/cozy.DeviceKey.pas"
       ],
       "result": "신규 작업 차단→진행 작업 합류→키/핸들 해제 순서를 유지합니다. 영속 장치키의 AIK 초기화 실패 시 부분 생성 자원 정리와 재시도 소유권을 보완했습니다. 미완료 스레드가 객체를 사용하는 동안 강제 해제하거나 TerminateThread로 중단하지 않습니다.",
@@ -400,7 +387,7 @@
     "implementation": "SOURCE_CAPABILITY_NOT_EXECUTION",
     "configuration": "READ_FROM_CURRENT_SERVER_STATE",
     "verification": "DEPLOYMENT_WINDOWS_RESULT_NOT_RECORDED",
-    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST_NO_REQUIRED_CI",
+    "publication": "SIGNED_EXE_APPROVAL_AND_REGISTERED_MANIFEST",
     "priorResults": "Previously recorded unit/server/portable results retain their original scope; they are not evidence of this deployment or Windows execution."
   },
   "historicalSnapshot": true,

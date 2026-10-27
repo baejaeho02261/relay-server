@@ -1,6 +1,6 @@
 # Windows 최종 서명 준비
 
-`ci/pipeline/Invoke-AuthenticodePreparation.ps1`는 A/B/O 복사본에 Windows Authenticode 서명과 RFC 3161 타임스탬프를 적용하고 검증하는 준비 도구입니다. 원본 파일을 바꾸지 않고 새 출력 폴더만 만듭니다. 라이선스 발급, 게시, 서버 승인 또는 실제 제품 실행 시험을 수행하지 않습니다.
+`tools/windows/Invoke-AuthenticodePreparation.ps1`는 A/B/O 복사본에 Windows Authenticode 서명과 RFC 3161 타임스탬프를 적용하고 검증하는 준비 도구입니다. 원본 파일을 바꾸지 않고 새 출력 폴더만 만듭니다. 라이선스 발급, 게시, 서버 승인 또는 실제 제품 실행 시험을 수행하지 않습니다.
 
 ## 준비 조건
 
@@ -11,7 +11,7 @@
 - 모든 패킹·보호 처리와 O 정규화는 서명 전에 끝내야 합니다. 현재 알려진 내장 VM 키가 있는 입력은 거부합니다. 제한된 비밀 검사 PASS는 모든 숨겨진 비밀의 부재를 증명하지 않습니다.
 
 ```powershell
-pwsh -NoProfile -File '.\cozy-peace\Relay Server\ci\pipeline\Invoke-AuthenticodePreparation.ps1' `
+pwsh -NoProfile -File '.\cozy-peace\Relay Server\tools\windows\Invoke-AuthenticodePreparation.ps1' `
   -AFile 'C:\ReleaseInputs\A.exe' -BFile 'C:\ReleaseInputs\B.exe' -OFile 'C:\ReleaseInputs\O.exe' `
   -SignTool $ReviewedSignToolPath -SignToolSha512 $ReviewedSignToolSha512 -NodeSha512 $ReviewedNodeSha512 `
   -CertificateSha256 $CodeSigningCertificateSha256 -CertificateStore CurrentUser `
