@@ -42,7 +42,8 @@ async function Dispatch(opened,absoluteDeadline){
  const payload=opened.payload;let devicePrepared;
  try{
   require('../operations/peace.registration-reset').AssertAvailable();
-  if(!Plain(payload)||!['body,operation','body,operation,tlsPinVersion'].includes(Object.keys(payload).sort().join(','))||(payload.tlsPinVersion!==undefined&&payload.tlsPinVersion!==1)||!Plain(payload.body)||!['challenge','execute','bootstrap','report','security','device','policy'].includes(payload.operation))desktop.Fail('INPUT_INVALID');
+  try{require('../protocol/peace.packet-schema').ValidateEnvelope(payload);}
+  catch(_){const codes={bootstrap:'BOOTSTRAP_INPUT_INVALID',security:'SECURITY_INPUT_INVALID',report:'INTEGRITY_REPORT_INVALID',device:'DEVICE_IDENTITY_INPUT_INVALID',policy:'COZY_OPERATION_INPUT_INVALID'};desktop.Fail(Object.hasOwn(codes,payload?.operation)?codes[payload.operation]:'INPUT_INVALID');}
   require("../protocol/peace.desktop-request-protocol").Resolve(payload.operation,payload.body.action);
   const protectedDispatch=require("../authentication/peace.desktop-protected-dispatch"),dispatchTicket=protectedDispatch.Prepare(payload);
   if(typeof payload.body.deviceId==='string')deviceRate.Take(payload.body.deviceId);

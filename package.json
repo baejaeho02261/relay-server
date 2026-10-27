@@ -4,6 +4,11 @@
   "description": "Cozy Peace authenticated relay and administrator service",
   "main": "peace.relay-server.js",
   "scripts": {
+    "schema:generate": "node tools/build/peace.generate-packet-schema.js --native-root ../Railway",
+    "schema:check": "node tools/build/peace.generate-packet-schema.js --check",
+    "schema:check:native": "node tools/build/peace.generate-packet-schema.js --check --native-root ../Railway",
+    "test:protocol:schema": "node tests/protocol/peace.test-packet-schema.js",
+    "test:protocol:differential": "node --test tests/protocol/peace.test-native-json-differential.js",
     "start": "node peace.relay-server.js",
     "check": "node tests/runners/peace.check-modules.js",
     "test": "node tests/runners/peace.regression.js",

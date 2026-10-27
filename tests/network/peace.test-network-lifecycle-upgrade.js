@@ -6,6 +6,7 @@ const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'game-network-lifecycle-'))
 process.env.DATA_DIR=temporary;process.env.HA_ENABLED='0';
 const {Isolated}=require("../fixtures/protocol/peace.completion-6-10-fixture");
 const work=require("../../services/runtime/peace.desktop-work-queue");
+const packetCases=require('../fixtures/protocol/peace.packet-schema-cases.json').cases;
 let count=0;
 async function check(name,run){await run();count++;console.log('PASS '+name);}
 function failure(){const e=Error('TLS_PIN_SERVER_CERTIFICATE_OUTSIDE_WINDOW');e.desktopError=true;e.status=503;return e;}
@@ -21,7 +22,15 @@ function dispatchHarness(){
   "../runtime/peace.desktop-runtime-diagnostics":{Record(){}},"../runtime/peace.desktop-work-queue":work,
   './peace.desktop-transport-rotation':{AssertUse(keyId){assert.equal(keyId,'test-transport-key');}}
  });
- return {state,run:(operation,body,pinVersion)=>m.__probe.Dispatch({keyId:'test-transport-key',payload:{operation,body,...(pinVersion===undefined?{}:{tlsPinVersion:pinVersion})}},10000)};
+ return {state,run:(operation,body,pinVersion)=>{
+  // This isolated suite probes post-admission certificate/queue ordering, so
+  // start with a schema-valid packet shape. These dummy values are not valid
+  // cryptographic/business proofs; the original isolated execution stubs stay.
+  const fixture=packetCases.find(p=>p.operation===operation&&p.body.action===body.action);
+  assert(fixture,'missing packet shape fixture');
+  const admittedBody={...structuredClone(fixture.body),...body};
+  return m.__probe.Dispatch({keyId:'test-transport-key',payload:{operation,body:admittedBody,...(pinVersion===undefined?{}:{tlsPinVersion:pinVersion})}},10000);
+ }};
 }
 (async()=>{try{
  await check('retired TLS certificate blocks side effects for opted-in AND legacy envelopes',async()=>{

@@ -1,0 +1,1931 @@
+{
+  "schemaVersion": 1,
+  "protocol": "GAME-CONNECT-4",
+  "maximumRequestBytes": 32768,
+  "envelope": {
+    "type": "object",
+    "properties": {
+      "operation": {
+        "enum": [
+          "bootstrap",
+          "challenge",
+          "execute",
+          "report",
+          "security",
+          "device",
+          "policy"
+        ]
+      },
+      "tlsPinVersion": {
+        "enum": [
+          1
+        ]
+      },
+      "body": {
+        "$ref": "object"
+      }
+    },
+    "required": [
+      "operation",
+      "body"
+    ],
+    "additionalProperties": false
+  },
+  "definitions": {
+    "id24": {
+      "type": "string",
+      "minLength": 24,
+      "maxLength": 24,
+      "pattern": "^[A-F0-9]{24}$"
+    },
+    "machine": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[A-F0-9]{64}$"
+    },
+    "hash": {
+      "type": "string",
+      "minLength": 128,
+      "maxLength": 128,
+      "pattern": "^[a-f0-9]{128}$"
+    },
+    "crc": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 16,
+      "pattern": "^[A-F0-9]{16}$"
+    },
+    "request": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 80,
+      "pattern": "^[-A-Za-z0-9_]{8,80}$"
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "challenge": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "publicKey": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "stage": {
+      "enum": [
+        "A",
+        "B",
+        "O"
+      ]
+    },
+    "integer": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "version1": {
+      "enum": [
+        1
+      ]
+    },
+    "handoff": {
+      "enum": [
+        1,
+        3
+      ]
+    },
+    "payload": {
+      "type": "string",
+      "maxBytes": 262144,
+      "maxLength": 262144,
+      "minLength": 2
+    },
+    "object": {
+      "type": "object",
+      "domainValidation": true
+    },
+    "intArgs": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "integer",
+        "minimum": -2147483648,
+        "maximum": 2147483647
+      }
+    }
+  },
+  "commands": [
+    {
+      "operation": "bootstrap",
+      "action": "begin",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "begin"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "launcherId": {
+            "$ref": "id24"
+          },
+          "launcherSha512": {
+            "$ref": "hash"
+          },
+          "launcherCrc64": {
+            "$ref": "crc"
+          },
+          "aCodeSha512": {
+            "$ref": "hash"
+          },
+          "aCodeCrc64": {
+            "$ref": "crc"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "launcherTicket": {
+            "$ref": "token"
+          },
+          "handoffVersion": {
+            "$ref": "handoff"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "launcherId",
+          "launcherSha512",
+          "launcherCrc64",
+          "aCodeSha512",
+          "aCodeCrc64",
+          "publicKey",
+          "deviceId",
+          "machineId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "keylessPolicy",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "keylessPolicy"
+            ]
+          },
+          "version": {
+            "$ref": "version1"
+          },
+          "launcherId": {
+            "$ref": "id24"
+          },
+          "machineId": {
+            "$ref": "machine"
+          }
+        },
+        "required": [
+          "action",
+          "version",
+          "launcherId",
+          "machineId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "keylessChallenge",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "keylessChallenge"
+            ]
+          },
+          "version": {
+            "$ref": "version1"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "launcherId": {
+            "$ref": "id24"
+          },
+          "launcherSha512": {
+            "$ref": "hash"
+          },
+          "launcherCrc64": {
+            "$ref": "crc"
+          },
+          "aCodeSha512": {
+            "$ref": "hash"
+          },
+          "aCodeCrc64": {
+            "$ref": "crc"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "handoffVersion": {
+            "enum": [
+              3
+            ]
+          },
+          "persistentPublicKey": {
+            "$ref": "publicKey"
+          },
+          "persistentKeyId": {
+            "$ref": "machine"
+          },
+          "keyProvider": {
+            "enum": [
+              "SOFTWARE",
+              "PLATFORM"
+            ]
+          },
+          "epoch": {
+            "$ref": "integer"
+          },
+          "revision": {
+            "$ref": "integer"
+          }
+        },
+        "required": [
+          "action",
+          "version",
+          "requestId",
+          "launcherId",
+          "launcherSha512",
+          "launcherCrc64",
+          "aCodeSha512",
+          "aCodeCrc64",
+          "publicKey",
+          "deviceId",
+          "machineId",
+          "handoffVersion",
+          "persistentPublicKey",
+          "persistentKeyId",
+          "keyProvider",
+          "epoch",
+          "revision"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "keylessProve",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "keylessProve"
+            ]
+          },
+          "version": {
+            "$ref": "version1"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "appSignature": {
+            "$ref": "signature"
+          },
+          "persistentSignature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "version",
+          "challengeId",
+          "appSignature",
+          "persistentSignature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "keylessStatus",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "keylessStatus"
+            ]
+          },
+          "version": {
+            "$ref": "version1"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "appSignature": {
+            "$ref": "signature"
+          },
+          "persistentSignature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "version",
+          "challengeId",
+          "appSignature",
+          "persistentSignature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "beginKeyless",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "beginKeyless"
+            ]
+          },
+          "version": {
+            "$ref": "version1"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "appSignature": {
+            "$ref": "signature"
+          },
+          "persistentSignature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "version",
+          "challengeId",
+          "appSignature",
+          "persistentSignature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "chunk",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "chunk"
+            ]
+          },
+          "flowId": {
+            "$ref": "id24"
+          },
+          "downloadTicket": {
+            "$ref": "token"
+          },
+          "offset": {
+            "$ref": "integer"
+          }
+        },
+        "required": [
+          "action",
+          "flowId",
+          "downloadTicket",
+          "offset"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "finish",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "finish"
+            ]
+          },
+          "flowId": {
+            "$ref": "id24"
+          },
+          "downloadTicket": {
+            "$ref": "token"
+          },
+          "sha512": {
+            "$ref": "hash"
+          },
+          "crc64": {
+            "$ref": "crc"
+          },
+          "aCodeSha512": {
+            "$ref": "hash"
+          },
+          "aCodeCrc64": {
+            "$ref": "crc"
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "flowId",
+          "downloadTicket",
+          "sha512",
+          "crc64",
+          "aCodeSha512",
+          "aCodeCrc64",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "claim",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "claim"
+            ]
+          },
+          "flowId": {
+            "$ref": "id24"
+          },
+          "handoffToken": {
+            "$ref": "token"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "binarySha512": {
+            "$ref": "hash"
+          },
+          "crc64": {
+            "$ref": "crc"
+          },
+          "bCodeSha512": {
+            "$ref": "hash"
+          },
+          "bCodeCrc64": {
+            "$ref": "crc"
+          },
+          "handoffVersion": {
+            "$ref": "handoff"
+          },
+          "childPublicKey": {
+            "$ref": "publicKey"
+          },
+          "childKeyId": {
+            "$ref": "machine"
+          },
+          "childNonce": {
+            "$ref": "machine"
+          },
+          "delegationSignature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "flowId",
+          "handoffToken",
+          "signature",
+          "binarySha512",
+          "crc64",
+          "bCodeSha512",
+          "bCodeCrc64"
+        ],
+        "additionalProperties": false,
+        "allOrNone": [
+          "handoffVersion",
+          "childPublicKey",
+          "childKeyId",
+          "childNonce",
+          "delegationSignature"
+        ]
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "status",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "status"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "close",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "close"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "abort",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "abort"
+            ]
+          },
+          "flowId": {
+            "$ref": "id24"
+          },
+          "downloadTicket": {
+            "$ref": "token"
+          }
+        },
+        "required": [
+          "action",
+          "flowId",
+          "downloadTicket"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayChunk",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayChunk"
+            ]
+          },
+          "overlayId": {
+            "$ref": "id24"
+          },
+          "overlayTicket": {
+            "$ref": "token"
+          },
+          "offset": {
+            "$ref": "integer"
+          }
+        },
+        "required": [
+          "action",
+          "overlayId",
+          "overlayTicket",
+          "offset"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayFinish",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayFinish"
+            ]
+          },
+          "overlayId": {
+            "$ref": "id24"
+          },
+          "overlayTicket": {
+            "$ref": "token"
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "overlayId",
+          "overlayTicket",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayClaim",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayClaim"
+            ]
+          },
+          "overlayId": {
+            "$ref": "id24"
+          },
+          "overlayTicket": {
+            "$ref": "token"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "binarySha512": {
+            "$ref": "hash"
+          },
+          "crc64": {
+            "$ref": "crc"
+          },
+          "oCodeSha512": {
+            "$ref": "hash"
+          },
+          "oCodeCrc64": {
+            "$ref": "crc"
+          },
+          "handoffVersion": {
+            "$ref": "handoff"
+          },
+          "childPublicKey": {
+            "$ref": "publicKey"
+          },
+          "childKeyId": {
+            "$ref": "machine"
+          },
+          "childNonce": {
+            "$ref": "machine"
+          },
+          "delegationSignature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "overlayId",
+          "overlayTicket",
+          "signature",
+          "binarySha512",
+          "crc64",
+          "oCodeSha512",
+          "oCodeCrc64"
+        ],
+        "additionalProperties": false,
+        "allOrNone": [
+          "handoffVersion",
+          "childPublicKey",
+          "childKeyId",
+          "childNonce",
+          "delegationSignature"
+        ]
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayVerify",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayVerify"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "binarySha512": {
+            "$ref": "hash"
+          },
+          "binaryCrc64": {
+            "$ref": "crc"
+          },
+          "codeSha512": {
+            "$ref": "hash"
+          },
+          "codeCrc64": {
+            "$ref": "crc"
+          },
+          "capturePrivacyVersion": {
+            "$ref": "version1"
+          },
+          "renewalBudgetVersion": {
+            "$ref": "version1"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "binarySha512",
+          "binaryCrc64",
+          "codeSha512",
+          "codeCrc64"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayProgress",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayProgress"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32
+          },
+          "phase": {
+            "enum": [
+              "CLAIMED",
+              "IMAGE_BOUND",
+              "GPU_BEGIN",
+              "GPU_READY",
+              "OWN_BEGIN",
+              "OWN_READY",
+              "MODULES_BEGIN",
+              "MODULES_READY",
+              "AUTHORITY_BEGIN",
+              "AUTHORIZED",
+              "VISIBLE",
+              "FAILED"
+            ]
+          },
+          "elapsedMs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 180000
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken",
+          "sequence",
+          "phase",
+          "elapsedMs",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayCommit",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayCommit"
+            ]
+          },
+          "handoffVersion": {
+            "enum": [
+              1
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "overlayId": {
+            "$ref": "id24"
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "handoffVersion",
+          "sessionId",
+          "sessionToken",
+          "overlayId",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayClose",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayClose"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "shutdown": {
+            "$ref": "object"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayAbort",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayAbort"
+            ]
+          },
+          "handoffVersion": {
+            "enum": [
+              3
+            ]
+          },
+          "parentSessionId": {
+            "$ref": "id24"
+          },
+          "parentSessionToken": {
+            "$ref": "token"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "overlayId": {
+            "$ref": "id24"
+          },
+          "prepareRequestId": {
+            "$ref": "request"
+          }
+        },
+        "required": [
+          "action",
+          "handoffVersion",
+          "parentSessionId",
+          "parentSessionToken",
+          "signature"
+        ],
+        "additionalProperties": false,
+        "exactlyOne": [
+          "overlayId",
+          "prepareRequestId"
+        ]
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "lifecycleChallenge",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "lifecycleChallenge"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "targetRole": {
+            "$ref": "stage"
+          },
+          "requestId": {
+            "$ref": "request"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "targetRole",
+          "requestId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "lifecycleReport",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "lifecycleReport"
+            ]
+          },
+          "permitId": {
+            "$ref": "challenge"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "eventsJson": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 32768
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "permitId",
+          "requestId",
+          "eventsJson",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "device",
+      "action": "policy",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "policy"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "device",
+      "action": "challenge",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "challenge"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "keyProvider": {
+            "enum": [
+              "SOFTWARE",
+              "PLATFORM"
+            ]
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "requestId",
+          "publicKey",
+          "keyProvider"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "device",
+      "action": "complete",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "complete"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "appSignature": {
+            "$ref": "signature"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "tpmEvidence": {
+            "$ref": "object"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "challengeId",
+          "appSignature",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "device",
+      "action": "tpmActivate",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "tpmActivate"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "secret": {
+            "$ref": "token"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "appSignature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "challengeId",
+          "secret",
+          "signature",
+          "appSignature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "security",
+      "action": "challenge",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "challenge"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "intent": {
+            "enum": [
+              "finish",
+              "redeem",
+              "verify",
+              "observe"
+            ]
+          },
+          "binding": {
+            "$ref": "hash"
+          },
+          "mitigationProfileVersion": {
+            "$ref": "version1"
+          },
+          "mitigationEnvironment": {
+            "$ref": "object"
+          },
+          "deviceSignalsVersion": {
+            "$ref": "version1"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "intent",
+          "binding"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "security",
+      "action": "submit",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "submit"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "intent": {
+            "enum": [
+              "finish",
+              "redeem",
+              "verify",
+              "observe"
+            ]
+          },
+          "binding": {
+            "$ref": "hash"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "payload": {
+            "$ref": "payload"
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "intent",
+          "binding",
+          "challengeId",
+          "payload",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "report",
+      "action": "challenge",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "challenge"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "binarySha512": {
+            "$ref": "hash"
+          },
+          "binaryCrc64": {
+            "$ref": "crc"
+          },
+          "codeSha512": {
+            "$ref": "hash"
+          },
+          "codeCrc64": {
+            "$ref": "crc"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "report",
+      "action": "submit",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "submit"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "reportId": {
+            "$ref": "challenge"
+          },
+          "payload": {
+            "$ref": "payload"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "binarySha512": {
+            "$ref": "hash"
+          },
+          "binaryCrc64": {
+            "$ref": "crc"
+          },
+          "codeSha512": {
+            "$ref": "hash"
+          },
+          "codeCrc64": {
+            "$ref": "crc"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken",
+          "reportId",
+          "payload",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "policy",
+      "action": "challenge",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "challenge"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "policyId": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "functionId": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 65535
+          },
+          "args": {
+            "$ref": "intArgs"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "requestId",
+          "policyId",
+          "functionId",
+          "args"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "policy",
+      "action": "invoke",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "invoke"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "policyId": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "functionId": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 65535
+          },
+          "args": {
+            "$ref": "intArgs"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "requestId",
+          "policyId",
+          "functionId",
+          "args",
+          "challengeId",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "challenge",
+      "action": "redeem",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "redeem"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "payloadHash"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "execute",
+      "action": "redeem",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "redeem"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "payloadJSON": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadJson": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "challengeId",
+          "signature"
+        ],
+        "additionalProperties": false,
+        "exactlyOne": [
+          "payloadJSON",
+          "payloadJson"
+        ]
+      }
+    },
+    {
+      "operation": "challenge",
+      "action": "verify",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "verify"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "payloadHash"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "execute",
+      "action": "verify",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "verify"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "payloadJSON": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadJson": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "challengeId",
+          "signature"
+        ],
+        "additionalProperties": false,
+        "exactlyOne": [
+          "payloadJSON",
+          "payloadJson"
+        ]
+      }
+    },
+    {
+      "operation": "challenge",
+      "action": "release",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "release"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "payloadHash"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "execute",
+      "action": "release",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "release"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "payloadJSON": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadJson": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "challengeId",
+          "signature"
+        ],
+        "additionalProperties": false,
+        "exactlyOne": [
+          "payloadJSON",
+          "payloadJson"
+        ]
+      }
+    },
+    {
+      "operation": "challenge",
+      "action": "overlay",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlay"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "payloadHash"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "execute",
+      "action": "overlay",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlay"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "deviceId": {
+            "$ref": "machine"
+          },
+          "publicKey": {
+            "$ref": "publicKey"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "signature": {
+            "$ref": "signature"
+          },
+          "payloadJSON": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadJson": {
+            "type": "string",
+            "minLength": 2,
+            "maxBytes": 4096
+          },
+          "payloadHash": {
+            "$ref": "hash"
+          }
+        },
+        "required": [
+          "action",
+          "requestId",
+          "deviceId",
+          "publicKey",
+          "challengeId",
+          "signature"
+        ],
+        "additionalProperties": false,
+        "exactlyOne": [
+          "payloadJSON",
+          "payloadJson"
+        ]
+      }
+    }
+  ],
+  "scope": "Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization."
+}

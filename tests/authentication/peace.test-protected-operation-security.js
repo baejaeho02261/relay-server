@@ -72,7 +72,9 @@ test('encrypted dispatcher with deviceId reaches real handler selection (missing
   "../licensing/peace.desktop-licenses":{Fail:fail,messages:{},Challenge:e,Execute:e},'./peace.connect-transport-key':{},"../runtime/peace.desktop-work-queue":{IsRenewal:()=>false},
   './peace.desktop-tls-pin-transition':{Offer:()=>null},'./peace.desktop-transport-rotation':{AssertUse(){}},"../integrity/peace.desktop-proof-work":{Prepare:()=>[],Run:async(_jobs,fn)=>{runs++;return fn();}},"../runtime/peace.desktop-runtime-diagnostics":{Record(){}}
  });
- const opened={keyId:'KEY',payload:{operation:'execute',body:{action:'verify',deviceId:'DEVICE'}}};
+ // Shape-only dummy credentials reach the isolated business stubs; no real proof claim.
+ const fixture=require('../fixtures/protocol/peace.packet-schema-cases.json').cases.find(p=>p.operation==='execute'&&p.body.action==='verify');
+ const opened={keyId:'KEY',payload:structuredClone(fixture)};
  assert.equal((await api.__probe.Dispatch(opened,Infinity)).ok,true);assert.equal(runs,1);revoked=true;assert.equal((await api.__probe.Dispatch(opened,Infinity)).error,'SECURITY_RELEASE_REVOKED');opened.payload.body.action='unknown';assert.equal((await api.__probe.Dispatch(opened,Infinity)).ok,false);assert.equal(runs,2);
 });
 

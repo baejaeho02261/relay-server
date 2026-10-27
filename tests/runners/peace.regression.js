@@ -5,6 +5,9 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["protocol/peace.test-packet-schema.js"],
+  ["protocol/peace.test-native-json-differential.js"],
+  ["bootstrap/peace.test-handoff-restricted-contract.js"],
   ["security/peace.test-retired-governance-migration.js"],
   ["storage/peace.test-registration-reset-journal.js"],
   ["runtime/peace.test-registration-reset-bootstrap.js"],

@@ -85,7 +85,7 @@ test('A and B obtain permits before authority handoff and refresh during long ac
   order(runA, ["Lifecycle.Prepare('A'", 'Grant := Client.Finish(', 'HandoffSucceeded := LaunchWithHandoff(']);
   assert.match(launcher, /Bytes := Client\.Chunk\(Flow, Offset\);\s+if Lifecycle <> nil then Lifecycle\.Prepare\('A'/);
   order(consoleSource, ['Session := Bootstrap.Claim(', "Lifecycle.Prepare('B'", "Lifecycle.Prepare('A'", 'Context.CompleteClaimAndCleanup(']);
-  const startOverlay = api.split('function TGameApi.StartOverlayCore: Boolean;')[1].split('function TGameApi.RedeemCore')[0];
+  const startOverlay = api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean): Boolean;')[1].split('function TGameApi.RedeemCore')[0];
   order(startOverlay, ["FLifecycle.Prepare('B'", 'TransferClient.CommitTransfer(', "FLifecycle.Note('B', 'CLOSE_RESPONSE', 'ACKNOWLEDGED')"]);
   const check = api.split('procedure TGameApi.CheckIntegrity;')[1].split('procedure TGameApi.RetireImagesForShutdown;')[0];
   assert.match(check, /FLifecycle\.Prepare\('B'/);
