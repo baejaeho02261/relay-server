@@ -79,7 +79,7 @@ function Prepare(configFile,sourceRoot,output){
   for(const role of ROLE){const b=Read(config.artifacts[role],64*1024*1024);blobs[role]=b;const own=InspectProtection(b);
    const keyless=own?.engine===serverProtection.ENGINE&&own.state==='BOUND';
    if(!own||!keyless&&(own.engine!=='COZY_VM_V1'||own.state!=='SEALED')||own.role!==role)Fail('PROTECTED_ARTIFACTS_REQUIRED');
-   if(role==='A'&&['GAMEA80CONFIG!','COZYA2CONFIG!','COZYA3CONFIG!'].some(x=>b.subarray(-x.length).equals(Buffer.from(x))))Fail('ISSUED_A_NOT_TEMPLATE');
+   if(role==='A'&&['GAMEA80CONFIG!','COZYA2CONFIG!','COZYA3CONFIG!','COZYA4SIGNED!'].some(x=>b.subarray(-x.length).equals(Buffer.from(x))))Fail('ISSUED_A_NOT_TEMPLATE');
    engines.add(own.engine);artifacts[role]={sha512:sha(b),size:b.length,embeddedClientKeyPresent:!keyless};
    if(keyless)artifacts[role].serverPolicy={policyId:own.policyId,policySha512:own.policySha512,functionCount:own.functionCount};
   }

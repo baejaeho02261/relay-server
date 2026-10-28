@@ -104,6 +104,7 @@ function Load(){
    else if(row.configFormat!==undefined){if(row.configFormat!=='COZY_A_CONFIG_V2'||own?.state!=='SEALED'||own.role!=='A'||(row.retiredAt===undefined?typeof row.configNonce!=='string'||!/^[a-f0-9]{24}$/.test(row.configNonce):row.configNonce!==undefined))Invalid();}
    else if(row.configNonce!==undefined||['SEALED','BOUND'].includes(own?.state))Invalid();
 
+   if(row.finalIssuedSignature!==undefined){if(row.configFormat!=='COZY_A_CONFIG_V3')Invalid();try{require('./peace.issued-a-signing').ValidateReceiptShape(row.finalIssuedSignature,row);}catch(_){Invalid();}}
    if(row.releaseSelection!==undefined){try{require("../artifacts/peace.desktop-release-safety").ValidateSelection(value,row.releaseSelection);if(row.releaseSelection.A.id!==row.artifactId)Invalid();}catch(_){Invalid();}}
    if(row.crc64!==undefined&&!Crc(row.crc64)||!ExtendedFields(row))Invalid();
    if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();

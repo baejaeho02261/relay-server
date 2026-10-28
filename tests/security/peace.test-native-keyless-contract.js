@@ -39,7 +39,8 @@ test('Production parser has no VM interpreter or embedded-key decryption path', 
 });
 
 test('A parses only public V3 fields with no launcher ticket or decrypt fallback', () => {
-  assert.match(launcher, /ConfigMarker: AnsiString = 'COZYA3CONFIG!'/);
+  assert.match(launcher, /Bytes := ReadVerifiedIssuedAConfig\(Handle, FileSize\(Info\)\)/);
+  assert.ok(launcher.indexOf('ReadVerifiedIssuedAConfig(Handle') < launcher.indexOf('Result := ParsePublicConfig(Bytes)'));
   assert.match(launcher, /BinaryConfigMarker: AnsiString = 'COZYACF3'/);
   assert.match(launcher, /U16\(8\) <> 3/);
   assert.match(launcher, /ExpiryBytes := Field\(8, 8, 8\)/);

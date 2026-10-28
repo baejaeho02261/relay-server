@@ -8,7 +8,7 @@ const delegation=require('./peace.desktop-handoff-delegation'),integrity=require
 const CLEANUP_RECEIPT_MS=30000;
 const MAX_ARTIFACT_BYTES=64*1024*1024,CHUNK_SIZE=262144,LAUNCHER_MS=86400000,FLOW_MS=900000,HANDOFF_MS=120000,SESSION_MS=300000;
 const FOOTER=Buffer.from('GAMEA80CONFIG!','ascii'),CONFIG_FOOTER=Buffer.from('COZYA2CONFIG!','ascii');
-const protection=require('../artifacts/peace.cozy-protection-engine'),launcherConfig=require('./peace.launcher-config');
+const protection=require('../artifacts/peace.cozy-protection-engine'),launcherConfig=require('./peace.launcher-config'),issuedASigning=require('./peace.issued-a-signing');
 let activityRevision=-1,activityIndex=new Map(),retirementTimer;
 const integritySuccessTimes=new Map();
 const messages={BOOTSTRAP_UPLOAD_TIMEOUT:'업로드 또는 PE 검사 시간이 초과됐습니다.',BOOTSTRAP_UPLOAD_ABORTED:'업로드 연결이 중단됐습니다.',BOOTSTRAP_UPLOAD_CHANGED:'검사 도중 업로드 대상이 변경됐습니다.',BOOTSTRAP_PE_ANALYSIS_FAILED:'서버 PE 검사 작업을 완료하지 못했습니다.',BOOTSTRAP_HANDOFF_VERSION_MISMATCH:'A/B/O 인수인계 버전이 일치하지 않습니다. 같은 전체 소스로 다시 빌드하고 발급해 주세요.',BOOTSTRAP_OVERLAY_NOT_READY:'관리자가 O(cozy.Overlay) 실행 파일을 승인하여 A/B와 함께 게시해야 합니다.',BOOTSTRAP_REQUIRED:'관리자가 발급한 실행 파일 A로 다시 시작해 주세요.',BOOTSTRAP_INPUT_INVALID:'실행 요청을 확인해 주세요.',BOOTSTRAP_PE_INVALID:'올바른 Windows 64비트 실행 파일을 선택해 주세요.',BOOTSTRAP_ARTIFACT_TOO_LARGE:'실행 파일은 64MiB 이하여야 합니다.',BOOTSTRAP_TEMPLATE_PERSONALIZED:'개인화하지 않은 A 템플릿을 업로드해 주세요.',BOOTSTRAP_NOT_READY:'관리자가 A와 B 실행 파일을 먼저 등록해야 합니다.',BOOTSTRAP_LAUNCHER_INVALID:'실행 파일 A를 확인해 주세요.',BOOTSTRAP_LAUNCHER_USED:'이미 사용한 실행 파일입니다. 새 실행 파일을 발급받아 주세요.',BOOTSTRAP_EXPIRED:'실행 인증이 만료되었습니다. 새 실행 파일로 시작해 주세요.',BOOTSTRAP_REQUEST_REUSED:'요청 번호가 다른 실행에 사용되었습니다.',BOOTSTRAP_PROOF_INVALID:'실행 파일의 기기 서명을 확인하지 못했습니다.',BOOTSTRAP_FLOW_INVALID:'실행 요청을 확인할 수 없습니다.',BOOTSTRAP_CODE_MISMATCH:'실행 코드 무결성 검증에 실패했습니다.',BOOTSTRAP_HASH_MISMATCH:'실행 파일 검증에 실패했습니다.',BOOTSTRAP_DOWNLOAD_INCOMPLETE:'실행 파일 다운로드를 완료해 주세요.',BOOTSTRAP_SESSION_INVALID:'실행 세션을 확인할 수 없습니다.',BOOTSTRAP_SESSION_CLOSED:'종료된 실행 세션입니다. 새 실행 파일로 시작해 주세요.',BOOTSTRAP_REVOKED:'관리자가 이 실행 세션을 종료했습니다.',BOOTSTRAP_LICENSE_MISMATCH:'다른 라이선스가 연결된 실행 세션입니다.',BOOTSTRAP_SINGLE_WRITER_REQUIRED:'이 서비스는 단일 인스턴스와 영구 저장소가 필요합니다.',BOOTSTRAP_STORAGE_INVALID:'실행 인증 저장소를 확인할 수 없습니다.',BOOTSTRAP_STORAGE_RESTART_REQUIRED:'저장 결과를 확인하려면 서버를 다시 시작해야 합니다.',BOOTSTRAP_ARTIFACT_INVALID:'등록된 실행 파일을 읽거나 검증하지 못했습니다.'};
@@ -59,7 +59,7 @@ function Pe(bytes,component){
  if(!entryExecutable)Fail('BOOTSTRAP_PE_INVALID');
  // The parser's marker literal may occur inside a valid template. Only a
  // terminal marker means the file already carries an individualized overlay.
- if(component==='A'&&[FOOTER,CONFIG_FOOTER,require('./peace.keyless-bootstrap').FOOTER].some(marker=>bytes.subarray(-marker.length).equals(marker)))Fail('BOOTSTRAP_TEMPLATE_PERSONALIZED');
+ if(component==='A'&&[FOOTER,CONFIG_FOOTER,require('./peace.keyless-bootstrap').FOOTER,issuedASigning.FOOTER].some(marker=>bytes.subarray(-marker.length).equals(marker)))Fail('BOOTSTRAP_TEMPLATE_PERSONALIZED');
  // Explicit historical wire bytes: old native builds cannot understand the new
  // overlay/profile. Reject them instead of silently distributing a broken pair.
  if(!bytes.includes(Buffer.from('GAME-CONNECT-4'))&&!bytes.includes(Buffer.from('GAME-CONNECT-4','utf16le')))Fail('BOOTSTRAP_PROTOCOL_UPGRADE_REQUIRED');
@@ -103,17 +103,20 @@ function LauncherTicket(row){return Token('LAUNCHER',row.id,row.ticketNonce);}
 function DownloadTicket(row){return Token('DOWNLOAD',row.id,row.downloadNonce);}
 function HandoffToken(row){return Token('HANDOFF',row.id,row.handoffNonce);}
 function SessionToken(row){return Token('SESSION',row.sessionId,row.sessionNonce);}
-function MakeLauncher(row){
+function MakeLauncher(row,{createSignature=false}={}){
  const template=DB().artifacts[row.artifactId];if(!template||template.component!=='A')Fail('BOOTSTRAP_ARTIFACT_INVALID',503);
  const bytes=Bytes(template);let clear,overlay;
  try{
   const own=protection.Inspect(bytes);if(!SameOwnProtection(template.ownProtection,own))Fail('COZY_PROTECTION_METADATA_MISMATCH',409);
   if(own?.engine==='COZY_SERVER_POLICY_V2'){
    if(own.state!=='BOUND'||own.role!=='A'||row.configFormat!=='COZY_A_CONFIG_V3'||row.configNonce!==undefined)Fail('BOOTSTRAP_CONFIG_INVALID',409);
-   overlay=require('./peace.launcher-public-config').Encode({schema:3,profile:row.profile,launcherId:row.id,expiresAt:row.expiresAt});
-   const length=Buffer.alloc(4);length.writeUInt32LE(overlay.length);
-   return Buffer.concat([bytes,overlay,length,require('./peace.keyless-bootstrap').FOOTER]);
+   if(row.finalIssuedSignature)return issuedASigning.Materialize(bytes,row.finalIssuedSignature,row);
+   if(!createSignature)Fail('ISSUED_A_SIGNATURE_REQUIRED',409);
+   const signed=issuedASigning.Create(bytes,{schema:3,profile:row.profile,launcherId:row.id,expiresAt:row.expiresAt});
+   row.finalIssuedSignature=signed.receipt;return signed.bytes;
   }
+  let hasSignedAnchor=false;try{issuedASigning.InspectTemplate(bytes);hasSignedAnchor=true;}catch(error){if(error.message!=='ISSUED_A_BUILD_UPGRADE_REQUIRED')throw error;}
+  if(hasSignedAnchor)Fail('ISSUED_A_SERVER_POLICY_REQUIRED',409);
   if(own){
    if(own.state!=='SEALED'||own.role!=='A'||row.configFormat!=='COZY_A_CONFIG_V2'||typeof row.configNonce!=='string'||!/^[a-f0-9]{24}$/.test(row.configNonce))Fail('BOOTSTRAP_CONFIG_INVALID',409);
    clear=launcherConfig.Encode({schema:2,profile:row.profile,launcherId:row.id,launcherTicket:LauncherTicket(row),expiresAt:row.expiresAt});
@@ -135,7 +138,8 @@ function RequireLauncherSelection(row){
  auth.RequireArtifact(a);auth.RequireArtifact(b);if(o)auth.RequireArtifact(o);
  delegation.RequirePair(a,b,o);require("../security/peace.desktop-security-operations").RequireRuntimePair(a,b,o);
 }
-function LauncherResult(row){return {launcherId:row.id,downloadName:LauncherName(row),expiresAt:row.expiresAt,downloadUrl:'/api/desktop/bootstrap/launchers/'+row.id+'/download'};}
+function LauncherSigningView(row){return row.finalIssuedSignature?{format:row.finalIssuedSignature.format,keyId:row.finalIssuedSignature.keyId,sha512:row.finalIssuedSignature.finalSha512,scope:'APPLICATION_SIGNATURE',authenticode:false}:null;}
+function LauncherResult(row){return {finalIssuedSigning:LauncherSigningView(row),launcherId:row.id,downloadName:LauncherName(row),expiresAt:row.expiresAt,downloadUrl:'/api/desktop/bootstrap/launchers/'+row.id+'/download'};}
 function IssueLauncher(body={},actor='ADMIN'){
  Prune();Fields(body,['requestId','label','licenseId']);RequestId(body.requestId);if(body.label!==undefined&&(typeof body.label!=='string'||body.label.length>120||/[\x00-\x1f\x7f]/.test(body.label)))Fail('BOOTSTRAP_INPUT_INVALID');
  const db=DB(),receiptKey=hash(String(actor))+'|'+body.requestId,fingerprint=hash(JSON.stringify({label:body.label||'',...(body.licenseId?{licenseId:body.licenseId}:{})})),old=db.issueReceipts[receiptKey];
@@ -161,7 +165,10 @@ function IssueLauncher(body={},actor='ADMIN'){
  const aBytes=Bytes(db.artifacts[row.artifactId]);try{const own=protection.Inspect(aBytes);if(!SameOwnProtection(db.artifacts[row.artifactId].ownProtection,own))Fail('COZY_PROTECTION_METADATA_MISMATCH',409);if(own?.engine==='COZY_SERVER_POLICY_V2'){if(own.state!=='BOUND'||own.role!=='A')Fail('COZY_SERVER_POLICY_NOT_BOUND',409);row.configFormat='COZY_A_CONFIG_V3';}else if(own){if(own.state!=='SEALED'||own.role!=='A')Fail('COZY_PROTECTION_NOT_SEALED',409);row.configFormat='COZY_A_CONFIG_V2';row.configNonce=crypto.randomBytes(12).toString('hex');}}finally{aBytes.fill(0);}
  const releaseSelection=require("../artifacts/peace.desktop-release-safety").Selection(db);if(releaseSelection)row.releaseSelection=releaseSelection;
  if(body.licenseId)row.assignedLicenseId=body.licenseId;
- row.ticketHash=hash(LauncherTicket(row));Object.assign(row,integrity.Digests(MakeLauncher(row)));
+ row.ticketHash=hash(LauncherTicket(row));
+ const finalBytes=MakeLauncher(row,{createSignature:true});
+ try{Object.assign(row,integrity.Digests(finalBytes));if(row.finalIssuedSignature){issuedASigning.ValidateReceiptShape(row.finalIssuedSignature,row);const verified=issuedASigning.VerifyFinal(finalBytes,{expectedTemplateSha512:db.artifacts[row.artifactId].sha512,expectedKeyId:row.finalIssuedSignature.keyId});if(verified.sha512!==row.sha512||verified.config.launcherId!==row.id)Fail('ISSUED_A_SIGNATURE_INVALID');}}
+ finally{finalBytes.fill(0);} 
  require("../storage/peace.desktop-operation-audit").Run('LAUNCHER_ISSUED',actor,{subject:crypto.createHash('sha256').update(row.id).digest('hex')},next=>{next.launchers[row.id]=row;next.issueReceipts[receiptKey]={fingerprint,launcherId:row.id};});
  Audit('DESKTOP_BOOTSTRAP_ISSUED',{launcherId:row.id,label:row.label,expiresAt:row.expiresAt,licenseId:row.assignedLicenseId||''});return LauncherResult(row);
 }
@@ -203,7 +210,7 @@ function requireLauncherBeforeBegin(row){
 function Begin(body,keylessAuthorization){
  Fields(body,['requestId','launcherId','launcherTicket','launcherSha512','launcherCrc64','aCodeSha512','aCodeCrc64','publicKey','deviceId','machineId','handoffVersion']);RequestId(body.requestId);const digest=Sha(body.launcherSha512),crc64=Crc(body.launcherCrc64),machineId=MachinePolicy().Validate(body.machineId);MachinePolicy().AssertAllowed(machineId);require("../devices/peace.desktop-device-registry").AssertMachineAllowed(machineId,DB());
  const parsed=require("../licensing/peace.desktop-licenses").ParseKey(body.publicKey);if(body.deviceId!==parsed.deviceId)Fail('BOOTSTRAP_PROOF_INVALID',401);
- const db=DB(),launcher=db.launchers[body.launcherId];if(!launcher)Fail('BOOTSTRAP_LAUNCHER_INVALID',401);if(launcher.configFormat==='COZY_A_CONFIG_V3')require('./peace.keyless-bootstrap').AssertBegin(keylessAuthorization,launcher,body);else if(keylessAuthorization||!EqualHash(body.launcherTicket,launcher.ticketHash))Fail('BOOTSTRAP_LAUNCHER_INVALID',401);require("../recovery/peace.desktop-recovery").Assert(launcher,db);
+ const db=DB(),launcher=db.launchers[body.launcherId];if(!launcher)Fail('BOOTSTRAP_LAUNCHER_INVALID',401);if(launcher.configFormat==='COZY_A_CONFIG_V3'&&launcher.status==='AVAILABLE'&&!launcher.finalIssuedSignature)Fail('ISSUED_A_SIGNATURE_REQUIRED',409);if(launcher.configFormat==='COZY_A_CONFIG_V3')require('./peace.keyless-bootstrap').AssertBegin(keylessAuthorization,launcher,body);else if(keylessAuthorization||!EqualHash(body.launcherTicket,launcher.ticketHash))Fail('BOOTSTRAP_LAUNCHER_INVALID',401);require("../recovery/peace.desktop-recovery").Assert(launcher,db);
  requireLauncherBeforeBegin(launcher);
  require("../security/peace.desktop-security-authority").RequireArtifact(db.artifacts[launcher.artifactId]);
  const handoffVersion=delegation.Version(db.artifacts[launcher.artifactId]);if((body.handoffVersion===undefined?1:body.handoffVersion)!==handoffVersion)Fail('BOOTSTRAP_HANDOFF_VERSION_MISMATCH',409);
@@ -429,7 +436,7 @@ function Initialize(){DB();Prune();if(!retirementTimer){retirementTimer=setInter
 // Stop the periodic authority sweeper before disposing an isolated DATA_DIR.
 function Stop(){if(retirementTimer){clearInterval(retirementTimer);retirementTimer=null;}require('./peace.keyless-bootstrap').Stop();require('../security/peace.server-policy-operations').Stop();return {stopped:true};}
 function Overview(){
- Prune();const db=DB();return {artifacts:{A:Artifact(db.artifacts[db.active.A]),B:Artifact(db.artifacts[db.active.B]),O:Artifact(db.artifacts[db.active.O])},launchers:Object.values(db.launchers).map(row=>({id:row.id,downloadName:LauncherName(row),label:row.label,issuedAt:row.issuedAt,expiresAt:row.expiresAt,status:row.status==='AVAILABLE'&&row.expiresAt<=now()?'EXPIRED':row.status,flowId:row.flowId||'',sha512:row.sha512,crc64:row.crc64})).sort((a,b)=>b.issuedAt-a.issuedAt),sessions:[...Object.values(db.flows).map(SessionView),...require("../overlay/peace.desktop-overlay").List()].sort((a,b)=>b.createdAt-a.createdAt),limits:{maxArtifactBytes:MAX_ARTIFACT_BYTES,chunkSize:CHUNK_SIZE,launcherLifetimeMs:LAUNCHER_MS,flowLifetimeMs:FLOW_MS,sessionLifetimeMs:SESSION_MS},serverTime:now()};
+ Prune();const db=DB();return {artifacts:{A:Artifact(db.artifacts[db.active.A]),B:Artifact(db.artifacts[db.active.B]),O:Artifact(db.artifacts[db.active.O])},launchers:Object.values(db.launchers).map(row=>({id:row.id,downloadName:LauncherName(row),label:row.label,issuedAt:row.issuedAt,expiresAt:row.expiresAt,finalIssuedSigning:LauncherSigningView(row),status:row.status==='AVAILABLE'&&row.expiresAt<=now()?'EXPIRED':row.status,flowId:row.flowId||'',sha512:row.sha512,crc64:row.crc64})).sort((a,b)=>b.issuedAt-a.issuedAt),sessions:[...Object.values(db.flows).map(SessionView),...require("../overlay/peace.desktop-overlay").List()].sort((a,b)=>b.createdAt-a.createdAt),limits:{maxArtifactBytes:MAX_ARTIFACT_BYTES,chunkSize:CHUNK_SIZE,launcherLifetimeMs:LAUNCHER_MS,flowLifetimeMs:FLOW_MS,sessionLifetimeMs:SESSION_MS},serverTime:now()};
 }
 function Execute(body){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');require("../protocol/peace.desktop-request-protocol").Resolve('bootstrap',body.action);if(['lifecycleChallenge','lifecycleReport'].includes(body.action)){DB();return require("../observability/peace.desktop-lifecycle-trace").Execute(body);}if(typeof body.action==='string'&&body.action.startsWith('overlay')){if(!['overlayClose','overlayAbort'].includes(body.action))Available();else DB();return require("../overlay/peace.desktop-overlay").Execute(body);}if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'keylessPolicy':case 'keylessChallenge':case 'keylessProve':case 'keylessStatus':case 'beginKeyless':return require('./peace.keyless-bootstrap').Execute(body,Begin);case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
 function ProofTasks(body){

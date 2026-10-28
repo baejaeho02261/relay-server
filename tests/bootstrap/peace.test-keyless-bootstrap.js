@@ -16,9 +16,11 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
   const evidence=require('../../services/artifacts/peace.desktop-packing-evidence'),keyless=require('../../services/bootstrap/peace.keyless-bootstrap');
   const identity=require('../../services/devices/peace.desktop-device-identity'),codec=require('../../services/bootstrap/peace.launcher-public-config');
   const delegation=require('../../services/bootstrap/peace.desktop-handoff-delegation');
+  const signing=require('../../services/bootstrap/peace.issued-a-signing'),issuer=crypto.generateKeyPairSync('rsa',{modulusLength:2048,publicExponent:65537});
+  process.env[signing.ENV]=Buffer.from(issuer.privateKey.export({type:'pkcs8',format:'pem'})).toString('base64');
   const outputs={},records=[],selected={},jobId=crypto.randomBytes(16).toString('hex');
   for(const role of ['A','B','O']){
-   const input=fixture.PE(role,'keyless-bootstrap '+delegation.MARKER),slot=policy.CreateUnsealedSlot(),bytes=Buffer.concat([input,slot]);
+   const original=fixture.PE(role,'keyless-bootstrap '+delegation.MARKER),input=role==='A'?require('../fixtures/bootstrap/peace.issued-a-fixture').WithAnchor(original,issuer.publicKey):original,slot=policy.CreateUnsealedSlot(),bytes=Buffer.concat([input,slot]);
    const pe=bytes.readUInt32LE(60),opt=pe+24,table=opt+bytes.readUInt16LE(pe+20),last=table+(bytes.readUInt16LE(pe+6)-1)*40,size=bytes.readUInt32LE(last+16)+slot.length;
    bytes.writeUInt32LE(size,last+8);bytes.writeUInt32LE(size,last+16);bytes.writeUInt32LE(Math.ceil((bytes.readUInt32LE(last+12)+size)/4096)*4096,opt+56);
    const source=boot.Publish(role,'93.0.0',bytes,undefined,{activate:false}),out=policy.BindTemplate(bytes,role);outputs[role]=out;
@@ -29,7 +31,7 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
   // Only the isolated protocol fixture selects these synthetic artifacts. This
   // is not PublishPair and creates no Windows/signature/release approval PASS.
   store.Atomic(db=>{for(const role of ['A','B','O'])db.active[role]=selected[role].id;});
-  function invite(){clock++;const request={requestId:crypto.randomUUID()},issue=boot.IssueLauncher(request,'KEYLESS_TEST'),bytes=boot.LauncherBytes(issue.launcherId),tail=keyless.FOOTER.length+4,n=bytes.readUInt32LE(bytes.length-tail),config=codec.Decode(bytes.subarray(bytes.length-tail-n,bytes.length-tail));return {request,issue,bytes,config};}
+  function invite(){clock++;const request={requestId:crypto.randomUUID()},issue=boot.IssueLauncher(request,'KEYLESS_TEST'),bytes=boot.LauncherBytes(issue.launcherId),config=signing.VerifyFinal(bytes,{expectedTemplateSha512:selected.A.sha512,expectedKeyId:signing.PublicIdentity(issuer.publicKey).keyId}).config;return {request,issue,bytes,config};}
   function challenge(inv=invite(),app=fixture.Device(),persistent=fixture.Device()){
    const p=boot.Execute({action:'keylessPolicy',version:1,launcherId:inv.issue.launcherId,machineId:app.machineId});
    const code=fixture.CodeImage(inv.bytes),body={action:'keylessChallenge',version:1,requestId:crypto.randomUUID(),launcherId:inv.issue.launcherId,launcherSha512:fixture.sha512(inv.bytes),launcherCrc64:fixture.Crc64(inv.bytes),aCodeSha512:code.sha512,aCodeCrc64:code.crc64,publicKey:app.publicKey,deviceId:app.deviceId,machineId:app.machineId,handoffVersion:3,persistentPublicKey:persistent.publicKey,persistentKeyId:persistent.deviceId,keyProvider:p.keyProvider,epoch:p.epoch,revision:p.revision};
@@ -39,11 +41,17 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
   const call=(s,action,extra={})=>boot.Execute({action,...s.proof,...extra});
   const approve=s=>keyless.Approve(s.c.challengeId,{identityConfirmed:true,launcherId:s.inv.issue.launcherId,persistentKeyId:s.persistent.deviceId},'ADMIN:KEYLESS_TEST');
   const expect=(fn,code)=>assert.throws(fn,{message:code});
+  await t.test('production preview checks actual A anchor and configured signer without issuing or bypassing approval',()=>{
+   const operations=require('../../services/security/peace.desktop-security-operations'),selection={aId:selected.A.id,bId:selected.B.id,oId:selected.O.id},before=Object.keys(store.Load().launchers).length;
+   let view=operations.PreviewProductionPair(selection);assert.equal(view.finalIssuedSigning.ready,true);assert.equal(view.finalIssuedSigning.authenticode,false);assert.equal(view.eligible,false);assert.equal(view.reasons.includes('COZY_SERVER_POLICY_FINAL_ISSUED_SIGNING_REQUIRED'),false);
+   const saved=process.env[signing.ENV];delete process.env[signing.ENV];try{view=operations.PreviewProductionPair(selection);assert.equal(view.finalIssuedSigning.ready,false);assert.ok(view.reasons.includes('ISSUED_A_SIGNING_KEY_NOT_CONFIGURED'));}finally{process.env[signing.ENV]=saved;}
+   assert.equal(Object.keys(store.Load().launchers).length,before);
+  });
   await t.test('issued V3 file has only public config, no ticket, config key or private policy bytes',()=>{
    const inv=invite(),row=store.Load().launchers[inv.issue.launcherId];
    assert.equal(row.configFormat,'COZY_A_CONFIG_V3');assert.equal(row.configNonce,undefined);assert.equal(inv.config.schema,3);
    assert.deepEqual(Object.keys(inv.config).sort(),['expiresAt','launcherId','profile','schema']);
-   assert.equal(inv.bytes.subarray(-keyless.FOOTER.length).equals(keyless.FOOTER),true);
+   assert.equal(inv.bytes.subarray(-signing.FOOTER.length).equals(signing.FOOTER),true);
    assert.deepEqual(boot.LauncherBytes(inv.issue.launcherId),inv.bytes);assert.equal(boot.IssueLauncher(inv.request,'KEYLESS_TEST').launcherId,inv.issue.launcherId);
    assert.equal(inv.bytes.includes(Buffer.from('launcherTicket')),false);
    for(const output of Object.values(outputs))assert.equal(inv.bytes.includes(Buffer.from(output.serverPolicy.programBase64,'base64')),false);

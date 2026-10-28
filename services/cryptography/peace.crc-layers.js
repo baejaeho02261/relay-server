@@ -63,6 +63,29 @@ function codePageManifest(code){
  }
  if(at!==code.length)bad();const head=Buffer.alloc(PAGE_PREFIX.length+8);PAGE_PREFIX.copy(head);head.writeUInt32LE(4096,PAGE_PREFIX.length);head.writeUInt32LE(entries.length,PAGE_PREFIX.length+4);return Buffer.concat([head,...entries]);
 }
+// Diagnostic companion to the unchanged CRC-LAYERS-V1 contract. It hashes
+// actual normalized bytes with RVA/length; it never promotes a CRC to identity.
+function codePageSha512Manifest(code){
+ requireBytes(code);code=Buffer.from(code.buffer,code.byteOffset,code.byteLength);
+ const bad=()=>{throw Error('CODE_PAGE_SHA512_FRAME_INVALID');};
+ const prefix=Buffer.from('COZY-CODE-PAGES-SHA512-V1\0','ascii');
+ const domain=Buffer.from('COZY-CODE-PAGE-SHA512-V1\0','ascii');
+ if(code.length<CODE_PREFIX.length+4||code.length>256*1024*1024+4096||!code.subarray(0,CODE_PREFIX.length).equals(CODE_PREFIX))bad();
+ let at=CODE_PREFIX.length;const count=code.readUInt32LE(at);at+=4;if(count<1||count>96)bad();
+ const out=Buffer.alloc(prefix.length+8+(Math.floor(code.length/4096)+count*2+1)*72);
+ prefix.copy(out);out.writeUInt32LE(4096,prefix.length);
+ let cursor=prefix.length+8,pages=0,lastEnd=0;
+ for(let i=0;i<count;i++){
+  if(at+8>code.length)bad();let rva=code.readUInt32LE(at),span=code.readUInt32LE(at+4);at+=8;
+  if(!span||at+span>code.length||rva+span>0xffffffff||rva<lastEnd)bad();lastEnd=rva+span;
+  while(span){
+   const size=Math.min(span,4096-(rva&4095));out.writeUInt32LE(rva,cursor);out.writeUInt32LE(size,cursor+4);
+   crypto.createHash('sha512').update(domain).update(out.subarray(cursor,cursor+8)).update(code.subarray(at,at+size)).digest().copy(out,cursor+8);
+   cursor+=72;pages++;at+=size;rva+=size;span-=size;
+  }
+ }
+ if(at!==code.length)bad();out.writeUInt32LE(pages,prefix.length+4);return out.subarray(0,cursor);
+}
 function layoutState(codeBytes,headerBytes,exportBytes){const out=Buffer.alloc(25);out[0]=1;for(const [i,n] of [codeBytes,headerBytes,exportBytes].entries()){if(!Number.isSafeInteger(n)||n<0)throw RangeError('CRC_LENGTH_INVALID');out.writeBigUInt64LE(BigInt(n),1+i*8);}return out;}
 // The exact fields retained by cozy.SelfImageHeaders, with explicit offset and
 // size framing. The loader's resolved IAT and ASLR ImageBase are excluded.
@@ -171,4 +194,4 @@ function measureCrcLayers({code,headers,exports:exportStream=Buffer.alloc(0),che
   crc8_smbus:measured('crc8_smbus','layout-state',layoutState(code.length,headers.length,exportStream.length))
  };
 }
-module.exports={registry,CrcStream,crcHex,tableBytes,allTableBytes,parameterBytes,codePageManifest,layoutState,headerMetadata,measureCrcLayers,checkerPlan,checkerStreams};
+module.exports={registry,CrcStream,crcHex,tableBytes,allTableBytes,parameterBytes,codePageManifest,codePageSha512Manifest,layoutState,headerMetadata,measureCrcLayers,checkerPlan,checkerStreams};

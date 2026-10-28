@@ -224,15 +224,20 @@ function PreviewPair(body, production = false) {
   const release=ReleaseView(a,b,o,s);if(release.reason)reasons.push(release.reason);
   const keyless=selectedRows.some(row=>row.ownProtection?.engine==='COZY_SERVER_POLICY_V2');
   if(keyless&&(p.mode!=='enforce'||!p.requireReadonlyApi||!p.requireCompleteCrcLayers||!p.requireReleaseSignature))reasons.push('COZY_SERVER_POLICY_ENFORCED_POLICY_REQUIRED');
-  // V3 issuance appends public bootstrap bytes after the template. Until the
-  // final issued A is independently signed (or issuance uses a fixed signed
-  // launcher), template signatures cannot approve those bytes.
-  if(production&&keyless)reasons.push('COZY_SERVER_POLICY_FINAL_ISSUED_SIGNING_REQUIRED');
+  // Read the selected approved A again and prove that its immutable public
+  // anchor matches the configured dedicated signer. Issuance later signs and
+  // verifies the exact personalized bytes before committing the final hash.
+  let finalIssuedSigning=null;
+  if(keyless){
+    try{const bytes=require('../bootstrap/peace.desktop-bootstrap').ReadArtifactBytes(a);try{finalIssuedSigning=require('../bootstrap/peace.issued-a-signing').Readiness(bytes);}finally{bytes.fill(0);}}
+    catch(error){finalIssuedSigning={ready:false,reason:error.desktopError?error.message:'ISSUED_A_TEMPLATE_INVALID',scope:'APPLICATION_SIGNATURE',authenticode:false};}
+    if(production&&!finalIssuedSigning.ready)reasons.push(finalIssuedSigning.reason);
+  }
   if(production&&selectedRows.some(row=>row.ownProtection?.engine==='COZY_VM_V1'))reasons.push('COZY_VM_V1_EMBEDDED_KEY_RETIRED');
   const publicationSafety=production?require("../artifacts/peace.desktop-release-safety").EvaluateCohort(store.Load(),[a,b,o],release.manifestId,{sameActive:true}):null;
   if(publicationSafety&&!publicationSafety.eligible)reasons.push(publicationSafety.reason);
   if(s.requireTestEvidence&&(!e||['nativeBuild','apiProbe','integration'].some(k=>e[k]!=='PASS'))) reasons.push('SECURITY_TEST_EVIDENCE_REQUIRED');
-  return {aId:a.id,bId:b.id,oId:o?.id||'',aSha512:a.sha512,bSha512:b.sha512,oSha512:o?.sha512||'',eligible:!reasons.length,reasons,policyRevision:p.revision,operationsRevision:s.revision,testEvidence:e,release,publicationSafety,packing,hardwareAttested:false};
+  return {aId:a.id,bId:b.id,oId:o?.id||'',aSha512:a.sha512,bSha512:b.sha512,oSha512:o?.sha512||'',eligible:!reasons.length,reasons,policyRevision:p.revision,operationsRevision:s.revision,testEvidence:e,release,publicationSafety,packing,finalIssuedSigning,hardwareAttested:false};
 }
 function ActivatePair(body,actor,recoveryId='',production=false) {
   Fields(body,['expectedRevision','expectedPolicyRevision','aId','bId','oId'],['expectedRevision','expectedPolicyRevision','aId','bId']);CheckRevision(body,true);

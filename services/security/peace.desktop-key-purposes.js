@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypt
 const config=require("../../config/peace.runtime-configuration");
 const FILE=path.join(config.DATA_DIR,'desktop-key-purposes.json');
 const MARKER=path.join(config.DATA_DIR,'desktop-key-purposes.initialized');
-const PURPOSES=['RELEASE_APPROVAL','SERVER_TRANSPORT','SERVER_TLS'];
+const PURPOSES=['RELEASE_APPROVAL','SERVER_TRANSPORT','SERVER_TLS','ISSUED_LAUNCHER'];
 let poisoned=false;
 function Fail(code){const e=Error(code);e.desktopError=true;e.status=409;throw e;}
 function Fingerprint(publicKey){let key;try{key=publicKey?.type==='public'?publicKey:crypto.createPublicKey(publicKey);}catch(_){Fail('SECURITY_KEY_PURPOSE_INVALID');}return crypto.createHash('sha512').update(key.export({type:'spki',format:'der'})).digest('hex');}

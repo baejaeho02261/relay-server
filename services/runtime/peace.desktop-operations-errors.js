@@ -1,6 +1,18 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ ISSUED_A_TEMPLATE_TOO_LARGE:['최종 A 파일 크기 한도를 초과합니다.','최종 파일은 64MiB 이하로 제한됩니다.','발급 설정·서명 공간 8,645바이트를 남긴 A를 다시 빌드하세요.','deploy'],
+ ISSUED_A_BUILD_UPGRADE_REQUIRED:['선택한 A에 최종 발급 서명 검증기가 없습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','공개 검증 키를 포함한 최신 A로 다시 빌드·승인·명세 등록하세요.','deploy'],
+ ISSUED_A_SIGNING_KEY_NOT_CONFIGURED:['서버의 최종 A 발급 서명 키가 설정되지 않았습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','전용 개인키를 서버 변수에 설정하세요. 개인키를 소스나 웹 파일 업로드에 넣지 마세요.','deploy'],
+ ISSUED_A_SIGNING_KEY_INVALID:['서버 발급 서명 키 형식이 올바르지 않습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','전용 RSA 2048 · 지수 65537 개인키의 PKCS8 PEM을 Base64로 서버 변수에 설정하세요.','deploy'],
+ ISSUED_A_SIGNING_KEY_MISMATCH:['A의 공개 검증 키와 서버 발급 서명 키가 다릅니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','의도한 서버 키의 공개 검증 키를 포함해 A를 다시 빌드하고 새 최종 명세로 등록하세요.','deploy'],
+ ISSUED_A_SIGNATURE_REQUIRED:['이 A 발급 기록에는 최종 파일 서명이 없습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','최신 서명 검증 A를 게시한 뒤 새 A를 발급하세요. 이전 사용 이력은 유지됩니다.','deploy'],
+ ISSUED_A_SIGNATURE_INVALID:['최종 A 파일과 발급 설정의 서명을 확인하지 못했습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','파일을 배포하지 않았습니다. 서버 키와 승인된 원본 A를 확인한 뒤 새로 발급하세요.','deploy'],
+ ISSUED_A_RECEIPT_INVALID:['저장된 A 발급 서명 기록이 최종 파일과 일치하지 않습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','서버 저장 상태와 승인된 A를 확인하세요. 기존 기록을 임의로 수정하지 마세요.','deploy'],
+ ISSUED_A_TRUST_ANCHOR_AMBIGUOUS:['A에서 공개 검증 키를 하나로 확정하지 못했습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','최신 전체 소스로 A를 다시 빌드·승인해 등록하세요.','deploy'],
+ ISSUED_A_SERVER_POLICY_REQUIRED:['새 서명 검증 A에는 서버 정책 연결이 필요합니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','동일 작업의 A/B/O에 서버 정책을 연결하고 최종 후보를 함께 등록하세요.','deploy'],
+ ISSUED_A_TEMPLATE_INVALID:['발급 A 원본의 읽기 전용 검증 키 범위를 확인하지 못했습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','최신 정상 A를 다시 빌드·승인해 등록하세요.','deploy'],
+ ISSUED_A_SIGNING_UNAVAILABLE:['최종 A 서명 준비 상태를 확인하지 못했습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','서버 키 설정과 승인된 A를 확인한 뒤 다시 조합 검증하세요.','deploy'],
  COZY_VM_V1_EMBEDDED_KEY_RETIRED:['내장 키를 사용하는 기존 VM v1의 새 발급·게시가 중단됐습니다.','기존에 다운로드한 파일의 키가 제거된 것은 아닙니다.','최신 V2 소스로 A/B/O를 다시 빌드하고 Windows 실행·최종 서명 검증을 준비하세요.','deploy'],
  COZY_SERVER_POLICY_SLOT_MISSING:['새 서버 정책 슬롯이 없는 템플릿입니다.','이 파일을 새 형식으로 변환하지 않았습니다.','최신 전체 소스의 A/B/O를 Win64 Release로 다시 빌드하세요.','deploy'],
  COZY_SERVER_POLICY_LEGACY_FORMAT_REJECTED:['기존 VM 슬롯이 포함된 파일입니다.','기존 내장 키를 유지하는 변환을 거부했습니다.','최신 V2 소스에서 새 원본 A/B/O를 빌드하세요.','deploy'],

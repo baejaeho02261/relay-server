@@ -128,7 +128,11 @@
     "security:client-secrets": "node tools/security/peace.audit-client-secrets.js",
     "test:server-keyless": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js tests/security/peace.test-server-policy-registry.js tests/runtime/peace.test-server-policy-worker.js tests/runtime/peace.test-worker-result-ownership.js",
     "test:server-operations": "node --test tests/security/peace.test-server-policy-operations.js tests/integrity/peace.test-owned-pointer-graph.js tests/integrity/peace.test-authority-measurement-security.js",
-    "test:profile:fixture": "node tests/fixtures/build/peace.test-profile-fixture.js"
+    "test:profile:fixture": "node tests/fixtures/build/peace.test-profile-fixture.js",
+    "test:integrity:priorities": "node --test tests/cryptography/peace.test-code-page-sha512.js tests/integrity/peace.test-pointer-graph-lifecycle.js",
+    "test:relay:socket": "node --test tests/network/peace.test-native-socket-priorities.js",
+    "test:issued-a": "node --test tests/bootstrap/peace.test-issued-a-signing.js tests/bootstrap/peace.test-issued-a-native-contract.js",
+    "test:relay:socket:windows": "node tools/network/peace.native-socket-tests.js"
   },
   "engines": {
     "node": "24.22.1"

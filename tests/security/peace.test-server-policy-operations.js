@@ -6,7 +6,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),crypto=requ
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {performance}=require('node:perf_hooks');
 test('private server operations remain bound to authenticated A/B/O and exact inputs',{timeout:90000},async t=>{
- const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-private-operation-')),oldLog=console.log,realNow=Date.now;
+ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-private-operation-')),oldLog=console.log,realNow=Date.now,oldIssuer=process.env.DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64;
  let boot,listener,queues; console.log=()=>{};
  Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'sqlite',HA_ENABLED:'0',DESKTOP_PUBLIC_HOST:'127.0.0.1'});
  try{
@@ -23,9 +23,11 @@ test('private server operations remain bound to authenticated A/B/O and exact in
   const authority=require('../../services/security/peace.desktop-security-authority'),rpc=require('../../services/security/peace.server-policy-operations');
   const proof=require('../../services/integrity/peace.desktop-proof-work'),licenses=require('../../services/licensing/peace.desktop-licenses');
   const reports=require('../../services/integrity/peace.desktop-integrity-reports');
+  const signing=require('../../services/bootstrap/peace.issued-a-signing'),issuer=crypto.generateKeyPairSync('rsa',{modulusLength:2048,publicExponent:65537});
+  process.env[signing.ENV]=Buffer.from(issuer.privateKey.export({type:'pkcs8',format:'pem'})).toString('base64');
   const outputs={},records=[],selected={},jobId=crypto.randomBytes(16).toString('hex');
   for(const role of ['A','B','O']){
-   const input=f.PE(role,'private operation '+delegation.MARKER),slot=policy.CreateUnsealedSlot(),bytes=Buffer.concat([input,slot]);
+   const original=f.PE(role,'private operation '+delegation.MARKER),input=role==='A'?require('../fixtures/bootstrap/peace.issued-a-fixture').WithAnchor(original,issuer.publicKey):original,slot=policy.CreateUnsealedSlot(),bytes=Buffer.concat([input,slot]);
    const pe=bytes.readUInt32LE(60),opt=pe+24,table=opt+bytes.readUInt16LE(pe+20),last=table+(bytes.readUInt16LE(pe+6)-1)*40,size=bytes.readUInt32LE(last+16)+slot.length;
    bytes.writeUInt32LE(size,last+8);bytes.writeUInt32LE(size,last+16);bytes.writeUInt32LE(Math.ceil((bytes.readUInt32LE(last+12)+size)/4096)*4096,opt+56);
    const source=boot.Publish(role,'94.0.0',bytes,undefined,{activate:false});
@@ -39,6 +41,7 @@ test('private server operations remain bound to authenticated A/B/O and exact in
   store.Atomic(db=>{for(const role of ['A','B','O'])db.active[role]=selected[role].id;});
   const a=f.Device(),b=f.Device(),o=f.Device(),persistent=f.Device();b.machineId=a.machineId;o.machineId=a.machineId;
   const issued=boot.IssueLauncher({requestId:crypto.randomUUID()},'ISOLATED_OPERATION_TEST'),abytes=boot.LauncherBytes(issued.launcherId),code=f.CodeImage(abytes);
+  const authenticated=signing.VerifyFinal(abytes,{expectedTemplateSha512:selected.A.sha512,expectedKeyId:signing.PublicIdentity(issuer.publicKey).keyId});assert.equal(authenticated.config.launcherId,issued.launcherId);assert.equal(authenticated.sha512,store.Load().launchers[issued.launcherId].sha512);
   const kp=boot.Execute({action:'keylessPolicy',version:1,launcherId:issued.launcherId,machineId:a.machineId});
   const kc=boot.Execute({action:'keylessChallenge',version:1,requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherSha512:f.sha512(abytes),launcherCrc64:f.Crc64(abytes),aCodeSha512:code.sha512,aCodeCrc64:code.crc64,publicKey:a.publicKey,deviceId:a.deviceId,machineId:a.machineId,handoffVersion:3,persistentPublicKey:persistent.publicKey,persistentKeyId:persistent.deviceId,keyProvider:kp.keyProvider,epoch:kp.epoch,revision:kp.revision});
   const kproof={version:1,challengeId:kc.challengeId,appSignature:f.Sign(a,kc.canonical),persistentSignature:f.Sign(persistent,kc.canonical)};
@@ -146,7 +149,7 @@ test('private server operations remain bound to authenticated A/B/O and exact in
    fail(()=>rpc.Execute(input),/BOOTSTRAP_REVOKED|BOOTSTRAP_SESSION/);
   });
  }finally{
-  Date.now=realNow;console.log=oldLog;boot?.Stop();
+  Date.now=realNow;console.log=oldLog;boot?.Stop();if(oldIssuer===undefined)delete process.env.DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64;else process.env.DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64=oldIssuer;
   if(listener)await new Promise(resolve=>listener.close(resolve));
   if(queues)await Promise.all(['auth','proof','renewalProof','pe','tpmAttestation'].map(k=>queues[k].close()));
   require('../../services/observability/peace.desktop-performance-metrics').Close();require('../../storage/sqlite/peace.sqlite-database').Close();

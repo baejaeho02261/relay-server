@@ -28,7 +28,7 @@ function Layout(bytes,role){
 function Unsigned(bytes,role){
  const meta=Layout(bytes,role);
  if(meta.certificateAt||meta.certificateSize)Fail('UNSIGNED_INPUT_REQUIRED');
- if(role==='A'&&['GAMEA80CONFIG!','COZYA2CONFIG!','COZYA3CONFIG!'].some(x=>bytes.subarray(-x.length).equals(Buffer.from(x))))Fail('ISSUED_LAUNCHER_NOT_TEMPLATE');
+ if(role==='A'&&['GAMEA80CONFIG!','COZYA2CONFIG!','COZYA3CONFIG!','COZYA4SIGNED!'].some(x=>bytes.subarray(-x.length).equals(Buffer.from(x))))Fail('ISSUED_LAUNCHER_NOT_TEMPLATE');
  return meta;
 }
 function Inspect(file,role){let bytes;try{bytes=Read(file);const m=Unsigned(bytes,role);return {version:1,role,sha512:m.sha512,size:m.size,clientSecretScan:'PASS',guaranteesAbsenceOfSecrets:false,executed:false};}finally{bytes?.fill(0);}}
