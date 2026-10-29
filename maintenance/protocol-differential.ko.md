@@ -1,6 +1,6 @@
 # 실제 Delphi JSON 파서 차등 검사
 
-개발용 합성 입력을 실제 `Cozy.ProtocolJson.pas`와 서버의 `peace.strict-json` 파서에 함께 넣습니다. 명령 봉투 입력은 공통 패킷 규격 검증도 함께 비교합니다. A/B/O 운영 프로그램에 시험 출력·임의 입력 엔진을 넣지 않습니다.
+개발용 합성 입력을 실제 `Cozy.ProtocolJson.pas`와 서버의 `peace.strict-json` 파서에 함께 넣습니다. 명령 봉투 입력과 O 응답·서버 관측 문서는 공통 패킷 규격 검증도 함께 비교합니다. A/B/O 운영 프로그램에 시험 출력·임의 입력 엔진을 넣지 않습니다.
 
 ## 1. IDE에서 시험 EXE 빌드
 
@@ -37,3 +37,5 @@ node "cozy-peace\Relay Server\tools\security\peace.native-json-differential.js" 
 ```
 
 실제 운영 입력에는 토큰이 포함될 수 있으므로 이 도구에는 제공된 합성 코퍼스와 개발용 재현 입력만 넣으세요. 생성한 보고서는 공개 저장소·배포 파일에 자동 업로드하지 않습니다.
+
+문서 모드(프레임 모드 2)는 `{name,value}` 합성 입력으로 `ValidateProtocolDocument`를 실행합니다. 12개 응답·관측 문서의 정상 형식과 잘못된 역할 필드·추가 필드·null 치환을 기본 코퍼스에 포함합니다. 이 모드를 사용하려면 최신 `Cozy.ProtocolJsonDifferentialProbe.dproj`를 다시 빌드하세요.

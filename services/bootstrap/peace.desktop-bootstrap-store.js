@@ -55,6 +55,7 @@ function Load(){
   if(value.serverAuditOutbox!==undefined)require("../storage/peace.desktop-operation-audit").Validate(value.serverAuditOutbox);
   if(value.deviceRegistry!==undefined)require("../devices/peace.desktop-device-registry").Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require("../devices/peace.desktop-device-identity").Validate(value.deviceIdentity);
+  if(value.members!==undefined)require("../members/peace.desktop-members").Validate(value.members);
   if(value.serverPolicies!==undefined)require('../security/peace.server-policy-registry').ValidateStore(value);
   if(value.orphanQuarantine!==undefined)require("../storage/peace.desktop-orphan-files").Validate(value.orphanQuarantine);
   if(value.manualVerifications!==undefined)require("../runtime/peace.desktop-manual-verification").Validate(value.manualVerifications);
@@ -99,6 +100,7 @@ function Load(){
   for(const [id,row]of Object.entries(value.launchers)){
    if(!Identifier(id,'LA')||!Plain(row)||row.id!==id||!['AVAILABLE','CONSUMED','REVOKED','EXPIRED'].includes(row.status)||!StrongDigest(row.sha512)||!Digest(row.ticketHash)||!Time(row.issuedAt)||!Time(row.expiresAt)||row.expiresAt<=row.issuedAt||value.artifacts[row.artifactId]?.component!=='A'||typeof row.label!=='string'||row.label.length>120)Invalid();
    if(row.assignedLicenseId!==undefined&&!Identifier(row.assignedLicenseId,'DL'))Invalid();
+   if(row.keylessApprovalVersion!==undefined&&(row.keylessApprovalVersion!==1||row.configFormat!=='COZY_A_CONFIG_V3'||row.status==='AVAILABLE'||!value.flows[row.flowId]?.keylessApproval))Invalid();
    const own=value.artifacts[row.artifactId].ownProtection;
    if(row.configFormat==='COZY_A_CONFIG_V3'){if(own?.engine!=='COZY_SERVER_POLICY_V2'||own.state!=='BOUND'||own.role!=='A'||row.configNonce!==undefined)Invalid();}
    else if(row.configFormat!==undefined){if(row.configFormat!=='COZY_A_CONFIG_V2'||own?.state!=='SEALED'||own.role!=='A'||(row.retiredAt===undefined?typeof row.configNonce!=='string'||!/^[a-f0-9]{24}$/.test(row.configNonce):row.configNonce!==undefined))Invalid();}
@@ -114,6 +116,8 @@ function Load(){
   }
   const sessionIds=new Set();
   for(const [id,row]of Object.entries(value.flows)){
+   const approvedLauncher=value.launchers[row.launcherId];
+   if(row.keylessApproval!==undefined||approvedLauncher?.keylessApprovalVersion!==undefined){try{require('./peace.keyless-approval-receipt').Validate(row.keylessApproval,row,approvedLauncher);}catch(_){Invalid();}}
    if(value.launchers[row.launcherId]?.configFormat==='COZY_A_CONFIG_V3'){if(typeof row.keylessPersistentKeyId!=='string'||!/^[A-F0-9]{64}$/.test(row.keylessPersistentKeyId))Invalid();}else if(row.keylessPersistentKeyId!==undefined)Invalid();
    if(!Identifier(id,'BF')||!Plain(row)||row.id!==id||!['STARTED','DOWNLOADED','CLAIMED','CLOSED','REVOKED','EXPIRED'].includes(row.status)||!Identifier(row.sessionId,'DS')||sessionIds.has(row.sessionId)||!/^[A-F0-9]{64}$/.test(row.deviceId)||typeof row.publicKey!=='string'||row.publicKey.length>500||crypto.createHash('sha256').update(Buffer.from(row.publicKey,'base64')).digest('hex').toUpperCase()!==row.deviceId||!Time(row.createdAt)||!Time(row.expiresAt)||row.expiresAt<=row.createdAt||!Digest(row.beginFingerprint)||!StrongDigest(row.launcherSha512)||!Digest(row.downloadHash)||value.launchers[row.launcherId]?.flowId!==id||value.artifacts[row.releaseId]?.component!=='B')Invalid();
    try{require('./peace.desktop-handoff-delegation').ValidateIdentity(row);}catch(_){Invalid();}

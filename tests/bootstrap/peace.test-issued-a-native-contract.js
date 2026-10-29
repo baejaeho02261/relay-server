@@ -32,7 +32,10 @@ test('Native verification occurs before endpoint parsing and has no unsigned fal
  assert.match(launcher,/if Result\.ExpiresAt <= BootstrapUTCNowMS then Fail/);assert.doesNotMatch(launcher,/ConfigMarker: AnsiString = 'COZYA3CONFIG!'/);
  assert.match(unit,/VerifyHeader\(Header, Signature, Anchor\)/);assert.match(unit,/TemplateHash := HashExtent\(Stream, TemplateBytes, Started\)/);assert.match(unit,/SameBytes\(TemplateHash, 0, Header, 56, 64\)/);assert.match(unit,/SameBytes\(ConfigHash, 0, Header, 120, 64\)/);
  assert.ok(unit.indexOf('VerifyHeader(Header, Signature, Anchor);')<unit.indexOf('Result := Config;'));
- assert.match(unit,/Move\(CozyIssuedATrustAnchor\[0\], Anchor\[0\], Length\(Anchor\)\)/);
+ assert.match(unit,/TResourceStream\.CreateFromID\(HInstance, IssuedTrustResourceID, RT_RCDATA\)/);
+ assert.match(unit,/if Trust\.Size <> IssuedAnchorBytes then Invalid/);
+ assert.match(unit,/Trust\.ReadBuffer\(Anchor\[0\], Length\(Anchor\)\)/);
+ assert.doesNotMatch(unit,/CozyIssuedATrustAnchor|\{\$I [^}]*Cozy\.IssuedA\.Trust\.inc\}/);
  assert.match(unit,/SameBytes\(KeyID, 0, Anchor, 16, 32\)/);assert.match(unit,/SameBytes\(KeyID, 0, Header, 24, 32\)/);
  assert.doesNotMatch(unit,/CreatePrivateKey|NCryptSignHash|private.*pem/i);
 });

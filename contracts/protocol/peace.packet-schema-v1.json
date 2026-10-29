@@ -123,6 +123,2540 @@
         "minimum": -2147483648,
         "maximum": 2147483647
       }
+    },
+    "responseToken": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000-\\u0020\\u007f]+$"
+    },
+    "responseVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "overlayRelease": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "id24"
+        },
+        "version": {
+          "$ref": "responseVersion"
+        },
+        "hashVersion": {
+          "enum": [
+            3
+          ]
+        },
+        "sha512": {
+          "$ref": "hash"
+        },
+        "crc64": {
+          "$ref": "crc"
+        },
+        "xxh3_128": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 32,
+          "pattern": "^(?:[a-f0-9]{32})$"
+        },
+        "blake3": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^(?:[a-f0-9]{64})$"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "codeSha512": {
+          "$ref": "hash"
+        },
+        "codeCrc64": {
+          "$ref": "crc"
+        },
+        "codeXxh3_128": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 32,
+          "pattern": "^(?:[a-f0-9]{32})$"
+        },
+        "codeBlake3": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^(?:[a-f0-9]{64})$"
+        },
+        "codeAlgorithm": {
+          "enum": [
+            "PE64-CODE-V1"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "hashVersion",
+        "sha512",
+        "crc64",
+        "xxh3_128",
+        "blake3",
+        "size",
+        "codeSha512",
+        "codeCrc64",
+        "codeXxh3_128",
+        "codeBlake3",
+        "codeAlgorithm"
+      ],
+      "additionalProperties": false
+    },
+    "overlayPrepare": {
+      "type": "object",
+      "properties": {
+        "overlayId": {
+          "$ref": "id24"
+        },
+        "parentSessionId": {
+          "$ref": "id24"
+        },
+        "overlayTicket": {
+          "$ref": "responseToken"
+        },
+        "release": {
+          "$ref": "overlayRelease"
+        },
+        "chunkSize": {
+          "enum": [
+            262144
+          ]
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "finishCanonical": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "claimCanonical": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "overlayId",
+        "parentSessionId",
+        "overlayTicket",
+        "release",
+        "chunkSize",
+        "expiresAt",
+        "finishCanonical",
+        "claimCanonical"
+      ],
+      "additionalProperties": false
+    },
+    "overlayChunk": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108863
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 262144
+        },
+        "data": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 349528,
+          "pattern": "^[A-Za-z0-9+/]*={0,2}$"
+        }
+      },
+      "required": [
+        "offset",
+        "size",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "overlayFinish": {
+      "type": "object",
+      "properties": {
+        "overlayId": {
+          "$ref": "id24"
+        },
+        "overlayTicket": {
+          "$ref": "responseToken"
+        },
+        "claimCanonical": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "overlayId",
+        "overlayTicket",
+        "claimCanonical",
+        "expiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "overlayClaim": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "id24"
+        },
+        "sessionToken": {
+          "$ref": "responseToken"
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "release": {
+          "$ref": "overlayRelease"
+        }
+      },
+      "required": [
+        "sessionId",
+        "sessionToken",
+        "expiresAt",
+        "release"
+      ],
+      "additionalProperties": false
+    },
+    "overlayRenewalBudget": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "enum": [
+            1
+          ]
+        },
+        "snapshotExpiresAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "observationExpiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "version",
+        "snapshotExpiresAt",
+        "observationExpiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "overlayVerify": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "ACTIVE"
+          ]
+        },
+        "leaseExpiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "serverTime": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "handoffVersion": {
+          "enum": [
+            1
+          ]
+        },
+        "transferConfirmed": {
+          "enum": [
+            true,
+            false
+          ]
+        },
+        "parentSessionId": {
+          "$ref": "id24"
+        },
+        "capturePrivacy": {
+          "enum": [
+            true,
+            false
+          ]
+        },
+        "renewalBudget": {
+          "$ref": "overlayRenewalBudget"
+        }
+      },
+      "required": [
+        "status",
+        "leaseExpiresAt",
+        "serverTime",
+        "expiresAt",
+        "handoffVersion",
+        "transferConfirmed",
+        "parentSessionId"
+      ],
+      "additionalProperties": false
+    },
+    "overlayCommit": {
+      "type": "object",
+      "properties": {
+        "handoffVersion": {
+          "enum": [
+            1
+          ]
+        },
+        "status": {
+          "enum": [
+            "TRANSFERRED"
+          ]
+        },
+        "parentSessionId": {
+          "$ref": "id24"
+        },
+        "overlayId": {
+          "$ref": "id24"
+        },
+        "overlaySessionId": {
+          "$ref": "id24"
+        }
+      },
+      "required": [
+        "handoffVersion",
+        "status",
+        "parentSessionId",
+        "overlayId",
+        "overlaySessionId"
+      ],
+      "additionalProperties": false
+    },
+    "overlayAbort": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "handoffVersion": {
+              "enum": [
+                3
+              ]
+            },
+            "parentSessionId": {
+              "$ref": "id24"
+            },
+            "overlayId": {
+              "enum": [
+                ""
+              ]
+            },
+            "status": {
+              "enum": [
+                "NOT_PREPARED"
+              ]
+            }
+          },
+          "required": [
+            "handoffVersion",
+            "parentSessionId",
+            "overlayId",
+            "status"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "handoffVersion": {
+              "enum": [
+                3
+              ]
+            },
+            "parentSessionId": {
+              "$ref": "id24"
+            },
+            "overlayId": {
+              "$ref": "id24"
+            },
+            "status": {
+              "enum": [
+                "CLOSED",
+                "REVOKED",
+                "EXPIRED",
+                "TRANSFERRED"
+              ]
+            }
+          },
+          "required": [
+            "handoffVersion",
+            "parentSessionId",
+            "overlayId",
+            "status"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "overlayClose": {
+      "type": "object",
+      "properties": {
+        "sessionId": {
+          "$ref": "id24"
+        },
+        "status": {
+          "enum": [
+            "CLOSED",
+            "REVOKED",
+            "EXPIRED"
+          ]
+        }
+      },
+      "required": [
+        "sessionId",
+        "status"
+      ],
+      "additionalProperties": false
+    },
+    "mitigationProfile": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "enum": [
+            1
+          ]
+        },
+        "id": {
+          "$ref": "hash"
+        },
+        "dynamicCode": {
+          "enum": [
+            "observe",
+            "prohibit"
+          ]
+        },
+        "strictHandles": {
+          "enum": [
+            true,
+            false
+          ]
+        },
+        "imageLoadMask": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7
+        },
+        "requireCfg": {
+          "enum": [
+            true,
+            false
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "id",
+        "dynamicCode",
+        "strictHandles",
+        "imageLoadMask",
+        "requireCfg"
+      ],
+      "additionalProperties": false
+    },
+    "authorityChallenge": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "enum": [
+            1
+          ]
+        },
+        "challengeId": {
+          "$ref": "challenge"
+        },
+        "nonce": {
+          "$ref": "challenge"
+        },
+        "epoch": {
+          "$ref": "challenge"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "dynamicCode": {
+          "enum": [
+            "observe",
+            "prohibit"
+          ]
+        },
+        "mitigationProfile": {
+          "$ref": "mitigationProfile"
+        },
+        "deviceSignalsRequested": {
+          "enum": [
+            true,
+            false
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "challengeId",
+        "nonce",
+        "epoch",
+        "sequence",
+        "revision",
+        "expiresAt",
+        "dynamicCode"
+      ],
+      "additionalProperties": false
+    },
+    "pointerGraphObservation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "scope": {
+              "enum": [
+                "SEALED_API_ARENA"
+              ]
+            },
+            "status": {
+              "enum": [
+                "FAILED"
+              ]
+            },
+            "slots": {
+              "enum": [
+                0
+              ]
+            },
+            "nodes": {
+              "enum": [
+                0
+              ]
+            },
+            "edges": {
+              "enum": [
+                0
+              ]
+            },
+            "depth": {
+              "enum": [
+                0
+              ]
+            },
+            "sha512": {
+              "enum": [
+                ""
+              ]
+            },
+            "crc64": {
+              "enum": [
+                ""
+              ]
+            }
+          },
+          "required": [
+            "version",
+            "scope",
+            "status",
+            "slots",
+            "nodes",
+            "edges",
+            "depth",
+            "sha512",
+            "crc64"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "scope": {
+              "enum": [
+                "SEALED_API_ARENA"
+              ]
+            },
+            "status": {
+              "enum": [
+                "MEASURED"
+              ]
+            },
+            "slots": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "nodes": {
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 3073
+            },
+            "edges": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 3072
+            },
+            "depth": {
+              "enum": [
+                3
+              ]
+            },
+            "sha512": {
+              "$ref": "hash"
+            },
+            "crc64": {
+              "$ref": "crc"
+            }
+          },
+          "required": [
+            "version",
+            "scope",
+            "status",
+            "slots",
+            "nodes",
+            "edges",
+            "depth",
+            "sha512",
+            "crc64"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ownMeasurement": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "enum": [
+                "GAME-OWN-MEASUREMENT-BUNDLE-V1"
+              ]
+            },
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "startedTick": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "finishedTick": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "coverage": {
+              "enum": [
+                "FULL",
+                "PARTIAL"
+              ]
+            },
+            "fileStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "codeStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "crcStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "imageStable": {
+              "enum": [
+                true,
+                false
+              ]
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "startedTick",
+            "finishedTick",
+            "coverage",
+            "fileStatus",
+            "codeStatus",
+            "crcStatus",
+            "imageStable"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "enum": [
+                "GAME-OWN-MEASUREMENT-BUNDLE-V2"
+              ]
+            },
+            "version": {
+              "enum": [
+                2
+              ]
+            },
+            "startedTick": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "finishedTick": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "coverage": {
+              "enum": [
+                "FULL",
+                "PARTIAL"
+              ]
+            },
+            "fileStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "codeStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "crcStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "imageStable": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "pointerGraph": {
+              "$ref": "pointerGraphObservation"
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "startedTick",
+            "finishedTick",
+            "coverage",
+            "fileStatus",
+            "codeStatus",
+            "crcStatus",
+            "imageStable",
+            "pointerGraph"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "mitigationDiagnostics": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "requestedMode": {
+              "enum": [
+                "observe",
+                "prohibit"
+              ]
+            },
+            "setAttempted": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "setSucceeded": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "dynamicQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "cfgQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "strictHandleQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "imageLoadQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "setError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "dynamicFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "dynamicError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "cfgFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "cfgError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "strictHandleFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "strictHandleError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "imageLoadFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "imageLoadError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "version",
+            "requestedMode",
+            "setAttempted",
+            "setSucceeded",
+            "dynamicQueried",
+            "cfgQueried",
+            "strictHandleQueried",
+            "imageLoadQueried",
+            "setError",
+            "dynamicFlags",
+            "dynamicError",
+            "cfgFlags",
+            "cfgError",
+            "strictHandleFlags",
+            "strictHandleError",
+            "imageLoadFlags",
+            "imageLoadError"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                2
+              ]
+            },
+            "requestedMode": {
+              "enum": [
+                "observe",
+                "prohibit"
+              ]
+            },
+            "setAttempted": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "setSucceeded": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "dynamicQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "cfgQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "strictHandleQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "imageLoadQueried": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "setError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "dynamicFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "dynamicError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "cfgFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "cfgError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "strictHandleFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "strictHandleError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "imageLoadFlags": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "imageLoadError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "profileId": {
+              "$ref": "hash"
+            },
+            "strictSetAttempted": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "strictSetSucceeded": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "imageSetAttempted": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "imageSetSucceeded": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "strictSetError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "imageSetError": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "version",
+            "requestedMode",
+            "setAttempted",
+            "setSucceeded",
+            "dynamicQueried",
+            "cfgQueried",
+            "strictHandleQueried",
+            "imageLoadQueried",
+            "setError",
+            "dynamicFlags",
+            "dynamicError",
+            "cfgFlags",
+            "cfgError",
+            "strictHandleFlags",
+            "strictHandleError",
+            "imageLoadFlags",
+            "imageLoadError",
+            "profileId",
+            "strictSetAttempted",
+            "strictSetSucceeded",
+            "imageSetAttempted",
+            "imageSetSucceeded",
+            "strictSetError",
+            "imageSetError"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_ecma182": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/ECMA-182"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[a-fA-F0-9]{16}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/ECMA-182"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/ECMA-182"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_nvme": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/NVME"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[a-fA-F0-9]{16}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/NVME"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/NVME"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/NVME"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "partial"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[a-fA-F0-9]{16}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "reason": {
+              "enum": [
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_jones": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/JONES"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[a-fA-F0-9]{16}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/JONES"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/JONES"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_xz": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/XZ"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[a-fA-F0-9]{16}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/XZ"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/XZ"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_we": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/WE"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[a-fA-F0-9]{16}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/WE"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/WE"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_iso": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/GO-ISO"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[a-fA-F0-9]{16}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/GO-ISO"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-64/GO-ISO"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_crc32c": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-32/ISCSI"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 128,
+              "maxLength": 128,
+              "pattern": "^[a-fA-F0-9]{128}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "digestAlgorithm": {
+              "enum": [
+                "SHA-512-PAGE-MANIFEST"
+              ]
+            },
+            "pageSize": {
+              "enum": [
+                4096
+              ]
+            },
+            "pages": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 32768
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes",
+            "digestAlgorithm",
+            "pageSize",
+            "pages"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-32/ISCSI"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-32/ISCSI"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_crc16_arc": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-16/ARC"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 4,
+              "maxLength": 4,
+              "pattern": "^[a-fA-F0-9]{4}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-16/ARC"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-16/ARC"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcObservation_crc8_smbus": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-8/SMBUS"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "measured"
+              ]
+            },
+            "digest": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 2,
+              "pattern": "^[a-fA-F0-9]{2}$"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "digest",
+            "bytes"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-8/SMBUS"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "failed"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "FILE_CHANGED",
+                "READ_ERROR",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "enum": [
+                "CRC-8/SMBUS"
+              ]
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "pattern": "^[a-z0-9-]+$"
+            },
+            "status": {
+              "enum": [
+                "unavailable"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "LINKER_RANGES_REQUIRED",
+                "CHECKER_RANGES_REQUIRED"
+              ]
+            }
+          },
+          "required": [
+            "algorithm",
+            "role",
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "crcLayers": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "enum": [
+            "CRC-LAYERS-V1"
+          ]
+        },
+        "ecma182": {
+          "$ref": "crcObservation_ecma182"
+        },
+        "nvme": {
+          "$ref": "crcObservation_nvme"
+        },
+        "jones": {
+          "$ref": "crcObservation_jones"
+        },
+        "xz": {
+          "$ref": "crcObservation_xz"
+        },
+        "we": {
+          "$ref": "crcObservation_we"
+        },
+        "iso": {
+          "$ref": "crcObservation_iso"
+        },
+        "crc32c": {
+          "$ref": "crcObservation_crc32c"
+        },
+        "crc16_arc": {
+          "$ref": "crcObservation_crc16_arc"
+        },
+        "crc8_smbus": {
+          "$ref": "crcObservation_crc8_smbus"
+        }
+      },
+      "required": [
+        "version",
+        "ecma182",
+        "nvme",
+        "jones",
+        "xz",
+        "we",
+        "iso",
+        "crc32c",
+        "crc16_arc",
+        "crc8_smbus"
+      ],
+      "additionalProperties": false
+    },
+    "authorityPayload": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "hashVersion": {
+              "enum": [
+                3
+              ]
+            },
+            "measurement": {
+              "enum": [
+                "MEASURED"
+              ]
+            },
+            "fileSha512": {
+              "type": "string",
+              "minLength": 128,
+              "maxLength": 128,
+              "pattern": "^[a-f0-9]{128}$"
+            },
+            "fileCrc64": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[A-F0-9]{16}$"
+            },
+            "codeSha512": {
+              "type": "string",
+              "minLength": 128,
+              "maxLength": 128,
+              "pattern": "^[a-f0-9]{128}$"
+            },
+            "codeCrc64": {
+              "type": "string",
+              "minLength": 16,
+              "maxLength": 16,
+              "pattern": "^[A-F0-9]{16}$"
+            },
+            "codeXxh3_128": {
+              "type": "string",
+              "minLength": 32,
+              "maxLength": 32,
+              "pattern": "^[a-f0-9]{32}$"
+            },
+            "codeBlake3": {
+              "type": "string",
+              "minLength": 64,
+              "maxLength": 64,
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "apiSealed": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "apiSlots": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1024
+            },
+            "dynamicCode": {
+              "enum": [
+                "UNAVAILABLE",
+                "ALLOWED",
+                "PROHIBITED"
+              ]
+            },
+            "cfg": {
+              "enum": [
+                "UNAVAILABLE",
+                "DISABLED",
+                "ENABLED"
+              ]
+            },
+            "mitigationDiagnostics": {
+              "$ref": "mitigationDiagnostics"
+            },
+            "ownMeasurement": {
+              "$ref": "ownMeasurement"
+            },
+            "crcLayers": {
+              "$ref": "crcLayers"
+            }
+          },
+          "required": [
+            "version",
+            "hashVersion",
+            "measurement",
+            "fileSha512",
+            "fileCrc64",
+            "codeSha512",
+            "codeCrc64",
+            "codeXxh3_128",
+            "codeBlake3",
+            "apiSealed",
+            "apiSlots",
+            "dynamicCode",
+            "cfg",
+            "crcLayers"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "hashVersion": {
+              "enum": [
+                3
+              ]
+            },
+            "measurement": {
+              "enum": [
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "fileSha512": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128,
+              "pattern": "^(?:[a-f0-9]{128}|)$"
+            },
+            "fileCrc64": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 16,
+              "pattern": "^(?:[A-F0-9]{16}|)$"
+            },
+            "codeSha512": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 128,
+              "pattern": "^(?:[a-f0-9]{128}|)$"
+            },
+            "codeCrc64": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 16,
+              "pattern": "^(?:[A-F0-9]{16}|)$"
+            },
+            "codeXxh3_128": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 32,
+              "pattern": "^(?:[a-f0-9]{32}|)$"
+            },
+            "codeBlake3": {
+              "type": "string",
+              "minLength": 0,
+              "maxLength": 64,
+              "pattern": "^(?:[a-f0-9]{64}|)$"
+            },
+            "apiSealed": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "apiSlots": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1024
+            },
+            "dynamicCode": {
+              "enum": [
+                "UNAVAILABLE",
+                "ALLOWED",
+                "PROHIBITED"
+              ]
+            },
+            "cfg": {
+              "enum": [
+                "UNAVAILABLE",
+                "DISABLED",
+                "ENABLED"
+              ]
+            },
+            "mitigationDiagnostics": {
+              "$ref": "mitigationDiagnostics"
+            },
+            "ownMeasurement": {
+              "$ref": "ownMeasurement"
+            },
+            "crcLayers": {
+              "$ref": "crcLayers"
+            }
+          },
+          "required": [
+            "version",
+            "hashVersion",
+            "measurement",
+            "fileSha512",
+            "fileCrc64",
+            "codeSha512",
+            "codeCrc64",
+            "codeXxh3_128",
+            "codeBlake3",
+            "apiSealed",
+            "apiSlots",
+            "dynamicCode",
+            "cfg"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "authorityReply": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "enum": [
+            1
+          ]
+        },
+        "accepted": {
+          "enum": [
+            true
+          ]
+        },
+        "status": {
+          "enum": [
+            "PASS",
+            "INDETERMINATE",
+            "MISMATCH"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "proceed": {
+          "enum": [
+            true,
+            false
+          ]
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "attested": {
+          "enum": [
+            false
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "accepted",
+        "status",
+        "reason",
+        "proceed",
+        "sequence",
+        "expiresAt",
+        "attested"
+      ],
+      "additionalProperties": false
     }
   },
   "commands": [
@@ -1927,5 +4461,43 @@
       }
     }
   ],
-  "scope": "Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization."
+  "scope": "Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization.",
+  "documents": {
+    "overlayRelease": {
+      "$ref": "overlayRelease"
+    },
+    "overlayPrepare": {
+      "$ref": "overlayPrepare"
+    },
+    "overlayChunk": {
+      "$ref": "overlayChunk"
+    },
+    "overlayFinish": {
+      "$ref": "overlayFinish"
+    },
+    "overlayClaim": {
+      "$ref": "overlayClaim"
+    },
+    "overlayVerify": {
+      "$ref": "overlayVerify"
+    },
+    "overlayCommit": {
+      "$ref": "overlayCommit"
+    },
+    "overlayAbort": {
+      "$ref": "overlayAbort"
+    },
+    "overlayClose": {
+      "$ref": "overlayClose"
+    },
+    "authorityChallenge": {
+      "$ref": "authorityChallenge"
+    },
+    "authorityPayload": {
+      "$ref": "authorityPayload"
+    },
+    "authorityReply": {
+      "$ref": "authorityReply"
+    }
+  }
 }

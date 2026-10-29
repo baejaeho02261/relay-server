@@ -225,9 +225,9 @@ function Challenge(body) {
   receipts.deleteWhere(meta=>meta.id===decisionId);
   for(const previous of pending.values()) if(previous.context===context&&previous.intent===body.intent&&previous.binding===body.binding)previous.superseded=true;
   pending.set(item.challengeId, item);
-  return { version: 1, challengeId: item.challengeId, nonce: item.nonce, epoch, sequence: item.sequence,
+  return require('../protocol/peace.packet-schema').ValidateDocument('authorityChallenge', { version: 1, challengeId: item.challengeId, nonce: item.nonce, epoch, sequence: item.sequence,
     revision: item.revision, expiresAt: item.expiresAt, dynamicCode: mitigationProfile?.dynamicCode||policy.dynamicCode, ...(mitigationProfile?{mitigationProfile}: {}),
-    ...(policy.deviceSignalsRequested&&body.deviceSignalsVersion===1?{deviceSignalsRequested:true}:{}) };
+    ...(policy.deviceSignalsRequested&&body.deviceSignalsVersion===1?{deviceSignalsRequested:true}:{}) });
 }
 function Canonical(body, challenge, payload) {
   return [DOMAIN, body.stage, body.sessionId, body.intent, body.binding, challenge.challengeId,
@@ -237,6 +237,7 @@ function Canonical(body, challenge, payload) {
 function Payload(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail('SECURITY_INPUT_INVALID', 400);
   let value; try { value = require("../protocol/peace.strict-json").Parse(text); } catch (_) { Fail('SECURITY_INPUT_INVALID', 400); }
+  try { require('../protocol/peace.packet-schema').ValidateDocument('authorityPayload',value); } catch (_) { Fail('SECURITY_INPUT_INVALID',400); }
   Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg', 'mitigationDiagnostics', 'ownMeasurement']);
   if (value.hashVersion !== 3 || value.version !== 1 || !measurementStatus.IsStatus(value.measurement) ||
       typeof value.apiSealed !== 'boolean' || !Number.isInteger(value.apiSlots) || value.apiSlots < 0 || value.apiSlots > 1024 ||
@@ -323,6 +324,7 @@ function Submit(body) {
   for (const item of pending.values()) if (item.context === context && item.intent === body.intent && item.binding === body.binding && item.sequence < challenge.sequence) item.superseded = true;
   const response = { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: decision.measurementComplete && (result.status === 'PASS' || policy.mode === 'observe'),
     sequence: challenge.sequence, expiresAt: decision.expiresAt, attested: false };
+  require('../protocol/peace.packet-schema').ValidateDocument('authorityReply',response);
   receipts.put(body.challengeId, 'authority.submit', body, response, { context, id }, { ttlMs: policy.freshnessMs });
   return response;
 }

@@ -80,6 +80,7 @@ async function HandleApiRequest(req, res, session) {
         require("../routes/web/peace.desktop-server-state-routes").Handle,
         require("../routes/web/peace.desktop-workspace-routes").Handle,
         require("../routes/bootstrap/peace.desktop-bootstrap-routes").Handle,
+        require("../routes/licensing/peace.desktop-member-routes").Handle,
         require("../routes/licensing/peace.desktop-license-routes").Handle,
         c=>productionRoutes.Handle({...c,RequireAdmin,Json,ApiError}),
         require("../routes/devices/peace.device-routes").Handle,

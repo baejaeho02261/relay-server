@@ -41,6 +41,7 @@ w.fetch=async(url,options={})=>{
  else if(url==='/api/system')data={ok:true,system:{webAdminVersion:'5.0.1'}};
  else if(url.startsWith('/api/audit?'))data={ok:true,events:[{type:'TEST_EVENT',time:now,detail:'감사 기록 fixture'}]};
  else if(url.startsWith('/api/notifications?'))data={ok:true,summary:{unread:0,critical:0}};
+ else if(url.startsWith('/api/desktop/members?'))data={version:1,revision:0,items:[],totalCount:0,page:1,pageSize:20,unassigned:{counts:{}}};
  else if(url==='/api/desktop/bootstrap/integrity-reports')data={ok:true,items:integrityReports};
  else if(url==='/api/desktop/bootstrap/integrity-policy'){
    if(method==='POST'){assert.equal(options.headers['X-CSRF-Token'],'DOM_CSRF');assert.equal(options.credentials,'same-origin');assert.equal(typeof body.enabled,'boolean');assert.equal(typeof body.requireExtendedHashes,'boolean');assert.ok(Array.isArray(body.requiredModules));if(body.enabled&&body.requiredModules.some(name=>!moduleBaselines.some(b=>b.name.toLowerCase()===name&&b.exportTableStatus==='MEASURED'&&(!body.requireExtendedHashes||Object.keys(extendedBaseline).every(key=>b[key])))))return {ok:false,status:409,text:async()=>JSON.stringify({ok:false,error:'INTEGRITY_POLICY_BASELINE_MISSING'})};integrityPolicy={...integrityPolicy,...body,revision:integrityPolicy.revision+1,updatedAt:now,actor:'admin'};}data={ok:true,policy:policyView()};
@@ -111,9 +112,14 @@ async function closeModal(){w.document.querySelector('#modal-confirm').click();a
 
 function field(name,value){const input=w.document.querySelector(`[data-modal-field="${name}"]`);assert.ok(input,name);input.value=value;return input;}
 (async()=>{try{
+ await waitFor(()=>shown('#desktop-tab-members')&&actionIdle(),'initial member workspace');
+ assert.equal(w.document.querySelector('#desktop-tabpanel-members').hidden,false);
+ assert.equal(w.document.querySelector('#desktop-tab-members').getAttribute('aria-selected'),'true');
+ assert.equal(requests.some(row=>row.url.startsWith('/api/desktop/workspace/licenses?')||row.url==='/api/desktop/bootstrap'||row.url==='/api/desktop/machines'),false,'member view does not fetch hidden global lists');
+ w.document.querySelector('#desktop-tab-licenses').click();
  await waitFor(()=>shown('#desktop-launcher-create')&&actionIdle(),'initial license page');
  assert.equal(w.document.querySelector('#app').classList.contains('hidden'),false);
- assert.equal(w.document.querySelector('#page-title').textContent,'Windows 라이선스');
+ assert.equal(w.document.querySelector('#page-title').textContent,'회원 · 라이선스');
  assert.equal(new URL(requests.find(r=>r.url.startsWith('/api/desktop/workspace/licenses?')).url,'https://fixture.invalid').searchParams.has('status'),false);
  w.openPalette();w.document.querySelector('#palette-input').value='고객';await w.runPaletteSearch('고객');w.closePalette();
  const paletteRequest=requests.filter(r=>r.url.startsWith('/api/desktop/workspace/licenses?')).at(-1);assert.equal(new URL(paletteRequest.url,'https://fixture.invalid').searchParams.has('status'),false);

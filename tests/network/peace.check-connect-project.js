@@ -73,9 +73,12 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   assert.ok(!/GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)/i.test(dpr), 'Probe-only hooks must not be enabled in an application entry point');
   assert.ok(dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') >= 0 && dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') < dpr.search(/\{\$I [^}]*Cozy\.Metadata\.inc\}/), 'Direct compiler builds must reject probe hooks');
   const expectedRole = {"Cozy.Launcher":'gcrLauncher',"Cozy.Client":'gcrConnect',"Cozy.Overlay":'gcrOverlay'}[name];
-  const seal = dpr.indexOf('SealApiPointerStorage;'), startup = dpr.indexOf('RequireNativeStartup('+expectedRole+');');
+  const startupCall='RequireNativeStartup('+expectedRole+(role==='A'?', @ExitCode':'')+');';
+  const seal = dpr.indexOf('SealApiPointerStorage;'), startup = dpr.indexOf(startupCall);
   assert.ok(seal >= 0 && startup > seal, 'Native startup validation must follow API sealing');
-  assert.match(dpr.slice(startup), new RegExp("RequireNativeStartup\\("+expectedRole+"\\);\\s+RequireCozyProtection\\('"+role+"'\\);\\s+ExitCode := Run"), 'Role-specific startup and sealed protection checks must precede application execution');
+  const startupArgument=expectedRole+(role==='A'?', @ExitCode':'');
+  const afterStartup=role==='A'?'\\s+ExitCode := 31009;':'',afterProtection=role==='A'?'\\s+ExitCode := 31099;':'';
+  assert.match(dpr.slice(startup), new RegExp("RequireNativeStartup\\("+startupArgument+"\\);"+afterStartup+"\\s+RequireCozyProtection\\('"+role+"'\\);"+afterProtection+"\\s+ExitCode := Run"), 'Role-specific startup and sealed protection checks must precede application execution');
   assert(dpr.includes("Cozy.Protection.Engine in '..\\..\\Cozy.Source\\Cozy.Protection\\Cozy.Protection.Engine.pas'"));
   assert.ok(dpr.includes('{$APPTYPE GUI}'));
   assert.match(dpr, /function GameBuildConfiguration: LongWord; stdcall;\s*begin\s*\{\$IFDEF RELEASE\}\s*Result := 2;\s*\{\$ELSE\}\s*Result := 1;/, 'Marker value must follow the actual compiler configuration');

@@ -1,0 +1,40 @@
+{ Generated document shapes only; no authorization or Windows test evidence. }
+const
+  ProtocolDocumentSchemaCases: array[0..11] of string = (
+    '{"name":"overlayRelease","value":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"AAAAAAAAAAAAAAAA","xxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaa","size":1,"codeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","c' +
+    'odeCrc64":"AAAAAAAAAAAAAAAA","codeXxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeBlake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeAlgorithm":"PE64' +
+    '-CODE-V1"}}',
+    '{"name":"overlayPrepare","value":{"overlayId":"AAAAAAAAAAAAAAAAAAAAAAAA","parentSessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","overlayTicket":"r","release":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA"' +
+    ',"version":"r","hashVersion":3,"sha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"' +
+    'AAAAAAAAAAAAAAAA","xxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1,"codeSha512":"aaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeCrc64":"AAAAAAAAAAAAAAAA","codeXxh3_128":"aaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaa","codeBlake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeAlgorithm":"PE64-CODE-V1"},"chunkSize":262144,"expiresAt":1,"finishCanonical":"{}' +
+    '","claimCanonical":"{}"}}',
+    '{"name":"overlayChunk","value":{"offset":0,"size":1,"data":"rrrr"}}',
+    '{"name":"overlayFinish","value":{"overlayId":"AAAAAAAAAAAAAAAAAAAAAAAA","overlayTicket":"r","claimCanonical":"{}","expiresAt":1}}',
+    '{"name":"overlayClaim","value":{"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"r","expiresAt":1,"release":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sh' +
+    'a512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"AAAAAAAAAAAAAAAA","xxh3_128":"aaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaa","blake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","size":1,"codeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeCrc64":"AAAAAAAAAAAAAAAA","codeXxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeBlake3":"aaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeAlgorithm":"PE64-CODE-V1"}}}',
+    '{"name":"overlayVerify","value":{"status":"ACTIVE","leaseExpiresAt":1,"serverTime":1,"expiresAt":1,"handoffVersion":1,"transferConfirmed":true,"parentSessionId":"AAAAAAAAAAAAAAAAAA' +
+    'AAAAAA"}}',
+    '{"name":"overlayCommit","value":{"handoffVersion":1,"status":"TRANSFERRED","parentSessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","overlayId":"AAAAAAAAAAAAAAAAAAAAAAAA","overlaySessionId":"A' +
+    'AAAAAAAAAAAAAAAAAAAAAAA"}}',
+    '{"name":"overlayAbort","value":{"handoffVersion":3,"parentSessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","overlayId":"","status":"NOT_PREPARED"}}',
+    '{"name":"overlayClose","value":{"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","status":"CLOSED"}}',
+    '{"name":"authorityChallenge","value":{"version":1,"challengeId":"{}","nonce":"{}","epoch":"{}","sequence":1,"revision":0,"expiresAt":1,"dynamicCode":"observe"}}',
+    '{"name":"authorityPayload","value":{"version":1,"hashVersion":3,"measurement":"MEASURED","fileSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","fileCrc64":"AAAAAAAAAAAAAAAA","codeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeCrc64":"AAAAAAAAAAAAAAAA","codeXxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeBlake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaaaaaaaaaaaaaaaaa","apiSealed":true,"apiSlots":0,"dynamicCode":"UNAVAILABLE","cfg":"UNAVAILABLE","crcLayers":{"version":"CRC-LAYERS-V1","ecma182":{"algorithm":"CRC-64/ECM' +
+    'A-182","role":"r","status":"measured","digest":"AAAAAAAAAAAAAAAA","bytes":0},"nvme":{"algorithm":"CRC-64/NVME","role":"r","status":"measured","digest":"AAAAAAAAAAAAAAAA","bytes":0}' +
+    ',"jones":{"algorithm":"CRC-64/JONES","role":"r","status":"measured","digest":"AAAAAAAAAAAAAAAA","bytes":0},"xz":{"algorithm":"CRC-64/XZ","role":"r","status":"measured","digest":"AA' +
+    'AAAAAAAAAAAAAA","bytes":0},"we":{"algorithm":"CRC-64/WE","role":"r","status":"measured","digest":"AAAAAAAAAAAAAAAA","bytes":0},"iso":{"algorithm":"CRC-64/GO-ISO","role":"r","status' +
+    '":"measured","digest":"AAAAAAAAAAAAAAAA","bytes":0},"crc32c":{"algorithm":"CRC-32/ISCSI","role":"r","status":"measured","digest":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","bytes":0,"digestAlgorithm":"SHA-512-PAGE-MANIFEST","pageSize":4096,"pages":1},"crc16_arc":{"algorit' +
+    'hm":"CRC-16/ARC","role":"r","status":"measured","digest":"AAAA","bytes":0},"crc8_smbus":{"algorithm":"CRC-8/SMBUS","role":"r","status":"measured","digest":"AA","bytes":0}}}}',
+    '{"name":"authorityReply","value":{"version":1,"accepted":true,"status":"PASS","reason":"R","proceed":true,"sequence":1,"expiresAt":1,"attested":false}}'
+  );

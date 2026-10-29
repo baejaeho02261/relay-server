@@ -32,7 +32,13 @@ test('API module ownership precedes parsing and target pinning precedes applicat
  const resolverFinal=p.slice(p.lastIndexOf('finalization')).replace(/\{[\s\S]*?\}/g,'');
  assert.doesNotMatch(resolverFinal,/\b(?:PEB)?FreeLibrary\s*\(/i);
  for(const [file,role,run] of [["Cozy.Projects/Cozy.Launcher/Cozy.Launcher.dpr",'gcrLauncher','RunLauncher'],["Cozy.Projects/Cozy.Client/Cozy.Client.dpr",'gcrConnect','RunGameConsole'],["Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dpr",'gcrOverlay','RunOverlay']]){
-  const dpr=c(file),seal=dpr.indexOf('SealApiPointerStorage;'),gate=dpr.indexOf('RequireNativeStartup('+role+');'),work=dpr.indexOf('ExitCode := '+run+';');
+  const dpr=c(file).replace(/\{[\s\S]*?\}|\(\*[\s\S]*?\*\)|\/\/[^\r\n]*/g,'');
+  // A may report its numeric startup stage through ExitCode; the security
+  // ordering does not depend on this optional diagnostic output parameter.
+  const diagnostic=role==='gcrLauncher'?'(?:\\s*,\\s*@ExitCode)?':'';
+  const gates=[...dpr.matchAll(new RegExp('RequireNativeStartup\\(\\s*'+role+diagnostic+'\\s*\\);','g'))];
+  const seal=dpr.indexOf('SealApiPointerStorage;'),gate=gates[0]?.index??-1,work=dpr.indexOf('ExitCode := '+run+';');
+  assert.equal(gates.length,1,file+' must use exactly one matching native startup gate');
   assert.ok(seal>=0&&gate>seal&&work>gate,file+' must seal and validate/pin before application work');
  }
 });

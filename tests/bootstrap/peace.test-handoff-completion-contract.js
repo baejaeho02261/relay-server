@@ -106,8 +106,21 @@ check('Authority and each signed report retry share one monotonic deadline acros
 });
 check('Owned signing and handoff plaintext intermediates are cleared on exceptional paths',()=>{
  const sign=security.split('function TDeviceSecurity.SignUnlocked(')[1].split('function IsUpperHex64(')[0];
- assert.ok(sign.indexOf('try')<sign.indexOf('Plain := TEncoding.UTF8.GetBytes(Text)'));
- assert.match(sign,/finally\s+Wipe\(Plain\);\s+Wipe\(Digest\);\s+Wipe\(Signature\)/);
+ assert.ok(sign.indexOf('try')<sign.indexOf('Plain := TApiSensitiveBuffer.CreateUtf8(Text)'));
+ assert.match(sign,/PlainScope := Plain\.OpenRead;\s+try\s+Digest := Sha256Span\(PlainScope\.Buffer\);\s+finally\s+PlainScope\.Free; PlainScope := nil;\s+Plain\.Free; Plain := nil;/);
+ assert.match(sign,/finally\s+PlainScope\.Free;\s+Plain\.Free;\s+Wipe\(Digest\);\s+Wipe\(Signature\)/);
+ assert.doesNotMatch(sign,/TEncoding\.UTF8\.GetBytes|Plain, Digest/);
+ const contracts=read('Cozy.Source/Cozy.Platform/Cozy.Api.Contracts.pas');
+ const retire=contracts.split('procedure TApiSensitiveState.Retire;')[1].split('destructor TApiSensitiveState.Destroy;')[0];
+ assert.ok(retire.indexOf('FillChar(')>=0&&retire.indexOf('FillChar(')<retire.indexOf('FreeMem('));
+ assert.match(contracts,/if FClosed and not FActive then Retire;/);
+ assert.match(contracts,/if FClosed or not FActive or \(Token <> FToken\)/);
+ assert.match(contracts,/procedure TApiSensitiveScope.Close;[\s\S]*?FLease\.Release;[\s\S]*?FBuffer := Default\(TApiBuffer\)/);
+ const utf8=contracts.split('constructor TApiSensitiveBuffer.CreateUtf8(')[1].split('function TApiSensitiveBuffer.OpenScope(')[0];
+ assert.match(utf8,/TApiEncodingAccess\.EncodeUtf8\(Text,/);
+ assert.match(utf8,/finally Scope\.Free; end/);
+ assert.doesNotMatch(utf8.replace(/\{[\s\S]*?\}/g,''),/TBytes|GetBytes\(Text\)/);
+
  const verify=api.split('function TGameApi.VerifyCore:')[1].split('procedure TGameApi.ReleaseCore;')[0];
  assert.match(verify,/PayloadText := Payload\.ToJSON;\s+Data := ExecuteProof\('verify', PayloadText\)/);
  assert.match(verify,/finally\s+WipeText\(PayloadText\)/);

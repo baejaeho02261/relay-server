@@ -78,9 +78,9 @@ check('token readback rejects elevation, service accounts, operator groups and r
 check('public opt-in reaches the real O launch path and keeps the compatibility default', () => {
   assert.match(api, /function StartOverlay\(RestrictedPrivileges: Boolean = False\): Boolean/);
   assert.match(api, /Result := StartOverlayCore\(RestrictedPrivileges\)/);
-  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, RestrictedPrivileges\)/);
+  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, RestrictedPrivileges,\s+MaintainParent\)/);
   assert.match(overlay, /if RestrictedPrivileges then LaunchProfile := hlpOverlayRestricted/);
-  assert.match(overlay, /Flow.Release.SHA512, True,\s+LaunchProfile\)/);
+  assert.match(overlay, /Flow.Release.SHA512, True,\s+LaunchProfile, WaitMaintenance\)/);
   assert.match(api, /RestrictedPrivileges <> FOverlayRestrictedPrivileges/);
 });
 
@@ -88,10 +88,17 @@ check('ready acceptance rechecks cancellation and process death and retains the 
   const wait = body(handoff, 'procedure WaitHandoffReadiness(', 'function LaunchWithHandoff(');
   order(wait, ['Status := WaitForSingleObject(CancelEvent, 0)', 'HANDOFF_CANCELLED',
     'Status := WaitForSingleObject(ChildProcess, 0)', 'HANDOFF_CHILD_EXITED']);
-  assert.equal((wait.match(/RequirePending;/g) || []).length, 3); // nested declaration + two calls
+  order(wait.slice(wait.indexOf('repeat')), [
+    'RequirePending;', "Check(Remaining(Deadline) > 0, 'HANDOFF_READY_TIMEOUT')",
+    'WaitResult := WaitForSingleObject(ReadyEvent, 0)', 'if WaitResult = WAIT_OBJECT_0 then',
+    'RequirePending;', "Check(Remaining(Deadline) > 0, 'HANDOFF_READY_TIMEOUT')", 'Exit;',
+    'if Assigned(MaintainParent) then', 'MaintainParent();', 'RequirePending;',
+    "Check(Remaining(Deadline) > 0, 'HANDOFF_READY_TIMEOUT')"]);
   order(wait.slice(wait.indexOf('WaitResult := WaitForMultipleObjects')), [
     'RequirePending;', "Check(Remaining(Deadline) > 0, 'HANDOFF_READY_TIMEOUT')",
-    'Check(WaitResult = WAIT_OBJECT_0 + ReadyIndex']);
+    'if WaitResult = WAIT_OBJECT_0 + ReadyIndex then Exit']);
+  assert.match(wait, /if Assigned\(MaintainParent\) and \(WaitMS > 1000\) then WaitMS := 1000/);
+  assert.match(wait, /Check\(Assigned\(MaintainParent\), 'HANDOFF_READY_TIMEOUT'\)/);
   assert.doesNotMatch(wait, /Deadline :=|Inc\(Deadline/);
 });
 

@@ -249,6 +249,11 @@ function Submit(body){
 }
 function Execute(body){if(!Plain(body))Fail('INTEGRITY_REPORT_INVALID');if(body.action==='challenge'){requestProtocol.Purpose('report.challenge');return Challenge(body);}if(body.action==='submit'){requestProtocol.Purpose('report.submit');return Submit(body);}Fail('INTEGRITY_REPORT_INVALID');}
 function List(query={}){Load();const machineId=String(query.machineId||''),sessionId=String(query.sessionId||'');if(machineId&&!/^[A-F0-9]{64}$/.test(machineId)||sessionId&&!/^[-A-Za-z0-9_]{1,100}$/.test(sessionId))Fail('INTEGRITY_REPORT_INVALID');return {items:records.filter(row=>(!machineId||row.machineId===machineId)&&(!sessionId||row.sessionId===sessionId)).slice(-100).reverse(),revision,serverTime:Date.now(),scope:'SHA-512, CRC64-ECMA, XXH3-128 and BLAKE3 comparisons cover files, executable sections and registered DLL export tables. Measurements are client-reported, not hardware attestation.',policy:Policy(),attested:false,limit:100};}
+// Member projections select by exact retained flow/session identities, never a
+// fingerprint-to-human heuristic. Index all retained rows before paging so a
+// busy customer cannot hide another customer's reports behind the global 100.
+function MemberIndex(){Load();return records.map(r=>({id:r.id,at:r.at,flowId:r.flowId||'',sessionId:r.sessionId||'',stage:r.stage,status:r.status,reason:r.reason||'',check:r.check,source:r.source,attested:false,hasMismatch:r.modules?.some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')===true}));}
+function MemberRecords(ids){Load();if(!Array.isArray(ids)||ids.length>100||new Set(ids).size!==ids.length||ids.some(id=>typeof id!=='string'||!/^[-A-Za-z0-9_]{1,100}$/.test(id)))Fail('INTEGRITY_REPORT_INVALID');const wanted=new Set(ids);return records.filter(r=>wanted.has(r.id)).map(r=>structuredClone(r));}
 function CompareModule(row,hashVersion=3){
  const baseline=baselines.find(b=>b.hashVersion===3&&b.name.toLowerCase()===row.name.toLowerCase()&&b.fileSha512===row.fileSha512);
  const unverified={fileExtendedVerified:false,codeExtendedVerified:false,exportTableExtendedVerified:false,extendedHashesVerified:false};
@@ -351,4 +356,4 @@ function ProofTasks(body){
  if(body.action!=='submit')return [];const challenge=pending.get(body.reportId);if(!challenge)return [];
  const row=Auth(body);return [require('./peace.desktop-proof-work').Job(row.publicKey,Canonical(row.reportContextId||row.sessionId,challenge,body.payload),body.signature)];
 }
-module.exports={ProofTasks,InvalidateVolatile,RetireContext,Execute,Record,List,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,ResetRegistrations,RegistrationStatus};
+module.exports={ProofTasks,InvalidateVolatile,RetireContext,Execute,Record,List,MemberIndex,MemberRecords,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,ResetRegistrations,RegistrationStatus};

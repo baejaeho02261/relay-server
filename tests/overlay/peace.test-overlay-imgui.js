@@ -67,7 +67,7 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     assert(!pExports.has(name), 'Duplicate Pascal export ' + name);
     pExports.set(name, { result: kind === 'procedure' ? 'void' : pTypes[result], args });
   }
-  assert.equal(cExports.size, 21, 'Korean font creation, DPI and fixed-size GPU identity are additive C ABI extensions');
+  assert.equal(cExports.size, 28, 'Korean text-input v1 adds seven explicitly versioned C ABI entries');
   assert.deepEqual(cExports.get('game_imgui_set_dpi'), { result: 'i32', args: ['ptr', 'f32'] });
   assert.deepEqual(pExports, cExports);
   assert.match(pascal, /TImGuiContext\s*=\s*Pointer\s*;/);
