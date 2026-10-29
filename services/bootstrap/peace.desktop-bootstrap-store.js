@@ -56,6 +56,7 @@ function Load(){
   if(value.deviceRegistry!==undefined)require("../devices/peace.desktop-device-registry").Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require("../devices/peace.desktop-device-identity").Validate(value.deviceIdentity);
   if(value.members!==undefined)require("../members/peace.desktop-members").Validate(value.members);
+  if(value.supportCaptures!==undefined)require('../diagnostics/peace.support-captures').Validate(value.supportCaptures);
   if(value.serverPolicies!==undefined)require('../security/peace.server-policy-registry').ValidateStore(value);
   if(value.orphanQuarantine!==undefined)require("../storage/peace.desktop-orphan-files").Validate(value.orphanQuarantine);
   if(value.manualVerifications!==undefined)require("../runtime/peace.desktop-manual-verification").Validate(value.manualVerifications);

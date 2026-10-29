@@ -5,6 +5,14 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["bootstrap/peace.test-handoff-pipe-fragments.js"],
+  ["cryptography/peace.test-crc-collision-vectors.js"],
+  ["diagnostics/peace.test-support-captures.js"],
+  ["diagnostics/peace.test-support-captures-http.js"],
+  ["web/peace.test-diagnostic-capture.js"],
+  ["web/peace.test-desktop-capture-ui.js"],
+  ["web/peace.test-admin-capture-png.js"],
+
   ["protocol/peace.test-document-schema.js"],
   ["licensing/peace.test-desktop-members.js"],
   ["web/peace.test-desktop-member-ui.js"],

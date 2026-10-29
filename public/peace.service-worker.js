@@ -1,55 +1,56 @@
 'use strict';
 
-const CACHE = 'relay-admin-shell-v5.0.1-cozy-peace-v10-member-contracts';
+const CACHE = 'relay-admin-shell-v5.0.1-cozy-peace-v11-diagnostics';
 const SHELL = [
   "/index.html",
   "/manifest.json",
   "/icons/icon-192.png",
-  "/styles/admin.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/styles/admin-theme.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/styles/admin-navigation.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/styles/admin-appearance.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/styles/admin-controls.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/styles/admin-workspace.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/styles/admin-desktop.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/styles/admin-members.css?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/interface/peace.admin-controls.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/interface/peace.admin-appearance.js?v=5.0.1-cozy-peace-v10-member-contracts",
+  "/styles/admin.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/styles/admin-theme.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/styles/admin-navigation.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/styles/admin-appearance.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/styles/admin-controls.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/styles/admin-workspace.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/styles/admin-desktop.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/styles/admin-members.css?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/interface/peace.admin-controls.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/interface/peace.admin-appearance.js?v=5.0.1-cozy-peace-v11-diagnostics",
   "/icons/game.svg",
   "/icons/icon.svg",
   "/icons/favicon.svg",
   "/icons/favicon.ico",
-  "/scripts/interface/peace.admin-i18n.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/application/peace.admin.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/interface/peace.admin-navigation.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-monitoring.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/application/peace.admin-terminal.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-traffic.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-danger.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-access.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-reports.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-pages-devices.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-deployment.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-security.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-operations.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-actions-access.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-actions-operations.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-actions-traffic.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-actions-devices.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-actions-policy.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-actions-system.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/interface/peace.admin-modal.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-device-actions.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/desktop/peace.admin-desktop-licenses.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/desktop/peace.admin-desktop-members.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/desktop/peace.admin-desktop-security-center.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/desktop/peace.admin-desktop-security.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/desktop/peace.admin-desktop-server-state.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/desktop/peace.admin-desktop-workflow.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/desktop/peace.admin-desktop-packed-release.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/actions/peace.admin-actions.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/interface/peace.admin-palette.js?v=5.0.1-cozy-peace-v10-member-contracts",
-  "/scripts/pages/peace.admin-pages-production.js?v=5.0.1-cozy-peace-v10-member-contracts",
+  "/scripts/interface/peace.admin-i18n.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/application/peace.admin.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/interface/peace.admin-navigation.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-monitoring.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/application/peace.admin-terminal.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-traffic.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-danger.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-access.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-reports.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-pages-devices.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-deployment.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-security.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-operations.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-actions-access.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-actions-operations.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-actions-traffic.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-actions-devices.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-actions-policy.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-actions-system.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/interface/peace.admin-modal.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-device-actions.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-licenses.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-members.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-captures.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-security-center.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-security.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-server-state.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-workflow.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/desktop/peace.admin-desktop-packed-release.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/actions/peace.admin-actions.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/interface/peace.admin-palette.js?v=5.0.1-cozy-peace-v11-diagnostics",
+  "/scripts/pages/peace.admin-pages-production.js?v=5.0.1-cozy-peace-v11-diagnostics",
   "/icons/icon-512.png"
 ];
 
@@ -65,8 +66,12 @@ self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Diagnostic navigation must not replace the cached administrator shell.
+  // Its consent page, capture code and private APIs always require the network.
+  const diagnostic = url.pathname === '/diagnostics' || url.pathname === '/diagnostics.html' ||
+    url.pathname.startsWith('/scripts/diagnostics/') || url.pathname.startsWith('/styles/diagnostics');
   // Never cache authenticated API/SSE/health data.
-  if (url.pathname.startsWith('/member/') || url.pathname.startsWith('/pay/') || url.pathname.startsWith('/api/') || url.pathname === '/health' || url.pathname === '/healthz' || url.pathname === '/ui-version.json' || url.pathname === '/ui-refresh' || url.pathname === '/ui-refresh.html' || url.pathname === "/scripts/application/peace.ui-refresh.js") {
+  if (diagnostic || url.pathname.startsWith('/member/') || url.pathname.startsWith('/pay/') || url.pathname.startsWith('/api/') || url.pathname === '/health' || url.pathname === '/healthz' || url.pathname === '/ui-version.json' || url.pathname === '/ui-refresh' || url.pathname === '/ui-refresh.html' || url.pathname === "/scripts/application/peace.ui-refresh.js") {
     event.respondWith(fetch(new Request(request, { cache: 'no-store' })));
     return;
   }

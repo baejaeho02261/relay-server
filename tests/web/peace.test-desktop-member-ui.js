@@ -56,12 +56,22 @@ async function idle(){await until(()=>w.eval('!desktopLicenseActionPending'),'ac
  assert.match(w.content.textContent,/미배정 기록/);assert.match(w.content.textContent,/<img src=x onerror=bad\(\)>/);assert.equal(query('#content img,#content script,#content svg'),null);
  const disclosure=query('[data-desktop-member-id="'+memberId+'"]');disclosure.open=true;
  await until(()=>disclosure.textContent.includes('CODE_HASH_MISMATCH'),'member details');
- assert.match(disclosure.textContent,/CRC64/);assert.match(disclosure.textContent,/123456789ABCDEF0/);assert.match(disclosure.textContent,/B_EXIT_NOT_REPORTED/);assert.match(disclosure.textContent,/보고 없음/);assert.match(disclosure.textContent,/하드웨어 인증이 아닙니다/);assert.match(w.content.textContent,/화면·입력 내용은 수집하지 않습니다/);
+ assert.match(disclosure.textContent,/CRC64/);assert.match(disclosure.textContent,/123456789ABCDEF0/);assert.match(disclosure.textContent,/B_EXIT_NOT_REPORTED/);assert.match(disclosure.textContent,/보고 없음/);assert.match(disclosure.textContent,/하드웨어 인증이 아닙니다/);assert.match(w.content.textContent,/사용자가 확인하고 전송한 경우에만 표시/);
  assert.equal(query('#content img,#content script,#content svg'),null);
  const search=query('#desktop-member-search');search.value='아직 보내지 않은 검색';search.focus();const nested=disclosure.querySelector('.desktop-member-category');nested.open=true;
  await w.renderCurrent();assert.equal(query('#desktop-member-search'),search);assert.equal(search.value,'아직 보내지 않은 검색');assert.equal(w.document.activeElement,search);assert.equal(query('[data-desktop-member-id="'+memberId+'"]'),disclosure);assert.equal(disclosure.open,true);assert.equal(nested.open,true);
  click('[data-member-action="detail-page"][data-member-id="'+memberId+'"][data-member-category="licenses"][data-member-page="2"]');await idle();await until(()=>disclosure.textContent.includes('두 번째 페이지'),'category page');assert.equal(disclosure.open,true);assert.equal(nested.open,true);
  assert.ok(requests.some(row=>row.url.includes('category=licenses&page=2')));
+ // Reproduce the real cache refresh path: a loading notice appears and then
+ // disappears after delayed responses. Check AFTER the completion redraw too.
+ for(let round=0;round<3;round++){
+  const api=w.api,pending=[];w.api=(url,options)=>url.startsWith('/api/desktop/members')&&!options?.method?new Promise((resolve,reject)=>pending.push(()=>api(url,options).then(resolve,reject))):api(url,options);
+  w.eval('desktopMemberInvalidate()');await w.renderCurrent();assert.ok(pending.length>0);
+  disclosure.open=true;nested.open=true;search.value='갱신 중 작성 '+round;search.focus();w.content.scrollTop=331;const scroller=disclosure.querySelector('.table-wrap');scroller.scrollLeft=77;
+  for(const finish of pending)finish();w.api=api;
+  await until(()=>w.eval('[...desktopPanels.values()].every(e=>!e.pending)'),'delayed panels settled');await delay(130);
+  assert.equal(query('[data-desktop-member-id="'+memberId+'"]'),disclosure);assert.equal(disclosure.open,true);assert.equal(nested.open,true);assert.equal(query('#desktop-member-search'),search);assert.equal(search.value,'갱신 중 작성 '+round);assert.equal(w.document.activeElement,search);assert.equal(w.content.scrollTop,331);assert.equal(scroller.scrollLeft,77);
+ }
  // Explicit owner selection is not inferred from a PC or copied from another row.
  click('[data-desktop-member-id="'+memberId+'"] [data-member-action="assign"]');await until(()=>dialog?.options.title==='회원 연결 변경','assign modal');
  assert.equal(query('[data-modal-field="memberId"]').value,memberId);dialog.resolve({memberId:otherId});await idle();
@@ -87,5 +97,5 @@ async function idle(){await until(()=>w.eval('!desktopLicenseActionPending'),'ac
  click('[data-member-action="create"]');await until(()=>dialog,'owner modal');const before=requests.filter(row=>row.method==='POST').length;w.session={csrf:'OWNER2'};dialog.resolve({displayName:'보내지 않을 회원',note:''});await idle();assert.equal(requests.filter(row=>row.method==='POST').length,before);
  await w.renderCurrent();assert.equal(w.eval('desktopMemberPending'),null);assert.equal(w.eval('desktopMemberQuery'),'');
  assert.equal(errors.length,0,errors.join('\n'));
- console.log('MEMBER UI PASS: member/unassigned disclosures, explicit assignment and direct-owner precondition, category paging, escaped hostile labels/evidence, hash/CRC details, lifecycle unknown states, stable focus/drafts/details, exact response-loss retry, stale-form revision rejection and administrator-session replacement. No screen capture API.');
+ console.log('MEMBER UI PASS: member/unassigned disclosures, explicit assignment and direct-owner precondition, category paging, escaped hostile labels/evidence, hash/CRC details, lifecycle unknown states, stable focus/drafts/details, exact response-loss retry, stale-form revision rejection and administrator-session replacement. No automatic capture in member operations.');
  }finally{w.close();}})().catch(error=>{console.error(error.stack);process.exitCode=1;});

@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "name": "COZY-CRC32C-COLLISION-V1",
+  "purpose": "Public non-secret collision fixtures; CRC equality never establishes authorization.",
+  "construction": "Two exact eight-byte prefixes followed by zero padding to byteCount. No collision search or runtime patching.",
+  "algorithm": {
+    "name": "CRC-32/ISCSI",
+    "polynomial": "1EDC6F41",
+    "reflectedPolynomial": "82F63B78",
+    "init": "FFFFFFFF",
+    "xorOut": "FFFFFFFF",
+    "check123456789": "E3069283"
+  },
+  "leftPrefixHex": "487059d7b605e9ff",
+  "rightPrefixHex": "48cc3ce6ab789b5c",
+  "codeRva": 4096,
+  "cases": [
+    {
+      "id": "crc32c-8-bytes",
+      "byteCount": 8,
+      "crc32c": "FB92544B",
+      "leftSha512": "1f007d06eaada610e4e238a136a37327f755712373ab35c8e2a5c6198bc45c2a3b6ff675d4f5ec5d3e5bc2803edb2f4c73945748a72e1eead6ba886c34d865d7",
+      "rightSha512": "2c9fb680d0f4bc0ec0afe73805901469a7770944dfa5a83948b35a03c8d237b5428d0e37c9cdd6f97705d48da35a8d9b6b4a8823bc2c03816ac1bf40dc00496b",
+      "leftCodeSha512": "4f188c0573f26365331af248cf602065e76a41367fecf09d01c3f8d691a907d1a0a108c466428b4b10587319a76560fd4b2b495655e3e544c54be56992a5e328",
+      "rightCodeSha512": "b34fd43de8e61f31cfc035ddcaf8e26f9a35113baf8e42d96a70730950ae6e3d0114926d93ffaee58ceaac82eaa52e7fea2b88e2a6271f98a333ca62288ca992",
+      "leftPageManifestSha512": "032a5e50b329b436940b0995f65d272139187dd0bf54a6efb4fb76cff4ad3d348392233781ba683df27213e33be1352b7679c1d5ef71c964a97ed2f974b47f26",
+      "rightPageManifestSha512": "8f0bfcd3aa87005521c7acd51fc209daaf05c6b44eb9437fa11f223df3c69238322c71fc14998570a36bb2b2e5fbc8f5c9263e9cc939a45c8f4124d252049484"
+    },
+    {
+      "id": "crc32c-4096-bytes",
+      "byteCount": 4096,
+      "crc32c": "CA805F72",
+      "leftSha512": "e9616c217a507f4ebe987fb3c5336736d4b02d0e7afb31b099ebe6908ee6ea6f48f06ad6b60797478a23b2dfa3b3a024c4aa8284997104fa889c97a31ec19a31",
+      "rightSha512": "ea20c4a83c1b0627494f906cb83dc2fe122006db240735e5cbcd22b3b462d1be5a78c928fab6cf224f6675d2443907af80e7dd52acdd078f4b420f8615c72cb3",
+      "leftCodeSha512": "fe3ab1b5c1316ba03620f79794c0f30d788b9a2170f92e19ac9a2c99f7764ba4d735d8fdb2d08a3184b5691d650814e885dfb204a3104a70fa9e0620a17734ae",
+      "rightCodeSha512": "d15e81bb955dcfd15a3069a5c17b5c9c66ae863bf7fca1f1f3ce662af538628b3e4f4dc0ccd1df9f26260ae472c8157ffedcdf26df6509165ad038e9eccd230b",
+      "leftPageManifestSha512": "b99f8ffb18c4b933a07f023efb046b21d28be56a251bed0ea37278d9550ba8b66cbeeb2d093fcfdfe7342d5e62de6bc63465e7867a6332cc6d26eee350df977d",
+      "rightPageManifestSha512": "8f42b7a7e858c83840ae39bd47f8e6a81770c97d795f00bc07e891172b6201fe7034d6b5e143c91bde0554e6b3bf6d20814526b88d362656dfaf947c25bf6c65"
+    }
+  ]
+}

@@ -42,7 +42,7 @@ async function reauthenticateWithPasskey(actionId=''){
 }
 
 async function renderProductionHardening(){
-  if(!roleIsAdmin()){content.innerHTML="<div class=\"empty\">접근 권한 없음</div>";return;}
+  if(!roleIsAdmin()){adminViewContent.html="<div class=\"empty\">접근 권한 없음</div>";return;}
   const d=await api('/api/production'),c=d.compatibility,t=d.transport,u=d.updates,s=d.slo;
   const devices=c.devices.filter(x=>x.type==='SERVER').map(x=>`<tr><td>${badge(x.type)}</td><td class="code">${esc(x.id)}</td><td>${badge(x.online?'ONLINE':'OFFLINE')}</td><td>${esc(x.version||'-')} / P${x.protocol}</td><td>${badge(x.compatible?'MATCHED':'MISMATCH')}</td><td>${x.missing.map(badge).join(' ')||'-'}</td><td class="code">${esc(x.fingerprint)}</td></tr>`).join('');
   const incidents=d.incidents.slice(0,30).map(x=>`<tr><td>${badge(x.severity)}</td><td class="code">${esc(x.id)}</td><td>${esc(x.title)}</td><td>${esc(x.entity)}</td><td>${x.count}</td><td>${badge(x.status)}</td><td>${esc(fmtTime(x.lastAt))}</td><td>${x.status==='OPEN'?`<button data-prod-resolve="${esc(x.id)}">해결</button>`:'-'}</td></tr>`).join('');
@@ -51,7 +51,7 @@ async function renderProductionHardening(){
   const approvals=d.approvals.slice(0,20).map(x=>`<tr><td class="code">${esc(x.ticketId)}</td><td>${esc(x.method)} ${esc(x.pathname)}</td><td>${badge(x.status)}</td><td>${esc(x.requestedBy)}</td><td>${esc(x.approvedBy||'-')}</td><td>${x.status==='PENDING'?`<button data-prod-approval="${esc(x.ticketId)}">2차 승인</button>`:'-'}</td></tr>`).join('');
   const anomalies=d.anomalies.map(x=>`<tr><td>${esc(x.key)}</td><td>${badge(x.severity)}</td><td>${badge(x.status)}</td><td>${x.count}</td><td>${esc(fmtTime(x.lastAt))}</td></tr>`).join('');
   guardAdminViewCommit('production');
-  content.innerHTML=`
+  adminViewContent.html=`
   <div class="cards production-summary">
     <div class="card"><div class="stat-label">호환됨</div><div class="stat-value">${c.summary.compatible}/${c.summary.online}</div><div class="stat-sub">접속 중인 기기 식별값</div></div>
     <div class="card"><div class="stat-label">통신</div><div class="stat-value compact">${esc(t.actualMode)}</div><div class="stat-sub">${t.tlsConfigured?'certificate loaded':"HMAC 인증됨"}</div></div>

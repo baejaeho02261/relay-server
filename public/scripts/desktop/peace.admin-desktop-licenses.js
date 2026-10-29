@@ -32,30 +32,60 @@ function desktopLicenseDevice(row) {
 }
 // Keep native controls and disclosure nodes mounted through every refresh. A
 // selected option, text draft, open details and nested scroller belong to the user.
-function desktopNodeKey(node) { return node.nodeType===1?(node.id||node.dataset.desktopKey||''):''; }
-function desktopPatchNode(previous,next,silent) {
+function desktopNodeKey(node) { return node.nodeType===1?(node.id||node.dataset.desktopKey||node.dataset.uiKey||''):''; }
+function desktopSiblingKeys(parent){
+ const nodes=[...parent.childNodes],candidates=new Map(),counts=new Map();
+ for(const node of nodes){
+  let key=desktopNodeKey(node);
+  if(!key&&node.nodeType===1){
+   const classes=node.getAttribute('class')||'',heading=node.querySelector(':scope > .section-head > h3,:scope > .section-head > div > h3,:scope > .stat-label,:scope > summary');
+   if(classes)key='structure:'+node.nodeName+'|'+classes+'|'+(heading?.textContent.trim()||'');
+  }
+  if(key){candidates.set(node,key);counts.set(key,(counts.get(key)||0)+1);}
+ }
+ return new Map([...candidates].filter(([,key])=>counts.get(key)===1));
+}
+function desktopPatchNode(previous,next,silent,mode='desktop') {
   if(previous.nodeType!==1){if(previous.nodeValue!==next.nodeValue)previous.nodeValue=next.nodeValue;return;}
   const control=previous.matches('input,textarea,select');
   if(control){
-    const committed=previous.id==='desktop-license-search'?desktopRenderedQuery!==desktopLicenseQuery:previous.id==='desktop-license-filter'?desktopRenderedStatus!==desktopLicenseStatus:previous.id==='desktop-member-search'?desktopMemberRenderedQuery!==desktopMemberQuery:previous.id==='desktop-member-filter'?desktopMemberRenderedStatus!==desktopMemberStatus:false;
-    if(committed&&previous.value!==next.value)previous.value=next.value;
+    if(mode==='desktop'){
+      const committed=previous.id==='desktop-license-search'?desktopRenderedQuery!==desktopLicenseQuery:previous.id==='desktop-license-filter'?desktopRenderedStatus!==desktopLicenseStatus:previous.id==='desktop-member-search'?desktopMemberRenderedQuery!==desktopMemberQuery:previous.id==='desktop-member-filter'?desktopMemberRenderedStatus!==desktopMemberStatus:false;
+      if(committed&&previous.value!==next.value)previous.value=next.value;
+    }else{
+      const preserve=previous===document.activeElement||adminEditedControls.has(previous),value=previous.value,checked=previous.checked;
+      // Permissions and readonly state remain server-owned even while editing.
+      for(const name of ['disabled','readonly','required','min','max','maxlength','aria-invalid']){if(next.hasAttribute(name))previous.setAttribute(name,next.getAttribute(name));else previous.removeAttribute(name);}
+      if(previous.tagName==='SELECT'&&!preserve){
+        // Reconcile options instead of detaching the native select itself.
+        const options=new Map([...previous.options].map(option=>[option.value,option]));
+        for(const wanted of [...next.options]){let option=options.get(wanted.value);if(!option){option=wanted.cloneNode(true);previous.append(option);}else{option.textContent=wanted.textContent;option.disabled=wanted.disabled;}options.delete(wanted.value);}
+        for(const option of options.values())option.remove();
+      }
+      if(!preserve){if(previous.type!=='file')previous.value=next.value;if('checked'in previous)previous.checked=next.checked;}
+      else{if(previous.type!=='file'&&previous.value!==value)previous.value=value;if('checked'in previous)previous.checked=checked;}
+    }
     return;
   }
   for(const attribute of [...previous.attributes])if(!next.hasAttribute(attribute.name)&&!(previous.tagName==='DETAILS'&&attribute.name==='open'))previous.removeAttribute(attribute.name);
   for(const attribute of [...next.attributes])if(previous.getAttribute(attribute.name)!==attribute.value&&!(previous.tagName==='DETAILS'&&attribute.name==='open'))previous.setAttribute(attribute.name,attribute.value);
-  const keyed=new Map([...previous.childNodes].filter(node=>desktopNodeKey(node)).map(node=>[desktopNodeKey(node),node]));
+  const oldKeys=desktopSiblingKeys(previous),newKeys=desktopSiblingKeys(next),wantedKeys=new Set(newKeys.values());
+  const keyed=new Map([...oldKeys].map(([node,key])=>[key,node]));
+  // Remove obsolete keyed siblings before reconciliation. Merely deleting a
+  // transient loading message must not move a live disclosure or native select.
+  for(const [node,key]of oldKeys)if(!wantedKeys.has(key))node.remove();
   let cursor=previous.firstChild;
   for(const wanted of [...next.childNodes]){
-    const key=desktopNodeKey(wanted);
+    const key=newKeys.get(wanted)||'';
     let existing=key?keyed.get(key):cursor;
-    if(!existing||existing.nodeType!==wanted.nodeType||existing.nodeName!==wanted.nodeName||(!key&&desktopNodeKey(existing))){existing=wanted.cloneNode(true);previous.insertBefore(existing,cursor);}
-    else {if(existing!==cursor)previous.insertBefore(existing,cursor);desktopPatchNode(existing,wanted,silent);}
+    if(!existing||existing.parentNode!==previous||existing.nodeType!==wanted.nodeType||existing.nodeName!==wanted.nodeName||(!key&&oldKeys.has(existing))){existing=wanted.cloneNode(true);previous.insertBefore(existing,cursor);}
+    else {if(existing!==cursor)previous.insertBefore(existing,cursor);desktopPatchNode(existing,wanted,silent,mode);}
     cursor=existing.nextSibling;
   }
   while(cursor){const stale=cursor;cursor=cursor.nextSibling;stale.remove();}
 }
 function desktopScrollElements() {
-  const nodes=[...content.querySelectorAll('.table-wrap,.desktop-integrity-list'),content];
+  const nodes=[...content.querySelectorAll('.table-wrap,.desktop-integrity-list,.event-list,.live-console,.terminal-output,.command-terminal-output'),content];
   for(let parent=content.parentElement;parent;parent=parent.parentElement)nodes.push(parent);
   if(document.scrollingElement)nodes.push(document.scrollingElement);
   return [...new Set(nodes)];
@@ -79,6 +109,8 @@ function desktopRestoreScroll(state,anchor=true) {
 }
 function desktopSelectTab(tab) {
   if(!['members','licenses','modules'].includes(tab)||tab===desktopLicenseTab)return;
+  if(typeof desktopCaptureClosePreview==='function')desktopCaptureClosePreview();
+  if(typeof desktopCaptureCloseLink==='function')desktopCaptureCloseLink();
   desktopTabScroll.set(desktopLicenseTab,desktopCaptureScroll());desktopLicenseTab=tab;
   content.querySelectorAll('[data-desktop-tab]').forEach(button=>{const active=button.dataset.desktopTab===tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
   content.querySelectorAll('[data-desktop-tab-panel]').forEach(panel=>{panel.hidden=panel.dataset.desktopTabPanel!==tab;});
@@ -105,7 +137,7 @@ function desktopRequestPanel(key,url,owner){
 function desktopPanelMarkup(keys,markup){
  const missing=keys.filter(k=>!desktopPanels.get(k)?.data),bad=keys.filter(k=>desktopPanels.get(k)?.error);
  const status=bad.length?`<div class="desktop-panel-pending" role="status">${esc(bad.join(', '))} 조회 실패 · 이전 자료는 최신 상태가 아닙니다. <button type="button" data-desktop-action="retry-panels">이 영역 다시 조회</button></div>`:missing.length?'<div class="desktop-panel-pending" role="status">이 영역을 별도로 불러오는 중입니다.</div>':'';
- return status+(missing.length?'':markup);
+ return `<div data-desktop-key="panel-status-${esc(keys.join('-'))}">${status}</div>`+(missing.length?'':markup);
 }
 async function renderDesktopLicenses(silent = false) {
   if (!roleIsAdmin()) { content.innerHTML='<div class="empty">관리자만 라이선스를 관리할 수 있습니다.</div>'; return; }
@@ -168,6 +200,7 @@ async function renderDesktopLicenses(silent = false) {
     const scroll=desktopCaptureScroll(),template=document.createElement('template');template.innerHTML=html;
     desktopPatchNode(previous,template.content.firstElementChild,silent);desktopRestoreScroll(scroll);
   }else content.innerHTML=html;
+  if(typeof rememberAdminView==='function')rememberAdminView('desktop-licenses',owner);
   desktopRenderedQuery=desktopLicenseQuery;desktopRenderedStatus=desktopLicenseStatus;
   desktopMemberRenderedQuery=desktopMemberQuery;desktopMemberRenderedStatus=desktopMemberStatus;
 }
@@ -331,6 +364,7 @@ async function createDesktopLauncher() {
 }
 async function handleDesktopLicenseAction(event) {
   const target=event.target.closest('button');if(!target)return false;
+  if(target.dataset.captureAction&&typeof handleDesktopCaptureAction==='function')return handleDesktopCaptureAction(target);
   if(target.dataset.memberAction)return handleDesktopMemberAction(target);
   if(target.dataset.desktopTab){desktopSelectTab(target.dataset.desktopTab);await renderCurrent(true);return true;}
   if(target.dataset.desktopStatus){desktopLicenseStatus=target.dataset.desktopStatus;desktopLicensePage=0;await renderCurrent();return true;}

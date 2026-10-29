@@ -48,6 +48,7 @@ const FILES = [
   "scripts/interface/peace.admin-palette.js",
   "scripts/desktop/peace.admin-desktop-licenses.js",
   "scripts/desktop/peace.admin-desktop-members.js",
+  "scripts/desktop/peace.admin-desktop-captures.js",
   "scripts/desktop/peace.admin-desktop-security-center.js",
   "scripts/desktop/peace.admin-desktop-security.js",
   "scripts/desktop/peace.admin-desktop-server-state.js",
@@ -58,7 +59,10 @@ const FILES = [
   "scripts/pages/peace.admin-pages-production.js",
   "peace.service-worker.js",
   "ui-refresh.html",
-  "scripts/application/peace.ui-refresh.js"
+  "scripts/application/peace.ui-refresh.js",
+  "diagnostics.html",
+  "scripts/diagnostics/peace.diagnostic-capture.js",
+  "styles/diagnostics.css"
 ];
 const ManifestPath = path.join(MODULE_RESOURCE_ROOT, "assets/ui-bundle.json");
 function Hash(name, directory = PUBLIC_DIR) {

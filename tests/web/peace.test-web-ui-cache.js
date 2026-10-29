@@ -96,7 +96,7 @@ async function testWorker() {
       assert.equal(r.cache, 'no-store');
       const asset = new URL(r.url).pathname; installed.push(asset);
       assert.equal(fs.statSync(path.join(root, 'public', asset)).isFile(), true, 'Every cached shell asset must exist: ' + asset);
-      assert.ok(!asset.startsWith('/api/') && !asset.startsWith('/member/') && !asset.startsWith('/pay/'), 'Never pre-cache authenticated data');
+      assert.ok(!asset.startsWith('/api/') && !asset.startsWith('/member/') && !asset.startsWith('/pay/') && !asset.startsWith('/diagnostics') && !asset.startsWith('/scripts/diagnostics/') && !asset.startsWith('/styles/diagnostics'), 'Never pre-cache authenticated data or diagnostic capture pages');
     } },
     put: async (key, response) => { puts.push(typeof key === 'string' ? key : key.url); assert.equal(response.status, 200); },
     match: async key => { reads.push(key); return key === '/index.html' ? new Response('<html>cached shell</html>') : undefined; }
@@ -147,6 +147,9 @@ async function testWorker() {
   const beforeAuthCache=puts.length;
   for(const url of ['/member/oauth/callback/google?code=private-code','/member/oauth/open/private-flow','/pay/return/order/state/complete?paymentKey=private-key'])await request(url,'navigate');
   assert.equal(puts.length,beforeAuthCache,'OAuth/payment navigation must never replace the cached admin shell');
+  const diagnostics = ['/diagnostics', '/diagnostics.html', '/scripts/diagnostics/peace.diagnostic-capture.js', '/styles/diagnostics.css', '/api/desktop/diagnostics', '/api/diagnostics/upload'];
+  for (const url of diagnostics) await request(url, url.startsWith('/diagnostics') ? 'navigate' : 'cors');
+  assert.equal(puts.length, beforeAuthCache, 'Diagnostic documents, scripts and image APIs must never enter the cache');
   failNetwork = true;
   assert.equal((await request('/admin-missing.js')).status, 503);
   assert.ok((await (await request('/', 'navigate')).text()).includes('cached shell'));
@@ -156,6 +159,7 @@ async function testWorker() {
   await assert.rejects(request('/pay/return/order/state/complete','navigate'), /OFFLINE/);
   await assert.rejects(request('/ui-version.json'), /OFFLINE/);
   await assert.rejects(request('/ui-refresh'), /OFFLINE/);
+  for (const url of diagnostics) await assert.rejects(request(url, url.startsWith('/diagnostics') ? 'navigate' : 'cors'), /OFFLINE/);
   assert.equal(reads.length, count, 'API/recovery must never fall back to cached data');
   assert.ok(network.every(r => r.cache === 'no-store'));
 }

@@ -45,6 +45,33 @@ test('legacy approved capability permits omitted metadata, never malformed suppl
 test('failed CRC role cannot produce a complete observation even in observe mode',()=>{const f=Fixture('observe'),v=f.Value();f.artifact.ownMeasurementVersion=0;delete v.ownMeasurement;const old=v.crcLayers.nvme;v.crcLayers.nvme={algorithm:old.algorithm,role:old.role,status:'failed',reason:'READ_ERROR'};assert.equal(f.Observe(v).response.proceed,false);assert.throws(()=>f.Fresh(),/MEASUREMENT_INCOMPLETE/);});
 test('observe retains explicit completed-mismatch semantics, not absent measurements',()=>{const f=Fixture('observe'),v=f.Value();v.fileSha512='f'.repeat(128);const out=f.Observe(v).response;assert.equal(out.status,'MISMATCH');assert.equal(out.proceed,true);f.Fresh();});
 test('enforce never authorizes digest mismatch',()=>{const f=Fixture(),v=f.Value();v.fileSha512='f'.repeat(128);assert.equal(f.Observe(v).response.proceed,false);assert.throws(()=>f.Fresh(),/OBSERVATION_MISMATCH/);});
+// Public CRC32C collisions exercise the actual SHA/signature authorization path.
+// Keep every reported CRC field unchanged to isolate the cryptographic gates;
+// this does not assert that these inputs collide under every CRC variant.
+for(const vector of require('../fixtures/integrity/peace.crc32c-collision-vectors.json').cases){
+ test('CRC32C collision '+vector.byteCount+': matching CRC reports cannot retain SHA512 authority',()=>{
+  const f=Fixture();f.artifact.sha512=vector.leftSha512;
+  f.Observe();f.Fresh();
+  const original=f.Value(),changed=f.Value();changed.fileSha512=vector.rightSha512;
+  assert.notEqual(original.fileSha512,changed.fileSha512);
+  assert.equal(original.fileCrc64,changed.fileCrc64);assert.equal(original.codeCrc64,changed.codeCrc64);
+  assert.deepEqual(original.crcLayers,changed.crcLayers);
+  const result=f.Observe(changed).response;
+  assert.equal(result.status,'MISMATCH');assert.equal(result.proceed,false);
+  assert.throws(()=>f.Fresh(),/OBSERVATION_MISMATCH/);
+ });
+ test('CRC32C collision '+vector.byteCount+': replacing signed content invalidates the real RSA proof',()=>{
+  const f=Fixture();f.artifact.sha512=vector.leftSha512;
+  f.Observe();f.Fresh();
+  const challenge=f.auth.Execute(f.body),signed=f.Signed(challenge),changed=f.Value();
+  changed.fileSha512=vector.rightSha512;
+  const before=JSON.parse(signed.payload);
+  assert.deepEqual(before.crcLayers,changed.crcLayers);assert.equal(before.fileCrc64,changed.fileCrc64);
+  signed.payload=JSON.stringify(changed); // deliberately retain the old signature
+  assert.throws(()=>f.auth.Execute(signed),/SIGNATURE_INVALID/);
+  assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);
+ });
+}
 test('client normal/proceed fields are rejected instead of granting authority',()=>{const f=Fixture(),v=f.Value();v.normal=true;v.proceed=true;assert.throws(()=>f.Observe(v),/SECURITY_INPUT_INVALID/);assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);});
 test('expiry and policy/operations revision changes prevent fresh use',()=>{for(const mutate of [f=>f.auth.__probe.decisions.values().next().value.deadline=0,f=>f.db.securityAuthorityPolicy.revision++,f=>f.setOps()]){const f=Fixture();f.Observe();mutate(f);assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);}});
 test('expired challenge, invalid signature and failure invalidation never renew a decision',()=>{const f=Fixture();f.Observe();let c=f.auth.Execute(f.body),signed=f.Signed(c);signed.signature=Buffer.alloc(256).toString('base64');assert.throws(()=>f.auth.Execute(signed),/SIGNATURE_INVALID/);assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);f.auth.__probe.pending.get(c.challengeId).deadline=0;assert.throws(()=>f.auth.Execute(f.Signed(c)),/CHALLENGE_INVALID/);f.Observe();f.auth.Invalidate(f.row,'B','TEST_FAILURE');assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);});

@@ -136,7 +136,13 @@
     "test:protocol:documents": "node --test tests/protocol/peace.test-document-schema.js",
     "test:members": "node --test tests/licensing/peace.test-desktop-members.js tests/web/peace.test-desktop-member-ui.js",
     "test:overlay:text-input": "node --test tests/overlay/peace.test-overlay-text-input.js",
-    "test:device:approval": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js"
+    "test:device:approval": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js",
+    "test:handoff:fragments": "node tests/bootstrap/peace.test-handoff-pipe-fragments.js",
+    "test:crc:collision": "node tests/cryptography/peace.test-crc-collision-vectors.js",
+    "test:diagnostics:server": "node tests/diagnostics/peace.test-support-captures.js",
+    "test:diagnostics:customer": "node tests/web/peace.test-diagnostic-capture.js",
+    "test:diagnostics:admin": "node --test tests/web/peace.test-desktop-capture-ui.js tests/web/peace.test-admin-capture-png.js",
+    "test:diagnostics:http": "node tests/diagnostics/peace.test-support-captures-http.js"
   },
   "engines": {
     "node": "24.22.1"

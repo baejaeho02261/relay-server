@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'cozy-peace-v10-member-contracts';
+const WEB_UI_REVISION = 'cozy-peace-v11-diagnostics';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -216,6 +216,27 @@ async function requestAdminReauthentication(action = null) {
   })();
   try { return await adminReauthenticationPending; } finally { adminReauthenticationPending = null; }
 }
+async function readAdminPng(response,signal,live){
+ const limit=2097152,contentType=(response.headers.get('Content-Type')||'').split(';')[0].trim().toLowerCase(),declared=response.headers.get('Content-Length');
+ const reader=response.body?.getReader?.();
+ if(!reader)throw Error('이미지 응답을 안전하게 읽을 수 없습니다.');
+ const chunks=[];let total=0,bytes=null,complete=false;
+ try{
+  if(contentType!=='image/png'||declared!==null&&(!/^[0-9]+$/.test(declared)||Number(declared)>limit))throw Error('이미지 형식 또는 크기를 확인하지 못했습니다.');
+  while(true){
+   if(signal?.aborted||!live())throw Error('화면 또는 로그인 상태가 변경되어 이미지 조회를 취소했습니다.');
+   const part=await reader.read();if(part.done)break;
+   if(!part.value||part.value.byteLength>limit-total){part.value?.fill?.(0);throw Error('지원 이미지가 허용 크기를 초과했습니다.');}
+   total+=part.value.byteLength;chunks.push(part.value);
+  }
+  if(!live()||signal?.aborted||total<33||declared!==null&&Number(declared)!==total)throw Error('이미지 응답이 완료되지 않았습니다.');
+  bytes=new Uint8Array(total);let at=0;for(const chunk of chunks){bytes.set(chunk,at);at+=chunk.byteLength;}
+  const magic=[137,80,78,71,13,10,26,10];if(magic.some((v,i)=>bytes[i]!==v)||bytes[8]!==0||bytes[9]!==0||bytes[10]!==0||bytes[11]!==13||String.fromCharCode(...bytes.subarray(12,16))!=='IHDR')throw Error('유효한 PNG 이미지가 아닙니다.');
+  const view=new DataView(bytes.buffer),width=view.getUint32(16),height=view.getUint32(20);
+  if(width<1||height<1||width>4096||height>4096||width*height>4194304)throw Error('지원 이미지의 해상도가 허용 범위를 벗어났습니다.');
+  const blob=new Blob([bytes],{type:'image/png'});complete=true;return {blob,width,height,bytes:total};
+ }finally{if(!complete)try{await reader.cancel();}catch(_){}try{reader.releaseLock();}catch(_){}for(const chunk of chunks)chunk.fill(0);bytes?.fill(0);}
+}
 async function api(url, options = {}) {
   const requestSession = session?.csrf;
   const requestModalAlive = typeof captureAdminModalOwner === 'function' ? captureAdminModalOwner() : null;
@@ -223,6 +244,8 @@ async function api(url, options = {}) {
   const headers = { Accept: 'application/json', ...(options.headers || {}) };
   if (session && !['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = session.csrf;
   const request = { method, headers, credentials: 'same-origin' };
+  if(options.signal)request.signal=options.signal;
+  if(options.responseType==='png')request.cache='no-store';
   if (options.rawBody !== undefined) {
     headers['Content-Type'] = 'application/octet-stream';
     request.body = options.rawBody;
@@ -231,6 +254,10 @@ async function api(url, options = {}) {
     request.body = JSON.stringify(options.body);
   }
   const response = await fetch(url, request);
+  if(response.ok&&options.responseType==='png'){
+    const live=()=>!!requestSession&&session?.csrf===requestSession&&roleIsAdmin()&&(!requestModalAlive||requestModalAlive());
+    return readAdminPng(response,options.signal,live);
+  }
   const responseText = await response.text();
   let data = null;
   if (responseText) {
@@ -267,11 +294,13 @@ async function api(url, options = {}) {
     error.connection=data?.connection;error.serverMessage=data?.message;error.problem=data?.problem;if(error.problem)error.message=error.problem.title+' '+error.problem.next;throw error;
   }
   if (!data || typeof data !== 'object') throw new Error(`EMPTY_API_RESPONSE [${method} ${url}]`);
-  if (!['GET', 'HEAD'].includes(method)) dirtyViews.delete(currentView);
+  if (!['GET', 'HEAD'].includes(method)) {dirtyViews.delete(currentView);adminEditedControls=new WeakSet();}
   return data;
 }
 
 function showLogin() {
+  if(typeof desktopCaptureClosePreview==='function')desktopCaptureClosePreview();
+  if(typeof desktopCaptureCloseLink==='function')desktopCaptureCloseLink();
   if (typeof closeAdminModals === 'function') closeAdminModals();
   if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();
   session = null;
@@ -437,23 +466,34 @@ function roleIsAdmin() { return session && session.role === 'admin'; }
 function roleCanOperate() { return session && (session.role === 'admin' || session.role === 'operator'); }
 
 const PRESERVED_SCROLL_SELECTOR = '.table-wrap,.live-console,.event-list,.terminal-output,.command-terminal-output';
+let adminEditedControls=new WeakSet(),adminEditOwner='';
+const adminMountedState=new WeakMap();
+function rememberAdminView(view,owner){adminMountedState.set(content,{view,owner});}
 function autoRefreshHasFocusedControl() { return content.contains(document.activeElement)&&document.activeElement.matches('input,textarea,select'); }
-// A control can receive focus after a background request starts. Retained page
-// renderers call this directly before their DOM commit, never from API handling.
+function adminResetEditOwner(){const owner=session?.csrf||'';if(owner!==adminEditOwner){adminEditedControls=new WeakSet();adminEditOwner=owner;}}
+for(const eventName of ['input','change'])content.addEventListener(eventName,event=>{if(event.target.matches?.('input,textarea,select')){adminResetEditOwner();adminEditedControls.add(event.target);}},true);
+// Late responses cannot mutate a different page or administrator's mounted DOM.
+// Focused controls are preserved in-place; current security facts still refresh.
 function guardAdminViewCommit(view) {
-  const refresh=activeGenericRefresh;
-  if(!refresh||refresh.view!==view)return;
-  if(currentView!==view||session?.csrf!==refresh.owner)throw ADMIN_REFRESH_DEFERRED;
-  if(autoRefreshHasFocusedControl()||dirtyViews.has(view)){
-    deferredAutoRefreshView=view;throw ADMIN_REFRESH_DEFERRED;
-  }
+ const refresh=activeGenericRefresh;
+ if(refresh&&(currentView!==refresh.view||session?.csrf!==refresh.owner||view!==refresh.view))throw ADMIN_REFRESH_DEFERRED;
 }
-content.addEventListener('focusout',()=>{
-  queueMicrotask(()=>{
-    if(deferredAutoRefreshView!==currentView||autoRefreshHasFocusedControl()||dirtyViews.has(currentView))return;
-    deferredAutoRefreshView=null;renderCurrent(true);
-  });
-});
+function commitAdminViewHTML(markup){
+ const view=currentView,owner=session?.csrf;guardAdminViewCommit(view);if(!owner)return;
+ adminResetEditOwner();
+ const mounted=adminMountedState.get(content)?.view===view&&adminMountedState.get(content)?.owner===owner;
+ const scroll=mounted?desktopCaptureScroll():null,focused=mounted&&content.contains(document.activeElement)?document.activeElement:null;
+ let selection=null;try{if(focused&&typeof focused.selectionStart==='number')selection=[focused.selectionStart,focused.selectionEnd,focused.selectionDirection];}catch(_){}
+ if(mounted){const next=content.cloneNode(false);next.innerHTML=markup;desktopPatchNode(content,next,true,'generic');}
+ else content.innerHTML=markup;
+ rememberAdminView(view,owner);
+ if(focused?.isConnected&&document.activeElement!==focused&&!focused.disabled){focused.focus({preventScroll:true});if(selection)try{focused.setSelectionRange(...selection);}catch(_){}}
+ if(scroll)desktopRestoreScroll(scroll);
+ if(activeGenericRefresh)activeGenericRefresh.committed=true;
+}
+// Page renderers use this explicit commit boundary instead of replacing the
+// mounted content element. Drafts and expanded details remain memory-only.
+const adminViewContent={set html(markup){commitAdminViewHTML(markup);}};
 
 function captureScrollState(view) {
   const scrolling = document.scrollingElement || document.documentElement;
@@ -508,25 +548,20 @@ async function renderCurrent(silent = false) {
   }
   if (silent && !modalEl.classList.contains('hidden')) return;
   if (silent && currentView === 'desktop-licenses' && typeof desktopLicenseActionPending !== 'undefined' && desktopLicenseActionPending) return;
-  // Desktop patches mounted nodes; other views defer while a control is focused.
-  if (silent && currentView !== 'desktop-licenses') {
-    if(dirtyViews.has(currentView))return;
-    if(autoRefreshHasFocusedControl()){deferredAutoRefreshView=currentView;return;}
-  }
   deferredAutoRefreshView=null;
-  if (!silent) dirtyViews.delete(currentView);
+  adminResetEditOwner();
   const view = currentView;
   const keepDesktop = view === 'desktop-licenses' && !!content.querySelector('.desktop-workspace');
-  let scrollState = silent && view !== 'desktop-licenses' ? captureScrollState(view) : null;
+  let scrollState = view !== 'desktop-licenses' ? captureScrollState(view) : null;
   const trackScroll=()=>{if(scrollState&&view===currentView)scrollState=captureScrollState(view);};
   if(scrollState)document.addEventListener('scroll',trackScroll,true);
   rendering = true;
-  activeGenericRefresh=silent&&view!=='desktop-licenses'?{view,owner:session.csrf}:null;
+  activeGenericRefresh=view!=='desktop-licenses'?{view,owner:session.csrf,committed:false}:null;
   const meta = titles[currentView] || titles.dashboard;
   pageTitle.textContent = meta[0];
   pageSubtitle.textContent = meta[1];
   if (typeof updateNavigationWorkspace === 'function') updateNavigationWorkspace();
-  if (!silent && !keepDesktop) content.innerHTML = '<div class="empty">불러오는 중...</div>';
+  if (!silent && !keepDesktop && (adminMountedState.get(content)?.view!==view||adminMountedState.get(content)?.owner!==session.csrf)) content.innerHTML = '<div class="empty">불러오는 중...</div>';
   try {
     if (currentView === 'desktop-licenses') await renderDesktopLicenses(silent);
     else if (currentView === 'dashboard') await renderDashboard();
@@ -564,8 +599,8 @@ async function renderCurrent(silent = false) {
       console.warn(`[WEB AUTO REFRESH] ${view}: refresh failed`);
     }
   } finally {
-    activeGenericRefresh=null;
-    if (scrollState) {document.removeEventListener('scroll',trackScroll,true);restoreScrollState(scrollState);}
+    const committed=activeGenericRefresh?.committed;activeGenericRefresh=null;
+    if (scrollState) {document.removeEventListener('scroll',trackScroll,true);if(!committed)restoreScrollState(scrollState);}
     rendering = false;
     if (view !== currentView) {desktopRefreshQueued=null;renderCurrent();}
     else if(currentView==='desktop-licenses'&&desktopRefreshQueued!==null){const queued=desktopRefreshQueued;desktopRefreshQueued=null;renderCurrent(queued);}
@@ -574,6 +609,8 @@ async function renderCurrent(silent = false) {
 
 
 function switchView(view) {
+  if(view!==currentView&&typeof desktopCaptureClosePreview==='function')desktopCaptureClosePreview();
+  if(view!==currentView&&typeof desktopCaptureCloseLink==='function')desktopCaptureCloseLink();
   if (!Object.hasOwn(titles, view)) view = 'dashboard';
   const target = nav.querySelector(`button[data-view="${CSS.escape(view)}"]`);
   if (!target || target.hasAttribute('data-admin-only') && !roleIsAdmin()) view = 'dashboard';

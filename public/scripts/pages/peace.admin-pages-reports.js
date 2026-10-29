@@ -19,7 +19,7 @@ async function renderReports() {
   try { ownSubscription = await currentPushSubscription(); } catch (_) {}
   const c = daily.current;
   guardAdminViewCommit('reports');
-  content.innerHTML = `<div class="cards">
+  adminViewContent.html = `<div class="cards">
     <div class="card"><div class="stat-label">푸시 알림 서비스</div><div class="stat-value compact">${push.available?"준비됨":"꺼짐"}</div><div class="stat-sub">${push.available?`${push.subscriptions} subscription(s)`:esc(uiText(push.reason))}</div></div>
     <div class="card"><div class="stat-label">현재 브라우저</div><div class="stat-value compact">${ownSubscription?"켜짐":"꺼짐"}</div><div class="stat-sub">권한: ${esc(('Notification' in window)?Notification.permission:'unsupported')}</div></div>
     <div class="card"><div class="stat-label">보고서 날짜</div><div class="stat-value compact">${esc(c.date)}</div><div class="stat-sub">${esc(daily.timezone)}</div></div>
