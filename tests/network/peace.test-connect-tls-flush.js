@@ -80,8 +80,8 @@ function harness(options = {}) {
   const localRequire = request => {
     if (request === 'node:fs') return api;
     if (request === 'node:child_process') return childProcess;
-    if (request === '../config/peace.runtime-configuration') return { DATA_DIR: data, HA_ENABLED: false };
-    if (request === './peace.desktop-key-purposes') return purposeStore;
+    if (request === '../../config/peace.runtime-configuration') return { DATA_DIR: data, HA_ENABLED: false };
+    if (request === '../security/peace.desktop-key-purposes') return purposeStore;
     return realRequire(request);
   };
   const mod = { exports: {} };

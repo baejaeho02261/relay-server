@@ -6,7 +6,7 @@
     ".dockerignore": "245b8235797306fd8422405c4c9733a66b3159b7683bd1b1e98bbd315812905ad07dbdb36097939ff463c94e28453d68aea41dbab7eeb82f668e8f533b18888b",
     ".gitignore": "e9ecbcefa51ffca72626f963f5e89292f4ba8ed42fd874a6bc1a6a36fdd802cbc935480d625b4aa13a1f3651da7f0013d5f458ff32c592327bc8d9a75b17464b",
     ".node-version": "81085aec546805e50b78384a30026a5a0d587f913a45a22e2b78517d2bb698a57ed4e0075ef6a3c458169a7f106f0413261051581953e4ae267528b9b9eb8dc0",
-    "Dockerfile": "f1e9d6231f909ccdb0dcc04a944d6f3a73c847dd47a5b10ed13b801bd5d5078344285c19e39b77340c190c952c8722d2dbe98500376e51657e56232e944abf5a",
+    "Dockerfile": "c9f8813a6b05a6e2622bbbd6d9118c294ae76584ef32718e120c6741e046d9e7039d7d02e5338284cdcb47c86fb5035c33b5c9afab75c27fc720ec7d35bb71c0",
     "Dockerfile.dockerignore": "245b8235797306fd8422405c4c9733a66b3159b7683bd1b1e98bbd315812905ad07dbdb36097939ff463c94e28453d68aea41dbab7eeb82f668e8f533b18888b",
     "admin/peace.admin-request-handler.js": "28725e4e16e1da51d3010393d7c17a3d2cb5bb1c9d1e3efdca2731a2bf9974829f5438789fbdcb02af9c4364c1159c666567bc9bde738a1764d7cf74bac153e4",
     "admin/peace.auth.js": "2d0f7501546fcb2004791c06bef3472be2f47070a7ba093494061d315652e28e442fb88f17e2e57518edb65adcec986391da4388b7159c4aee454ad25abff504",
@@ -56,7 +56,7 @@
     "maintenance/source-manifest.json": "7a915afb403a9b6c7e5f17c4609d8318b2341c4336928f3835bfd3bf0110b0f08bee07e4ee6abb942572e51e81a978f32fabfc9841bc5e10961ce50a38c0eb95",
     "maintenance/windows-signing.ko.md": "2a8692701693419b861d339643afc02a58e7f5b145de3b9d2dc9153790917d757ab653235bd4b3546b18e89681d6800b5a5ce5aa3c446be9a2c4d83cd4cd6c66",
     "package-lock.json": "fa65cf6208ee274d9f7bbc7fd53821d3e1407daf49851fc98490f3861af2d63e70d22838dbcfd95b75da1c53d7cfeb48c61fde41aa67467d80aa5edb4674a87f",
-    "package.json": "67d3c38dc9de89a8e65fe6e5756eaaaf7176627ba0dad46c5d95c9c244431a539fe811e6ef5bd93841b2fefcb41f1b3be4a0f147c924d2b2a8e91114858cc943",
+    "package.json": "61ebe9101db8e6530e7bb230ba0cb8b52cec13cca58bb496b4ffb3b98a6b4159bccc19b7918ea028f3191f452ccca71622f35a021a9a0201de720ff7c6315a7d",
     "peace.relay-server.js": "7a82a9c0e1c3e1c0cb6c4af4eb171b0794af6809f272190e37768cff7a52874c8142d238749b5f3ef8ee3433d7baca40d51d42786d1ed79fada38bbd08f911e8",
     "public/icons/favicon.ico": "b08b6ce4469e79220255f22dd744b4b3713cd79c253ab9a9329a2d41e6944198c130633476766e513507b01c37c5c9692d9685b74265e34e3a06b111acd4c309",
     "public/icons/favicon.svg": "b57771c05ae57c2ede9fe8d19e84b207f136bec0a7b0674039f96e7495437097860138bc34ea558c892c8e433c3837452806629be428773fbb0d34b47b6b07b0",
@@ -428,7 +428,7 @@
     "tests/fixtures/cryptography/peace.kmac-store-fixture.js": "fdee072047b464cf70dcde09d25820f830c2af5ace14e6d23d20c79a2f192e936c48ff04d6240beaaac43979795b0515022eb898f74ba3765adc5af398cb6139",
     "tests/fixtures/integrity/peace.crc32c-collision-vectors.json": "afd559d28b20d415904155c591f0e41c730f2a107c03132c84c7cb349c7864e7d7be75d59ab73c83835bf2742b86e8522a7593fa0dcb81332f4188d527251a8e",
     "tests/fixtures/integrity/peace.owned-runtime-graph-fixture.js": "4ec873a0292dbc765915b30264a3fa8807c4eec8750bb40680ec40da86d53dac6333f59a047e37be1f22e1afd9b48f595212edabc01250840e6a15e9648685a5",
-    "tests/fixtures/integrity/peace.test-native-receive-fixture.js": "0ad9a04a2b08149b8417d820fed7ef66ad0fcb181f4c8014dc7e15003d3d35c1768fec33839dbe0c1f947aa61e6609add04e07972241e5248a28c1f1e7d5b4fa",
+    "tests/fixtures/integrity/peace.test-native-receive-fixture.js": "37a5f90ce7e81f1829044c502f182493d10eb86681005609eb754bd45118ab758a0e1f0ac1801bae898889cd27c142e029ef64af2418b20a4740a3c1b0e75de5",
     "tests/fixtures/licensing/desktop-license-journal-v1.json": "a4abd228198fdc6f06f3cc54728be21458985d59e42c05f2c086b535a48d3961893944ab633794d5a366040b04d7a09a9b4a6267e34c2664009a9b0fb0790371",
     "tests/fixtures/network/peace.next456-tls-fixture.js": "42c079c7db1045a21dc21e9fc56b89f5c72f66556d55e8c10a17ff34de5acd2e5cbecae71907c2ef39159a0e4e62164da31d00a78f10f5bbbf7375be5daf753d",
     "tests/fixtures/network/peace.server-profile-v4.json": "bde6af588ecf8a8662d9c033eeeb006787ed9148becaf4442aef3afc26e7c14b50eb8f7c7ef5878a1511811ddb51b0bac14ddaf3c1baf46d4003c36190209753",
@@ -466,7 +466,7 @@
     "tests/licensing/test-license-success-contract.py": "2e18ba93ef92d174bcc0debd96e5f1af1496dbebb983fd1aad0bce0cb355f898a6e9091e658cec954fcff138b474a85d1541ab7b81f60133da39ff4a2454a984",
     "tests/network/peace.check-connect-project.js": "b90959713347bda950e2dc1e248ffa250536a25d6a5206a32e2323f4fd45bbce303e07cebad36cbd41bfaa7c147809420dfed3c4d5205aaaa54059e4e8c60338",
     "tests/network/peace.test-connect-deployment.js": "c3746e3ad5b6667144944d71c479471a293325f895341a47c28dbe0a2e9b7c677eb2ea884db9d17f3db50bf193bb689cca40ede5b66e132998e5b5baaaa6639e",
-    "tests/network/peace.test-connect-tls-flush.js": "00e6957d8199ec742e54264de36037a54a1cd615c93c7bb9c95246c533d9b6006bc7e3f78190e925ff8160d342d64a759b56eab16bec69bf93d8ca341b637929",
+    "tests/network/peace.test-connect-tls-flush.js": "e426dff2fa8323fae711369461939b8f03f5798d1f4aeb34142facb940dd1608f699d66e374fdb9b37646d4c56d2edf1b915b74a4ec52b324aca9e0bd7723e7e",
     "tests/network/peace.test-connect-tls.js": "c351e2cd7afb3d5d5108b6a13b905238877feffdac1bfe1c4deae35609ad2faad71655b9bfc3e4f6610dbc7717fb367f479926e3ca3ec14f01b69006b775eed1",
     "tests/network/peace.test-desktop-connect.js": "e9753ba82c2aed7de48ad865b42e772b46462615f48e5e08d7a884ea7e0b11c2e035a8ff2825442d69d1e5a46eef1434fec28bcbba47a4c468086ed9834a9699",
     "tests/network/peace.test-native-socket-priorities.js": "acea0e1673af668a6f9ccbda7f9f70ae8ac08f77f01f28e559ec66cdca9cac3a610e2b4eae5d71121a3fbb07a339f1c43c1ca3b2b0650b34f9fd099a5fcc9cab",
@@ -476,7 +476,9 @@
     "tests/network/peace.test-push-transport-tls.js": "ae2bb355197735f015cc804ce83ef850dbcdd915ee46b1221fdf61824a0196fc416f47b16cd9e3b011c73e261b4576f8eb6b00edd8a518390888a10374acaab8",
     "tests/network/peace.test-server-profile-contract.js": "43b5d9cd4f95a9fa47ea94191a280ab52f1347bc42f202a21721eb12c0e7416d02db350dbb48615c4112181b8bf3a8f704e10a5825c689f04504987a9854dd4b",
     "tests/network/peace.test-tcp-admission-security.js": "f1a3fac89d751e6694f33aa76e0846dd58ad52e8cf0f2da3c6f471da74d44b7500653351fb735ab21815d59413ea346a0fcb9198936cc9567e291abe51d648d8",
+    "tests/network/peace.test-tls-transport-boundaries.js": "414bd6d0568da832b4d4a089a5ca220bc728870ce17a20480ab9c3620ab6f17dc443413005c71e50f2fb60befe6df72d143188c9a0bafac2193778d3d6a76478",
     "tests/network/peace.test-transport-key-rotation.js": "87008f2253987136526580fc7132b2834513fc3609b6d11e2fa92e8bf36ce112b7283dc9077728a175259d242c90181f88ac134435a0b3c2b5bdce865f174003",
+    "tests/network/peace.test-transport-owned-contract.js": "eb3ab7b576b21c7924a67bd9fbaafdaab537ff6b004d5a74d56f76fec30bc15119b0b492021deb33deac290da3b19d5dcd9ae1c0ed5d1af8f8fe69dae864b586",
     "tests/observability/peace.test-lifecycle-event-contract.js": "cb4f1f83ac4dce985d1fe761f6405d00858641dd8c61e9c26ed3a000f6328e992e7e7c5a02d145d635519127da1947e0602e4f9df1e7ce500aaaaa63a014cf20",
     "tests/observability/peace.test-lifecycle-trace.js": "7014538e4dc62740cb9958267c3417e7061bda0321684266396dcabd922b913c2cb72d230fc0fe87276587fe018dafd1c95b44402a55aacdfb1339a51626ef76",
     "tests/observability/peace.test-performance-dashboard-ui.js": "59b04e91359a8e43038efcc76ea53c5f8561020a8c6d208dcf3f5287d9ed539667c3f505483bac2260fa551ff3d6dc492e2257d7737bdb2cb9ab5a0c24be1df6",
@@ -520,7 +522,7 @@
     "tests/recovery/peace.witness-tls-child.js": "ef4db735fa159859f8bde0db3eb725a0da70d8cecec30f63694cb8e438fa68df65690c52c661783a7d4e1323ca2411bf7371a94f14f3dcdb518c655f4f9ef572",
     "tests/runners/peace.check-modules.js": "163af1ac25d0ff0006d0445bf30760b967f2b1a4a1078595c6e5afd133e806c919eed5e152c7d47f39cb3de53f616875faa61bc36fb079a27539b1b7de311b9c",
     "tests/runners/peace.collect-regression.js": "9c79e3d6903e5e46623ab7bfac4dfb1e5e5af91f9dacb6cc24c2eed7ea388b39910f8e27c74948f6698e8713a46b6533729bae626ec12a9be3ccf2e8cf7aba55",
-    "tests/runners/peace.regression.js": "c9d61af5cc327f6fd114cbc4ed695ade676ed549df3ea32543b6f92d1785838a5017a9671f5f19e371ec875f4eecae5627023071bddedcd0ff06b6c015fc60bc",
+    "tests/runners/peace.regression.js": "3e5f27fb9494e2076e3d86bb31a2ccb8421571f4157e652ada6edc9386de41f1aef34a1f31cd1e94ef444c5bf58ace86d4d3d2aabb8a936246eae5af7a213499",
     "tests/runners/review-regression.py": "efa84d9115744c737ce54468684ceb2eb6d324b09ca938ddf219312d065ef0da3e7d47c48054216efb309f5cc65de88c588981bd11a20bd92dbfd4ce9d071ee5",
     "tests/runners/test-review-runner.py": "2458ca2e498d238051488b4bafcf8d9ef27f6b0ce97c0c37b8b41ed9aa9388a98ebf22d63e13aa09705a65b3558c7389f2f4549fa21a97e9ef5847b9c194909a",
     "tests/runtime/peace.test-desktop-deadlines.js": "afd60b7e699a76b147b761b611f4b016d39ec0c4cccad5f431a32b8ed9ba4a7eecfea8c2e96fce09e279c14ac38520daaeeb9571ac2191c1009cc8dbd293434f",
@@ -587,6 +589,7 @@
     "tests/security/peace.test-server-policy-registry.js": "a3ab3eaeb14f0bd091dceba4f2ff9f59b79ff2a27e4cd326fc867b71450e240186a26b6b9d1190598946b6b373ab3e72beb83ef9e6abf3629676e22fa3ca5606",
     "tests/source/peace.test-native-device-identity-priorities.js": "f0435a84b373075045c468f5dfe8dfa8a27dce6b716c59016f2b3f7ab9afb5c5de69e481ff65646afe113cc4fa8ec6a97f7ad313eb249e64fadc9c5d34ffb659",
     "tests/source/peace.test-native-hash-lifecycle-source.js": "9e2b5adfdc3ece37c2a3c1e45226bc7cbd14ebaa0b5af5264e343bfd9ec0bf42ec0068bd5916f1a8afa2b1d66a75f3cb68ba4b774b58f8c4429fdc4fb74f998c",
+    "tests/source/peace.test-native-tls-ownership.js": "139833fd0d947f19ddb2a9ebb8ac07ecbd8b961b369563bf50ee5d410dcdd6e296d5aba869fca93f3597ce0aff120564b4c0913f140937a4bd3b3dc239bacff6",
     "tests/source/peace.test-own-runtime-wiring.js": "dbe9065ae87da7c16171966d807f1edc25bd3dd47f5a34b9409902e091ff6cf7eef3000ab526dc996dbde8b2f41a2dd44100debbda0e1865e93baa84559b5f3c",
     "tests/source/test-source-verifier.py": "7b0531274e0fdeb9f67101447202f49799f00f9b41ce674a941caa88e59011bc16f60119a106b72e72c9f2c277bf0df131dd4f95867169186bf15c4bda26c3d1",
     "tests/source/verify-source.py": "00fb5311e1aced08da330b1038f7411d818d1db6a28811218ed81cc75fe9d8343f0a56fb82faa396197c1630264119bda45313a8e2983bc92abb35ab92acd377",
@@ -680,7 +683,7 @@
     "tools/fixtures/peace.profile-fixture.js": "7bb242f270733c51cd639d8b9fa147923f14719279ed65b391725774ad41ca45bad037b0ce8f55e50f5a7948eddc3530ad82164b1189fe0b78a5d3c14a098bfb",
     "tools/fixtures/peace.windows-fixture.js": "6cc8c80f6cddf7cd3f09ccff7b73ff3e68c6103644da7c44037b134af3ec514ef892e402458bdd422b15b94cb3529ad65d83d294b9a3e995df2472085ace25cf",
     "tools/integrity/peace.native-receive-fault-tests.js": "33db9a3a3a0d4b3944849838dac1dc8e5282426308abded17db71cdab9a489939ba65f2e80d4e5e8b2839e10a621e8674137eadfc34d3aabc9e1de89f9628021",
-    "tools/integrity/peace.native-receive-fixture.js": "4fca7d00f21df4dc9a6ca5f896dd8fd69591490472a09012bf4693eee9b9e85e211ad41dff5c8887e1caa2747d956f6b015a0d9f604a050a9dc20ef948994aa6",
+    "tools/integrity/peace.native-receive-fixture.js": "27f202bf7fb07e91fa4ebdcdbff5c763fe224cdf181e3995baccdf1673b1ba648cb8ecc13f68360e951b5e91bc761ba168677bc5fdae234fbc578b888b3ed4e4",
     "tools/licensing/transport-key-retire-input.example.json": "6989904fcd8b4dca881c7c67a9513d6ce3b3650a0e2b99fdf909d430a3053b678aa79e8dc0b63a01b17972546f42c8fe23edc68d7e89b1e065bc607c0fe4a1be",
     "tools/network/Activate_TLS_Pin.bat": "e54cd1ca1030cddb79b1360f4c489a23d55512ee6c9b33c89bb2df816c56507ac900d4027c252f355ff951fd7139c7137450738650cfc8670b48d4697254e3cb",
     "tools/network/Activate_Transport_Key.bat": "f46f4ebbdef7f98475dbf373a463f973fdbc67a95405f6ffa4d2decc28f51c5b408a5952cc04146874a65a376d3ab85a1f32a9f504caee2f907235e3da47aacc",
@@ -11273,6 +11276,36 @@
       "file": "tests/network/peace.test-tcp-admission-security.js",
       "line": 4,
       "request": "../fixtures/protocol/peace.completion-6-10-fixture"
+    },
+    {
+      "file": "tests/network/peace.test-tls-transport-boundaries.js",
+      "line": 12,
+      "request": "../../core/peace.utilities"
+    },
+    {
+      "file": "tests/network/peace.test-tls-transport-boundaries.js",
+      "line": 13,
+      "request": "../../services/network/peace.desktop-connect"
+    },
+    {
+      "file": "tests/network/peace.test-tls-transport-boundaries.js",
+      "line": 14,
+      "request": "../../services/network/peace.connect-transport-key"
+    },
+    {
+      "file": "tests/network/peace.test-tls-transport-boundaries.js",
+      "line": 15,
+      "request": "../../services/runtime/peace.desktop-work-queue"
+    },
+    {
+      "file": "tests/network/peace.test-tls-transport-boundaries.js",
+      "line": 16,
+      "request": "../../services/bootstrap/peace.desktop-bootstrap"
+    },
+    {
+      "file": "tests/network/peace.test-tls-transport-boundaries.js",
+      "line": 30,
+      "request": "../../services/licensing/peace.desktop-licenses"
     },
     {
       "file": "tests/network/peace.test-transport-key-rotation.js",

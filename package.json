@@ -143,7 +143,11 @@
     "test:hash:lifecycle:source": "node tests/source/peace.test-native-hash-lifecycle-source.js",
     "test:keyless:legacy": "node tests/bootstrap/peace.test-keyless-legacy-receipts.js",
     "test:native:contracts:source": "node tests/bootstrap/peace.test-handoff-owned-crypto.js && node tests/source/peace.test-native-device-identity-priorities.js && node tests/observability/peace.test-lifecycle-event-contract.js && node tests/network/peace.test-server-profile-contract.js && node tests/integrity/peace.test-owned-runtime-measurement.js && node tests/source/peace.test-own-runtime-wiring.js && node tests/web/peace.test-owned-runtime-graph-ui.js",
-    "check:lifecycle:contract": "node tools/build/peace.generate-lifecycle-contract.js --check"
+    "check:lifecycle:contract": "node tools/build/peace.generate-lifecycle-contract.js --check",
+    "test:tls:transport:boundaries": "node --test tests/network/peace.test-tls-transport-boundaries.js",
+    "test:transport:owned:source": "node tests/network/peace.test-transport-owned-contract.js",
+    "test:tls:owned:source": "node tests/source/peace.test-native-tls-ownership.js",
+    "test:tls:identity:durability": "node tests/network/peace.test-connect-tls-flush.js"
   },
   "engines": {
     "node": "24.22.1"

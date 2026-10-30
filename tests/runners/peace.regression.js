@@ -5,6 +5,10 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["network/peace.test-connect-tls-flush.js"],
+  ["network/peace.test-tls-transport-boundaries.js"],
+  ["source/peace.test-native-tls-ownership.js"],
+  ["network/peace.test-transport-owned-contract.js"],
   ["bootstrap/peace.test-handoff-owned-crypto.js"],
   ["source/peace.test-native-device-identity-priorities.js"],
   ["observability/peace.test-lifecycle-event-contract.js"],
