@@ -91,6 +91,8 @@ function Page(query,allowed){
 }
 function Decorate(row,kind,targetId,owner,s){const direct=kind&&targetId?Direct(s,kind,targetId):'';return {...row,assignmentKind:kind||'',assignmentTargetId:targetId||'',assignedMemberId:direct,memberId:owner,memberDisplayName:s.items[owner]?.displayName||'',assignmentOrigin:direct?'DIRECT':owner?'LINKED':'UNASSIGNED'};}
 function LicenseMembership(id,db=store.Load()){const s=State(db),owner=Direct(s,'LICENSE',id);return {memberId:owner,memberDisplayName:s.items[owner]?.displayName||'',assignedMemberId:owner};}
+// Reuse the same explicit flow/launcher/license ownership rules for support links.
+function FlowMembership(id,db=store.Load()){const s=State(db),row=db.flows?.[id],owner=row?FlowOwner(s,db,row):'';return {memberId:owner};}
 function Snapshot(){
  const db=store.Load(),s=State(db),licenses=require('../licensing/peace.desktop-licenses');
  const data=Object.fromEntries(CATEGORIES.map(k=>[k,[]])),flowOwners=new Map(),sessionFlow=new Map();
@@ -147,9 +149,9 @@ function Detail(id,query={}){
    for(const row of Object.values(db.flows))if(row.machineId){const key=binding.BindingId(row.machineId,db);if(wanted.has(key))machineByBinding.set(key,row.machineId);}
    items=items.map(r=>{const policy=machineByBinding.has(r.id)?require('../devices/peace.desktop-machine-policy').Public(machineByBinding.get(r.id)):null;return {...r,blocked:policy?policy.blocked:null,blockSource:policy?.source||'UNKNOWN',blockGeneration:policy?.generation??null};});
   }
-  if(name==='flows')items=items.map(r=>({...r,machineBindingId:db.flows[r.id].machineId?require('../devices/peace.desktop-device-registry').BindingId(db.flows[r.id].machineId,db):'',lifecycle:require('../observability/peace.desktop-lifecycle-trace').Flow(r.id)}));
+  if(name==='flows')items=items.map(r=>({...r,supportContexts:require('../diagnostics/peace.support-captures').EligibleContexts(owner,r.id,db),machineBindingId:db.flows[r.id].machineId?require('../devices/peace.desktop-device-registry').BindingId(db.flows[r.id].machineId,db):'',lifecycle:require('../observability/peace.desktop-lifecycle-trace').Flow(r.id)}));
   categories[name]={items,totalCount:rows.length,...paging};
  }
  return {version:1,revision:s.revision,member,categories,counts:Counts(counts,owner),readOnly:false,authorizationChanged:false,identitySource:'OPERATOR_ASSIGNED_NOT_HARDWARE_INFERRED',serverTime:Date.now()};
 }
-module.exports={Empty,State,Validate,Create,Update,Archive,Assign,List,Detail,LicenseMembership,LIMITS};
+module.exports={Empty,State,Validate,Create,Update,Archive,Assign,List,Detail,LicenseMembership,FlowMembership,LIMITS};

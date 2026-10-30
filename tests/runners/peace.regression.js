@@ -8,6 +8,7 @@ const checks = [
   ["bootstrap/peace.test-handoff-pipe-fragments.js"],
   ["cryptography/peace.test-crc-collision-vectors.js"],
   ["diagnostics/peace.test-support-captures.js"],
+  ["diagnostics/peace.test-support-capture-context.js"],
   ["diagnostics/peace.test-support-captures-http.js"],
   ["web/peace.test-diagnostic-capture.js"],
   ["web/peace.test-desktop-capture-ui.js"],

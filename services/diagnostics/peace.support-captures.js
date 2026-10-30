@@ -17,12 +17,42 @@ function Empty(){return {version:1,revision:0,items:{},receipts:{}};}
 function State(db=store.Load()){return db.supportCaptures||Empty();}
 function Epoch(db){return require('../recovery/peace.desktop-recovery').Epoch(db);}
 function Member(db,id,activeOnly=false){const row=db.members?.items[id];if(!ID.test(id)||!row)Fail('MEMBER_NOT_FOUND',404);if(activeOnly&&row.status!=='ACTIVE')Fail('CAPTURE_NOT_AVAILABLE',403);return row;}
+// A context is a support subject, never proof that the process ran or consented.
+// All role/session/artifact bindings come from the authority store, not the link.
+function ContextId(v){return typeof v==='string'&&v.length===24&&ID.test(v);}
+function InputContext(v){return plain(v)&&Object.keys(v).sort().join(',')==='flowId,role'&&ContextId(v.flowId)&&['A','B','O'].includes(v.role);}
+function StoredContext(v){return plain(v)&&Object.keys(v).sort().join(',')==='artifactId,flowId,overlayId,role,sessionId'&&InputContext({flowId:v.flowId,role:v.role})&&ContextId(v.sessionId)&&ContextId(v.artifactId)&&(v.role==='O'?ContextId(v.overlayId):v.overlayId==='')&&(v.role!=='A'||v.sessionId===v.flowId);}
+function ResolveContext(db,memberId,input){
+ if(!InputContext(input)||!memberId||require('../members/peace.desktop-members').FlowMembership(input.flowId,db).memberId!==memberId)return null;
+ const flow=db.flows?.[input.flowId],launcher=db.launchers?.[flow?.launcherId];
+ if(!flow||flow.id!==input.flowId||!launcher||launcher.id!==flow.launcherId||launcher.flowId!==flow.id)return null;
+ let sessionId,artifactId,overlayId='';
+ if(input.role==='A'){sessionId=flow.id;artifactId=launcher.artifactId;}
+ else if(input.role==='B'){sessionId=flow.sessionId;artifactId=flow.releaseId;}
+ else{
+  const children=Object.values(db.overlays||{}).filter(r=>r.parentFlowId===flow.id);
+  if(children.length!==1)return null;
+  const child=children[0];
+  if(db.overlays[child.id]!==child||child.parentSessionId!==flow.sessionId||child.launcherId!==flow.launcherId||child.releaseId!==flow.overlayReleaseId||child.licenseId!==flow.licenseId)return null;
+  sessionId=child.sessionId;artifactId=child.releaseId;overlayId=child.id;
+ }
+ const context={flowId:flow.id,role:input.role,sessionId,artifactId,overlayId},artifact=db.artifacts?.[artifactId];
+ return StoredContext(context)&&artifact?.id===artifactId&&artifact.component===input.role?context:null;
+}
+function ContextPublic(r){return r.context?{context:{flowId:r.context.flowId,role:r.context.role}}:{};}
+function SameContext(a,b){return !!a&&!!b&&['flowId','role','sessionId','artifactId','overlayId'].every(k=>a[k]===b[k]);}
+function ContextAvailable(db,r){return r.context===undefined||StoredContext(r.context)&&SameContext(r.context,ResolveContext(db,r.memberId,{flowId:r.context.flowId,role:r.context.role}));}
+function EligibleContexts(memberId,flowId,db=store.Load()){
+ if(db.members?.items[memberId]?.status!=='ACTIVE')return [];
+ return ['A','B','O'].filter(role=>ResolveContext(db,memberId,{flowId,role})).map(role=>({flowId,role}));
+}
 function Validate(s){
  const bad=()=>{throw Error('CAPTURE_STORAGE_INVALID');};
  if(!plain(s)||Object.keys(s).sort().join(',')!=='items,receipts,revision,version'||s.version!==1||!Number.isSafeInteger(s.revision)||s.revision<0||!plain(s.items)||!plain(s.receipts)||Object.keys(s.items).length>MAX_ROWS||Object.keys(s.receipts).length>4096)bad();
- const required=['id','memberId','status','createdAt','expiresAt','epoch','tokenHash','issuerHash'],optional=['tokenSeed','requestHash','uploadedAt','retainedUntil','width','height','bytes','inputSha512','imageSha512','consentVersion','closedAt'];
+ const required=['id','memberId','status','createdAt','expiresAt','epoch','tokenHash','issuerHash'],optional=['tokenSeed','requestHash','uploadedAt','retainedUntil','width','height','bytes','inputSha512','imageSha512','consentVersion','closedAt','context'];
  for(const [id,r]of Object.entries(s.items)){
   if(!ID.test(id)||!plain(r)||r.id!==id||required.some(k=>!Object.hasOwn(r,k))||Object.keys(r).some(k=>!required.includes(k)&&!optional.includes(k))||!ID.test(r.memberId)||!['AVAILABLE','RECEIVING','UPLOADED','REVOKED','EXPIRED','DELETE_PENDING','DELETED'].includes(r.status)||!Number.isSafeInteger(r.createdAt)||r.createdAt<1||r.expiresAt!==r.createdAt+TTL||!Number.isSafeInteger(r.epoch)||r.epoch<0||!HEX.test(r.tokenHash)||!HEX.test(r.issuerHash))bad();
+  if(r.context!==undefined&&!StoredContext(r.context))bad();
   if(['AVAILABLE','RECEIVING'].includes(r.status)?!HEX.test(r.tokenSeed||''):r.tokenSeed!==undefined)bad();
   if(r.requestHash!==undefined&&!HEX.test(r.requestHash)||r.status==='RECEIVING'&&!r.requestHash)bad();
   if(r.closedAt!==undefined&&(!Number.isSafeInteger(r.closedAt)||r.closedAt<r.createdAt))bad();
@@ -50,15 +80,18 @@ function Ready(){
  if(stale.length)store.Atomic(db=>{for(const old of stale){const r=db.supportCaptures.items[old.id];r.status='REVOKED';r.closedAt=Math.max(r.createdAt,Date.now());delete r.tokenSeed;}db.supportCaptures.revision++;});
  recovered=true;try{Sweep();}catch(error){recovered=false;throw error;}
 }
-function Public(r){return {id:r.id,memberId:r.memberId,status:r.status,createdAt:r.createdAt,expiresAt:r.expiresAt,uploadedAt:r.uploadedAt||0,retainedUntil:r.retainedUntil||0,width:r.width||0,height:r.height||0,bytes:r.bytes||0,consentVersion:r.consentVersion||0};}
+function Public(r){return {id:r.id,memberId:r.memberId,status:r.status,createdAt:r.createdAt,expiresAt:r.expiresAt,uploadedAt:r.uploadedAt||0,retainedUntil:r.retainedUntil||0,width:r.width||0,height:r.height||0,bytes:r.bytes||0,consentVersion:r.consentVersion||0,...ContextPublic(r)};}
 function SeedToken(db,r){if(!r.tokenSeed)Fail('CAPTURE_NOT_AVAILABLE',410);return r.id+'.'+crypto.createHmac('sha256',Buffer.from(db.secret,'hex')).update('COZY-DIAGNOSTIC-CAPABILITY-V1\n'+r.id+'\n'+r.tokenSeed).digest('hex');}
 function Expired(r){return bounds.expired(r.id,r.createdAt,r.expiresAt);}
-function Available(r,db,allowUploaded=false){return !!r&&db.members?.items[r.memberId]?.status==='ACTIVE'&&r.epoch===Epoch(db)&&!Expired(r)&&(['AVAILABLE','RECEIVING'].includes(r.status)||allowUploaded&&r.status==='UPLOADED');}
+function Available(r,db,allowUploaded=false){return !!r&&db.members?.items[r.memberId]?.status==='ACTIVE'&&r.epoch===Epoch(db)&&ContextAvailable(db,r)&&!Expired(r)&&(['AVAILABLE','RECEIVING'].includes(r.status)||allowUploaded&&r.status==='UPLOADED');}
 function Mutation(action,memberId,id,body,actor,fn){
  require('../operations/peace.registration-reset').AssertAvailable();
- Ready();if(!plain(body)||Object.keys(body).sort().join(',')!=='expectedRevision,requestId'||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0||typeof body.requestId!=='string'||!/^[-A-Za-z0-9_]{16,80}$/.test(body.requestId))Fail('CAPTURE_INPUT_INVALID');
+ Ready();if(!plain(body)||Object.keys(body).some(k=>!['expectedRevision','requestId',...(action==='CREATE'?['context']:[])].includes(k))||!Number.isSafeInteger(body.expectedRevision)||body.expectedRevision<0||typeof body.requestId!=='string'||!/^[-A-Za-z0-9_]{16,80}$/.test(body.requestId))Fail('CAPTURE_INPUT_INVALID');
+ const hasContext=Object.hasOwn(body,'context');if(hasContext&&!InputContext(body.context))Fail('CAPTURE_CONTEXT_INVALID');
  Member(store.Load(),memberId);
- const key=sha('COZY-CAPTURE-ADMIN-V1\n'+actor+'\n'+body.requestId),fingerprint=sha(JSON.stringify([action,memberId,id,body.expectedRevision]));
+ // Preserve exact legacy receipt fingerprints when no context was supplied.
+ const fields=[action,memberId,id,body.expectedRevision];if(hasContext)fields.push(['CONTEXT_V1',body.context.flowId,body.context.role]);
+ const key=sha('COZY-CAPTURE-ADMIN-V1\n'+actor+'\n'+body.requestId),fingerprint=sha(JSON.stringify(fields));
  const previous=State().receipts[key];
  if(previous){if(previous.fingerprint!==fingerprint)Fail('CAPTURE_REQUEST_REUSED',409);const row=State().items[previous.captureId];if(!row)Fail('CAPTURE_NOT_AVAILABLE',410);return {version:1,revision:previous.revision,capture:Public(row),duplicate:true,...(action==='CREATE'&&row.status==='AVAILABLE'&&Available(row,store.Load())?Link(store.Load(),row):{})};}
  if(State().revision!==body.expectedRevision)Fail('CAPTURE_REVISION_CONFLICT',409);
@@ -75,7 +108,8 @@ function Link(db,row){const token=SeedToken(db,row);return {token,fragmentPath:'
 function Create(memberId,body,actor){return Mutation('CREATE',memberId,'',body,actor,(db,s)=>{
  Member(db,memberId,true);const rows=Object.values(s.items);if(rows.length>=MAX_ROWS||rows.filter(r=>['AVAILABLE','RECEIVING'].includes(r.status)).length>=MAX_INVITES)Fail('CAPTURE_CAPACITY',429);
  const id=crypto.randomBytes(12).toString('hex').toUpperCase(),at=Date.now();if(s.items[id])Fail('CAPTURE_STORAGE_UNAVAILABLE',503);
- const r={id,memberId,status:'AVAILABLE',createdAt:at,expiresAt:at+TTL,epoch:Epoch(db),tokenSeed:crypto.randomBytes(32).toString('hex'),issuerHash:sha(actor)};r.tokenHash=sha(SeedToken(db,r));s.items[id]=r;store.AfterCommit(()=>bounds.expired(id,r.createdAt,r.expiresAt));return r;
+ const context=body.context===undefined?null:ResolveContext(db,memberId,body.context);if(body.context!==undefined&&!context)Fail('CAPTURE_CONTEXT_INVALID');
+ const r={id,memberId,status:'AVAILABLE',createdAt:at,expiresAt:at+TTL,epoch:Epoch(db),tokenSeed:crypto.randomBytes(32).toString('hex'),issuerHash:sha(actor),...(context?{context}:{})};r.tokenHash=sha(SeedToken(db,r));s.items[id]=r;store.AfterCommit(()=>bounds.expired(id,r.createdAt,r.expiresAt));return r;
 });}
 function AdminRow(db,memberId,id){Member(db,memberId);if(!ID.test(id)||db.supportCaptures?.items[id]?.memberId!==memberId)Fail('CAPTURE_NOT_FOUND',404);return db.supportCaptures.items[id];}
 function Close(memberId,id,body,actor,action){if(!['REVOKE','DELETE'].includes(action))Fail('CAPTURE_INPUT_INVALID');const result=Mutation(action,memberId,id,body,actor,(db)=>{const r=AdminRow(db,memberId,id);r.status=r.uploadedAt?'DELETE_PENDING':action==='DELETE'?'DELETED':'REVOKED';r.closedAt=Math.max(r.createdAt,Date.now());delete r.tokenSeed;return r;});try{Maintain(true);}catch(_){}return {...result,capture:Public(State().items[id])};}
@@ -96,7 +130,7 @@ function Authenticate(token,allowUploaded=true){
  Ready();const db=store.Load(),r=State(db).items[token.slice(0,24)];
  if(!r||!durable.SecretEqual(r.tokenHash,sha(token))||!Available(r,db,allowUploaded))Fail('CAPTURE_NOT_AVAILABLE',403);return r;
 }
-function Status(token){const r=Authenticate(token);return {version:1,status:r.status,serverTime:Date.now(),expiresAt:r.expiresAt,receivedAt:r.uploadedAt||0,retentionHours:24,consentVersion:1,...png.LIMITS};}
+function Status(token){const r=Authenticate(token);return {version:1,status:r.status,serverTime:Date.now(),expiresAt:r.expiresAt,receivedAt:r.uploadedAt||0,retentionHours:24,consentVersion:1,...ContextPublic(r),...png.LIMITS};}
 function BeginUpload(token,requestId){
  const r=Authenticate(token);if(typeof requestId!=='string'||!/^[-A-Za-z0-9_]{16,80}$/.test(requestId))Fail('CAPTURE_INPUT_INVALID');
  const requestHash=sha(requestId);if(r.requestHash&&r.requestHash!==requestHash)Fail('CAPTURE_REQUEST_REUSED',409);
@@ -116,7 +150,13 @@ function EndUpload(ticket){
  }
  tickets.delete(ticket);
 }
-function Aad(r){return Buffer.from(['COZY-DIAGNOSTIC-IMAGE-V1',r.id,r.memberId,String(r.epoch),r.imageSha512,String(r.bytes),String(r.width),String(r.height)].join('\n'));}
+function Aad(r){
+ const fields=['COZY-DIAGNOSTIC-IMAGE-V1',r.id,r.memberId,String(r.epoch),r.imageSha512,String(r.bytes),String(r.width),String(r.height)];
+ // Existing ciphertext has exactly the V1 fields above. New associated media
+ // binds the resolved execution identity as well, without migrating old files.
+ if(r.context)fields.push('COZY-DIAGNOSTIC-CONTEXT-V1',r.context.flowId,r.context.role,r.context.sessionId,r.context.artifactId,r.context.overlayId);
+ return Buffer.from(fields.join('\n'));
+}
 function Key(db,id){return Buffer.from(crypto.hkdfSync('sha256',Buffer.from(db.secret,'hex'),Buffer.from(id),'COZY-DIAGNOSTIC-IMAGE-KEY-V1',32));}
 function Encrypt(db,row,bytes){const key=Key(db,row.id),nonce=crypto.randomBytes(12);try{const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(Aad(row));return Buffer.concat([MAGIC,nonce,cipher.update(bytes),cipher.final(),cipher.getAuthTag()]);}finally{key.fill(0);}}
 function Decrypt(db,row){
@@ -147,13 +187,13 @@ async function Upload(ticket,bytes){
   throw error;
  }finally{normalized?.bytes?.fill(0);encoded?.fill(0);EndUpload(ticket);}
 }
-function Image(memberId,id){require('../operations/peace.registration-reset').AssertAvailable();Ready();const db=store.Load(),r=AdminRow(db,memberId,id);Member(db,memberId,true);if(r.status!=='UPLOADED'||r.epoch!==Epoch(db)||bounds.expired('image:'+r.id,r.uploadedAt,r.retainedUntil))Fail('CAPTURE_NOT_AVAILABLE',403);return {bytes:Decrypt(db,r),capture:Public(r)};}
+function Image(memberId,id){require('../operations/peace.registration-reset').AssertAvailable();Ready();const db=store.Load(),r=AdminRow(db,memberId,id);Member(db,memberId,true);if(r.status!=='UPLOADED'||r.epoch!==Epoch(db)||!ContextAvailable(db,r)||bounds.expired('image:'+r.id,r.uploadedAt,r.retainedUntil))Fail('CAPTURE_NOT_AVAILABLE',403);return {bytes:Decrypt(db,r),capture:Public(r)};}
 function Maintain(force=false){
  if(stopped||require('../operations/peace.registration-reset').IsDraining())return;
  Ready();const now=require('node:perf_hooks').performance.now();if(!force&&now>=lastMaintenance&&now-lastMaintenance<60000)return;lastMaintenance=now;
  const db=store.Load(),at=Date.now(),s=State(db),expire=[];
  for(const r of Object.values(s.items)){
-  const invalidMember=db.members?.items[r.memberId]?.status!=='ACTIVE',invalidEpoch=r.epoch!==Epoch(db);
+  const invalidMember=db.members?.items[r.memberId]?.status!=='ACTIVE'||!ContextAvailable(db,r),invalidEpoch=r.epoch!==Epoch(db);
   if(['AVAILABLE','RECEIVING'].includes(r.status)&&(invalidMember||invalidEpoch||Expired(r)))expire.push({id:r.id,status:'EXPIRED'});
   if(r.status==='UPLOADED'&&(invalidMember||invalidEpoch||bounds.expired('image:'+r.id,r.uploadedAt,r.retainedUntil)))expire.push({id:r.id,status:'DELETE_PENDING'});
  }
@@ -166,4 +206,4 @@ function Maintain(force=false){
 }
 function Start(){if(started)return;stopped=false;Maintain(true);started=true;}
 function Stop(){stopped=true;started=false;recovered=false;active.clear();}
-module.exports={TTL,RETENTION,LIMITS:png.LIMITS,DIR,Empty,State,Validate,Create,List,Close,ArchiveMemberInState,Status,BeginUpload,Upload,EndUpload,Image,Maintain,Start,Stop};
+module.exports={EligibleContexts,TTL,RETENTION,LIMITS:png.LIMITS,DIR,Empty,State,Validate,Create,List,Close,ArchiveMemberInState,Status,BeginUpload,Upload,EndUpload,Image,Maintain,Start,Stop};

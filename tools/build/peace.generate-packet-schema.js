@@ -10,7 +10,20 @@ const schema=JSON.parse(fs.readFileSync(source,'utf8'));
 if(schema.schemaVersion!==1||schema.protocol!=='GAME-CONNECT-4'||schema.maximumRequestBytes!==32768||!Array.isArray(schema.commands)||schema.commands.length<1||schema.commands.length>128)throw Error('PACKET_SCHEMA_INVALID');
 const compact=JSON.stringify(schema),digest=crypto.createHash('sha512').update(compact).digest('hex');
 const keys=new Set();
+function portablePattern(pattern){
+ // These shared patterns run under JavaScript and Delphi's default PCRE.
+ // Keep the reviewed escape subset small: ASCII hex escapes have identical
+ // semantics; JavaScript-only \\u escapes must never reach the native parser.
+ if(typeof pattern!=='string'||!pattern.startsWith('^')||!pattern.endsWith('$')||/[^\x20-\x7e]/.test(pattern))throw Error('PACKET_SCHEMA_PATTERN');
+ for(let i=0;i<pattern.length;i++)if(pattern[i]==='\\'){
+  if(pattern[i+1]!=='x'||!/^[0-9a-fA-F]{2}$/.test(pattern.slice(i+2,i+4)))throw Error('PACKET_SCHEMA_PATTERN_ESCAPE');
+  i+=3;
+ }
+ try{new RegExp(pattern);}catch(_){throw Error('PACKET_SCHEMA_PATTERN_SYNTAX');}
+}
 function walk(node){if(!node||typeof node!=='object'||Array.isArray(node))throw Error('PACKET_SCHEMA_NODE');if(node.$ref){if(!Object.hasOwn(schema.definitions,node.$ref))throw Error('PACKET_SCHEMA_REF');return;}for(const k of Object.keys(node))if(!['type','enum','properties','required','additionalProperties','minimum','maximum','minLength','maxLength','maxBytes','pattern','items','maxItems','allOrNone','exactlyOne','domainValidation','anyOf'].includes(k))throw Error('PACKET_SCHEMA_RULE:'+k);if(node.anyOf){if(!Array.isArray(node.anyOf)||node.anyOf.length<1||node.anyOf.length>8)throw Error('PACKET_SCHEMA_UNION');for(const item of node.anyOf)walk(item);}for(const value of Object.values(node.properties||{}))walk(value);if(node.items)walk(node.items);if(node.required?.some(k=>!Object.hasOwn(node.properties||{},k)))throw Error('PACKET_SCHEMA_REQUIRED');}
+function patterns(node){if(!node||typeof node!=='object')return;if(Object.hasOwn(node,'pattern'))portablePattern(node.pattern);for(const child of Object.values(node))patterns(child);}
+patterns(schema);
 for(const n of Object.values(schema.definitions))walk(n);walk(schema.envelope);for(const n of Object.values(schema.documents||{}))walk(n);
 for(const c of schema.commands){const key=c.operation+':'+c.action;if(keys.has(key)||c.body.properties.action.enum[0]!==c.action)throw Error('PACKET_SCHEMA_COMMAND');keys.add(key);walk(c.body);}
 function output(file,content){if(check){if(!fs.existsSync(file)||fs.readFileSync(file,'utf8')!==content)throw Error('PACKET_SCHEMA_GENERATED_STALE:'+path.relative(root,file));}else{fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,content);}}

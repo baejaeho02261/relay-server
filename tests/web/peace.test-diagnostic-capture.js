@@ -37,7 +37,7 @@ function fixture(options={}) {
   w.fetch=async(url,request)=>{
     assert.equal(w.location.hash,'');assert.equal(w.location.search,'');assert.ok(!url.includes(token));assert.equal(request.credentials,'omit');assert.equal(request.cache,'no-store');assert.equal(request.redirect,'error');assert.equal(request.referrerPolicy,'no-referrer');assert.equal(request.headers.Authorization,'Bearer '+token);
     requests.push({url,...request});request.signal.addEventListener('abort',()=>aborts++);
-    if(url.endsWith('/status')) { const serverTime=Date.now();monotonic+=options.statusLatency||0;return {ok:true,json:async()=>({ok:true,status:options.statusUploaded&&uploads?'UPLOADED':options.statusReceiving&&uploads?'RECEIVING':'AVAILABLE',serverTime,expiresAt:serverTime+(options.remaining??600000),maxPngBytes:2097152,maxWidth:4096,maxHeight:4096,maxPixels:4194304,retentionHours:24,consentVersion:1})}; }
+    if(url.endsWith('/status')) { const serverTime=Date.now();monotonic+=options.statusLatency||0;return {ok:true,json:async()=>({ok:true,status:options.statusUploaded&&uploads?'UPLOADED':options.statusReceiving&&uploads?'RECEIVING':'AVAILABLE',serverTime,expiresAt:serverTime+(options.remaining??600000),maxPngBytes:2097152,maxWidth:4096,maxHeight:4096,maxPixels:4194304,retentionHours:24,consentVersion:1,...(Object.hasOwn(options,'context')?{context:uploads&&Object.hasOwn(options,'retryContext')?options.retryContext:options.context}:{})})}; }
     assert.equal(url,'/api/diagnostic-capture/upload');uploads++;
     if(options.uploadHook)return options.uploadHook(url,request,uploads);
     return {ok:true,json:async()=>({ok:true})};
@@ -92,4 +92,20 @@ test('standalone page has no persistence, recording, external resources or autom
   assert.doesNotMatch(script,/localStorage|sessionStorage|indexedDB|MediaRecorder|sendBeacon|serviceWorker\.register|console\.|toDataURL/);
   assert.doesNotMatch(html,/(?:src|href)=["']https?:/);assert.match(html,/name="referrer" content="no-referrer"/);
   assert.equal((script.match(/getDisplayMedia\(\{/g)||[]).length,1);assert.equal((script.match(/drawImage\(/g)||[]).length,1);
+});
+
+test('A/B/O run context is shown before consent and never starts capture itself',async()=>{
+  for(const role of ['A','B','O']){
+    const context={flowId:'F'.repeat(24),role},f=fixture({context});
+    try{await f.ready();assert.match(f.$('diagnostic-context').textContent,new RegExp(role+' · 실행 '+context.flowId));assert.equal(f.$('capture-consent').checked,false);assert.equal(f.$('send-consent').checked,false);assert.equal(f.calls,0);assert.equal(f.uploads,0);f.w.dispatchEvent(new f.w.Event('pagehide'));assert.equal(f.$('diagnostic-context').textContent,'');}finally{f.close();}
+  }
+});
+test('invalid or injected run contexts fail closed before consent',async()=>{
+  for(const context of [null,[],{flowId:'F'.repeat(24),role:'X'},{flowId:'<img src=x>',role:'O'},{flowId:'F'.repeat(24),role:'A',sessionToken:'forbidden'}]){
+    const f=fixture({context});try{await until(()=>/사용할 수 없습니다/.test(f.$('diagnostic-status').textContent));assert.equal(f.$('capture-consent').disabled,true);assert.equal(f.calls,0);assert.equal(f.uploads,0);assert.equal(f.$('diagnostic-context').textContent,'');}finally{f.close();}
+  }
+});
+test('retry cannot send a preview under a different run association',async()=>{
+  const f=fixture({context:{flowId:'F'.repeat(24),role:'O'},retryContext:{flowId:'E'.repeat(24),role:'A'},uploadHook:async()=>{throw Error('response lost');}});
+  try{await f.ready();await f.capture();f.check('send-consent');f.click('capture-send');await until(()=>!f.$('capture-retry').hidden);f.click('capture-retry');await until(()=>/연결 정보가 달라/.test(f.$('diagnostic-status').textContent));assert.equal(f.uploads,1);assert.equal(f.$('capture-preview').width,0);assert.equal(f.$('capture-consent').disabled,true);}finally{f.close();}
 });

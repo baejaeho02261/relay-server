@@ -14,6 +14,16 @@
   let phase = 'CHECKING', generation = 0, stream = null, video = null, image = null, controller = null;
   let deadline = 0, expiryTimer = null, mediaTimer = null, waitCancel = null, drag = null, pending = null;
   const urls = new Set();
+  let supportContext = '';
+  function contextKey(result) {
+    if (!Object.hasOwn(result, 'context')) return '';
+    const value = result.context;
+    if (!value || typeof value !== 'object' || Array.isArray(value) ||
+        Object.keys(value).sort().join(',') !== 'flowId,role' ||
+        typeof value.flowId !== 'string' || !/^[A-F0-9]{24}$/.test(value.flowId) ||
+        !['A','B','O'].includes(value.role)) throw new Error('STATUS_FAILED');
+    return value.role + ' · 실행 ' + value.flowId;
+  }
   function status(text) { ui.status.textContent = text; }
   function stopTracks(value) { if (value) for (const track of value.getTracks()) { try { track.stop(); } catch (_) {} } }
   function releaseMedia() {
@@ -45,7 +55,7 @@
     generation++; if (controller) controller.abort(); controller = null;
     releaseMedia(); releaseImage(); phase = next; controls();
   }
-  function closePage() { clearTimeout(expiryTimer); token = ''; clearWork('CLOSED'); ui.consent.checked = false; }
+  function closePage() { clearTimeout(expiryTimer); token = ''; supportContext = ''; $('diagnostic-context').textContent = ''; clearWork('CLOSED'); ui.consent.checked = false; }
   function expire() { closePage(); status('이 링크의 사용 시간이 끝났습니다. 운영자에게 새 진단 링크를 요청하세요.'); }
   function checkAvailable() {
     if (!token || performance.now() >= deadline) { expire(); return false; }
@@ -174,6 +184,7 @@
     try {
       const result = await request('/api/diagnostic-capture/status', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
       if (!current(id)) return;
+      if (contextKey(result) !== supportContext) { closePage(); status('지원 요청의 연결 정보가 달라 확인을 중단했습니다. 운영자에게 새 링크를 요청하세요.'); return; }
       if (result.ok === true && result.status === 'UPLOADED') { done(); return; }
       if (result.ok === true && result.status === 'RECEIVING') { phase = 'RETRY'; controls(); status('서버가 기존 전송을 처리하고 있습니다. 잠시 후 같은 전송 결과 다시 확인을 눌러주세요. 이미지를 추가로 보내지 않았습니다.'); return; }
       if (result.ok !== true || result.status !== 'AVAILABLE') throw new Error('STATUS_FAILED');
@@ -199,6 +210,8 @@
       if (id !== generation || !token) return;
       const remaining = result.expiresAt - result.serverTime;
       if (result.ok !== true || !['AVAILABLE','RECEIVING','UPLOADED'].includes(result.status) || !Number.isSafeInteger(result.expiresAt) || !Number.isSafeInteger(result.serverTime) || result.serverTime < 0 || remaining <= 0 || remaining > 600000 || result.consentVersion !== 1 || result.maxPngBytes !== limits.bytes || result.maxWidth !== limits.width || result.maxHeight !== limits.height || result.maxPixels !== limits.pixels || result.retentionHours !== 24) throw new Error('STATUS_FAILED');
+      supportContext = contextKey(result);
+      $('diagnostic-context').textContent = supportContext ? '지원 대상: ' + supportContext + '. 이 실행의 오류 화면을 확인하고 전송에 동의하세요.' : '회원 지원 요청입니다. 특정 A/B/O 실행에 연결되지 않은 자료로 전송됩니다.';
       // Server time supplies the bounded remaining window. Anchor before the
       // request so network delay never adds time; a PC wall-clock change cannot
       // extend it. This local hint never overrides the server's expiry checks.

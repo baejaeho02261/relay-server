@@ -1,5 +1,5 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process');
 const contract=require('../../services/protocol/peace.packet-schema'),schema=require('../../contracts/protocol/peace.packet-schema-v1.json'),fixtures=require('../fixtures/protocol/peace.document-schema-cases.json');
 const clone=structuredClone;
 function Resolve(n){return n.$ref?Resolve(schema.definitions[n.$ref]):n;}
@@ -62,4 +62,32 @@ test('in-memory response validation rejects malformed Unicode just like the actu
   const prepare=Sample(schema.documents.overlayPrepare);prepare.claimCanonical=text;assert.throws(()=>contract.ValidateDocument('overlayPrepare',prepare),/PROTOCOL_SCHEMA_INVALID/);
  }
  const release=Sample(schema.documents.overlayRelease);release.version='한글 😀';assert.equal(contract.ValidateDocument('overlayRelease',release),release);
+});
+
+test('token and version response rules retain exact control-character rejection with portable hex escapes',()=>{
+ for(const [name,field,lastForbidden]of [['overlayPrepare','overlayTicket',32],['overlayRelease','version',31]]){
+  const sample=Sample(schema.documents[name]);
+  for(let code=0;code<128;code++)for(const text of [String.fromCharCode(code),'r'+String.fromCharCode(code)+'r','r'+String.fromCharCode(code)]){
+   const value={...sample,[field]:text};
+   if(code<=lastForbidden||code===127)assert.throws(()=>contract.ValidateDocument(name,value),/PROTOCOL_SCHEMA_INVALID/,`${name} control ${code}`);
+   else assert.equal(contract.ValidateDocument(name,value),value,`${name} printable ${code}`);
+  }
+  for(const text of ['한글','😀','version-1.0','r\u0080r','r\u2028r','r\u2029r']){
+   const value={...sample,[field]:text};assert.equal(contract.ValidateDocument(name,value),value);
+  }
+ }
+});
+
+test('schema generation rejects JavaScript-only or malformed escapes before emitting native code',()=>{
+ const relay=path.resolve(__dirname,'../..'),temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-schema-portability-'));
+ const generator=path.join(temp,'tools/build/peace.generate-packet-schema.js'),source=path.join(temp,'contracts/protocol/peace.packet-schema-v1.json');
+ try{
+  fs.mkdirSync(path.dirname(generator),{recursive:true});fs.mkdirSync(path.dirname(source),{recursive:true});
+  fs.copyFileSync(path.join(relay,'tools/build/peace.generate-packet-schema.js'),generator);
+  for(const pattern of [String.raw`^[^\u0000-\u0020\u007f]+$`,String.raw`^[^\u0000-\u001f\u007f]+$`,String.raw`^\x0$`,String.raw`^\xGG$`,String.raw`^\p{L}+$`]){
+   const candidate=clone(schema);candidate.definitions.responseToken.pattern=pattern;fs.writeFileSync(source,JSON.stringify(candidate));
+   const checked=cp.spawnSync(process.execPath,[generator],{encoding:'utf8'});assert.notEqual(checked.status,0);assert.match(checked.stderr,/PACKET_SCHEMA_PATTERN_ESCAPE/);
+   assert.equal(fs.existsSync(path.join(temp,'services/protocol/peace.packet-schema.generated.js')),false);
+  }
+ }finally{fs.rmSync(temp,{recursive:true,force:true});}
 });
