@@ -139,10 +139,9 @@
     "test:device:approval": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js",
     "test:handoff:fragments": "node tests/bootstrap/peace.test-handoff-pipe-fragments.js",
     "test:crc:collision": "node tests/cryptography/peace.test-crc-collision-vectors.js",
-    "test:diagnostics:server": "node tests/diagnostics/peace.test-support-captures.js && node tests/diagnostics/peace.test-support-capture-context.js",
-    "test:diagnostics:customer": "node tests/web/peace.test-diagnostic-capture.js",
-    "test:diagnostics:admin": "node --test tests/web/peace.test-desktop-capture-ui.js tests/web/peace.test-admin-capture-png.js",
-    "test:diagnostics:http": "node tests/diagnostics/peace.test-support-captures-http.js"
+    "test:support:retired": "node tests/storage/peace.test-retired-support-storage.js && node tests/web/peace.test-retired-support-http.js",
+    "test:hash:lifecycle:source": "node tests/source/peace.test-native-hash-lifecycle-source.js",
+    "test:keyless:legacy": "node tests/bootstrap/peace.test-keyless-legacy-receipts.js"
   },
   "engines": {
     "node": "24.22.1"

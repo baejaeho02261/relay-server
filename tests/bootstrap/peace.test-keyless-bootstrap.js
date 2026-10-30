@@ -75,12 +75,6 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    expect(()=>boot.Execute(legacy),'KEYLESS_APPROVAL_REQUIRED');
    const first=call(s,'beginKeyless'),row=store.Load().flows[first.flowId],revision=store.Load().revision;
    assert.equal(row.keylessPersistentKeyId,s.persistent.deviceId);assert.equal(store.Load().launchers[s.inv.issue.launcherId].status,'CONSUMED');
-   assert.equal(row.keylessApproval.version,1);assert.equal(row.keylessApproval.flowId,first.flowId);
-   assert.equal(row.keylessApproval.launcherId,s.inv.issue.launcherId);assert.equal(row.keylessApproval.appKeyId,s.app.deviceId);
-   assert.equal(row.keylessApproval.persistentKeyId,s.persistent.deviceId);assert.equal(row.keylessApproval.machineId,s.app.machineId);
-   assert.equal(row.keylessApproval.machinePolicyGeneration,0);assert.equal(row.keylessApproval.approvalExpiresAt-row.keylessApproval.approvedAt,60000);
-   assert.equal(store.Load().launchers[s.inv.issue.launcherId].keylessApprovalVersion,1);
-   for(const field of ['publicKey','persistentPublicKey','nonce','appSignature','persistentSignature','sessionToken'])assert.equal(Object.hasOwn(row.keylessApproval,field),false);
    assert.deepEqual(call(s,'beginKeyless'),first);assert.equal(store.Load().revision,revision);assert.equal(Object.keys(store.Load().flows).length,1);
    const copied=fs.mkdtempSync(path.join(os.tmpdir(),'peace-keyless-schema-')),child=require('node:child_process');
    try{
@@ -103,52 +97,6 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    const inv=invite(),a=challenge(inv),b=challenge(inv);for(const s of [a,b]){call(s,'keylessProve');approve(s);}
    const first=call(a,'beginKeyless');expect(()=>call(b,'beginKeyless'),'BOOTSTRAP_LAUNCHER_USED');assert.equal(store.Load().launchers[inv.issue.launcherId].flowId,first.flowId);
   });
-  await t.test('approval is a short one-flow grant, duplicate approval cannot extend it and suspension cannot resurrect it',()=>{
-   const s=challenge();call(s,'keylessProve');const approved=approve(s),at=clock;
-   assert.equal(approved.approvalExpiresAt,at+60000);assert.equal(approved.expiresAt,s.c.expiresAt);
-   const counts={launchers:Object.keys(store.Load().launchers).length,flows:Object.keys(store.Load().flows).length};
-   clock+=20000;assert.deepEqual(approve(s),approved,'Same operator retry returns the original decision without a new deadline');
-   expect(()=>keyless.Approve(s.c.challengeId,{identityConfirmed:true,launcherId:s.inv.issue.launcherId,persistentKeyId:s.persistent.deviceId},'ADMIN:OTHER'),'KEYLESS_APPROVAL_MISMATCH');
-   clock=at+60001;expect(()=>call(s,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
-   clock=at+1000;expect(()=>call(s,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
-   assert.equal(store.Load().launchers[s.inv.issue.launcherId].status,'AVAILABLE','Expired approval must not consume an unused launcher');
-   assert.equal(Object.keys(store.Load().flows).length,counts.flows);
-   assert.equal(Object.keys(store.Load().launchers).length,counts.launchers);
-  });
-  await t.test('PC-policy generation changes invalidate both pending and approved grants; old consumed grants do not become new approvals',()=>{
-   const machinePolicy=require('../../services/devices/peace.desktop-machine-policy');
-   const beforeApproval=challenge();call(beforeApproval,'keylessProve');
-   machinePolicy.Set(beforeApproval.app.machineId,false,{reason:'Explicit PC recovery invalidates old approvals',requestId:crypto.randomUUID()},'ADMIN:KEYLESS_TEST');
-   expect(()=>approve(beforeApproval),'DESKTOP_MACHINE_SESSION_REVOKED');
-   const afterApproval=challenge();call(afterApproval,'keylessProve');approve(afterApproval);
-   machinePolicy.Set(afterApproval.app.machineId,false,{reason:'Explicit PC recovery after approval',requestId:crypto.randomUUID()},'ADMIN:KEYLESS_TEST');
-   expect(()=>call(afterApproval,'beginKeyless'),'DESKTOP_MACHINE_SESSION_REVOKED');
-   const consumed=challenge();call(consumed,'keylessProve');approve(consumed);const first=call(consumed,'beginKeyless');
-   assert.deepEqual(call(consumed,'beginKeyless'),first);
-   machinePolicy.Set(consumed.app.machineId,false,{reason:'Explicit PC recovery after consumption',requestId:crypto.randomUUID()},'ADMIN:KEYLESS_TEST');
-   expect(()=>call(consumed,'beginKeyless'),'DESKTOP_MACHINE_SESSION_REVOKED');
-   assert.equal(store.Load().launchers[consumed.inv.issue.launcherId].status,'CONSUMED');
-   assert.equal(store.Load().launchers[consumed.inv.issue.launcherId].flowId,first.flowId);
-   // A different issuance needs its own new dual proof and approval. Merely
-   // spending a device grant does not introduce a permanent PC lock.
-   const fresh=challenge(invite(),consumed.app,consumed.persistent);
-   expect(()=>call(fresh,'beginKeyless'),'KEYLESS_APPROVAL_REQUIRED');
-   call(fresh,'keylessProve');approve(fresh);assert.notEqual(call(fresh,'beginKeyless').flowId,first.flowId);
-  });
-  await t.test('consumed receipt rejects altered binding and missing receipt after a durable restart',()=>{
-   const s=challenge();call(s,'keylessProve');approve(s);const first=call(s,'beginKeyless'),row=store.Load().flows[first.flowId];
-   const receipts=require('../../services/bootstrap/peace.keyless-approval-receipt'),launcher=store.Load().launchers[s.inv.issue.launcherId];
-   receipts.Validate(row.keylessApproval,row,launcher);
-   for(const [field,value]of Object.entries({flowId:'F'.repeat(24),launcherId:'F'.repeat(24),launcherSha512:'f'.repeat(128),appKeyId:'F'.repeat(64),persistentKeyId:'F'.repeat(64),machineId:'F'.repeat(64),machinePolicyGeneration:1,epoch:row.serverEpoch+1,consumedAt:row.keylessApproval.approvalExpiresAt,approvalExpiresAt:row.keylessApproval.approvedAt+60001,unexpected:true})){
-    expect(()=>receipts.Validate({...row.keylessApproval,[field]:value},row,launcher),'KEYLESS_APPROVAL_RECEIPT_INVALID');
-   }
-   const copied=fs.mkdtempSync(path.join(os.tmpdir(),'peace-keyless-receipt-')),child=require('node:child_process');
-   try{
-    fs.cpSync(temp,copied,{recursive:true});const env={...process.env,DATA_DIR:copied},modulePath=require.resolve('../../services/bootstrap/peace.desktop-bootstrap-store');
-    const changed=child.spawnSync(process.execPath,['-e',"const s=require(process.argv[1]);s.Atomic(db=>{delete db.flows[process.argv[2]].keylessApproval;});",modulePath,first.flowId],{env,encoding:'utf8',timeout:10000});assert.equal(changed.status,0,changed.stderr);
-    const invalid=child.spawnSync(process.execPath,['-e',"require(process.argv[1]).Load();",modulePath],{env,encoding:'utf8',timeout:10000});assert.notEqual(invalid.status,0);assert.match(invalid.stderr,/BOOTSTRAP_STORAGE_INVALID/);
-   }finally{fs.rmSync(copied,{recursive:true,force:true});}
-  });
   await t.test('proof, approval and policy expiry never become reusable after a clock rollback',()=>{
    const s=challenge(),before=clock;clock=s.c.expiresAt-269999;expect(()=>call(s,'keylessProve'),'KEYLESS_REQUEST_EXPIRED');clock=before;expect(()=>call(s,'keylessProve'),'KEYLESS_REQUEST_EXPIRED');
    const p=challenge();call(p,'keylessProve');approve(p);clock=p.c.expiresAt+1;expect(()=>call(p,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');clock-=2;expect(()=>call(p,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
@@ -158,6 +106,59 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    const s=challenge();for(let i=0;i<7;i++)boot.Execute({...s.body,requestId:crypto.randomUUID()});expect(()=>boot.Execute({...s.body,requestId:crypto.randomUUID()}),'KEYLESS_RATE_LIMIT');
    const p=challenge();for(let i=0;i<60;i++)assert.equal(boot.ProofTasks({action:'keylessProve',...p.proof}).length,2);expect(()=>boot.ProofTasks({action:'keylessProve',...p.proof}),'KEYLESS_RATE_LIMIT');
    call(p,'keylessProve');approve(p);keyless.Stop();expect(()=>call(p,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');assert.equal(keyless.ListPending().requests.length,0);
+  });
+  await t.test('poll hints are bounded and jitter never changes challenge expiry or grants authority',()=>{
+   const s=challenge(),saved=crypto.randomInt,flows=Object.keys(store.Load().flows).length;
+   try{
+    crypto.randomInt=(min,max)=>{assert.equal(min,-250);assert.equal(max,251);return min;};
+    const low=call(s,'keylessProve');
+    crypto.randomInt=(min,max)=>max-1;
+    const high=call(s,'keylessStatus');
+    assert.equal(high.pollAfterMs-low.pollAfterMs,500);
+    for(const r of [low,high]){assert.ok(r.pollAfterMs>=1000&&r.pollAfterMs<=5000);assert.equal(r.expiresAt,s.c.expiresAt);assert.equal(r.status,'PENDING_APPROVAL');}
+    assert.equal(store.Load().launchers[s.inv.issue.launcherId].status,'AVAILABLE');
+    assert.equal(Object.keys(store.Load().flows).length,flows);
+   }finally{crypto.randomInt=saved;}
+  });
+  await t.test('restored approval uses original lifetime without actor-bound receipt or extra consume deadline',()=>{
+   const s=challenge();call(s,'keylessProve');const approved=approve(s);
+   assert.equal(approved.approvalExpiresAt,undefined);assert.equal(keyless.ListPending().approvalConsumeWindowMs,undefined);
+   clock+=60001;assert.equal(call(s,'keylessStatus').status,'APPROVED');
+   assert.equal(keyless.Approve(s.c.challengeId,{identityConfirmed:true,launcherId:s.inv.issue.launcherId,persistentKeyId:s.persistent.deviceId},'ADMIN:SECOND_OPERATOR').status,'APPROVED');
+   const first=call(s,'beginKeyless'),db=store.Load();
+   assert.equal(db.flows[first.flowId].keylessApproval,undefined);
+   assert.equal(db.launchers[s.inv.issue.launcherId].keylessApprovalVersion,undefined);
+   assert.equal(db.launchers[s.inv.issue.launcherId].status,'CONSUMED');
+   assert.deepEqual(call(s,'beginKeyless'),first,'short lost-response recovery does not create a second flow');
+  });
+  await t.test('other issued A, changed file, device, and pending identity revision cannot replay approval',()=>{
+   const a=challenge(),b=challenge();call(a,'keylessProve');approve(a);call(b,'keylessProve');
+   expect(()=>call(a,'beginKeyless',{challengeId:b.c.challengeId}),'KEYLESS_PROOF_INVALID');
+   expect(()=>boot.Execute({...a.body,launcherId:b.body.launcherId}),'BOOTSTRAP_HASH_MISMATCH');
+   expect(()=>boot.Execute({...a.body,launcherCrc64:'0'.repeat(16)}),'BOOTSTRAP_HASH_MISMATCH');
+   expect(()=>boot.Execute({...a.body,persistentPublicKey:b.persistent.publicKey,persistentKeyId:b.persistent.deviceId}),'KEYLESS_REQUEST_REUSED');
+   expect(()=>boot.Execute({...a.body,publicKey:b.app.publicKey,deviceId:b.app.deviceId}),'KEYLESS_REQUEST_REUSED');
+   store.Atomic(db=>{db.deviceIdentity||=identity.Empty();db.deviceIdentity.revision++;});
+   expect(()=>call(b,'keylessStatus'),'KEYLESS_REQUEST_EXPIRED');
+   expect(()=>approve(b),'KEYLESS_REQUEST_EXPIRED');
+   expect(()=>call(a,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
+   assert.equal(store.Load().launchers[a.inv.issue.launcherId].status,'AVAILABLE');
+  });
+  await t.test('existing retired PC deny is checked again while approval is pending',()=>{
+   const s=challenge(),devices=require('../../services/devices/peace.desktop-device-registry');call(s,'keylessProve');
+   store.Atomic(db=>{const id=devices.BindingId(s.app.machineId,db);db.deviceRegistry||={version:1,revision:0,bindings:{},receipts:{},proofRetentionDays:30};db.deviceRegistry.bindings[id]={id,identificationScheme:'LEGACY_PC_HASH_V1',status:'RETIRED',firstSeenAt:clock,lastSeenAt:clock,retiredAt:clock,proofs:[]};});
+   expect(()=>call(s,'keylessStatus'),'DEVICE_BINDING_RETIRED');
+   expect(()=>approve(s),'DEVICE_BINDING_RETIRED');
+   assert.equal(store.Load().launchers[s.inv.issue.launcherId].status,'AVAILABLE');
+  });
+  await t.test('client cancellation or disconnect leaves approval without any execution until original expiry',()=>{
+   const s=challenge(),count=Object.keys(store.Load().flows).length;call(s,'keylessProve');approve(s);
+   // The native guard discards an approved reply after cancellation. There is
+   // deliberately no begin call here: an approved status is not a server grant.
+   assert.equal(store.Load().launchers[s.inv.issue.launcherId].status,'AVAILABLE');
+   assert.equal(Object.keys(store.Load().flows).length,count);
+   clock=s.c.expiresAt+1;expect(()=>call(s,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
+   assert.equal(Object.keys(store.Load().flows).length,count);
   });
   await t.test('queued signature verification and one-use dispatcher preserve the exact approved consume',async()=>{
    const work=require('../../services/integrity/peace.desktop-proof-work'),dispatch=require('../../services/authentication/peace.desktop-protected-dispatch'),{performance}=require('node:perf_hooks'),s=challenge();

@@ -43,7 +43,7 @@ function SecurityHeaders(req, res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    res.setHeader('Permissions-Policy', 'display-capture=(), camera=(), microphone=(), geolocation=()');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
 }
 
@@ -160,6 +160,19 @@ async function RequestHandler(req, res) {
     const url = new URL(req.url, 'http://localhost');
     const pathname = url.pathname;
     const method = String(req.method || 'GET').toUpperCase();
+    // Retired support URLs never read an upload, serve an image or fall through
+    // to a cached/static page, including links made before this deployment.
+    if (pathname === '/diagnostics' || pathname === '/diagnostics.html' ||
+        pathname.startsWith('/api/diagnostic-capture/') ||
+        /^\/api\/desktop\/members\/[^/]+\/captures(?:\/|$)/.test(pathname) ||
+        pathname.startsWith('/support-captures/') || pathname.startsWith('/scripts/diagnostics/') ||
+        pathname === '/scripts/desktop/peace.admin-desktop-captures.js' || pathname === '/styles/diagnostics.css') {
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Connection', 'close');
+        ApiError(res, 410, 'FEATURE_REMOVED');
+        return;
+    }
     const reset=require('../../services/operations/peace.registration-reset');
     if(reset.IsDraining()&&pathname.startsWith('/api/')&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
     const desktopMode = require("../../services/runtime/peace.desktop-mode");
@@ -167,13 +180,6 @@ async function RequestHandler(req, res) {
     // Desktop HMAC challenge/execute have their own authentication, rate limits
     // and replay checks. Never route them through an administrator cookie.
     if (await require('./peace.desktop-api').Handle(req, res, url)) return;
-    if (await require('./peace.diagnostic-capture-public').Handle(req, res, url)) return;
-    if (pathname === '/diagnostics.html') {
-        res.setHeader('Cache-Control', 'private, no-store');
-        res.setHeader('Permissions-Policy', 'display-capture=(self), camera=(), microphone=(), geolocation=()');
-        res.setHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src blob:; media-src blob:; object-src 'none'; worker-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'");
-    }
-
     if (pathname.startsWith('/internal/ha/')) {
         if (await require("../../services/network/peace.ha-coordinator").HandleInternal(req, res, pathname)) return;
     }

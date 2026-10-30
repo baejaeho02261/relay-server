@@ -147,7 +147,7 @@ async function testWorker() {
   const beforeAuthCache=puts.length;
   for(const url of ['/member/oauth/callback/google?code=private-code','/member/oauth/open/private-flow','/pay/return/order/state/complete?paymentKey=private-key'])await request(url,'navigate');
   assert.equal(puts.length,beforeAuthCache,'OAuth/payment navigation must never replace the cached admin shell');
-  const diagnostics = ['/diagnostics', '/diagnostics.html', '/scripts/diagnostics/peace.diagnostic-capture.js', '/styles/diagnostics.css', '/api/desktop/diagnostics', '/api/diagnostics/upload'];
+  const diagnostics = ['/diagnostics', '/diagnostics.html', '/scripts/diagnostics/peace.diagnostic-capture.js', '/scripts/desktop/peace.admin-desktop-captures.js', '/styles/diagnostics.css', '/support-captures/'+'A'.repeat(24)+'.enc', '/api/diagnostic-capture/status', '/api/diagnostic-capture/upload', '/api/desktop/diagnostics', '/api/diagnostics/upload'];
   for (const url of diagnostics) await request(url, url.startsWith('/diagnostics') ? 'navigate' : 'cors');
   assert.equal(puts.length, beforeAuthCache, 'Diagnostic documents, scripts and image APIs must never enter the cache');
   failNetwork = true;

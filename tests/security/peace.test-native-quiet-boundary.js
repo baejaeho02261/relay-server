@@ -18,11 +18,11 @@ test('Production A/B/O reject invalid invocation shapes before startup work and 
   for (const [name, shape, role, run] of cases) {
     const source = stripComments(read(`Cozy.Projects/Cozy.${name}/Cozy.${name}.dpr`));
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
-    assert.match(body, /ExitCode := 1;/);
+    assert.match(body, name === 'Launcher' ? /ExitCode := 31000;/ : /ExitCode := 1;/);
     const gate = body.search(shape), seal = body.indexOf('SealApiPointerStorage;');
-    const startup = body.indexOf(`RequireNativeStartup(${role});`), application = body.indexOf(`ExitCode := ${run};`);
+    const startup = body.indexOf(name === 'Launcher' ? `RequireNativeStartup(${role}, @ExitCode);` : `RequireNativeStartup(${role});`), application = body.indexOf(`ExitCode := ${run};`);
     assert(gate >= 0 && gate < seal && seal < startup && startup < application, name);
-    assert.match(body, /except\s+ExitCode := 1;\s+end;/);
+    assert.match(body, name === 'Launcher' ? /except\s+end;/ : /except\s+ExitCode := 1;\s+end;/);
     assert.doesNotMatch(body, /MessageBox|ShowMessage|WriteLn|OutputDebugString|WriteConsole/i);
   }
 });
@@ -31,14 +31,24 @@ test('B renders masked input only and has no path for failure text to reach its 
   const source = stripComments(read('Cozy.Source/Cozy.Application/Cozy.Console.pas'));
   const render = source.split('procedure TConsoleSession.RenderInput(')[1].split('procedure TConsoleSession.Tick;')[0];
   const tick = source.split('procedure TConsoleSession.Tick;')[1].split('function TConsoleSession.ReadKey(')[0];
-  assert.match(render, /Display := StringOfChar\('\*', Length\(Value\)\);/);
+  assert.match(render, /Display := StringOfChar\('\*', Characters\);/);
   assert.doesNotMatch(render, /Display := Value|WriteText\(Value\)/);
   assert.equal((source.match(/\bWriteText\(Display\);/g) || []).length, 1);
   assert.doesNotMatch(tick, /WriteText|WriteConsole|CozyUserErrorText|\.Message/);
   assert.doesNotMatch(source, /FNotice|CozyUserErrorText|OutputDebugString|MessageBox|ShowMessage/i);
   assert.match(tick, /WorkerState = WorkerFailed/);
   assert.match(tick, /WorkerState = WorkerTransferred/);
-  assert.match(source, /finally\s+WipeText\(Key\);/);
+  assert.match(source, /finally\s+FreeAndNil\(Key\);/);
+  assert.match(source, /BoundaryKey := Key\.CopyText;/);
+  assert.match(source, /finally WipeText\(BoundaryKey\); end;/);
+  assert.doesNotMatch(source, /FPendingKey: string|QueuedKey: string|out Value: string/);
+  const input = source.split('function TConsoleSession.ReadKey(')[1].split('procedure TConsoleSession.WaitForWorker;')[0];
+  assert.match(input, /ClearInput;\s+Result := True;\s+Exit;/);
+  assert.match(input, /if not Result then FreeAndNil\(Value\)/);
+  const mailbox = read('Cozy.Source/Cozy.Application/Cozy.Console.Commands.pas');
+  assert.match(mailbox, /FPending := Key; Key := nil;/);
+  assert.match(mailbox, /else if not FStopping then/);
+  assert.match(mailbox, /FreeAndNil\(FPending\)/);
 });
 
 test('Legacy error formatter returns no visible text, including unknown errors', () => {

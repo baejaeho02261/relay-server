@@ -55,15 +55,15 @@ test('Native proof reconstructs the frozen canonical and bounds all approval wai
   assert.match(keyless, /RequestBudgetMs = 10000/);
   assert.match(keyless, /PollMilliseconds = 2000/);
   assert.match(keyless, /Clock := TStopwatch\.StartNew/);
-  assert.match(keyless, /Left := ApprovalBudgetMs - Clock\.ElapsedMilliseconds/);
+  assert.match(keyless, /Left := ApprovalBudgetMs - ElapsedMs/);
   assert.match(keyless, /if Assigned\(Cancelled\) and Cancelled\(\)/);
-  const expected = keyless.split("Expected := 'COZY-KEYLESS-BOOTSTRAP-V1'")[1].split('if Canonical <> Expected')[0];
+  const expected = keyless.split("Expected := 'COZY-KEYLESS-BOOTSTRAP-V1'")[1].split('ValidateKeylessBinding(Canonical, Expected)')[0];
   const order = ['ChallengeID', 'Nonce', 'RequestID', 'LauncherID', 'LauncherSHA512', 'LauncherCRC64',
     'CodeSHA512', 'CodeCRC64', 'Security.MachineID', 'Security.DeviceID', 'PersistentKeyID', 'ProviderKind',
     'IntToStr(Epoch)', 'IntToStr(Revision)', 'IntToStr(ExpiresAt)'];
   let previous = -1;
   for (const value of order) { const at = expected.indexOf(value, previous + 1); assert(at > previous, value); previous = at; }
-  assert(keyless.indexOf('if Canonical <> Expected') < keyless.indexOf('AppSignature := Security.Sign(Canonical)'));
+  assert(keyless.indexOf('ValidateKeylessBinding(Canonical, Expected);') < keyless.indexOf('AppSignature := Security.Sign(Canonical)'));
   assert.match(keyless, /PersistentSignature := Key\.Sign\(Canonical\)/);
   assert.match(keyless, /TPersistentDeviceKey\.Create\(Namespace, ProviderKind = 'PLATFORM'\)/);
   assert.doesNotMatch(keyless, /SaveToFile|WriteAllText|WriteAllBytes|TRegistry|ShellExecute|OutputDebugString|MessageBox/);
@@ -78,5 +78,24 @@ test('Approval is followed by new code measurement and atomic server begin, not 
   assert.doesNotMatch(bootstrap, /LauncherTicket|Post\('begin',/);
   assert.match(begin, /if \(Result\.FlowID <> ''\) and \(Result\.DownloadTicket <> ''\) then\s+try\s+AbortFlowCore\(Result\);/);
   assert.doesNotMatch(begin, /\bAbortFlow\(/);
-  assert.match(begin, /WipeText\(Result\.DownloadTicket\);\s+WipeText\(Result\.FinishCanonical\);\s+Result := Default\(TBootstrapFlow\);\s+FFlowStarted := 0;\s+raise;/);
+  assert.match(begin, /Result\.ClearSecrets;\s+Result := Default\(TBootstrapFlow\);\s+FFlowStarted := 0;\s+raise;/);
+});
+
+
+test('Native actual approval path rechecks post-response cancellation and uses bounded jitter hints', () => {
+  assert.match(keyless,/MinimumPollMilliseconds = 1000/);
+  assert.match(keyless,/MaximumPollMilliseconds = 5000/);
+  assert.match(keyless,/if Reply.GetValue\('pollAfterMs'\) <> nil then Hint := Number\(Reply, 'pollAfterMs'\)/);
+  assert.match(keyless,/if Hint < MinimumPollMilliseconds then Hint := MinimumPollMilliseconds/);
+  assert.match(keyless,/if Hint > MaximumPollMilliseconds then Hint := MaximumPollMilliseconds/);
+  assert.match(keyless,/Cancelled\(\) then CancellationSeen := True/);
+  const exchange=keyless.split('  function Exchange(Request: TJSONObject): TJSONObject;')[1].split('  function Proof(')[0];
+  assert.match(exchange,/Transport.PostJSON\('bootstrap', Request, Remaining\);\s+Remaining;/);
+  assert.match(keyless,/Status := ValidateKeylessDecision\(Reply, ChallengeID, ExpiresAt,/);
+  assert.match(keyless,/if Left > 100 then Left := 100;\s+if Left > Budget then Left := Budget;/);
+  const probe=read('Cozy.Tests/Cozy.Identity/Cozy.KeylessApprovalProbe.dpr');
+  for(const name of ['ValidateKeylessBinding','ValidateKeylessDecision','KeylessApprovalRemaining'])assert(probe.includes(name+'('),name);
+  assert(probe.includes('late approved after cancellation'));
+  assert(probe.includes('other issued A challenge'));
+  // This verifies wiring and probe coverage only, not Delphi execution.
 });

@@ -71,7 +71,7 @@ function Create(body,actor){return Mutation('CREATE','',body,actor,['displayName
 });}
 function Member(s,id){if(!ID.test(id)||!s.items[id])Fail('MEMBER_NOT_FOUND',404);return s.items[id];}
 function Update(id,body,actor){return Mutation('UPDATE',id,body,actor,['displayName','note'],s=>{const row=Member(s,id);row.displayName=Text(body.displayName,80,true);row.note=Text(body.note,1000,false,true);row.updatedAt=Math.max(row.createdAt,Date.now());return {member:{...row}};});}
-function Archive(id,body,actor){return Mutation('ARCHIVE',id,body,actor,['archived'],(s,db)=>{if(typeof body.archived!=='boolean')Fail('MEMBER_INPUT_INVALID');const row=Member(s,id);row.status=body.archived?'ARCHIVED':'ACTIVE';row.updatedAt=Math.max(row.createdAt,Date.now());if(body.archived)require('../diagnostics/peace.support-captures').ArchiveMemberInState(db,id);return {member:{...row},authorizationChanged:false};});}
+function Archive(id,body,actor){return Mutation('ARCHIVE',id,body,actor,['archived'],(s,db)=>{if(typeof body.archived!=='boolean')Fail('MEMBER_INPUT_INVALID');const row=Member(s,id);row.status=body.archived?'ARCHIVED':'ACTIVE';row.updatedAt=Math.max(row.createdAt,Date.now());return {member:{...row},authorizationChanged:false};});}
 function TargetExists(db,kind,id){if(!KINDS.includes(kind)||!TargetId(kind,id))return false;if(kind==='LICENSE')return !!require('../licensing/peace.desktop-licenses').DB().licenses[id];if(kind==='DEVICE')return !!db.deviceRegistry?.bindings[id];return !!db[kind==='LAUNCHER'?'launchers':'flows'][id];}
 function Assign(body,actor){return Mutation('ASSIGN',String(body?.kind||'')+':'+String(body?.targetId||''),body,actor,['kind','targetId','memberId','expectedMemberId'],(s,db)=>{
  if(!TargetExists(db,body.kind,body.targetId))Fail('MEMBER_TARGET_NOT_FOUND',404);
@@ -103,7 +103,7 @@ function Snapshot(){
   const owner=Direct(s,'LAUNCHER',r.id)||Direct(s,'LICENSE',r.assignedLicenseId||'');
   data.launchers.push(Decorate({id:r.id,label:r.label,status:r.status==='AVAILABLE'&&r.expiresAt<=Date.now()?'EXPIRED':r.status,issuedAt:r.issuedAt,expiresAt:r.expiresAt,flowId:r.flowId||''},'LAUNCHER',r.id,owner,s));
  }
- for(const r of Object.values(db.flows))data.flows.push(Decorate({id:r.id,flowId:r.id,sessionId:r.sessionId,launcherId:r.launcherId,licenseId:r.licenseId||'',status:r.status,createdAt:r.createdAt,lastVerifiedAt:r.lastVerifiedAt,firstDeviceApproval:r.keylessApproval?{status:'CONSUMED',approvedAt:r.keylessApproval.approvedAt,consumedAt:r.keylessApproval.consumedAt}:{status:'NOT_RECORDED'}},'FLOW',r.id,flowOwners.get(r.id)||'',s));
+ for(const r of Object.values(db.flows))data.flows.push(Decorate({id:r.id,flowId:r.id,sessionId:r.sessionId,launcherId:r.launcherId,licenseId:r.licenseId||'',status:r.status,createdAt:r.createdAt,lastVerifiedAt:r.lastVerifiedAt},'FLOW',r.id,flowOwners.get(r.id)||'',s));
  for(const r of Object.values(db.deviceRegistry?.bindings||{})){
   data.devices.push(Decorate({id:r.id,status:r.status,firstSeenAt:r.firstSeenAt,lastSeenAt:r.lastSeenAt,assurance:r.proofs?.some(p=>Date.now()>=p.at&&Date.now()-p.at<30*86400000)?'APP_KEY_POSSESSION':'IDENTIFIED_ONLY'},'DEVICE',r.id,Direct(s,'DEVICE',r.id),s));
  }
@@ -149,7 +149,7 @@ function Detail(id,query={}){
    for(const row of Object.values(db.flows))if(row.machineId){const key=binding.BindingId(row.machineId,db);if(wanted.has(key))machineByBinding.set(key,row.machineId);}
    items=items.map(r=>{const policy=machineByBinding.has(r.id)?require('../devices/peace.desktop-machine-policy').Public(machineByBinding.get(r.id)):null;return {...r,blocked:policy?policy.blocked:null,blockSource:policy?.source||'UNKNOWN',blockGeneration:policy?.generation??null};});
   }
-  if(name==='flows')items=items.map(r=>({...r,supportContexts:require('../diagnostics/peace.support-captures').EligibleContexts(owner,r.id,db),machineBindingId:db.flows[r.id].machineId?require('../devices/peace.desktop-device-registry').BindingId(db.flows[r.id].machineId,db):'',lifecycle:require('../observability/peace.desktop-lifecycle-trace').Flow(r.id)}));
+  if(name==='flows')items=items.map(r=>({...r,machineBindingId:db.flows[r.id].machineId?require('../devices/peace.desktop-device-registry').BindingId(db.flows[r.id].machineId,db):'',lifecycle:require('../observability/peace.desktop-lifecycle-trace').Flow(r.id)}));
   categories[name]={items,totalCount:rows.length,...paging};
  }
  return {version:1,revision:s.revision,member,categories,counts:Counts(counts,owner),readOnly:false,authorizationChanged:false,identitySource:'OPERATOR_ASSIGNED_NOT_HARDWARE_INFERRED',serverTime:Date.now()};

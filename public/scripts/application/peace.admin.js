@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'cozy-peace-v12-support-context';
+const WEB_UI_REVISION = 'cozy-peace-v13-approval-restored';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -216,27 +216,6 @@ async function requestAdminReauthentication(action = null) {
   })();
   try { return await adminReauthenticationPending; } finally { adminReauthenticationPending = null; }
 }
-async function readAdminPng(response,signal,live){
- const limit=2097152,contentType=(response.headers.get('Content-Type')||'').split(';')[0].trim().toLowerCase(),declared=response.headers.get('Content-Length');
- const reader=response.body?.getReader?.();
- if(!reader)throw Error('이미지 응답을 안전하게 읽을 수 없습니다.');
- const chunks=[];let total=0,bytes=null,complete=false;
- try{
-  if(contentType!=='image/png'||declared!==null&&(!/^[0-9]+$/.test(declared)||Number(declared)>limit))throw Error('이미지 형식 또는 크기를 확인하지 못했습니다.');
-  while(true){
-   if(signal?.aborted||!live())throw Error('화면 또는 로그인 상태가 변경되어 이미지 조회를 취소했습니다.');
-   const part=await reader.read();if(part.done)break;
-   if(!part.value||part.value.byteLength>limit-total){part.value?.fill?.(0);throw Error('지원 이미지가 허용 크기를 초과했습니다.');}
-   total+=part.value.byteLength;chunks.push(part.value);
-  }
-  if(!live()||signal?.aborted||total<33||declared!==null&&Number(declared)!==total)throw Error('이미지 응답이 완료되지 않았습니다.');
-  bytes=new Uint8Array(total);let at=0;for(const chunk of chunks){bytes.set(chunk,at);at+=chunk.byteLength;}
-  const magic=[137,80,78,71,13,10,26,10];if(magic.some((v,i)=>bytes[i]!==v)||bytes[8]!==0||bytes[9]!==0||bytes[10]!==0||bytes[11]!==13||String.fromCharCode(...bytes.subarray(12,16))!=='IHDR')throw Error('유효한 PNG 이미지가 아닙니다.');
-  const view=new DataView(bytes.buffer),width=view.getUint32(16),height=view.getUint32(20);
-  if(width<1||height<1||width>4096||height>4096||width*height>4194304)throw Error('지원 이미지의 해상도가 허용 범위를 벗어났습니다.');
-  const blob=new Blob([bytes],{type:'image/png'});complete=true;return {blob,width,height,bytes:total};
- }finally{if(!complete)try{await reader.cancel();}catch(_){}try{reader.releaseLock();}catch(_){}for(const chunk of chunks)chunk.fill(0);bytes?.fill(0);}
-}
 async function api(url, options = {}) {
   const requestSession = session?.csrf;
   const requestModalAlive = typeof captureAdminModalOwner === 'function' ? captureAdminModalOwner() : null;
@@ -245,7 +224,6 @@ async function api(url, options = {}) {
   if (session && !['GET', 'HEAD'].includes(method)) headers['X-CSRF-Token'] = session.csrf;
   const request = { method, headers, credentials: 'same-origin' };
   if(options.signal)request.signal=options.signal;
-  if(options.responseType==='png')request.cache='no-store';
   if (options.rawBody !== undefined) {
     headers['Content-Type'] = 'application/octet-stream';
     request.body = options.rawBody;
@@ -254,10 +232,6 @@ async function api(url, options = {}) {
     request.body = JSON.stringify(options.body);
   }
   const response = await fetch(url, request);
-  if(response.ok&&options.responseType==='png'){
-    const live=()=>!!requestSession&&session?.csrf===requestSession&&roleIsAdmin()&&(!requestModalAlive||requestModalAlive());
-    return readAdminPng(response,options.signal,live);
-  }
   const responseText = await response.text();
   let data = null;
   if (responseText) {
@@ -299,8 +273,6 @@ async function api(url, options = {}) {
 }
 
 function showLogin() {
-  if(typeof desktopCaptureClosePreview==='function')desktopCaptureClosePreview();
-  if(typeof desktopCaptureCloseLink==='function')desktopCaptureCloseLink();
   if (typeof closeAdminModals === 'function') closeAdminModals();
   if (modalEl && !modalEl.classList.contains('hidden')) modalCancel.click();
   session = null;
@@ -609,8 +581,6 @@ async function renderCurrent(silent = false) {
 
 
 function switchView(view) {
-  if(view!==currentView&&typeof desktopCaptureClosePreview==='function')desktopCaptureClosePreview();
-  if(view!==currentView&&typeof desktopCaptureCloseLink==='function')desktopCaptureCloseLink();
   if (!Object.hasOwn(titles, view)) view = 'dashboard';
   const target = nav.querySelector(`button[data-view="${CSS.escape(view)}"]`);
   if (!target || target.hasAttribute('data-admin-only') && !roleIsAdmin()) view = 'dashboard';

@@ -109,8 +109,6 @@ function desktopRestoreScroll(state,anchor=true) {
 }
 function desktopSelectTab(tab) {
   if(!['members','licenses','modules'].includes(tab)||tab===desktopLicenseTab)return;
-  if(typeof desktopCaptureClosePreview==='function')desktopCaptureClosePreview();
-  if(typeof desktopCaptureCloseLink==='function')desktopCaptureCloseLink();
   desktopTabScroll.set(desktopLicenseTab,desktopCaptureScroll());desktopLicenseTab=tab;
   content.querySelectorAll('[data-desktop-tab]').forEach(button=>{const active=button.dataset.desktopTab===tab;button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
   content.querySelectorAll('[data-desktop-tab-panel]').forEach(panel=>{panel.hidden=panel.dataset.desktopTabPanel!==tab;});
@@ -364,7 +362,6 @@ async function createDesktopLauncher() {
 }
 async function handleDesktopLicenseAction(event) {
   const target=event.target.closest('button');if(!target)return false;
-  if(target.dataset.captureAction&&typeof handleDesktopCaptureAction==='function')return handleDesktopCaptureAction(target);
   if(target.dataset.memberAction)return handleDesktopMemberAction(target);
   if(target.dataset.desktopTab){desktopSelectTab(target.dataset.desktopTab);await renderCurrent(true);return true;}
   if(target.dataset.desktopStatus){desktopLicenseStatus=target.dataset.desktopStatus;desktopLicensePage=0;await renderCurrent();return true;}

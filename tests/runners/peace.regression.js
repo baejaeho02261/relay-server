@@ -5,14 +5,14 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["source/peace.test-native-hash-lifecycle-source.js"],
+  ["security/peace.test-native-keyless-contract.js"],
+  ["web/peace.test-keyless-approval-ui.js"],
+  ["security/peace.test-native-quiet-boundary.js"],
+  ["storage/peace.test-retired-support-storage.js"],
+  ["web/peace.test-retired-support-http.js"],
   ["bootstrap/peace.test-handoff-pipe-fragments.js"],
   ["cryptography/peace.test-crc-collision-vectors.js"],
-  ["diagnostics/peace.test-support-captures.js"],
-  ["diagnostics/peace.test-support-capture-context.js"],
-  ["diagnostics/peace.test-support-captures-http.js"],
-  ["web/peace.test-diagnostic-capture.js"],
-  ["web/peace.test-desktop-capture-ui.js"],
-  ["web/peace.test-admin-capture-png.js"],
 
   ["protocol/peace.test-document-schema.js"],
   ["licensing/peace.test-desktop-members.js"],
@@ -20,6 +20,7 @@ const checks = [
   ["overlay/peace.test-overlay-text-input.js"],
   ["overlay/peace.test-overlay-parent-startup-lease.js"],
   ["bootstrap/peace.test-keyless-bootstrap.js"],
+  ["bootstrap/peace.test-keyless-legacy-receipts.js"],
 
   ["cryptography/peace.test-code-page-sha512.js"],
   ["integrity/peace.test-pointer-graph-lifecycle.js"],

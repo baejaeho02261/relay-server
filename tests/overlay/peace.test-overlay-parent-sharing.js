@@ -106,7 +106,7 @@ check('A to B normal path and OS read-only fallback retain compatible strict pin
 
 check('B retirement follows authorized visible O readiness and keeps O parent identity pinned', () => {
   const redeem = consoleSource.slice(consoleSource.indexOf('procedure TIntegrityWorker.RedeemPending'), consoleSource.indexOf('procedure TIntegrityWorker.Execute'));
-  assert(redeem.indexOf('if not FApi.StartOverlay then') < redeem.indexOf('InterlockedExchange(FState, WorkerTransferred)'));
+  assert(redeem.indexOf('if not FApi.StartOverlay then') < redeem.indexOf('FCommands.Complete(WorkerTransferred)'));
   assert.doesNotMatch(redeem, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);
   const complete = handoff.slice(handoff.indexOf('procedure THandoffContext.CompleteOverlayClaimCore'), handoff.indexOf('procedure THandoffContext.ConfirmOverlayReadyCore'));

@@ -54,17 +54,15 @@ async function idle(){await until(()=>w.eval('!desktopLicenseActionPending'),'ac
 (async()=>{try{
  await w.renderCurrent();await until(()=>query('[data-desktop-member-id="'+memberId+'"]'),'member list');
  assert.match(w.content.textContent,/미배정 기록/);assert.match(w.content.textContent,/<img src=x onerror=bad\(\)>/);assert.equal(query('#content img,#content script,#content svg'),null);
- // Unassigned runs must expose the support route without making a capture
- // capability for an unverified member or pretending native consent exists.
- const unassigned=query('[data-desktop-member-id="unassigned"]'),support=unassigned.querySelector('[data-desktop-key="member-captures-unassigned"]');
- assert.ok(support);assert.match(support.textContent,/지원 화면 · 사용자 동의 자료/);assert.match(support.textContent,/회원 연결 필요/);assert.match(support.textContent,/회원 연결 변경/);assert.match(support.textContent,/A\/B\/O 프로그램 내부에서 받는 동의는 이 메뉴에 포함되지 않습니다/);
- assert.equal(support.hasAttribute('data-member-captures'),false);assert.equal(support.querySelector('[data-capture-action]'),null);support.open=true;
- click('[data-desktop-key="member-captures-unassigned"] [data-member-action="create"]');await until(()=>dialog?.options.title==='회원 등록','support member registration');dialog.resolve(null);await idle();
- assert.equal(requests.some(row=>row.url.includes('/captures')),false,'unassigned support guidance never creates or lists captures');
+ // Retired support controls cannot return through ordinary member refreshes.
+ assert.equal(query('[data-member-captures],[data-capture-action],[data-desktop-key="member-captures-unassigned"]'),null);
+ assert.doesNotMatch(w.content.textContent,/지원 화면|사용자 동의 자료|최초 기기 승인 1회 사용/);
+ click('[data-member-action="create"]');await until(()=>dialog?.options.title==='회원 등록','member registration');dialog.resolve(null);await idle();
+ assert.equal(requests.some(row=>row.url.includes('/captures')),false,'member management does not request removed support routes');
 
  const disclosure=query('[data-desktop-member-id="'+memberId+'"]');disclosure.open=true;
  await until(()=>disclosure.textContent.includes('CODE_HASH_MISMATCH'),'member details');
- assert.match(disclosure.textContent,/CRC64/);assert.match(disclosure.textContent,/123456789ABCDEF0/);assert.match(disclosure.textContent,/B_EXIT_NOT_REPORTED/);assert.match(disclosure.textContent,/보고 없음/);assert.match(disclosure.textContent,/하드웨어 인증이 아닙니다/);assert.match(w.content.textContent,/사용자가 확인하고 전송한 경우에만 표시/);
+ assert.match(disclosure.textContent,/CRC64/);assert.match(disclosure.textContent,/123456789ABCDEF0/);assert.match(disclosure.textContent,/B_EXIT_NOT_REPORTED/);assert.match(disclosure.textContent,/보고 없음/);assert.match(disclosure.textContent,/하드웨어 인증이 아닙니다/);
  assert.equal(query('#content img,#content script,#content svg'),null);
  assert.match(disclosure.textContent,/FILE_CLEANUP · 정리 실패 보고 · PID 12345 · 종료 코드 31028 · Windows 오류 5 · 경과 732 ms/);
  // Missing or malformed optional diagnostics must not become a synthetic zero
@@ -114,5 +112,5 @@ async function idle(){await until(()=>w.eval('!desktopLicenseActionPending'),'ac
  click('[data-member-action="create"]');await until(()=>dialog,'owner modal');const before=requests.filter(row=>row.method==='POST').length;w.session={csrf:'OWNER2'};dialog.resolve({displayName:'보내지 않을 회원',note:''});await idle();assert.equal(requests.filter(row=>row.method==='POST').length,before);
  await w.renderCurrent();assert.equal(w.eval('desktopMemberPending'),null);assert.equal(w.eval('desktopMemberQuery'),'');
  assert.equal(errors.length,0,errors.join('\n'));
- console.log('MEMBER UI PASS: visible unassigned support guidance and explicit member registration without capture capability, member/unassigned disclosures, explicit assignment and direct-owner precondition, category paging, escaped hostile labels/evidence, hash/CRC details, lifecycle reported Windows error/process/elapsed details with absent and invalid numbers omitted, lifecycle unknown states, stable focus/drafts/details, exact response-loss retry, stale-form revision rejection and administrator-session replacement. No automatic capture in member operations.');
+ console.log('MEMBER UI PASS: removed support UI and explicit member registration, member/unassigned disclosures, explicit assignment and direct-owner precondition, category paging, escaped hostile labels/evidence, hash/CRC details, lifecycle reported Windows error/process/elapsed details with absent and invalid numbers omitted, lifecycle unknown states, stable focus/drafts/details, exact response-loss retry, stale-form revision rejection and administrator-session replacement. No automatic capture in member operations.');
  }finally{w.close();}})().catch(error=>{console.error(error.stack);process.exitCode=1;});
