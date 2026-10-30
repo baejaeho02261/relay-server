@@ -5,7 +5,7 @@
 const crypto=require('node:crypto'),store=require("../bootstrap/peace.desktop-bootstrap-store");
 const TTL=180000,MAX_PERMITS=2048,MAX_FLOWS=512,MAX_EVENTS=96;
 const TERMINAL=new Set(['CLOSED','REVOKED','EXPIRED']);
-const PAIRS={SHUTDOWN_BEGIN:['REQUESTED'],CLOSE_RESPONSE:['ACKNOWLEDGED','FAILED'],PROCESS_EXIT:['OBSERVED','TIMEOUT','UNKNOWN'],FILE_CLEANUP:['REMOVED','FAILED','NOT_ATTEMPTED','SCHEDULED','TIMEOUT','UNKNOWN'],UI_HIDDEN:['OBSERVED'],LEASE_EXPIRED:['OBSERVED'],DOWNLOAD_DEADLINE:['OBSERVED']};
+const lifecycleContract=require('./peace.lifecycle-event-contract'),PAIRS=lifecycleContract.pairs;
 const Plain=x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
 const Id=x=>typeof x==='string'&&/^(?:(?:BF|DS|DL|LA)-)?[A-F0-9]{24}$/.test(x);
 const KindId=(x,kind)=>typeof x==='string'&&new RegExp('^(?:'+kind+'-)?[A-F0-9]{24}$').test(x);
@@ -27,8 +27,7 @@ function Maintain(){
 }
 function RootFlow(db,row,stage){return stage==='O'?db.flows[row.parentFlowId]:db.flows[row.id];}
 function Binding(body){
- if(!['A','B','O'].includes(body.stage)||!['A','B','O'].includes(body.targetRole))Fail('LIFECYCLE_ROLE_INVALID',403);
- if(body.targetRole!==body.stage&&({B:'A',O:'B'})[body.stage]!==body.targetRole)Fail('LIFECYCLE_ROLE_INVALID',403);
+ if(!lifecycleContract.roleAllowed(body.stage,body.targetRole))Fail('LIFECYCLE_ROLE_INVALID',403);
  const identity=require("../bootstrap/peace.desktop-bootstrap").AuthenticateIntegrityReport(body),db=store.Load(),flow=RootFlow(db,identity,body.stage);
  if(!flow)Fail('LIFECYCLE_CONTEXT_INVALID',403);
  const targetSessionId=body.targetRole==='A'?flow.id:body.targetRole==='B'?flow.sessionId:identity.sessionId;
@@ -45,7 +44,7 @@ function Challenge(body){
  return Response(p);
 }
 function Permit(id){if(!Hex(id,32))Fail('LIFECYCLE_INPUT_INVALID');const p=store.Load().lifecycleTrace?.permits[id];if(!p)Fail('LIFECYCLE_PERMIT_INVALID',403);if(Expired(p))Fail('LIFECYCLE_PERMIT_EXPIRED',410);if(p.serverEpoch!==require("../recovery/peace.desktop-recovery").Epoch(store.Load()))Fail('LIFECYCLE_CONTEXT_RETIRED',403);return p;}
-function Events(text,p){
+function Events(text,p,ordered=true){
  if(typeof text!=='string'||Buffer.byteLength(text)>8192)Fail('LIFECYCLE_INPUT_INVALID');let events;try{events=require("../protocol/peace.strict-json").Parse(text,{maxBytes:8192,maxNodes:128});}catch(_){Fail('LIFECYCLE_INPUT_INVALID');}
  if(!Array.isArray(events)||!events.length||events.length>8)Fail('LIFECYCLE_INPUT_INVALID');
  for(const e of events){if(!Plain(e)||Object.keys(e).some(k=>!['event','status','pid','exitCode','win32Error','elapsedMs'].includes(k))||typeof e.event!=='string'||!Object.hasOwn(PAIRS,e.event)||!PAIRS[e.event].includes(e.status))Fail('LIFECYCLE_INPUT_INVALID');
@@ -53,6 +52,7 @@ function Events(text,p){
   for(const k of ['pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,k)&&(!Number.isSafeInteger(e[k])||e[k]<0||e[k]>(k==='elapsedMs'?600000:0xffffffff)))Fail('LIFECYCLE_INPUT_INVALID');
   if(p.reporterRole!==p.targetRole&&!['PROCESS_EXIT','FILE_CLEANUP'].includes(e.event)||p.reporterRole===p.targetRole&&e.event==='PROCESS_EXIT'&&e.status==='OBSERVED')Fail('LIFECYCLE_ROLE_INVALID',403);
  }
+ if(!lifecycleContract.validate(events,p.reporterRole,p.targetRole,{ordered}))Fail('LIFECYCLE_INPUT_INVALID');
  return events;
 }
 function Canonical(p,requestId,eventsJson){return ['GAME-LIFECYCLE-REPORT-V1',p.id,p.nonce,requestId,sha(eventsJson)].join('\n');}
@@ -136,7 +136,7 @@ function Validate(s,db){
    if(client){
     if(!['A','B','O'].includes(e.reporterRole)||!Id(e.reporterSessionId)||!rolePair(e.reporterRole,e.role)||db&&!bound(flow,e.reporterRole,e.reporterSessionId))invalid();
     const clean={};for(const key of ['event','status','pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,key))clean[key]=e[key];
-    try{Events(JSON.stringify([clean]),{reporterRole:e.reporterRole,targetRole:e.role});}catch(_){invalid();}
+    try{Events(JSON.stringify([clean]),{reporterRole:e.reporterRole,targetRole:e.role},false);}catch(_){invalid();}
    }else if(!Object.hasOwn(SERVER_PAIRS,e.event)||!SERVER_PAIRS[e.event].includes(e.status))invalid();
   }
   if(f.events.length&&f.events.at(-1).at!==f.updatedAt)invalid();

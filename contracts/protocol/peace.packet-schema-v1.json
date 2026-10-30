@@ -942,6 +942,96 @@
             "pointerGraph"
           ],
           "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "contract": {
+              "enum": [
+                "GAME-OWN-MEASUREMENT-BUNDLE-V3"
+              ]
+            },
+            "version": {
+              "enum": [
+                3
+              ]
+            },
+            "startedTick": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "finishedTick": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "coverage": {
+              "enum": [
+                "FULL",
+                "PARTIAL"
+              ]
+            },
+            "fileStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "codeStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "crcStatus": {
+              "enum": [
+                "MEASURED",
+                "NOT_MEASURED",
+                "READ_ERROR",
+                "FILE_CHANGED",
+                "COVERAGE_INSUFFICIENT",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED"
+              ]
+            },
+            "imageStable": {
+              "enum": [
+                true,
+                false
+              ]
+            },
+            "pointerGraph": {
+              "$ref": "pointerGraphObservation"
+            },
+            "ownedGraph": {
+              "$ref": "ownedRuntimeGraph"
+            }
+          },
+          "required": [
+            "contract",
+            "version",
+            "startedTick",
+            "finishedTick",
+            "coverage",
+            "fileStatus",
+            "codeStatus",
+            "crcStatus",
+            "imageStable",
+            "pointerGraph",
+            "ownedGraph"
+          ],
+          "additionalProperties": false
         }
       ]
     },
@@ -2657,6 +2747,303 @@
         "attested"
       ],
       "additionalProperties": false
+    },
+    "ownedRuntimeNode": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "kind": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16
+        },
+        "span": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "generation": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "ownerId": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "ownerGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "alive": {
+          "enum": [
+            true
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "span",
+        "generation",
+        "ownerId",
+        "ownerGeneration",
+        "alive"
+      ],
+      "additionalProperties": false
+    },
+    "ownedRuntimeEdge": {
+      "type": "object",
+      "properties": {
+        "sourceId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "sourceGeneration": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "targetId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "targetGeneration": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "width": {
+          "enum": [
+            4,
+            8
+          ]
+        }
+      },
+      "required": [
+        "sourceId",
+        "sourceGeneration",
+        "targetId",
+        "targetGeneration",
+        "offset",
+        "width"
+      ],
+      "additionalProperties": false
+    },
+    "ownedRuntimeSnapshot": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20,
+          "pattern": "^(0|[1-9][0-9]{0,19})$"
+        },
+        "rootId": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "rootGeneration": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967295
+        },
+        "nodes": {
+          "type": "array",
+          "maxItems": 6,
+          "items": {
+            "$ref": "ownedRuntimeNode"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "ownedRuntimeEdge"
+          }
+        }
+      },
+      "required": [
+        "revision",
+        "rootId",
+        "rootGeneration",
+        "nodes",
+        "edges"
+      ],
+      "additionalProperties": false
+    },
+    "ownedRuntimeGraph": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "scope": {
+              "enum": [
+                "REGISTERED_APP_OBJECTS"
+              ]
+            },
+            "profile": {
+              "enum": [
+                "BOOTSTRAP_CLIENT_V1",
+                "LICENSE_API_V1",
+                "OVERLAY_CLIENT_V1",
+                "UNAVAILABLE"
+              ]
+            },
+            "status": {
+              "enum": [
+                "FAILED"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "RUNTIME_GRAPH_CHANGED",
+                "RUNTIME_OBJECT_RETIRED",
+                "RUNTIME_BINDING_INVALID",
+                "RUNTIME_GRAPH_REQUIRED",
+                "CANCELLED",
+                "DEADLINE_EXCEEDED",
+                "MEASUREMENT_FAILED"
+              ]
+            },
+            "stable": {
+              "enum": [
+                false
+              ]
+            },
+            "before": {
+              "enum": [
+                null
+              ]
+            },
+            "after": {
+              "enum": [
+                null
+              ]
+            },
+            "changes": {
+              "type": "array",
+              "maxItems": 0,
+              "items": {
+                "$ref": "object"
+              }
+            },
+            "sha512": {
+              "enum": [
+                ""
+              ]
+            },
+            "crc64": {
+              "enum": [
+                ""
+              ]
+            }
+          },
+          "required": [
+            "version",
+            "scope",
+            "profile",
+            "status",
+            "reason",
+            "stable",
+            "before",
+            "after",
+            "changes",
+            "sha512",
+            "crc64"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "version": {
+              "enum": [
+                1
+              ]
+            },
+            "scope": {
+              "enum": [
+                "REGISTERED_APP_OBJECTS"
+              ]
+            },
+            "profile": {
+              "enum": [
+                "BOOTSTRAP_CLIENT_V1",
+                "LICENSE_API_V1",
+                "OVERLAY_CLIENT_V1"
+              ]
+            },
+            "status": {
+              "enum": [
+                "MEASURED"
+              ]
+            },
+            "reason": {
+              "enum": [
+                "STABLE"
+              ]
+            },
+            "stable": {
+              "enum": [
+                true
+              ]
+            },
+            "before": {
+              "$ref": "ownedRuntimeSnapshot"
+            },
+            "after": {
+              "$ref": "ownedRuntimeSnapshot"
+            },
+            "changes": {
+              "type": "array",
+              "maxItems": 0,
+              "items": {
+                "$ref": "object"
+              }
+            },
+            "sha512": {
+              "$ref": "hash"
+            },
+            "crc64": {
+              "$ref": "crc"
+            }
+          },
+          "required": [
+            "version",
+            "scope",
+            "profile",
+            "status",
+            "reason",
+            "stable",
+            "before",
+            "after",
+            "changes",
+            "sha512",
+            "crc64"
+          ],
+          "additionalProperties": false
+        }
+      ]
     }
   },
   "commands": [

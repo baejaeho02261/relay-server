@@ -38,10 +38,12 @@ check('Authenticated IPC uses single-use wrapping and rejects old wire',()=>{
  assert.match(cipher,/HandoffProtocolMarker: AnsiString = 'GAME-HANDOFF-V3'/);
  assert.match(cipher,/TInterlocked\.CompareExchange\(FConsumed, 1, 0\)/);
  assert.match(cipher,/Padding\.Algorithm := 'SHA256'/);
- assert.match(cipher,/SetLength\(Secret, 32\)/);
+ assert.match(cipher,/Secret := TApiSensitiveBuffer\.Create\(256\)/);
+ assert.match(cipher,/if Actual <> 32 then/);
+ assert.match(cipher,/Secret\.Read\(0, 32\), 32, 0/);
  assert.match(cipher,/GcmMode = 'ChainingModeGCM'/);
  assert.match(cipher,/except\s+WipeBytes\(Result\); raise;/);
- assert.match(handoff,/Payload := Cipher\.Decrypt\(Envelope, AAD\)/);
+ assert.match(handoff,/Payload := Cipher\.Decrypt\(Envelope, AAD,\s+function: Boolean[\s\S]*?Remaining\(Deadline\) = 0/);
 });
 check('Fresh hello and exact child handle stay bound to encrypted payload',()=>{
  assert.match(handoff,/InheritedHandles: array\[0\.\.3\] of THandle/);

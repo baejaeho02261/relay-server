@@ -103,7 +103,7 @@ function EffectivePolicy(policy, artifact) {
   return r.enabled && artifact && r.artifactKeys.includes(BuildKey(artifact)) ? {...policy,...r.patch} : policy;
 }
 function PointerGraphSlots(artifact) {
-  if (!artifact || artifact.ownMeasurementVersion !== 2) return 0;
+  if (!artifact || ![2,3].includes(artifact.ownMeasurementVersion)) return 0;
   const c=State().contracts[BuildKey(artifact)];
   return c && Number.isInteger(c.minApiSlots) && c.minApiSlots>=1 && c.minApiSlots<=1024 && c.minApiSlots===c.maxApiSlots ? c.minApiSlots : 0;
 }

@@ -4,7 +4,8 @@
 const CONTRACT='GAME-MEASUREMENT-PLAN-V1';
 const OWN_CONTRACT='GAME-OWN-MEASUREMENT-BUNDLE-V1';
 const OWN_GRAPH_CONTRACT='GAME-OWN-MEASUREMENT-BUNDLE-V2';
-function ArtifactOwnVersion(bytes){return ArtifactVersion(bytes,OWN_GRAPH_CONTRACT)?2:ArtifactVersion(bytes,OWN_CONTRACT);}
+const OWN_RUNTIME_CONTRACT='GAME-OWN-MEASUREMENT-BUNDLE-V3';
+function ArtifactOwnVersion(bytes){return ArtifactVersion(bytes,OWN_RUNTIME_CONTRACT)?3:ArtifactVersion(bytes,OWN_GRAPH_CONTRACT)?2:ArtifactVersion(bytes,OWN_CONTRACT);}
 const FIELDS=Object.freeze(['measurementContract','measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage']);
 function ArtifactVersion(bytes,marker=CONTRACT){
  if(!Buffer.isBuffer(bytes)||bytes.length<64||bytes.readUInt16LE(0)!==0x5a4d)throw Error('BOOTSTRAP_PE_INVALID');
@@ -26,22 +27,27 @@ function ArtifactVersion(bytes,marker=CONTRACT){
 }
 function ValidateOwnMetadata(meta,status,layers){
  if(!require('./peace.measurement-status').IsStatus(status))return false;
- const graph=meta?.version===2;
- const fields=['contract','version','startedTick','finishedTick','coverage','fileStatus','codeStatus','crcStatus','imageStable',...(graph?['pointerGraph']:[])];
- if(!meta||Array.isArray(meta)||typeof meta!=='object'||Object.keys(meta).length!==fields.length||fields.some(k=>!Object.hasOwn(meta,k))||meta.contract!==(graph?OWN_GRAPH_CONTRACT:OWN_CONTRACT)||![1,2].includes(meta.version))return false;
+ const graph=meta?.version===2||meta?.version===3,runtime=meta?.version===3;
+ const fields=['contract','version','startedTick','finishedTick','coverage','fileStatus','codeStatus','crcStatus','imageStable',...(graph?['pointerGraph']:[]),...(runtime?['ownedGraph']:[])];
+ if(!meta||Array.isArray(meta)||typeof meta!=='object'||Object.keys(meta).length!==fields.length||fields.some(k=>!Object.hasOwn(meta,k))||meta.contract!==(runtime?OWN_RUNTIME_CONTRACT:graph?OWN_GRAPH_CONTRACT:OWN_CONTRACT)||![1,2,3].includes(meta.version))return false;
  if(!Number.isSafeInteger(meta.startedTick)||!Number.isSafeInteger(meta.finishedTick)||meta.startedTick<0||meta.finishedTick<meta.startedTick||meta.finishedTick-meta.startedTick>60000||typeof meta.imageStable!=='boolean'||!['FULL','PARTIAL'].includes(meta.coverage))return false;
  const statuses=['MEASURED','NOT_MEASURED','FILE_CHANGED','READ_ERROR','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'];
  if(['fileStatus','codeStatus','crcStatus'].some(k=>!statuses.includes(meta[k])))return false;
  if(graph&&!require('./peace.pointer-graph-contract').Validate(meta.pointerGraph))return false;
- const complete=(!graph||meta.pointerGraph.status==='MEASURED')&&meta.imageStable&&['fileStatus','codeStatus','crcStatus'].every(k=>meta[k]==='MEASURED')&&require("../runtime/peace.desktop-crc-policy").Validate(layers)&&Object.entries(layers).filter(([k])=>k!=='version').every(([,v])=>v.status==='measured');
+ if(runtime&&!require('./peace.owned-runtime-graph-contract').Validate(meta.ownedGraph))return false;
+ if(runtime&&status!=='MEASURED'&&meta.ownedGraph.status!=='FAILED')return false;
+ const complete=(!runtime||meta.ownedGraph.status==='MEASURED')&&(!graph||meta.pointerGraph.status==='MEASURED')&&meta.imageStable&&['fileStatus','codeStatus','crcStatus'].every(k=>meta[k]==='MEASURED')&&require("../runtime/peace.desktop-crc-policy").Validate(layers)&&Object.entries(layers).filter(([k])=>k!=='version').every(([,v])=>v.status==='measured');
  return status==='MEASURED'?meta.coverage==='FULL'&&complete:meta.coverage==='PARTIAL';
 }
 function GraphReason(payload,artifact,expectedGraphSlots){
  if(artifact?.ownMeasurementVersion<2||!artifact?.ownMeasurementVersion||!payload.own)return '';
+ // The approved artifact capability cannot be downgraded by client metadata.
+ if(artifact.ownMeasurementVersion>=3&&payload.ownMeasurement?.version!==3)return 'RUNTIME_GRAPH_REQUIRED';
  // An incomplete/cancelled measurement is not proof of pointer tampering.
  if(payload.own.status!=='MEASURED')return '';
+ if(artifact.ownMeasurementVersion>=3){const runtime=require('./peace.owned-runtime-graph-contract').Compare(payload.ownMeasurement?.ownedGraph,artifact.component);if(!runtime.matched)return runtime.reason;}
  if(payload.ownMeasurement?.pointerGraph?.status==='FAILED')return 'POINTER_GRAPH_INCOMPLETE';
- if(payload.ownMeasurement?.version!==2)return 'POINTER_GRAPH_REQUIRED';
+ if(![2,3].includes(payload.ownMeasurement?.version))return 'POINTER_GRAPH_REQUIRED';
  const result=require('./peace.pointer-graph-contract').Compare(payload.ownMeasurement.pointerGraph,expectedGraphSlots);
  return result.matched?'':result.reason;
 }
@@ -61,4 +67,4 @@ function Assert(payload,artifact,expectedGraphSlots,options={}){
 }
 function Assurance(payload){return payload.measurementPlanVersion===1&&payload.measurementContract===CONTRACT?'COHERENT_PLAN_V1':payload.measurementPlanVersion===1?'PLAN_V1_COMPATIBLE':'LEGACY_UNVERSIONED';}
 function Complete(payload){return payload.measurementPlanVersion===1&&payload.measurementContract===CONTRACT&&payload.moduleGenerationStable===true&&payload.coverage==='FULL'&&payload.complete===true&&!payload.truncated;}
-module.exports={GraphReason,AssertOwn,ValidateOwnMetadata,CONTRACT,OWN_CONTRACT,OWN_GRAPH_CONTRACT,ArtifactOwnVersion,FIELDS,ArtifactVersion,Required,Assert,Assurance,Complete};
+module.exports={GraphReason,AssertOwn,ValidateOwnMetadata,CONTRACT,OWN_CONTRACT,OWN_GRAPH_CONTRACT,OWN_RUNTIME_CONTRACT,ArtifactOwnVersion,FIELDS,ArtifactVersion,Required,Assert,Assurance,Complete};

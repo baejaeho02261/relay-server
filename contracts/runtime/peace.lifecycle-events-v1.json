@@ -1,0 +1,84 @@
+{
+  "contract": "COZY-LIFECYCLE-EVENTS-V1",
+  "version": 1,
+  "roles": [
+    "A",
+    "B",
+    "O"
+  ],
+  "parentRole": {
+    "B": "A",
+    "O": "B"
+  },
+  "maxEvents": 8,
+  "events": [
+    {
+      "name": "SHUTDOWN_BEGIN",
+      "statuses": [
+        "REQUESTED"
+      ],
+      "scope": "self"
+    },
+    {
+      "name": "CLOSE_RESPONSE",
+      "statuses": [
+        "ACKNOWLEDGED",
+        "FAILED"
+      ],
+      "scope": "self"
+    },
+    {
+      "name": "PROCESS_EXIT",
+      "statuses": [
+        "OBSERVED",
+        "TIMEOUT",
+        "UNKNOWN"
+      ],
+      "scope": "self-or-parent",
+      "selfForbidden": [
+        "OBSERVED"
+      ]
+    },
+    {
+      "name": "FILE_CLEANUP",
+      "statuses": [
+        "REMOVED",
+        "FAILED",
+        "NOT_ATTEMPTED",
+        "SCHEDULED",
+        "TIMEOUT",
+        "UNKNOWN"
+      ],
+      "scope": "self-or-parent"
+    },
+    {
+      "name": "UI_HIDDEN",
+      "statuses": [
+        "OBSERVED"
+      ],
+      "scope": "self"
+    },
+    {
+      "name": "LEASE_EXPIRED",
+      "statuses": [
+        "OBSERVED"
+      ],
+      "scope": "self"
+    },
+    {
+      "name": "DOWNLOAD_DEADLINE",
+      "statuses": [
+        "OBSERVED"
+      ],
+      "scope": "A-self"
+    }
+  ],
+  "ordering": {
+    "duplicate": "reject",
+    "lateAfterSubmit": "reject",
+    "parentProcessBeforeFile": true,
+    "parentRemovedRequiresObservedExit": true,
+    "selfShutdownBeforeFileWhenBothPresent": true,
+    "closeResponseMayPrecedeShutdown": "B transfer commit can precede shutdown; observation order is retained"
+  }
+}

@@ -37,6 +37,7 @@ test('Native rejects altered response identities and never signs server-provided
   assert.match(client,/Number\(Data, 'result', -2147483648, 2147483647\)/);
   assert(client.indexOf('RequireServerObservation(Transport') < client.indexOf('Signature := Security.Sign(Canonical)'));
   assert.match(client,/SessionID, SessionToken, 'observe', Binding/);
+  assert.match(client,/end, OwnImage, Runtime\)/,'Server operations retain the same registered runtime context for authority');
   assert.match(client,/Canonical := ServerOperationCanonical\(/);
   assert.doesNotMatch(client,/Text\(Data, 'canonical'|Retry|EvaluateServerPolicy|programBase64|Decrypt|SaveToFile/);
 });
@@ -61,10 +62,20 @@ test('all role clients own calls through lifecycle locks and current report refr
     const text=read('Cozy.Source/'+file), method=text.split('function '+type+'.InvokeServerPolicy(')[1].split('\nfunction ')[0].split('\nprocedure ')[0];
     assert(method,type);assert.match(method,/FGate.Enter/);assert.match(method,/TMonitor.Enter\(FLock\)/);
     assert(method.indexOf(report)<method.indexOf('InvokeCozyServerOperation('),type);
+    assert.match(method,/OwnRuntime\(/,'Each role forwards its actual registered runtime context inside the admitted call');
     assert.match(method,/finally TMonitor.Exit\(FLock\); end/);assert.match(method,/finally FGate.Leave; end/);
   }
-  for(const file of ['Cozy.Network/Cozy.Transport.pas','Cozy.Handoff/Cozy.JsonEnvelope.pas'])
-    assert.match(read('Cozy.Source/'+file),/Operation <> 'policy'/);
+  assert.match(read('Cozy.Source/Cozy.Network/Cozy.Transport.pas'),/Operation <> 'policy'/);
+  const envelope=read('Cozy.Source/Cozy.Handoff/Cozy.JsonEnvelope.pas');
+  assert.match(envelope,/ValidateProtocolRequest\(Operation, Body\)/);
+  assert(envelope.indexOf('ValidateProtocolRequest(Operation, Body)')<envelope.indexOf('Text := Body.ToJSON'),
+    'Envelope validates operation/action/body against the shared contract before serialization');
+  const protocol=read('Cozy.Source/Cozy.Handoff/Cozy.ProtocolJson.pas');
+  const request=protocol.slice(protocol.lastIndexOf('procedure ValidateProtocolRequest(')).split('procedure ValidateProtocolEnvelope(')[0];
+  assert.match(request,/Rule.GetValue\('operation'\).Value = Operation/);
+  assert.match(request,/Rule.GetValue\('action'\).Value = ActionValue.Value/);
+  assert.match(request,/ValidateSchema\(TJSONObject\(Rule.GetValue\('body'\)\), Body, 0\); Exit/);
+  assert.match(request,/\n  SchemaInvalid;\nend;/,'Unknown commands still fail closed');
   for(const role of ['Launcher','Client','Overlay'])for(const ext of ['dpr','dproj'])
     assert.match(read(`Cozy.Projects/Cozy.${role}/Cozy.${role}.${ext}`),/Cozy.ServerOperations.pas/);
   const example=read('Cozy.Tests/Cozy.Security/Cozy.ServerOperations.Example.pas');

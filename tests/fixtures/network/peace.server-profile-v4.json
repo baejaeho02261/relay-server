@@ -1,0 +1,13 @@
+{
+  "purpose": "PUBLIC_TEST_TRUST_MATERIAL_ONLY_NO_NETWORK",
+  "profile": {
+    "version": 4,
+    "protocol": "GAME-CONNECT-4",
+    "host": "profile-fixture.invalid",
+    "port": 443,
+    "serverKeyId": "619493b8a01b6bd36a824b5a4bd9caa699e847cef34329d42f18394a03d0b55d",
+    "serverPublicKey": "UlNBMQAIAAADAAAAAAEAAAAAAAAAAAAAAQAB0jlSlBjTtQkI532jc7uWpA5yltrsaHtyXI2VY9NbrDjp8cPQiNqDexWVGotiPjjz+LeoWapWb3eP2oAxlun3sSeHD/tUO0Dc1u1aCAgcjASuF9ejldILJKyGHjHIpdUEA6y0n+FuHESGFgBMpM7jz8SHQpsscEmpzxPCIBa9JQmyR4SB6SZzKrvNv+ldpBHdogFL3aMpMVHMecxAJbfihQUNk+UzrcRVzgXkioCwkWRtojvgSWhNpbmtxlVd2yiwNeC3YwBTRyv3V7eV/3V6M0+DYC6t9vLd6R7PcTFIczoF1FHBnrLZu+6SRxDYpbyv1AnZaSk4wilEL15fNyrxlQ==",
+    "tlsServerName": "profile-fixture.invalid",
+    "tlsCertificateSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

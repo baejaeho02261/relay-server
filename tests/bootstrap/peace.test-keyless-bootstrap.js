@@ -131,6 +131,27 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    assert.equal(db.launchers[s.inv.issue.launcherId].status,'CONSUMED');
    assert.deepEqual(call(s,'beginKeyless'),first,'short lost-response recovery does not create a second flow');
   });
+  await t.test('historical approval is not pinned to the newer PC-policy generation barrier',()=>{
+   const s=challenge(),machines=require('../../services/devices/peace.desktop-machine-policy');
+   call(s,'keylessProve');approve(s);const oldGeneration=machines.Generation(s.app.machineId);
+   // An existing authenticated administrative unblock advances machine policy.
+   // The pre-strengthening approval checks the CURRENT deny policy, rather than
+   // rejecting solely because this independent generation counter advanced.
+   machines.Set(s.app.machineId,false,{requestId:crypto.randomUUID(),reason:'Historical approval parity'},'ADMIN:RESTORE_TEST');
+   assert.equal(machines.Generation(s.app.machineId),oldGeneration+1);
+   assert.equal(call(s,'keylessStatus').status,'APPROVED');
+   const result=call(s,'beginKeyless'),db=store.Load();
+   assert.equal(db.flows[result.flowId].machinePolicyGeneration,oldGeneration+1);
+   assert.equal(db.flows[result.flowId].keylessApproval,undefined);
+   assert.equal(db.launchers[s.inv.issue.launcherId].status,'CONSUMED');
+  });
+  await t.test('historical manual approval is still request-specific after an earlier request was approved',()=>{
+   const app=fixture.Device(),persistent=fixture.Device(),a=challenge(invite(),app,persistent);
+   call(a,'keylessProve');approve(a);
+   const b=challenge(invite(),app,persistent);assert.equal(call(b,'keylessProve').status,'PENDING_APPROVAL');
+   expect(()=>call(b,'beginKeyless'),'KEYLESS_APPROVAL_REQUIRED');
+   assert.equal(store.Load().launchers[b.inv.issue.launcherId].status,'AVAILABLE');
+  });
   await t.test('other issued A, changed file, device, and pending identity revision cannot replay approval',()=>{
    const a=challenge(),b=challenge();call(a,'keylessProve');approve(a);call(b,'keylessProve');
    expect(()=>call(a,'beginKeyless',{challengeId:b.c.challengeId}),'KEYLESS_PROOF_INVALID');

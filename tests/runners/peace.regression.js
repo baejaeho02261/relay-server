@@ -5,6 +5,13 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["bootstrap/peace.test-handoff-owned-crypto.js"],
+  ["source/peace.test-native-device-identity-priorities.js"],
+  ["observability/peace.test-lifecycle-event-contract.js"],
+  ["network/peace.test-server-profile-contract.js"],
+  ["integrity/peace.test-owned-runtime-measurement.js"],
+  ["source/peace.test-own-runtime-wiring.js"],
+  ["web/peace.test-owned-runtime-graph-ui.js"],
   ["source/peace.test-native-hash-lifecycle-source.js"],
   ["security/peace.test-native-keyless-contract.js"],
   ["web/peace.test-keyless-approval-ui.js"],

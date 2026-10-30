@@ -35,5 +35,12 @@ try{
   const denied=submit(p);assert.equal(denied.terminate,true);assert.equal(denied.status,'REJECTED');assert.equal(graphRevoked,before+1);assert.equal(graphInvalidated,invalidBefore+1);
  }
  Buffer.from(contract.OWN_GRAPH_CONTRACT).copy(fixture,600);assert.equal(contract.ArtifactOwnVersion(fixture),2);
+ artifact.ownMeasurementVersion=3;artifact.component='B';
+ const runtimePayload=()=>{const p=graphPayload();Object.assign(p.ownMeasurement,{contract:contract.OWN_RUNTIME_CONTRACT,version:3,ownedGraph:require('../fixtures/integrity/peace.owned-runtime-graph-fixture').Graph()});return p;};
+ const runtimeGood=submit(runtimePayload());assert.equal(runtimeGood.status,'VERIFIED');assert.equal(reports.List({sessionId:row.sessionId}).items.find(x=>x.id===runtimeGood.reportId).ownedGraphValidated,true);
+ for(const edit of [p=>{p.ownMeasurement=graphPayload().ownMeasurement;},p=>p.ownMeasurement.ownedGraph.profile='OVERLAY_CLIENT_V1']){
+  const p=runtimePayload();edit(p);const before=graphRevoked;assert.throws(()=>submit(p,false),/SIGNATURE_INVALID/);assert.equal(graphRevoked,before);
+  const denied=submit(p);assert.equal(denied.status,'REJECTED');assert.equal(denied.terminate,true);assert.equal(graphRevoked,before+1);assert.equal(reports.List({sessionId:row.sessionId}).items.find(x=>x.id===denied.reportId).ownedGraphValidated,false);
+ }
  console.log('PASS own bundle: actual RSA signed FULL/omitted/stale/unsafe metadata, nine independent failed roles preserve eight valid results, stale digest rejection, artifact capability and explicit legacy contract');
 }finally{fs.rmSync(temp,{recursive:true,force:true});}

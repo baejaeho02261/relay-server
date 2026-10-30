@@ -43,6 +43,7 @@ test('only an exact server build contract permits graph comparison',()=>{
  // State validates stored contracts; use the normal full contract shape.
  db.securityOperations.contracts[key]={version:1,evidenceVersion:1,minApiSlots:2,maxApiSlots:2,requiredChecks:['ownImage','apiStorage','mitigations']};
  assert.equal(operations.PointerGraphSlots(artifact),2);
+ assert.equal(operations.PointerGraphSlots({...artifact,ownMeasurementVersion:3}),2);
  db.securityOperations.contracts[key].maxApiSlots=3;assert.equal(operations.PointerGraphSlots(artifact),0);
  assert.equal(operations.PointerGraphSlots({...artifact,sha512:'b'.repeat(128)}),0);
  assert.equal(operations.PointerGraphSlots({...artifact,component:'A'}),0);

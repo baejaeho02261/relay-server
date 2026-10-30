@@ -97,7 +97,7 @@ test('Parent exit observations use the inherited exact process handle, before it
   order(b, ['GetProcessId(FParentProcess) = FParentID', 'WaitForSingleObject(FParentProcess, 0) = WAIT_OBJECT_0', 'ExitObserved := True', 'Close(FParentImage)', 'Close(FParentProcess)', 'Attributes := GetFileAttributesW']);
   assert.match(a, /Error = ERROR_FILE_NOT_FOUND/);
   assert.match(b, /Error = ERROR_FILE_NOT_FOUND/);
-  assert.match(reporter, /Observation\.FileRemoved then Status := 'REMOVED'/);
+  assert.match(reporter, /Observation\.FileRemoved and Observation\.CleanupAttempted and\s+\(Observation\.Win32Error = 0\) then Status := 'REMOVED'/);
   assert.match(reporter, /Observation\.DispositionAccepted then Status := 'SCHEDULED'/);
 });
 test('Actual cleanup follows worker join and image reader retirement, before final report', () => {

@@ -152,6 +152,8 @@ function Record(input){
  if(input.check==='OWN_CODE'){
   record.pointerGraphReported=input.ownMeasurement?.pointerGraph!==undefined;
   record.pointerGraphVerified=input.pointerGraphVerified===true;
+  record.ownedGraphReported=input.ownMeasurement?.ownedGraph!==undefined;
+  record.ownedGraphValidated=input.ownedGraphValidated===true;
   record.fileHashesReported=input.fileHashesReported===true;
   record.fileHashesVerified=record.fileHashesReported&&input.fileHashesVerified===true;
   if(record.fileHashesReported)for(const prefix of ['expectedFile','observedFile']){
@@ -232,7 +234,7 @@ function Submit(body){
   result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,crcComparison:require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),trusted:false});
   return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
- if(payload.own){if(payload.ownMeasurement)fields.ownMeasurement=payload.ownMeasurement;fields.pointerGraphVerified=payload.own.status==='MEASURED'&&artifact.ownMeasurementVersion>=2&&require('./peace.pointer-graph-contract').Compare(payload.ownMeasurement?.pointerGraph,artifact.pointerGraphSlots).matched;const own=payload.own,crcComparison=require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
+ if(payload.own){if(payload.ownMeasurement)fields.ownMeasurement=payload.ownMeasurement;fields.pointerGraphVerified=payload.own.status==='MEASURED'&&artifact.ownMeasurementVersion>=2&&require('./peace.pointer-graph-contract').Compare(payload.ownMeasurement?.pointerGraph,artifact.pointerGraphSlots).matched;fields.ownedGraphValidated=payload.own.status==='MEASURED'&&artifact.ownMeasurementVersion>=3&&require('./peace.owned-runtime-graph-contract').Compare(payload.ownMeasurement?.ownedGraph,artifact.component).matched;const own=payload.own,crcComparison=require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),codeComparison=ExtendedComparison(own,artifact,'code'),fileComparison=ExtendedComparison(own,artifact,'file');
   const fileHashesReported=Object.hasOwn(own,'fileSha512'),fileHashesVerified=own.status==='MEASURED'&&fileHashesReported&&own.fileSha512===artifact.sha512&&own.fileCrc64===artifact.crc64;
   const rejectionReason=measurementStatus.IsFailure(own.status)?(own.status==='READ_ERROR'?'MEASUREMENT_FAILED':own.status):!crcComparison.matched?crcComparison.reason:own.codeSha512!==artifact.codeSha512||own.codeCrc64!==artifact.codeCrc64?'CODE_HASH_MISMATCH':fileHashesReported&&!fileHashesVerified?'FILE_HASH_MISMATCH':codeComparison.mismatch?'CODE_EXTENDED_HASH_MISMATCH':fileComparison.mismatch?'FILE_EXTENDED_HASH_MISMATCH':require("../security/peace.desktop-security-authority").Policy().requireCompleteCrcLayers&&!crcComparison.complete?'CRC_COVERAGE_INCOMPLETE':'';
   const matches=!rejectionReason,fileExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&fileComparison.verified,codeExtendedVerified=own.status==='MEASURED'&&payload.hashVersion===3&&codeComparison.verified;
