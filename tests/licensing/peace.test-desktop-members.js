@@ -134,6 +134,16 @@ async function run(){
   members.Validate(members.State());
   for(const change of [s=>s.version=2,s=>s.extra=true,s=>s.items[alice.id].status='ADMIN',s=>s.assignments['FLOW:'+flowA.id]={kind:'FLOW',targetId:flowA.id,memberId:'F'.repeat(24),updatedAt:Date.now()},s=>s.receipts.bad={}]){const copy=structuredClone(members.State());change(copy);assert.throws(()=>members.Validate(copy),/MEMBER_STORAGE_INVALID/);}
  });
+ check('License detail reflects a reassignment after member-list loading without altering authority',()=>{
+  const workspace=require('../../services/operations/peace.desktop-workspace'),issued=licenses.Create({label:'Reassignment detail fixture',requestId:requestId()},actor),id=issued.license.id;
+  assign('LICENSE',id,alice.id);const cached=members.Detail(alice.id,{category:'licenses'}),first=workspace.Detail(id);
+  assert.ok(cached.categories.licenses.items.some(row=>row.id===id));assert.equal(first.membership.memberId,alice.id);
+  const before={license:JSON.stringify(licenses.DB().licenses[id]),flows:JSON.stringify(store.Load().flows)};
+  assign('LICENSE',id,bob.id,alice.id);const current=workspace.Detail(id);
+  assert.equal(current.membership.memberId,bob.id);assert.equal(current.membership.assignedMemberId,bob.id);assert.equal(current.membership.source,'EXPLICIT_LICENSE_ASSIGNMENT');assert.equal(current.membership.revision,members.State().revision);assert.equal(first.membership.memberId,alice.id,'previous response stays a historical snapshot');
+  assert.equal(JSON.stringify(licenses.DB().licenses[id]),before.license);assert.equal(JSON.stringify(store.Load().flows),before.flows);
+  assign('LICENSE',id,'',bob.id);assert.equal(workspace.Detail(id).membership.memberId,'');assert.equal(workspace.Detail(id).membership.assignedMemberId,'');
+ });
  const req={headers:{},socket:{remoteAddress:'127.0.0.1',encrypted:true}},admin=auth.CreateSession(req,'admin');
  async function request(suffix='',method='GET',payload={},session=admin,csrf=true){const url=new URL('https://localhost/api/desktop/members'+suffix);let status,value;const res={writeHead(c){status=c;},end(v){value=JSON.parse(v);}};const headers=csrf?{'x-csrf-token':session?.csrf||''}:{};assert.equal(await route.Handle({method,pathname:url.pathname,url,req:{...req,headers},res,session,body:payload}),true);return {status,value};}
  assert.equal((await request('', 'GET',{},null)).status,403);

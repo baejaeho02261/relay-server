@@ -63,7 +63,38 @@ async function showDesktopPackedRelease(preferredJobId=''){
  if(!roleIsAdmin()||session?.csrf!==owner)return;
  let closed=false,busy=false,finished=false,plan=null,selection=null,openPublication=false;
  const jobs=Array.isArray(listing.jobs)?listing.jobs:[];
- const done=openModal({title:'보호 결과 등록',message:'같은 작업에서 받은 최종 A/B/O와 새 공개 승인 JSON을 선택하세요. 원본 명세의 배포 정보를 이어받아 보호 결과용 새 명세를 만들고 세 후보를 연결합니다.',html:`<section id="desktop-packed-release"><p class="small-note">기존 Spec·서명키를 다시 만들 필요가 없습니다. 원본 승인 서명은 파일 해시가 달라 재사용할 수 없으므로, 최종 보호 EXE의 새 .approval.json은 필요합니다. 개인키는 올리지 않습니다.</p><label>서버에 저장된 보호 작업<select id="desktop-packed-job"><option value="">작업 선택</option>${jobs.map(job=>`<option value="${esc(job.jobId||'')}" ${job.available===true&&desktopPackedReleaseJob(job)?'':'disabled'}>${esc(job.sourceReleaseName||job.jobId||'확인되지 않은 작업')} · ${esc(String(job.jobId||'').slice(0,12))}${job.available===true?'':' · 등록 불가: '+esc(desktopPackedReleaseError({code:job.reason||'PACKED_RELEASE_SOURCE_MANIFEST_REQUIRED'}))}</option>`).join('')}</select></label><div id="desktop-packed-source" class="desktop-packed-source" role="status"></div><button type="button" id="desktop-packed-receipts" disabled>Windows 시험용 기록 받기</button>${desktopPackedReleaseRoles.map(role=>`<fieldset><legend>${role} · ${role==='A'?'실행기':role==='B'?'클라이언트':'오버레이'}</legend><label>최종 보호 EXE<input type="file" id="desktop-packed-exe-${role}" accept=".exe,application/octet-stream"></label><label>최종 EXE용 공개 승인 JSON<input type="file" id="desktop-packed-approval-${role}" accept=".json,application/json"></label><label>최종 승인 버전 (JSON에서 자동 확인)<input type="text" id="desktop-packed-version-${role}" maxlength="40" autocomplete="off" readonly placeholder="승인 JSON 선택 후 표시"></label></fieldset>`).join('')}<p class="small-note">파일의 역할·크기·SHA-512·승인 자료를 먼저 확인합니다. 서버가 서명과 현재 정책을 다시 검사합니다. 이 절차는 Windows 동작 시험이나 운영 게시를 대신하지 않습니다.</p><div class="actions"><button type="button" id="desktop-packed-submit">최종 명세 생성 · A/B/O 후보 등록</button><button type="button" id="desktop-packed-manifest" hidden>최종 배포 명세 JSON 저장</button><button type="button" id="desktop-packed-publish" hidden>선택한 세 후보로 조합 검증 열기</button></div><p id="desktop-packed-status" role="status" aria-live="polite"></p><pre id="desktop-packed-manifest-id" class="desktop-wrap"></pre></section>`,confirmLabel:'닫기'});
+ const done=openModal({title:'보호 결과 등록',message:'같은 작업에서 받은 최종 A/B/O와 새 공개 승인 JSON을 선택하세요. 원본 명세의 배포 정보를 이어받아 보호 결과용 새 명세를 만들고 세 후보를 연결합니다.',html:`<section id="desktop-packed-release">
+  <div class="desktop-page-header"><div><p class="small-note">배포 준비</p><h3>보호 결과를 새 후보로 연결</h3></div></div>
+  <ol class="desktop-stage-list" aria-label="보호 결과 등록 순서">
+    <li class="desktop-stage-item"><strong>1</strong><span>보호 작업 선택</span></li>
+    <li class="desktop-stage-item"><strong>2</strong><span>A / B / O 파일 준비</span></li>
+    <li class="desktop-stage-item"><strong>3</strong><span>검사 · 후보 등록</span></li>
+    <li class="desktop-stage-item"><strong>4</strong><span>조합 검증</span></li>
+  </ol>
+  <section class="section-card">
+    <div class="desktop-page-header"><div><p class="small-note">1 · 작업</p><h3>같은 보호 작업 선택</h3></div></div>
+    <label>서버에 저장된 보호 작업<select id="desktop-packed-job"><option value="">작업 선택</option>${jobs.map(job=>`<option value="${esc(job.jobId||'')}" ${job.available===true&&desktopPackedReleaseJob(job)?'':'disabled'}>${esc(job.sourceReleaseName||job.jobId||'확인되지 않은 작업')} · ${esc(String(job.jobId||'').slice(0,12))}${job.available===true?'':' · 등록 불가: '+esc(desktopPackedReleaseError({code:job.reason||'PACKED_RELEASE_SOURCE_MANIFEST_REQUIRED'}))}</option>`).join('')}</select></label>
+    <details class="desktop-context-note"><summary>원본 명세와 출력 해시 확인</summary><pre id="desktop-packed-source" class="desktop-packed-source desktop-wrap" role="status"></pre></details>
+    <div class="actions"><button type="button" id="desktop-packed-receipts" disabled>Windows 시험용 기록 받기</button></div>
+  </section>
+  <section class="section-card">
+    <div class="desktop-page-header"><div><p class="small-note">2 · 최종 파일</p><h3>A / B / O와 공개 승인 선택</h3></div></div>
+    <p class="desktop-context-note">기존 Spec·서명키를 다시 만들 필요가 없습니다. 원본 승인 서명은 파일 해시가 달라 재사용할 수 없으므로, 최종 보호 EXE의 새 .approval.json은 필요합니다. 개인키는 올리지 않습니다.</p>
+    <div class="desktop-role-grid">${desktopPackedReleaseRoles.map(role=>`<fieldset class="desktop-role-card"><legend><span class="desktop-role-letter">${role}</span> ${role==='A'?'실행기':role==='B'?'클라이언트':'오버레이'}</legend><label>최종 보호 EXE<input type="file" id="desktop-packed-exe-${role}" accept=".exe,application/octet-stream"></label><label>최종 EXE용 공개 승인 JSON<input type="file" id="desktop-packed-approval-${role}" accept=".json,application/json"></label><label>최종 승인 버전 (JSON에서 자동 확인)<input type="text" id="desktop-packed-version-${role}" maxlength="40" autocomplete="off" readonly placeholder="승인 JSON 선택 후 표시"></label></fieldset>`).join('')}</div>
+  </section>
+  <section class="section-card">
+    <div class="desktop-page-header"><div><p class="small-note">3 · 등록</p><h3>파일 검사 후 새 후보 등록</h3></div></div>
+    <p class="small-note">파일의 역할·크기·SHA-512·승인 자료를 먼저 확인합니다. 서버가 서명과 현재 정책을 다시 검사합니다. 이 절차는 Windows 동작 시험이나 운영 게시를 대신하지 않습니다.</p>
+    <div class="actions"><button type="button" id="desktop-packed-submit">최종 명세 생성 · A/B/O 후보 등록</button><button type="button" id="desktop-packed-manifest" hidden>최종 배포 명세 JSON 저장</button></div>
+    <p id="desktop-packed-status" role="status" aria-live="polite"></p>
+    <details><summary>원본 · 최종 배포 명세 ID</summary><pre id="desktop-packed-manifest-id" class="desktop-wrap"></pre></details>
+  </section>
+  <section class="section-card">
+    <div class="desktop-page-header"><div><p class="small-note">4 · 게시 준비</p><h3>등록한 세 후보로 조합 검증</h3></div></div>
+    <p class="small-note">후보 등록을 마치면 아래에서 조합 검증을 이어가세요. 운영 게시 여부는 검증 화면에서 확인합니다.</p>
+    <div class="actions"><button type="button" id="desktop-packed-publish" hidden>선택한 세 후보로 조합 검증 열기</button></div>
+  </section>
+</section>`,confirmLabel:'닫기'});
  const root=document.getElementById('desktop-packed-release'),node=id=>root.querySelector('#'+id),alive=()=>!closed&&root.isConnected&&roleIsAdmin()&&session?.csrf===owner;
  function status(message,state='pending'){if(alive()){node('desktop-packed-status').textContent=message;node('desktop-packed-status').dataset.state=state;}}
  function lock(value){busy=value;if(!alive())return;for(const element of root.querySelectorAll('input,select'))element.disabled=value||finished;node('desktop-packed-submit').disabled=value||finished||!node('desktop-packed-job').value;node('desktop-packed-receipts').disabled=value||!node('desktop-packed-job').value;}

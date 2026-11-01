@@ -1,13 +1,13 @@
 {
-  "name": "Game 관리자",
-  "short_name": "Game Admin",
-  "description": "기기와 고객 상담 관리",
+  "name": "Cozy Peace 운영 워크스페이스",
+  "short_name": "Cozy Peace",
+  "description": "회원·라이선스·프로그램 배포와 서버 운영",
   "id": "/index.html",
   "start_url": "/index.html",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f4ef",
-  "theme_color": "#171b24",
+  "background_color": "#f5f6f3",
+  "theme_color": "#087f68",
   "orientation": "any",
   "icons": [
     {

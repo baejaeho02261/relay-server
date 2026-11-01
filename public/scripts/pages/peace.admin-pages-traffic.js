@@ -39,7 +39,7 @@ async function renderFailover() {
       <label>복귀 유예 시간 (초)<input id="failover-return-grace" type="number" min="0" max="3600" value="${Number(p.returnGraceSeconds||30)}"></label>
       <label>최대 이동 횟수 / 주기<input id="failover-max-moves" type="number" min="1" max="1000" value="${Number(p.maxMovesPerCycle||50)}"></label>
     </div>
-    ${roleIsAdmin()?"<div class=\"toolbar\"><button id=\"failover-policy-save\" class=\"primary\">저장 정책</button><button id=\"failover-run-now\">평가 지금</button></div>":''}
+    ${roleIsAdmin()?"<div class=\"toolbar\"><button id=\"failover-policy-save\" class=\"primary\">정책 저장</button><button id=\"failover-run-now\">지금 평가</button></div>":''}
     <div class="warning-box">장애 자동 전환은 기존 고정 서버 식별자를 삭제하지 않습니다. 장애 전환 기록에 기본 서버를 보존하고, 장애 시에만 임시 배정으로 이동합니다. 점검 중에는 자동 이동을 멈춥니다.</div>
   </div></div>
   <div class="section-card"><div class="section-head"><h3>기본·예비 서버 배정 현황</h3><span class="small-note">명시적 백업 우선 · 선택적으로 자동 대체</span></div><div class="section-body"><div class="table-wrap"><table><thead><tr><th>앱 기기</th><th>모드</th><th>배정</th><th>기본</th><th>백업</th><th>현재</th><th>기본 상태</th><th>백업 상태</th><th>대체 서버 자동 선택</th><th>이동 횟수</th><th>선택</th><th>실패 시각</th><th>작업</th></tr></thead><tbody>${rows||"<tr><td colspan=\"13\" class=\"empty\">앱 기기 없음</td></tr>"}</tbody></table></div></div></div>`;
@@ -56,16 +56,18 @@ async function renderRecovery() {
     <div class="card"><div class="stat-label">오프라인 대기열</div><div class="stat-value">${p.enabled?"켜짐":"꺼짐"}</div><div class="stat-sub">개별 허용 앱 기기 ${s.enabledClients||0}</div></div>
     <div class="card"><div class="stat-label">대기 중</div><div class="stat-value">${s.queued||0}</div><div class="stat-sub">앱 기기별 순서 유지</div></div>
     <div class="card"><div class="stat-label">활성 실패 보관함</div><div class="stat-value">${s.activeDeadLetters||0}</div><div class="stat-sub">운영자 확인 필요</div></div>
-    <div class="card"><div class="stat-label">해결됨 실패 보관함</div><div class="stat-value">${(s.replayedDeadLetters||0)+(s.discardedDeadLetters||0)}</div><div class="stat-sub">재전송 ${s.replayedDeadLetters||0} · 폐기 ${s.discardedDeadLetters||0}</div></div>
+    <div class="card"><div class="stat-label">해결한 실패 보관함</div><div class="stat-value">${(s.replayedDeadLetters||0)+(s.discardedDeadLetters||0)}</div><div class="stat-sub">재전송 ${s.replayedDeadLetters||0} · 폐기 ${s.discardedDeadLetters||0}</div></div>
   </div>
-  <div class="section-card"><div class="section-head"><h3>오프라인 대기열 정책</h3><span class="small-note">기본 꺼짐 · 앱 기기별 개별 허용 · 입력 순서 유지</span></div><div class="section-body"><div class="form-grid">
+  <div class="section-card"><div class="section-head"><h3>전송 실패 보관함</h3><div class="actions"><input id="recovery-search" placeholder="실패 보관함 / 요청 / 앱 기기 / 사유" value="${esc(recoveryQuery)}"><button id="recovery-search-btn">검색</button>${roleIsAdmin()?"<button class=\"danger\" data-history-clean=\"DLQ\">해결된 이력 정리</button>":''}</div></div><div class="table-wrap"><table><thead><tr><th>실패 보관함 식별자</th><th>상태</th><th>원본 요청</th><th>앱 기기</th><th>서버</th><th>입력값</th><th>사유</th><th>시도 횟수</th><th>실패 시각</th><th>작업 / 재전송</th></tr></thead><tbody>${dlqRows||"<tr><td colspan=\"10\" class=\"empty\">전송 실패 요청 없음</td></tr>"}</tbody></table></div></div>
+  <div class="section-card"><div class="section-head"><h3>오프라인 대기열</h3><span class="small-note">서버 복구 후 자동 전달</span></div><div class="table-wrap"><table><thead><tr><th>대기열 식별자</th><th>요청</th><th>앱 기기</th><th>대상</th><th>입력값</th><th>시도 횟수</th><th>사유</th><th>대기 시작 시각</th><th>만료일</th></tr></thead><tbody>${queueRows||"<tr><td colspan=\"9\" class=\"empty\">대기 중 요청 없음</td></tr>"}</tbody></table></div></div>
+
+  <details class="section-card metric-details" id="recovery-settings"><summary>대기열 정책 · 기기별 허용 <span class="small-note">복구 동작을 변경할 때 여세요.</span></summary><div class="section-body">  <div class="section-card"><div class="section-head"><h3>오프라인 대기열 정책</h3><span class="small-note">기본 꺼짐 · 앱 기기별 개별 허용 · 입력 순서 유지</span></div><div class="section-body"><div class="form-grid">
     <label>전체<select id="queue-policy-enabled"><option value="0" ${p.enabled?'':'selected'}>꺼짐</option><option value="1" ${p.enabled?'selected':''}>켜짐</option></select></label>
     <label>최대 / 앱 기기<input id="queue-policy-max" type="number" min="1" max="1000" value="${Number(p.maxItemsPerClient||100)}"></label>
     <label>유효 시간 (초)<input id="queue-policy-ttl" type="number" min="30" max="604800" value="${Number(p.ttlSeconds||3600)}"></label>
     <label>전달 시도 횟수<input id="queue-policy-attempts" type="number" min="1" max="50" value="${Number(p.maxDeliveryAttempts||5)}"></label>
-  </div>${roleIsAdmin()?"<div class=\"toolbar\"><button id=\"queue-policy-save\" class=\"primary\">저장 정책</button></div>":''}<div class="warning-box">대기열은 앱 기기별 입력 순서를 보존합니다. 재전송에는 동일 요청 식별자를 사용해 cozy.Client RequestCache의 중복 처리 방지를 유지합니다.</div></div></div>
+  </div>${roleIsAdmin()?"<div class=\"toolbar\"><button id=\"queue-policy-save\" class=\"primary\">정책 저장</button></div>":''}<div class="warning-box">대기열은 앱 기기별 입력 순서를 보존합니다. 재전송에는 동일 요청 식별자를 사용해 cozy.Client RequestCache의 중복 처리 방지를 유지합니다.</div></div></div>
   <div class="section-card"><div class="section-head"><h3>앱 기기 대기열 개별 허용</h3></div><div class="table-wrap"><table><thead><tr><th>앱 기기</th><th>현재 서버</th><th>대기열</th><th>대기 중</th><th>활성 실패 보관함</th><th>작업</th></tr></thead><tbody>${clientRows||"<tr><td colspan=\"6\" class=\"empty\">앱 기기 없음</td></tr>"}</tbody></table></div></div>
-  <div class="section-card"><div class="section-head"><h3>오프라인 대기열</h3><span class="small-note">서버 복구 후 자동 전달</span></div><div class="table-wrap"><table><thead><tr><th>대기열 식별자</th><th>요청</th><th>앱 기기</th><th>대상</th><th>입력값</th><th>시도 횟수</th><th>사유</th><th>대기 시작 시각</th><th>만료일</th></tr></thead><tbody>${queueRows||"<tr><td colspan=\"9\" class=\"empty\">대기 중 요청 없음</td></tr>"}</tbody></table></div></div>
-  <div class="section-card"><div class="section-head"><h3>전송 실패 보관함</h3><div class="actions"><input id="recovery-search" placeholder="실패 보관함 / 요청 / 앱 기기 / 사유" value="${esc(recoveryQuery)}"><button id="recovery-search-btn">검색</button>${roleIsAdmin()?"<button class=\"danger\" data-history-clean=\"DLQ\">해결된 이력 정리</button>":''}</div></div><div class="table-wrap"><table><thead><tr><th>실패 보관함 식별자</th><th>상태</th><th>원본 요청</th><th>앱 기기</th><th>서버</th><th>입력값</th><th>사유</th><th>시도 횟수</th><th>실패 시각</th><th>작업 / 재전송</th></tr></thead><tbody>${dlqRows||"<tr><td colspan=\"10\" class=\"empty\">전송 실패 요청 없음</td></tr>"}</tbody></table></div></div>`;
+</div></details>`;
 }
 

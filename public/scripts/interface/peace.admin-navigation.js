@@ -76,12 +76,14 @@ for (const button of nav.querySelectorAll('button[data-view]')) {
 }
 const workspaceTabs=document.getElementById('workspace-tabs');
 function updateNavigationWorkspace(){
+ document.documentElement.dataset.view=currentView;
  const selected=[...nav.querySelectorAll('button[data-view]')].find(button=>button.dataset.view===currentView);
  nav.querySelectorAll('button[data-view]').forEach(button=>{if(button===selected)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
  const group=selected?.closest('.nav-group');
  const category=document.getElementById('page-category');
  if(category)category.textContent=group?.querySelector('summary')?.textContent||'운영 콘솔';
  if(!workspaceTabs)return;
+ workspaceTabs.hidden=currentView==='desktop-licenses';
  const items=group?[...group.querySelectorAll('button[data-view]')].filter(button=>!button.hidden&&!button.classList.contains('hidden')&&(!button.hasAttribute('data-admin-only')||roleIsAdmin())):[];
  const signature=items.map(button=>button.dataset.view).join('|')+'|'+currentView;
  if(workspaceTabs.dataset.signature===signature)return;
@@ -100,6 +102,7 @@ workspaceTabs?.addEventListener('click',event=>{
  if(!source||source.hidden||source.classList.contains('hidden')||(source.hasAttribute('data-admin-only')&&!roleIsAdmin()))return;
  closeMobileMenu();switchView(button.dataset.sectionView);renderCurrent();
 });
+document.getElementById('global-search-btn')?.addEventListener('click',()=>{if(typeof openPalette==='function')openPalette();});
 navFilter?.addEventListener('input',()=>{
  const visible=[...nav.querySelectorAll('button[data-view]')].some(button=>!button.classList.contains('nav-filter-hidden')&&!button.classList.contains('hidden')&&!button.hidden);
  document.getElementById('nav-empty')?.classList.toggle('hidden',visible||!navFilter.value.trim());

@@ -18,7 +18,7 @@ async function renderReleases() {
   adminViewContent.html=`
     <div class="section-card"><div class="section-body"><p>A/B/O 실행 파일 등록과 일회용 A 발급은 라이선스 관리의 A / B / O 실행 파일 배포에서 진행하세요.</p><button data-view="desktop-licenses">라이선스 관리 열기</button></div></div>
     <div class="section-card"><div class="section-head"><h3>채널별 배포 현황</h3></div><div class="table-wrap"><table><thead><tr><th>유형</th><th>채널</th><th>버전</th><th>크기</th><th>배포 비율</th><th>상태</th><th>SHA-256</th><th>작업</th></tr></thead><tbody>${releaseRows}</tbody></table></div></div>
-    <div class="section-card"><div class="section-head"><h3>기기별 배포 채널</h3><span class="small-note">기기별 고정 배포 그룹 (0~99)</span></div><div class="table-wrap"><table><thead><tr><th>유형</th><th>식별자</th><th>연결</th><th>버전</th><th>채널</th><th>배포 그룹</th><th>업데이트</th><th>작업</th></tr></thead><tbody>${assignments||"<tr><td colspan=\"8\">아니요 기기</td></tr>"}</tbody></table></div></div>`;
+    <div class="section-card"><div class="section-head"><h3>기기별 배포 채널</h3><span class="small-note">기기별 고정 배포 그룹 (0~99)</span></div><div class="table-wrap"><table><thead><tr><th>유형</th><th>식별자</th><th>연결</th><th>버전</th><th>채널</th><th>배포 그룹</th><th>업데이트</th><th>작업</th></tr></thead><tbody>${assignments||"<tr><td colspan=\"8\">배정된 서버가 없습니다.</td></tr>"}</tbody></table></div></div>`;
 }
 
 async function uploadRelease() {
@@ -41,9 +41,9 @@ async function renderFeatureFlags() {
   const deviceOptions = (devices || []).filter(d=>d.type==='SERVER').map(d => `<option value="${esc(d.type)}|${esc(d.id)}">${esc(uiText(d.type))} // ${esc(d.id)}${d.info && d.info.name ? ` // ${esc(d.info.name)}` : ''}${d.online ? " // 온라인" : " // 오프라인"}</option>`).join('');
   guardAdminViewCommit('features');
   adminViewContent.html = `<div class="panel-grid">
-    <div class="section-card"><div class="section-head"><h3>전체 기능 설정</h3><span class="small-note">설정 동기화 // 전체 기본값</span></div><div class="section-body"><div class="table-wrap"><table><thead><tr><th>기능</th><th>기본값</th><th>전체</th></tr></thead><tbody>${globalRows}</tbody></table></div><div class="toolbar"><button id="feature-global-save" class="primary">저장 전체 기능 설정</button></div></div></div>
-    <div class="section-card"><div class="section-head"><h3>기기 개별 설정</h3><span class="small-note">전체 설정 사용 = 전체</span></div><div class="section-body"><label>기기<select id="feature-device-select"><option value="">선택 기기</option>${deviceOptions}</select></label><div id="feature-device-editor" class="empty">서버를 선택하세요.</div></div></div>
-  </div><div class="section-card"><div class="section-head"><h3>기능별 적용 상태</h3></div><div class="section-body"><div class="kv">${names.map(name=>`<div class="code">${esc(name)}</div><div>${badge(global[name]?'ON':'OFF')}</div>`).join('')}</div><p class="small-note">실행 설정 저장과 기능 설정 저장은 독립적입니다. 기기 개별 설정는 해당 장비에만 적용되고 나머지는 전체 값을 상속합니다.</p></div></div>`;
+    <div class="section-card"><div class="section-head"><h3>전체 기능 설정</h3><span class="small-note">모든 서버의 기본 기능 정책</span></div><div class="section-body"><div class="table-wrap"><table><thead><tr><th>기능</th><th>기본값</th><th>전체</th></tr></thead><tbody>${globalRows}</tbody></table></div><div class="toolbar"><button id="feature-global-save" class="primary">전체 설정 저장</button></div></div></div>
+    <div class="section-card"><div class="section-head"><h3>기기 개별 설정</h3><span class="small-note">개별 값을 지정하지 않으면 전체 정책을 따릅니다.</span></div><div class="section-body"><label>기기<select id="feature-device-select"><option value="">서버 선택</option>${deviceOptions}</select></label><div id="feature-device-editor" class="empty">서버를 선택하세요.</div></div></div>
+  </div><div class="section-card"><div class="section-head"><h3>기능별 적용 상태</h3></div><div class="section-body"><div class="kv">${names.map(name=>`<div class="code">${esc(name)}</div><div>${badge(global[name]?'ON':'OFF')}</div>`).join('')}</div><p class="small-note">실행 설정 저장과 기능 설정 저장은 독립적입니다. 기기별 설정은 해당 장비에만 적용되고 나머지는 전체 값을 상속합니다.</p></div></div>`;
   const select = document.getElementById('feature-device-select');
   if (select) select.onchange = () => renderFeatureDeviceEditor(names, serverOverrides || {}, clientOverrides || {});
 }
@@ -55,7 +55,7 @@ function renderFeatureDeviceEditor(names, serverOverrides, clientOverrides) {
   const [type,id] = select.value.split('|');
   const source = type === 'SERVER' ? serverOverrides : clientOverrides;
   const override = source[id] || {};
-  editor.innerHTML = `<div class="table-wrap"><table><thead><tr><th>기능</th><th>개별 설정</th></tr></thead><tbody>${names.map(name=>`<tr><td class="code">${esc(name)}</td><td>${flagSelect(name,Object.prototype.hasOwnProperty.call(override,name)?override[name]:null)}</td></tr>`).join('')}</tbody></table></div><div class="toolbar"><button id="feature-device-save" class="primary" data-type="${esc(type)}" data-id="${esc(id)}">저장 개별 설정</button><button id="feature-device-clear" data-type="${esc(type)}" data-id="${esc(id)}">기기별 설정 해제</button></div>`;
+  editor.innerHTML = `<div class="table-wrap"><table><thead><tr><th>기능</th><th>개별 설정</th></tr></thead><tbody>${names.map(name=>`<tr><td class="code">${esc(name)}</td><td>${flagSelect(name,Object.prototype.hasOwnProperty.call(override,name)?override[name]:null)}</td></tr>`).join('')}</tbody></table></div><div class="toolbar"><button id="feature-device-save" class="primary" data-type="${esc(type)}" data-id="${esc(id)}">개별 설정 저장</button><button id="feature-device-clear" data-type="${esc(type)}" data-id="${esc(id)}">기기별 설정 해제</button></div>`;
 }
 
 

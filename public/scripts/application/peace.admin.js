@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'cozy-peace-v14-native-contracts';
+const WEB_UI_REVISION = 'cozy-peace-v15-workspace';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -72,21 +72,21 @@ let terminalHistory = [];
 let terminalHistoryIndex = -1;
 let deferredInstallPrompt = null;
 const titles = {
-  'desktop-licenses': ['회원 · 라이선스', '회원별 라이선스·기기·보안 기록과 A/B/O 배포를 관리합니다.'],
-  dashboard: ['대시보드', "중계 서버 전체 상태와 최근 이벤트를 확인합니다."],
+  'desktop-licenses': ['회원 · 프로그램', '회원별 운영 기록과 라이선스, A/B/O 배포를 관리합니다.'],
+  dashboard: ['운영 개요', '지금 필요한 서버 현황과 최근 활동을 확인하세요.'],
   console: ['실시간 이벤트', "중계 서버 이벤트가 실시간으로 스트리밍됩니다."],
   trace: ['요청 추적', "요청 식별자 기준으로 전달/다시 시도/처리 응답 처리 과정을 추적합니다."],
   monitor: ['연결 상태', "서버 왕복 지연과 연결 상태를 실시간으로 감시합니다."],
   terminal: ['관리 명령', "허용된 중계 서버 관리 명령만 실행합니다. OS Shell은 연결되지 않습니다."],
-  recovery: ['요청 복구', "오프라인 대기열, 요청 재전송, 전송 실패 보관함를 관리합니다."],
+  recovery: ['요청 복구', "실패한 요청과 대기열을 확인하고 복구합니다."],
   notifications: ['알림', '중요 운영 경고와 시스템 이벤트를 확인합니다.'],
-  processors: ['처리 정책', "숫자 허용 범위·차단값 정책과 처리기 처리 통계를 관리합니다."],
+  processors: ['처리 정책', "처리 현황을 확인하고 요청 허용 범위를 관리합니다."],
   reports: ['푸시 · 보고서', "웹 앱 푸시 알림 구독과 날짜별 중계 서버 상태 리포트를 관리합니다."],
-  production: ['운영 설정', '배포 무결성, 패스키, 감사 체인과 운영 복원력을 통합 관리합니다.'],
+  production: ['운영 보안', '배포 무결성, 패스키, 감사 체인과 운영 복원력을 통합 관리합니다.'],
   servers: ['서버 기기', 'cozy.Client 연결과 상태를 관리합니다.'],
   releases: ['Windows 배포', "자동 업데이트, 배포 채널, 단계별 배포을 관리합니다."],
-  features: ['기능 설정', "전역 기능과 서버별 개별 설정를 관리합니다."],
-  confighistory: ['설정 이력', "실행 설정와 Feature 기능 변경 이력 및 되돌리기을 관리합니다."],
+  features: ['기능 설정', "전역 기능과 서버별 설정을 관리합니다."],
+  confighistory: ['설정 이력', "설정 변경을 확인하고 필요한 버전으로 되돌립니다."],
   enrollment: ['서버 등록', "새 서버의 최초 등록 승인 정책을 관리합니다."],
   protocol: ['프로토콜', "프로토콜 v3 준비도, 기기 HMAC, 이벤트 이벤트 순서 상태를 확인합니다."],
   security: ['보안 상태', "HMAC 검증, 기기 등록, 기기 인증키 수명과 인증 이상을 한 화면에서 확인합니다."],
@@ -97,7 +97,7 @@ const titles = {
   health: ['시스템 상태', "실행 환경 / 데이터베이스 / 백업 / 감사 기록 / 중계 서버 상태를 진단합니다."],
   ha: ['이중화 관리', "중계 서버 A/B 활성/대기, 상태 복제 및 승격 상태를 확인합니다."],
   storage: ['저장소', '실제 SQLite 기본 저장소, JSON 자동 이관 및 복구 미러 상태를 확인합니다.'],
-  system: ['System', '서비스, 유지보수 및 최소 버전 정책을 관리합니다.'],
+  system: ['시스템 관리', '서비스, 유지보수 및 최소 버전 정책을 관리합니다.'],
   danger: ["주의가 필요한 작업", '복구 영향이 큰 작업만 별도로 실행합니다.']
 };
 
@@ -306,7 +306,7 @@ async function updateWebVersion() {
     const { system } = await api('/api/system');
     webVersionLabel.textContent = `웹 v${system.webAdminVersion || '5.0.1'} · 화면 ${WEB_UI_REVISION}`;
   } catch (_) {
-    webVersionLabel.textContent = `웹 v4.16.0 · 화면 ${WEB_UI_REVISION}`;
+    webVersionLabel.textContent = `웹 v5.0.1 · 화면 ${WEB_UI_REVISION}`;
   }
 }
 
