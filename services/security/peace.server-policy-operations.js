@@ -11,24 +11,50 @@ const pending = new Map(), rates = new Map(), epoch = crypto.randomBytes(24).toS
 const COMMON = ['action','stage','sessionId','sessionToken','machineId','requestId','policyId','functionId','args'];
 const sha = input => crypto.createHash('sha512').update(input).digest('hex');
 function Fail(reason, status = 403) { const e = Error('COZY_OPERATION_' + reason); e.desktopError = true; e.status = status; throw e; }
+// The exported encoders validate the same exact public transcript fields as
+// dispatch. They do not trim, case-fold or normalize a signed identifier.
+function IntArgs(args) {
+  if (!Array.isArray(args) || Object.getPrototypeOf(args) !== Array.prototype || args.length > 8 ||
+      Object.keys(args).length !== args.length) Fail('INPUT_INVALID',400);
+  for (let i = 0; i < args.length; i++) {
+    if (!Object.hasOwn(args,i) || !Number.isInteger(args[i]) || args[i] < -2147483648 || args[i] > 2147483647) Fail('INPUT_INVALID',400);
+  }
+}
+function TranscriptFields(body) {
+  if (!body || Object.getPrototypeOf(body) !== Object.prototype || !['A','B','O'].includes(body.stage) ||
+      typeof body.sessionId !== 'string' || !/^[A-F0-9]{24}$/.test(body.sessionId) || body.sessionId.length !== 24 ||
+      typeof body.machineId !== 'string' || !/^[A-F0-9]{64}$/.test(body.machineId) || body.machineId.length !== 64 ||
+      typeof body.requestId !== 'string' || body.requestId.length < 8 || body.requestId.length > 80 || /[^-A-Za-z0-9_]/.test(body.requestId) ||
+      typeof body.policyId !== 'string' || !/^[a-f0-9]{64}$/.test(body.policyId) || body.policyId.length !== 64 ||
+      !Number.isInteger(body.functionId) || body.functionId < 2 || body.functionId > 65535) Fail('INPUT_INVALID',400);
+  IntArgs(body.args);
+}
+function ChallengeFields(c) {
+  if (!c || Object.getPrototypeOf(c) !== Object.prototype ||
+      ['challengeId','nonce','epoch'].some(k => typeof c[k] !== 'string' || c[k].length !== 48 || !/^[a-f0-9]{48}$/.test(c[k])) ||
+      !Number.isSafeInteger(c.revision) || c.revision < 0 ||
+      !Number.isSafeInteger(c.operationsRevision) || c.operationsRevision < 0 ||
+      !Number.isSafeInteger(c.expiresAt) || c.expiresAt < 1) Fail('INPUT_INVALID',400);
+}
 function Fields(body, invoke = false) {
+  TranscriptFields(body);
   const names = invoke ? [...COMMON,'challengeId','signature'] : COMMON;
-  if (!body || Object.getPrototypeOf(body) !== Object.prototype || Object.keys(body).length !== names.length || names.some(k => !Object.hasOwn(body,k)) ||
-      body.action !== (invoke ? 'invoke' : 'challenge') || !['A','B','O'].includes(body.stage) ||
-      typeof body.sessionId !== 'string' || !/^[A-F0-9]{24}$/.test(body.sessionId) ||
+  if (Object.keys(body).length !== names.length || names.some(k => !Object.hasOwn(body,k)) ||
+      body.action !== (invoke ? 'invoke' : 'challenge') ||
       typeof body.sessionToken !== 'string' || body.sessionToken.length < 16 || body.sessionToken.length > 200 ||
-      typeof body.machineId !== 'string' || !/^[A-F0-9]{64}$/.test(body.machineId) ||
-      typeof body.requestId !== 'string' || !/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId) ||
-      typeof body.policyId !== 'string' || !/^[a-f0-9]{64}$/.test(body.policyId) ||
-      !Number.isInteger(body.functionId) || body.functionId < 2 || body.functionId > 65535 ||
-      !Array.isArray(body.args) || body.args.length > 8 || !body.args.every(n => Number.isInteger(n) && n >= -2147483648 && n <= 2147483647) ||
-      invoke && (typeof body.challengeId !== 'string' || !/^[a-f0-9]{48}$/.test(body.challengeId) ||
-        typeof body.signature !== 'string' || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature))) Fail('INPUT_INVALID',400);
+      invoke && (typeof body.challengeId !== 'string' || body.challengeId.length !== 48 || !/^[a-f0-9]{48}$/.test(body.challengeId) ||
+        typeof body.signature !== 'string' || body.signature.length !== 344 || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature))) Fail('INPUT_INVALID',400);
 }
 function Context(body) { return body.stage + ':' + body.sessionId; }
-function ArgsHash(body) { return sha(JSON.stringify(body.args)); }
-function Binding(body) { return sha([DOMAIN,body.stage,body.sessionId,body.machineId,body.policyId,String(body.functionId),body.requestId,ArgsHash(body)].join('\n')); }
-function Canonical(body, c) { return [DOMAIN,body.stage,body.sessionId,body.machineId,body.policyId,String(body.functionId),body.requestId,ArgsHash(body),Binding(body),c.challengeId,c.nonce,c.epoch,String(c.revision),String(c.operationsRevision),String(c.expiresAt)].join('\n'); }
+function ArgsHash(body) { IntArgs(body.args); return sha(JSON.stringify(body.args)); }
+function Binding(body) {
+  TranscriptFields(body);
+  return sha([DOMAIN,body.stage,body.sessionId,body.machineId,body.policyId,String(body.functionId),body.requestId,ArgsHash(body)].join('\n'));
+}
+function Canonical(body, c) {
+  TranscriptFields(body); ChallengeFields(c);
+  return [DOMAIN,body.stage,body.sessionId,body.machineId,body.policyId,String(body.functionId),body.requestId,ArgsHash(body),Binding(body),c.challengeId,c.nonce,c.epoch,String(c.revision),String(c.operationsRevision),String(c.expiresAt)].join('\n');
+}
 function Expired(c) { return !c || Date.now() < c.issuedAt || deadline.Expired(c); }
 function Maintain() {
   for (const [id,c] of pending) if (Expired(c)) pending.delete(id);

@@ -16,7 +16,7 @@ check('Native known-answer fixture agrees with production server canonical',()=>
  assert.equal(delegation.Canonical('DELEGATION',vector.role,vector.claim,vector.childKeyId,vector.nonce),vector.delegationCanonical);
  assert.equal(delegation.Canonical('CLAIM',vector.role,vector.claim,vector.childKeyId,vector.nonce),vector.claimCanonical);
  assert.ok(read("Cozy.Tests/Cozy.Handoff/Cozy.DeviceSecurityHandoffProbe.dpr").includes("ClaimHash = '"+vector.claimSha512+"'"));
- assert.match(security,/ClaimHash := IntegritySHA512Text\(Claim\)/);
+ assert.match(security,/ClaimHash := HandoffClaimHash\(Claim\)/);
  assert.match(security,/'GAME-HANDOFF-' \+ Purpose \+ '-V3' \+ #10 \+ Role \+ #10/);
 });
 check('Native runtime has no private key export, import, or cloned-key field',()=>{

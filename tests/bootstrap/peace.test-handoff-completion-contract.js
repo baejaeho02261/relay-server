@@ -28,7 +28,7 @@ check('Six security owners drain admitted operations before resource destruction
 });
 check('Public key, crypto, client and handoff calls admit exactly at their outer boundary',()=>{
  for(const name of ['Sign','SignHandoffClaim','AcceptDelegation','CompleteHandoff','ReadField'])assert.ok(security.includes('TDeviceSecurity.'+name));
- assert.match(security,/Result := SignUnlocked\(Canonical\)/);
+ assert.match(security,/Result := SignSpanUnlocked\(Scope\.Buffer\)/);
  for(const name of ['StartOverlay','Redeem','Verify','Release','CheckIntegrity','ContinueModuleInventory'])assert.ok(wrapper(api,'TGameApi',name).includes('RequireRunning;'));
  for(const name of ['Claim','Close','AbortChild','Verify','ReportIntegrity'])wrapper(overlay,'TOverlayClient',name);
  for(const name of ['Claim','Close','AbortFlow','ReportIntegrity'])wrapper(bootstrap,'TBootstrapClient',name);
@@ -56,7 +56,7 @@ check('Unknown preparation abort uses its original request; transferred O surviv
  assert.match(overlay,/ReturnedID <> ''/);
 });
 check('Report retries reuse the signed submit while challenges remain single attempt',()=>{
- assert.match(api,/PostJSON\('report', SubmitBody, True\)/);
+ assert.match(api,/PostJSON\('report', SubmitBody, True, Cancelled\)/);
  for(const s of [bootstrap,overlay]){
   assert.ok(s.includes('ReportPost(ChallengeBody, False)'));
   assert.ok(s.includes('ReportPost(SubmitBody, True)'));
@@ -111,8 +111,12 @@ check('Authority and each signed report retry share one monotonic deadline acros
 check('Owned signing and handoff plaintext intermediates are cleared on exceptional paths',()=>{
  const sign=security.split('function TDeviceSecurity.SignUnlocked(')[1].split('function IsUpperHex64(')[0];
  assert.ok(sign.indexOf('try')<sign.indexOf('Plain := TApiSensitiveBuffer.CreateUtf8(Text)'));
- assert.match(sign,/PlainScope := Plain\.OpenRead;\s+try\s+Digest := Sha256Span\(PlainScope\.Buffer\);\s+finally\s+PlainScope\.Free; PlainScope := nil;\s+Plain\.Free; Plain := nil;/);
- assert.match(sign,/finally\s+PlainScope\.Free;\s+Plain\.Free;\s+Wipe\(Digest\);\s+Wipe\(Signature\)/);
+ assert.match(sign,/PlainScope := Plain\.OpenRead;\s+Result := SignSpanUnlocked\(PlainScope\.Buffer\)/);
+ assert.match(sign,/finally\s+try PlainScope\.Free; finally Plain\.Free; end/);
+ const ownedSign=security.split('function TDeviceSecurity.SignSpanUnlocked(')[1].split('function TDeviceSecurity.SignUnlocked(')[0];
+ assert.match(ownedSign,/Digest, Signature: TApiSensitiveBuffer/);
+ assert.match(ownedSign,/Digest := Sha256Owned\(Text\)/);
+ assert.match(ownedSign,/try SignatureScope\.Free;[\s\S]*?try DigestScope\.Free;[\s\S]*?try Signature\.Free; finally Digest\.Free/);
  assert.doesNotMatch(sign,/TEncoding\.UTF8\.GetBytes|Plain, Digest/);
  const contracts=read('Cozy.Source/Cozy.Platform/Cozy.Api.Contracts.pas');
  const retire=contracts.split('procedure TApiSensitiveState.Retire;')[1].split('destructor TApiSensitiveState.Destroy;')[0];

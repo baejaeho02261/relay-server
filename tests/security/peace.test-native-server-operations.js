@@ -49,7 +49,9 @@ test('bounded snapshot input, cancellation and transient cleanup are explicit', 
   assert.match(client,/OperationBudgetMs = 45000/);
   assert.match(client,/Clock.ElapsedMilliseconds >= OperationBudgetMs/);
   assert.match(client,/if Left > 10000 then Left := 10000/);
-  assert.match(client,/FillChar\(LocalArgs\[0\], Length\(LocalArgs\) \* SizeOf\(Integer\), 0\)/);
+  assert.match(client,/LocalArgs := SnapshotServerOperationArgs\(FunctionID, Args\)/);
+  assert.match(client,/ClearServerOperationArgs\(LocalArgs\)/);
+  assert.match(client,/FillChar\(Args\[0\], Length\(Args\) \* SizeOf\(Integer\), 0\)/);
   assert.match(client,/WipeText\(Canonical\); WipeText\(Signature\)/);
   assert.doesNotMatch(client,/MessageBox|ShowMessage|OutputDebugString|WriteLn|ShellExecute|TThread.Create/);
 });

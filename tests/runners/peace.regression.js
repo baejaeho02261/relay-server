@@ -5,6 +5,11 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["integrity/peace.test-pointer-general-probe.js"],
+  ["protocol/peace.test-native-policy-contract-vectors.js"],
+  ["source/peace.test-native-startup-observations.js"],
+  ["source/peace.test-device-security-owned.js"],
+  ["security/peace.test-server-operation-transcript-validation.js"],
   ["network/peace.test-connect-tls-flush.js"],
   ["network/peace.test-tls-transport-boundaries.js"],
   ["source/peace.test-native-tls-ownership.js"],
