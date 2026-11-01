@@ -54,6 +54,10 @@ def verify(root: Path) -> list[str]:
             'Cozy.ImGui/Cozy.Build/Cozy.ImGui.Abi.json',
             'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js',
             'Cozy.ImGui/Cozy.Tests/Cozy.Abi/Cozy.test_imgui_abi.js',
+            'Cozy.Build/Cozy.Prepare-LauncherResource.js',
+            'Cozy.Tests/Cozy.Security/Cozy.test-launcher-resource.js',
+            'Cozy.ImGui/Cozy.Strings/Cozy.NativeStrings.map.json',
+            'Cozy.Source/Cozy.Configuration/Cozy.StringUnits.map.json',
         }
         if not ((native_test_contract or native_build_contract) and name in manifest['files']):
             problems.append('JSON/JS belongs under Relay Server: '+name)

@@ -43,7 +43,7 @@ function method(name, next) {
 check('Every C export has an exact cdecl Pascal declaration and matching Win64 primitive ABI', () => {
   const abi = require(path.join(native, 'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js'));
   const schema = JSON.parse(ReadContractFile(abi.schemaPath, 'utf8'));
-  assert.equal(abi.check(abi.loadSources(), schema).exports, 28);
+  assert.equal(abi.check(abi.loadSources(), schema).exports, 29);
   abi.verifyProbes(schema);
   const cTypes = {
     void: 'void', int32_t: 'i32', uint32_t: 'u32', float: 'f32',
@@ -79,7 +79,8 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     assert(!pExports.has(name), 'Duplicate Pascal export ' + name);
     pExports.set(name, { result: kind === 'procedure' ? 'void' : pTypes[result], args });
   }
-  assert.equal(cExports.size, 28, 'Korean text-input v1 adds seven explicitly versioned C ABI entries');
+  assert.equal(cExports.size, 29, 'One bounded reviewed product scene extends the existing text-input ABI');
+  assert.deepEqual(cExports.get('game_imgui_scene_v1'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32']});
   assert.deepEqual(cExports.get('game_imgui_set_dpi'), { result: 'i32', args: ['ptr', 'f32'] });
   assert.deepEqual(pExports, cExports);
   assert.match(pascal, /TImGuiContext\s*=\s*Pointer\s*;/);
@@ -93,8 +94,8 @@ check('ABI comparator rejects independent declaration/layout/version mutations a
   delete env.NODE_TEST_CONTEXT;
   const proof = child.execFileSync(process.execPath, ['--test', '--test-reporter=tap', path.join(native,
     'Cozy.ImGui/Cozy.Tests/Cozy.Abi/Cozy.test_imgui_abi.js')], {encoding:'utf8', timeout:30000, env});
-  assert.match(proof,/^# tests 40$/m,'ABI negative cases must actually execute');
-  assert.match(proof,/^# pass 40$/m);
+  assert.match(proof,/^# tests 42$/m,'ABI negative cases must actually execute');
+  assert.match(proof,/^# pass 42$/m);
   for (const metric of ['fail','cancelled','skipped']) assert.match(proof,new RegExp('^# '+metric+' 0$','m'));
   const build = read('Cozy.ImGui/Cozy.Build/Cozy.Build_ImGui_Win64.bat');
   inOrder(build, [
@@ -238,7 +239,6 @@ check('Optional capture privacy uses only owned HWND, authenticated lease and ob
   const close = method('procedure TOverlayWindow.BeginClosing;', 'destructor TOverlayWindow.Destroy;');
   inOrder(close, ['FClosingNotified := True;', 'FClosing := True;', 'try FOnClosing();',
     'except FFailed := True; end;', 'FOnClosing := nil;'], 'Closing failure remains terminal');
-  assert.match(renderer, /ButtonBottom - ButtonTop\) \* FScale, False\);/);
   assert.doesNotMatch(renderer, /FActionRequested/);
 });
 
@@ -379,6 +379,43 @@ check('Intentional capture release preserves ImGui mouse-up; unexpected capture/
   const move = method('procedure TOverlayWindow.PointerMove(', 'procedure TOverlayWindow.PointerUp(');
   assert.match(move, /FDragOrigin\.X \+ Cursor\.X - FDragAnchor\.X/);
   assert.match(move, /FDragOrigin\.Y \+ Cursor\.Y - FDragAnchor\.Y/);
+});
+
+check('Product scene is rendered and actions commit only after visible Present and fresh authority', () => {
+  const paint = method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint, ['ImGuiNewFrame(', 'ImGuiScene(FContext, FScenePhase, FSceneSelected, SceneFlags,',
+    'SceneActions := SceneActions or Integer(FSceneKeyActions);', 'FSceneKeyActions := 0;',
+    'ImGuiEndCanvas(', 'if not AuthorityValid then Exit;', 'ImGuiPresent(',
+    'FRendered := PresentResult = IMGUI_PRESENT_VISIBLE;',
+    'if FRendered and AuthorityValid then ApplySceneActions(Cardinal(SceneActions));'], 'Presentation input commit');
+  const actions = method('procedure TOverlayWindow.ApplySceneActions(', 'function TOverlayWindow.SceneKey(');
+  inOrder(actions, ['FClosing or FSessionPaused or not AuthorityValid then Exit;',
+    'FScenePhase := 1', 'FScenePhase := 2'], 'Local scene transitions');
+  assert.doesNotMatch(actions, /CreateProcess|ShellExecute|InvokeServerPolicy|\.Post\(/);
+  for (const index of ['FIRST','SECOND','THIRD']) assert.match(actions,new RegExp('IMGUI_SCENE_SELECT_'+index));
+  const keyboard = method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
+  inOrder(keyboard, ['if SyncTextInput then Exit;', 'VK_ESCAPE: if FScenePhase > 0',
+    'if Result and not Repeated then FSceneKeyActions := FSceneKeyActions or Action;'], 'Owned keyboard events');
+  assert.doesNotMatch(keyboard, /VK_RETURN:/, 'Enter belongs to the focused ImGui item');
+  const cancel = method('procedure TOverlayWindow.CancelInteraction;', 'procedure TOverlayWindow.PointerDown(');
+  inOrder(cancel,['FSceneKeyActions := 0;', 'ImGuiClearInput('], 'Focus/capture cancellation clears pending scene actions');
+});
+
+check('Responsive scene uses only the empty header for window dragging and stays within work area', () => {
+  const hit = method('function TOverlayWindow.ButtonHit(', 'procedure TOverlayWindow.ApplySceneActions(');
+  inOrder(hit, ['X < 0', 'X >= Area.Right', 'Scale := Area.Right / SceneWidth;',
+    'VerticalScale := Area.Bottom / SceneHeight;', 'if VerticalScale < Scale then Scale := VerticalScale;',
+    'Y >= SceneHeaderHeight * Scale', 'X >= Area.Right - SceneHeaderControlsWidth * Scale'], 'Responsive header versus content hit test');
+  assert.match(renderer, /InitialWidth = 1040;/);
+  assert.match(renderer, /InitialHeight = 720;/);
+  const display = method('procedure TOverlayWindow.FitToWorkArea;', 'procedure TOverlayWindow.ReconcileDisplay;');
+  assert.match(display, /if Width > Info.Work.Right - Info.Work.Left then Width := Info.Work.Right - Info.Work.Left;/);
+  assert.match(display, /if Height > Info.Work.Bottom - Info.Work.Top then Height := Info.Work.Bottom - Info.Work.Top;/);
+  assert.match(display, /ApiSetWindowPos\(FWindow, 0, X, Y, Width, Height,/);
+  assert.doesNotMatch(display, /\bSetDpi\(/, 'Work-area fitting must not recursively reapply DPI');
+  const handle = method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
+  inOrder(handle, ['DpiChangedMessage:', 'SetDpi(LOWORD(WParam), PRect(LParam));',
+    'FitToWorkArea; Exit;'], 'Per-monitor DPI transition fits the OS suggestion');
 });
 
 console.log(`${checks} ImGui cross-language/provenance/renderer contracts passed (no Delphi or Windows execution).`);
