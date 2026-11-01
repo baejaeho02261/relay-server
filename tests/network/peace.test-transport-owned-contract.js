@@ -18,10 +18,11 @@ test('key/request/reply plaintext use scoped owners; tag verification precedes U
 });
 test('owned encoder bounds bytes before sensitive allocation and preserves caller JSON ownership',{skip:!available},()=>{
  const owned=encoder.split('function EncodeRequestEnvelopeOwned(').at(-1);
- assert(owned.indexOf('TEncoding.UTF8.GetByteCount(Text)')<owned.indexOf('TApiSensitiveBuffer.CreateUtf8(Text)'));
- assert(owned.indexOf('REQUEST_ENVELOPE_LIMIT')<owned.indexOf('TApiSensitiveBuffer.CreateUtf8(Text)'));
+ assert(owned.indexOf('TEncoding.UTF8.GetByteCount(Text)')<owned.indexOf('TApiSensitiveBuffer.CreateUtf8Framed(Prefix, Text,'));
+ assert(owned.indexOf('REQUEST_ENVELOPE_LIMIT')<owned.indexOf('TApiSensitiveBuffer.CreateUtf8Framed(Prefix, Text,'));
  assert.doesNotMatch(owned,/Body\.(?:Free|Clone)|Body :=|TJSONObject\.Create/);
- assert.match(owned,/OutputScope.Free; BodyScope.Free; BodyOwner.Free; Envelope.Free/);
+ assert.doesNotMatch(owned,/BodyOwner|BodyScope|Move\(/);
+ assert.match(owned,/finally[\s\S]*FillChar\(PChar\(Text\)\^,/);
  assert.match(encoder,/function EncodeRequestEnvelope\([\s\S]*MaximumBytes: Integer\): TBytes/);
  assert.match(probe,/CompareMem\(@Old\[0\],Scope.Buffer.Read/);
  assert.match(probe,/Length\(Old\)-1/);
@@ -34,7 +35,7 @@ test('generation, request admission and early-reset rejection share one lock',{s
  assert.match(post,/FStateLock.Acquire;\s+try\s+FGate.Enter; Admitted := True;\s+Generation := FGeneration/);
  assert.match(source,/FCancelled or \(Generation <> FGeneration\) or FGate.IsClosing/);
  assert.match(perform,/function: Boolean begin Result := IsCancelled\(Generation\); end/);
- assert.match(post,/finally\s+Candidate.Free;\s+if Admitted then FGate.Leave/);
+ assert.match(post,/finally\s+Candidate.Free;\s+WipeText\(PlanJSON\);\s+if Admitted then FGate.Leave/);
 });
 test('JSON transfer follows successful temporary cleanup and locked final validation',{skip:!available},()=>{
  assert(perform.indexOf('ReplyPlain.Free')<perform.indexOf('Result := TJSONObject(DecodedValue)'));

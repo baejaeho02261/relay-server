@@ -7,6 +7,10 @@ const store = require('../bootstrap/peace.desktop-bootstrap-store');
 const registry = require('./peace.server-policy-registry');
 const policy = require('../artifacts/peace.server-policy-protection');
 const DOMAIN = 'COZY-SERVER-OPERATION-V1', TTL = 30000, MAX_PENDING = 256, MAX_CONTEXTS = 1024;
+// Volatile result recovery, never an execution retry or durable exactly-once claim.
+// Fixed-field receipts contain no token, signature, args or private VM program.
+const RESULT_TTL = 30000, ATTEMPT_TTL = 300000, MAX_ATTEMPTS = 2048;
+const attempts = new Map();
 const pending = new Map(), rates = new Map(), epoch = crypto.randomBytes(24).toString('hex');
 const COMMON = ['action','stage','sessionId','sessionToken','machineId','requestId','policyId','functionId','args'];
 const sha = input => crypto.createHash('sha512').update(input).digest('hex');
@@ -40,7 +44,7 @@ function Fields(body, invoke = false) {
   TranscriptFields(body);
   const names = invoke ? [...COMMON,'challengeId','signature'] : COMMON;
   if (Object.keys(body).length !== names.length || names.some(k => !Object.hasOwn(body,k)) ||
-      body.action !== (invoke ? 'invoke' : 'challenge') ||
+      (invoke ? !['invoke','result'].includes(body.action) : body.action !== 'challenge') ||
       typeof body.sessionToken !== 'string' || body.sessionToken.length < 16 || body.sessionToken.length > 200 ||
       invoke && (typeof body.challengeId !== 'string' || body.challengeId.length !== 48 || !/^[a-f0-9]{48}$/.test(body.challengeId) ||
         typeof body.signature !== 'string' || body.signature.length !== 344 || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature))) Fail('INPUT_INVALID',400);
@@ -59,6 +63,10 @@ function Expired(c) { return !c || Date.now() < c.issuedAt || deadline.Expired(c
 function Maintain() {
   for (const [id,c] of pending) if (Expired(c)) pending.delete(id);
   for (const [id,r] of rates) if (Expired(r)) rates.delete(id);
+  for (const [id,r] of attempts) {
+    if (Expired(r)) { r.response = null; attempts.delete(id); }
+    else if (r.resultDeadline && Expired(r.resultDeadline)) r.response = null;
+  }
 }
 function Current(body, fresh) {
   const boot = require('../bootstrap/peace.desktop-bootstrap'); boot.EnsureSecurityAvailable();
@@ -90,7 +98,7 @@ function Challenge(body) {
   if (!rate) { if (rates.size >= MAX_CONTEXTS) Fail('CAPACITY',429); rate = {count:0,issuedAt:Date.now(),...deadline.After(60000)}; rates.set(context,rate); }
   if (++rate.count > 32 || pending.size >= MAX_PENDING || [...pending.values()].filter(c => c.context === context).length >= 4) Fail('RATE_LIMIT',429);
   // One request ID cannot have parallel challenges for different arguments.
-  if ([...pending.values()].some(c => c.context === context && c.requestId === body.requestId)) Fail('REQUEST_REUSED',409);
+  if ([...pending.values(),...attempts.values()].some(c => c.context === context && c.requestId === body.requestId)) Fail('REQUEST_REUSED',409);
   const c = {challengeId:crypto.randomBytes(24).toString('hex'),nonce:crypto.randomBytes(24).toString('hex'),epoch,
     ...Revisions(),issuedAt:Date.now(),...deadline.After(TTL),context,requestId:body.requestId,binding:Binding(body),
     artifactId:artifact.id,artifactSha512:artifact.sha512,publicKeyHash:sha(row.publicKey),proofQueued:false};
@@ -115,7 +123,14 @@ function ProofTasks(body) {
 }
 function Invoke(body) {
   Fields(body,true); const current = Current(body,false), c = Pending(body,current);
-  pending.delete(c.challengeId); // Exactly one attempt; no cached result capability.
+  // Reserve a bounded receipt slot before executing anything. Never evict a live
+  // receipt and never execute an operation whose result cannot be retained.
+  if (attempts.size >= MAX_ATTEMPTS) Fail('CAPACITY',429);
+  pending.delete(c.challengeId);
+  const attempt = {...c,issuedAt:Date.now(),...deadline.After(ATTEMPT_TTL),
+    signatureHash:sha(body.signature),tokenHash:sha(body.sessionToken),
+    policySha512:current.record.policySha512,response:null,resultDeadline:null};
+  attempts.set(c.challengeId,attempt); // Wrong signatures also consume the one attempt.
   if (!require('../integrity/peace.desktop-proof-work').Verify(current.row.publicKey,Canonical(body,c),body.signature)) Fail('SIGNATURE_INVALID',401);
   const checked = Current(body,true);
   if (Expired(c) || checked.artifact.id !== c.artifactId || checked.artifact.sha512 !== c.artifactSha512) Fail('CHALLENGE_INVALID',401);
@@ -124,12 +139,34 @@ function Invoke(body) {
   const result = policy.EvaluateServerPolicy(checked.record,body.functionId,body.args);
   Current(body,true); if (Expired(c)) Fail('CHALLENGE_INVALID',401);
   if (!Number.isInteger(result) || result < -2147483648 || result > 2147483647) Fail('RESULT_INVALID',503);
-  return {version:1,requestId:body.requestId,policyId:body.policyId,functionId:body.functionId,result};
+  const response = {version:1,requestId:body.requestId,policyId:body.policyId,functionId:body.functionId,result};
+  attempt.response = Object.freeze(response);
+  attempt.resultDeadline = {issuedAt:Date.now(),...deadline.After(RESULT_TTL)};
+  return {...response};
+}
+function ResultOnly(body) {
+  Fields(body,true); Maintain();
+  // Current() re-authenticates the exact role/session/device, artifact, license
+  // and fresh integrity grant. A retained result cannot revive authority.
+  const current = Current(body,true), r = attempts.get(body.challengeId), rev = Revisions();
+  if (!r || !r.response || Expired(r) || Expired(r.resultDeadline) ||
+      r.context !== Context(body) || r.binding !== Binding(body) ||
+      r.signatureHash !== sha(body.signature) || r.tokenHash !== sha(body.sessionToken) ||
+      r.publicKeyHash !== sha(current.row.publicKey) || r.artifactId !== current.artifact.id ||
+      r.artifactSha512 !== current.artifact.sha512 || r.policySha512 !== current.record.policySha512 ||
+      r.revision !== rev.revision || r.operationsRevision !== rev.operationsRevision) Fail('RESULT_UNAVAILABLE',409);
+  // The exact signature was verified before response was stored. Comparing the
+  // complete retained proof permits only reading this same committed result.
+  // No requested business-function dispatch, pending challenge consumption or
+  // deadline extension here. Current authority guard evaluation remains mandatory.
+  return {...r.response};
 }
 function Execute(body) {
   require('../protocol/peace.desktop-request-protocol').Resolve('policy',body?.action);
-  return body.action === 'challenge' ? Challenge(body) : Invoke(body);
+  if (body.action === 'challenge') return Challenge(body);
+  if (body.action === 'result') return ResultOnly(body);
+  return Invoke(body);
 }
-function RetireContext(row,stage) { const context = stage + ':' + (stage === 'A' ? row.id : row.sessionId); for (const [id,c] of pending) if (c.context === context) pending.delete(id); rates.delete(context); }
-function Stop() { pending.clear(); rates.clear(); }
+function RetireContext(row,stage) { const context = stage + ':' + (stage === 'A' ? row.id : row.sessionId); for (const [id,c] of pending) if (c.context === context) pending.delete(id); for (const [id,c] of attempts) if (c.context === context) { c.response = null; attempts.delete(id); } rates.delete(context); }
+function Stop() { pending.clear(); rates.clear(); for (const r of attempts.values()) r.response = null; attempts.clear(); }
 module.exports = { DOMAIN, Binding, Canonical, Execute, ProofTasks, Maintain, RetireContext, Stop };

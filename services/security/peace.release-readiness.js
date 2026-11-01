@@ -2,7 +2,6 @@
 // On-demand, read-only diagnostics of the exact registered release bytes.
 // This is neither a publication grant nor Windows execution / publisher trust.
 const crypto = require('node:crypto');
-const { Read } = require('../artifacts/peace.bounded-artifact-read');
 const { ValidatePeImage } = require('../artifacts/peace.pe-preflight');
 const { PeCapabilities } = require('../artifacts/peace.pe-capabilities');
 const MAX_FILE_BYTES = 64 * 1024 * 1024;
@@ -116,41 +115,86 @@ function AuditBytes(artifact, bytes, { policy, verifyApproval } = {}) {
   return result;
 }
 
-function AuditActive() {
+function Fail(code, status = 503) {
+  const error = Error(code); error.desktopError = true; error.status = status; throw error;
+}
+function ArtifactSnapshot(artifact, component) {
+  if (!artifact) return null;
+  return { id: artifact.id, component, version: artifact.version, sha512: artifact.sha512,
+    size: artifact.size, compiledCfg: artifact.compiledCfg,
+    releaseApproval: artifact.releaseApproval ? { keyId: artifact.releaseApproval.keyId,
+      signature: artifact.releaseApproval.signature } : null };
+}
+function StateSnapshot(store, authority) {
+  const db = store.Load(), policy = authority.Policy();
+  const artifacts = ['A', 'B', 'O'].map(component => ArtifactSnapshot(db.artifacts[db.active[component]], component));
+  // Runtime heartbeats also advance db.revision. Bind only the inspected release
+  // selection and security revisions, so unrelated live sessions do not starve
+  // an administrator's read-only check.
+  return { artifactRevision: db.revision, policy, artifacts,
+    identity: JSON.stringify({ artifacts, active: db.active, policyRevision: policy.revision,
+      operationsRevision: db.securityOperations?.revision || 0 }) };
+}
+let runner, stopRegistered = false;
+function Runner() {
+  if (!runner) runner = require('./peace.release-audit-runner').CreateRunner();
+  if (!stopRegistered) {
+    require('../../core/peace.lifecycle').RegisterShutdownHook(() => runner.Close());
+    stopRegistered = true;
+  }
+  return runner;
+}
+async function AuditActive({ signal, checkAccess } = {}) {
   const store = require('../bootstrap/peace.desktop-bootstrap-store');
   const authority = require('./peace.desktop-security-authority');
-  const db = store.Load(), policy = authority.Policy();
-  const result = { version: 1, scope: 'REGISTERED_RELEASE_BYTES', readOnly: true,
-    authorizesPublication: false, checkedAt: Date.now(), artifactRevision: db.revision,
-    policyRevision: policy.revision, nativeExecution: 'NOT_RUN', windowsPublisherTrust: 'NOT_VERIFIED',
-    releases: [] };
-  let remaining = MAX_TOTAL_BYTES;
-  for (const component of ['A', 'B', 'O']) {
-    const artifact = db.artifacts[db.active[component]];
-    if (!artifact) { result.releases.push(Base(null, component)); continue; }
-    let bytes, row;
-    try {
-      if (!Number.isSafeInteger(artifact.size) || artifact.size < 1 || artifact.size > MAX_FILE_BYTES || artifact.size > remaining)
-        throw Error('RELEASE_AUDIT_BUDGET_EXCEEDED');
-      remaining -= artifact.size;
-      bytes = Read(store.ArtifactPath(artifact.id), artifact.size);
-      row = AuditBytes(artifact, bytes, { policy, verifyApproval: authority.VerifyApproval });
-      if (component === 'A' && row.checks.fileIdentity.status === 'MATCH' && row.checks.pe.status === 'VALID') {
-        // This signs an internal challenge, not an issued launcher. Readiness
-        // neither consumes an issuance nor reserves a new key purpose.
-        const ready = require('../bootstrap/peace.issued-a-signing').Readiness(bytes);
-        const reason = token(ready.reason, /^ISSUED_A_[A-Z0-9_]{1,80}$/) || 'ISSUED_A_SIGNING_UNAVAILABLE';
-        row.checks.issuedAApplicationSignature = { status: ready.ready ? 'READY' : 'UNAVAILABLE',
-          scope: 'TEMPLATE_SIGNER_CHALLENGE', finalIssuedFile: 'NOT_CHECKED', ...(ready.ready ? {} : { reason }) };
-        if (!ready.ready) { row.issues.push(reason); row.staticStatus = 'ISSUES_FOUND'; }
-      }
-    } catch (error) {
-      row = Base(artifact, component); row.staticStatus = 'ISSUES_FOUND';
-      row.issues.push(error.message === 'RELEASE_AUDIT_BUDGET_EXCEEDED' ? error.message : 'RELEASE_FILE_UNAVAILABLE_OR_CHANGED');
-    } finally { bytes?.fill(0); }
-    result.releases.push(row);
+  const snapshot = StateSnapshot(store, authority);
+  const policy = snapshot.policy;
+  const input = { artifacts: snapshot.artifacts.map(artifact => artifact && ({
+    ...artifact, releaseApproval: artifact.releaseApproval ? {} : null,
+    file: store.ArtifactPath(artifact.id) })), policy: {
+    requireCfg: policy.requireCfg, requireReleaseSignature: policy.requireReleaseSignature,
+    revokedSha512: policy.revokedSha512, revokedLegacySha256: policy.revokedLegacySha256 } };
+  const completed = await Runner().Run(input, { signal, checkAccess });
+  if (signal?.aborted) Fail('RELEASE_AUDIT_CANCELLED', 499);
+  checkAccess?.();
+  if (StateSnapshot(store, authority).identity !== snapshot.identity) Fail('RELEASE_AUDIT_STALE', 409);
+  if (!completed || !Array.isArray(completed.releases) || completed.releases.length !== 3)
+    Fail('RELEASE_AUDIT_FAILED');
+  const releases = completed.releases;
+  for (let i = 0; i < releases.length; i++) {
+    const row = releases[i], artifact = snapshot.artifacts[i];
+    if (!artifact) continue;
+    if (row.component !== artifact.component || row.id !== artifact.id || row.registeredSha512 !== artifact.sha512)
+      Fail('RELEASE_AUDIT_FAILED');
+    if (artifact.releaseApproval && row.checks.fileIdentity.status === 'MATCH' && row.checks.pe.status === 'VALID') {
+      let valid = false;
+      try { valid = authority.VerifyApproval({ ...artifact, sha512: row.measuredSha512 }, policy) === true; }
+      catch (_) { /* public failure below */ }
+      row.checks.releaseApproval.status = valid ? 'VALID' : 'INVALID';
+      if (!valid) row.issues.push('SECURITY_RELEASE_SIGNATURE');
+    }
+    if (artifact.component === 'A' && row.checks.fileIdentity.status === 'MATCH' && row.checks.pe.status === 'VALID') {
+      // Only the small public inspection crosses back to the authority thread.
+      // The signer/private environment never goes to the parsing worker.
+      const inspection = completed.issuedAInspection;
+      let ready;
+      if (inspection?.templateSha512 !== row.measuredSha512 || inspection?.templateSize !== row.measuredSize)
+        ready = { ready: false, reason: inspection?.reason || 'ISSUED_A_SIGNING_UNAVAILABLE' };
+      else ready = require('../bootstrap/peace.issued-a-signing').ReadinessFromInspection(inspection);
+      const reason = token(ready.reason, /^ISSUED_A_[A-Z0-9_]{1,80}$/) || 'ISSUED_A_SIGNING_UNAVAILABLE';
+      row.checks.issuedAApplicationSignature = { status: ready.ready ? 'READY' : 'UNAVAILABLE',
+        scope: 'TEMPLATE_SIGNER_CHALLENGE', finalIssuedFile: 'NOT_CHECKED', ...(ready.ready ? {} : { reason }) };
+      if (!ready.ready) row.issues.push(reason);
+    }
+    row.issues = [...new Set(row.issues)];
+    row.staticStatus = row.issues.length ? 'ISSUES_FOUND' : 'CHECKED';
   }
-  return result;
+  checkAccess?.();
+  if (signal?.aborted) Fail('RELEASE_AUDIT_CANCELLED', 499);
+  if (StateSnapshot(store, authority).identity !== snapshot.identity) Fail('RELEASE_AUDIT_STALE', 409);
+  return { version: 1, scope: 'REGISTERED_RELEASE_BYTES', readOnly: true,
+    authorizesPublication: false, checkedAt: Date.now(), artifactRevision: snapshot.artifactRevision,
+    policyRevision: policy.revision, nativeExecution: 'NOT_RUN', windowsPublisherTrust: 'NOT_VERIFIED', releases };
 }
 
-module.exports = { AuditActive, AuditBytes, MAX_FILE_BYTES, MAX_TOTAL_BYTES };
+module.exports = { AuditActive, AuditBytes, Base, MAX_FILE_BYTES, MAX_TOTAL_BYTES };

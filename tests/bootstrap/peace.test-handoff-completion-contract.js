@@ -124,10 +124,11 @@ check('Owned signing and handoff plaintext intermediates are cleared on exceptio
  assert.match(contracts,/if FClosed and not FActive then Retire;/);
  assert.match(contracts,/if FClosed or not FActive or \(Token <> FToken\)/);
  assert.match(contracts,/procedure TApiSensitiveScope.Close;[\s\S]*?FLease\.Release;[\s\S]*?FBuffer := Default\(TApiBuffer\)/);
- const utf8=contracts.split('constructor TApiSensitiveBuffer.CreateUtf8(')[1].split('function TApiSensitiveBuffer.OpenScope(')[0];
- assert.match(utf8,/TApiEncodingAccess\.EncodeUtf8\(Text,/);
- assert.match(utf8,/finally Scope\.Free; end/);
- assert.doesNotMatch(utf8.replace(/\{[\s\S]*?\}/g,''),/TBytes|GetBytes\(Text\)/);
+ const utf8=contracts.split('procedure TApiSensitiveBuffer.InitializeUtf8(')[1].split('function TApiSensitiveBuffer.OpenScope(')[0];
+ assert.match(utf8,/TApiEncodingAccess\.EncodeUtf8\(Prefix, Text, Suffix, MaximumBytes\)/);
+ assert.match(utf8,/State := TApiSensitiveState.TakeEncoded\(Encoded\)/);
+ assert.match(utf8,/finally[\s\S]*FillChar\(Encoded\[0\], Length\(Encoded\), 0\)/);
+ assert.doesNotMatch(utf8.replace(/\{[\s\S]*?\}/g,''),/Move\(|GetBytes\(Text\)/);
 
  const verify=api.split('function TGameApi.VerifyCore:')[1].split('procedure TGameApi.ReleaseCore;')[0];
  assert.match(verify,/PayloadText := Payload\.ToJSON;\s+Data := ExecuteProof\('verify', PayloadText\)/);

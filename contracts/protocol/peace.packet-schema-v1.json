@@ -4492,6 +4492,69 @@
       }
     },
     {
+      "operation": "policy",
+      "action": "result",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "result"
+            ]
+          },
+          "stage": {
+            "$ref": "stage"
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "machineId": {
+            "$ref": "machine"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "policyId": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 64,
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "functionId": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 65535
+          },
+          "args": {
+            "$ref": "intArgs"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "stage",
+          "sessionId",
+          "sessionToken",
+          "machineId",
+          "requestId",
+          "policyId",
+          "functionId",
+          "args",
+          "challengeId",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
       "operation": "challenge",
       "action": "redeem",
       "body": {

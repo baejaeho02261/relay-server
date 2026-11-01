@@ -226,14 +226,15 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    try{
     fs.cpSync(temp,copy,{recursive:true});
     const script=`const assert=require('node:assert/strict'),fs=require('node:fs');const input=JSON.parse(fs.readFileSync(0,'utf8'));Date.now=()=>input.clock;console.log=()=>{};
-      const boot=require('./services/bootstrap/peace.desktop-bootstrap'),store=require('./services/bootstrap/peace.desktop-bootstrap-store');
+      const boot=require(process.argv[1]),store=require(process.argv[2]);
       for(const body of input.proofs)assert.throws(()=>boot.Execute(body),{message:'KEYLESS_REQUEST_EXPIRED'});
       assert.throws(()=>boot.Execute(input.newChallenge),{message:'BOOTSTRAP_LAUNCHER_USED'});
       assert.equal(store.Load().launchers[input.consumed].status,'CONSUMED');assert.equal(store.Load().launchers[input.consumed].flowId,input.flow);
       assert.equal(store.Load().launchers[input.pending].status,'AVAILABLE');assert.equal(Object.values(store.Load().flows).filter(f=>f.launcherId===input.consumed).length,1);
-      boot.Stop();require('./storage/sqlite/peace.sqlite-database').Close();process.stdout.write('RESTART_AUTHORITY_PASS');`;
+      boot.Stop();require(process.argv[3]).Close();process.stdout.write('RESTART_AUTHORITY_PASS');`;
     const input={clock,proofs:[pendingRequest,consumed].map(s=>({action:'beginKeyless',...s.proof})),newChallenge:{...consumed.body,requestId:crypto.randomUUID()},consumed:consumed.inv.issue.launcherId,pending:pendingRequest.inv.issue.launcherId,flow:first.flowId};
-    const run=require('node:child_process').spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'../..'),env:{...process.env,DATA_DIR:copy},input:JSON.stringify(input),encoding:'utf8',timeout:15000});
+    const modules=[require.resolve('../../services/bootstrap/peace.desktop-bootstrap'),require.resolve('../../services/bootstrap/peace.desktop-bootstrap-store'),require.resolve('../../storage/sqlite/peace.sqlite-database')];
+    const run=require('node:child_process').spawnSync(process.execPath,['-e',script,...modules],{cwd:path.resolve(__dirname,'../..'),env:{...process.env,DATA_DIR:copy},input:JSON.stringify(input),encoding:'utf8',timeout:15000});
     assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'RESTART_AUTHORITY_PASS');
     assert.equal(store.Load().launchers[pendingRequest.inv.issue.launcherId].status,'AVAILABLE');assert.deepEqual(call(consumed,'beginKeyless'),first);
    }finally{fs.rmSync(copy,{recursive:true,force:true});}

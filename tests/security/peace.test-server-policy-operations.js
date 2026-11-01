@@ -67,6 +67,38 @@ test('private server operations remain bound to authenticated A/B/O and exact in
    fail(()=>rpc.Execute(input),/CHALLENGE_INVALID/);
    await assert.rejects(f.TcpOperation(profile,'policy',input),/COZY_OPERATION_CHALLENGE_INVALID/);
   });
+  await t.test('lost A response is recovered over encrypted TLS without another business-function evaluation',async()=>{
+   const input=prepare(a,body(authA)),original=policy.EvaluateServerPolicy;let calls=0;
+   policy.EvaluateServerPolicy=(record,id,args)=>{if(id===2)calls++;return original(record,id,args);};
+   try{
+    // Drop this isolated TLS connection's response after the real handler commits.
+    listener.once('secureConnection',socket=>{socket.end=function(){this.destroy();return this;};});
+    await assert.rejects(f.TcpOperation(profile,'policy',input),SyntaxError);
+    const lookup={...input,action:'result'};
+    const first=await f.TcpOperation(profile,'policy',lookup);assert.equal(first.result,42);
+    first.result=0;
+    assert.equal((await f.TcpOperation(profile,'policy',lookup)).result,42);assert.equal(calls,1);
+    for(const patch of [{args:[17,26]},{requestId:crypto.randomUUID()},{challengeId:'f'.repeat(48)},
+      {signature:f.Sign(b,'not-the-verified-proof')},{sessionToken:input.sessionToken+'x'},
+      {machineId:b.deviceId},{stage:'B'},{policyId:outputs.B.ownProtection.policyId}])
+      await assert.rejects(f.TcpOperation(profile,'policy',{...lookup,...patch}),/COZY_OPERATION_|COZY_SERVER_POLICY_|BOOTSTRAP_|DEVICE_|SECURITY_FRESH_OBSERVATION_REQUIRED/);
+    fail(()=>rpc.Execute({...input,action:'challenge',challengeId:undefined}),/INPUT_INVALID/);
+    const challengeAgain={...input,action:'challenge'};delete challengeAgain.challengeId;delete challengeAgain.signature;
+    fail(()=>rpc.Execute(challengeAgain),/REQUEST_REUSED/);assert.equal(calls,1);
+   }finally{policy.EvaluateServerPolicy=original;}
+  });
+  await t.test('result lookup cannot execute a pending request or bypass changed policy and freshness',()=>{
+   const pendingInput=prepare(a,body(authA));fail(()=>rpc.Execute({...pendingInput,action:'result'}),/RESULT_UNAVAILABLE/);
+   assert.equal(rpc.Execute(pendingInput).result,42);
+   const lookup={...pendingInput,action:'result'},old=authority.Policy();
+   store.Atomic(db=>{db.securityAuthorityPolicy={...old,revision:old.revision+1};});
+   try{fail(()=>rpc.Execute(lookup),/RESULT_UNAVAILABLE|SECURITY_FRESH_OBSERVATION_REQUIRED/);}
+   finally{store.Atomic(db=>{db.securityAuthorityPolicy=old;});}
+   const input=prepare(a,body(authA));rpc.Execute(input);const at=realNow();Date.now=()=>at+30001;
+   try{rpc.Maintain();fail(()=>rpc.Execute({...input,action:'result'}),/RESULT_UNAVAILABLE|SECURITY_FRESH_OBSERVATION_REQUIRED|BOOTSTRAP_/);}
+   finally{Date.now=realNow;}
+   fail(()=>rpc.Execute({...input,action:'result'}),/RESULT_UNAVAILABLE/);
+  });
   await t.test('reserved function, unknown function, wrong policy, arity and non-int32 arguments are rejected',()=>{
    for(const patch of [{functionId:1},{functionId:6},{policyId:outputs.B.ownProtection.policyId},{args:[1]},{args:[2147483648,1]},{args:[0.25,1]},{args:Array(9).fill(0)},{args:[true,1]},{programBase64:outputs.A.serverPolicy.programBase64}])fail(()=>rpc.Execute({...body(authA),...patch}),/COZY_(OPERATION|SERVER_POLICY)_/);
   });
@@ -114,7 +146,9 @@ test('private server operations remain bound to authenticated A/B/O and exact in
   const activation=license(b,'redeem',{...common,licenseKey:lic.licenseKey});
   await t.test('B executes registered custom functions with int32 arithmetic and exact server record',async()=>{
    assert.equal((await queued(prepare(b,body(authB,2,[2147483647,1])))).result,-2147483648);
-   assert.equal((await f.TcpOperation(profile,'policy',prepare(b,body(authB,7,[])))).result,66);
+   const inputB=prepare(b,body(authB,7,[]));
+   assert.equal((await f.TcpOperation(profile,'policy',inputB)).result,66);
+   assert.equal((await f.TcpOperation(profile,'policy',{...inputB,action:'result'})).result,66);
    const leaseInput=prepare(b,body(authB)),priorLease=store.Load().flows[begin.flowId].licenseLeaseExpiresAt;
    try{await assert.rejects(queued(leaseInput,()=>store.Atomic(db=>{db.flows[begin.flowId].licenseLeaseExpiresAt=Date.now()-1;})),/COZY_OPERATION_LICENSE_REQUIRED/);}
    finally{store.Atomic(db=>{db.flows[begin.flowId].licenseLeaseExpiresAt=priorLease;});}
@@ -127,7 +161,9 @@ test('private server operations remain bound to authenticated A/B/O and exact in
   const osession=boot.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,...delegated(b,o,'O',ofinish.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
   const authO={stage:'O',sessionId:osession.sessionId,sessionToken:osession.sessionToken,machineId:o.machineId};enroll(o,authO);
   await t.test('O uses its own key and policy; B cannot substitute even with the same machine',async()=>{
-   assert.equal((await queued(prepare(o,body(authO,7,[])))).result,79);
+   const inputO=prepare(o,body(authO,7,[]));
+   assert.equal((await queued(inputO)).result,79);
+   assert.equal((await f.TcpOperation(profile,'policy',{...inputO,action:'result'})).result,79);
    const request=body(authO),c=rpc.Execute(request);f.Observe(o,{...authO,intent:'observe',binding:c.binding});
    fail(()=>rpc.Execute({...request,action:'invoke',challengeId:c.challengeId,signature:f.Sign(b,rpc.Canonical(request,c))}),/SIGNATURE_INVALID/);
   });
@@ -144,9 +180,11 @@ test('private server operations remain bound to authenticated A/B/O and exact in
    assert.equal(store.Load().overlays[prepared.overlayId].sessionExpiresAt,before);
   });
   await t.test('revocation between queued proof and commit wins and retires pending contexts',async()=>{
+   const completed=prepare(o,body(authO));await queued(completed);
    const input=prepare(o,body(authO));
    await assert.rejects(queued(input,()=>require('../../services/overlay/peace.desktop-overlay').Revoke(osession.sessionId,{reason:'OPERATION_TEST'},'TEST')),/BOOTSTRAP_REVOKED|BOOTSTRAP_SESSION/);
    fail(()=>rpc.Execute(input),/BOOTSTRAP_REVOKED|BOOTSTRAP_SESSION/);
+   fail(()=>rpc.Execute({...completed,action:'result'}),/BOOTSTRAP_REVOKED|BOOTSTRAP_SESSION/);
   });
  }finally{
   Date.now=realNow;console.log=oldLog;boot?.Stop();if(oldIssuer===undefined)delete process.env.DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64;else process.env.DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64=oldIssuer;

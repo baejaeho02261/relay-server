@@ -30,13 +30,13 @@ Add('overlay.abort', 'GAME-OVERLAY-ABORT-V3', 'B', 'parentSessionId + scope + id
 Add('authority.challenge authority.submit', 'GAME-AUTHORITY-V2', 'A/B/O', 'challengeId', 'submit exact receipt <=30 seconds and original decision lifetime; current authority');
 Add('report.challenge report.submit', 'GAME-INTEGRITY-REPORT-V2', 'A/B/O', 'reportId', 'submit exact receipt 30 seconds; current authority, terminal denial only');
 Add('device.policy device.challenge device.complete device.tpmActivate','GAME-DEVICE-IDENTITY-V2 / GAME-DEVICE-ACTIVATION-V2','A/B/O','challengeId + current session','dual-clock one-use challenge; durable exact receipt; live identity policy');
-Add('policy.challenge policy.invoke','COZY-SERVER-OPERATION-V1','A/B/O','exact function + args + policy + requestId + one-use signed nonce','pure int32 result; no replay result or lease renewal');
+Add('policy.challenge policy.invoke policy.result','COZY-SERVER-OPERATION-V1','A/B/O','exact function + args + policy + requestId + one-use signed nonce','one invoke; exact signed result retrieval <=30 seconds; no execution replay or lease renewal');
 Object.freeze(catalog);
 function Purpose(name) { const value = Object.hasOwn(catalog,name) ? catalog[name] : null; if (!value) throw Error('DESKTOP_PURPOSE_INVALID'); return value; }
 function Resolve(operation, action) {
   const bootstrap={keylessPolicy:'bootstrap.keylessPolicy',keylessChallenge:'bootstrap.keylessChallenge',keylessProve:'bootstrap.keylessProve',keylessStatus:'bootstrap.keylessStatus',beginKeyless:'bootstrap.beginKeyless',begin:'bootstrap.begin',chunk:'bootstrap.download',finish:'bootstrap.finish',claim:'bootstrap.claim',status:'bootstrap.status',close:'bootstrap.close',abort:'bootstrap.abort',overlayChunk:'overlay.download',overlayFinish:'overlay.finish',overlayClaim:'overlay.claim',overlayVerify:'overlay.verify',overlayProgress:'overlay.progress',overlayCommit:'overlay.commit',overlayClose:'overlay.close',overlayAbort:'overlay.abort'};
   let name;
-  if(operation==='policy'&&['challenge','invoke'].includes(action))name='policy.'+action;
+  if(operation==='policy'&&['challenge','invoke','result'].includes(action))name='policy.'+action;
   else if(operation==='device'&&['policy','challenge','complete','tpmActivate'].includes(action))name='device.'+action;
   else if(operation==='bootstrap')name=action==='lifecycleChallenge'?'lifecycle.challenge':action==='lifecycleReport'?'lifecycle.report':Object.hasOwn(bootstrap,action)?bootstrap[action]:undefined;
   else if(operation==='security'&&['challenge','submit'].includes(action))name='authority.'+action;

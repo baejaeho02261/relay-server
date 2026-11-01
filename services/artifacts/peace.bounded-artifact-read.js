@@ -5,7 +5,12 @@ const fs=require('node:fs');
 function Read(file,max=64*1024*1024){
  if(!Number.isSafeInteger(max)||max<1||max>64*1024*1024)throw Error('AUDIT_FILE_LIMIT_INVALID');
  const named=fs.lstatSync(file);if(!named.isFile()||named.isSymbolicLink()||named.nlink!==1||named.size<1||named.size>max)throw Error('AUDIT_FILE_INVALID');
- const fd=fs.openSync(file,'r');let bytes;
+ // Refuse symlink swaps where supported and never wait for a FIFO writer if
+ // a regular file is replaced between lstat and open. fstat still validates
+ // identity/type on platforms without either flag. Regular-file I/O remains
+ // subject to the host filesystem; worker threads are not an OS sandbox.
+ const flags=fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0)|(fs.constants.O_NONBLOCK||0);
+ const fd=fs.openSync(file,flags);let bytes;
  const same=(a,b)=>a.dev===b.dev&&a.ino===b.ino&&a.size===b.size&&a.mtimeMs===b.mtimeMs&&a.ctimeMs===b.ctimeMs;
  try{
   const before=fs.fstatSync(fd);if(!before.isFile()||before.nlink!==1||!same(named,before)||before.size<1||before.size>max)throw Error('AUDIT_FILE_CHANGED');

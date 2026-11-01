@@ -70,13 +70,32 @@ function Header(template,config,keyId){
 }
 function SignHeader(header,signer){return crypto.sign('sha256',header,{key:signer.privateKey,padding:crypto.constants.RSA_PKCS1_PADDING});}
 function VerifyHeader(header,signature,anchor){return signature.length===SIGNATURE_SIZE&&crypto.verify('sha256',header,{key:anchor.publicKey,padding:crypto.constants.RSA_PKCS1_PADDING},signature);}
-function Readiness(template){
- try{if(Buffer.isBuffer(template)&&template.length+publicConfig.MAX+TAIL_SIZE>MAX_TEMPLATE)Fail('ISSUED_A_TEMPLATE_TOO_LARGE');const anchor=InspectTemplate(template),signer=LoadSigner();if(anchor.keyId!==signer.keyId)Fail('ISSUED_A_SIGNING_KEY_MISMATCH');
-  // A real signing and verification challenge, without allocating an issuance
-  // or inventing a Windows execution result. Domain and template are bound.
-  const header=Header(template,Buffer.alloc(16,0x5a),anchor.keyId),signature=SignHeader(header,signer);
-  try{if(!VerifyHeader(header,signature,anchor))Fail('ISSUED_A_SIGNATURE_INVALID');}finally{header.fill(0);signature.fill(0);}
+// Diagnostic-only bridge from the bounded parser worker. All fields describe
+// public template bytes; this cannot issue a launcher or reserve a key purpose.
+function ReadinessFromInspection(inspection){
+ let header,signature,blob,config;
+ try{
+  if(!Plain(inspection)||Object.keys(inspection).sort().join(',')!=='publicBlob,templateSha512,templateSize'||
+     !Number.isSafeInteger(inspection.templateSize)||inspection.templateSize<512||
+     typeof inspection.templateSha512!=='string'||!/^[a-f0-9]{128}$/.test(inspection.templateSha512)||
+     typeof inspection.publicBlob!=='string'||!/^[a-f0-9]{566}$/.test(inspection.publicBlob))Fail('ISSUED_A_TEMPLATE_INVALID');
+  if(inspection.templateSize+publicConfig.MAX+TAIL_SIZE>MAX_TEMPLATE)Fail('ISSUED_A_TEMPLATE_TOO_LARGE');
+  blob=Buffer.from(inspection.publicBlob,'hex');const anchor=IdentityFromBlob(blob),signer=LoadSigner();
+  if(anchor.keyId!==signer.keyId)Fail('ISSUED_A_SIGNING_KEY_MISMATCH');
+  // Same template-bound internal challenge as Readiness; the synthetic config
+  // is deliberately not a valid launcher configuration. Never return signature.
+  header=Buffer.alloc(HEADER_SIZE);config=Buffer.alloc(16,0x5a);
+  DOMAIN.copy(header);header.writeUInt32LE(inspection.templateSize,16);header.writeUInt32LE(config.length,20);
+  Buffer.from(anchor.keyId,'hex').copy(header,24);Buffer.from(inspection.templateSha512,'hex').copy(header,56);Digest(config).copy(header,120);
+  signature=SignHeader(header,signer);if(!VerifyHeader(header,signature,anchor))Fail('ISSUED_A_SIGNATURE_INVALID');
   return {ready:true,format:FORMAT,keyId:anchor.keyId,scope:'APPLICATION_SIGNATURE',authenticode:false};
+ }catch(error){return {ready:false,format:FORMAT,reason:error.desktopError?error.message:'ISSUED_A_SIGNING_UNAVAILABLE',scope:'APPLICATION_SIGNATURE',authenticode:false};}
+ finally{header?.fill(0);signature?.fill(0);blob?.fill(0);config?.fill(0);}
+}
+function Readiness(template){
+ try{if(Buffer.isBuffer(template)&&template.length+publicConfig.MAX+TAIL_SIZE>MAX_TEMPLATE)Fail('ISSUED_A_TEMPLATE_TOO_LARGE');
+  const anchor=InspectTemplate(template);
+  return ReadinessFromInspection({templateSize:template.length,templateSha512:Digest(template).toString('hex'),publicBlob:anchor.blob.toString('hex')});
  }catch(error){return {ready:false,format:FORMAT,reason:error.desktopError?error.message:'ISSUED_A_SIGNING_UNAVAILABLE',scope:'APPLICATION_SIGNATURE',authenticode:false};}
 }
 function RequireReady(template){const ready=Readiness(template);if(!ready.ready)Fail(ready.reason,409);return ready;}
@@ -114,4 +133,4 @@ function VerifyFinal(bytes,{expectedTemplateSha512,expectedKeyId}={}){
  const templateSize=header.readUInt32LE(16),configSize=header.readUInt32LE(20);if(templateSize<512||templateSize>MAX_TEMPLATE||configSize<16||configSize>publicConfig.MAX||templateSize+configSize+TAIL_SIZE!==bytes.length)Fail('ISSUED_A_SIGNATURE_INVALID');
  const parsed=Parse(bytes.subarray(0,templateSize),bytes.subarray(templateSize));if(Digest(bytes.subarray(0,templateSize)).toString('hex')!==expectedTemplateSha512||parsed.anchor.keyId!==expectedKeyId)Fail('ISSUED_A_TRUST_CONTEXT_MISMATCH');return {format:FORMAT,keyId:parsed.anchor.keyId,templateSize,configSize,config:parsed.decoded,sha512:Digest(bytes).toString('hex')};
 }
-module.exports={ENV,FORMAT,DOMAIN,FOOTER,ANCHOR_MAGIC,ANCHOR_SIZE,HEADER_SIZE,SIGNATURE_SIZE,TAIL_SIZE,PUBLIC_BLOB_SIZE,PublicIdentity,IdentityFromBlob,AnchorBytes,InspectTemplate,LoadSigner,Readiness,RequireReady,Create,Materialize,VerifyFinal,ValidateReceiptShape};
+module.exports={ENV,FORMAT,DOMAIN,FOOTER,ANCHOR_MAGIC,ANCHOR_SIZE,HEADER_SIZE,SIGNATURE_SIZE,TAIL_SIZE,PUBLIC_BLOB_SIZE,PublicIdentity,IdentityFromBlob,AnchorBytes,InspectTemplate,LoadSigner,Readiness,ReadinessFromInspection,RequireReady,Create,Materialize,VerifyFinal,ValidateReceiptShape};

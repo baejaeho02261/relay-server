@@ -88,7 +88,7 @@ test('malformed input projection does not disclose injected paths or fields', ()
   assert.doesNotMatch(JSON.stringify(result),/secret|private|never-output/);
 });
 
-test('active audit uses production verifier, bounds IO, preserves records and rejects file replacement', () => {
+test('active audit uses production verifier, bounds IO, preserves records and rejects file replacement', async () => {
   const temp=fs.mkdtempSync(path.join(os.tmpdir(),'peace-release-readiness-'));
   Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',ADMIN_SECRET:'synthetic-readiness-secret'});
   try {
@@ -107,7 +107,7 @@ test('active audit uses production verifier, bounds IO, preserves records and re
     const approval={keyId,signature:crypto.sign(null,Buffer.from(auth.ReleaseCanonical('A','1.0.0',hash(bytes))),keys.privateKey).toString('base64')};
     const published=boot.Publish('A','1.0.0',bytes,approval);
     const file=store.ArtifactPath(published.id),authorityFile=path.join(store.DIR,'authority.json');
-    const before=fs.readFileSync(authorityFile),original=fs.readFileSync(file),result=AuditActive();
+    const before=fs.readFileSync(authorityFile),original=fs.readFileSync(file),result=await AuditActive();
     assert.equal(result.readOnly,true);assert.equal(result.authorizesPublication,false);
     assert.equal(result.nativeExecution,'NOT_RUN');assert.equal(result.windowsPublisherTrust,'NOT_VERIFIED');
     assert.equal(result.releases.length,3);assert.equal(result.releases[0].checks.releaseApproval.status,'VALID');
@@ -118,17 +118,32 @@ test('active audit uses production verifier, bounds IO, preserves records and re
     assert.deepEqual(fs.readFileSync(authorityFile),before);assert.deepEqual(fs.readFileSync(file),original);
     assert.doesNotMatch(JSON.stringify(result),/BEGIN PUBLIC KEY|BEGIN PRIVATE KEY|synthetic-readiness-secret/);
     const damaged=Buffer.from(original);damaged[600]^=1;fs.writeFileSync(file,damaged);
-    assert.equal(AuditActive().releases[0].checks.fileIdentity.status,'MISMATCH');fs.writeFileSync(file,original);
+    assert.equal((await AuditActive()).releases[0].checks.fileIdentity.status,'MISMATCH');fs.writeFileSync(file,original);
     const backup=file+'.audit-original';fs.renameSync(file,backup);
-    try {fs.symlinkSync(backup,file);assert.ok(AuditActive().releases[0].issues.includes('RELEASE_FILE_UNAVAILABLE_OR_CHANGED'));}
+    try {fs.symlinkSync(backup,file);assert.ok((await AuditActive()).releases[0].issues.includes('RELEASE_FILE_UNAVAILABLE_OR_CHANGED'));}
     finally {fs.rmSync(file,{force:true});fs.renameSync(backup,file);}
     const load=store.Load, snapshot=load();
     try {
       const big={...snapshot,active:{},artifacts:{}};
       for(const [i,role]of ['A','B','O'].entries()){const id=String(i+1).repeat(24);big.active[role]=id;big.artifacts[id]={...snapshot.artifacts[published.id],id,component:role,size:64*1024*1024};}
       store.Load=()=>big;assert.equal(MAX_TOTAL_BYTES,128*1024*1024);
-      assert.ok(AuditActive().releases[2].issues.includes('RELEASE_AUDIT_BUDGET_EXCEEDED'));
+      assert.ok((await AuditActive()).releases[2].issues.includes('RELEASE_AUDIT_BUDGET_EXCEEDED'));
     } finally {store.Load=load;}
     assert.deepEqual(fs.readFileSync(authorityFile),before);
+    // Selection/approval/policy changes while bytes are in a worker invalidate
+    // the snapshot; unrelated runtime bookkeeping does not fabricate conflict.
+    const originalLoad=store.Load,originalPolicy=auth.Policy,stable=store.Load();
+    try {
+      let view=stable,policyView=auth.Policy();store.Load=()=>view;auth.Policy=()=>structuredClone(policyView);
+      const staleCases=[
+        ()=>{view={...stable,active:{...stable.active,A:''}};},
+        ()=>{view={...stable,artifacts:{...stable.artifacts,[published.id]:{...stable.artifacts[published.id],version:'2.0.0'}}};},
+        ()=>{view={...stable,securityOperations:{...stable.securityOperations,revision:(stable.securityOperations?.revision||0)+1}};},
+        ()=>{policyView={...policyView,revision:policyView.revision+1};}
+      ];
+      for(const mutate of staleCases){view=stable;policyView=originalPolicy();const job=AuditActive();mutate();await assert.rejects(job,{message:'RELEASE_AUDIT_STALE',status:409});}
+      view=stable;policyView=originalPolicy();const job=AuditActive();view={...stable,revision:stable.revision+1};
+      assert.equal((await job).releases[0].checks.fileIdentity.status,'MATCH');
+    } finally {store.Load=originalLoad;auth.Policy=originalPolicy;}
   } finally {fs.rmSync(temp,{recursive:true,force:true});}
 });

@@ -18,7 +18,24 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
     }
     lastReleaseAuditNs=now;
     res.setHeader('Cache-Control','no-store');
-    Json(res,200,{ok:true,readiness:require('../../../services/security/peace.release-readiness').AuditActive()});return true;
+    const cancel=new AbortController();
+    const abort=()=>cancel.abort();
+    // IncomingMessage.close also occurs for a normally completed GET. Watch
+    // the response/socket lifetime instead, plus actual request abortion.
+    req.once('aborted',abort);res.once('close',abort);
+    const checkAccess=()=>{
+      const live=guard.CheckSession(session,pathname,method);
+      if(!live.ok){const error=Error(live.reason);error.desktopError=true;error.status=live.status||403;throw error;}
+    };
+    try{
+      if(req.aborted||res.destroyed)cancel.abort();
+      const readiness=await require('../../../services/security/peace.release-readiness').AuditActive({signal:cancel.signal,checkAccess});
+      checkAccess();
+      if(!res.destroyed&&!cancel.signal.aborted)Json(res,200,{ok:true,readiness});
+    }catch(error){
+      if(!res.destroyed&&!cancel.signal.aborted)ApiError(res,error.desktopError?error.status:503,error.desktopError?error.message:'RELEASE_AUDIT_FAILED');
+    }finally{req.removeListener('aborted',abort);res.removeListener('close',abort);}
+    return true;
   }
   if(pathname==='/api/desktop/bootstrap/security-authority/preview'&&method==='POST'){
     const check=guard.CheckSession(session,pathname,method);

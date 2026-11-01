@@ -1,6 +1,6 @@
 { Generated packet shapes only; these dummy keys never authorize execution. }
 const
-  ProtocolSchemaCases: array[0..39] of string = (
+  ProtocolSchemaCases: array[0..40] of string = (
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"begin","requestId":"rrrrrrrr","launcherId":"AAAAAAAAAAAAAAAAAAAAAAAA","launcherSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","launcherCrc64":"AAAAAAAAAAAAAAAA","aCodeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","aCodeCrc64":"AAAAAAAAAAAAAAAA","publicKey":"{}","deviceId":"AAAAAAAAAAAAAAAAAAAA' +
@@ -63,6 +63,9 @@ const
     '{"operation":"policy","tlsPinVersion":1,"body":{"action":"challenge","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAAAAAAAAAAAAA' +
     'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","requestId":"rrrrrrrr","policyId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","functionId":2,"args":[]}}',
     '{"operation":"policy","tlsPinVersion":1,"body":{"action":"invoke","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","requestId":"rrrrrrrr","policyId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","functionId":2,"args":[],"challengeId":"{}"' +
+    ',"signature":"{}"}}',
+    '{"operation":"policy","tlsPinVersion":1,"body":{"action":"result","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
     'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","requestId":"rrrrrrrr","policyId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","functionId":2,"args":[],"challengeId":"{}"' +
     ',"signature":"{}"}}',
     '{"operation":"challenge","tlsPinVersion":1,"body":{"action":"redeem","requestId":"rrrrrrrr","deviceId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","publicKey' +

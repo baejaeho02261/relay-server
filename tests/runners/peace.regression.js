@@ -5,6 +5,11 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["security/peace.test-release-audit-runner.js"],
+  ["security/peace.test-release-audit-file-races.js"],
+  ["security/peace.test-release-readiness-route-lifetime.js"],
+  ["security/peace.test-server-operation-results.js"],
+  ["source/peace.test-sensitive-copy-lifetime.js"],
   ["integrity/peace.test-pointer-general-probe.js"],
   ["protocol/peace.test-native-policy-contract-vectors.js"],
   ["source/peace.test-native-startup-observations.js"],

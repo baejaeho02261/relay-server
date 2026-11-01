@@ -7,6 +7,7 @@ const tickets=new WeakMap();
 const ROUTES=Object.freeze({
  'policy.challenge': ['policy','LIVE_EXACT_ROLE_POLICY_DEVICE_AND_LICENSE','ONE_USE_OPERATION_NONCE'],
  'policy.invoke': ['policy','SIGNED_INPUTS_FRESH_ENFORCED_AUTHORITY_AND_LIVE_COHORT','BOUNDED_PRIVATE_POLICY_RESULT_ONLY'],
+ 'policy.result': ['policy','EXACT_RETAINED_SIGNED_REQUEST_AND_CURRENT_AUTHORITY','READ_COMMITTED_RESULT_NO_EXECUTION_OR_RENEWAL'],
  'bootstrap.keylessPolicy': ['bootstrap','PUBLIC_LIVE_V3_LAUNCHER','PUBLIC_DEVICE_POLICY_ONLY'],
  'bootstrap.keylessChallenge': ['bootstrap','EXACT_V3_FILE_AND_DEVICE_POLICY','BOUNDED_NONCE_NOT_AUTHORITY'],
  'bootstrap.keylessProve': ['bootstrap','DUAL_SIGNED_NONCE','REQUEST_ADMIN_APPROVAL_ONLY'],

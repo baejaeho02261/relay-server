@@ -1,6 +1,12 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ RELEASE_AUDIT_BUSY:['다른 등록 파일 검사가 진행 중입니다.','진행 중인 검사가 끝날 때까지 추가 검사를 받지 않습니다.','잠시 후 [등록 파일 보안 검사]를 다시 누르세요.','security'],
+ RELEASE_AUDIT_TIMEOUT:['등록 파일 검사 시간이 초과되었습니다.','검사를 중단했으며 이 결과로 배포를 승인하지 않습니다.','서버 부하와 등록 파일 상태를 확인한 뒤 다시 검사하세요.','security'],
+ RELEASE_AUDIT_CANCELLED:['등록 파일 검사가 취소되었습니다.','취소된 검사의 결과는 사용하지 않습니다.','필요하면 관리자 웹에서 검사를 다시 시작하세요.','security'],
+ RELEASE_AUDIT_STALE:['검사 중 등록 파일 또는 보안 정책이 바뀌었습니다.','이전 상태의 검사 결과를 폐기했습니다.','현재 배포 조합과 정책을 확인한 뒤 다시 검사하세요.','security'],
+ RELEASE_AUDIT_CLOSED:['서버가 종료 중이어서 검사를 받지 않습니다.','등록 파일 검사를 완료하지 못했습니다.','서버가 준비된 뒤 다시 검사하세요.','security'],
+ RELEASE_AUDIT_FAILED:['등록 파일 검사를 완료하지 못했습니다.','실패한 검사의 결과로 배포를 승인하지 않습니다.','서버 상태와 등록 파일을 확인한 뒤 다시 검사하세요.','security'],
  RELEASE_AUDIT_RATE_LIMITED:['등록 파일 검사 요청 간격이 너무 짧습니다.','추가 검사를 시작하지 않았으며 정책과 운영 조합을 변경하지 않았습니다.','3초 후 [등록 파일 보안 검사]를 다시 누르세요.','security'],
  SECURITY_CFG_BUILD_REQUIRED:['현재 운영 파일이 CFG 빌드 요구를 충족하지 않습니다.','정책 변경을 저장하지 않았으며 기존 정책을 유지합니다.','서버 보안 · 배포 운영의 영향 미리보기에서 활성 A/B/O 역할과 후보 ID를 확인하세요. CFG 계측된 최종 파일이 필요하며 체크박스나 PE 플래그 변경만으로 적용되지 않습니다.','security'],
  CFG_UNAVAILABLE:['실행 중 CFG 사용 상태를 확인하지 못했습니다.','이 측정은 CFG 요구를 통과하지 못했습니다.','파일의 CFG 빌드 정보와 해당 PC의 실제 실행 상태를 구분해 확인하세요. 기존 보호 요구를 자동 해제하지 않습니다.','security'],

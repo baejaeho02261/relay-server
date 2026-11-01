@@ -1,7 +1,7 @@
 { Generated from peace.packet-schema-v1.json. Do not edit. }
 const
   ProtocolSchemaMaximumRequestBytes = 32768;
-  ProtocolSchemaSHA512 = 'cd209b1fe839b4b3241e75639951cf7669ffa4aaeb7f0799c4d06a8a82bfda369895e536283d161f3209e4a1559b594c70f78164c7c119d6c3a7ff52c82acdeb';
+  ProtocolSchemaSHA512 = '8534cac8dd10cf041594d49f53f23a22569b26ed21b86f4acfa36f95c15dc48416406c6cd607923c239ad81d647618a28b2b346583a7890fd80dbb5a328f15a3';
   ProtocolSchemaJSON: string =
     '{"schemaVersion":1,"protocol":"GAME-CONNECT-4","maximumRequestBytes":32768,"envelope":{"type":"object","properties":{"operation":{"enum":["bootstrap","challenge","execute","report"' +
     ',"security","device","policy"]},"tlsPinVersion":{"enum":[1]},"body":{"$ref":"object"}},"required":["operation","body"],"additionalProperties":false},"definitions":{"id24":{"type":"' +
@@ -260,29 +260,33 @@ const
     'onalProperties":false}},{"operation":"policy","action":"invoke","body":{"type":"object","properties":{"action":{"enum":["invoke"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id2' +
     '4"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}' +
     '$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["action",' +
-    '"stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"challenge","action' +
-    '":"redeem","body":{"type":"object","properties":{"action":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payload' +
-    'Hash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"redeem","body":{"type"' +
-    ':"object","properties":{"action":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"' +
-    '},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref"' +
-    ':"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":' +
-    '"challenge","action":"verify","body":{"type":"object","properties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"p' +
-    'ublicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"ver' +
-    'ify","body":{"type":"object","properties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":' +
-    '{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"p' +
-    'ayloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJso' +
-    'n"]}},{"operation":"challenge","action":"release","body":{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"' +
-    'publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"e' +
-    'xecute","action":"release","body":{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"pub' +
-    'licKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength' +
-    '":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["p' +
-    'ayloadJSON","payloadJson"]}},{"operation":"challenge","action":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceI' +
-    'd":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":' +
-    'false}},{"operation":"execute","action":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"' +
-    'publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"ty' +
-    'pe":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties"' +
-    ':false,"exactlyOne":["payloadJSON","payloadJson"]}}],"scope":"Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown' +
-    ' summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization.","documents":{"overlayRelease":{"$ref":"overlayRelease"},"' +
-    'overlayPrepare":{"$ref":"overlayPrepare"},"overlayChunk":{"$ref":"overlayChunk"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"overlayClaim"},"overlayVerify":{"$' +
-    'ref":"overlayVerify"},"overlayCommit":{"$ref":"overlayCommit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"authorityChallenge":{"$ref":"authority' +
-    'Challenge"},"authorityPayload":{"$ref":"authorityPayload"},"authorityReply":{"$ref":"authorityReply"}}}';
+    '"stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"policy","action":"' +
+    'result","body":{"type":"object","properties":{"action":{"enum":["result"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":' +
+    '"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type":"integer","minimum":2,"maximum"' +
+    ':65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","requestI' +
+    'd","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"challenge","action":"redeem","body":{"type":"object","properties":{"action' +
+    '":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId",' +
+    '"deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"redeem","body":{"type":"object","properties":{"action":{"enum":["redeem"]},"re' +
+    'questId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type"' +
+    ':"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","p' +
+    'ublicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"verify","body":{"type":"object","p' +
+    'roperties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["a' +
+    'ction","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"verify","body":{"type":"object","properties":{"action":{"en' +
+    'um":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"p' +
+    'ayloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","reque' +
+    'stId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"release","body"' +
+    ':{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"h' +
+    'ash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"release","body":{"type":"object","prop' +
+    'erties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":' +
+    '{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"req' +
+    'uired":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","a' +
+    'ction":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"' +
+    'payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"overlay","body"' +
+    ':{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"c' +
+    'hallenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash' +
+    '":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}}],"sc' +
+    'ope":"Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to' +
+    ' existing domain validators; this schema grants no authorization.","documents":{"overlayRelease":{"$ref":"overlayRelease"},"overlayPrepare":{"$ref":"overlayPrepare"},"overlayChunk"' +
+    ':{"$ref":"overlayChunk"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"overlayClaim"},"overlayVerify":{"$ref":"overlayVerify"},"overlayCommit":{"$ref":"overlayCo' +
+    'mmit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"authorityChallenge":{"$ref":"authorityChallenge"},"authorityPayload":{"$ref":"authorityPayload' +
+    '"},"authorityReply":{"$ref":"authorityReply"}}}';

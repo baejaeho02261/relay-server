@@ -106,3 +106,15 @@ test('Windows probe wiring includes actual execution and its required source dir
   assert.match(project,/<DCC_ExeOutput>\$\(MSBuildProjectDirectory\)<\/DCC_ExeOutput>/);
   assert.match(project,/<DCC_DcuOutput>\$\(MSBuildProjectDirectory\)\\dcu\\\$\(ProjectName\)/);
 });
+
+
+test('native lost-response recovery performs exactly one result read and never repeats invoke', () => {
+  assert.equal((client.match(/CommonBody\('invoke'\)/g)||[]).length,1);
+  assert.equal((client.match(/CommonBody\('result'\)/g)||[]).length,1);
+  const recovery=client.split('on E: EConnectTransport do')[1].split('if (Data.Count <> 5)')[0];
+  assert.match(recovery,/CONNECT_RECEIVE_FAILED/);assert.match(recovery,/CONNECT_TIMEOUT/);
+  assert.match(recovery,/then raise;\n\s+Remaining;/);
+  assert.match(recovery,/Body.AddPair\('challengeId', Challenge.ChallengeID\)/);
+  assert.match(recovery,/Body.AddPair\('signature', Signature\)/);
+  assert.doesNotMatch(recovery,/while|repeat|RequireServerObservation|CommonBody\('invoke'\)/);
+});
