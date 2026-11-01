@@ -26,7 +26,7 @@ function Launcher(id,machineId,allowConsumed=false,db=store.Load()){
  const row=db.launchers[id];
  if(!row||row.configFormat!==FORMAT||db.artifacts[row.artifactId]?.ownProtection?.engine!=='COZY_SERVER_POLICY_V2'||db.artifacts[row.artifactId]?.ownProtection?.state!=='BOUND')Fail('KEYLESS_REQUEST_INVALID');
  require('../recovery/peace.desktop-recovery').Assert(row,db);
- if(row.expiresAt<=Date.now()||row.status==='EXPIRED')Fail('KEYLESS_REQUEST_EXPIRED');
+ if(row.status==='EXPIRED'||(row.status==='AVAILABLE'?Boot().LauncherExpired(row):row.expiresAt<=Date.now()))Fail('KEYLESS_REQUEST_EXPIRED');
  if(row.status!=='AVAILABLE'&&!(allowConsumed&&row.status==='CONSUMED'))Fail('BOOTSTRAP_LAUNCHER_USED',409);
  require('../devices/peace.desktop-device-registry').AssertMachineAllowed(machineId,db);
  require('../devices/peace.desktop-machine-policy').AssertAllowed(machineId,undefined,allowConsumed?db.flows[row.flowId]?.sessionId:undefined);

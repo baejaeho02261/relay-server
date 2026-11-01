@@ -47,6 +47,8 @@ A/B/O의 `InvokeServerPolicy`는 선택적인 취소 콜백을 받습니다. 기
 
 ## 명시적인 업무 연결 예제
 
+서버의 하위 연산 검사와 VM 평가기도 빈 인덱스가 있는 배열, 상속한 인덱스, getter, 추가 속성을 거절합니다. 네트워크 요청 검사에만 의존하지 않고 내부 호출에도 같은 Int32 값 경계를 적용합니다. 정상 배열과 읽기 전용 배열의 기존 계산 결과·정책 바이트코드는 유지합니다. 이 보완은 임의의 제품 업무 함수를 새로 연결했다는 뜻이 아닙니다.
+
 `Cozy.Tests/Cozy.Security/Cozy.ServerOperations.Example.pas`의 `RunForA`, `RunForB`, `RunForO`는 함수 ID·입력·결과 소비 콜백·취소 콜백을 명시적으로 받습니다. 이전 `ComputeForA/B/O` 예제 시그니처도 유지합니다.
 
 - A: 인증된 흐름에서 무결성·모듈 보고 이후, B로 Finish 하기 전.

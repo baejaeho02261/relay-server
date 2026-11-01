@@ -1,6 +1,9 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ RELEASE_AUDIT_RATE_LIMITED:['등록 파일 검사 요청 간격이 너무 짧습니다.','추가 검사를 시작하지 않았으며 정책과 운영 조합을 변경하지 않았습니다.','3초 후 [등록 파일 보안 검사]를 다시 누르세요.','security'],
+ SECURITY_CFG_BUILD_REQUIRED:['현재 운영 파일이 CFG 빌드 요구를 충족하지 않습니다.','정책 변경을 저장하지 않았으며 기존 정책을 유지합니다.','서버 보안 · 배포 운영의 영향 미리보기에서 활성 A/B/O 역할과 후보 ID를 확인하세요. CFG 계측된 최종 파일이 필요하며 체크박스나 PE 플래그 변경만으로 적용되지 않습니다.','security'],
+ CFG_UNAVAILABLE:['실행 중 CFG 사용 상태를 확인하지 못했습니다.','이 측정은 CFG 요구를 통과하지 못했습니다.','파일의 CFG 빌드 정보와 해당 PC의 실제 실행 상태를 구분해 확인하세요. 기존 보호 요구를 자동 해제하지 않습니다.','security'],
  ISSUED_A_TEMPLATE_TOO_LARGE:['최종 A 파일 크기 한도를 초과합니다.','최종 파일은 64MiB 이하로 제한됩니다.','발급 설정·서명 공간 8,645바이트를 남긴 A를 다시 빌드하세요.','deploy'],
  ISSUED_A_BUILD_UPGRADE_REQUIRED:['선택한 A에 최종 발급 서명 검증기가 없습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','공개 검증 키를 포함한 최신 A로 다시 빌드·승인·명세 등록하세요.','deploy'],
  ISSUED_A_SIGNING_KEY_NOT_CONFIGURED:['서버의 최종 A 발급 서명 키가 설정되지 않았습니다.','최종 발급 파일의 인증 조건을 만족하지 않아 작업을 보류했습니다.','전용 개인키를 서버 변수에 설정하세요. 개인키를 소스나 웹 파일 업로드에 넣지 마세요.','deploy'],

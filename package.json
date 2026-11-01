@@ -149,7 +149,8 @@
     "test:tls:owned:source": "node tests/source/peace.test-native-tls-ownership.js",
     "test:tls:identity:durability": "node tests/network/peace.test-connect-tls-flush.js",
     "test:api:security:priorities": "node --test tests/source/peace.test-device-security-owned.js tests/security/peace.test-server-operation-transcript-validation.js tests/security/peace.test-native-server-operations.js tests/security/peace.test-server-policy-operations.js",
-    "test:probes:policy-startup": "node --test tests/integrity/peace.test-pointer-general-probe.js tests/protocol/peace.test-native-policy-contract-vectors.js tests/source/peace.test-native-startup-observations.js"
+    "test:probes:policy-startup": "node --test tests/integrity/peace.test-pointer-general-probe.js tests/protocol/peace.test-native-policy-contract-vectors.js tests/source/peace.test-native-startup-observations.js",
+    "test:security:immediate": "node --test tests/security/peace.test-release-readiness.js tests/security/peace.test-server-operation-arguments.js && node tests/security/peace.test-release-readiness-http.js && node tests/bootstrap/peace.test-keyless-bootstrap.js"
   },
   "engines": {
     "node": "24.22.1"

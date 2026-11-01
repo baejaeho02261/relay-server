@@ -176,7 +176,7 @@ function EvaluateServerPolicy(value, functionId, args) {
 }
 function ValidateInvocation(value, functionId, args) {
   if (!Number.isInteger(functionId) || functionId < 2 || functionId > 65535 ||
-      !Array.isArray(args) || args.length > 8 || !args.every(x => Number.isInteger(x) && x >= -2147483648 && x <= 2147483647)) Fail('INVOCATION_INVALID');
+      !vm.Int32Arguments(args)) Fail('INVOCATION_INVALID');
   const program = OpenServerPolicy(value);
   try {
     const fn = vm.ValidateProgram(program, value.role).get(functionId);

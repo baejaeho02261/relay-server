@@ -54,7 +54,7 @@ w.fetch=async(url,options={})=>{
    if(method==='POST'){assert.equal(body.expectedRevision,securityPolicy.revision);securityPolicy={...securityPolicy,...body,revision:securityPolicy.revision+1};delete securityPolicy.expectedRevision;delete securityPolicy.expectedOperationsRevision;securityOps.revision++;}
    data=securityView();
  }
- else if(url==='/api/desktop/bootstrap/security-authority/preview')data={ok:true,preview:{readOnly:true,baseRevision:securityPolicy.revision,eligible:true,runtimeCompatibility:'RECENT_OBSERVATIONS_ONLY_NOT_OFFLINE_PC_PROOF'}};
+ else if(url==='/api/desktop/bootstrap/security-authority/preview')data={ok:true,preview:{readOnly:true,baseRevision:securityPolicy.revision,operationsRevision:securityOps.revision,eligible:true,releases:[],runtimeCompatibility:'RECENT_OBSERVATIONS_ONLY_NOT_OFFLINE_PC_PROOF'}};
  else if(url==='/api/desktop/bootstrap/security-operations')data={ok:true,operations:securityOps,active:{A:artifacts.A?.id||'',B:artifacts.B?.id||'',O:''},candidates:candidates.map(a=>({...a,active:artifacts[a.component]?.id===a.id}))};
  else if(url==='/api/desktop/bootstrap/security-operations/activation')data={ok:true,status:{allEnabled:false,serverEnabled:false,baselineEnabled:false}};
  else if(url==='/api/desktop/bootstrap/security-operations/preview-pair')data={ok:true,preview:{...body,eligible:true,policyRevision:securityPolicy.revision,operationsRevision:securityOps.revision}};
@@ -158,10 +158,10 @@ function field(name,value){const input=w.document.querySelector(`[data-modal-fie
  }
  w.document.querySelector('[data-desktop-action="security-operations"]').click();await waitFor(()=>shown('#desktop-security-root'),'security operations modal');
  const securityAction=name=>w.document.querySelector(`[data-security-action="${name}"]`).click();
- const beforePremature=requests.length;securityAction('save-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('미리보기'),'policy preview required');assert.equal(requests.length,beforePremature);
+ const beforePremature=requests.length;assert.equal(w.document.querySelector('#sec-policy-apply').disabled,true);securityAction('save-policy');assert.equal(requests.length,beforePremature);
  securityAction('preview-policy');await waitFor(()=>w.document.querySelector('#sec-policy-preview').textContent.includes('readOnly'),'read-only preview');
- w.document.querySelector('#sec-fresh').value='44000';const beforeChanged=requests.length;securityAction('save-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('미리보기'),'changed policy requires new preview');assert.equal(requests.length,beforeChanged);
- securityAction('preview-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent==='처리했습니다.','new policy preview');
+ w.document.querySelector('#sec-fresh').value='44000';w.document.querySelector('#sec-fresh').dispatchEvent(new w.Event('input',{bubbles:true}));const beforeChanged=requests.length;assert.equal(w.document.querySelector('#sec-policy-apply').disabled,true);securityAction('save-policy');assert.match(w.document.querySelector('#sec-policy-readiness').textContent,/미리보기/);assert.equal(requests.length,beforeChanged);
+ securityAction('preview-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('정책 검사를 통과'),'new policy preview');
  securityAction('save-policy');await waitFor(()=>w.document.querySelector('#security-status').textContent.includes('서버에 반영'),'server policy save');
  const beforePair=requests.length;assert.equal(w.document.querySelector('[data-security-action="activate"]').disabled,true);securityAction('activate');assert.match(w.document.querySelector('#sec-pair-status').textContent,/먼저 검증/);assert.equal(requests.length,beforePair);
  for(const component of ['A','B']){const select=w.document.querySelector('#sec-'+component.toLowerCase());select.value='ART_'+component;select.dispatchEvent(new w.Event('change',{bubbles:true}));}

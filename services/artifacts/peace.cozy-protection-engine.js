@@ -15,6 +15,14 @@ const plain=x=>!!x&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeO
 function Fail(code,status=400){const e=Error('COZY_PROTECTION_'+code);e.desktopError=true;e.status=status;throw e;}
 function Exact(x,keys){if(!plain(x)||Object.keys(x).length!==keys.length||keys.some(k=>!Object.hasOwn(x,k)))Fail('PROFILE_INVALID');}
 function Int32(x){return Number.isInteger(x)&&x>=-2147483648&&x<=2147483647;}
+// The internal evaluator is also a boundary: Array.every skips holes and can
+// read inherited/accessor values. Accept only the exact dense Int32 wire shape,
+// even when an internal caller bypasses the network dispatcher.
+function Int32Arguments(args){
+ if(!Array.isArray(args)||Object.getPrototypeOf(args)!==Array.prototype||args.length>MAX_ARGUMENTS||Reflect.ownKeys(args).length!==args.length+1)return false;
+ for(let i=0;i<args.length;i++){const value=Object.getOwnPropertyDescriptor(args,String(i));if(!value||!Object.hasOwn(value,'value')||!Int32(value.value))return false;}
+ return true;
+}
 function Role(role){if(!['A','B','O'].includes(role))Fail('ROLE_INVALID');return {A:1,B:2,O:3}[role];}
 function Stable(x){if(Array.isArray(x))return '['+x.map(Stable).join(',')+']';if(plain(x))return '{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+Stable(x[k])).join(',')+'}';return JSON.stringify(x);}
 function ParsePE(bytes){
@@ -100,7 +108,7 @@ function ValidateProgram(program,role){
  return functions;
 }
 function Evaluate(program,functionId,args,{maxSteps=MAX_STEPS,role}={}){
- const functions=ValidateProgram(program,role),fn=functions.get(functionId);if(!fn||!Array.isArray(args)||args.length!==fn.args||!args.every(Int32)||!Number.isInteger(maxSteps)||maxSteps<1||maxSteps>MAX_STEPS)Fail('ARGUMENT_INVALID');
+ const functions=ValidateProgram(program,role),fn=functions.get(functionId);if(!fn||!Int32Arguments(args)||args.length!==fn.args||!Number.isInteger(maxSteps)||maxSteps<1||maxSteps>MAX_STEPS)Fail('ARGUMENT_INVALID');
  const stack=[];let pc=fn.offset;
  for(let steps=0;steps<maxSteps;steps++){
   const i=fn.instructions.get(pc);if(!i)Fail('PROGRAM_INVALID');pc=i.next;const pop=()=>{if(!stack.length)Fail('STACK_INVALID');return stack.pop();};
@@ -137,4 +145,4 @@ function OpenLauncherConfig(template,envelope){
  if(!Buffer.isBuffer(envelope)||envelope.length<53||envelope.length>52+8192||!envelope.subarray(0,16).equals(CONFIG_MAGIC)||envelope.readUInt32LE(16)!==2||envelope.readUInt32LE(20)!==envelope.length-52)Fail('CONFIG_INVALID');const key=ConfigKey(template);let clear,first,last;
  try{const decipher=crypto.createDecipheriv('aes-256-gcm',key,envelope.subarray(24,36));decipher.setAAD(envelope.subarray(0,36));decipher.setAuthTag(envelope.subarray(36,52));first=decipher.update(envelope.subarray(52));last=decipher.final();clear=Buffer.concat([first,last]);return clear;}catch(_){clear?.fill(0);Fail('CONFIG_AUTHENTICATION_FAILED');}finally{key.fill(0);first?.fill(0);last?.fill(0);}
 }
-module.exports={ENGINE,SLOT_BYTES,HEADER_BYTES,MAX_PROGRAM,MAX_STEPS,MAX_STACK,OP,TOOL_SHA512,CreateUnsealedSlot,Compile,ValidateProgram,Evaluate,Inspect,ValidateMetadata,Pack,SealLauncherConfig,OpenLauncherConfig};
+module.exports={ENGINE,SLOT_BYTES,HEADER_BYTES,MAX_PROGRAM,MAX_STEPS,MAX_STACK,OP,TOOL_SHA512,CreateUnsealedSlot,Compile,ValidateProgram,Int32Arguments,Evaluate,Inspect,ValidateMetadata,Pack,SealLauncherConfig,OpenLauncherConfig};

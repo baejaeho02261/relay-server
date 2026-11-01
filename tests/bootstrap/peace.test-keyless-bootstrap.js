@@ -93,6 +93,19 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    assert.equal(enrolled.assurance,'PERSISTENT_KEY_POSSESSION');assert.equal(enrolled.tpmAttested,false);identity.AssertSession(store.Load().flows[first.flowId],'A');
    clock+=30001;expect(()=>call(s,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
   });
+  await t.test('an unused issued A cannot be downloaded or approved before its issue time',()=>{
+   const inv=invite(),app=fixture.Device(),before=clock,row=store.Load().launchers[inv.issue.launcherId];
+   try{
+    clock=row.issuedAt-1;
+    expect(()=>boot.Execute({action:'keylessPolicy',version:1,launcherId:inv.issue.launcherId,machineId:app.machineId}),'KEYLESS_REQUEST_EXPIRED');
+    expect(()=>boot.LauncherBytes(inv.issue.launcherId),'BOOTSTRAP_EXPIRED');
+    expect(()=>boot.IssueLauncher(inv.request,'KEYLESS_TEST'),'BOOTSTRAP_EXPIRED');
+   }finally{clock=before;}
+   const retired=store.Load().launchers[inv.issue.launcherId];
+   assert.equal(retired.status,'EXPIRED');assert.equal(retired.profile,undefined);assert.equal(retired.ticketNonce,undefined);
+   expect(()=>boot.LauncherBytes(inv.issue.launcherId),'BOOTSTRAP_EXPIRED');
+   assert.equal(Object.values(store.Load().flows).some(f=>f.launcherId===inv.issue.launcherId),false);
+  });
   await t.test('one-time launcher consumption is atomic across two approved requests',()=>{
    const inv=invite(),a=challenge(inv),b=challenge(inv);for(const s of [a,b]){call(s,'keylessProve');approve(s);}
    const first=call(a,'beginKeyless');expect(()=>call(b,'beginKeyless'),'BOOTSTRAP_LAUNCHER_USED');assert.equal(store.Load().launchers[inv.issue.launcherId].flowId,first.flowId);
@@ -194,6 +207,37 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    await assert.rejects(queued('keylessProve',{persistentSignature:s.proof.appSignature}),{message:'KEYLESS_PROOF_INVALID'});
    assert.equal((await queued('keylessProve')).status,'PENDING_APPROVAL');approve(s);const first=await queued('beginKeyless');assert.equal(store.Load().flows[first.flowId].keylessPersistentKeyId,s.persistent.deviceId);assert.deepEqual(await queued('beginKeyless'),first);
   });
+  await t.test('parallel verified begin requests commit exactly one flow, including competing approvals',async()=>{
+   const work=require('../../services/integrity/peace.desktop-proof-work'),dispatch=require('../../services/authentication/peace.desktop-protected-dispatch'),{performance}=require('node:perf_hooks');
+   function queued(s){const payload={operation:'bootstrap',body:{action:'beginKeyless',...s.proof}},ticket=dispatch.Prepare(payload),jobs=work.Prepare(payload.operation,payload.body);return work.Run(jobs,()=>dispatch.Execute(ticket,payload,{bootstrap:boot.Execute}),{deadline:performance.now()+5000,key:s.c.challengeId});}
+   const same=challenge();call(same,'keylessProve');approve(same);
+   const responses=await Promise.all([queued(same),queued(same)]);assert.deepEqual(responses[0],responses[1]);
+   assert.equal(Object.values(store.Load().flows).filter(f=>f.launcherId===same.inv.issue.launcherId).length,1);
+   const inv=invite(),a=challenge(inv),b=challenge(inv);for(const s of [a,b]){call(s,'keylessProve');approve(s);}
+   const competing=await Promise.allSettled([queued(a),queued(b)]),won=competing.filter(x=>x.status==='fulfilled'),lost=competing.filter(x=>x.status==='rejected');
+   assert.equal(won.length,1);assert.equal(lost.length,1);assert.equal(lost[0].reason.message,'BOOTSTRAP_LAUNCHER_USED');
+   assert.equal(store.Load().launchers[inv.issue.launcherId].flowId,won[0].value.flowId);
+   assert.equal(Object.values(store.Load().flows).filter(f=>f.launcherId===inv.issue.launcherId).length,1);
+  });
+  await t.test('fresh process preserves consumed A and loses pending approval without resetting authority',()=>{
+   const pendingRequest=challenge(),consumed=challenge();
+   for(const s of [pendingRequest,consumed]){call(s,'keylessProve');approve(s);}
+   const first=call(consumed,'beginKeyless'),copy=fs.mkdtempSync(path.join(os.tmpdir(),'peace-keyless-restart-'));
+   try{
+    fs.cpSync(temp,copy,{recursive:true});
+    const script=`const assert=require('node:assert/strict'),fs=require('node:fs');const input=JSON.parse(fs.readFileSync(0,'utf8'));Date.now=()=>input.clock;console.log=()=>{};
+      const boot=require('./services/bootstrap/peace.desktop-bootstrap'),store=require('./services/bootstrap/peace.desktop-bootstrap-store');
+      for(const body of input.proofs)assert.throws(()=>boot.Execute(body),{message:'KEYLESS_REQUEST_EXPIRED'});
+      assert.throws(()=>boot.Execute(input.newChallenge),{message:'BOOTSTRAP_LAUNCHER_USED'});
+      assert.equal(store.Load().launchers[input.consumed].status,'CONSUMED');assert.equal(store.Load().launchers[input.consumed].flowId,input.flow);
+      assert.equal(store.Load().launchers[input.pending].status,'AVAILABLE');assert.equal(Object.values(store.Load().flows).filter(f=>f.launcherId===input.consumed).length,1);
+      boot.Stop();require('./storage/sqlite/peace.sqlite-database').Close();process.stdout.write('RESTART_AUTHORITY_PASS');`;
+    const input={clock,proofs:[pendingRequest,consumed].map(s=>({action:'beginKeyless',...s.proof})),newChallenge:{...consumed.body,requestId:crypto.randomUUID()},consumed:consumed.inv.issue.launcherId,pending:pendingRequest.inv.issue.launcherId,flow:first.flowId};
+    const run=require('node:child_process').spawnSync(process.execPath,['-e',script],{cwd:path.resolve(__dirname,'../..'),env:{...process.env,DATA_DIR:copy},input:JSON.stringify(input),encoding:'utf8',timeout:15000});
+    assert.equal(run.status,0,run.stderr);assert.equal(run.stdout,'RESTART_AUTHORITY_PASS');
+    assert.equal(store.Load().launchers[pendingRequest.inv.issue.launcherId].status,'AVAILABLE');assert.deepEqual(call(consumed,'beginKeyless'),first);
+   }finally{fs.rmSync(copy,{recursive:true,force:true});}
+  });
   await t.test('real HTTP approval requires admin, CSRF and a body-bound password action',async()=>{
    const http=require('node:http'),{RequestHandler}=require('../../web/http/peace.web-server');
    const server=http.createServer((req,res)=>Promise.resolve(RequestHandler(req,res)).catch(e=>{res.statusCode=500;res.end(JSON.stringify({error:e.message}));}));
@@ -214,6 +258,30 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
   await t.test('existing retirement sweep drops idle expired approval without a new keyless request',async()=>{
    const s=challenge();call(s,'keylessProve');approve(s);boot.Initialize();const before=clock;clock=s.c.expiresAt+1;
    await new Promise(resolve=>setTimeout(resolve,1100));clock=before;expect(()=>call(s,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');boot.Stop();
+  });
+  await t.test('failed expiry persistence cannot reset the already elapsed A lifetime',()=>{
+   const inv=invite(),disk=require('../../services/storage/peace.durable-file'),atomic=disk.Atomic,{performance}=require('node:perf_hooks'),descriptor=Object.getOwnPropertyDescriptor(performance,'now'),future=performance.now()+boot.LAUNCHER_MS+1;
+   let failures=0;
+   try{
+    Object.defineProperty(performance,'now',{configurable:true,value:()=>future});
+    disk.Atomic=(file,...args)=>{if(file===path.join(store.DIR,'authority.json')){failures++;throw Error('TEST_EXPIRY_WRITE_FAILED');}return atomic(file,...args);};
+    expect(()=>boot.LauncherBytes(inv.issue.launcherId),'STORAGE_SAVE_FAILED');
+    assert.equal(failures,1);assert.equal(store.Load().launchers[inv.issue.launcherId].status,'AVAILABLE');
+   }finally{disk.Atomic=atomic;if(descriptor)Object.defineProperty(performance,'now',descriptor);else delete performance.now;}
+   expect(()=>boot.LauncherBytes(inv.issue.launcherId),'BOOTSTRAP_EXPIRED');
+   assert.equal(store.Load().launchers[inv.issue.launcherId].status,'EXPIRED');
+   assert.equal(store.Load().launchers[inv.issue.launcherId].profile,undefined);
+  });
+  await t.test('unused A expires on elapsed monotonic time while wall time is unchanged',()=>{
+   const inv=invite(),{performance}=require('node:perf_hooks'),descriptor=Object.getOwnPropertyDescriptor(performance,'now'),future=performance.now()+boot.LAUNCHER_MS+1;
+   try{
+    Object.defineProperty(performance,'now',{configurable:true,value:()=>future});
+    expect(()=>boot.LauncherBytes(inv.issue.launcherId),'BOOTSTRAP_EXPIRED');
+   }finally{if(descriptor)Object.defineProperty(performance,'now',descriptor);else delete performance.now;}
+   assert.equal(store.Load().launchers[inv.issue.launcherId].status,'EXPIRED');
+   assert.equal(store.Load().launchers[inv.issue.launcherId].profile,undefined);
+   expect(()=>boot.LauncherBytes(inv.issue.launcherId),'BOOTSTRAP_EXPIRED');
+   expect(()=>boot.IssueLauncher(inv.request,'KEYLESS_TEST'),'BOOTSTRAP_EXPIRED');
   });
   await t.test('TPM policy cannot be downgraded or labelled attested by possession signatures',()=>{
    const inv=invite(),app=fixture.Device();store.Atomic(db=>{db.deviceIdentity.mode='TPM_ATTESTED';db.deviceIdentity.revision++;});

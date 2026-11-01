@@ -3,8 +3,23 @@ const authority=require("../../../services/security/peace.desktop-security-autho
 const operations=require("../../../services/security/peace.desktop-security-operations");
 const guard=require("../../../services/authentication/peace.desktop-admin-guard");
 const {Json,ApiError}=require("../../http/peace.api-context");
+// An explicit, bounded disk audit; never run during dashboard polling. A single
+// monotonic cooldown also bounds work across multiple administrator sessions.
+let lastReleaseAuditNs=null;
 async function Handle({method,pathname,body,req,res,session,desktopAuthorization}) {
   const prefix='/api/desktop/bootstrap/security-operations';
+  if(pathname==='/api/desktop/bootstrap/security-authority/release-readiness'){
+    const check=guard.CheckSession(session,pathname,method);
+    if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
+    if(method!=='GET'){ApiError(res,405,'METHOD_NOT_ALLOWED');return true;}
+    const now=process.hrtime.bigint();
+    if(lastReleaseAuditNs!==null&&now-lastReleaseAuditNs<3000000000n){
+      res.setHeader('Retry-After','3');ApiError(res,429,'RELEASE_AUDIT_RATE_LIMITED');return true;
+    }
+    lastReleaseAuditNs=now;
+    res.setHeader('Cache-Control','no-store');
+    Json(res,200,{ok:true,readiness:require('../../../services/security/peace.release-readiness').AuditActive()});return true;
+  }
   if(pathname==='/api/desktop/bootstrap/security-authority/preview'&&method==='POST'){
     const check=guard.CheckSession(session,pathname,method);
     if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}

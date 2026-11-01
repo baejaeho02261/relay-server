@@ -26,11 +26,11 @@ function Apply(body,actor='ADMIN'){
   if(Epoch(next)!==body.expectedEpoch)Fail('SERVER_RECOVERY_EPOCH_CONFLICT');
   const boot=require("../bootstrap/peace.desktop-bootstrap"),at=Date.now();let launchers=0,flows=0,overlays=0;
   next.serverRecovery={version:1,epoch:body.expectedEpoch+1,receipts:next.serverRecovery?.receipts||{}};
-  for(const row of Object.values(next.launchers))if(row.status==='AVAILABLE'){row.status='EXPIRED';row.expiresAt=Math.min(row.expiresAt,at);delete row.ticketNonce;delete row.profile;row.retiredAt=at;launchers++;}
+  for(const row of Object.values(next.launchers))if(row.status==='AVAILABLE'){row.status='EXPIRED';row.expiresAt=Math.min(row.expiresAt,at);boot.RetireLauncher(row,at);launchers++;}
   // Expiry time itself must remain > issuedAt for historic record validation.
   for(const row of Object.values(next.launchers))if(row.retiredAt===at&&row.expiresAt<=row.issuedAt)row.expiresAt=row.issuedAt+1;
   for(const row of Object.values(next.overlays||{}))if(!TERMINAL.includes(row.status)){row.status='REVOKED';row.revokedAt=at;row.reason='SERVER_RECOVERY';row.retiredAt=at;delete row.ticketNonce;delete row.sessionNonce;delete row.claimRecoveryUntil;delete row.claimFingerprint;row.chunkOffsets=[];overlays++;}
-  for(const row of Object.values(next.flows))if(!TERMINAL.includes(row.status)){row.status='REVOKED';row.revokedAt=at;row.reason='SERVER_RECOVERY';const launcher=next.launchers[row.launcherId];if(launcher){launcher.status='REVOKED';delete launcher.ticketNonce;delete launcher.profile;launcher.retiredAt||=at;}boot.RetireFlow(row,next);flows++;}
+  for(const row of Object.values(next.flows))if(!TERMINAL.includes(row.status)){row.status='REVOKED';row.revokedAt=at;row.reason='SERVER_RECOVERY';const launcher=next.launchers[row.launcherId];if(launcher){launcher.status='REVOKED';boot.RetireLauncher(launcher,at);}boot.RetireFlow(row,next);flows++;}
   const receipt={epoch:next.serverRecovery.epoch,fingerprint,at,launchers,flows,overlays,reasonCode:body.reasonCode};next.serverRecovery.receipts[key]=receipt;return receipt;
  });
  require("../security/peace.desktop-security-authority").InvalidateAll();
