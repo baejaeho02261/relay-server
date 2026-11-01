@@ -16,7 +16,7 @@ const MiB=1024n*1024n,inventory=text("Cozy.Source/Cozy.Integrity/Cozy.ModuleInve
 const allowFile=(bytes,remaining)=>bytes<=limits.InventoryPeFileLimit&&remaining>=0n&&bytes<=remaining;
 const allowCode=(bytes,exports,remaining)=>remaining>0n&&bytes<=remaining&&exports<=remaining-bytes;
 const boundedReader=reader.slice(reader.indexOf('function ReadMeasurementBytesBounded',reader.indexOf('implementation')));
-test('source: all four measurement layers include one resource-limit definition',()=>{for(const s of [inventory,reader,code,header])assert.ok(s.includes('{$I cozy.ModuleLimits.inc}'));assert.equal(Object.keys(limits).length,8);});
+test('source: all four measurement layers include one resource-limit definition',()=>{for(const s of [inventory,reader,code,header])assert.ok(s.includes('{$I Cozy.ModuleLimits.inc}'));assert.equal(Object.keys(limits).length,8);});
 test('profile: own A/B/O caps stay 64 MiB file, 128 MiB image, 64 MiB code',()=>{assert.equal(limits.OwnPeFileLimit,64n*MiB);assert.equal(limits.OwnPeImageLimit,128n*MiB);assert.equal(limits.OwnPeCodeLimit,64n*MiB);});
 test('profile: module caps are finite 512 MiB file, 1 GiB image, 256 MiB code',()=>{assert.equal(limits.InventoryPeFileLimit,512n*MiB);assert.equal(limits.InventoryPeImageLimit,1024n*MiB);assert.equal(limits.InventoryPeCodeLimit,256n*MiB);});
 test('boundary model: a valid-sized 80 MiB or 384 MiB DLL is no longer rejected at 64 MiB',()=>{for(const n of [80n,384n])assert.equal(allowFile(n*MiB,limits.InventoryFileBudget),true);assert.ok(inventory.includes('Size > InventoryPeFileLimit'));});

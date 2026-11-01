@@ -6,8 +6,9 @@ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-crc-release-'));
 process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE='json';process.env.HA_ENABLED='0';process.env.DESKTOP_PUBLIC_HOST='127.0.0.1';process.env.DESKTOP_PUBLIC_PORT='29131';
 require("../../core/peace.utilities.js").EnsureDirs();
 const boot=require("../../services/bootstrap/peace.desktop-bootstrap"),auth=require("../../services/security/peace.desktop-security-authority"),ops=require("../../services/security/peace.desktop-security-operations"),store=require("../../services/bootstrap/peace.desktop-bootstrap-store");
-const integrity=require("../../services/integrity/peace.desktop-integrity"),crc=require("../../services/runtime/peace.desktop-crc-policy"),{PE}=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture");
-const actor='CRC-RELEASE-TEST';
+const integrity=require("../../services/integrity/peace.desktop-integrity"),crc=require("../../services/runtime/peace.desktop-crc-policy"),fixture=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture"),{PE}=fixture;
+const actor='CRC-RELEASE-TEST',releaseKey=crypto.generateKeyPairSync('ed25519'),releaseIdentity={keyId:fixture.sha256(releaseKey.publicKey.export({type:'spki',format:'der'})),publicKey:releaseKey.publicKey.export({type:'spki',format:'pem'}).toString()};
+function approve(role,version,bytes){return{keyId:releaseIdentity.keyId,signature:crypto.sign(null,Buffer.from(auth.ReleaseCanonical(role,version,fixture.sha512(bytes))),releaseKey.privateKey).toString('base64')};}
 let count=0;
 function test(name,fn){fn();count++;console.log('PASS '+name);}
 function reject(fn,code){assert.throws(fn,error=>error.message===code,code);}
@@ -16,7 +17,7 @@ function activate(ids){return ops.ActivatePair({...ids,expectedRevision:ops.Revi
 const partial=integrity.CodeImage(partialBytes('A')).crcLayers;
 assert.equal(crc.Validate(partial),true);assert.equal(crc.Compare(partial,partial).complete,false);
 store.Load();
-const artifacts={};let ids,receipt,request;
+const artifacts={};let ids,receipt,request,templates;
 test('A/B/O incomplete candidate uploads cannot persist bytes, artifacts or active pointers',()=>{
  for(const component of ['A','B','O']){
   const before=JSON.stringify(store.Load()),files=fs.readdirSync(path.join(temp,'desktop-bootstrap')).sort();
@@ -34,11 +35,13 @@ test('Provisional metadata checks remain independent; stored artifact checks req
 });
 test('Complete candidates may be staged before their required build contracts are registered',()=>{
  ops.SetControls({expectedRevision:ops.Revision(),requireBuildContract:true},actor);
- for(const component of ['A','B','O']) artifacts[component]=ops.Stage(component,'1.0',PE(component),undefined,actor);
+ auth.SetPolicy({expectedRevision:auth.Policy().revision,trustedReleaseKeys:[releaseIdentity]},actor);templates=fixture.CurrentTemplates({version:'1.0',approve});
+ for(const component of ['A','B','O']) artifacts[component]=ops.Stage(component,'1.0',templates.outputs[component].bytes,approve(component,'1.0',templates.outputs[component].bytes),actor);
  assert.deepEqual(store.Load().active,{});
  ids={aId:artifacts.A.id,bId:artifacts.B.id,oId:artifacts.O.id};
  assert.ok(ops.PreviewPair(ids).reasons.includes('SECURITY_BUILD_CONTRACT_REQUIRED'));
  ops.SetControls({expectedRevision:ops.Revision(),requireBuildContract:false},actor);
+ auth.SetPolicy({expectedRevision:auth.Policy().revision,mode:'enforce',requireReleaseSignature:true,trustedReleaseKeys:[releaseIdentity]},actor);
  assert.equal(activate(ids).eligible,true);
  request={requestId:crypto.randomUUID(),label:'retained receipt'};receipt=boot.IssueLauncher(request,actor);
  assert.equal(boot.IssueLauncher(request,actor).launcherId,receipt.launcherId);
@@ -56,14 +59,14 @@ for(const component of ['A','B','O'])test(component+' historical incomplete base
   reject(()=>boot.IssueLauncher({requestId:crypto.randomUUID()},actor),'CRC_COVERAGE_INCOMPLETE');
   reject(()=>boot.IssueLauncher(request,actor),'CRC_COVERAGE_INCOMPLETE');
   // Re-staging identical bytes must not silently upgrade old recorded coverage.
-  reject(()=>ops.Stage(component,'1.0',PE(component),undefined,actor),'CRC_COVERAGE_INCOMPLETE');
+  reject(()=>ops.Stage(component,'1.0',templates.outputs[component].bytes,approve(component,'1.0',templates.outputs[component].bytes),actor),'CRC_COVERAGE_INCOMPLETE');
   assert.equal(JSON.stringify(store.Load()),before);
  }finally{store.Atomic(db=>{db.artifacts[id].crcLayers=complete;});}
 });
 test('Only an explicit coverage policy change permits structurally valid partial baselines',()=>{
  auth.SetPolicy({expectedRevision:auth.Policy().revision,requireCompleteCrcLayers:false},actor);
  for(const component of ['A','B','O']){
-  const out=boot.Publish(component,'2.0',partialBytes(component)),row=store.Load().artifacts[out.id];
+  const out=boot.Publish(component,'2.0',partialBytes(component),approve(component,'2.0',partialBytes(component)),{activate:false}),row=store.Load().artifacts[out.id];
   assert.equal(out.crcCoverage.matched,true);assert.equal(out.crcCoverage.complete,false);
   assert.equal(auth.ArtifactReason(row,auth.Policy()),'');
   for(const crcLayers of [undefined,null,{}, {...partial,nvme:{...partial.nvme,status:'measured'}}]){
@@ -71,6 +74,9 @@ test('Only an explicit coverage policy change permits structurally valid partial
    reject(()=>auth.RequireArtifact({...row,crcLayers}),'CRC_BASELINE_UNAVAILABLE');
   }
  }
+ // Model a historical active partial baseline under the explicit relaxed policy.
+ // Current candidate staging never silently replaces the protected active cohort.
+ store.Atomic(db=>{for(const component of ['A','B','O'])db.artifacts[db.active[component]].crcLayers=structuredClone(partial);});
  const preview=auth.PreviewPolicy({expectedRevision:auth.Policy().revision,requireCompleteCrcLayers:true});
  assert.equal(preview.eligible,false);
  reject(()=>auth.SetPolicy({expectedRevision:auth.Policy().revision,requireCompleteCrcLayers:true},actor),'CRC_COVERAGE_INCOMPLETE');

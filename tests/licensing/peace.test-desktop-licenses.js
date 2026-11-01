@@ -35,6 +35,7 @@ check('Period issuance is rejected and legacy deadlines remain authoritative',()
  const key=d.Create({requestId:require('node:crypto').randomUUID(),label:'기존 기한'},'ADMIN:test'),before=structuredClone(d.DB());
  // Simulate an already persisted FIX80 license without re-enabling period
  // creation through any production endpoint.
+ bootstrapFixture.Session(a,key.licenseKey);
  d.DB().licenses[key.license.id].expiresAt=Date.now()+500;d.DB().revision++;journal.Commit(before,d.DB());
  const deadline=d.DB().licenses[key.license.id].expiresAt,r=Call(a,'redeem',{licenseKey:key.licenseKey}),real=Date.now;
  Date.now=()=>real()+1000;try{assert.equal(d.Public(d.DB().licenses[key.license.id]).status,'EXPIRED');assert.throws(()=>Call(a,'verify',{activationToken:r.activationToken}),/DESKTOP_EXPIRED|BOOTSTRAP_EXPIRED|DESKTOP_CHALLENGE_EXPIRED/);}finally{Date.now=real;}

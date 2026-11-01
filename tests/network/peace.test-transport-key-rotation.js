@@ -13,7 +13,7 @@ function reject(code,fn){assert.throws(fn,e=>e.message===code,code);}async funct
 const beginShape=require('../fixtures/protocol/peace.packet-schema-cases.json').cases.find(p=>p.operation==='bootstrap'&&p.body.action==='begin').body;
 const request=extra=>({requestId:crypto.randomUUID(),expectedRevision:rotation.Summary().revision,...extra});
 (async()=>{try{
- for(const role of ['A','B','O'])boot.Publish(role,'98.0.0',f.PE(role));
+ f.CurrentCohort({version:'98.0.0'});
  server=transport.CreateServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));process.env.DESKTOP_PUBLIC_PORT=String(server.address().port);oldProfile=keys.Profile();
  const d=f.Device(),session=f.Session(d),status={action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken};
  await test('Prepare persists a separate purpose-bound key and leaves current clients unchanged',async()=>{body=request();prepared=rotation.Run('prepare',body,'TEST');assert.notEqual(prepared.keyId,oldProfile.serverKeyId);assert.equal(keys.Profile().serverKeyId,oldProfile.serverKeyId);const rev=rotation.Summary().revision;assert.deepEqual(rotation.Run('prepare',body,'TEST'),prepared);assert.equal(rotation.Summary().revision,rev);reject('CONNECT_ROTATION_REQUEST_REUSED',()=>rotation.Run('prepare',body,'OTHER'));assert.equal((await f.TcpBootstrap(oldProfile,status)).sessionId,session.sessionId);reject('CONNECT_PIN_MISMATCH',()=>keys.Resolve(prepared.keyId));});

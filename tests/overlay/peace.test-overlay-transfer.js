@@ -18,34 +18,35 @@ function reject(fn,code){assert.throws(fn,e=>code?e.message===code:/^(BOOTSTRAP|
 // Model a new committed generation rather than changing expiry at one frozen issue time.
 function proof(d,action,payload){clock++;const body={action,requestId:crypto.randomUUID(),deviceId:d.deviceId,publicKey:d.publicKey,payloadHash:sha512(JSON.stringify(payload))},c=licenses.Challenge(body);fixture.ObserveLicense(d,action,body.requestId,body.payloadHash,payload);return licenses.Execute({...body,challengeId:c.challengeId,payloadJSON:JSON.stringify(payload),signature:fixture.Sign(d,c.canonical)});}
 function setup(){
- const d=fixture.Device(),begin=fixture.Begin(d).begin;fixture.Download(begin);const b=fixture.Claim(d,begin,fixture.Finish(d,begin));
+ const parent=fixture.Device(),d=fixture.Child(parent),overlayDevice=fixture.Child(d),begin=fixture.Begin(parent).begin;fixture.Download(begin);const b=fixture.Claim(parent,begin,fixture.Finish(parent,begin),d);
  const common={...fixture.Evidence(d,b),bootstrapSessionId:b.sessionId,bootstrapSessionToken:b.sessionToken,appVersion:'89.0.0'},issue=licenses.Create({requestId:crypto.randomUUID(),label:'overlay transfer'},'TEST');
  const activation=proof(d,'redeem',{...common,licenseKey:issue.licenseKey,deviceName:'Transfer test'}),prepared=proof(d,'overlay',{...common,activationToken:activation.activationToken});
  for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize)bootstrap.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset});
  const finished=bootstrap.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,prepared.finishCanonical)});
- const o=bootstrap.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
+ const o=bootstrap.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,...fixture.Delegated(d,overlayDevice,'O',finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
  const context={stage:'O',sessionId:o.sessionId,sessionToken:o.sessionToken,machineId:d.machineId};
+ fixture.Enroll(overlayDevice,context);
  const commit={action:'overlayCommit',handoffVersion:1,sessionId:b.sessionId,sessionToken:b.sessionToken,overlayId:prepared.overlayId,signature:fixture.Sign(d,['GAME-OVERLAY-TRANSFER-V1',b.sessionId,prepared.overlayId].join('\n'))};
- return {d,b,o,prepared,context,commit,common,activation};
+ return {d,overlayDevice,b,o,prepared,context,commit,common,activation};
 }
 function observe(s){
  clock++;
  const base=overlay.AuthenticateIntegrityReport(s.context).integrityArtifact;
  const payload=JSON.stringify({version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,fileXxh3_128:base.fileXxh3_128,fileBlake3:base.fileBlake3,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3},crcLayers:base.crcLayers});
  const challenge=reports.Execute({...s.context,action:'challenge'});
- assert.equal(reports.Execute({...s.context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(s.d,reports.Canonical(s.o.sessionId,challenge,payload))}).status,'VERIFIED');
- fixture.Observe(s.d,{...s.context,intent:'verify',binding:authority.Binding(s.o.sessionId,base.sha512)});
+ assert.equal(reports.Execute({...s.context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(s.overlayDevice,reports.Canonical(s.o.sessionId,challenge,payload))}).status,'VERIFIED');
+ fixture.Observe(s.overlayDevice,{...s.context,intent:'verify',binding:authority.Binding(s.o.sessionId,base.sha512)});
 }
-function verify(s){observe(s);return bootstrap.Execute({action:'overlayVerify',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,...fixture.Evidence(s.d,s.o)});}
+function verify(s){observe(s);return bootstrap.Execute({action:'overlayVerify',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,...fixture.Evidence(s.overlayDevice,s.o)});}
 function parent(s){return Object.values(bootstrap.Initialize().flows).find(r=>r.sessionId===s.b.sessionId);}
 function child(s){return bootstrap.Initialize().overlays[s.prepared.overlayId];}
-for(const kind of ['A','B','O'])bootstrap.Publish(kind,'89.0.0',fixture.PE(kind));
+fixture.CurrentCohort({version:'89.0.0'});
 require("../../services/network/peace.connect-transport-key").Profile();clock=Date.now();Date.now=()=>clock;
 const s=setup();let receipt;
 check('Claim alone cannot retire B; a successful O authority verification is required',()=>{reject(()=>bootstrap.Execute(s.commit),'BOOTSTRAP_OVERLAY_NOT_READY');assert.equal(parent(s).status,'CLAIMED');const state=verify(s);assert.equal(state.transferConfirmed,false);assert.equal(state.handoffVersion,1);assert.equal(state.parentSessionId,s.b.sessionId);assert.equal(Object.keys(state).length,7);});
 check('Capture privacy is optional, negotiated and default off without changing legacy replies',()=>{
  const config=require("../../config/peace.runtime-configuration");assert.equal(config.OVERLAY_CAPTURE_PRIVACY,false);
- observe(s);const body={action:'overlayVerify',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,...fixture.Evidence(s.d,s.o),capturePrivacyVersion:1};
+ observe(s);const body={action:'overlayVerify',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,...fixture.Evidence(s.overlayDevice,s.o),capturePrivacyVersion:1};
  const first=bootstrap.Execute(body);assert.equal(first.capturePrivacy,false);assert.equal(Object.keys(first).length,8);
  config.OVERLAY_CAPTURE_PRIVACY=true;
  assert.deepEqual(bootstrap.Execute(body),first,'a policy change cannot rewrite an existing retry receipt');

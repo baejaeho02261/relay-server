@@ -8,10 +8,10 @@ if(process.argv[2]){
  require('../../core/peace.utilities').EnsureDirs();
  const store=require('../../services/bootstrap/peace.desktop-bootstrap-store'),ops=require('../../services/security/peace.desktop-security-operations'),prov=require('../../services/artifacts/peace.desktop-release-provenance'),auth=require('../../services/security/peace.desktop-security-authority'),licenses=require('../../services/licensing/peace.desktop-licenses'),keys=require('../../services/security/peace.desktop-key-purposes');
  if(mode==='seed'){
-  const f=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture'),boot=f.Publish();boot.Publish('O','80.0.0',f.PE('O'));
+  const f=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture'),boot=f.Publish();
   licenses.Create({requestId:crypto.randomUUID(),label:'Preserved license'},'TEST');
   boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Preserved issuance'},'TEST');
-  const pair=store.Load(),manifest={version:1,releaseName:'migration fixture',securityVersion:1,protocol:'GAME-CONNECT-4',hashVersion:3,handoffVersion:1,sourceManifestSha512:'1'.repeat(128),policySha512:prov.PolicyDigest(auth.Policy()),toolchain:{delphi:'synthetic',cpp:'synthetic',windowsSdk:'synthetic',imgui:'synthetic'},artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,pair.artifacts[pair.active[k]].sha512]))};
+  const pair=store.Load(),manifest={version:1,releaseName:'migration fixture',securityVersion:1,protocol:'GAME-CONNECT-4',hashVersion:3,handoffVersion:3,sourceManifestSha512:'1'.repeat(128),policySha512:prov.PolicyDigest(auth.Policy()),toolchain:{delphi:'synthetic',cpp:'synthetic',windowsSdk:'synthetic',imgui:'synthetic'},artifacts:Object.fromEntries(['A','B','O'].map(k=>[k,pair.artifacts[pair.active[k]].sha512]))};
   ops.RecordReleaseManifest({expectedRevision:ops.Revision(),manifest},'TEST');
   const release=crypto.generateKeyPairSync('ed25519').publicKey,pem=release.export({type:'spki',format:'pem'}).toString();auth.SetPolicy({expectedRevision:auth.Policy().revision,trustedReleaseKeys:[{keyId:prov.KeyId(release),publicKey:pem}]},'TEST');
   const profile=require('../../services/security/peace.desktop-mitigation-profiles'),legacyKey=crypto.generateKeyPairSync('ed25519'),legacyPem=legacyKey.publicKey.export({type:'spki',format:'pem'}).toString(),legacyId=prov.KeyId(legacyKey.publicKey),at=Date.now(),manifestId=prov.ManifestId(manifest);

@@ -12,5 +12,7 @@
     "B": "C:\\ApprovedRelease\\cozy.Client.exe",
     "O": "C:\\ApprovedRelease\\cozy.Overlay.exe"
   },
-  "allowIsolatedPcUnlock": true
+  "allowIsolatedPcUnlock": true,
+  "issuedASigningKeyFile": "C:\\Users\\Operator\\AppData\\Local\\Cozy.ServerKeys\\issued-a-private.pem",
+  "allowIsolatedRequestApproval": true
 }

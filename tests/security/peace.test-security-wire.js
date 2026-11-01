@@ -7,7 +7,7 @@ process.env.DATA_DIR=temp;process.env.STORAGE_ENGINE='json';process.env.HA_ENABL
 require("../../core/peace.utilities.js").EnsureDirs();
 const transport=require("../../services/network/peace.desktop-connect"),keys=require("../../services/network/peace.connect-transport-key");
 const fixture=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture"),authority=require("../../services/security/peace.desktop-security-authority");
-const device=fixture.Device();let profile,server,lastFrame;
+let device=fixture.Device(),profile,server,lastFrame;
 async function Round(body){
  const key=crypto.randomBytes(32),nonce=crypto.randomBytes(12),requestId=crypto.randomUUID();
  const cipher=crypto.createCipheriv('aes-256-gcm',key,nonce);cipher.setAAD(transport.Aad('REQUEST',requestId,profile.serverKeyId));
@@ -33,7 +33,7 @@ async function Wire(frame){
  try{
   server=transport.CreateServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));process.env.DESKTOP_PUBLIC_PORT=String(server.address().port);profile=keys.Profile();
   const boot=require("../../services/bootstrap/peace.desktop-bootstrap"),ops=require("../../services/security/peace.desktop-security-operations");
-  for(const component of ['A','B']){const artifact=boot.Publish(component,'88.0.0',fixture.PE(component,authority.DOMAIN));ops.SetContract({expectedRevision:ops.Revision(),artifactId:artifact.id,contract:{version:1,evidenceVersion:1,minApiSlots:167,maxApiSlots:167,requiredChecks:['ownImage','apiStorage','mitigations']}},'WIRE_TEST');}
+  const cohort=fixture.CurrentCohort({version:'88.0.0',marker:authority.DOMAIN});for(const component of ['A','B','O']){const artifact=cohort.selected[component];ops.SetContract({expectedRevision:ops.Revision(),artifactId:artifact.id,contract:{version:1,evidenceVersion:1,minApiSlots:167,maxApiSlots:167,requiredChecks:['ownImage','apiStorage','mitigations']}},'WIRE_TEST');}
   ops.SetControls({expectedRevision:ops.Revision(),requireBuildContract:true},'WIRE_TEST');
   const started=fixture.Begin(device);fixture.Download(started.begin);
   const aCtx={action:'challenge',stage:'A',sessionId:started.begin.flowId,sessionToken:started.begin.downloadTicket,machineId:device.machineId,intent:'finish',binding:authority.Binding(started.begin.flowId,started.begin.release.sha512)};
@@ -41,7 +41,7 @@ async function Wire(frame){
   const baseline=boot.AuthenticateIntegrityReport(aCtx).integrityArtifact;
   const aPayload=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:baseline.sha512,fileCrc64:baseline.crc64,codeSha512:baseline.codeSha512,codeCrc64:baseline.codeCrc64,codeXxh3_128:baseline.codeXxh3_128,codeBlake3:baseline.codeBlake3,crcLayers:baseline.crcLayers,apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'});
   const aSubmit=await Round({...aCtx,action:'submit',challengeId:ac.data.challengeId,payload:aPayload,signature:fixture.Sign(device,authority.Canonical(aCtx,ac.data,aPayload))});assert.equal(aSubmit.data.status,'PASS');
-  const session=fixture.Claim(device,started.begin,fixture.Finish(device,started.begin,false));const ctx={action:'challenge',stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:device.machineId,intent:'verify',binding:authority.Binding('wire-test',fixture.sha512('payload'))};
+  const child=fixture.Child(device),session=fixture.Claim(device,started.begin,fixture.Finish(device,started.begin,false),child);device=child;const ctx={action:'challenge',stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:device.machineId,intent:'verify',binding:authority.Binding('wire-test',fixture.sha512('payload'))};
   const first=await Round(ctx);assert.equal(first.ok,true,JSON.stringify(first));assert.equal(Object.keys(first.data).length,8);
   const payload=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:session.release.sha512,fileCrc64:session.release.crc64,codeSha512:session.release.codeSha512,codeCrc64:session.release.codeCrc64,codeXxh3_128:session.release.codeXxh3_128,codeBlake3:session.release.codeBlake3,crcLayers:boot.AuthenticateIntegrityReport(ctx).integrityArtifact.crcLayers,apiSealed:true,apiSlots:167,dynamicCode:'ALLOWED',cfg:'DISABLED'});
   const proof={...ctx,action:'submit',challengeId:first.data.challengeId,payload,signature:fixture.Sign(device,authority.Canonical(ctx,first.data,payload))};

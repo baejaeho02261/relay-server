@@ -136,7 +136,7 @@
     "test:protocol:documents": "node --test tests/protocol/peace.test-document-schema.js",
     "test:members": "node --test tests/licensing/peace.test-desktop-members.js tests/web/peace.test-desktop-member-ui.js",
     "test:overlay:text-input": "node --test tests/overlay/peace.test-overlay-text-input.js",
-    "test:device:approval": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js",
+    "test:device:approval": "node --test tests/bootstrap/peace.test-keyless-bootstrap.js tests/bootstrap/peace.test-keyless-legacy-receipts.js tests/bootstrap/peace.test-repeat-approval-legacy.js tests/web/peace.test-keyless-approval-ui.js",
     "test:handoff:fragments": "node tests/bootstrap/peace.test-handoff-pipe-fragments.js",
     "test:crc:collision": "node tests/cryptography/peace.test-crc-collision-vectors.js",
     "test:support:retired": "node tests/storage/peace.test-retired-support-storage.js && node tests/web/peace.test-retired-support-http.js",

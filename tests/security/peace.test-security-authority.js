@@ -40,8 +40,8 @@ function Observe(context, device, patch) {
 function Row(session) { return Object.values(boot.Initialize().flows).find(x => x.sessionId === session.sessionId); }
 function Fresh(session, intent, binding) { auth.RequireFresh(Row(session), 'B', intent, binding); }
 function NewSession(device) {
-  const started = Begin(device); Download(started.begin);
-  return Claim(device, started.begin, Finish(device, started.begin));
+  const parent=fixture.Child(device),started=Begin(parent);Download(started.begin);
+  return Claim(parent,started.begin,Finish(parent,started.begin),device);
 }
 function LeaseProof(device, session, action, requestId, extra) {
   const payloadJSON = JSON.stringify({ ...fixture.Evidence(device, session), ...extra,
@@ -50,7 +50,7 @@ function LeaseProof(device, session, action, requestId, extra) {
   const challenge = licenses.Challenge(base);
   return { ...base, challengeId: challenge.challengeId, payloadJSON, signature: Sign(device, challenge.canonical) };
 }
-let dev, start, session, verifyContext;
+let dev, parent, start, session, verifyContext;
 Check('Defaults preserve legacy builds, exact policy is bounded and immutable to caller', () => {
   assert.equal(auth.Policy().deviceSignalsRequested,false);
   const legacyPolicy=auth.Defaults();delete legacyPolicy.deviceSignalsRequested;assert.equal(auth.ValidatePolicy(legacyPolicy).deviceSignalsRequested,false);assert(!Object.hasOwn(legacyPolicy,'deviceSignalsRequested'));
@@ -67,13 +67,13 @@ Check('Capability comes from administrator-published bytes, not a client flag', 
   for (const component of ['A','B']) assert.equal(boot.Initialize().artifacts[boot.Initialize().active[component]].authorityVersion, 1);
   assert.equal(auth.PeCapabilities(PE('B')).authorityVersion, 1);const old=PE('B');const marker=old.indexOf(Buffer.from(auth.DOMAIN));old.fill(0,marker,marker+auth.DOMAIN.length);assert.equal(auth.PeCapabilities(old).authorityVersion,0);Reject(()=>boot.Publish('B','87.1.0',old),'SECURITY_CLIENT_UPGRADE_REQUIRED');
   assert.deepEqual(auth.PeCapabilities(Buffer.from('bad')), {authorityVersion:0,compiledCfg:false});
-  dev = Device(); start = Begin(dev); Download(start.begin);
+  fixture.CurrentCohort({version:'87.1.0',marker:auth.DOMAIN});dev=Device();parent=fixture.Child(dev);start=Begin(parent);Download(start.begin);
 });
 Check('Stage A cannot finish without a current A/finish decision', () => {
-  Reject(() => Finish(dev, start.begin,false), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
-  const ctx = Context(dev, 'A', start.begin, 'finish', auth.Binding(start.begin.flowId, start.begin.release.sha512));
-  const out = Observe(ctx, dev); assert.equal(out.status, 'PASS'); assert.equal(out.attested, false);
-  const finish = Finish(dev, start.begin,false); session = Claim(dev, start.begin, finish);
+  Reject(() => Finish(parent, start.begin,false), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
+  const ctx = Context(parent, 'A', start.begin, 'finish', auth.Binding(start.begin.flowId, start.begin.release.sha512));
+  const out = Observe(ctx, parent); assert.equal(out.status, 'PASS'); assert.equal(out.attested, false);
+  const finish = Finish(parent, start.begin,false); session = Claim(parent, start.begin, finish,dev);
   assert.equal(Object.keys(session.release).length, 13, 'Exact release schema matches integrity v3');
 });
 Check('One-use challenge, context binding and signature verification are enforced', () => {
@@ -242,12 +242,12 @@ Check('Policy revision invalidates all outstanding grants and pending signatures
   Reject(()=>auth.Execute(signed),'SECURITY_CHALLENGE_INVALID');
   Reject(()=>Fresh(session,'verify',verifyContext.binding),'SECURITY_FRESH_OBSERVATION_REQUIRED');
 });
-Check('Observe-only and opt-in mitigations have explicit distinct outcomes', () => {
+Check('Observe-only diagnostics do not authorize a bound server-policy cohort', () => {
   let p=auth.Policy(); auth.SetPolicy({expectedRevision:p.revision,mode:'observe',dynamicCode:'prohibit'},'TEST');
   const ctx=Context(dev,'B',session,'verify',sha512('observe')); let out=Observe(ctx,dev);
-  assert.equal(out.status,'INDETERMINATE'); assert.equal(out.proceed,true); Fresh(session,'verify',ctx.binding);
+  assert.equal(out.status,'INDETERMINATE');assert.equal(out.proceed,true);Reject(()=>Fresh(session,'verify',ctx.binding),'COZY_SERVER_POLICY_AUTHORITY_REQUIRED');
   p=auth.Policy(); auth.SetPolicy({expectedRevision:p.revision,mode:'enforce'},'TEST');
-  out=Observe(ctx,dev,{dynamicCode:'PROHIBITED'}); assert.equal(out.status,'PASS');
+  out=Observe(ctx,dev,{dynamicCode:'PROHIBITED'});assert.equal(out.status,'PASS');Fresh(session,'verify',ctx.binding);
   p=auth.Policy(); auth.SetPolicy({expectedRevision:p.revision,dynamicCode:'observe'},'TEST');
 });
 Check('Client-reported app version does not bypass server-approved minimum version', () => {
@@ -283,6 +283,7 @@ Check('Publisher supports detached approval bound to component/version/bytes', (
   boot.Publish('B',version,bytes,approval);
   Reject(()=>boot.Publish('B','88.0.1',bytes,approval),'SECURITY_RELEASE_SIGNATURE');
   const a=PE('A',auth.DOMAIN+' signed');boot.Publish('A',version,a,{keyId,signature:crypto.sign(null,Buffer.from(auth.ReleaseCanonical('A',version,sha512(a))),privateKey).toString('base64')});
+  const o=PE('O',auth.DOMAIN+' signed');boot.Publish('O',version,o,{keyId,signature:crypto.sign(null,Buffer.from(auth.ReleaseCanonical('O',version,sha512(o))),privateKey).toString('base64')});
   auth.SetPolicy({expectedRevision:auth.Policy().revision,requireReleaseSignature:true},'TEST');
   Reject(()=>boot.Publish('B',version,bytes),'SECURITY_RELEASE_SIGNATURE');
 });

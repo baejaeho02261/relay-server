@@ -40,6 +40,10 @@ function Seed(){
  Load();const f=require("../../tests/fixtures/bootstrap/peace.desktop-bootstrap-fixture"),licenses=require("../../services/licensing/peace.desktop-licenses");
  const device=f.Device(),issued=licenses.Create({requestId:crypto.randomUUID(),label:'ISOLATED RECOVERY DRILL FIXTURE'},'DRILL'),session=f.Session(device),payload={...f.Evidence(device,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,licenseKey:issued.licenseKey};
  const activated=licenses.Execute(Proof(device,'redeem',payload));assert.equal(activated.status,'USED');
+ // Generated synthetic fixture issuer stays in the owner-marked temporary root,
+ // outside copied backup data and source. Never import an operator issuer here.
+ const signer=Buffer.from(process.env.DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64||'','base64');
+ try{if(!signer.length)Fail('DRILL_SYNTHETIC_ISSUER_MISSING');fs.writeFileSync(SafePath(process.env.RECOVERY_DRILL_ROOT,path.join(process.env.RECOVERY_DRILL_ROOT,'synthetic-issuer.pem')),signer,{flag:'wx',mode:0o600});}finally{signer.fill(0);}
  require("../../storage/snapshots/peace.database.js").SaveDatabase();return {ok:true};
 }
 function ExistingSessionProbes(db){
@@ -57,24 +61,24 @@ function ExistingSessionProbes(db){
 }
 function DeviceLifecycle(){
  const f=require("../../tests/fixtures/bootstrap/peace.desktop-bootstrap-fixture"),boot=require("../../services/bootstrap/peace.desktop-bootstrap"),identity=require("../../services/devices/peace.desktop-device-identity"),store=require("../../services/bootstrap/peace.desktop-bootstrap-store");
- const app=f.Device(),oldKey=f.Device(),newKey=f.Device();
- function Context(session){return {stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:app.machineId};}
- function Register(context,key){const c=identity.Handle({...context,action:'challenge',requestId:crypto.randomUUID(),publicKey:key.publicKey,keyProvider:'SOFTWARE'});return identity.Handle({...context,action:'complete',challengeId:c.challengeId,signature:f.Sign(key,c.canonical),appSignature:f.Sign(app,c.canonical)});}
- const session=f.Session(app),context=Context(session),registered=Register(context,oldKey);
+ const parent=f.Device(),app=f.Child(parent),oldKey=f.Device(),newKey=f.Device();
+ const initial=f.Begin(parent,{persistent:oldKey});f.Download(initial.begin);const session=f.Claim(parent,initial.begin,f.Finish(parent,initial.begin),app);
+ const context={stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:app.machineId},registered=identity.State().enrollments[identity.EnrollmentId(oldKey.publicKey)];
  assert.equal(registered.assurance,'PERSISTENT_KEY_POSSESSION');
- const revocation=identity.Revoke({enrollmentId:registered.enrollmentId,expectedRevision:identity.State().revision,requestId:crypto.randomUUID(),reasonCode:'ADMIN_RECOVERY',replacementPublicKey:newKey.publicKey},'DRILL');
+ const revocation=identity.Revoke({enrollmentId:registered.id,expectedRevision:identity.State().revision,requestId:crypto.randomUUID(),reasonCode:'ADMIN_RECOVERY',replacementPublicKey:newKey.publicKey},'DRILL');
  assert.equal(revocation.status,'RETIRED');assert.ok(revocation.closed>=1);assert.equal(revocation.licenseCarryOver,false);
  Denied(()=>boot.AuthenticateIntegrityReport(context),['BOOTSTRAP_SESSION_CLOSED','BOOTSTRAP_REVOKED','BOOTSTRAP_SESSION_INVALID']);
- // New A must prove the approved replacement before finish because the binding
- // already has an enrollment. Use production begin/challenge/complete/finish.
- const {begin}=f.Begin(app),a={stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:app.machineId};
- Denied(()=>identity.Handle({...a,action:'challenge',requestId:crypto.randomUUID(),publicKey:oldKey.publicKey,keyProvider:'SOFTWARE'}),['DEVICE_KEY_REVOKED']);
- const replacement=Register(a,newKey);assert.equal(replacement.status,'ENROLLED');
- f.Download(begin);const fresh=f.Claim(app,begin,f.Finish(app,begin));Register(Context(fresh),newKey);
- assert.equal(identity.State().enrollments[registered.enrollmentId].status,'RETIRED');
- assert.equal(identity.State().enrollments[replacement.enrollmentId].status,'ACTIVE');
+ const freshParent=f.Child(app),{begin}=f.Begin(freshParent,{persistent:newKey}),a={stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:app.machineId};
+ Denied(()=>identity.Handle({...a,action:'challenge',requestId:crypto.randomUUID(),publicKey:oldKey.publicKey,keyProvider:'SOFTWARE'}),['DEVICE_KEY_REVOKED','DEVICE_KEY_BINDING_MISMATCH']);
+ f.Download(begin);const fresh=f.Claim(freshParent,begin,f.Finish(freshParent,begin),app);
+ const replacement=identity.State().enrollments[identity.EnrollmentId(newKey.publicKey)];
+ assert.equal(identity.State().enrollments[registered.id].status,'RETIRED');assert.equal(replacement.status,'ACTIVE');
  identity.AssertSession(Object.values(store.Load().flows).find(r=>r.sessionId===fresh.sessionId),'B');
  return {name:'device_key_revoke_and_reregister',status:'PASS',scope:'SYNTHETIC_SOFTWARE_RSA_PROOFS_REAL_STORES',oldKeyDenied:true,newKeyRegistered:true,licenseCarryOver:false,hardwareTpm:'NOT_TESTED',windowsCng:'NOT_TESTED'};
+}
+function LoadSyntheticIssuer(){
+ const root=process.env.RECOVERY_DRILL_ROOT,file=SafePath(root,path.join(root,'synthetic-issuer.pem'));
+ let bytes;try{bytes=require("../../services/storage/peace.durable-file").ReadRegular(file,8192);const signer=crypto.createPrivateKey(bytes),signing=require("../../services/bootstrap/peace.issued-a-signing"),store=require("../../services/bootstrap/peace.desktop-bootstrap-store"),boot=require("../../services/bootstrap/peace.desktop-bootstrap"),db=store.Load(),anchor=signing.InspectTemplate(boot.ReadArtifactBytes(db.artifacts[db.active.A]));if(signing.PublicIdentity(crypto.createPublicKey(signer)).keyId!==anchor.keyId)Fail('DRILL_SYNTHETIC_ISSUER_MISMATCH');process.env[signing.ENV]=bytes.toString('base64');}finally{bytes?.fill(0);}
 }
 function Recover(synthetic,alreadyLoaded=false){
  if(!alreadyLoaded)Load();const boot=require("../../services/bootstrap/peace.desktop-bootstrap"),store=require("../../services/bootstrap/peace.desktop-bootstrap-store"),licenses=require("../../services/licensing/peace.desktop-licenses"),recovery=require("../../services/recovery/peace.desktop-recovery"),checks=[];
@@ -90,7 +94,7 @@ function Recover(synthetic,alreadyLoaded=false){
  if(spent.length){const attempted=structuredClone(licenses.DB());attempted.revision++;attempted.licenses[spent[0].id].consumed=false;Denied(()=>require("../../services/licensing/peace.desktop-journal").Commit(licenses.DB(),attempted),['DESKTOP_JOURNAL_CORRUPT']);}
  checks.push({name:'spent_license_preservation_and_unconsume_refusal',status:spent.length?'PASS':'NOT_TESTED',consumedLicenses:spent.length,scope:'REAL_JOURNAL_INVARIANT',...(!spent.length?{reason:'BACKUP_HAS_NO_SPENT_LICENSE'}:{})});
  if(synthetic){
-  assert.ok(spent.length&&probes.length&&acceptedBefore,'synthetic fixture must exercise live pre-recovery authority');
+  LoadSyntheticIssuer();assert.ok(spent.length&&probes.length&&acceptedBefore,'synthetic fixture must exercise live pre-recovery authority');
   // Derive the fixture's own deterministic issued key in memory. No credential
   // appears in the report or leaves the owned temporary process tree.
   const row=spent[0],key=crypto.createHmac('sha256',Buffer.from(before.signingSecret,'hex')).update('GAME-DESKTOP-KEY-V2|'+row.id+'|'+row.issuanceNonce).digest('hex').toUpperCase();

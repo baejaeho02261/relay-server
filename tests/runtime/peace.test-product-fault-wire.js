@@ -23,7 +23,7 @@ if(process.argv[2]!=='--worker'){
  const request=require("../fixtures/network/peace.tls-request-fixture").Request;
  let adapter,server;
  (async()=>{try{
-  for(const role of ['A','B','O'])boot.Publish(role,'92.0.0',f.PE(role,delegation.MARKER));
+  f.CurrentCohort({version:'92.0.0'});
   const a=f.Device(),b=f.Device();b.machineId=a.machineId;
   const begin=f.Begin(a,{handoffVersion:3}).begin;f.Download(begin);const finish=f.Finish(a,begin);
   const nonce=crypto.randomBytes(32).toString('hex').toUpperCase();

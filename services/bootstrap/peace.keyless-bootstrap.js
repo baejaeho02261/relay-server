@@ -6,14 +6,21 @@
 const crypto=require('node:crypto'),store=require('./peace.desktop-bootstrap-store');
 const deadline=require('../runtime/peace.desktop-deadline'),identity=require('../devices/peace.desktop-device-identity');
 const pending=new Map(),rates=new Map(),authorizations=new WeakMap();
-const TTL=300000,PROOF_MS=30000,RETRY_MS=30000,MAX_PENDING=256;
+const TTL=300000,PROOF_MS=30000,APPROVAL_MS=60000,RETRY_MS=30000,MAX_PENDING=256;
 const FORMAT='COZY_A_CONFIG_V3',FOOTER=Buffer.from('COZYA3CONFIG!','ascii');
 const BASE=['requestId','launcherId','launcherSha512','launcherCrc64','aCodeSha512','aCodeCrc64','publicKey','deviceId','machineId','handoffVersion'];
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 function Fail(code,status=403){const e=Error(code);e.desktopError=true;e.bootstrapError=true;e.status=status;throw e;}
 function Fields(body,names){if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).some(k=>!['action','version',...names].includes(k))||body.version!==1)Fail('KEYLESS_REQUEST_INVALID',400);}
 function Boot(){return require('./peace.desktop-bootstrap');}
-function Prune(){const at=deadline.Now();for(const [id,p]of pending)if(deadline.Expired(p,at)||p.status==='PROOF_REQUIRED'&&deadline.Expired(p.proof,at)||p.status==='CONSUMED'&&deadline.Expired(p.recovery,at))pending.delete(id);for(const [id,r]of rates)if(deadline.Expired(r,at))rates.delete(id);}
+function MachineGeneration(id){return require('../devices/peace.desktop-machine-policy').Generation(id);}
+function CurrentPolicy(p,db=store.Load()){
+ const policy=identity.BootstrapPolicy(p.begin.machineId,db);
+ if(policy.epoch!==p.epoch||policy.revision!==p.revision||policy.keyProvider!==p.keyProvider||MachineGeneration(p.begin.machineId)!==p.machinePolicyGeneration){pending.delete(p.id);Fail('KEYLESS_REQUEST_EXPIRED');}
+ identity.CheckBootstrapKey(p.persistentPublicKey,p.begin.machineId,p.keyProvider,db);
+ return policy;
+}
+function Prune(){const at=deadline.Now();for(const [id,p]of pending)if(deadline.Expired(p,at)||p.status==='PROOF_REQUIRED'&&deadline.Expired(p.proof,at)||p.status==='APPROVED'&&deadline.Expired(p.approval,at)||p.status==='CONSUMED'&&deadline.Expired(p.recovery,at))pending.delete(id);for(const [id,r]of rates)if(deadline.Expired(r,at))rates.delete(id);}
 function Launcher(id,machineId,allowConsumed=false,db=store.Load()){
  Boot().AssertSecurityAvailable();
  const row=db.launchers[id];
@@ -44,9 +51,9 @@ function Challenge(body){
  const app=require('../licensing/peace.desktop-licenses').ParseKey(body.publicKey),device=identity.CheckBootstrapKey(body.persistentPublicKey,body.machineId,body.keyProvider),policy=identity.BootstrapPolicy(body.machineId);
  if(app.deviceId!==body.deviceId||device.keyId!==body.persistentKeyId||device.keyId===app.deviceId||policy.epoch!==body.epoch||policy.revision!==body.revision)Fail('KEYLESS_REQUEST_INVALID');
  const begin=Object.fromEntries(BASE.map(k=>[k,body[k]])),fingerprint=sha(require('../protocol/peace.desktop-request-protocol').Stable(body));
- for(const p of pending.values())if(p.begin.launcherId===body.launcherId&&p.begin.requestId===body.requestId){if(p.fingerprint!==fingerprint)Fail('KEYLESS_REQUEST_REUSED',409);return ChallengeResult(p);}
+ for(const p of pending.values())if(p.begin.launcherId===body.launcherId&&p.begin.requestId===body.requestId){if(p.fingerprint!==fingerprint)Fail('KEYLESS_REQUEST_REUSED',409);CurrentPolicy(p,db);return ChallengeResult(p);}
  const bounds=deadline.After(Math.min(TTL,row.expiresAt-Date.now())),proof=deadline.After(Math.min(PROOF_MS,bounds.expiresAt-Date.now()));
- const p={id:crypto.randomBytes(24).toString('hex'),nonce:crypto.randomBytes(32).toString('base64'),begin,persistentPublicKey:body.persistentPublicKey,persistentKeyId:device.keyId,keyProvider:body.keyProvider,epoch:policy.epoch,revision:policy.revision,fingerprint,status:'PROOF_REQUIRED',createdAt:Date.now(),proof,...bounds};
+ const p={id:crypto.randomBytes(24).toString('hex'),nonce:crypto.randomBytes(32).toString('base64'),begin,persistentPublicKey:body.persistentPublicKey,persistentKeyId:device.keyId,keyProvider:body.keyProvider,epoch:policy.epoch,revision:policy.revision,machinePolicyGeneration:MachineGeneration(body.machineId),fingerprint,status:'PROOF_REQUIRED',createdAt:Date.now(),proof,...bounds};
  pending.set(p.id,p);return ChallengeResult(p);
 }
 const PROOF_FIELDS=['challengeId','appSignature','persistentSignature'];
@@ -54,9 +61,7 @@ function Pending(body,{consumed=false,db=store.Load()}={}){
  Fields(body,PROOF_FIELDS);Prune();
  const p=pending.get(body.challengeId);if(!p||deadline.Expired(p)||p.status==='PROOF_REQUIRED'&&deadline.Expired(p.proof)||p.status==='CONSUMED'&&!consumed)Fail('KEYLESS_REQUEST_EXPIRED');
  Launcher(p.begin.launcherId,p.begin.machineId,consumed&&p.status==='CONSUMED',db);
- const policy=identity.BootstrapPolicy(p.begin.machineId,db);
- if(policy.epoch!==p.epoch||policy.revision!==p.revision||policy.keyProvider!==p.keyProvider)Fail('KEYLESS_REQUEST_EXPIRED');
- identity.CheckBootstrapKey(p.persistentPublicKey,p.begin.machineId,p.keyProvider,db);
+ CurrentPolicy(p,db);
  return p;
 }
 function VerifyProof(p,body){
@@ -75,19 +80,24 @@ function StatusResult(p){return {version:1,status:p.status,challengeId:p.id,expi
 function Prove(body){const p=Pending(body);VerifyProof(p,body);if(p.status==='PROOF_REQUIRED'){p.status='PENDING_APPROVAL';p.provedAt=Date.now();}return StatusResult(p);}
 function Status(body){const p=Pending(body);VerifyProof(p,body);if(p.status==='PROOF_REQUIRED')Fail('KEYLESS_PROOF_REQUIRED');return StatusResult(p);}
 function Projection(p){return {id:p.id,launcherId:p.begin.launcherId,launcherSha512:p.begin.launcherSha512,appKeyId:p.begin.deviceId,persistentKeyId:p.persistentKeyId,machineId:p.begin.machineId,createdAt:p.createdAt,expiresAt:p.expiresAt,status:p.status,proof:'PERSISTENT_KEY_POSSESSION',hardwareAttested:false};}
-function ListPending(){Prune();return {requests:[...pending.values()].filter(p=>p.status==='PENDING_APPROVAL').map(Projection),approvalRequired:true,hardwareAttested:false};}
+function ListPending(){Prune();return {requests:[...pending.values()].filter(p=>p.status==='PENDING_APPROVAL').map(Projection),approvalRequired:true,approvalScope:'EACH_LAUNCH_REQUEST',approvalConsumeWindowMs:APPROVAL_MS,hardwareAttested:false};}
 function Approve(id,body,actor){
  if(!body||Object.getPrototypeOf(body)!==Object.prototype||Object.keys(body).sort().join(',')!=='identityConfirmed,launcherId,persistentKeyId'||body.identityConfirmed!==true||typeof actor!=='string'||!actor)Fail('KEYLESS_APPROVAL_MISMATCH',400);
  Prune();const p=pending.get(id);if(!p||!['PENDING_APPROVAL','APPROVED'].includes(p.status)||deadline.Expired(p))Fail('KEYLESS_REQUEST_EXPIRED');
  if(body.persistentKeyId!==p.persistentKeyId||body.launcherId!==p.begin.launcherId)Fail('KEYLESS_APPROVAL_MISMATCH');
- Launcher(p.begin.launcherId,p.begin.machineId);const policy=identity.BootstrapPolicy(p.begin.machineId);
- if(policy.epoch!==p.epoch||policy.revision!==p.revision)Fail('KEYLESS_REQUEST_EXPIRED');
- identity.CheckBootstrapKey(p.persistentPublicKey,p.begin.machineId,p.keyProvider);
- if(p.status!=='APPROVED'){
-  require('../storage/peace.desktop-operation-audit').Run('KEYLESS_BOOTSTRAP_APPROVE',actor,{subject:sha(p.id),identityConfirmed:true},()=>{if(deadline.Expired(p))Fail('KEYLESS_REQUEST_EXPIRED');});
-  if(deadline.Expired(p))Fail('KEYLESS_REQUEST_EXPIRED');p.status='APPROVED';p.approvedAt=Date.now();
+ Launcher(p.begin.launcherId,p.begin.machineId);CurrentPolicy(p);
+ const actorHash=sha(actor);
+ if(p.status==='APPROVED'){
+  // A retry observes the same decision; it cannot extend its lease or transfer
+  // the approving operator's acknowledgement to a different action owner.
+  if(p.approvalActorHash!==actorHash)Fail('KEYLESS_APPROVAL_MISMATCH');
+ }else{
+  require('../storage/peace.desktop-operation-audit').Run('KEYLESS_BOOTSTRAP_APPROVE',actor,{subject:sha(p.id),identityConfirmed:true},()=>{if(deadline.Expired(p))Fail('KEYLESS_REQUEST_EXPIRED');CurrentPolicy(p);});
+  if(deadline.Expired(p))Fail('KEYLESS_REQUEST_EXPIRED');CurrentPolicy(p);
+  p.approvedAt=Date.now();p.approval=deadline.After(Math.min(APPROVAL_MS,Math.max(1,p.expiresAt-p.approvedAt)));
+  p.approvalActorHash=actorHash;p.status='APPROVED';
  }
- return {version:1,id:p.id,status:'APPROVED',expiresAt:p.expiresAt,hardwareAttested:false};
+ return {version:1,id:p.id,status:'APPROVED',expiresAt:p.expiresAt,approvalExpiresAt:p.approval.expiresAt,approvalScope:'EACH_LAUNCH_REQUEST',hardwareAttested:false};
 }
 function Begin(body,beginHandler){
  const p=Pending(body,{consumed:true});VerifyProof(p,body);
@@ -104,6 +114,8 @@ function AssertBegin(authorization,row,body,db=store.Load()){
 }
 function CommitBegin(authorization,row,body,db){
  const p=AssertBegin(authorization,db.launchers[row.launcherId],body,db);
+ // Recheck the server-owned machine generation at the atomic consume point.
+ if(row.machinePolicyGeneration!==p.machinePolicyGeneration)Fail('KEYLESS_REQUEST_EXPIRED');
  row.keylessPersistentKeyId=p.persistentKeyId;
  store.AfterCommit(()=>{p.status='CONSUMED';p.flowId=row.id;p.recovery=deadline.After(Math.min(RETRY_MS,Math.max(1,p.expiresAt-Date.now())));});
 }

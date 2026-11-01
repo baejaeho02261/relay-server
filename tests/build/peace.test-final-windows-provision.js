@@ -19,6 +19,16 @@ function CreateInputs(run,keyless=false){
   const evidence=require('../../services/artifacts/peace.desktop-packing-evidence');
   const authority=require('../../services/security/peace.desktop-security-authority');
   const provenance=require('../../services/artifacts/peace.desktop-release-provenance');
+  const signing=require('../../services/bootstrap/peace.issued-a-signing');
+  // Current A issuance requires the verifier anchor and its matching issuer.
+  // This generated key lives only in this isolated synthetic child process;
+  // it is not a Windows publisher signature or evidence of native execution.
+  const issuer=keyless?crypto.generateKeyPairSync('rsa',{modulusLength:2048,publicExponent:65537}):null;
+  if(issuer){
+    const privatePem=issuer.privateKey.export({type:'pkcs8',format:'pem'});
+    const privateBytes=Buffer.from(privatePem);
+    try{process.env[signing.ENV]=privateBytes.toString('base64');}finally{privateBytes.fill(0);}
+  }
   const source=path.join(run,'source'),out=path.join(run,'prepared');
   fs.mkdirSync(path.join(source,'Relay Server','maintenance'),{recursive:true});
   json(path.join(source,'Relay Server','maintenance','source-manifest.json'),
@@ -26,8 +36,9 @@ function CreateInputs(run,keyless=false){
   const jobId=crypto.randomBytes(16).toString('hex'),createdAt=Date.now();
   const records=[],artifacts={},expected={},sourceRows={},serverPolicies=[];
   for(const [index,role]of ROLES.entries()){
-    const original=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture')
+    const raw=require('../fixtures/bootstrap/peace.desktop-bootstrap-fixture')
       .PE(role,'GAME-HANDOFF-V3 GAME-MEASUREMENT-PLAN-V1 FINAL FIXTURE TEST DATA');
+    const original=issuer&&role==='A'?require('../fixtures/bootstrap/peace.issued-a-fixture').WithAnchor(raw,issuer.publicKey):raw;
     const slot=keyless?v2.CreateUnsealedSlot():engine.CreateUnsealedSlot(),input=Buffer.concat([original,slot]);
     // Extend the last real PE section to include the protection slot.
     const pe=input.readUInt32LE(60),optional=pe+24,table=optional+input.readUInt16LE(pe+20);
@@ -47,7 +58,7 @@ function CreateInputs(run,keyless=false){
           size:result.bytes.length,toolSha512:result.toolSha512,profileSha512:result.profileSha512,
           createdAt,actorHash:sha('ISOLATED_SYNTHETIC_PACKING_JOB')});
       }finally{result.bytes.fill(0);}
-    }finally{input.fill(0);original.fill(0);slot.fill(0);}
+    }finally{input.fill(0);original.fill(0);raw.fill(0);slot.fill(0);}
   }
   // Exercise the receipt recorder against actual synthetic input/output hashes,
   // rather than inserting claimed receipt IDs without their production parser.
@@ -74,7 +85,8 @@ function CreateInputs(run,keyless=false){
   for(const file of fs.readdirSync(out))if(!file.endsWith('.exe'))
     assert.doesNotMatch(fs.readFileSync(path.join(out,file),'utf8'),/-----BEGIN PRIVATE KEY-----/);
   assert.equal(fs.existsSync(path.join(out,'ci-evidence.json')),false);
-  return {out,summary,records,receiptIds,expected,jobId,artifacts,serverPolicies};
+  return {out,summary,records,receiptIds,expected,jobId,artifacts,serverPolicies,
+    issuerKeyId:issuer?signing.PublicIdentity(issuer.publicKey).keyId:null};
 }
 
 function Scenario(name,run){
@@ -138,6 +150,13 @@ function Scenario(name,run){
     Object.assign(process.env,{DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'1',WEB_ADMIN_PORT:'0'});
     const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Isolated fixture approval scope'},'ISOLATED_WINDOWS_TEST');
     const row=store.Load().launchers[issue.launcherId],keylessService=require('../../services/bootstrap/peace.keyless-bootstrap');
+    const finalBytes=boot.LauncherBytes(issue.launcherId);
+    try{
+      const verified=require('../../services/bootstrap/peace.issued-a-signing').VerifyFinal(finalBytes,
+        {expectedTemplateSha512:f.expected.A.sha512,expectedKeyId:f.issuerKeyId});
+      assert.equal(verified.config.schema,3);assert.equal(verified.config.launcherId,row.id);
+      assert.equal(verified.sha512,row.sha512);assert.equal(row.configFormat,'COZY_A_CONFIG_V3');
+    }finally{finalBytes.fill(0);}
     const saved={ListPending:keylessService.ListPending,Approve:keylessService.Approve};let pending=[],calls=0;
     // This is a callback scope test. The real dual-key proof/approval protocol
     // is tested separately; these stubs never claim a Windows execution PASS.
@@ -199,6 +218,7 @@ function Scenario(name,run){
 }
 
 async function CleanupLoaded(){
+  delete process.env[require('../../services/bootstrap/peace.issued-a-signing').ENV];
   const errors=[],stops=[];
   const stop=(module,method)=>{try{const loaded=require.cache[module]?.exports;if(loaded?.[method])stops.push(Promise.resolve().then(()=>loaded[method]()));}catch(error){errors.push(error);}};
   stop(require.resolve('../../services/bootstrap/peace.desktop-bootstrap'),'Stop');

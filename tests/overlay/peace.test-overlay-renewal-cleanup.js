@@ -16,24 +16,24 @@ const execute=part(overlay,'procedure TOverlayWorker.Execute;','{$IFDEF GAME_OVE
 
 test('source: full-snapshot due time is completion-based and transfer-aware',()=>{
  assert.match(state,/Result := LastAcceptedTick = 0[\s\S]*not Transferred[\s\S]*NowTick - LastAcceptedTick >= 15000/);
- order(refresh,'OverlaySnapshotDue(TickCount, FLastSnapshotAt, FTransferred,','FClient.ReportIntegrity(','FLastSnapshotAt := TickCount;');
- assert.doesNotMatch(refresh,/if IncludeModules then FLastSnapshotAt := TickCount;\s*FClient.ReportIntegrity/);
+ order(refresh,'OverlaySnapshotDue(CozyTick, FLastSnapshotAt, FTransferred,','FClient.ReportIntegrity(','FLastSnapshotAt := CozyTick;');
+ assert.doesNotMatch(refresh,/if IncludeModules then FLastSnapshotAt := CozyTick;\s*FClient.ReportIntegrity/);
 });
 test('source: first frame is not raced by another measurement',()=>{
- order(execute,'if ShouldClose then','if not AwaitingTransfer then','PauseWorker(100);','Continue;','ReportVisible := FVisibleReportPending;','StartupPhase(\'VISIBLE\')');
+ order(execute,'if ShouldClose then','if not AwaitingTransfer then','CozyWaitForDelay(100, function: Boolean begin Result := Terminated; end);','Continue;','ReportVisible := FVisibleReportPending;','StartupPhase(\'VISIBLE\')');
 });
 test('source: parent exit confirmation takes the cheap path before full refresh',()=>{
- order(execute,'if not FParentRetirementDone and not FContext.ParentIsAlive then','MaintainLease(True);','else if TickCount >= NextCheck then','Refresh;');
+ order(execute,'if not FParentRetirementDone and not FContext.ParentIsAlive then','MaintainLease(True);','else if CozyTick >= NextCheck then','Refresh;');
 });
 test('source: long initial/full-snapshot cost is not the cheap renewal estimate',()=>{
- order(refresh,'if IncludeModules then LeaseStarted := TickCount;','RenewLease(Image, LeaseStarted);');
- assert.match(refresh,/FLastRefreshDuration := TickCount - RefreshStarted/);
+ order(refresh,'if IncludeModules then LeaseStarted := CozyTick;','RenewLease(Image, LeaseStarted);');
+ assert.match(refresh,/FLastRefreshDuration := CozyTick - RefreshStarted/);
 });
 test('source: batch callback cannot manufacture a lease',()=>{
  order(refresh,'procedure TOverlayWorker.MaintainLease','RequestCancelled','OverlayLeaseNeedsMaintenance','FImage.VerifyNow','RenewLease(Image, Started)');
  assert.match(refresh,/Lease := FClient.Verify/);assert.match(client,/RequireServerObservation\(/);
  assert.match(client,/FLeaseDeadlineTick := VerifyRequestTick \+ UInt64\(Result\)/);
- assert.doesNotMatch(refresh,/FDeadline := TickCount \+/);
+ assert.doesNotMatch(refresh,/FDeadline := CozyTick \+/);
 });
 test('source: periodic scan starts with ordinary renewal; unchanged snapshot across batches',()=>{
  order(core,"StartupPhaseCore('MODULES_BEGIN')",'MaintainLease(True);','Snapshot := CollectModuleInventoryJSON','SnapshotID := BootstrapRequestID;','repeat','MaintainLease(False);','Payload := TJSONObject.Create;',"Payload.AddPair('snapshotId', SnapshotID)",'Send(Payload);');
@@ -47,7 +47,7 @@ test('source: default nil callback preserves existing callers',()=>{
 });
 test('source: old grant/cancellation is checked before publication',()=>{
  const s=part(overlay,'procedure TOverlayWorker.RenewLease(','procedure TOverlayWorker.StartAuthorized;');
- order(s,'if Terminated or FFailed or','TickCount >= FDeadline','FFailed := True;','FDeadline := 0;','FDeadline := Deadline;','FContext.CleanupTransferredParent;');
+ order(s,'if Terminated or FFailed or','CozyTick >= FDeadline','FFailed := True;','FDeadline := 0;','FDeadline := Deadline;','FContext.CleanupTransferredParent;');
 });
 test('source: transfer race has only two fresh attempts, no local flag spoofing',()=>{
  const s=part(overlay,'procedure TOverlayWorker.RenewLease(','procedure TOverlayWorker.StartAuthorized;');

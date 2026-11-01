@@ -12,9 +12,9 @@ const authority=require("../../services/security/peace.desktop-security-authorit
 let checks=0;
 function check(label,fn){fn();checks++;console.log('PASS '+label);}
 function makeContext(stage){
- const device=fixture.Device(),began=fixture.Begin(device),flow=bootstrap.Initialize().flows[began.begin.flowId];
+ let device=fixture.Device();const began=fixture.Begin(device),flow=bootstrap.Initialize().flows[began.begin.flowId];
  if(stage==='A')return {stage,device,bytes:began.bytes,artifactId:bootstrap.Initialize().launchers[flow.launcherId].artifactId,sessionId:flow.sessionId,flowId:flow.id,auth:{stage,sessionId:flow.id,sessionToken:began.begin.downloadTicket,machineId:device.machineId}};
- const bytes=fixture.Download(began.begin),session=fixture.Claim(device,began.begin,fixture.Finish(device,began.begin));
+ const child=fixture.Child(device),bytes=fixture.Download(began.begin),session=fixture.Claim(device,began.begin,fixture.Finish(device,began.begin),child);device=child;
  if(stage==='B')return {stage,device,bytes,artifactId:session.release.id,sessionId:session.sessionId,flowId:flow.id,auth:{stage,sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:device.machineId}};
  const common={...fixture.Evidence(device,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,appVersion:'88.0.0'};
  function proof(action,payload){const body={action,requestId:crypto.randomUUID(),deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:fixture.sha512(JSON.stringify(payload))},challenge=licenses.Challenge(body);fixture.ObserveLicense(device,action,body.requestId,body.payloadHash,payload);return licenses.Execute({...body,challengeId:challenge.challengeId,payloadJSON:JSON.stringify(payload),signature:fixture.Sign(device,challenge.canonical)});}
@@ -23,7 +23,8 @@ function makeContext(stage){
  const prepared=proof('overlay',{...common,activationToken:activation.activationToken}),chunks=[];
  for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize)chunks.push(Buffer.from(bootstrap.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset}).data,'base64'));
  const finished=bootstrap.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(device,prepared.finishCanonical)});
- const claimed=bootstrap.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(device,finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
+ const overlayDevice=fixture.Child(device),claimed=bootstrap.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,...fixture.Delegated(device,overlayDevice,'O',finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
+ device=overlayDevice;fixture.Enroll(device,{stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:device.machineId});
  return {stage,device,bytes:Buffer.concat(chunks),artifactId:claimed.release.id,sessionId:claimed.sessionId,overlayId:prepared.overlayId,parentSessionId:session.sessionId,auth:{stage,sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:device.machineId}};
 }
 function ownPayload(ctx){const file=integrity.Digests(ctx.bytes),code=integrity.CodeImage(ctx.bytes);return {version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:code.sha512,codeCrc64:code.crc64,fileXxh3_128:file.xxh3_128,fileBlake3:file.blake3,codeXxh3_128:code.xxh3_128,codeBlake3:code.blake3},crcLayers:code.crcLayers};}
@@ -49,7 +50,7 @@ function withLegacyBaseline(ctx,fn){
 }
 function different(hex){return (hex[0]==='0'?'1':'0')+hex.slice(1);}
 try{
- for(const stage of ['A','B','O'])bootstrap.Publish(stage,'88.0.0',fixture.PE(stage));
+ fixture.CurrentCohort({version:'88.0.0'});
  for(const stage of ['A','B','O'])check(stage+': matching hashes remain verified while missing checker coverage rejects execution',()=>{
   const ctx=makeContext(stage),payload=ownPayload(ctx);
   if(stage==='A'){const artifact=bootstrap.Initialize().artifacts[ctx.artifactId];assert.notEqual(integrity.Digests(ctx.bytes).sha512,artifact.sha512);assert.equal(payload.own.codeSha512,artifact.codeSha512);}

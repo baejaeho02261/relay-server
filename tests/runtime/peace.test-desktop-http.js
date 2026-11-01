@@ -49,7 +49,7 @@ async function start() {
     const port = await freePort(); base = 'http://127.0.0.1:' + port;
     let tcpPort = await freePort();
     while (tcpPort === port) tcpPort = await freePort();
-    child = spawn(process.execPath, ['peace.relay-server.js'], { cwd: root, env: { ...process.env, DATA_DIR: dataDir,
+    child = spawn(process.execPath, ['peace.relay-server.js'], { cwd: root, env: { ...process.env, ...releaseSigner.environment, DATA_DIR: dataDir,
         STORAGE_ENGINE: 'json', PORT: String(tcpPort), CONNECT_TCP_PORT: String(tcpPort), WEB_ADMIN_PORT: String(port), HEALTH_PORT: '0', HA_ENABLED: '0',
         WEB_ADMIN_TRANSPORT: 'proxy', WEB_ADMIN_HOST: '127.0.0.1', WEB_ADMIN_TRUSTED_PROXIES: '127.0.0.1/32', WEB_ADMIN_REQUIRE_HTTPS: '1', WEB_ADMIN_SECURE_COOKIE: '1',
         ADMIN_SECRET: adminPassword, DESKTOP_ALLOW_HTTP_LOOPBACK: '1', DESKTOP_TRUST_PROXY: '0',
@@ -105,6 +105,10 @@ async function upload(component, bytes, auth, csrf = true) {
     const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=Game' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
+async function download(url, auth) {
+    const response=await fetch(base+url,{headers:{'X-Forwarded-Proto':'https',Cookie:auth.cookie},signal:AbortSignal.timeout(5000)});
+    assert.equal(response.status,200);return Buffer.from(await response.arrayBuffer());
+}
 async function uploadBaseline(bytes, auth, csrf = true, fileName = 'ntdll.dll', actionId = '') {
     const headers = { 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/octet-stream' };
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
@@ -123,7 +127,7 @@ async function bootstrapDevice(device, auth) {
     const response = await fetch(base + issue.json.downloadUrl, { headers: { 'X-Forwarded-Proto': 'https', Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
     assert.match(issue.json.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(response.headers.get('content-disposition'),'attachment; filename="'+issue.json.downloadName+'"');assert.match(response.headers.get('content-type'), /application\/octet-stream/); assert.match(response.headers.get('cache-control'), /no-store/);
     const launcher = Buffer.from(await response.arrayBuffer()); assert.equal(bootstrapFixture.Config(launcher).launcherId, issue.json.launcherId);
-    device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher);
+    device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher, {call,auth});
 }
 
 (async () => {
@@ -156,6 +160,7 @@ async function bootstrapDevice(device, auth) {
         assert.notEqual(invalidComponent.json.problem.title, '요청을 완료하지 못했습니다.');
         const candidates={};
         for (const component of ['A', 'B', 'O']) { const bytes = bootstrapFixture.PE(component), published = await upload(component, bytes, auth); assert.equal(published.status, 200, JSON.stringify(published.json)); assert.equal(published.json.artifact.component,component); assert.equal(published.json.artifact.sha512, sha512(bytes)); assert.equal(published.json.disposition,'CANDIDATE'); assert.equal(published.json.activeUnchanged,true);candidates[component]=published.json.artifact; }
+        await bootstrapFixture.BindSyntheticCohort({call,auth,candidates,download,upload});
         const security='/api/desktop/bootstrap/security-authority',operations='/api/desktop/bootstrap/security-operations';
         for(const route of [security,operations,operations+'/approvals']){assert.equal((await call(route)).status,401);assert.equal((await call(route,undefined,viewer)).status,403);}
         let settings=(await call(security,undefined,auth)).json;

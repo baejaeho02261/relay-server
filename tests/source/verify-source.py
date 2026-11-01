@@ -48,7 +48,14 @@ def verify(root: Path) -> list[str]:
         name = p.relative_to(root).as_posix()
         native_test_contract = (p.is_relative_to(test_root) and
                                 (p.suffix.lower() == '.json' or p.name == 'Cozy.compare-native-abi.js'))
-        if not (native_test_contract and name in manifest['files']):
+        native_build_contract = rel_native.as_posix() in {
+            'Cozy.Source/Cozy.Configuration/Cozy.ReleaseMetadata.json',
+            'Cozy.Source/Cozy.Configuration/Cozy.StringCatalog.json',
+            'Cozy.ImGui/Cozy.Build/Cozy.ImGui.Abi.json',
+            'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js',
+            'Cozy.ImGui/Cozy.Tests/Cozy.Abi/Cozy.test_imgui_abi.js',
+        }
+        if not ((native_test_contract or native_build_contract) and name in manifest['files']):
             problems.append('JSON/JS belongs under Relay Server: '+name)
     return problems
 

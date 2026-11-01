@@ -48,7 +48,7 @@ async function start() {
     const port = await freePort(); base = 'http://127.0.0.1:' + port;
     let tcpPort = await freePort();
     while (tcpPort === port) tcpPort = await freePort();
-    child = spawn(process.execPath, ['peace.relay-server.js'], { cwd: root, env: { ...process.env, DATA_DIR: dataDir,
+    child = spawn(process.execPath, ['peace.relay-server.js'], { cwd: root, env: { ...process.env, ...releaseSigner.environment, DATA_DIR: dataDir,
         STORAGE_ENGINE: 'json', PORT: String(tcpPort), CONNECT_TCP_PORT: String(tcpPort), WEB_ADMIN_PORT: String(port), HEALTH_PORT: '0', HA_ENABLED: '0',
         WEB_ADMIN_TRANSPORT: 'proxy', WEB_ADMIN_HOST: '127.0.0.1', WEB_ADMIN_TRUSTED_PROXIES: '127.0.0.1/32', WEB_ADMIN_REQUIRE_HTTPS: '1', WEB_ADMIN_SECURE_COOKIE: '1',
         ADMIN_SECRET: adminPassword, DESKTOP_ALLOW_HTTP_LOOPBACK: '1', DESKTOP_TRUST_PROXY: '0',
@@ -105,6 +105,10 @@ async function upload(component, bytes, auth, csrf = true) {
     const response = await fetch(base + '/api/desktop/bootstrap/artifacts?component=' + component + '&version=80.0.0&fileName=Game' + component + '.exe', { method: 'POST', headers, body: bytes, signal: AbortSignal.timeout(5000) });
     return { status: response.status, json: await response.json() };
 }
+async function download(url, auth) {
+    const response=await fetch(base+url,{headers:{'X-Forwarded-Proto':'https',Cookie:auth.cookie},signal:AbortSignal.timeout(5000)});
+    assert.equal(response.status,200);return Buffer.from(await response.arrayBuffer());
+}
 async function uploadBaseline(bytes, auth, csrf = true, fileName = 'ntdll.dll') {
     const headers = { 'X-Forwarded-Proto': 'https', 'Content-Type': 'application/octet-stream' };
     if (auth) { headers.Cookie = auth.cookie; if (csrf) headers['X-CSRF-Token'] = auth.csrf; }
@@ -116,7 +120,7 @@ async function bootstrapDevice(device, auth) {
     const response = await fetch(base + issue.json.downloadUrl, { headers: { 'X-Forwarded-Proto': 'https', Cookie: auth.cookie }, signal: AbortSignal.timeout(5000) }); assert.equal(response.status, 200);
     assert.match(issue.json.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(response.headers.get('content-disposition'),'attachment; filename="'+issue.json.downloadName+'"');assert.match(response.headers.get('content-type'), /application\/octet-stream/); assert.match(response.headers.get('cache-control'), /no-store/);
     const launcher = Buffer.from(await response.arrayBuffer()); assert.equal(bootstrapFixture.Config(launcher).launcherId, issue.json.launcherId);
-    device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher);
+    device.bootstrap = await bootstrapFixture.RemoteSession(device, launcher, {call,auth});
 }
 
 
@@ -138,7 +142,22 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
  const trust=await call(security,{expectedRevision:settings.policy.revision,expectedOperationsRevision:settings.operations.operations.revision,requireReleaseSignature:true,trustedReleaseKeys:[releaseSigner.trustedKey]},auth);
  assert.equal(trust.status,200,JSON.stringify(trust.json));
  let candidates={};
- await test('Duplicate candidate upload reuses the same verified bytes instead of creating a second artifact',async()=>{for(const c of ['A','B','O']){const bytes=bootstrapFixture.PE(c,c==='B'?'manual key console':'user launcher');const one=await upload(c,bytes,auth),two=await upload(c,bytes,auth);assert.equal(one.status,200);assert.equal(two.status,200);assert.equal(two.json.artifact.id,one.json.artifact.id);candidates[c]=one.json.artifact;}});
+ await test('Duplicate unsealed source upload reuses candidate bytes while runtime publication stays blocked',async()=>{
+  const before=(await call(security,undefined,auth)).json.operations.active;
+  for(const c of ['A','B','O']){
+   const bytes=bootstrapFixture.PE(c,c==='B'?'manual key console':'user launcher'),one=await upload(c,bytes,auth),two=await upload(c,bytes,auth);
+   assert.equal(one.status,200,JSON.stringify(one.json));assert.equal(two.status,200,JSON.stringify(two.json));
+   assert.equal(two.json.artifact.id,one.json.artifact.id);assert.equal(two.json.artifact.ownProtection.state,'UNSEALED');
+   assert.equal(two.json.activeUnchanged,true);candidates[c]=one.json.artifact;
+  }
+  assert.deepEqual((await call(security,undefined,auth)).json.operations.active,before);
+  const preview=await call('/api/desktop/bootstrap/security-operations/preview-pair',{aId:candidates.A.id,bId:candidates.B.id,oId:candidates.O.id},auth);
+  assert.equal(preview.status,200,JSON.stringify(preview.json));assert.equal(preview.json.preview.eligible,false);
+  assert.ok(preview.json.preview.reasons.includes('COZY_PROTECTION_COHORT_INCOMPLETE'));
+  const issue=await call('/api/desktop/bootstrap/launchers',{requestId:crypto.randomUUID(),label:'Unbound source must not run'},auth);
+  assert.equal(issue.status,409);assert.equal(issue.json.error,'BOOTSTRAP_NOT_READY');
+ });
+ await bootstrapFixture.BindSyntheticCohort({call,auth,candidates,download,upload});
  await test('Manual publication requires signed A/B/O and a complete manifest with unchanged release security checks',async()=>{
   const op='/api/desktop/bootstrap/security-operations',cohort={aId:candidates.A.id,bId:candidates.B.id,oId:candidates.O.id};
   const before=await call(op+'/preview-pair',cohort,auth);assert.equal(before.json.preview.eligible,false);assert(before.json.preview.reasons.includes('SECURITY_RELEASE_MANIFEST_REQUIRED'));
@@ -152,7 +171,7 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
  });
  let issued,dev,manualKey;
  await test('A issuance needs no selected license and does not consume a key',async()=>{const before=(await call(w+'/licenses',undefined,auth)).json.filteredCount;const result=await call('/api/desktop/bootstrap/launchers',{requestId:crypto.randomUUID(),label:'User console'},auth);assert.equal(result.status,200,JSON.stringify(result.json));issued=result.json;assert.ok(issued.launcherId);assert.equal((await call(w+'/licenses',undefined,auth)).json.filteredCount,before);const key=await call('/api/desktop/licenses',{requestId:crypto.randomUUID(),label:'Manual key after A issuance'},auth);assert.equal(key.status,200,JSON.stringify(key.json));manualKey=key.json.licenseKey;licenseIds[0]=key.json.license.id;});
- await test('Real encrypted TLS bootstrap and signed redeem accept the entered KEY, not the old automatic marker',async()=>{const response=await fetch(base+issued.downloadUrl,{headers:{'X-Forwarded-Proto':'https',Cookie:auth.cookie}}),bytes=Buffer.from(await response.arrayBuffer());assert.equal(response.status,200);assert.ok(!JSON.stringify(bootstrapFixture.Config(bytes)).includes(licenseIds[0]));dev=device('Workspace user');dev.bootstrap=await bootstrapFixture.RemoteSession(dev,bytes);const marker=await execute(dev,'redeem',{licenseKey:'SERVER_ASSIGNED_V1',appVersion:'92.0'});assert.equal(marker.json.ok,false);assert.equal(marker.json.error,'DESKTOP_KEY_INVALID');const p=await signed(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'}),invalid={...p,signature:'A'.repeat(342)+'=='};const bad=await call('/api/desktop/execute',invalid);assert.equal(bad.json.ok,false);const result=await execute(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'});assert.equal(result.json.ok,true,JSON.stringify(result));assert.equal(result.json.data.licenseId,licenseIds[0]);dev.activationToken=result.json.data.activationToken;});
+ await test('Real encrypted TLS bootstrap and signed redeem accept the entered KEY, not the old automatic marker',async()=>{const response=await fetch(base+issued.downloadUrl,{headers:{'X-Forwarded-Proto':'https',Cookie:auth.cookie}}),bytes=Buffer.from(await response.arrayBuffer());assert.equal(response.status,200);assert.ok(!JSON.stringify(bootstrapFixture.Config(bytes)).includes(licenseIds[0]));dev=device('Workspace user');dev.bootstrap=await bootstrapFixture.RemoteSession(dev,bytes,{call,auth});const marker=await execute(dev,'redeem',{licenseKey:'SERVER_ASSIGNED_V1',appVersion:'92.0'});assert.equal(marker.json.ok,false);assert.equal(marker.json.error,'DESKTOP_KEY_INVALID');const p=await signed(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'}),invalid={...p,signature:'A'.repeat(342)+'=='};const bad=await call('/api/desktop/execute',invalid);assert.equal(bad.json.ok,false);const result=await execute(dev,'redeem',{licenseKey:manualKey,appVersion:'92.0'});assert.equal(result.json.ok,true,JSON.stringify(result));assert.equal(result.json.data.licenseId,licenseIds[0]);dev.activationToken=result.json.data.activationToken;});
  await test('Native request diagnostics arrive in admin detail without raw tokens or payloads',async()=>{const r=(await call(w+'/licenses/'+licenseIds[0],undefined,auth)).json;assert.ok(r.timeline.some(x=>x.type==='DESKTOP_RUNTIME_REQUEST_FAILED'),JSON.stringify(r.timeline));assert.ok(r.timeline.some(x=>x.type==='B_CLAIMED'));assert.ok(!JSON.stringify(r).includes(dev.bootstrap.sessionToken));assert.ok(!JSON.stringify(r).includes(dev.activationToken));});
  await test('Original verification and release remain authenticated and functional',async()=>{assert.equal((await execute(dev,'verify',{activationToken:dev.activationToken,appVersion:'91.0'})).json.ok,true);assert.equal((await execute(dev,'release',{activationToken:dev.activationToken})).json.data.released,true);});
  console.log(`Workspace HTTP/TLS: ${passed} scenarios passed. Real HTTP/auth/CSRF + encrypted TLS and RSA; synthetic PE, not a Windows EXE test.`);

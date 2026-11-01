@@ -10,8 +10,8 @@ let checks=0;
 function check(label,fn){fn();checks++;console.log('PASS '+label);}
 function reject(fn,code){assert.throws(fn,e=>code?e.message===code:/^(BOOTSTRAP|DESKTOP|SECURITY|INTEGRITY)_/.test(e.message));}
 function proof(action,payload){const body={action,requestId:crypto.randomUUID(),deviceId:d.deviceId,publicKey:d.publicKey,payloadHash:sha512(JSON.stringify(payload))},c=licenses.Challenge(body);fixture.ObserveLicense(d,action,body.requestId,body.payloadHash,payload);return licenses.Execute({...body,challengeId:c.challengeId,payloadJSON:JSON.stringify(payload),signature:fixture.Sign(d,c.canonical)});}
-bootstrap.Publish('A','88.0.0',fixture.PE('A'));bootstrap.Publish('B','88.0.0',fixture.PE('B'));bootstrap.Publish('O','88.0.0',fixture.PE('O'));
-const begin=fixture.Begin(d).begin;fixture.Download(begin);const session=fixture.Claim(d,begin,fixture.Finish(d,begin));
+fixture.CurrentCohort({version:'88.0.0'});
+const parent=fixture.Child(d),overlayDevice=fixture.Child(d),begin=fixture.Begin(parent).begin;fixture.Download(begin);const session=fixture.Claim(parent,begin,fixture.Finish(parent,begin),d);
 const common={...fixture.Evidence(d,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,appVersion:'88.0.0'};
 const issued=licenses.Create({requestId:crypto.randomUUID(),label:'overlay regression'},'TEST');
 const activation=proof('redeem',{...common,licenseKey:issued.licenseKey,deviceName:'Overlay test'});
@@ -36,11 +36,11 @@ check('Download completion authorizes O without retiring B',()=>{
  assert.equal(parent.status,'CLAIMED');assert.equal(parent.closedByOverlay,undefined);
  assert.equal(fixture.Gate(d,session).sessionId,session.sessionId);
 });
-const claim=()=>({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
+let claimProof;const claim=()=>({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,...(claimProof||=(fixture.Delegated(d,overlayDevice,'O',finished.claimCanonical))),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
 check('O claim binds SHA512 file/code and supports exact response recovery',()=>{
  reject(()=>bootstrap.Execute({...claim(),binarySha512:'0'.repeat(64)}),'BOOTSTRAP_INPUT_INVALID');
  claimed=bootstrap.Execute(claim());assert.equal(bootstrap.Execute(claim()).sessionToken,claimed.sessionToken);
- assert.notEqual(claimed.sessionId,session.sessionId);
+ assert.notEqual(claimed.sessionId,session.sessionId);fixture.Enroll(overlayDevice,{stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:overlayDevice.machineId});
  const auth=overlay.AuthenticateIntegrityReport({stage:'O',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,machineId:d.machineId});
  assert.equal(auth.integrityArtifact.sha512,prepared.release.sha512);assert.equal(auth.integrityArtifact.fileXxh3_128,prepared.release.xxh3_128);
 });
@@ -50,20 +50,20 @@ check('O signs independent CRC/hash reports and one-use authority observations',
  const base=overlay.AuthenticateIntegrityReport(context).integrityArtifact;
  const payload=JSON.stringify({version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,fileXxh3_128:base.fileXxh3_128,fileBlake3:base.fileBlake3,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3},crcLayers:base.crcLayers});
  const challenge=reports.Execute({...context,action:'challenge'});
- const request={...context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(d,reports.Canonical(claimed.sessionId,challenge,payload))};
+ const request={...context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(overlayDevice,reports.Canonical(claimed.sessionId,challenge,payload))};
  const result=reports.Execute(request);assert.equal(result.status,'VERIFIED');assert.equal(result.terminate,false);
  const reportRevision=bootstrap.Initialize().revision,reportExpiry=overlay.AuthenticateIntegrityReport(context).sessionExpiresAt;
  assert.deepEqual(reports.Execute(request),result);assert.equal(bootstrap.Initialize().revision,reportRevision);assert.equal(overlay.AuthenticateIntegrityReport(context).sessionExpiresAt,reportExpiry);
  const authContext={...context,intent:'verify',binding:authority.Binding(claimed.sessionId,base.sha512)};
  const observation=authority.Execute({...authContext,action:'challenge'});
  const evidence=JSON.stringify({version:1,hashVersion:3,measurement:'MEASURED',fileSha512:base.sha512,fileCrc64:base.crc64,codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3,crcLayers:base.crcLayers,apiSealed:true,apiSlots:100,dynamicCode:'ALLOWED',cfg:'DISABLED'});
- const signed={...authContext,action:'submit',challengeId:observation.challengeId,payload:evidence,signature:fixture.Sign(d,authority.Canonical(authContext,observation,evidence))};
+ const signed={...authContext,action:'submit',challengeId:observation.challengeId,payload:evidence,signature:fixture.Sign(overlayDevice,authority.Canonical(authContext,observation,evidence))};
  const decision=authority.Execute(signed);assert.equal(decision.status,'PASS');
  const authorityRevision=bootstrap.Initialize().revision,authorityExpiry=overlay.AuthenticateIntegrityReport(context).sessionExpiresAt;
  assert.deepEqual(authority.Execute(signed),decision);assert.equal(bootstrap.Initialize().revision,authorityRevision);assert.equal(overlay.AuthenticateIntegrityReport(context).sessionExpiresAt,authorityExpiry);
 });
 check('O refresh verifies license, session, machine and image while B remains live',()=>{
- const body={action:'overlayVerify',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,...fixture.Evidence(d,claimed)};
+ const body={action:'overlayVerify',sessionId:claimed.sessionId,sessionToken:claimed.sessionToken,...fixture.Evidence(overlayDevice,claimed)};
  reject(()=>bootstrap.Execute({...body,machineId:other.machineId}),'BOOTSTRAP_SESSION_INVALID');
  assert.equal(bootstrap.Execute(body).status,'ACTIVE');
  reject(()=>bootstrap.Execute(claim()),'BOOTSTRAP_LAUNCHER_USED');

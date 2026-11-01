@@ -98,22 +98,28 @@ async function AdminProfile(session){let status,value;const res={writeHead(code)
    assert.equal(desktop.DB().revision,revision);
   });
   await Check('Real A to B bootstrap and multi-chunk artifact delivery use encrypted TCP',async()=>{
-   const bootstrap=bootstrapFixture.Publish(),artifact=Buffer.concat([bootstrapFixture.PE('B'),Buffer.alloc(300000,0x5a)]);bootstrap.Publish('B','80.0.1',artifact);
+   const cohort=bootstrapFixture.CurrentCohort({version:'80.0.1',paddingBytesByRole:{B:300000}}),bootstrap=bootstrapFixture.Publish(),artifact=cohort.outputs.B.bytes;
    const issued=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Encrypted bootstrap'},'TEST'),launcher=bootstrap.LauncherBytes(issued.launcherId),config=bootstrapFixture.Config(launcher);
-   const start=await Round('bootstrap',{action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha512:sha512(launcher),launcherCrc64:bootstrapFixture.Crc64(launcher),aCodeSha512:require("../../services/integrity/peace.desktop-integrity").CodeImage(launcher).sha512,aCodeCrc64:require("../../services/integrity/peace.desktop-integrity").CodeImage(launcher).crc64,machineId:a.machineId,deviceId:a.deviceId,publicKey:a.publicKey});assert.equal(start.ok,true,JSON.stringify(start));const begin=start.data,chunks=[];
+   assert.equal(config.schema,3);assert.equal(Object.hasOwn(config,'launcherTicket'),false);
+   const prepared=await bootstrapFixture.RemotePrepareBegin(a,launcher);assert.equal(prepared.decision.status,'PENDING_APPROVAL');
+   const premature=await Round('bootstrap',{action:'beginKeyless',...prepared.proof});assert.equal(premature.ok,false);assert.equal(premature.error,'KEYLESS_APPROVAL_REQUIRED');
+   const begin=await bootstrapFixture.RemoteApproveBegin(prepared),chunks=[];
+   const recovered=await Round('bootstrap',{action:'beginKeyless',...prepared.proof});assert.equal(recovered.ok,true,JSON.stringify(recovered));assert.deepEqual(recovered.data,begin,'fresh encrypted frame recovers only this committed approval');
    for(let offset=0;offset<begin.release.size;){const out=await Round('bootstrap',{action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset});assert.equal(out.ok,true,JSON.stringify(out));const bytes=Buffer.from(out.data.data,'base64');assert.equal(out.data.offset,offset);assert.ok(bytes.length>0&&bytes.length<=begin.chunkSize);chunks.push(bytes);offset+=bytes.length;}
    assert.ok(chunks.length>1);assert.deepEqual(Buffer.concat(chunks),artifact);assert.equal(sha512(artifact),begin.release.sha512);
-   bootstrapFixture.ObserveFinish(a,begin);
+   await bootstrapFixture.RemoteObserve(profile,a,{stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:a.machineId,intent:'finish',binding:require('../../services/security/peace.desktop-security-authority').Binding(begin.flowId,begin.release.sha512)},launcher);
    const finished=await Round('bootstrap',{action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha512:begin.release.sha512,crc64:begin.release.crc64,aCodeSha512:require("../../services/integrity/peace.desktop-integrity").CodeImage(launcher).sha512,aCodeCrc64:require("../../services/integrity/peace.desktop-integrity").CodeImage(launcher).crc64,signature:bootstrapFixture.Sign(a,begin.finishCanonical)});assert.equal(finished.ok,true,JSON.stringify(finished));
-   const claimed=await Round('bootstrap',{action:'claim',flowId:begin.flowId,handoffToken:finished.data.handoffToken,signature:bootstrapFixture.Sign(a,finished.data.claimCanonical),binarySha512:begin.release.sha512,crc64:begin.release.crc64,bCodeSha512:begin.release.codeSha512,bCodeCrc64:begin.release.codeCrc64});assert.equal(claimed.ok,true,JSON.stringify(claimed));
+   const child=Device();child.machineId=a.machineId;
+   const claimed=await Round('bootstrap',bootstrapFixture.ClaimBody(a,begin,finished.data,child));assert.equal(claimed.ok,true,JSON.stringify(claimed));
    const session=claimed.data,status=await Round('bootstrap',{action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken});assert.equal(status.ok,true);assert.equal(status.data.status,'CLAIMED');assert.ok(!Object.hasOwn(status.data,'sessionToken'));
+   await bootstrapFixture.RemoteEnroll(profile,child,{stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:child.machineId},prepared.persistent);
    const denied=Envelope({operation:'bootstrap',body:{action:'status',sessionId:session.sessionId,sessionToken:'invalid'}}),wire=await Wire(denied.wire);assert.equal(Decode(denied,wire).error,'BOOTSTRAP_SESSION_INVALID');assert.ok(!wire.includes('BOOTSTRAP_SESSION_INVALID'));
    const reportAuth={sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:a.machineId,binarySha512:begin.release.sha512,binaryCrc64:begin.release.crc64};
    const reportChallenge=(await Round('report',{...reportAuth,action:'challenge'}));assert.equal(reportChallenge.ok,true,JSON.stringify(reportChallenge));
    const evidence=JSON.stringify({version:1,hashVersion:3,crcLayers:require("../../services/integrity/peace.desktop-integrity").CodeImage(artifact).crcLayers,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:begin.release.codeSha512,codeCrc64:begin.release.codeCrc64,fileXxh3_128:begin.release.xxh3_128,fileBlake3:begin.release.blake3,codeXxh3_128:begin.release.codeXxh3_128,codeBlake3:begin.release.codeBlake3}}),rc=reportChallenge.data;
-   const reportBody={...reportAuth,action:'submit',reportId:rc.reportId,payload:evidence,signature:bootstrapFixture.Sign(a,['GAME-INTEGRITY-REPORT-V2',session.sessionId,rc.reportId,rc.nonce,String(rc.expiresAt),sha512(Buffer.from(evidence))].join('\n'))};
+   const reportBody={...reportAuth,action:'submit',reportId:rc.reportId,payload:evidence,signature:bootstrapFixture.Sign(child,['GAME-INTEGRITY-REPORT-V2',session.sessionId,rc.reportId,rc.nonce,String(rc.expiresAt),sha512(Buffer.from(evidence))].join('\n'))};
    const reportResult=await Round('report',reportBody);assert.equal(reportResult.ok,true,JSON.stringify(reportResult));assert.equal(reportResult.data.status,'VERIFIED');assert.equal(reportResult.data.terminate,false);assert.deepEqual((await Round('report',reportBody)).data,reportResult.data,'new outer frame recovers same inner signed report receipt');
-   assert.equal((await Round('bootstrap',{action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken})).data.status,'CLOSED');bootstrap.Publish('B','80.0.2',bootstrapFixture.PE('B'));
+   assert.equal((await Round('bootstrap',{action:'close',sessionId:session.sessionId,sessionToken:session.sessionToken})).data.status,'CLOSED');
   });
   let first,proof,token;
   await Check('One-time registration and lost-response retry over fresh encrypted channels',async()=>{

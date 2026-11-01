@@ -4,10 +4,11 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
 const tool=require('./peace.recovery-windows'),drill=require('./peace.recovery-drill');
 function Fail(code){throw Error(code);}
+function NativeEnvironment(){const env={};for(const key of ['PATH','Path','SystemRoot','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','TMPDIR','USERPROFILE','LANG','LC_ALL'])if(process.env[key])env[key]=process.env[key];return env;}
 class NativeProbe {
  constructor(executable,root,options={}){
   this.id=0;this.buffer='';this.pending=null;this.done=false;this.forced=false;this.inputClosed=false;this.cleanup={};this.callTimeoutMs=options.callTimeoutMs||90000;this.closeTimeoutMs=options.closeTimeoutMs||5000;this.abortGraceMs=options.abortGraceMs||5000;
-  this.child=(options.spawn||cp.spawn)(executable,[],{cwd:root,stdio:['pipe','pipe','ignore'],windowsHide:true});
+  this.child=(options.spawn||cp.spawn)(executable,[],{cwd:root,stdio:['pipe','pipe','ignore'],windowsHide:true,env:NativeEnvironment()});
   this.exited=new Promise(resolve=>this.child.once('close',(code,signal)=>{this.done=true;this.exitCode=code;this.exitSignal=signal;clearTimeout(this.abortTimer);if(this.pending)this.Abort('RECOVERY_NATIVE_EARLY_EXIT');this.buffer='';resolve();}));
   this.child.stdout.setEncoding('utf8');this.child.stdout.on('data',text=>{
    this.buffer+=text;if(Buffer.byteLength(this.buffer)>65536){this.buffer='';return this.Abort('RECOVERY_NATIVE_RESPONSE_LIMIT');}let end;
@@ -33,12 +34,19 @@ class NativeProbe {
 }
 function Namespace(db,binding,generation){return crypto.createHmac('sha256',Buffer.from(db.secret,'hex')).update('GAME-DEVICE-KEY-NAMESPACE-V2'+(generation?'\n'+binding+'\n'+generation:'')).digest('hex');}
 function ProtectedPolicy(){const i=require("../../services/devices/peace.desktop-device-identity").State();return tool.SHA(Buffer.from(JSON.stringify([require("../../services/security/peace.desktop-security-authority").Policy(),i.mode,i.requireForEnrolled,i.trust||null])));}
-function BeginProof(machineId){
- const f=require("../../tests/fixtures/bootstrap/peace.desktop-bootstrap-fixture"),boot=require("../../services/bootstrap/peace.desktop-bootstrap"),licenses=require("../../services/licensing/peace.desktop-licenses"),store=require("../../services/bootstrap/peace.desktop-bootstrap-store");
+async function BeginProof(machineId,persistent){
+ if(!persistent||typeof persistent.sign!=='function'||typeof persistent.publicKey!=='string'||!['SOFTWARE','PLATFORM'].includes(persistent.provider))Fail('RECOVERY_NATIVE_BOOTSTRAP_SIGNER_REQUIRED');
+ const f=require("../../tests/fixtures/bootstrap/peace.desktop-bootstrap-fixture"),boot=require("../../services/bootstrap/peace.desktop-bootstrap"),licenses=require("../../services/licensing/peace.desktop-licenses"),keyless=require("../../services/bootstrap/peace.keyless-bootstrap");
  const app=f.Device();app.machineId=machineId;const license=licenses.Create({requestId:crypto.randomUUID(),label:'Isolated recovery identity challenge'},'ISOLATED_RECOVERY');
  const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Isolated recovery identity challenge',licenseId:license.license.id},'ISOLATED_RECOVERY');
- const bytes=boot.LauncherBytes(issue.launcherId),config=f.Config(bytes),code=f.CodeImage(bytes),version=store.Load().artifacts[store.Load().active.A].handoffVersion||1;
- const begin=boot.Execute({action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:config.launcherTicket,launcherSha512:f.sha512(bytes),launcherCrc64:f.Crc64(bytes),aCodeSha512:code.sha512,aCodeCrc64:code.crc64,machineId,publicKey:app.publicKey,deviceId:app.deviceId,handoffVersion:version});
+ const bytes=boot.LauncherBytes(issue.launcherId),config=f.Config(bytes),code=f.CodeImage(bytes),policy=boot.Execute({action:'keylessPolicy',version:1,launcherId:config.launcherId,machineId});
+ if(policy.keyProvider!==persistent.provider)Fail('RECOVERY_NATIVE_BOOTSTRAP_PROVIDER_MISMATCH');
+ const persistentKeyId=licenses.ParseKey(persistent.publicKey).deviceId;
+ const challenge=boot.Execute({action:'keylessChallenge',version:1,requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherSha512:f.sha512(bytes),launcherCrc64:f.Crc64(bytes),aCodeSha512:code.sha512,aCodeCrc64:code.crc64,machineId,publicKey:app.publicKey,deviceId:app.deviceId,handoffVersion:3,persistentPublicKey:persistent.publicKey,persistentKeyId,keyProvider:policy.keyProvider,epoch:policy.epoch,revision:policy.revision});
+ const proof={version:1,challengeId:challenge.challengeId,appSignature:f.Sign(app,challenge.canonical),persistentSignature:await persistent.sign(challenge.canonical)};
+ const decision=boot.Execute({action:'keylessProve',...proof});if(decision.status!=='PENDING_APPROVAL')Fail('RECOVERY_REQUEST_APPROVAL_STATE_INVALID');
+ keyless.Approve(challenge.challengeId,{identityConfirmed:true,launcherId:issue.launcherId,persistentKeyId},'ISOLATED_RECOVERY_EXPLICIT_REQUEST');
+ const begin=boot.Execute({action:'beginKeyless',...proof});
  return {app,begin,context:{stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId}};
 }
 async function OriginalProof(probe,context,app,key,provider,which='original'){
@@ -66,11 +74,13 @@ async function Main(root){
  try{
   if(process.platform!=='win32'||process.arch!=='x64')Fail('RECOVERY_WINDOWS_X64_REQUIRED');root=tool.Root(root);plan=tool.LoadPlan(root);status.runId=plan.runId;
   if(fs.readFileSync(path.join(root,'owner'),'utf8')!==plan.token)Fail('RECOVERY_WINDOWS_OWNER_REQUIRED');
+  tool.IssuancePrerequisites(plan.config,root);
   for(const key of Object.keys(process.env))if(/SECRET|TOKEN|KEY|RAILWAY|CONNECT_TLS|VAPID|DESKTOP_|WEB_ADMIN_|DATA_DIR|HA_|GAME_/.test(key))delete process.env[key];
   Object.assign(process.env,drill.ChildEnvironment(root,plan.token,plan.data,plan.witness,plan.config.storageEngine),{WEB_ADMIN_PORT:'0',CONNECT_TCP_PORT:'1',HEALTH_PORT:'0',ENABLE_LEGACY_TCP_ADMIN:'0',DESKTOP_PUBLIC_PORT:'1'});
   console.log=()=>{};console.error=()=>{};Write();
   const worker=require('./peace.recovery-drill-worker');worker.Load();
   const store=require("../../services/bootstrap/peace.desktop-bootstrap-store"),boot=require("../../services/bootstrap/peace.desktop-bootstrap"),identity=require("../../services/devices/peace.desktop-device-identity"),licenses=require("../../services/licensing/peace.desktop-licenses"),recovery=require("../../services/recovery/peace.desktop-recovery"),machine=require("../../services/devices/peace.desktop-machine-policy");
+  const selectedA=store.Load().artifacts[store.Load().active.A],anchor=require('../../services/bootstrap/peace.issued-a-signing').InspectTemplate(boot.ReadArtifactBytes(selectedA));tool.LoadIssuedSigner(plan.config,root,anchor.keyId,true);
   const original=structuredClone(identity.State().enrollments[plan.config.enrollmentId]);
   if(!original||original.status!=='ACTIVE'||require("../../services/devices/peace.desktop-device-registry").BindingId(plan.config.machineId)!==original.bindingId)Fail('RECOVERY_ORIGINAL_ENROLLMENT_MISMATCH');
   if((original.assurance==='TPM_KEY_ATTESTED'||identity.State().mode==='TPM_ATTESTED')&&plan.config.provider!=='PLATFORM')Fail('RECOVERY_ORIGINAL_TPM_PROVIDER_REQUIRED');
@@ -81,10 +91,11 @@ async function Main(root){
   const selected=Object.fromEntries(['A','B','O'].map(r=>[r,store.Load().active[r]]));
   if(machine.Public(plan.config.machineId).blocked)machine.Set(plan.config.machineId,false,{requestId:crypto.randomUUID(),reason:'Isolated backup recovery drill only'},'ISOLATED_RECOVERY');
   listener=require("../../services/network/peace.desktop-connect").CreateServer();await new Promise((resolve,reject)=>{listener.once('error',reject);listener.listen(0,'127.0.0.1',resolve);});process.env.DESKTOP_PUBLIC_PORT=String(listener.address().port);
-  const originalContext=BeginProof(plan.config.machineId),policy=identity.Handle({...originalContext.context,action:'policy'});
+  const policy=identity.BootstrapPolicy(plan.config.machineId);
   probe=new NativeProbe(plan.files.probe.executedCopy,root);status.phase='original-device-proof';Write();
   const opened=await probe.Call('init',{namespace:policy.keyNamespace,provider:plan.config.provider,expectedPublicKey:original.publicKey,runId:plan.runId});
   if(opened.namespace!==policy.keyNamespace||opened.publicKey!==original.publicKey||opened.privateExportBlocked!==true||opened.provider!==plan.config.provider)Fail('RECOVERY_ORIGINAL_NATIVE_KEY_MISMATCH');
+  const originalContext=await BeginProof(plan.config.machineId,{publicKey:original.publicKey,provider:plan.config.provider,sign:async canonical=>(await probe.Call('sign-original',{canonical})).signature});
   const proved=await OriginalProof(probe,originalContext.context,originalContext.app,original.publicKey,plan.config.provider);
   if(proved.reply.enrollmentId!==original.id||plan.config.provider==='PLATFORM'&&proved.reply.tpmAttested!==true)Fail('RECOVERY_ORIGINAL_ENROLLMENT_MISMATCH');
   Object.assign(status.recovery,{originalEnrollmentId:original.id,originalProofAccepted:true,originalProofScope:'NATIVE_PERSISTENT_KEY_WITH_SERVICE_CREATED_A_CONTEXT',originalPrivateExportBlocked:true,originalTpmAttested:proved.reply.tpmAttested===true,recoveryEpochBefore:recovery.Epoch()});
@@ -100,9 +111,9 @@ async function Main(root){
   if(replacement.namespace!==newNamespace||replacement.created!==true||replacement.privateExportBlocked!==true||replacement.publicKey===original.publicKey||replacement.provider!==plan.config.provider)Fail('RECOVERY_REPLACEMENT_NATIVE_KEY_INVALID');
   Object.assign(status.recovery.replacementCleanup,{creation:'EXCLUSIVE_CREATED',publicKeySha512:tool.SHA(Buffer.from(replacement.publicKey))});Write();
   identity.Revoke({enrollmentId:original.id,expectedRevision:identity.State().revision,requestId:crypto.randomUUID(),reasonCode:'ADMIN_RECOVERY',replacementPublicKey:replacement.publicKey},'ISOLATED_RECOVERY');
-  const deniedContext=BeginProof(plan.config.machineId);
+  const deniedContext=await BeginProof(plan.config.machineId,{publicKey:replacement.publicKey,provider:plan.config.provider,sign:async canonical=>(await probe.Call('sign-replacement',{canonical})).signature});
   if(identity.Handle({...deniedContext.context,action:'policy'}).keyNamespace!==newNamespace)Fail('RECOVERY_PRODUCT_NAMESPACE_MISMATCH');
-  worker.Denied(()=>identity.Handle({...deniedContext.context,action:'challenge',requestId:crypto.randomUUID(),publicKey:original.publicKey,keyProvider:plan.config.provider}),['DEVICE_KEY_REVOKED']);
+  worker.Denied(()=>identity.Handle({...deniedContext.context,action:'challenge',requestId:crypto.randomUUID(),publicKey:original.publicKey,keyProvider:plan.config.provider}),['DEVICE_KEY_REVOKED','DEVICE_KEY_BINDING_MISMATCH']);
   const replacementProof=await OriginalProof(probe,deniedContext.context,deniedContext.app,replacement.publicKey,plan.config.provider,'replacement');
   if(replacementProof.reply.enrollmentId!==identity.EnrollmentId(replacement.publicKey)||plan.config.provider==='PLATFORM'&&replacementProof.reply.tpmAttested!==true)Fail('RECOVERY_REPLACEMENT_ATTESTATION_REQUIRED');
   // Enrollment retains the explicitly attested provider even if the original
@@ -114,7 +125,9 @@ async function Main(root){
   const execution=path.join(root,'execution');fs.mkdirSync(execution,{mode:0o700});const launcher=path.join(execution,issue.downloadName);fs.writeFileSync(launcher,boot.LauncherBytes(issue.launcherId),{flag:'wx',mode:0o600});
   const automaticLicense=store.Load().artifacts[store.Load().active.B].backgroundVersion===1;
   tool.Write(path.join(root,'input.json'),{launcher,automaticLicense,...(automaticLicense?{}:{licenseKey:license.licenseKey})});license.licenseKey='';
+  let productApprovedChallenge='';
   function Current(){
+   if(!productApprovedChallenge){const keyless=require('../../services/bootstrap/peace.keyless-bootstrap'),keyId=licenses.ParseKey(replacement.publicKey).deviceId;for(const request of keyless.ListPending().requests){if(request.launcherId!==issue.launcherId||request.machineId!==plan.config.machineId||request.persistentKeyId!==keyId)continue;keyless.Approve(request.id,{identityConfirmed:true,launcherId:issue.launcherId,persistentKeyId:keyId},'ISOLATED_RECOVERY_PRODUCT:'+plan.runId);productApprovedChallenge=request.id;status.recovery.productRequestApproved=true;break;}}
    boot.Overview();const db=store.Load(),flow=Object.values(db.flows).find(r=>r.launcherId===issue.launcherId),overlay=Object.values(db.overlays||{}).find(r=>r.parentFlowId===flow?.id),enrolled=identity.State().enrollments[replacementId];
    const proof=(r,stage)=>r?.deviceIdentityProofs?.[stage]?.enrollmentId===replacementId&&r.deviceIdentityProofs[stage].epoch===recovery.Epoch();
    Object.assign(status,{ready:true,phase:'product',flowStatus:flow?.status||'',overlayStatus:overlay?.status||'',overlayAuthorized:!!overlay?.authorizedAt,transferCommitted:flow?.closedByOverlay===true&&overlay?.transferVersion===1,retiredParent:!!flow?.retiredAt,retiredOverlay:!!overlay?.retiredAt,licenseUsed:licenses.DB().licenses[license.license.id]?.consumed===true});
@@ -128,4 +141,4 @@ async function Main(root){
  async function Failed(e){if(stopping&&status.error)return;stopping=true;clearInterval(timer);status.error=tool.CODE(e);status.ready=false;if(probe)try{const closed=await probe.Close();RememberCleanup(closed);}catch(_){RememberCleanup();if(status.recovery.replacementDeleted!==true)status.recovery.replacementDeleted=false;}finally{probe=null;}try{fs.rmSync(path.join(root,'input.json'),{force:true});Write();}catch(_){}if(listener)listener.close();process.exitCode=1;setTimeout(()=>process.exit(1),2000).unref();}
 }
 if(require.main===module)Main(process.argv[2]);
-module.exports={NativeProbe,Namespace,BeginProof,OriginalProof,ProtectedPolicy,Main};
+module.exports={NativeEnvironment,NativeProbe,Namespace,BeginProof,OriginalProof,ProtectedPolicy,Main};

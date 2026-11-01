@@ -41,7 +41,7 @@ check('Overlay preparation keeps the same request identity and signed execute bo
  assert.match(api,/Result := PostJSON\('execute', ExecuteBody, \(Action = 'overlay'\) or\s*\(Action = 'redeem'\) or \(Action = 'release'\)\)/);
  const retry=api.split('function TGameApi.PostJSON(')[1].split('function TGameApi.ExecuteProof(')[0];
  assert.ok(retry.includes('Attempts := 2'));
- assert.ok(retry.includes('Deadline := GetTickCount64 + 15000'));
+ assert.ok(retry.includes('Deadline := CozyTick + 15000'));
  assert.ok(retry.indexOf('for Attempt := 1 to Attempts')<retry.indexOf('Response := FTransport.PostJSON(Operation, Body, Budget)'));
  assert.ok(retry.indexOf('Break;')<retry.indexOf("Response.GetValue('ok')"));
  assert.doesNotMatch(retry,/on E: EGameApi do\s*(?:begin)?\s*Continue/);
@@ -99,9 +99,9 @@ check('Authority and each signed report retry share one monotonic deadline acros
   const loop=retry.indexOf('for Attempt := 1 to Attempts');
   assert.ok(loop>0);
   assert.equal((retry.match(/Deadline :=/g)||[]).length,1);
-  assert.ok(retry.indexOf('Deadline := GetTickCount64 + 15000')<loop);
+  assert.ok(retry.indexOf('Deadline := CozyTick + 15000')<loop);
   const attempts=retry.slice(loop,retry.indexOf('Response.GetValue('));
-  assert.match(attempts,/NowTick := GetTickCount64/);
+  assert.match(attempts,/NowTick := CozyTick/);
   assert.match(attempts,/NowTick >= Deadline/);
   assert.match(attempts,/Deadline - NowTick/);
   assert.match(attempts,/on E: EConnectTransport do/);

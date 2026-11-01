@@ -27,8 +27,8 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
     const reports = require('../../services/integrity/peace.desktop-integrity-reports');
     const authority = require('../../services/security/peace.desktop-security-authority');
     const store = require('../../services/bootstrap/peace.desktop-bootstrap-store');
-    for (const role of ['A', 'B', 'O']) boot.Publish(role, '91.0.0', fixture.PE(role));
-    const reject = fn => assert.throws(fn, error => /^(BOOTSTRAP|DESKTOP|SECURITY|INTEGRITY)_/.test(error.message));
+    fixture.CurrentCohort({version:'91.0.0'});
+    const reject = fn => assert.throws(fn, error => /^(BOOTSTRAP|DESKTOP|SECURITY|INTEGRITY|KEYLESS)_/.test(error.message));
     function licenseProof(device, action, payload) {
       clock++;
       const payloadJSON = JSON.stringify(payload);
@@ -40,9 +40,9 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
     }
     function setup() {
       clock++;
-      const device = fixture.Device(), invitation = fixture.Begin(device), begin = invitation.begin;
+      const parent = fixture.Device(), device = fixture.Child(parent), overlayDevice = fixture.Child(device), invitation = fixture.Begin(parent), begin = invitation.begin;
       fixture.Download(begin);
-      const b = fixture.Claim(device, begin, fixture.Finish(device, begin));
+      const b = fixture.Claim(parent, begin, fixture.Finish(parent, begin), device);
       const common = {...fixture.Evidence(device, b), bootstrapSessionId: b.sessionId, bootstrapSessionToken: b.sessionToken, appVersion: '91.0.0'};
       const issued = licenses.Create({requestId: crypto.randomUUID()}, 'COHORT_TEST');
       const activation = licenseProof(device, 'redeem', {...common, licenseKey: issued.licenseKey});
@@ -51,10 +51,11 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
         boot.Execute({action: 'overlayChunk', overlayId: prepared.overlayId, overlayTicket: prepared.overlayTicket, offset});
       const finished = boot.Execute({action: 'overlayFinish', overlayId: prepared.overlayId, overlayTicket: prepared.overlayTicket, signature: fixture.Sign(device, prepared.finishCanonical)});
       const o = boot.Execute({action: 'overlayClaim', overlayId: prepared.overlayId, overlayTicket: prepared.overlayTicket,
-        signature: fixture.Sign(device, finished.claimCanonical), binarySha512: prepared.release.sha512, crc64: prepared.release.crc64,
+        ...fixture.Delegated(device, overlayDevice, 'O', finished.claimCanonical), binarySha512: prepared.release.sha512, crc64: prepared.release.crc64,
         oCodeSha512: prepared.release.codeSha512, oCodeCrc64: prepared.release.codeCrc64});
       const context = {stage: 'O', sessionId: o.sessionId, sessionToken: o.sessionToken, machineId: device.machineId};
-      return {device, invitation, begin, b, o, prepared, context, common, activation};
+      fixture.Enroll(overlayDevice, context);
+      return {device, overlayDevice, invitation, begin, b, o, prepared, context, common, activation};
     }
     function observeAndVerify(s) {
       clock++;
@@ -64,9 +65,9 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
           fileXxh3_128: base.fileXxh3_128, fileBlake3: base.fileBlake3, codeXxh3_128: base.codeXxh3_128, codeBlake3: base.codeBlake3}, crcLayers: base.crcLayers});
       const challenge = reports.Execute({...s.context, action: 'challenge'});
       assert.equal(reports.Execute({...s.context, action: 'submit', reportId: challenge.reportId, payload,
-        signature: fixture.Sign(s.device, reports.Canonical(s.o.sessionId, challenge, payload))}).status, 'VERIFIED');
-      fixture.Observe(s.device, {...s.context, intent: 'verify', binding: authority.Binding(s.o.sessionId, base.sha512)});
-      return boot.Execute({action: 'overlayVerify', sessionId: s.o.sessionId, sessionToken: s.o.sessionToken, ...fixture.Evidence(s.device, s.o)});
+        signature: fixture.Sign(s.overlayDevice, reports.Canonical(s.o.sessionId, challenge, payload))}).status, 'VERIFIED');
+      fixture.Observe(s.overlayDevice, {...s.context, intent: 'verify', binding: authority.Binding(s.o.sessionId, base.sha512)});
+      return boot.Execute({action: 'overlayVerify', sessionId: s.o.sessionId, sessionToken: s.o.sessionToken, ...fixture.Evidence(s.overlayDevice, s.o)});
     }
     const parent = s => store.Load().flows[s.begin.flowId];
     const child = s => store.Load().overlays[s.prepared.overlayId];
@@ -148,7 +149,7 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       terminal(s, 'REVOKED');
     });
     for(const stage of ['A','B','O'])await t.test('signed '+stage+' pointer mismatch retires only its real durable cohort',()=>{
-      const unrelated=setup(),s=stage==='A'?null:setup(),device=s?s.device:fixture.Device();
+      const unrelated=setup(),s=stage==='A'?null:setup(),device=s?(stage==='O'?s.overlayDevice:s.device):fixture.Device();
       const invitation=s?s.invitation:fixture.Begin(device),begin=invitation.begin;
       const context=stage==='A'?{stage,sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:device.machineId}:stage==='B'?{stage,sessionId:s.b.sessionId,sessionToken:s.b.sessionToken,machineId:device.machineId}:s.context;
       const artifactId=boot.AuthenticateIntegrityReport(context).integrityArtifact.id;

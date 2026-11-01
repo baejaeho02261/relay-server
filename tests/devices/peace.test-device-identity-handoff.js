@@ -14,9 +14,14 @@ function prove(app,stage,sessionId,sessionToken){const auth={stage,sessionId,ses
 function license(app,action,payload){const text=JSON.stringify(payload),body={action,requestId:crypto.randomUUID(),deviceId:app.deviceId,publicKey:app.publicKey,payloadHash:sha512(text)},c=licenses.Challenge(body);f.ObserveLicense(app,action,body.requestId,body.payloadHash,payload);return licenses.Execute({...body,challengeId:c.challengeId,payloadJSON:text,signature:f.Sign(app,c.canonical)});}
 function observeO(session){const context={stage:'O',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:o.machineId},base=overlay.AuthenticateIntegrityReport(context).integrityArtifact,payload=JSON.stringify({version:1,hashVersion:3,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:base.codeSha512,codeCrc64:base.codeCrc64,fileXxh3_128:base.fileXxh3_128,fileBlake3:base.fileBlake3,codeXxh3_128:base.codeXxh3_128,codeBlake3:base.codeBlake3},crcLayers:base.crcLayers}),c=reports.Execute({...context,action:'challenge'});reports.Execute({...context,action:'submit',reportId:c.reportId,payload,signature:f.Sign(o,reports.Canonical(session.sessionId,c,payload))});f.Observe(o,{...context,intent:'verify',binding:authority.Binding(session.sessionId,base.sha512)});return context;}
 try{
- for(const role of ['A','B','O'])boot.Publish(role,'90.0.0',f.PE(role,delegation.MARKER));
+ f.CurrentCohort({version:'90.0.0'});
  identity.AdminPolicy({expectedRevision:0,requestId:crypto.randomUUID(),mode:'PERSISTENT',requireForEnrolled:true},'TEST');
- const begin=f.Begin(a,{handoffVersion:3}).begin;f.Download(begin);
+ const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Independent persistent handoff proofs'},'TEST'),request=f.PrepareBegin(a,issue,{persistent});
+ assert.equal(request.decision.status,'PENDING_APPROVAL');
+ require('../../services/bootstrap/peace.keyless-bootstrap').Approve(request.c.challengeId,{identityConfirmed:true,launcherId:issue.launcherId,persistentKeyId:persistent.deviceId},'ADMIN:EXPLICIT_HANDOFF_TEST');
+ // Keep the request-bound launch proof separate from the subsequent A session
+ // proof: approval must not silently satisfy this test's enrollment gate.
+ const begin=boot.Execute({action:'beginKeyless',...request.proof});f.Download(begin);
  check('strict persistent mode blocks A finish before persistent proof',()=>reject(()=>f.Finish(a,begin),'DEVICE_PERSISTENT_PROOF_REQUIRED'));
  check('A enrollment commits in real validated audited store',()=>assert.equal(prove(a,'A',begin.flowId,begin.downloadTicket).assurance,'PERSISTENT_KEY_POSSESSION'));
  const finish=f.Finish(a,begin),bs=boot.Execute({action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,...fields(a,b,'B',finish.claimCanonical),binarySha512:begin.release.sha512,crc64:begin.release.crc64,bCodeSha512:begin.release.codeSha512,bCodeCrc64:begin.release.codeCrc64});

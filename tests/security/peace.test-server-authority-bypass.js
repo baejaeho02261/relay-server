@@ -2,7 +2,7 @@
 // Real loopback TLS, encrypted dispatch, proof workers and durable stores.
 // Synthetic PE fixtures are never executed. No client-side guard is invoked.
 // A reported file hash is not hardware attestation; an unused A is a bearer
-// invitation. These tests assert server authority, not universal patch detection.
+// invitation that still needs explicit per-run approval. These tests assert server authority, not universal patch detection.
 const test = require('node:test'), assert = require('node:assert/strict');
 const crypto = require('node:crypto'), fs = require('node:fs'), os = require('node:os');
 const path = require('node:path'), tls = require('node:tls');
@@ -103,11 +103,23 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
   function Invitation(device) {
     const issued = boot.IssueLauncher({requestId: crypto.randomUUID()}, 'BYPASS_TEST');
     const bytes = boot.LauncherBytes(issued.launcherId), settings = fixture.Config(bytes), code = fixture.CodeImage(bytes);
-    const body = {action: 'begin', requestId: crypto.randomUUID(), launcherId: issued.launcherId,
-      launcherTicket: settings.launcherTicket, launcherSha512: sha(bytes), launcherCrc64: fixture.Crc64(bytes),
-      aCodeSha512: code.sha512, aCodeCrc64: code.crc64, machineId: device.machineId,
-      publicKey: device.publicKey, deviceId: device.deviceId};
-    bytes.fill(0); return {issued, body};
+    const persistent=fixture.Persistent(device),policy=boot.Execute({action:'keylessPolicy',version:1,launcherId:issued.launcherId,machineId:device.machineId});
+    const body = {action:'keylessChallenge',version:1,requestId:crypto.randomUUID(),launcherId:issued.launcherId,
+      launcherSha512:sha(bytes),launcherCrc64:fixture.Crc64(bytes),aCodeSha512:code.sha512,aCodeCrc64:code.crc64,
+      machineId:device.machineId,publicKey:device.publicKey,deviceId:device.deviceId,handoffVersion:3,
+      persistentPublicKey:persistent.publicKey,persistentKeyId:persistent.deviceId,keyProvider:policy.keyProvider,epoch:policy.epoch,revision:policy.revision};
+    bytes.fill(0); return {issued,body,device,persistent};
+  }
+  async function ApprovedBegin(invitation) {
+    const {body,device,persistent}=invitation,c=await Ok('bootstrap',body),proof={version:1,challengeId:c.challengeId,
+      appSignature:fixture.Sign(device,c.canonical),persistentSignature:fixture.Sign(persistent,c.canonical)};
+    assert.equal((await Ok('bootstrap',{action:'keylessProve',...proof})).status,'PENDING_APPROVAL');
+    await Denied('bootstrap',{action:'beginKeyless',...proof},['KEYLESS_APPROVAL_REQUIRED']);
+    require('../../services/bootstrap/peace.keyless-bootstrap').Approve(c.challengeId,
+      {identityConfirmed:true,launcherId:body.launcherId,persistentKeyId:persistent.deviceId},'ADMIN:BYPASS_TEST');
+    const begin=await Ok('bootstrap',{action:'beginKeyless',...proof});
+    await fixture.RemoteEnroll(profile,device,{stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:device.machineId},persistent);
+    return begin;
   }
   function Context(device, session, intent, binding) {
     return {stage: 'B', sessionId: session.sessionId, sessionToken: session.sessionToken,
@@ -124,18 +136,19 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
       signature: fixture.Sign(signer, authority.Canonical(context, challenge, payload))};
   }
   async function Session(device) {
-    const invitation = Invitation(device), begin = await Ok('bootstrap', invitation.body);
-    await Ok('bootstrap', {action: 'chunk', flowId: begin.flowId, downloadTicket: begin.downloadTicket, offset: 0});
-    const context = {stage: 'A', sessionId: begin.flowId, sessionToken: begin.downloadTicket,
-      machineId: device.machineId, intent: 'finish', binding: authority.Binding(begin.flowId, begin.release.sha512)};
-    const observation = await Ok('security', await Measurement(device, context));
-    assert.equal(observation.proceed, true); assert.equal(observation.attested, false);
-    const finish = await Ok('bootstrap', {action: 'finish', flowId: begin.flowId, downloadTicket: begin.downloadTicket,
-      sha512: begin.release.sha512, crc64: begin.release.crc64, aCodeSha512: begin.finishCanonical.split('\n')[5],
-      aCodeCrc64: begin.finishCanonical.split('\n')[6], signature: fixture.Sign(device, begin.finishCanonical)});
-    return Ok('bootstrap', {action: 'claim', flowId: begin.flowId, handoffToken: finish.handoffToken,
-      signature: fixture.Sign(device, finish.claimCanonical), binarySha512: begin.release.sha512,
-      crc64: begin.release.crc64, bCodeSha512: begin.release.codeSha512, bCodeCrc64: begin.release.codeCrc64});
+    const parent=fixture.Device();parent.machineId=device.machineId;
+    const invitation=Invitation(parent),begin=await ApprovedBegin(invitation);
+    await Ok('bootstrap',{action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset:0});
+    const context={stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,
+      machineId:parent.machineId,intent:'finish',binding:authority.Binding(begin.flowId,begin.release.sha512)};
+    const observation=await Ok('security',await Measurement(parent,context));
+    assert.equal(observation.proceed,true);assert.equal(observation.attested,false);
+    const finish=await Ok('bootstrap',{action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,
+      sha512:begin.release.sha512,crc64:begin.release.crc64,aCodeSha512:begin.finishCanonical.split('\n')[5],
+      aCodeCrc64:begin.finishCanonical.split('\n')[6],signature:fixture.Sign(parent,begin.finishCanonical)});
+    const session=await Ok('bootstrap',fixture.ClaimBody(parent,begin,finish,device));
+    await fixture.RemoteEnroll(profile,device,{stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:device.machineId});
+    return session;
   }
   async function LicenseProof(device, session, action, extra, {observe = true, requestId = crypto.randomUUID()} = {}) {
     const payloadJSON = JSON.stringify({...fixture.Evidence(device, session), bootstrapSessionId: session.sessionId,
@@ -165,16 +178,16 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
     await t.test('changed A digests and wrong device binding cannot consume an invitation', async () => {
       const device = fixture.Device(), other = fixture.Device(), invitation = Invitation(device);
       for (const patch of [{launcherSha512: '0'.repeat(128)}, {aCodeSha512: '0'.repeat(128)},
-        {launcherTicket: 'invalid'}, {deviceId: other.deviceId}]) {
+        {persistentKeyId: other.deviceId}, {deviceId: other.deviceId}]) {
         await Denied('bootstrap', {...invitation.body, ...patch},
-          ['BOOTSTRAP_HASH_MISMATCH', 'BOOTSTRAP_CODE_MISMATCH', 'BOOTSTRAP_LAUNCHER_INVALID', 'BOOTSTRAP_PROOF_INVALID']);
+          ['BOOTSTRAP_HASH_MISMATCH', 'KEYLESS_REQUEST_INVALID']);
       }
-      await Ok('bootstrap', invitation.body);
+      await ApprovedBegin(invitation);
       await Denied('bootstrap', {...invitation.body, requestId: crypto.randomUUID(),
         publicKey: other.publicKey, deviceId: other.deviceId, machineId: other.machineId}, ['BOOTSTRAP_LAUNCHER_USED']);
     });
     await t.test('skipping the client measurement exchange cannot finish A or redeem a license', async () => {
-      const device = fixture.Device(), invitation = Invitation(device), begin = await Ok('bootstrap', invitation.body);
+      const device = fixture.Device(), invitation = Invitation(device), begin = await ApprovedBegin(invitation);
       await Ok('bootstrap', {action: 'chunk', flowId: begin.flowId, downloadTicket: begin.downloadTicket, offset: 0});
       await Denied('bootstrap', {action: 'finish', flowId: begin.flowId, downloadTicket: begin.downloadTicket,
         sha512: begin.release.sha512, crc64: begin.release.crc64, aCodeSha512: begin.finishCanonical.split('\n')[5],
@@ -260,10 +273,10 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
       const invitation = Invitation(fixture.Device());
       try {
         Date.now = () => invitation.issued.expiresAt + 1;
-        await Denied('bootstrap', invitation.body, ['BOOTSTRAP_EXPIRED', 'BOOTSTRAP_LAUNCHER_INVALID'], {unchanged: false});
+        await Denied('bootstrap', invitation.body, ['KEYLESS_REQUEST_EXPIRED'], {unchanged: false});
         assert.equal(boot.Initialize().launchers[invitation.issued.launcherId].status, 'EXPIRED');
       } finally { Date.now = originalNow; }
-      await Denied('bootstrap', invitation.body, ['BOOTSTRAP_EXPIRED', 'BOOTSTRAP_LAUNCHER_INVALID']);
+      await Denied('bootstrap', invitation.body, ['KEYLESS_REQUEST_EXPIRED']);
     });
   } catch (error) {
     executionFailure = error;

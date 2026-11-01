@@ -120,37 +120,44 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
     assert.equal(Object.keys(store.Load().flows).length,flows);
    }finally{crypto.randomInt=saved;}
   });
-  await t.test('restored approval uses original lifetime without actor-bound receipt or extra consume deadline',()=>{
+  await t.test('each approval has one non-renewable consume window and owner-bound retries',()=>{
    const s=challenge();call(s,'keylessProve');const approved=approve(s);
-   assert.equal(approved.approvalExpiresAt,undefined);assert.equal(keyless.ListPending().approvalConsumeWindowMs,undefined);
-   clock+=60001;assert.equal(call(s,'keylessStatus').status,'APPROVED');
-   assert.equal(keyless.Approve(s.c.challengeId,{identityConfirmed:true,launcherId:s.inv.issue.launcherId,persistentKeyId:s.persistent.deviceId},'ADMIN:SECOND_OPERATOR').status,'APPROVED');
-   const first=call(s,'beginKeyless'),db=store.Load();
-   assert.equal(db.flows[first.flowId].keylessApproval,undefined);
-   assert.equal(db.launchers[s.inv.issue.launcherId].keylessApprovalVersion,undefined);
+   assert.equal(approved.approvalScope,'EACH_LAUNCH_REQUEST');assert.equal(keyless.ListPending().approvalScope,'EACH_LAUNCH_REQUEST');
+   assert.equal(keyless.ListPending().approvalConsumeWindowMs,60000);
+   assert.equal(approved.approvalExpiresAt,clock+60000);assert.equal(approved.expiresAt,s.c.expiresAt);
+   clock+=10000;assert.deepEqual(approve(s),approved,'retry cannot move consume deadline');
+   expect(()=>keyless.Approve(s.c.challengeId,{identityConfirmed:true,launcherId:s.inv.issue.launcherId,persistentKeyId:s.persistent.deviceId},'ADMIN:SECOND_OPERATOR'),'KEYLESS_APPROVAL_MISMATCH');
+   clock=approved.approvalExpiresAt-1000;const first=call(s,'beginKeyless'),db=store.Load();
+   assert.equal(db.flows[first.flowId].keylessApproval,undefined,'legacy durable receipts are not runtime grants');
    assert.equal(db.launchers[s.inv.issue.launcherId].status,'CONSUMED');
-   assert.deepEqual(call(s,'beginKeyless'),first,'short lost-response recovery does not create a second flow');
+   clock+=2000;assert.deepEqual(call(s,'beginKeyless'),first,'already committed same-flow response recovery is allowed without another grant');
+   assert.equal(Object.values(store.Load().flows).filter(row=>row.launcherId===s.inv.issue.launcherId).length,1);
+   const stale=challenge();call(stale,'keylessProve');const decision=approve(stale),before=clock;
+   clock=decision.approvalExpiresAt;expect(()=>call(stale,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
+   clock=before;expect(()=>call(stale,'beginKeyless'),'KEYLESS_REQUEST_EXPIRED');
+   assert.equal(store.Load().launchers[stale.inv.issue.launcherId].status,'AVAILABLE');
   });
-  await t.test('historical approval is not pinned to the newer PC-policy generation barrier',()=>{
+  await t.test('machine-policy generation changes retire old approvals and require a fresh request',()=>{
    const s=challenge(),machines=require('../../services/devices/peace.desktop-machine-policy');
    call(s,'keylessProve');approve(s);const oldGeneration=machines.Generation(s.app.machineId);
-   // An existing authenticated administrative unblock advances machine policy.
-   // The pre-strengthening approval checks the CURRENT deny policy, rather than
-   // rejecting solely because this independent generation counter advanced.
-   machines.Set(s.app.machineId,false,{requestId:crypto.randomUUID(),reason:'Historical approval parity'},'ADMIN:RESTORE_TEST');
+   machines.Set(s.app.machineId,false,{requestId:crypto.randomUUID(),reason:'Explicit policy generation change'},'ADMIN:POLICY_TEST');
    assert.equal(machines.Generation(s.app.machineId),oldGeneration+1);
-   assert.equal(call(s,'keylessStatus').status,'APPROVED');
-   const result=call(s,'beginKeyless'),db=store.Load();
-   assert.equal(db.flows[result.flowId].machinePolicyGeneration,oldGeneration+1);
-   assert.equal(db.flows[result.flowId].keylessApproval,undefined);
-   assert.equal(db.launchers[s.inv.issue.launcherId].status,'CONSUMED');
+   expect(()=>call(s,'keylessStatus'),'KEYLESS_REQUEST_EXPIRED');expect(()=>approve(s),'KEYLESS_REQUEST_EXPIRED');
+   assert.equal(store.Load().launchers[s.inv.issue.launcherId].status,'AVAILABLE');
+   const fresh=challenge(s.inv,s.app,s.persistent);assert.equal(call(fresh,'keylessProve').status,'PENDING_APPROVAL');
+   expect(()=>call(fresh,'beginKeyless'),'KEYLESS_APPROVAL_REQUIRED');approve(fresh);
+   const result=call(fresh,'beginKeyless');assert.equal(store.Load().flows[result.flowId].machinePolicyGeneration,oldGeneration+1);
   });
-  await t.test('historical manual approval is still request-specific after an earlier request was approved',()=>{
+  await t.test('every new A on the same PC and persistent key requires a separate explicit decision',()=>{
    const app=fixture.Device(),persistent=fixture.Device(),a=challenge(invite(),app,persistent);
-   call(a,'keylessProve');approve(a);
+   call(a,'keylessProve');approve(a);const first=call(a,'beginKeyless');
    const b=challenge(invite(),app,persistent);assert.equal(call(b,'keylessProve').status,'PENDING_APPROVAL');
    expect(()=>call(b,'beginKeyless'),'KEYLESS_APPROVAL_REQUIRED');
+   expect(()=>call(b,'beginKeyless',{appSignature:a.proof.appSignature,persistentSignature:a.proof.persistentSignature}),'KEYLESS_PROOF_INVALID');
    assert.equal(store.Load().launchers[b.inv.issue.launcherId].status,'AVAILABLE');
+   approve(b);const second=call(b,'beginKeyless');assert.notEqual(first.flowId,second.flowId);
+   assert.equal(store.Load().launchers[a.inv.issue.launcherId].status,'CONSUMED');
+   assert.equal(store.Load().launchers[b.inv.issue.launcherId].status,'CONSUMED');
   });
   await t.test('other issued A, changed file, device, and pending identity revision cannot replay approval',()=>{
    const a=challenge(),b=challenge();call(a,'keylessProve');approve(a);call(b,'keylessProve');
@@ -172,7 +179,7 @@ test('V3 public launcher requires bounded dual possession and explicit approval'
    expect(()=>approve(s),'DEVICE_BINDING_RETIRED');
    assert.equal(store.Load().launchers[s.inv.issue.launcherId].status,'AVAILABLE');
   });
-  await t.test('client cancellation or disconnect leaves approval without any execution until original expiry',()=>{
+  await t.test('client cancellation or disconnect cannot turn an approval into an execution grant',()=>{
    const s=challenge(),count=Object.keys(store.Load().flows).length;call(s,'keylessProve');approve(s);
    // The native guard discards an approved reply after cancellation. There is
    // deliberately no begin call here: an approved status is not a server grant.

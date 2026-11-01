@@ -113,6 +113,6 @@ test('UI_HIDDEN follows actual native visibility query, never shutdown intent al
   const hide = renderer.split('procedure TOverlayWindow.BeginClosing;')[1].split('destructor TOverlayWindow.Destroy;')[0];
   order(hide, ['ApiShowWindow(FWindow, SW_HIDE)', 'ObserveHidden;', 'procedure TOverlayWindow.ObserveHidden;', 'ApiIsWindowVisible(FWindow) then Exit', 'FOnHidden()']);
   assert.match(renderer, /BindApiPointer\(Slot_IsWindowVisible, RequireProcAddressHash64\('user32\.dll', HASH_IsWindowVisible\)\)/);
-  assert.match(overlay, /FDeadline <> 0\) and \(TickCount >= FDeadline\)[\s\S]*?Lifecycle\.Note\('O', 'LEASE_EXPIRED', 'OBSERVED'\)/);
+  assert.match(overlay, /FDeadline <> 0\) and \(CozyTick >= FDeadline\)[\s\S]*?Lifecycle\.Note\('O', 'LEASE_EXPIRED', 'OBSERVED'\)/);
 });
 console.log(`NATIVE_LIFECYCLE_SOURCE_CONTRACTS_PASS ${count}; Windows execution NOT_RUN`);

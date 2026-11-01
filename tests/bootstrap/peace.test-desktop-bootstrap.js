@@ -7,7 +7,7 @@ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-'));process.env.
 process.once('exit',()=>{require("../../storage/sqlite/peace.sqlite-database").Close();fs.rmSync(temp,{recursive:true,force:true});});
 require("../../core/peace.utilities.js").EnsureDirs();
 const bootstrap=require("../../services/bootstrap/peace.desktop-bootstrap"),licenses=require("../../services/licensing/peace.desktop-licenses"),state=require("../../core/peace.runtime-state"),database=require("../../storage/snapshots/peace.database.js"),fixture=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture");
-const {PE,Device,Sign,Config,sha256,Crc64,CodeImage}=fixture,a=Device(),b=Device();let checks=0;
+const {PE,Device,Sign,Config,sha256,Crc64,CodeImage}=fixture,a=Device(),b=Device(),parent=Device();parent.machineId=a.machineId;let checks=0;
 function Check(label,fn){fn();checks++;console.log('PASS '+label);}
 function Reject(fn,pattern=/^BOOTSTRAP_/){assert.throws(fn,error=>pattern.test(error.message),String(pattern));}
 // The native client intentionally rejects unknown or duplicate response fields.
@@ -50,7 +50,9 @@ function Restart(input){
 
 Check('CRC64 uses ECMA-182 known vectors and SHA-512 remains independent',()=>{assert.equal(Crc64(Buffer.alloc(0)),'0000000000000000');assert.equal(Crc64(Buffer.from('123456789')),'6C40DF5F0B497347');});
 
-let publishedA,publishedB,issued,launcher,config,beginBody,begin,finish,claimBody,session;
+let publishedA,publishedB,current,issued,launcher,config,beginBody,begin,finish,claimBody,session;
+function Child(parent){const device=Device();device.machineId=parent.machineId;return device;}
+function Approve(prepared){return require("../../services/bootstrap/peace.keyless-bootstrap").Approve(prepared.c.challengeId,{identityConfirmed:true,launcherId:prepared.config.launcherId,persistentKeyId:prepared.persistent.deviceId},"ADMIN:BOOTSTRAP_TEST");}
 Check('Publisher requires structurally bounded AMD64 executables and correct component subsystem',()=>{
  const mutate=fn=>{const value=PE('A');fn(value);return value;};
  const invalid=[Buffer.from('MZ'),mutate(v=>v.writeUInt32LE(v.length-8,0x3c)),mutate(v=>v.writeUInt16LE(0x14c,0x84)),mutate(v=>v.writeUInt16LE(0x2022,0x96)),mutate(v=>v.writeUInt16LE(0x10b,0x98)),mutate(v=>v.writeUInt32LE(0,0xa8)),mutate(v=>v.writeUInt32LE(0xfffffff0,0x19c)),mutate(v=>v.writeUInt16LE(3,0xdc))];
@@ -61,17 +63,25 @@ Check('Publisher requires structurally bounded AMD64 executables and correct com
  assert.match(publishedA.id,/^[A-F0-9]{24}$/);assert.match(publishedB.id,/^[A-F0-9]{24}$/);
  assert.equal(publishedA.crc64,Crc64(PE('A')));assert.equal(publishedB.crc64,Crc64(PE('B')));assert.equal(publishedA.sha512,sha512(PE('A')));assert.equal(publishedB.sha512,sha512(PE('B')));assert.equal(publishedB.size,1536);
 });
+Check('Legacy templates cannot issue new approval-bypassing launchers',()=>{
+ Reject(()=>bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),/^BOOTSTRAP_APPROVAL_UPGRADE_REQUIRED$/);
+ current=fixture.CurrentCohort();publishedA=current.selected.A;publishedB=current.selected.B;
+});
 Check('Issued launcher includes pinned profile and one deterministic download for retry',()=>{
  const body={requestId:crypto.randomUUID(),label:'단일 PC 설치'};issued=bootstrap.IssueLauncher(body,'ADMIN:test');assert.match(issued.launcherId,/^[A-F0-9]{24}$/);assert.ok(issued.expiresAt>Date.now());assert.match(issued.downloadName,/^[a-f0-9]{32}\.exe$/);assert.equal(bootstrap.IssueLauncher(body,'ADMIN:test').downloadName,issued.downloadName);assert.equal(bootstrap.LauncherName(bootstrap.Initialize().launchers[issued.launcherId]),issued.downloadName);assert.notEqual(bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'ADMIN:test').downloadName,issued.downloadName);
  assert.equal(bootstrap.IssueLauncher(body,'ADMIN:test').launcherId,issued.launcherId);Reject(()=>bootstrap.IssueLauncher({...body,label:'다른 설치'},'ADMIN:test'));
- launcher=bootstrap.LauncherBytes(issued.launcherId);assert.deepEqual(bootstrap.LauncherBytes(issued.launcherId),launcher);config=Config(launcher);assert.equal(config.launcherId,issued.launcherId);assert.ok(config.launcherTicket);
- const overview=JSON.stringify(bootstrap.Overview());assert.ok(!overview.includes(config.launcherTicket));assert.ok(!overview.includes('BEGIN PRIVATE KEY'));
+ launcher=bootstrap.LauncherBytes(issued.launcherId);assert.deepEqual(bootstrap.LauncherBytes(issued.launcherId),launcher);config=Config(launcher);assert.equal(config.launcherId,issued.launcherId);assert.equal(config.schema,3);assert.equal(config.launcherTicket,undefined);
+ const overview=JSON.stringify(bootstrap.Overview());assert.ok(!overview.includes('"launcherTicket"'));assert.ok(!overview.includes('BEGIN PRIVATE KEY'));
 });
-Check('Claim admission checks launcher hash, ticket and proof key binding',()=>{
- beginBody={action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherTicket:config.launcherTicket,launcherSha512:sha512(launcher),launcherCrc64:Crc64(launcher),aCodeSha512:CodeImage(launcher).sha512,aCodeCrc64:CodeImage(launcher).crc64,machineId:a.machineId,publicKey:a.publicKey,deviceId:a.deviceId};
- Reject(()=>bootstrap.Execute({...beginBody,launcherCrc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...beginBody,launcherSha512:'0'.repeat(128)}));Reject(()=>bootstrap.Execute({...beginBody,launcherTicket:'invalid'}));Reject(()=>bootstrap.Execute({...beginBody,deviceId:b.deviceId}),/^(BOOTSTRAP_|DESKTOP_)/);
- begin=bootstrap.Execute(beginBody);assert.equal(begin.release.sha512,publishedB.sha512);assert.equal(begin.release.size,publishedB.size);assert.match(begin.flowId,/^[A-F0-9]{24}$/);assert.ok(begin.downloadTicket&&begin.finishCanonical);
- assert.equal(bootstrap.Execute(beginBody).flowId,begin.flowId);Reject(()=>bootstrap.Execute({...beginBody,requestId:crypto.randomUUID(),deviceId:b.deviceId,publicKey:b.publicKey}));
+Check('Claim admission checks final launcher measurements and two request-bound proof keys',()=>{
+ for(const [field,value]of [['launcherCrc64','0'.repeat(16)],['launcherSha512','0'.repeat(128)],['deviceId',b.deviceId]])
+  Reject(()=>fixture.PrepareBegin(parent,launcher,{[field]:value}),/^(BOOTSTRAP_|DESKTOP_|KEYLESS_)/);
+ Reject(()=>bootstrap.Execute({action:'begin',requestId:crypto.randomUUID(),launcherId:issued.launcherId,launcherSha512:sha512(launcher),launcherCrc64:Crc64(launcher),aCodeSha512:CodeImage(launcher).sha512,aCodeCrc64:CodeImage(launcher).crc64,machineId:parent.machineId,publicKey:parent.publicKey,deviceId:parent.deviceId,handoffVersion:3}),/^KEYLESS_APPROVAL_REQUIRED$/);
+ const prepared=fixture.PrepareBegin(parent,launcher);beginBody={action:'beginKeyless',...prepared.proof};
+ Reject(()=>bootstrap.Execute(beginBody),/^KEYLESS_APPROVAL_REQUIRED$/);Approve(prepared);
+ begin=bootstrap.Execute(beginBody);fixture.Enroll(parent,{stage:'A',sessionId:begin.flowId,sessionToken:begin.downloadTicket,machineId:parent.machineId},prepared.persistent);
+ assert.equal(begin.release.sha512,publishedB.sha512);assert.equal(begin.release.size,publishedB.size);assert.match(begin.flowId,/^[A-F0-9]{24}$/);assert.ok(begin.downloadTicket&&begin.finishCanonical);
+ assert.equal(bootstrap.Execute(beginBody).flowId,begin.flowId);Reject(()=>bootstrap.Execute({...beginBody,appSignature:Sign(b,prepared.c.canonical)}),/^KEYLESS_PROOF_INVALID$/);
  AssertNativeRelease(begin.release,'begin');
 });
 Check('Extended hashes stay in server baselines and admin projections without changing the native wire schema',()=>{
@@ -86,21 +96,21 @@ Check('Extended hashes stay in server baselines and admin projections without ch
  AssertExtendedBaseline(authenticated.integrityArtifact,{...publishedA,xxh3_128:personalized.xxh3_128,blake3:personalized.blake3},'A personalized baseline');
 });
 Check('Chunk retrieval checks credentials and integral in-range offsets',()=>{
- Reject(()=>fixture.Finish(a,begin),/^BOOTSTRAP_DOWNLOAD_INCOMPLETE$/);
+ Reject(()=>fixture.Finish(parent,begin),/^BOOTSTRAP_DOWNLOAD_INCOMPLETE$/);
  for(const offset of [-1,0.5,1,begin.release.size,Number.MAX_SAFE_INTEGER])Reject(()=>bootstrap.Execute({action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset}));
  Reject(()=>bootstrap.Execute({action:'chunk',flowId:begin.flowId,downloadTicket:'invalid',offset:0}));
- assert.deepEqual(fixture.Download(begin),PE('B'));const chunk=bootstrap.Execute({action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset:0});assert.deepEqual(Buffer.from(chunk.data,'base64'),PE('B'));
+ assert.deepEqual(fixture.Download(begin),current.outputs.B.bytes);const chunk=bootstrap.Execute({action:'chunk',flowId:begin.flowId,downloadTicket:begin.downloadTicket,offset:0});assert.deepEqual(Buffer.from(chunk.data,'base64'),current.outputs.B.bytes);
 });
 Check('Finish requires published digest and device signature before returning handoff',()=>{
- fixture.ObserveFinish(a,begin);
- const body={action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha512:begin.release.sha512,crc64:begin.release.crc64,aCodeSha512:begin.finishCanonical.split('\n')[5],aCodeCrc64:begin.finishCanonical.split('\n')[6],signature:Sign(a,begin.finishCanonical)};
+ fixture.ObserveFinish(parent,begin);
+ const body={action:'finish',flowId:begin.flowId,downloadTicket:begin.downloadTicket,sha512:begin.release.sha512,crc64:begin.release.crc64,aCodeSha512:begin.finishCanonical.split('\n')[5],aCodeCrc64:begin.finishCanonical.split('\n')[6],signature:Sign(parent,begin.finishCanonical)};
  Reject(()=>bootstrap.Execute({...body,crc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...body,sha512:'0'.repeat(64)}));Reject(()=>bootstrap.Execute({...body,signature:Sign(b,begin.finishCanonical)}));
  finish=bootstrap.Execute(body);assert.ok(finish.handoffToken&&finish.claimCanonical);assert.equal(bootstrap.Execute(body).handoffToken,finish.handoffToken);
 });
 Check('B claim requires exact executable digest and bound handoff signature',()=>{
- claimBody={action:'claim',flowId:begin.flowId,handoffToken:finish.handoffToken,signature:Sign(a,finish.claimCanonical),binarySha512:begin.release.sha512,crc64:begin.release.crc64,bCodeSha512:begin.release.codeSha512,bCodeCrc64:begin.release.codeCrc64};
+ claimBody=fixture.ClaimBody(parent,begin,finish,a);
  Reject(()=>bootstrap.Execute({...claimBody,crc64:'0'.repeat(16)}));Reject(()=>bootstrap.Execute({...claimBody,handoffToken:'invalid'}));Reject(()=>bootstrap.Execute({...claimBody,binarySha512:'0'.repeat(128)}));Reject(()=>bootstrap.Execute({...claimBody,signature:Sign(b,finish.claimCanonical)}));
- session=bootstrap.Execute(claimBody);assert.match(session.sessionId,/^[A-F0-9]{24}$/);assert.ok(session.sessionToken&&session.expiresAt>Date.now());assert.equal(bootstrap.Execute(claimBody).sessionToken,session.sessionToken);
+ session=bootstrap.Execute(claimBody);fixture.Enroll(a,{stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:a.machineId});assert.match(session.sessionId,/^[A-F0-9]{24}$/);assert.ok(session.sessionToken&&session.expiresAt>Date.now());assert.equal(bootstrap.Execute(claimBody).sessionToken,session.sessionToken);
  assert.ok(Gate(session.sessionId,session.sessionToken,a.deviceId));Reject(()=>Gate(session.sessionId,session.sessionToken,b.deviceId));Reject(()=>Gate(session.sessionId,'invalid',a.deviceId));
  AssertNativeRelease(session.release,'claim');
  const status=bootstrap.Execute({action:'status',sessionId:session.sessionId,sessionToken:session.sessionToken});AssertNativeRelease(status.release,'status');
@@ -109,10 +119,10 @@ Check('B claim requires exact executable digest and bound handoff signature',()=
 });
 Check('Launcher device consumption and lost-claim response recovery survive restart',()=>{
  const replay=Restart(claimBody);assert.equal(replay.ok,true,JSON.stringify(replay));assert.equal(replay.data.sessionToken,session.sessionToken);
- const other=Restart({...beginBody,requestId:crypto.randomUUID(),publicKey:b.publicKey,deviceId:b.deviceId});assert.equal(other.ok,false);assert.match(other.error,/^BOOTSTRAP_/);
+ const other=Restart(beginBody);assert.equal(other.ok,false);assert.equal(other.error,'KEYLESS_REQUEST_EXPIRED');
 });
 Check('Storage failure and tampered published artifact never consume an unused launcher',()=>{
- const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Failure atomicity'},'TEST'),bytes=bootstrap.LauncherBytes(issue.launcherId),settings=Config(bytes),body={action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:settings.launcherTicket,launcherSha512:sha512(bytes),launcherCrc64:Crc64(bytes),aCodeSha512:CodeImage(bytes).sha512,aCodeCrc64:CodeImage(bytes).crc64,machineId:a.machineId,publicKey:a.publicKey,deviceId:a.deviceId};
+ const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Failure atomicity'},'TEST'),prepared=fixture.PrepareBegin(parent,issue),body={action:'beginKeyless',...prepared.proof};Approve(prepared);
  const store=require("../../services/bootstrap/peace.desktop-bootstrap-store"),file=store.ArtifactPath(publishedB.id),original=fs.readFileSync(file),tampered=Buffer.from(original);tampered[512]^=1;
  fs.writeFileSync(file,tampered);try{Reject(()=>bootstrap.Execute(body),/^BOOTSTRAP_ARTIFACT_INVALID$/);}finally{fs.writeFileSync(file,original);}
  assert.equal(bootstrap.Overview().launchers.find(row=>row.id===issue.launcherId).status,'AVAILABLE');
@@ -147,10 +157,10 @@ require("../../services/devices/peace.desktop-machine-policy").Set(a.machineId,f
 Check('Abort invalidates unfinished and claimed flow without reviving capabilities',()=>{
  for(const claimed of [false,true]){
   const pending=fixture.Begin(a);let running;
-  if(claimed){fixture.Download(pending.begin);running=fixture.Claim(a,pending.begin,fixture.Finish(a,pending.begin));}
+  if(claimed){fixture.Download(pending.begin);running=fixture.Claim(a,pending.begin,fixture.Finish(a,pending.begin),Child(a));}
   const body={action:'abort',flowId:pending.begin.flowId,downloadTicket:pending.begin.downloadTicket};
   Reject(()=>bootstrap.Execute({...body,downloadTicket:'invalid'}));state.serviceEnabled=false;try{assert.equal(bootstrap.Execute(body).status,'CLOSED');}finally{state.serviceEnabled=true;}assert.equal(bootstrap.Execute(body).status,'CLOSED');
-  Reject(()=>bootstrap.Execute(pending.body),/^BOOTSTRAP_SESSION_CLOSED$/);Reject(()=>fixture.Download(pending.begin),/^BOOTSTRAP_SESSION_CLOSED$/);
+  Reject(()=>bootstrap.Execute(pending.body),/^BOOTSTRAP_LAUNCHER_USED$/);Reject(()=>fixture.Download(pending.begin),/^BOOTSTRAP_SESSION_CLOSED$/);
   if(running)Reject(()=>Gate(running.sessionId,running.sessionToken,a.deviceId),/^BOOTSTRAP_SESSION_CLOSED$/);
   const stored=bootstrap.Initialize().flows[pending.begin.flowId];for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])assert.equal(stored[key],undefined);
   const retry=Restart(body);assert.equal(retry.ok,true,JSON.stringify(retry));assert.equal(retry.data.status,'CLOSED');
@@ -198,42 +208,42 @@ Check('Schemas 1 through 4 are archived once and cannot revive old launchers, se
  }
 });
 Check('Server verifies its stored B bytes again before finish and claim',()=>{
- const pending=fixture.Begin(a);fixture.Download(pending.begin);const artifact=bootstrap.Initialize().artifacts[pending.begin.release.id],file=require("../../services/bootstrap/peace.desktop-bootstrap-store").ArtifactPath(artifact.id),original=fs.readFileSync(file),tampered=Buffer.from(original);tampered[550]^=128;
+ const child=Child(a),pending=fixture.Begin(a);fixture.Download(pending.begin);const artifact=bootstrap.Initialize().artifacts[pending.begin.release.id],file=require("../../services/bootstrap/peace.desktop-bootstrap-store").ArtifactPath(artifact.id),original=fs.readFileSync(file),tampered=Buffer.from(original);tampered[550]^=128;
  fs.writeFileSync(file,tampered);try{Reject(()=>fixture.Finish(a,pending.begin),/^BOOTSTRAP_ARTIFACT_INVALID$/);}finally{fs.writeFileSync(file,original);}
- const completed=fixture.Finish(a,pending.begin);fs.writeFileSync(file,tampered);try{Reject(()=>fixture.Claim(a,pending.begin,completed),/^BOOTSTRAP_ARTIFACT_INVALID$/);}finally{fs.writeFileSync(file,original);}
- const running=fixture.Claim(a,pending.begin,completed);const evidence=fixture.Evidence(a,running);
- Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,a.deviceId,{...evidence,binaryCrc64:'0'.repeat(16)}),/^BOOTSTRAP_HASH_MISMATCH$/);
- Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,a.deviceId,{...evidence,binarySha512:'0'.repeat(128)}),/^BOOTSTRAP_HASH_MISMATCH$/);
- Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,a.deviceId,{...evidence,machineId:'0'.repeat(64)}),/^BOOTSTRAP_HASH_MISMATCH$/);
+ const completed=fixture.Finish(a,pending.begin);fs.writeFileSync(file,tampered);try{Reject(()=>fixture.Claim(a,pending.begin,completed,child),/^BOOTSTRAP_ARTIFACT_INVALID$/);}finally{fs.writeFileSync(file,original);}
+ const running=fixture.Claim(a,pending.begin,completed,child);const evidence=fixture.Evidence(child,running);
+ Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,child.deviceId,{...evidence,binaryCrc64:'0'.repeat(16)}),/^BOOTSTRAP_HASH_MISMATCH$/);
+ Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,child.deviceId,{...evidence,binarySha512:'0'.repeat(128)}),/^BOOTSTRAP_HASH_MISMATCH$/);
+ Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,child.deviceId,{...evidence,machineId:'0'.repeat(64)}),/^BOOTSTRAP_HASH_MISMATCH$/);
 });
 Check('Machine blocks deny bootstrap and unblocking cannot revive prior sessions',()=>{
- const device=Device(),pending=fixture.Begin(device);fixture.Download(pending.begin);const completed=fixture.Finish(device,pending.begin),running=fixture.Claim(device,pending.begin,completed),policy=require("../../services/devices/peace.desktop-machine-policy"),evidence=fixture.Evidence(device,running);
+ const device=Device(),parent=Child(device),pending=fixture.Begin(parent);fixture.Download(pending.begin);const completed=fixture.Finish(parent,pending.begin),running=fixture.Claim(parent,pending.begin,completed,device),policy=require("../../services/devices/peace.desktop-machine-policy"),evidence=fixture.Evidence(device,running);
  const license=licenses.Create({requestId:crypto.randomUUID(),label:'Automatic one use lock'},'TEST');licenses.Execute(LicenseProof(device,'redeem',{licenseKey:license.licenseKey,bootstrapSessionId:running.sessionId,bootstrapSessionToken:running.sessionToken}));
  assert.equal(policy.Public(device.machineId).blocked,true);assert.equal(policy.Public(device.machineId).source,'SINGLE_USE');
  assert.ok(fixture.Gate(device,running));
  bootstrap.Execute({action:'close',sessionId:running.sessionId,sessionToken:running.sessionToken});
  assert.equal(bootstrap.Execute({action:'status',sessionId:running.sessionId,sessionToken:running.sessionToken}).status,'CLOSED');assert.equal(bootstrap.Overview().sessions.find(item=>item.id===running.sessionId).online,false);
  Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence),/^BOOTSTRAP_SESSION_CLOSED$/);
- Reject(()=>fixture.Begin(device),/^DESKTOP_MACHINE_BLOCKED$/);Reject(()=>fixture.Claim(device,pending.begin,completed),/^BOOTSTRAP_SESSION_CLOSED$/);
+ Reject(()=>fixture.Begin(device),/^DESKTOP_MACHINE_BLOCKED$/);Reject(()=>fixture.Claim(parent,pending.begin,completed,device),/^BOOTSTRAP_SESSION_CLOSED$/);
  policy.Set(device.machineId,false,{reason:'Test machine unblock',requestId:crypto.randomUUID()},'TEST');
  assert.equal(bootstrap.Execute({action:'status',sessionId:running.sessionId,sessionToken:running.sessionToken}).status,'CLOSED');
  Reject(()=>bootstrap.Gate(running.sessionId,running.sessionToken,device.deviceId,evidence),/^DESKTOP_MACHINE_SESSION_REVOKED$/);
- Reject(()=>fixture.Claim(device,pending.begin,completed),/^DESKTOP_MACHINE_SESSION_REVOKED$/);
- const fresh=fixture.Begin(device);fixture.Download(fresh.begin);assert.ok(fixture.Claim(device,fresh.begin,fixture.Finish(device,fresh.begin)).sessionId);
+ Reject(()=>fixture.Claim(parent,pending.begin,completed,device),/^DESKTOP_MACHINE_SESSION_REVOKED$/);
+ const fresh=fixture.Begin(parent);fixture.Download(fresh.begin);assert.ok(fixture.Claim(parent,fresh.begin,fixture.Finish(parent,fresh.begin),device).sessionId);
 });
 
 Check('Own executable reports compare to pristine upload and revoke modified-code flows',()=>{
- const device=Device(),pending=fixture.Begin(device);fixture.Download(pending.begin);const completed=fixture.Finish(device,pending.begin);
- const claim={action:'claim',flowId:pending.begin.flowId,handoffToken:completed.handoffToken,signature:Sign(device,completed.claimCanonical),binarySha512:pending.begin.release.sha512,crc64:pending.begin.release.crc64,bCodeSha512:'0'.repeat(128),bCodeCrc64:pending.begin.release.codeCrc64};
+ const device=Device(),parent=Child(device),pending=fixture.Begin(parent);fixture.Download(pending.begin);const completed=fixture.Finish(parent,pending.begin);
+ const claim={...fixture.ClaimBody(parent,pending.begin,completed,device),bCodeSha512:'0'.repeat(128)};
  Reject(()=>bootstrap.Execute(claim),/^BOOTSTRAP_CODE_MISMATCH$/);assert.equal(bootstrap.Initialize().flows[pending.begin.flowId].status,'REVOKED');assert.equal(bootstrap.Initialize().flows[pending.begin.flowId].codeIntegrityStatus,'REJECTED');
- Reject(()=>fixture.Claim(device,pending.begin,completed),/^BOOTSTRAP_REVOKED$/);
- const fresh=fixture.Begin(device);fixture.Download(fresh.begin);const session=fixture.Claim(device,fresh.begin,fixture.Finish(device,fresh.begin)),evidence=fixture.Evidence(device,session);
+ Reject(()=>fixture.Claim(parent,pending.begin,completed,device),/^BOOTSTRAP_REVOKED$/);
+ const fresh=fixture.Begin(parent);fixture.Download(fresh.begin);const session=fixture.Claim(parent,fresh.begin,fixture.Finish(parent,fresh.begin),device),evidence=fixture.Evidence(device,session);
  Reject(()=>bootstrap.Gate(session.sessionId,session.sessionToken,device.deviceId,{...evidence,codeCrc64:'0'.repeat(16)}),/^BOOTSTRAP_CODE_MISMATCH$/);
  assert.equal(bootstrap.Overview().sessions.find(s=>s.id===session.sessionId).reason,'CODE_DIGEST_MISMATCH');
- const a=fixture.Begin(device);fixture.Download(a.begin);const finish={action:'finish',flowId:a.begin.flowId,downloadTicket:a.begin.downloadTicket,sha512:a.begin.release.sha512,crc64:a.begin.release.crc64,aCodeSha512:'0'.repeat(128),aCodeCrc64:a.begin.finishCanonical.split('\n')[6],signature:Sign(device,a.begin.finishCanonical)};
+ const a=fixture.Begin(parent);fixture.Download(a.begin);const finish={action:'finish',flowId:a.begin.flowId,downloadTicket:a.begin.downloadTicket,sha512:a.begin.release.sha512,crc64:a.begin.release.crc64,aCodeSha512:'0'.repeat(128),aCodeCrc64:a.begin.finishCanonical.split('\n')[6],signature:Sign(parent,a.begin.finishCanonical)};
  Reject(()=>bootstrap.Execute(finish),/^BOOTSTRAP_CODE_MISMATCH$/);assert.equal(bootstrap.Initialize().flows[a.begin.flowId].status,'REVOKED');
- const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),bytes=bootstrap.LauncherBytes(issue.launcherId),cfg=Config(bytes);
- Reject(()=>bootstrap.Execute({action:'begin',requestId:crypto.randomUUID(),launcherId:issue.launcherId,launcherTicket:cfg.launcherTicket,launcherSha512:sha512(bytes),launcherCrc64:Crc64(bytes),aCodeSha512:'0'.repeat(128),aCodeCrc64:CodeImage(bytes).crc64,machineId:device.machineId,publicKey:device.publicKey,deviceId:device.deviceId}),/^BOOTSTRAP_CODE_MISMATCH$/);
+ const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID()},'TEST');
+ Reject(()=>fixture.PrepareBegin(parent,issue,{aCodeSha512:'0'.repeat(128)}),/^BOOTSTRAP_HASH_MISMATCH$/);
  assert.equal(bootstrap.Initialize().launchers[issue.launcherId].status,'AVAILABLE');
 });
 
@@ -244,14 +254,14 @@ Check('A diagnostics bind the personalized launcher and cannot cross into claime
  fixture.Download(pending.begin);const finished=fixture.Finish(device,pending.begin);assert.equal(bootstrap.AuthenticateIntegrityReport(auth).stage,'A');
  const real=Date.now;Date.now=()=>finished.expiresAt+1;try{Reject(()=>bootstrap.AuthenticateIntegrityReport(auth),/^BOOTSTRAP_EXPIRED$/);}finally{Date.now=real;}
  // Expiry is terminal even after restoring the test's wall clock.
- Reject(()=>fixture.Claim(device,pending.begin,finished),/^BOOTSTRAP_EXPIRED$/);
+ Reject(()=>fixture.Claim(device,pending.begin,finished,Child(device)),/^BOOTSTRAP_EXPIRED$/);
  // Exercise the A-to-B diagnostic boundary on a separate unexpired flow.
- const fresh=fixture.Begin(device);fixture.Download(fresh.begin);fixture.Claim(device,fresh.begin,fixture.Finish(device,fresh.begin));
+ const fresh=fixture.Begin(device);fixture.Download(fresh.begin);fixture.Claim(device,fresh.begin,fixture.Finish(device,fresh.begin),Child(device));
  Reject(()=>bootstrap.AuthenticateIntegrityReport({...auth,sessionId:fresh.begin.flowId,sessionToken:fresh.begin.downloadTicket}),/^BOOTSTRAP_LAUNCHER_USED$/);
 });
 
 Check('Successful authoritative code checks refresh one bounded server observation',()=>{
- const device=Device(),pending=fixture.Begin(device);fixture.Download(pending.begin);const running=fixture.Claim(device,pending.begin,fixture.Finish(device,pending.begin)),reports=require("../../services/integrity/peace.desktop-integrity-reports"),evidence=fixture.Evidence(device,running);
+ const device=Device(),parent=Child(device),pending=fixture.Begin(parent);fixture.Download(pending.begin);const running=fixture.Claim(parent,pending.begin,fixture.Finish(parent,pending.begin),device),reports=require("../../services/integrity/peace.desktop-integrity-reports"),evidence=fixture.Evidence(device,running);
  const find=()=>reports.List({sessionId:running.sessionId}).items.filter(r=>r.stage==='B'&&r.check==='OWN_CODE'&&r.status==='VERIFIED');const before=find();assert.equal(before.length,1);
  const real=Date.now,advanced=real()+11000;Date.now=()=>advanced;try{fixture.Gate(device,running);const after=find();assert.equal(after.length,1);assert.ok(after[0].at>before[0].at);assert.equal(after[0].expectedSha512,evidence.codeSha512);fixture.Gate(device,running);assert.equal(find()[0].id,after[0].id);}finally{Date.now=real;}
 });

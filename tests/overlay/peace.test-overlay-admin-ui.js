@@ -232,7 +232,7 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     assert.match(document.querySelector('[data-active-packing="A"]').textContent,new RegExp(candidates[0].sha512));
     assert.match(document.querySelector('[data-active-packing="B"]').textContent,/연결된 서버 패킹 기록 없음/,'A mismatched output hash cannot display a linked worker record');
     assert.match(byId('desktop-protection-issued-config').textContent,/A의 발급 설정 형식은 게시된 템플릿에 따라/);
-    assert.match(byId('desktop-protection-issued-config').textContent,/공개 연결 정보와 최초 기기 승인/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/공개 연결 정보와 매 실행 기기 승인/);
     assert.match(byId('desktop-protection-modal').textContent,/임의의 Delphi 소스 자동 변환이나 EXE 전체 암호화는 지원하지 않습니다/);
     assert.match(byId('desktop-protection-modal').textContent,/서버 정책 연결 전에는 실행되지 않습니다/);
     assert.match(byId('desktop-protection-modal').textContent,/A 발급·B\/O 배포에는 적용되지 않습니다/);
@@ -350,7 +350,7 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     await waitFor(()=>byId('desktop-protection-active'),'own active template metadata');
     assert.match(document.querySelector('[data-active-packing="A"]').textContent,/서버 정책 연결 기록 확인/);
     assert.match(byId('desktop-protection-issued-config').textContent,/같은 작업의 서버 정책 연결 v2 묶음/);
-    assert.match(byId('desktop-protection-issued-config').textContent,/공개 발급 설정은 암호화 비밀이 아니며 최초 기기 승인이 필요/);
+    assert.match(byId('desktop-protection-issued-config').textContent,/공개 발급 설정은 암호화 비밀이 아니며 매 실행 기기 승인이 필요/);
     assert.match(byId('desktop-protection-issued-config').textContent,/Windows 실행 시험은 별도/);
     await close(ownActiveProtection);
     for(const patch of [{slotContainsSecret:true},{clientBytecode:true},{execution:'CLIENT'},{policyId:'malformed'}]){

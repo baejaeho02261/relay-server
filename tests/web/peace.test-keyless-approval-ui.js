@@ -30,7 +30,7 @@ test('shows only public identifiers and requires explicit outside identity confi
  const row={...Row(),ticket:'DO_NOT_RENDER_TICKET',serverPolicyIR:'DO_NOT_RENDER_POLICY'},h=Harness([row]);
  try{const {pending}=await h.open();Select(h,row);assert.equal(h.q('desktop-first-device-submit').disabled,true);
   await h.q('desktop-first-device-submit').onclick();assert.equal(h.calls.filter(x=>x.method==='POST').length,0);
-  const text=h.w.document.body.textContent;assert(text.includes(row.persistentKeyId));assert(text.includes(row.launcherId));assert(!text.includes(row.ticket));assert(!text.includes(row.serverPolicyIR));assert(text.includes('TPM 하드웨어 증명이 아닙니다'));
+  const text=h.w.document.body.textContent;assert(text.includes(row.persistentKeyId));assert(text.includes(row.launcherId));assert(!text.includes(row.ticket));assert(!text.includes(row.serverPolicyIR));assert(text.includes('TPM 하드웨어 증명이 아닙니다'));assert(text.includes('같은 PC라도 새 A를 실행할 때마다 별도 승인'));assert(text.includes('승인 후 60초'));assert(!text.includes('60초 제한은 없습니다')); 
   Confirm(h);await h.q('desktop-first-device-submit').onclick();const post=h.calls.find(x=>x.method==='POST');
   assert.equal(post.url,base+'/'+row.id+'/approve');assert.deepEqual(post.body,{identityConfirmed:true,persistentKeyId:row.persistentKeyId,launcherId:row.launcherId});
   assert(h.q('desktop-first-device-status').textContent.includes('실행 완료를 확인한 것은 아닙니다'));assert.equal(h.q('desktop-first-device-submit').disabled,true);await h.close(pending);

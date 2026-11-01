@@ -37,6 +37,7 @@ const checks = [
   ["overlay/peace.test-overlay-parent-startup-lease.js"],
   ["bootstrap/peace.test-keyless-bootstrap.js"],
   ["bootstrap/peace.test-keyless-legacy-receipts.js"],
+  ["bootstrap/peace.test-repeat-approval-legacy.js"],
 
   ["cryptography/peace.test-code-page-sha512.js"],
   ["integrity/peace.test-pointer-graph-lifecycle.js"],

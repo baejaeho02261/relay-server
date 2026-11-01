@@ -3,11 +3,13 @@ const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 function load(relative,dependencies={},globals={}){
+ const filename=path.resolve(MODULE_RESOURCE_ROOT,'..',relative);
+ const moduleRequire=require('node:module').createRequire(filename);
  const module={exports:{}},cached={};
- const req=name=>Object.hasOwn(dependencies,name)?dependencies[name]:require(name);
+ const req=name=>Object.hasOwn(dependencies,name)?dependencies[name]:moduleRequire(name);
  req.resolve=name=>name;req.cache=cached;
  for(const [name,value]of Object.entries(dependencies))cached[name]={exports:value};
- vm.runInNewContext(fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,'..',relative),'utf8'),{require:req,module,exports:module.exports,console,Buffer,AbortController,setTimeout,clearTimeout,setInterval,clearInterval,...globals},{filename:relative});
+ vm.runInNewContext(fs.readFileSync(filename,'utf8'),{require:req,module,exports:module.exports,console,Buffer,AbortController,setTimeout,clearTimeout,setInterval,clearInterval,...globals},{filename:relative});
  return module.exports;
 }
 test('shutdown joins hooks and workers before durable saves, then closes witness once',async()=>{

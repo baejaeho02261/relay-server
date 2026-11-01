@@ -28,7 +28,12 @@ test('API module ownership precedes parsing and target pinning precedes applicat
  assert.match(pin,/Address = nil/);assert.match(pin,/Module = 0/);assert.doesNotMatch(pin,/\$00000002/);
  const optional=p.slice(p.lastIndexOf('function OptionalSystemProcAddressHash64('),p.lastIndexOf('initialization'));
  assert.match(optional,/Module := LoadSystemModule64\(ModuleName\);\s*Result := GetProcAddressHash64\(Pointer\(Module\), ProcHash\)/);
- assert.match(startup,/if Address = nil then Continue;\s*RetainApiTargetModule\(Address\);[\s\S]*?ApiPointerTargetsMatch\(Targets\)/);
+ const roleValidation=startup.slice(startup.indexOf('procedure ValidateRoleApis('),startup.indexOf('procedure RequireResource('));
+ assert.match(roleValidation,/if Items\[I\]\.ProcName <> '' then[\s\S]*?Items\[I\]\.ProcHash <> 0[\s\S]*?not NamedClockApiAllowed\(Items\[I\]\.ProcName\)/);
+ assert.match(roleValidation,/Winapi\.Windows\.GetModuleHandleW\(PWideChar\(Items\[I\]\.ModuleName\)\)[\s\S]*?Winapi\.Windows\.GetProcAddress\(Module, PAnsiChar\(Items\[I\]\.ProcName\)\)/);
+ assert.match(roleValidation,/if Address = nil then\s*raise EInvalidOpException\.Create\('STARTUP_NAMED_API_UNAVAILABLE'\)/);
+ assert.match(roleValidation,/if Items\[I\]\.ProcHash = 0 then[\s\S]*?if Address = nil then Continue;\s*end;\s*RetainApiTargetModule\(Address\);[\s\S]*?ApiPointerTargetsMatch\(Targets\)/);
+ assert.doesNotMatch(roleValidation,/DecodeApiPointer\(/);
  const resolverFinal=p.slice(p.lastIndexOf('finalization')).replace(/\{[\s\S]*?\}/g,'');
  assert.doesNotMatch(resolverFinal,/\b(?:PEB)?FreeLibrary\s*\(/i);
  for(const [file,role,run] of [["Cozy.Projects/Cozy.Launcher/Cozy.Launcher.dpr",'gcrLauncher','RunLauncher'],["Cozy.Projects/Cozy.Client/Cozy.Client.dpr",'gcrConnect','RunGameConsole'],["Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dpr",'gcrOverlay','RunOverlay']]){
@@ -44,7 +49,7 @@ test('API module ownership precedes parsing and target pinning precedes applicat
 });
 test('Two attempts share one monotonic budget and fresh observations',()=>{assert.ok(native.includes('ObservationBudgetMs = 25000'));assert.match(native,/Clock := TStopwatch\.StartNew;[\s\S]*?for Attempt := 1 to 2/);assert.ok(native.includes('WaitBeforeRetry(Clock, Cancelled, OperationKey)'));assert.ok(native.includes("BindContext(Body, 'challenge')"));assert.ok(native.includes("BindContext(SubmitBody, 'submit')"));assert.ok(native.includes("(Attempt = 2) or not E.Retryable"));});
 test('Concurrent same-operation guard is bounded and removed in finally',()=>{assert.ok(native.includes('ActiveObservations.Count >= 128'));assert.ok(native.includes('ActiveObservations.ContainsKey(OperationKey)'));assert.match(native,/finally\s+EndObservation\(OperationKey\);\s+WipeText\(OperationKey\);/);assert.ok(native.includes("SessionID + '|' + Intent + '|' + Binding"));});
-test('Cancellation is wired to the existing atomic B stop flag',()=>{assert.ok(native.includes('if Assigned(Cancelled) and Cancelled() then'));assert.ok(native.includes('TThread.Sleep(Piece)'));assert.ok(c("Cozy.Source/Cozy.Platform/Cozy.Api.pas").includes('Result := InterlockedCompareExchange(FStopRequested, 0, 0) <> 0;'));});
+test('Cancellation is wired to the existing atomic B stop flag',()=>{assert.ok(native.includes('if Assigned(Cancelled) and Cancelled() then'));assert.ok(native.includes('if not CozyWaitForDelay(Piece,'));assert.ok(native.includes('Result := Assigned(Cancelled) and Cancelled();'));assert.ok(c("Cozy.Source/Cozy.Platform/Cozy.Api.pas").includes('Result := InterlockedCompareExchange(FStopRequested, 0, 0) <> 0;'));});
 test('All callers share a preparation-inclusive transport budget and cancellation',()=>{
  assert.ok(transport.includes('RequestBudgetMs: Cardinal = 0'));
  assert.ok(transport.includes('RequestClock := TStopwatch.StartNew'));

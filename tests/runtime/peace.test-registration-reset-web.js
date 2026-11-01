@@ -62,7 +62,7 @@ const SNAPSHOT=`
   script(env,`
    const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');require(M.utilities).EnsureDirs();require(M.database).LoadDatabase();
    const b=require(M.bootstrap),f=require(M.fixture),l=require(M.licenses),s=require(M.state);
-   for(const role of ['A','B','O'])b.Publish(role,'80.0.0',f.PE(role));
+   f.CurrentCohort({version:'80.0.0'});
    const license=l.Create({requestId:crypto.randomUUID(),label:'synthetic web reset'},'RESET_TEST').license;f.Begin(f.Device());
    require(M.workspace).Atomic(value=>{value.metadata[license.id]={note:'synthetic reset',tags:['fixture'],revision:1};});
    const req={headers:${JSON.stringify(Object.fromEntries(Object.entries(ingress).map(([k,v])=>[k.toLowerCase(),v])))},socket:{remoteAddress:'127.0.0.1'}};
@@ -76,7 +76,7 @@ const SNAPSHOT=`
    new(require(M.witness).WitnessFile)(${JSON.stringify(witness)}).enroll({DESKTOP_JOURNAL:head(path.join(process.env.DATA_DIR,'desktop-license-journal.jsonl.head')),DESKTOP_MACHINE_POLICY:head(path.join(process.env.DATA_DIR,'desktop-machine-policy/journal.jsonl.head')),DESKTOP_BOOTSTRAP:head(path.join(process.env.DATA_DIR,'desktop-bootstrap/authority.json.head')),DESKTOP_INTEGRITY:head(require(M.integrity).FILE+'.head')});
    require(M.sqlite).Close();console.log('WEB_RESET_TEST:'+JSON.stringify({seeded:true}));`);
   env.DESKTOP_RECOVERY_WITNESS_DIR=witness;env.DESKTOP_RECOVERY_WITNESS_REQUIRED='1';
-  const before=script(env,SNAPSHOT);assert.equal(before.counts.artifacts,3);assert.equal(before.counts.licenses,1);assert.ok(before.counts.issuedLaunchers>0);assert.equal(Object.keys(before.passkeys).length,1);
+  const before=script(env,SNAPSHOT);assert.equal(before.counts.artifacts,6);assert.equal(before.counts.licenses,1);assert.ok(before.counts.issuedLaunchers>0);assert.equal(Object.keys(before.passkeys).length,1);
   const first=await start(),admin=await login(),viewer=await login('viewer'),other=await login();
   assert.equal((await call(ROUTE)).status,401);assert.equal((await call(ROUTE,undefined,viewer)).status,403);
   const initial=await call(ROUTE,undefined,admin);assert.equal(initial.status,200,JSON.stringify(initial.data));assert.deepEqual(initial.data.counts,before.counts);assert.equal(initial.data.operation,null);
