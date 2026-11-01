@@ -9,7 +9,7 @@ function Fixture(t){
  const literal="'COZY-TEST'#10'한글''value'";
  const map={units:[{unit:UNIT,path:unitPath,constants:[{name:NAME,expression:literal}]}],sources:[{path:'Cozy.Source/Example.pas',unitNames:[UNIT]}]};
  const mapFile=path.join(folder,'Cozy.StringUnits.map.json'),unitFile=path.join(root,unitPath);
- function save(){fs.writeFileSync(mapFile,JSON.stringify(map));fs.writeFileSync(unitFile,'unit '+UNIT+';\ninterface\nconst\n  '+NAME+' = '+map.units[0].constants[0].expression+';\nimplementation\nend.\n');}
+ function save(){fs.writeFileSync(mapFile,JSON.stringify(map));fs.writeFileSync(unitFile,'\ufeffunit '+UNIT+';\n{$IFDEF FPC}{$MODE DELPHI}{$CODEPAGE UTF8}{$ENDIF}\ninterface\nconst\n  '+NAME+' = '+map.units[0].constants[0].expression+';\nimplementation\nend.\n');}
  save();fs.writeFileSync(source,"unit Example;\ninterface\nuses "+UNIT+";\nimplementation\nconst Domain: AnsiString = "+NAME+";\n// "+NAME+"\n{ "+NAME+" }\nconst LabelText = '"+NAME+"';\nend.\n");
  t.after(()=>fs.rmSync(temp,{recursive:true,force:true}));return{root,source,mapFile,unitFile,map,literal,save};
 }
@@ -44,6 +44,8 @@ test('separate Pascal constant units cannot hide runtime initialization, imports
   original.replace('interface const','interface uses Hidden.Unit; const'),
   original.replace('implementation end.','implementation procedure Hidden; begin end; end.'),
   original.replace('interface const','interface {$I Hidden.inc} const'),
+  original.replace('interface const','{$IFDEF FPC}{$MODE DELPHI}{$ENDIF}{$CODEPAGE UTF8} interface const'),
+  original.replace('interface const','{$IFDEF MSWINDOWS}{$MODE DELPHI}{$CODEPAGE UTF8}{$ENDIF} interface const'),
   original+' procedure Hidden; begin end;',
   original.replace('implementation','Unlisted = 42; implementation')
  ])assert.throws(()=>UnitConstants(changed,UNIT),/UNIT_SCAFFOLD|DECLARATION|UNIT_DIRECTIVE/);

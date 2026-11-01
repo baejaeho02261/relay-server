@@ -38,7 +38,7 @@ function Tokens(text, collectDirectives=false) {
 function UnitConstants(text, expectedUnit) {
  const allTokens=Tokens(text,true),values=new Map(),names=new Set();let at=0;
  const directives=allTokens.filter(t=>t.kind==='directive').map(t=>t.value.replace(/\s+/g,' ').toUpperCase());
- if(directives.length&&directives.join('|')!=='IFDEF FPC|MODE DELPHI|ENDIF|CODEPAGE UTF8')Fail('UNIT_DIRECTIVE');
+ if(directives.length&&directives.join('|')!=='IFDEF FPC|MODE DELPHI|CODEPAGE UTF8|ENDIF')Fail('UNIT_DIRECTIVE');
  for(let i=0;i<allTokens.length;i++)if(allTokens[i].kind==='directive'&&allTokens.slice(0,i).filter(t=>t.kind!=='directive').length!==3)Fail('UNIT_DIRECTIVE');
  const tokens=allTokens.filter(t=>t.kind!=='directive');
  const expect=value=>{if(tokens[at++]?.value.toLowerCase()!==value.toLowerCase())Fail('UNIT_SCAFFOLD');};

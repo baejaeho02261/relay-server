@@ -132,6 +132,7 @@
     "test:integrity:priorities": "node --test tests/cryptography/peace.test-code-page-sha512.js tests/integrity/peace.test-pointer-graph-lifecycle.js",
     "test:relay:socket": "node --test tests/network/peace.test-native-socket-priorities.js",
     "test:issued-a": "node --test tests/bootstrap/peace.test-issued-a-signing.js tests/bootstrap/peace.test-issued-a-native-contract.js",
+    "test:issued-a:trust": "node --test tests/bootstrap/peace.test-issued-a-trust-inspector.js",
     "test:relay:socket:windows": "node tools/network/peace.native-socket-tests.js",
     "test:protocol:documents": "node --test tests/protocol/peace.test-document-schema.js",
     "test:members": "node --test tests/licensing/peace.test-desktop-members.js tests/web/peace.test-desktop-member-ui.js",

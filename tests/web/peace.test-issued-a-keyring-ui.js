@@ -5,16 +5,19 @@ const {JSDOM}=require('jsdom'),source=fs.readFileSync(path.resolve(__dirname,'..
 async function fixture(){
  const dom=new JSDOM('<main id="host"></main>',{runScripts:'outside-only'}),w=dom.window,calls=[];let close;
  const policy={revision:1,mode:'enforce',dynamicCode:'observe',freshnessMs:45000,challengeMs:15000,minVersionA:'1',minVersionB:'1',minVersionO:'1',trustedReleaseKeys:[],revokedSha512:[]};
- const data={policy,events:[],operations:{active:{},candidates:[],auditHealth:{status:'HEALTHY'},operations:{revision:1,activations:[],rollout:{enabled:false,artifactKeys:[],patch:{}},signerStates:{}}}};
+ const candidates=['A','B','O'].map(component=>({component,id:component+'-candidate',version:'1.0.0',sha512:component.toLowerCase().repeat(128)}));
+ const data={policy,events:[],operations:{active:Object.fromEntries(candidates.map(row=>[row.component,row.id])),candidates,auditHealth:{status:'HEALTHY'},operations:{revision:1,activations:[],rollout:{enabled:false,artifactKeys:[],patch:{}},signerStates:{}}}};
+ const preview={eligible:true,reasons:[]};
  const ring={managed:false,revision:0,keys:[],privateMaterialIncluded:false};w.session={csrf:'owner'};w.roleIsAdmin=()=>true;w.confirm=()=>true;
  w.esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  w.openModal=({html})=>{w.document.getElementById('host').innerHTML=html;return new Promise(r=>{close=r;});};w.modalCancel={click:()=>close()};
  w.api=async(url,options={})=>{calls.push({url,options:structuredClone(options)});
   if(url.endsWith('/issued-a-keys'))return options.method==='POST'?{ok:true,status:structuredClone(ring)}:structuredClone(ring);
+  if(url.endsWith('/preview-pair'))return {preview:{...options.body,policyRevision:1,operationsRevision:1,...structuredClone(preview)}};
   if(url.endsWith('/activation'))return {status:{}};return structuredClone(data);
  };
  new vm.Script(source).runInContext(dom.getInternalVMContext());const operation=w.showDesktopSecurityOperations();await new Promise(r=>setImmediate(r));
- return {w,calls,ring,async click(action){w.document.querySelector(`[data-security-action="${action}"]`).click();await new Promise(r=>setImmediate(r));},async close(){close();await operation;dom.window.close();}};
+ return {w,calls,ring,preview,async click(action){w.document.querySelector(`[data-security-action="${action}"]`).click();await new Promise(r=>setImmediate(r));},async close(){close();await operation;dom.window.close();}};
 }
 test('explicit public key status read does not initialize or expose private inputs',async()=>{
  const f=await fixture();try{
@@ -38,6 +41,40 @@ test('retirement and irreversible revoke target explicit key; cancel sends no mu
   await f.click('issued-key-retire');assert.deepEqual(f.calls.find(r=>r.options.method==='POST').options.body,{action:'state',expectedRevision:9,keyId,state:'RETIRING'});
   f.calls.length=0;f.w.confirm=()=>false;await f.click('issued-key-revoke');assert.equal(f.calls.filter(r=>r.options.method==='POST').length,0);
   f.w.confirm=()=>true;await f.click('issued-key-revoke');assert.deepEqual(f.calls.find(r=>r.options.method==='POST').options.body,{action:'state',expectedRevision:9,keyId,state:'REVOKED'});
+ }finally{await f.close();}
+});
+test('retirement confirms the exact key and irreversible loss of new issuance; cancel preserves a passed preview',async()=>{
+ const f=await fixture();try{
+  const keyId='d'.repeat(64),confirmations=[];Object.assign(f.ring,{managed:true,revision:5,keys:[{keyId,generation:1,state:'ACTIVE',issued:1,unused:1,liveFlows:0}]});await f.click('issued-keys-load');
+  await f.click('preview-pair');assert.equal(f.w.document.querySelector('#sec-activate').disabled,false);
+  f.calls.length=0;f.w.confirm=message=>{confirmations.push(message);return false;};await f.click('issued-key-retire');
+  assert.equal(f.calls.filter(r=>r.options.method==='POST').length,0);assert.equal(f.w.document.querySelector('#sec-activate').disabled,false);
+  assert.ok(confirmations[0].includes(keyId));assert.match(confirmations[0],/기존 발급만 허용/);assert.match(confirmations[0],/새 A를 발급할 수 없습니다/);assert.match(confirmations[0],/ACTIVE로 되돌릴 수 없/);
+ }finally{await f.close();}
+});
+test('successful key state mutation invalidates a passed pair preview even when policy and operations revisions do not change',async()=>{
+ const f=await fixture();try{
+  Object.assign(f.ring,{managed:true,revision:6,keys:[{keyId:'e'.repeat(64),generation:1,state:'ACTIVE',issued:0,unused:0,liveFlows:0}]});await f.click('issued-keys-load');
+  await f.click('preview-pair');assert.equal(f.w.document.querySelector('#sec-activate').disabled,false);
+  await f.click('issued-key-retire');assert.equal(f.w.document.querySelector('#sec-activate').disabled,true);
+  assert.equal(f.w.document.querySelector('#sec-pair-preview').textContent,'');assert.doesNotMatch(f.w.document.querySelector('#sec-pair-status').textContent,/통과/);
+  assert.match(f.w.document.querySelector('#security-status').textContent,/RETIRING/);assert.match(f.w.document.querySelector('#security-status').textContent,/새 A 발급은 중단/);assert.match(f.w.document.querySelector('#security-status').textContent,/다시 검증/);
+ }finally{await f.close();}
+});
+test('blocked pair previews explain retired, revoked and unknown issuer keys and expose the actual A public key',async()=>{
+ const f=await fixture();try{
+  const keyId='f'.repeat(64);Object.assign(f.preview,{eligible:false,finalIssuedSigning:{ready:false,keyId}});
+  for(const [reason,expected]of [
+   ['ISSUED_A_SIGNING_KEY_RETIRING',/신규 발급을 중단/],
+   ['ISSUED_A_SIGNING_KEY_REVOKED',/등록 데이터 초기화로 철회가 해제되지 않습니다/],
+   ['ISSUED_A_SIGNING_KEY_UNKNOWN',/세대 관리 목록에 없습니다/],
+   ['ISSUED_A_KEY_REVOKED_IRREVERSIBLE',/복원할 수 없습니다/]
+  ]){
+   f.preview.reasons=[reason];await f.click('preview-pair');
+   assert.match(f.w.document.querySelector('#sec-pair-status').textContent,expected);assert.equal(f.w.document.querySelector('#sec-activate').disabled,true);
+   assert.ok(f.w.document.querySelector('#sec-issued-template-key').textContent.includes(keyId));assert.match(f.w.document.querySelector('#sec-issued-template-key').textContent,/A에 내장된 공개 키 ID/);
+  }
+  const selector=f.w.document.querySelector('#sec-a');selector.value='';selector.dispatchEvent(new f.w.Event('change',{bubbles:true}));assert.ok(!f.w.document.querySelector('#sec-issued-template-key').textContent.includes(keyId));
  }finally{await f.close();}
 });
 test('status text is escaped and revoked rows offer no restore or further state action',async()=>{

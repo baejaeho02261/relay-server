@@ -8,7 +8,7 @@ if(process.argv[2]!=='--keyring-child'){
   const owned=fs.mkdtempSync(path.join(os.tmpdir(),'peace-issued-keyring-')),env={...process.env,COZY_KEYRING_TEST_DIR:owned};delete env.NODE_TEST_CONTEXT;
   try{const result=child.spawnSync(process.execPath,['--test-reporter=tap',__filename,'--keyring-child'],{env,encoding:'utf8',timeout:50000,maxBuffer:4*1024*1024,windowsHide:true});
    if(result.stdout)process.stdout.write(result.stdout);assert.equal(result.error,undefined);assert.equal(result.signal,null);assert.equal(result.status,0,result.stderr||result.stdout);
-   assert.match(result.stdout,/# tests 9\b/);assert.match(result.stdout,/# pass 9\b/);
+   assert.match(result.stdout,/# tests 10\b/);assert.match(result.stdout,/# pass 10\b/);
   }finally{fs.rmSync(owned,{recursive:true,force:true});}
  });
 }else{
@@ -36,6 +36,15 @@ if(process.argv[2]!=='--keyring-child'){
   delete process.env[signing.ENV];reject(()=>signing.Create(newTemplate,config),'ISSUED_A_KEYRING_REQUIRED');process.env[signing.ENV]=oldPrivate;
   const initialized=ring.Mutate({action:'initialize',expectedRevision:0},'TEST');assert.equal(initialized.status.revision,1);assert.equal(initialized.status.keys[0].state,'ACTIVE');
  });
+ test('invalid and ambiguous template inspections cannot nominate a diagnostic key',()=>{
+  const anchor=signing.InspectTemplate(templates.outputs.A.bytes),inspection={templateSize:templates.outputs.A.bytes.length,templateSha512:fixture.sha512(templates.outputs.A.bytes),publicBlob:anchor.blob.toString('hex')};
+  for(const input of [null,{...inspection,keyId:oldId},{...inspection,templateSha512:'untrusted'},{...inspection,publicBlob:'00'.repeat(signing.PUBLIC_BLOB_SIZE)},{...inspection,templateSize:64*1024*1024}]){
+   const view=signing.ReadinessFromInspection(input);assert.equal(view.ready,false);assert.equal(Object.hasOwn(view,'keyId'),false);
+  }
+  const duplicate=Buffer.from(templates.outputs.A.bytes);signing.AnchorBytes(anchor.publicKey).copy(duplicate,600);
+  const ambiguous=signing.Readiness(duplicate);assert.equal(ambiguous.reason,'ISSUED_A_TRUST_ANCHOR_AMBIGUOUS');assert.equal(Object.hasOwn(ambiguous,'keyId'),false);
+  const missing=signing.Readiness(fixture.PE('A','no public anchor'));assert.equal(missing.reason,'ISSUED_A_BUILD_UPGRADE_REQUIRED');assert.equal(Object.hasOwn(missing,'keyId'),false);
+ });
  test('new public generation matches private possession, exact template and key purpose',()=>{
   reject(()=>ring.Mutate({action:'register',expectedRevision:0,publicKey:keytool.PublicJSON(identity)},'TEST'),'ISSUED_A_KEYRING_CONFLICT');
   reject(()=>ring.Mutate({action:'register',expectedRevision:1,publicKey:{...keytool.PublicJSON(identity),privateKey:encoded}},'TEST'),'ISSUED_A_PUBLIC_JSON_INVALID');
@@ -56,7 +65,10 @@ if(process.argv[2]!=='--keyring-child'){
  });
  test('retiring forbids fresh signatures but keeps exact retry and download without old private key',()=>{
   ring.Mutate({action:'state',expectedRevision:2,keyId:oldId,state:'RETIRING'},'TEST');delete process.env[signing.ENV];
-  assert.equal(signing.Readiness(templates.outputs.A.bytes).reason,'ISSUED_A_SIGNING_KEY_RETIRING');
+  const ready=signing.Readiness(templates.outputs.A.bytes);assert.equal(ready.ready,false);assert.equal(ready.reason,'ISSUED_A_SIGNING_KEY_RETIRING');assert.equal(ready.keyId,oldId);
+  assert.deepEqual(Object.keys(ready).sort(),['authenticode','format','keyId','ready','reason','scope']);assert.equal(JSON.stringify(ready).includes(oldPrivate),false);
+  const anchor=signing.InspectTemplate(templates.outputs.A.bytes);assert.deepEqual(signing.ReadinessFromInspection({templateSize:templates.outputs.A.bytes.length,templateSha512:fixture.sha512(templates.outputs.A.bytes),publicBlob:anchor.blob.toString('hex')}),ready);
+  assert.equal(signing.Readiness(newTemplate).ready,true);assert.equal(signing.Readiness(newTemplate).keyId,newId);
   reject(()=>boot.IssueLauncher({requestId:crypto.randomUUID()},'TEST'),'ISSUED_A_SIGNING_KEY_RETIRING');
   assert.equal(boot.IssueLauncher(request,'TEST').launcherId,issued.launcherId);assert.deepEqual(boot.LauncherBytes(issued.launcherId),oldBytes);
   assert.deepEqual(store.Load().launchers[issued.launcherId].finalIssuedSignature,oldReceipt);
@@ -74,7 +86,9 @@ if(process.argv[2]!=='--keyring-child'){
   reject(()=>ring.Mutate({action:'state',expectedRevision:4,keyId:oldId,state:'RETIRING'},'TEST'),'ISSUED_A_KEY_REVOKED_IRREVERSIBLE');
   // The unchanged offline V1 verifier proves bytes, not current server policy.
   assert.equal(signing.VerifyFinal(oldBytes,{expectedTemplateSha512:oldReceipt.templateSha512,expectedKeyId:oldId}).keyId,oldId);
-  process.env[signing.ENV]=oldPrivate;assert.equal(signing.Readiness(templates.outputs.A.bytes).reason,'ISSUED_A_SIGNING_KEY_REVOKED');
+  process.env[signing.ENV]=oldPrivate;const ready=signing.Readiness(templates.outputs.A.bytes);assert.equal(ready.ready,false);assert.equal(ready.reason,'ISSUED_A_SIGNING_KEY_REVOKED');assert.equal(ready.keyId,oldId);
+  assert.deepEqual(Object.keys(ready).sort(),['authenticode','format','keyId','ready','reason','scope']);assert.equal(JSON.stringify(ready).includes(oldPrivate),false);
+  const anchor=signing.InspectTemplate(templates.outputs.A.bytes);assert.deepEqual(signing.ReadinessFromInspection({templateSize:templates.outputs.A.bytes.length,templateSha512:fixture.sha512(templates.outputs.A.bytes),publicBlob:anchor.blob.toString('hex')}),ready);
  });
  test('server environment removal and process restart cannot resurrect revoked generation',()=>{
   const copy=fs.mkdtempSync(path.join(os.tmpdir(),'peace-keyring-restart-'));try{

@@ -108,14 +108,17 @@ function VerifyHeader(header,signature,anchor){return signature.length===SIGNATU
 // Diagnostic-only bridge from the bounded parser worker. All fields describe
 // public template bytes; this cannot issue a launcher or reserve a key purpose.
 function ReadinessFromInspection(inspection){
- let header,signature,blob,config;
+ let header,signature,blob,config,keyId;
  try{
   if(!Plain(inspection)||Object.keys(inspection).sort().join(',')!=='publicBlob,templateSha512,templateSize'||
      !Number.isSafeInteger(inspection.templateSize)||inspection.templateSize<512||
      typeof inspection.templateSha512!=='string'||!/^[a-f0-9]{128}$/.test(inspection.templateSha512)||
      typeof inspection.publicBlob!=='string'||!/^[a-f0-9]{566}$/.test(inspection.publicBlob))Fail('ISSUED_A_TEMPLATE_INVALID');
   if(inspection.templateSize+publicConfig.MAX+TAIL_SIZE>MAX_TEMPLATE)Fail('ISSUED_A_TEMPLATE_TOO_LARGE');
-  blob=Buffer.from(inspection.publicBlob,'hex');const anchor=IdentityFromBlob(blob),signer=LoadSigner({keyId:anchor.keyId});
+  blob=Buffer.from(inspection.publicBlob,'hex');const anchor=IdentityFromBlob(blob);
+  // Retain only the validated public identity when signer policy rejects this
+  // template. Invalid or ambiguous input must never nominate a diagnostic key.
+  keyId=anchor.keyId;const signer=LoadSigner({keyId});
   if(anchor.keyId!==signer.keyId)Fail('ISSUED_A_SIGNING_KEY_MISMATCH');
   // Same template-bound internal challenge as Readiness; the synthetic config
   // is deliberately not a valid launcher configuration. Never return signature.
@@ -124,7 +127,7 @@ function ReadinessFromInspection(inspection){
   Buffer.from(anchor.keyId,'hex').copy(header,24);Buffer.from(inspection.templateSha512,'hex').copy(header,56);Digest(config).copy(header,120);
   signature=SignHeader(header,signer);if(!VerifyHeader(header,signature,anchor))Fail('ISSUED_A_SIGNATURE_INVALID');
   return {ready:true,format:FORMAT,keyId:anchor.keyId,scope:'APPLICATION_SIGNATURE',authenticode:false};
- }catch(error){return {ready:false,format:FORMAT,reason:error.desktopError?error.message:'ISSUED_A_SIGNING_UNAVAILABLE',scope:'APPLICATION_SIGNATURE',authenticode:false};}
+ }catch(error){return {ready:false,format:FORMAT,reason:error.desktopError?error.message:'ISSUED_A_SIGNING_UNAVAILABLE',...(keyId?{keyId}:{}),scope:'APPLICATION_SIGNATURE',authenticode:false};}
  finally{header?.fill(0);signature?.fill(0);blob?.fill(0);config?.fill(0);}
 }
 function Readiness(template){

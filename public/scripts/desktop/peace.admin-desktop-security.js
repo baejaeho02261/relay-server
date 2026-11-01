@@ -43,6 +43,13 @@ async function showDesktopSecurityOperations(initialPair=null) {
     ISSUED_A_SIGNING_KEY_NOT_CONFIGURED:'서버의 최종 A 발급 서명 키가 설정되지 않았습니다. 전용 개인키를 서버 변수에 설정하세요. 개인키를 소스나 웹 파일 업로드에 넣지 마세요.',
     ISSUED_A_SIGNING_KEY_INVALID:'서버 발급 서명 키 형식이 올바르지 않습니다. 전용 RSA 2048 · 지수 65537 개인키의 PKCS8 PEM을 Base64로 서버 변수에 설정하세요.',
     ISSUED_A_SIGNING_KEY_MISMATCH:'A의 공개 검증 키와 서버 발급 서명 키가 다릅니다. 의도한 서버 키의 공개 검증 키를 포함해 A를 다시 빌드하고 새 최종 명세로 등록하세요.',
+    ISSUED_A_SIGNING_KEY_RETIRING:'선택한 A의 발급 서명키는 RETIRING입니다. [기존 발급만 허용]은 신규 발급을 중단하며 ACTIVE로 되돌릴 수 없습니다. 새 ACTIVE 키의 공개키를 포함해 A를 다시 빌드하고 승인·새 명세·후보 등록 후 조합을 다시 검증하세요.',
+    ISSUED_A_SIGNING_KEY_REVOKED:'선택한 A의 발급 서명키는 REVOKED입니다. [기존 발급만 허용]이나 등록 데이터 초기화로 철회가 해제되지 않습니다. 새 ACTIVE 키의 공개키를 포함해 A를 다시 빌드하고 승인·새 명세·후보 등록 후 새 A 후보로 조합을 검증하세요.',
+    ISSUED_A_SIGNING_KEY_UNKNOWN:'선택한 A의 발급 서명키가 세대 관리 목록에 없습니다. 아래 A 내장 공개 키 ID와 [발급 서명키 상태 조회]를 대조하고 서버 설정과 일치하는 새 공개키를 등록하세요.',
+    ISSUED_A_KEY_REVOKED_IRREVERSIBLE:'철회된 발급 서명키는 복원할 수 없습니다. 새 ACTIVE 키를 등록하고 해당 공개키를 포함해 다시 빌드한 A를 승인·등록하세요. 등록 데이터 초기화로 철회 기록은 지워지지 않습니다.',
+    ISSUED_A_KEY_STATE_UNCHANGED:'이미 요청한 상태인 발급 서명키입니다. 발급 서명키 상태를 다시 조회하고 대상 공개 키 ID와 상태를 확인하세요.',
+    ISSUED_A_KEYRING_CONFLICT:'발급 서명키 상태가 조회 이후 변경되었습니다. 발급 서명키 상태를 다시 조회하고 대상 공개 키 ID와 상태를 확인하세요.',
+    ISSUED_A_KEY_ALREADY_REGISTERED:'이미 등록된 발급 서명키입니다. 발급 서명키 상태를 조회해 같은 공개 키 ID의 상태를 확인하세요. RETIRING·REVOKED 키는 ACTIVE로 복원되지 않습니다.',
     ISSUED_A_SIGNATURE_REQUIRED:'이 A 발급 기록에는 최종 파일 서명이 없습니다. 최신 서명 검증 A를 게시한 뒤 새 A를 발급하세요. 이전 사용 이력은 유지됩니다.',
     ISSUED_A_SIGNATURE_INVALID:'최종 A 파일과 발급 설정의 서명을 확인하지 못했습니다. 파일을 배포하지 않았습니다. 서버 키와 승인된 원본 A를 확인한 뒤 새로 발급하세요.',
     ISSUED_A_RECEIPT_INVALID:'저장된 A 발급 서명 기록이 최종 파일과 일치하지 않습니다. 서버 저장 상태와 승인된 A를 확인하세요. 기존 기록을 임의로 수정하지 마세요.',
@@ -89,6 +96,10 @@ async function showDesktopSecurityOperations(initialPair=null) {
     if(record){const registered=(record.registration||'REGISTERED')==='REGISTERED';stage.dataset.state=registered?'REGISTERED':'PLANNED';stage.textContent=registered?'명세 등록 완료 · REGISTERED — 다음 단계: 조합 검증':'명세 계획 등록 · PLANNED — 다음 단계: 같은 JSON으로 세 파일 확인 후 명세 등록 완료';}
     else{stage.dataset.state='pending';stage.textContent=ids.some(Boolean)?'선택한 후보의 명세 연결을 확인하세요. 조합 검증에서 서버가 최종 판정합니다.':'명세 미연결 — 현재 서버의 명세 요구 조건은 조합 검증에서 확인합니다.';}
   }
+  function updateIssuedTemplateKey(preview){
+    const keyId=preview?.finalIssuedSigning?.keyId;
+    node('sec-issued-template-key').textContent=typeof keyId==='string'&&/^[a-f0-9]{64}$/.test(keyId)?`선택한 A에 내장된 공개 키 ID: ${keyId} · 발급 서명키 상태 조회에서 이 ID의 ACTIVE 상태와 서버 키 설정을 확인하세요.`:'조합 검증 후 선택한 A의 실제 내장 공개 키 ID를 표시합니다.';
+  }
   function render(){
     if(!alive())return;
     const p=data.policy,box=data.operations,s=box.operations,active=box.active,rows=box.candidates;
@@ -123,7 +134,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
       <div id="sec-issued-key-state">${issuedKeys?`<p>${issuedKeys.managed?'세대 관리 사용 중':'기존 단일 키 모드'} · revision ${esc(issuedKeys.revision)} · ${esc(issuedKeys.configurationError||'서버 설정 읽기 완료')}</p><table><thead><tr><th>세대 / 공개 키 ID</th><th>상태</th><th>등록 A / 미사용 / A·B 흐름 / O</th><th>변경</th></tr></thead><tbody>${(issuedKeys.keys||[]).map(k=>`<tr><td>${esc(k.generation)} · <code>${esc(k.keyId)}</code></td><td>${esc(k.state)}${k.privateKeyConfigured?' · 서버 키 설정됨':''}</td><td>${esc(k.issued)} / ${esc(k.unused)} / ${esc(k.liveFlows)} / ${esc(k.liveOverlays||0)}</td><td>${k.state==='ACTIVE'?`<button type="button" data-security-action="issued-key-retire" data-key="${esc(k.keyId)}">기존 발급만 허용</button>`:''}${k.state!=='REVOKED'?`<button type="button" class="danger" data-security-action="issued-key-revoke" data-key="${esc(k.keyId)}">이 키의 발급·실행 철회</button>`:''}</td></tr>`).join('')}</tbody></table>${!issuedKeys.managed?button('issued-keys-initialize','기존 발급을 보존하며 세대 관리 시작'):''}`:'조회 버튼을 누르면 공개 키 ID와 상태만 읽습니다.'}</div>
       <label>새 발급 서명키 공개 JSON · 개인키 금지<textarea id="sec-issued-public-json" rows="4" maxlength="4096" placeholder="version, algorithm, keyId, publicBlob만 포함한 공개 JSON" spellcheck="false" autocomplete="off"></textarea></label>
       ${button('issued-key-register','서버 설정과 대조해 새 키 등록')}
-      <p class="small-note">서버에 새 개인키를 추가한 뒤 공개 JSON을 등록하고, 해당 공개키를 포함한 새 A 템플릿을 승인·게시하세요. 새 A 발급을 확인한 뒤 이전 키를 RETIRING으로 전환하세요. 이미 배포된 A의 공개키를 바꾸거나 Windows 게시자 서명을 추가하지 않습니다.</p></details>
+      <p class="small-note">서버에 새 개인키를 추가한 뒤 공개 JSON을 등록하고, 해당 공개키를 포함한 새 A 템플릿을 승인·게시하세요. 새 A 발급을 확인한 뒤 이전 키를 RETIRING으로 전환하세요. [기존 발급만 허용]은 오류 복구 버튼이 아니며, 누른 키로 새 A를 발급할 수 없게 됩니다. 이미 배포된 A의 공개키를 바꾸거나 Windows 게시자 서명을 추가하지 않습니다.</p></details>
       <details><summary>정책 편집 · 적용 전 영향 미리보기</summary><div class="desktop-security-grid">
       <label>검사 결과 정책${select('sec-mode',[['enforce','검사 실패 시 작업 보류'],['observe','관찰만']],p.mode)}</label>
       <label>동적 코드${select('sec-dynamic',[['observe','상태 조회만'],['prohibit','생성·수정 제한 요구']],p.dynamicCode)}</label>
@@ -157,7 +168,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
       <div class="desktop-security-grid"><label>A${select('sec-a',[['','A 후보 선택'],...choices('A')],selected('A'))}</label><label>B${select('sec-b',[['','B 후보 선택'],...choices('B')],selected('B'))}</label><label>O${select('sec-o',[['','오버레이 사용 안 함'],...choices('O')],selected('O'))}</label></div>
       <div id="sec-candidate-summary" class="security-candidate-summary"></div><p id="sec-release-stage" class="security-release-stage"></p>
       <label>이번 변경 내용 (서버에 보관)<textarea id="sec-release-notes" maxlength="1000"></textarea></label>
-      <div class="actions">${button('preview-pair','조합 검증')}<button type="button" id="sec-activate" data-security-action="activate" disabled>검증한 A/B/O 조합 운영 게시</button></div><p id="sec-pair-status" class="security-pair-status" role="status" aria-live="polite"></p><pre id="sec-pair-preview" class="desktop-security-result"></pre>
+      <div class="actions">${button('preview-pair','조합 검증')}<button type="button" id="sec-activate" data-security-action="activate" disabled>검증한 A/B/O 조합 운영 게시</button></div><p id="sec-pair-status" class="security-pair-status" role="status" aria-live="polite"></p><p id="sec-issued-template-key" class="small-note"></p><pre id="sec-pair-preview" class="desktop-security-result"></pre>
       <p class="small-note">EXE 승인·명세 확인은 Windows 시험 PASS가 아닙니다. 실제 시험 결과는 아래 운영자 시험 기록에서 별도로 관리합니다.</p>
       <details><summary>선택 사항 · 운영자 시험 기록</summary><label>시험 결과 JSON (Windows 수집 도구 결과 또는 운영자 확인 자료)<input type="file" id="sec-evidence-file" accept=".json,application/json"></label>${button('record-evidence','선택 A/B/O에 시험 결과 기록')}
       <p class="small-note">nativeBuild · apiProbe · integration은 PASS / FAIL / NOT_RUN을 구분합니다. 실제 실행하지 않은 항목을 PASS로 표시하지 마세요. 이 기록만으로 하드웨어 실행을 증명하지 않습니다.</p></details>
@@ -200,6 +211,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
     fillContract();
     if(!publishReady())pairPreview=null;
     if(pairPreview)node('sec-pair-preview').textContent=JSON.stringify(pairPreview.result,null,2);
+    updateIssuedTemplateKey(pairPreview?.result);
     updatePairStatus();
   }
   function fillContract(){const id=node('sec-contract-artifact')?.value,c=data.operations.candidates.find(x=>x.id===id)?.contract;node('sec-min-slots').value=c?.minApiSlots??'';node('sec-max-slots').value=c?.maxApiSlots??'';}
@@ -221,7 +233,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
   async function reload(){const next=await api('/api/desktop/bootstrap/security-authority'),activation=await api(base+'/activation');if(alive()){data=next;activationState=activation.status;render();}}
   function invalidateReleaseNote(event){if(event.target.id==='sec-release-notes'){pairPreview=null;node('sec-pair-preview').textContent='';updatePairStatus('변경 내용을 수정했습니다. 현재 A/B/O 조합을 다시 검증해주세요.');}}
   root.addEventListener('input',invalidateReleaseNote);root.addEventListener('change',invalidateReleaseNote);
-  root.addEventListener('change',event=>{if(['sec-a','sec-b','sec-o'].includes(event.target.id)){pairPreview=null;recoveryPreview=null;node('sec-recovery-apply').disabled=true;node('sec-pair-preview').textContent='';updatePairStatus('선택이 변경되었습니다. 이 A/B/O 조합을 다시 검증해주세요.');}if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
+  root.addEventListener('change',event=>{if(['sec-a','sec-b','sec-o'].includes(event.target.id)){pairPreview=null;recoveryPreview=null;node('sec-recovery-apply').disabled=true;node('sec-pair-preview').textContent='';updateIssuedTemplateKey(null);updatePairStatus('선택이 변경되었습니다. 이 A/B/O 조합을 다시 검증해주세요.');}if(event.target.id==='sec-contract-artifact')fillContract();if(event.target.id==='sec-enable-profile'){activationPreview=null;node('sec-enable-all-button').disabled=true;node('sec-enable-issues').textContent='범위가 변경되었습니다. 사전 점검을 다시 실행하세요.';node('sec-enable-preview').textContent='';}});
   root.addEventListener('click',async event=>{
     const target=event.target.closest('[data-security-action]');if(!target||busy||!alive())return;
     const action=target.dataset.securityAction,revision=data.operations.operations.revision;
@@ -239,8 +251,14 @@ async function showDesktopSecurityOperations(initialPair=null) {
         const request={action:action==='issued-keys-initialize'?'initialize':action==='issued-key-register'?'register':'state',expectedRevision:issuedKeys.revision};
         if(request.action==='register'){const text=node('sec-issued-public-json').value;if(text.length>4096)throw Error('공개 JSON 크기를 확인하세요.');const value=JSON.parse(text);if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort().join(',')!=='algorithm,keyId,publicBlob,version'||value.version!==1||value.algorithm!=='RSA2048-PKCS1-SHA256'||typeof value.keyId!=='string'||!/^[a-f0-9]{64}$/.test(value.keyId)||typeof value.publicBlob!=='string'||!/^[A-Za-z0-9+/]{378}==$/.test(value.publicBlob)||btoa(atob(value.publicBlob))!==value.publicBlob)throw Error('발급 서명키 공개 JSON만 입력하세요. 개인키는 전송하지 않습니다.');request.publicKey=value;}
         if(request.action==='state'){request.keyId=target.dataset.key;request.state=action==='issued-key-retire'?'RETIRING':'REVOKED';}
-        if(action==='issued-key-revoke'&&!window.confirm('이 키의 미사용 A와 연결된 실행을 철회합니다. 복원할 수 없습니다. 진행할까요?')){successMessage='키 철회를 취소했습니다.';}
-        else{const out=await api(base+'/issued-a-keys',{method:'POST',body:request});if(alive()){issuedKeys=out.status;node('sec-issued-public-json').value='';}changed=true;}
+        const confirmation=action==='issued-key-retire'?`발급 서명키 ${request.keyId}를 RETIRING으로 전환할까요? 기존 발급만 허용하며 이 키로 새 A를 발급할 수 없습니다. ACTIVE로 되돌릴 수 없으므로 새 키의 A 발급을 확인한 뒤 진행하세요.`:action==='issued-key-revoke'?`발급 서명키 ${request.keyId}의 미사용 A와 연결된 실행을 철회할까요? REVOKED는 복원할 수 없습니다.`:'';
+        if(confirmation&&!window.confirm(confirmation)){successMessage=action==='issued-key-retire'?'기존 발급만 허용 전환을 취소했습니다.':'키 철회를 취소했습니다.';}
+        else{
+          const out=await api(base+'/issued-a-keys',{method:'POST',body:request});
+          if(alive()){issuedKeys=out.status;pairPreview=null;node('sec-issued-public-json').value='';}
+          changed=true;
+          successMessage=action==='issued-key-retire'?'이 키를 RETIRING으로 전환했습니다. 기존 발급은 유지하며 새 A 발급은 중단됩니다. 새 ACTIVE 키의 A 후보로 조합을 다시 검증하세요.':action==='issued-key-revoke'?'이 키를 REVOKED로 철회했습니다. 복원할 수 없습니다. 새 ACTIVE 키의 A 후보로 조합을 다시 검증하세요.':action==='issued-key-register'?'새 발급 서명키를 ACTIVE로 등록했습니다. 이 공개키로 다시 빌드한 A의 승인·새 명세·후보 등록 후 조합을 검증하세요.':'기존 발급을 보존하며 발급 서명키 세대 관리를 시작했습니다. 선택한 A/B/O 조합을 다시 검증하세요.';
+        }
       }else if(action==='audit-release-readiness'){
         const out=await api('/api/desktop/bootstrap/security-authority/release-readiness');
         if(!out.readiness||out.readiness.scope!=='REGISTERED_RELEASE_BYTES'||!Array.isArray(out.readiness.releases))throw Error('등록 파일 검사 응답을 확인하지 못했습니다. 다시 검사하세요.');
@@ -302,7 +320,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
         if(alive()){
           const current=JSON.stringify(body)===JSON.stringify(pairBody())&&note===node('sec-release-notes').value.trim()&&out.preview.policyRevision===data.policy.revision&&out.preview.operationsRevision===data.operations.operations.revision;
           pairPreview=current&&out.preview.eligible?{selection:JSON.stringify(body),note,policyRevision:out.preview.policyRevision,operationsRevision:out.preview.operationsRevision,result:out.preview}:null;
-          if(current){statusState=out.preview.eligible?'success':'error';node('sec-pair-preview').textContent=JSON.stringify(out.preview,null,2);successMessage=out.preview.eligible?'조합 검증을 통과했습니다. 이제 운영 게시할 수 있습니다.':(out.preview.reasons||[]).map(reasonText).join('\n')||'서버에서 조합을 승인하지 않았습니다.';updatePairStatus(successMessage);node('sec-pair-status').dataset.state=out.preview.eligible?'ready':'blocked';}
+          if(current){statusState=out.preview.eligible?'success':'error';node('sec-pair-preview').textContent=JSON.stringify(out.preview,null,2);updateIssuedTemplateKey(out.preview);successMessage=out.preview.eligible?'조합 검증을 통과했습니다. 이제 운영 게시할 수 있습니다.':(out.preview.reasons||[]).map(reasonText).join('\n')||'서버에서 조합을 승인하지 않았습니다.';updatePairStatus(successMessage);node('sec-pair-status').dataset.state=out.preview.eligible?'ready':'blocked';}
           else {statusState='error';successMessage='검사 중 선택 또는 서버 revision이 변경되었습니다. 현재 조합을 다시 검증해주세요.';updatePairStatus(successMessage);}
         }
       }else if(action==='activate'){
