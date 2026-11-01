@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const test=require('node:test'),assert=require('node:assert/strict');
 const crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const fixture=require('../fixtures/integrity/peace.crc32c-collision-vectors.json');
@@ -30,7 +32,7 @@ for(const row of fixture.cases)test(row.id+': different public bytes, same pinne
 });
 const native=path.resolve(__dirname,'../../../Railway');
 test('native dedicated mode consumes the public known answers without changing normal checksum output',{skip:!fs.existsSync(native)},()=>{
-  const read=p=>fs.readFileSync(path.join(native,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
+  const read=p=>ReadContractFile(path.join(native,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
   const source=read('Cozy.Tests/Cozy.Integrity/Cozy.CrcProbe.dpr'),inc=read('Cozy.Tests/Cozy.Integrity/Cozy.CrcCollisionVectors.inc');
   for(const field of ['crc32c','leftSha512','rightSha512','leftCodeSha512','rightCodeSha512','leftPageManifestSha512','rightPageManifestSha512']){
     const name='CrcCollision'+field[0].toUpperCase()+field.slice(1);

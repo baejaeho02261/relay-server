@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 
 // Independent reference calculations bind native known-answer probes to their
 // existing ASCII domains. Native execution is a separate compiler/runner check.
@@ -9,19 +11,19 @@ const { blake3 } = require('@noble/hashes/blake3');
 
 const relayRoot = path.resolve(__dirname, '../..');
 const nativeRoot = path.resolve(relayRoot, '../Railway');
-const readNative = relative => fs.readFileSync(path.join(nativeRoot, relative), 'utf8');
+const readNative = relative => ReadContractFile(path.join(nativeRoot, relative), 'utf8');
 const utf8 = text => Uint8Array.from(Buffer.from(text, 'utf8'));
 const hex = bytes => Buffer.from(bytes).toString('hex');
 const upstreamDirectory = path.dirname(require.resolve('@noble/hashes/blake3'));
-const upstreamPackage = JSON.parse(fs.readFileSync(path.join(upstreamDirectory, 'package.json'), 'utf8'));
-const lock = JSON.parse(fs.readFileSync(path.join(relayRoot, 'package-lock.json'), 'utf8'));
+const upstreamPackage = JSON.parse(ReadContractFile(path.join(upstreamDirectory, 'package.json'), 'utf8'));
+const lock = JSON.parse(ReadContractFile(path.join(relayRoot, 'package-lock.json'), 'utf8'));
 assert.equal(upstreamPackage.version, '1.8.0');
 assert.equal(lock.packages['node_modules/@noble/hashes'].version, upstreamPackage.version);
 
 const handoffDomain = 'cozy.Client.Handoff.V3.AES256GCM.ContentKey.v1';
 const handoffSource = readNative('Cozy.Source/Cozy.Handoff/Cozy.Handoff.Kdf.pas');
 const handoffProbe = readNative('Cozy.Tests/Cozy.Handoff/Cozy.HandoffKdfProbe.dpr');
-const purposes = JSON.parse(fs.readFileSync(path.join(relayRoot, 'contracts/runtime/crypto-purpose-v1.json'), 'utf8'));
+const purposes = JSON.parse(ReadContractFile(path.join(relayRoot, 'contracts/runtime/crypto-purpose-v1.json'), 'utf8'));
 const handoffPurpose = purposes.purposes.find(value => value.purpose === 'native one-shot Handoff content key');
 assert.equal(handoffPurpose.context, handoffDomain);
 assert.equal(handoffSource.match(/const Domain: AnsiString = '([^']+)';/)[1], handoffDomain);

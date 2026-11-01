@@ -1,11 +1,13 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const signing=require('../../services/bootstrap/peace.issued-a-signing');
 const fixture=require('../fixtures/bootstrap/issued-a-native-v1.json');
 const bytes=Buffer.from(fixture.finalBase64,'base64'),anchor=Buffer.from(fixture.anchorBase64,'base64'),config=Buffer.from(fixture.configBase64,'base64');
 const trust={expectedTemplateSha512:fixture.templateSha512,expectedKeyId:fixture.keyId};
 const nativeRoot=path.resolve(__dirname,'../../../Railway'),present=fs.existsSync(nativeRoot);
-function native(relative){return fs.readFileSync(path.join(nativeRoot,relative),'utf8');}
+function native(relative){return ReadContractFile(path.join(nativeRoot,relative),'utf8');}
 test('fixed public-only cross-language vector has exact wire lengths and independent RSA verification',()=>{
  assert.equal(fixture.scope,'SYNTHETIC_PUBLIC_ONLY_NATIVE_CNG_VECTOR');assert.equal(anchor.length,331);assert.equal(fixture.tailBytes,453);assert.equal(fixture.headerBytes,184);assert.equal(fixture.signatureBytes,256);assert.equal(fixture.footerBytes,13);
  const at=bytes.length-453,header=bytes.subarray(at,at+184),signature=bytes.subarray(at+184,at+440),blob=anchor.subarray(48);

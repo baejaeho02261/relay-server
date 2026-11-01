@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 
 // Source-contract checks for the Windows probe and production helpers. The
 // anonymous pipes, Delphi compiler, and Windows thread scheduler are NOT_RUN here.
@@ -6,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const nativeRoot = path.resolve(__dirname, '../../../Railway');
-const read = relative => fs.readFileSync(path.join(nativeRoot, relative), 'utf8');
+const read = relative => ReadContractFile(path.join(nativeRoot, relative), 'utf8');
 const handoff = read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas');
 const probe = read('Cozy.Tests/Cozy.Handoff/Cozy.HandoffPipeContracts.inc');
 const entry = read('Cozy.Tests/Cozy.Handoff/Cozy.HandoffPipeProbe.dpr');

@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 const assert=require('node:assert/strict'),{Validate,Evaluate}=require("../../tools/overlay/peace.overlay-environment");
@@ -21,7 +23,7 @@ const local=structuredClone(r);for(const e of local.events){e.monitor='000000000
 assert.equal(Evaluate(local,yes,nonce).stages[0].outcome,'NOT_RUN');assert.equal(Evaluate(local,yes,nonce).stages[1].outcome,'NOT_RUN');
 const unavailable=structuredClone(r);unavailable.events=unavailable.events.filter(x=>x.msg!==0x2b1).map((x,i)=>({...x,seq:i,sessionRegistered:false}));assert.equal(Evaluate(unavailable,yes,nonce).outcome,'INCOMPLETE');assert.equal(Evaluate(unavailable,yes,nonce).stages[2].outcome,'NOT_RUN');
 const delayed=structuredClone(r);delayed.events[0].sessionRegistered=false;assert.equal(Evaluate(delayed,yes,nonce).outcome,'PASS');
-const fs=require('node:fs'),path=require('node:path'),renderer=fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas"),'utf8');
+const fs=require('node:fs'),path=require('node:path'),renderer=ReadContractFile(path.join(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas"),'utf8');
 assert.doesNotMatch(renderer,/OVERLAY_SESSION_NOTIFY_FAILED/);
 assert.match(renderer,/OptionalSystemProcAddressHash64\('wtsapi32\.dll', HASH_WTSRegisterSessionNotification\)/);
 assert.doesNotMatch(renderer,/(?<!OptionalSystem)RequireProcAddressHash64\('wtsapi32\.dll'/);
@@ -32,7 +34,7 @@ assert.match(renderer,/if not AuthorityValid then Break;\s*TryRegisterSession;\s
 // Exercise the complete orchestration with an isolated synthetic child and
 // temporary files. No Windows/GPU/physical measurement is claimed by this test.
 const vm=require('node:vm'),os=require('node:os'),crypto=require('node:crypto');
-const toolFile=path.join(MODULE_RESOURCE_ROOT,"../tools/overlay/peace.overlay-environment.js"),tool=fs.readFileSync(toolFile,'utf8'),toolRequire=require('node:module').createRequire(toolFile);
+const toolFile=path.join(MODULE_RESOURCE_ROOT,"../tools/overlay/peace.overlay-environment.js"),tool=ReadContractFile(toolFile,'utf8'),toolRequire=require('node:module').createRequire(toolFile);
 function RunHarness({measurement=Measurement(),afterSpawn,onConfirmation,error}={}){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'overlay-environment-contract-'));
  try{

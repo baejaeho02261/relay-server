@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // The server validator runs here. The Delphi companion is a Windows-only test;
 // checked-in vectors/source linkage do not claim that it compiled or executed.
 const test = require('node:test');
@@ -95,8 +97,8 @@ test('V1 rejects too many nodes before traversal', () => {
 test('V1 rejects empty graphs', () => reject({nodes: [], edges: []}));
 const nativeRoot = path.resolve(__dirname, '../../../Railway');
 test('native companion uses production serializer and the same independent golden vector', {skip: !fs.existsSync(nativeRoot)}, () => {
-  const include = fs.readFileSync(path.join(nativeRoot, 'Cozy.Tests/Cozy.Platform/Cozy.PointerGraphGeneralContracts.inc'), 'utf8');
-  const main = fs.readFileSync(path.join(nativeRoot, 'Cozy.Tests/Cozy.Platform/Cozy.PointerGraphProbe.dpr'), 'utf8');
+  const include = ReadContractFile(path.join(nativeRoot, 'Cozy.Tests/Cozy.Platform/Cozy.PointerGraphGeneralContracts.inc'), 'utf8');
+  const main = ReadContractFile(path.join(nativeRoot, 'Cozy.Tests/Cozy.Platform/Cozy.PointerGraphProbe.dpr'), 'utf8');
   assert(include.includes(vector.sha512)); assert(include.includes(vector.crc64));
   assert(include.includes('CozyPointerGraphBytes(N, E, D)'));
   assert(main.includes('RunGeneralPointerGraphContracts'));

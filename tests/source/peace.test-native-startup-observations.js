@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Source-contract evidence only. Windows role fixtures must actually be built
 // and executed before reporting any native startup gate as PASS.
 const test = require('node:test');
@@ -7,7 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../../../Railway');
 const available = fs.existsSync(root);
-const read = name => available ? fs.readFileSync(path.join(root, name), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n') : '';
+const read = name => available ? ReadContractFile(path.join(root, name), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n') : '';
 const startup = read('Cozy.Source/Cozy.Application/Cozy.Startup.pas');
 const gate = startup.split('procedure RequireNativeStartup(Role: TGameComponentRole; FailureStage: PInteger);')[1] || '';
 const capture = startup.split('function CaptureNativeStartupObservation(Role: TGameComponentRole): TNativeStartupObservation;').at(-1).split('function NativeStartupObservationComplete')[0];
@@ -67,10 +69,33 @@ function mappings(source) {
   return [...source.matchAll(/\b(Cozy\.[A-Za-z0-9_.]+)\s+in\s+'([^']+)'/g)].map(m => [m[1].toLowerCase(), m[2].toLowerCase()]).sort((a, b) => a[0].localeCompare(b[0]));
 }
 for (const [name, role] of roles) test(`${role} isolated fixture has exact product unit maps and original resources`, checks, () => {
-  const product = read(`Cozy.Projects/${name}/${name}.dpr`);
+  const productPath = `Cozy.Projects/${name}/${name}.dpr`;
+  const product = read(productPath);
   const fixturePath = `Cozy.Tests/Cozy.Startup/${name}StartupProbe.dpr`;
   const fixture = read(fixturePath);
-  assert.deepEqual(mappings(fixture), mappings(product));
+  // Test-only diagnostic strings may need additional constant units. Every
+  // executable product unit and its path must still match exactly.
+  const fixtureMappings = mappings(fixture);
+  const productMappings = mappings(product);
+  const isTextUnit = ([unit]) => unit.startsWith('cozy.strings.');
+  assert.deepEqual(fixtureMappings.filter(entry => !isTextUnit(entry)), productMappings.filter(entry => !isTextUnit(entry)));
+  for (const entry of productMappings.filter(isTextUnit)) {
+    const shared = fixtureMappings.find(mapped => mapped[0] === entry[0]);
+    if (shared) assert.equal(shared[1], entry[1], `mismatched shared text unit ${entry[0]}`);
+  }
+  for (const [source, sourcePath] of [[fixture, fixturePath], [product, productPath]]) {
+    const textMappings = [...source.matchAll(/\b(Cozy\.Strings\.[A-Za-z0-9_.]+)\s+in\s+'([^']+)'/gi)];
+    if (textMappings.length) {
+      const textMap = JSON.parse(fs.readFileSync(path.join(root, 'Cozy.Source/Cozy.Configuration/Cozy.StringUnits.map.json'), 'utf8'));
+      for (const [, unit, relative] of textMappings) {
+        const entry = textMap.units.find(item => item.unit.toLowerCase() === unit.toLowerCase());
+        assert(entry, `unregistered text unit ${unit}`);
+        const actualPath = path.resolve(root, path.dirname(sourcePath), relative.replace(/\\/g, '/'));
+        assert.equal(actualPath, path.resolve(root, entry.path));
+        assert(fs.existsSync(actualPath), `missing mapped text unit ${unit}`);
+      }
+    }
+  }
   for (const [, relative] of mappings(fixture)) {
     // Windows file names are case-insensitive; resolve against actual case from the DPR.
     assert(relative.startsWith('..\\..\\cozy.source\\'));

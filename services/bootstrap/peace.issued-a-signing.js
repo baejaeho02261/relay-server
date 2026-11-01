@@ -4,6 +4,7 @@
 const crypto=require('node:crypto');
 const publicConfig=require('./peace.launcher-public-config');
 const ENV='DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64';
+const KEYS_ENV='DESKTOP_ISSUED_A_SIGNING_KEYS_JSON';
 const DOMAIN=Buffer.from('COZY-ISSUED-A-V1','ascii');
 const FOOTER=Buffer.from('COZYA4SIGNED!','ascii');
 const ANCHOR_MAGIC=Buffer.from('COZYAISSUERKEY1!','ascii');
@@ -54,15 +55,49 @@ function InspectTemplate(bytes){
   }}
  if(anchors.length===0)Fail('ISSUED_A_BUILD_UPGRADE_REQUIRED');if(anchors.length!==1)Fail('ISSUED_A_TRUST_ANCHOR_AMBIGUOUS');return anchors[0];
 }
-function LoadSigner({reserve=false}={}){
- const encoded=process.env[ENV];if(!encoded)Fail('ISSUED_A_SIGNING_KEY_NOT_CONFIGURED',503);
- if(encoded.length>12000)Fail('ISSUED_A_SIGNING_KEY_INVALID',503);
- const fingerprint=Digest(Buffer.from(encoded),'sha256').toString('hex');
- if(!cached||cached.fingerprint!==fingerprint){let clear,privateKey;
-  try{clear=ExactBase64(encoded,8192);privateKey=crypto.createPrivateKey(clear);if(privateKey.type!=='private')throw Error();const identity=PublicIdentity(crypto.createPublicKey(privateKey));cached={...identity,privateKey,fingerprint};}
-  catch(_){Fail('ISSUED_A_SIGNING_KEY_INVALID',503);}finally{clear?.fill(0);}
+function ConfiguredKeys(){
+ const legacy=process.env[ENV]||'',additional=process.env[KEYS_ENV]||'';
+ if(legacy.length>12000||additional.length>192000)Fail('ISSUED_A_SIGNING_KEY_INVALID',503);
+ const fingerprint=crypto.createHash('sha256').update(legacy).update('\n').update(additional).digest('hex');
+ if(cached?.fingerprint===fingerprint)return cached;
+ cached=undefined; // Drop references to old private objects before reparsing changed input.
+ const entries=[];
+ if(legacy)entries.push({encoded:legacy,legacy:true});
+ if(additional){let values;try{values=require('../protocol/peace.strict-json').Parse(additional,{maxBytes:192000});}catch(_){Fail('ISSUED_A_SIGNING_KEY_INVALID',503);}
+  if(!Plain(values)||Object.keys(values).length<1||Object.keys(values).length>16)Fail('ISSUED_A_SIGNING_KEY_INVALID',503);
+  for(const[id,encoded]of Object.entries(values)){
+   if(!/^[a-f0-9]{64}$/.test(id)||typeof encoded!=='string'||encoded.length>12000)Fail('ISSUED_A_SIGNING_KEY_INVALID',503);
+   entries.push({id,encoded,legacy:false});
+  }
  }
- const purposes=require('../security/peace.desktop-key-purposes');purposes[reserve?'Reserve':'Assert'](cached.publicKey,PURPOSE);return cached;
+ const keys=new Map();
+ for(const entry of entries){let clear;
+  try{clear=ExactBase64(entry.encoded,8192);const privateKey=crypto.createPrivateKey(clear);if(privateKey.type!=='private')throw Error();
+   const identity=PublicIdentity(crypto.createPublicKey(privateKey));
+   if(entry.id&&entry.id!==identity.keyId||keys.has(identity.keyId))throw Error();
+   keys.set(identity.keyId,{...identity,privateKey,legacy:entry.legacy});
+  }catch(_){Fail('ISSUED_A_SIGNING_KEY_INVALID',503);}finally{clear?.fill(0);}
+ }
+ cached={fingerprint,keys};return cached;
+}
+function ConfiguredPublic(){return [...ConfiguredKeys().keys.values()].map(k=>({keyId:k.keyId,legacy:k.legacy}));}
+function ConfiguredSigner(keyId){
+ const keys=ConfiguredKeys().keys;let selected;
+ if(keyId!==undefined){if(typeof keyId!=='string'||!/^[a-f0-9]{64}$/.test(keyId))Fail('ISSUED_A_SIGNING_KEY_INVALID',503);selected=keys.get(keyId);}
+ else selected=[...keys.values()].find(k=>k.legacy)||(keys.size===1?[...keys.values()][0]:undefined);
+ if(!selected){if(!keys.size)Fail('ISSUED_A_SIGNING_KEY_NOT_CONFIGURED',503);Fail(keyId?'ISSUED_A_SIGNING_KEY_MISMATCH':'ISSUED_A_SIGNING_KEY_SELECTION_REQUIRED',503);}
+ require('../security/peace.desktop-key-purposes').Assert(selected.publicKey,PURPOSE);return selected;
+}
+function LoadSigner({reserve=false,keyId}={}){
+ const ring=require('./peace.issued-a-keyring'),managed=ring.State();
+ if(managed&&keyId!==undefined)ring.AssertUse(keyId,{sign:true});
+ const signer=ConfiguredSigner(keyId);
+ if(!managed){
+  // Additional private keys alone cannot opt a legacy deployment into a new trust policy.
+  const current=ConfiguredPublic().find(k=>k.legacy);if(!current||signer.keyId!==current.keyId)Fail('ISSUED_A_KEYRING_REQUIRED');
+ }else ring.AssertUse(signer.keyId,{sign:true});
+ if(reserve)require('../security/peace.desktop-key-purposes').Reserve(signer.publicKey,PURPOSE);
+ return signer;
 }
 function Header(template,config,keyId){
  if(!Buffer.isBuffer(template)||template.length<512||template.length>MAX_TEMPLATE||!Buffer.isBuffer(config)||config.length<16||config.length>publicConfig.MAX||template.length+config.length+TAIL_SIZE>MAX_TEMPLATE||!/^[a-f0-9]{64}$/.test(keyId))Fail('ISSUED_A_SIGNATURE_INVALID');
@@ -80,7 +115,7 @@ function ReadinessFromInspection(inspection){
      typeof inspection.templateSha512!=='string'||!/^[a-f0-9]{128}$/.test(inspection.templateSha512)||
      typeof inspection.publicBlob!=='string'||!/^[a-f0-9]{566}$/.test(inspection.publicBlob))Fail('ISSUED_A_TEMPLATE_INVALID');
   if(inspection.templateSize+publicConfig.MAX+TAIL_SIZE>MAX_TEMPLATE)Fail('ISSUED_A_TEMPLATE_TOO_LARGE');
-  blob=Buffer.from(inspection.publicBlob,'hex');const anchor=IdentityFromBlob(blob),signer=LoadSigner();
+  blob=Buffer.from(inspection.publicBlob,'hex');const anchor=IdentityFromBlob(blob),signer=LoadSigner({keyId:anchor.keyId});
   if(anchor.keyId!==signer.keyId)Fail('ISSUED_A_SIGNING_KEY_MISMATCH');
   // Same template-bound internal challenge as Readiness; the synthetic config
   // is deliberately not a valid launcher configuration. Never return signature.
@@ -112,14 +147,14 @@ function Parse(template,envelope){
  const decoded=publicConfig.Decode(config);return {config,header,anchor,decoded};
 }
 function Create(template,value){
- const anchor=InspectTemplate(template),signer=LoadSigner({reserve:true});if(anchor.keyId!==signer.keyId)Fail('ISSUED_A_SIGNING_KEY_MISMATCH');
+ const anchor=InspectTemplate(template),signer=LoadSigner({reserve:true,keyId:anchor.keyId});if(anchor.keyId!==signer.keyId)Fail('ISSUED_A_SIGNING_KEY_MISMATCH');
  let config,header,signature,envelope,bytes;
  try{config=publicConfig.Encode(value);header=Header(template,config,anchor.keyId);signature=SignHeader(header,signer);envelope=Buffer.concat([config,header,signature,FOOTER]);Parse(template,envelope);bytes=Buffer.concat([template,envelope]);
   const receipt={version:1,format:FORMAT,keyId:anchor.keyId,templateSha512:Digest(template).toString('hex'),configSha512:Digest(config).toString('hex'),finalSha512:Digest(bytes).toString('hex'),envelope:envelope.toString('base64')};ValidateReceiptShape(receipt);return {bytes,receipt};
  }catch(error){bytes?.fill(0);throw error;}finally{config?.fill(0);header?.fill(0);signature?.fill(0);envelope?.fill(0);}
 }
 function Materialize(template,receipt,row){
- ValidateReceiptShape(receipt,row);let envelope,bytes;
+ ValidateReceiptShape(receipt,row);require('./peace.issued-a-keyring').AssertUse(receipt.keyId);let envelope,bytes;
  try{envelope=ExactBase64(receipt.envelope,publicConfig.MAX+TAIL_SIZE);const parsed=Parse(template,envelope);
   if(parsed.anchor.keyId!==receipt.keyId||Digest(template).toString('hex')!==receipt.templateSha512||Digest(parsed.config).toString('hex')!==receipt.configSha512)Fail('ISSUED_A_RECEIPT_INVALID');
   if(row){const expected=publicConfig.Encode({schema:3,profile:row.profile,launcherId:row.id,expiresAt:row.expiresAt});try{if(!parsed.config.equals(expected))Fail('ISSUED_A_RECEIPT_INVALID');}finally{expected.fill(0);}}
@@ -133,4 +168,4 @@ function VerifyFinal(bytes,{expectedTemplateSha512,expectedKeyId}={}){
  const templateSize=header.readUInt32LE(16),configSize=header.readUInt32LE(20);if(templateSize<512||templateSize>MAX_TEMPLATE||configSize<16||configSize>publicConfig.MAX||templateSize+configSize+TAIL_SIZE!==bytes.length)Fail('ISSUED_A_SIGNATURE_INVALID');
  const parsed=Parse(bytes.subarray(0,templateSize),bytes.subarray(templateSize));if(Digest(bytes.subarray(0,templateSize)).toString('hex')!==expectedTemplateSha512||parsed.anchor.keyId!==expectedKeyId)Fail('ISSUED_A_TRUST_CONTEXT_MISMATCH');return {format:FORMAT,keyId:parsed.anchor.keyId,templateSize,configSize,config:parsed.decoded,sha512:Digest(bytes).toString('hex')};
 }
-module.exports={ENV,FORMAT,DOMAIN,FOOTER,ANCHOR_MAGIC,ANCHOR_SIZE,HEADER_SIZE,SIGNATURE_SIZE,TAIL_SIZE,PUBLIC_BLOB_SIZE,PublicIdentity,IdentityFromBlob,AnchorBytes,InspectTemplate,LoadSigner,Readiness,ReadinessFromInspection,RequireReady,Create,Materialize,VerifyFinal,ValidateReceiptShape};
+module.exports={ENV,KEYS_ENV,ConfiguredPublic,ConfiguredSigner,FORMAT,DOMAIN,FOOTER,ANCHOR_MAGIC,ANCHOR_SIZE,HEADER_SIZE,SIGNATURE_SIZE,TAIL_SIZE,PUBLIC_BLOB_SIZE,PublicIdentity,IdentityFromBlob,AnchorBytes,InspectTemplate,LoadSigner,Readiness,ReadinessFromInspection,RequireReady,Create,Materialize,VerifyFinal,ValidateReceiptShape};

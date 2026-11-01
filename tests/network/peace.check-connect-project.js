@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Packaging checks for the previously reported IDE source/resource errors.
@@ -7,7 +9,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(MODULE_RESOURCE_ROOT, '../../Railway');
-const read = name => fs.readFileSync(path.join(root, name), 'utf8');
+const read = name => ReadContractFile(path.join(root, name), 'utf8');
 const projectDirectory = name => path.join('Cozy.Projects', name);
 const projectFile = (name, extension) => path.join(projectDirectory(name), name + extension);
 const sourceDirectories = ['Cozy.Application','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration','Cozy.Protection'].map(name=>'Cozy.Source/'+name);
@@ -70,7 +72,9 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
     assert(dpr.indexOf(unit+" in '")<dpr.indexOf("Cozy.Hashes in '"),'Hash implementations resolve before their facade');
   }
 
-  assert.ok(!/GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)/i.test(dpr), 'Probe-only hooks must not be enabled in an application entry point');
+  // Conditional imports can mention a disabled probe flag; only defining the
+  // flag enables it. Imported constant units are validated separately as data.
+  assert.doesNotMatch(dpr, /\{\$\s*DEFINE\s+GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)\b/i, 'Probe-only hooks must not be enabled in an application entry point');
   assert.ok(dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') >= 0 && dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') < dpr.search(/\{\$I [^}]*Cozy\.Metadata\.inc\}/), 'Direct compiler builds must reject probe hooks');
   const expectedRole = {"Cozy.Launcher":'gcrLauncher',"Cozy.Client":'gcrConnect',"Cozy.Overlay":'gcrOverlay'}[name];
   const startupCall='RequireNativeStartup('+expectedRole+(role==='A'?', @ExitCode':'')+');';

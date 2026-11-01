@@ -1,6 +1,6 @@
 { Generated packet shapes only; these dummy keys never authorize execution. }
 const
-  ProtocolSchemaCases: array[0..40] of string = (
+  ProtocolSchemaCases: array[0..41] of string = (
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"begin","requestId":"rrrrrrrr","launcherId":"AAAAAAAAAAAAAAAAAAAAAAAA","launcherSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","launcherCrc64":"AAAAAAAAAAAAAAAA","aCodeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","aCodeCrc64":"AAAAAAAAAAAAAAAA","publicKey":"{}","deviceId":"AAAAAAAAAAAAAAAAAAAA' +
@@ -13,6 +13,8 @@ const
     '":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","machineId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","handoffVersion":3,"persistentPu' +
     'blicKey":"{}","persistentKeyId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","keyProvider":"SOFTWARE","epoch":0,"revision":0}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"keylessProve","version":1,"challengeId":"{}","appSignature":"{}","persistentSignature":"{}"}}',
+    '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"keylessTpmActivate","version":1,"challengeId":"{}","appSignature":"{}","persistentSignature":"{}","secret":"{}{}{}{}{}{' +
+    '}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}"}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"keylessStatus","version":1,"challengeId":"{}","appSignature":"{}","persistentSignature":"{}"}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"beginKeyless","version":1,"challengeId":"{}","appSignature":"{}","persistentSignature":"{}"}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"chunk","flowId":"AAAAAAAAAAAAAAAAAAAAAAAA","downloadTicket":"{}","offset":0}}',

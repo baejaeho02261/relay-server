@@ -7,6 +7,7 @@ const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
 function SecurityCenterMutation(pathname){return /^\/api\/desktop\/bootstrap\/security-center\/(?:parser-tests|artifact-scan|respond)$/.test(pathname||'');}
 function IsMutation(pathname) {
+  if(pathname==='/api/desktop/bootstrap/security-operations/issued-a-keys')return true;
   if(/^\/api\/desktop\/bootstrap\/security-operations\/keyless-approvals\/[a-f0-9]{48}\/approve$/.test(pathname||''))return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/plan-packed-release')return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/registration-reset')return true;
@@ -43,6 +44,7 @@ function SingleOperatorPath(pathname) {
 // changing evidence used by live authorization and recovery always are.
 function AdditionalCritical(pathname){return /^\/api\/backups\/[^/]+\/restore$/.test(pathname||'') || /^\/api\/production\/(?:config\/apply|transport|update\/(?:policy|rollback))$/.test(pathname||'');}
 function CriticalMutation(pathname) {
+  if(pathname==='/api/desktop/bootstrap/security-operations/issued-a-keys')return true;
   if(/^\/api\/desktop\/bootstrap\/security-operations\/keyless-approvals\/[a-f0-9]{48}\/approve$/.test(pathname||''))return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/registration-reset')return true;
   if(SecurityCenterMutation(pathname))return true;

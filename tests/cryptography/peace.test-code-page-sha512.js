@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process');
 const crc=require('../../services/cryptography/peace.crc-layers');
@@ -51,7 +53,7 @@ test('maximum own code payload has a finite page-manifest and measurement-array 
  assert.equal(conservative,76760712);assert(conservative<2*size);
 });
 const nativeRoot=path.resolve(__dirname,'../../../Railway');
-const native=rel=>fs.readFileSync(path.join(nativeRoot,rel),'utf8').replace(/\r/g,'');
+const native=rel=>ReadContractFile(path.join(nativeRoot,rel),'utf8').replace(/\r/g,'');
 test('native source: disk-origin page baseline, full hashes and two-generation checks all remain',{skip:!fs.existsSync(nativeRoot)},()=>{
  const s=native('Cozy.Source/Cozy.Integrity/Cozy.CodeIntegrity.pas');
  assert.match(s,/FFileMeasurement := Digest\(Normalized[\s\S]*FFilePageSHA512 := CodePageSHA512Manifest\(Normalized/);

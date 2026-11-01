@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Contract/adapter checks; actual Windows product execution is NOT_RUN here.
@@ -44,7 +46,7 @@ test('finalization refuses a complete case copied from a different runner invoca
  }finally{fs.rmSync(run,{recursive:true,force:true});}
 });
 test('test-only pauses remain bounded and cannot renew or extend shutdown; no production inclusion',()=>{
- const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),native=fs.readFileSync(path.join(root,"Railway/Cozy.Source/Cozy.Application/Cozy.ProductFaults.pas"),'utf8'),overlay=fs.readFileSync(path.join(root,"Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),'utf8'),handoff=fs.readFileSync(path.join(root,"Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"),'utf8'),runner=fs.readFileSync(path.join(root,"Relay Server/tools/runtime/product-fault-tests.ps1"),'utf8');
+ const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),native=ReadContractFile(path.join(root,"Railway/Cozy.Source/Cozy.Application/Cozy.ProductFaults.pas"),'utf8'),overlay=ReadContractFile(path.join(root,"Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),'utf8'),handoff=ReadContractFile(path.join(root,"Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"),'utf8'),runner=ReadContractFile(path.join(root,"Relay Server/tools/runtime/product-fault-tests.ps1"),'utf8');
  assert(native.includes("{$IFDEF GAME_APPLICATION_BUILD}"));assert(native.includes('Deadline := At + 1500'));assert(native.includes('ShutdownDeadline - 1000'));assert(!native.includes('ShutdownDeadline :='));assert(/\{\$IFDEF GAME_PRODUCT_FAULT_TESTS\}\s*ProductFaultLateLifecycleReport\(Budget.Deadline\);\s*\{\$ENDIF\}/.test(overlay));assert(handoff.indexOf('FParentObservation.ExitObserved := True;')<handoff.indexOf('ProductFaultParentCleanup(FParentID)'));assert(runner.includes('$status.lease.serverExpired'));assert(runner.includes("'release-late-'"));
 });
 
@@ -68,18 +70,18 @@ test('cleanup refusal cannot expose PASS or remove caller input; existing result
  try{
   const run=path.join(base,'run'),priv=path.join(base,'private'),outside=path.join(base,'operator-input.json'),pending=path.join(run,'pending.json'),output=path.join(base,'result.json');
   fs.writeFileSync(outside,'preserve operator input');for(const root of [run,priv]){fs.mkdirSync(root);fs.writeFileSync(path.join(root,'test-owned-marker'),'GAME_WINDOWS_TEST_V1');}
-  fs.writeFileSync(pending,JSON.stringify({outcome:'PASS'}));fs.writeFileSync(output,'existing evidence');assert.throws(()=>cleanup.Publish(run,priv,pending,output),/RESULT_EXISTS/);assert.equal(fs.readFileSync(output,'utf8'),'existing evidence');assert(fs.existsSync(pending));fs.unlinkSync(output);
-  if(process.platform==='win32'){const target=path.join(base,'external');fs.mkdirSync(target);fs.symlinkSync(target,path.join(priv,'unexpected-link'),'junction');}else fs.symlinkSync(outside,path.join(priv,'unexpected-link'));assert.throws(()=>cleanup.Publish(run,priv,pending,output),/CLEANUP_FAILED/);assert(!fs.existsSync(output));assert.equal(fs.readFileSync(outside,'utf8'),'preserve operator input');assert(fs.existsSync(priv));
-  assert.throws(()=>cleanup.Remove(base),/ENOENT/);assert.equal(fs.readFileSync(outside,'utf8'),'preserve operator input');
-  fs.unlinkSync(path.join(priv,'unexpected-link'));fs.linkSync(outside,path.join(priv,'unexpected-hardlink'));assert.throws(()=>cleanup.Remove(priv),/HARDLINK_REJECTED/);assert.equal(fs.readFileSync(outside,'utf8'),'preserve operator input');
+  fs.writeFileSync(pending,JSON.stringify({outcome:'PASS'}));fs.writeFileSync(output,'existing evidence');assert.throws(()=>cleanup.Publish(run,priv,pending,output),/RESULT_EXISTS/);assert.equal(ReadContractFile(output,'utf8'),'existing evidence');assert(fs.existsSync(pending));fs.unlinkSync(output);
+  if(process.platform==='win32'){const target=path.join(base,'external');fs.mkdirSync(target);fs.symlinkSync(target,path.join(priv,'unexpected-link'),'junction');}else fs.symlinkSync(outside,path.join(priv,'unexpected-link'));assert.throws(()=>cleanup.Publish(run,priv,pending,output),/CLEANUP_FAILED/);assert(!fs.existsSync(output));assert.equal(ReadContractFile(outside,'utf8'),'preserve operator input');assert(fs.existsSync(priv));
+  assert.throws(()=>cleanup.Remove(base),/ENOENT/);assert.equal(ReadContractFile(outside,'utf8'),'preserve operator input');
+  fs.unlinkSync(path.join(priv,'unexpected-link'));fs.linkSync(outside,path.join(priv,'unexpected-hardlink'));assert.throws(()=>cleanup.Remove(priv),/HARDLINK_REJECTED/);assert.equal(ReadContractFile(outside,'utf8'),'preserve operator input');
   cleanup.Failure(output,'PRODUCT_FAULT_EXECUTION','CLEANUP_FAILED');assert.equal(JSON.parse(fs.readFileSync(output)).outcome,'FAIL');assert.throws(()=>cleanup.Failure(output,'PRODUCT_FAULT_EXECUTION','REPLACED'),/EEXIST/);assert.equal(JSON.parse(fs.readFileSync(output)).reason,'CLEANUP_FAILED');
  }finally{fs.rmSync(base,{recursive:true,force:true});}
 });
 test('runners keep generated inputs private and withhold all public output until scratch cleanup',()=>{
- const root=path.resolve(MODULE_RESOURCE_ROOT,'..'),product=fs.readFileSync(path.join(root,"tools/runtime/product-fault-tests.ps1"),'utf8'),manual=fs.readFileSync(path.join(root,"tools/runtime/manual-windows-tests.ps1"),'utf8'),wrapper=fs.readFileSync(path.join(root,"tools/runtime/lifecycle-windows-tests.ps1"),'utf8');
+ const root=path.resolve(MODULE_RESOURCE_ROOT,'..'),product=ReadContractFile(path.join(root,"tools/runtime/product-fault-tests.ps1"),'utf8'),manual=ReadContractFile(path.join(root,"tools/runtime/manual-windows-tests.ps1"),'utf8'),wrapper=ReadContractFile(path.join(root,"tools/runtime/lifecycle-windows-tests.ps1"),'utf8');
  for(const text of [product,manual]){assert(text.includes('peace.test-evidence-cleanup.js'));assert(text.includes('publish $run $private $pending $report'));assert(!text.includes('$run=Join-Path $PSScriptRoot $id'));assert(text.indexOf("'finalize',$run,$pending,$report")<text.indexOf('publish $run $private $pending $report'));}
  assert(wrapper.includes('New-TestPrivateDirectory $selectedRoot'));assert(wrapper.includes('-GeneratedInputRoot $selectedRoot'));assert(!wrapper.includes('Remove-Item -LiteralPath $InputFile'));
- for(const name of ['peace.product-fault-fixture.js','peace.windows-fixture.js']){const fixture=fs.readFileSync(require('../fixtures/source/peace.project-layout').RelayFile(name),'utf8');assert(fixture.includes('licenseId:license.license.id'));assert(fixture.includes("licenseKey:''"));assert(!fixture.includes('licenseKey:license.licenseKey'));}
+ for(const name of ['peace.product-fault-fixture.js','peace.windows-fixture.js']){const fixture=ReadContractFile(require('../fixtures/source/peace.project-layout').RelayFile(name),'utf8');assert(fixture.includes('licenseId:license.license.id'));assert(fixture.includes("licenseKey:''"));assert(!fixture.includes('licenseKey:license.licenseKey'));}
 });
 
 console.log(JSON.stringify({suite:'LIFECYCLE_WINDOWS_CONTRACTS',status:'PASS',checks,windowsExecuted:false,nativeBuild:'NOT_RUN'}));

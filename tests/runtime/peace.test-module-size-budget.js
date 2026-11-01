@@ -1,11 +1,13 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Source contracts + arithmetic boundary models + real server payload parser.
 // This test does NOT execute Delphi, a Windows GPU driver, or A/B/O.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const native=path.resolve(process.env.GAME_MODULE_TEST_ROOT||path.join(MODULE_RESOURCE_ROOT,'../../Railway'));
-const text=name=>fs.readFileSync(path.join(native,name),'utf8');
+const text=name=>ReadContractFile(path.join(native,name),'utf8');
 const limitsText=text("Cozy.Source/Cozy.Integrity/Cozy.ModuleLimits.inc"),limits={};
 for(const m of limitsText.matchAll(/\b(\w+):\s*(?:UInt64|Int64)\s*=\s*([^;]+);/g)){
  const expr=m[2].replace(/Int64\((\d+)\)/g,'$1');

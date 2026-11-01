@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "8534cac8dd10cf041594d49f53f23a22569b26ed21b86f4acfa36f95c15dc48416406c6cd607923c239ad81d647618a28b2b346583a7890fd80dbb5a328f15a3",
+  "schemaSha512": "54f188c7178dc2eb8755c7bdfb7aca25a8bdcde25fd02005903bd0a11eaf5144b0d058e49469c0c5193a4ed4539f07867317c563a5ec4e1abba2d0c61ddd95b1",
   "cases": [
     {
       "operation": "bootstrap",
@@ -59,6 +59,18 @@
         "challengeId": "{}",
         "appSignature": "{}",
         "persistentSignature": "{}"
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "keylessTpmActivate",
+        "version": 1,
+        "challengeId": "{}",
+        "appSignature": "{}",
+        "persistentSignature": "{}",
+        "secret": "{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}"
       }
     },
     {

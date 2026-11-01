@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Source/protocol and deadline-model checks. These are deliberately NOT a
@@ -8,12 +10,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const native = path.resolve(MODULE_RESOURCE_ROOT, '../../Railway');
-const read = name => fs.readFileSync(path.join(native, name), 'utf8').replaceAll('\r', '');
+const read = name => ReadContractFile(path.join(native, name), 'utf8').replaceAll('\r', '');
 const reporter = read("Cozy.Source/Cozy.Lifecycle/Cozy.Lifecycle.pas"), handoff = read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas");
 const overlay = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"), client = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas");
 const consoleSource = read("Cozy.Source/Cozy.Application/Cozy.Console.pas"), api = read("Cozy.Source/Cozy.Platform/Cozy.Api.pas");
 const launcher = read("Cozy.Source/Cozy.Application/Cozy.Launcher.pas"), renderer = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas");
-const service = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../services/observability/peace.desktop-lifecycle-trace.js"), 'utf8');
+const service = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../services/observability/peace.desktop-lifecycle-trace.js"), 'utf8');
 let count = 0;
 function test(name, fn) { fn(); count++; console.log('PASS ' + name); }
 function order(source, markers) {

@@ -1,10 +1,12 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Source-only integration guards. Actual SSPI/Delphi execution belongs to the
 // Windows native probes and must never be inferred from this Node test result.
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const railway=path.resolve(__dirname,'../../../Railway');
-const read=name=>fs.readFileSync(path.join(railway,name),'utf8').replaceAll('\r','');
+const read=name=>ReadContractFile(path.join(railway,name),'utf8').replaceAll('\r','');
 const hasNative=fs.existsSync(path.join(railway,'Cozy.Source/Cozy.Network/Cozy.Tls.pas'));
 const source=hasNative?read('Cozy.Source/Cozy.Network/Cozy.Tls.pas'):'';
 const contracts=hasNative?read('Cozy.Tests/Cozy.Network/Cozy.TlsContracts.inc'):'';

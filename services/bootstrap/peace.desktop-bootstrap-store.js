@@ -50,6 +50,7 @@ function Load(){
   if(value.mitigationProfiles!==undefined)require("../security/peace.desktop-mitigation-profiles").ValidateStore(value.mitigationProfiles);
   if(value.mitigationCompatibility!==undefined)require("../security/peace.desktop-mitigation-compatibility").Validate(value.mitigationCompatibility);
   if(value.tlsPinTransition!==undefined)require("../network/peace.desktop-tls-pin-transition").Validate(value.tlsPinTransition);
+  if(value.issuedAKeyring!==undefined)require('./peace.issued-a-keyring').ValidateState(value.issuedAKeyring);
   if(value.serverRecovery!==undefined)require("../recovery/peace.desktop-recovery").Validate(value);
   if(value.registrationResetAuthorization!==undefined)require('../operations/peace.registration-reset-authorization').Validate(value.registrationResetAuthorization);
   if(value.serverAuditOutbox!==undefined)require("../storage/peace.desktop-operation-audit").Validate(value.serverAuditOutbox);
@@ -112,7 +113,11 @@ function Load(){
    if(row.downloadName!==undefined&&!/^[a-f0-9]{32}\.exe$/.test(row.downloadName))Invalid();
    if(row.retiredAt!==undefined){if(!Time(row.retiredAt)||row.status==='AVAILABLE'||row.ticketNonce!==undefined||row.profile!==undefined)Invalid();}
    else if(!Nonce(row.ticketNonce)||!Plain(row.profile)||row.profile.protocol!==(legacy?LEGACY_PROTOCOL:upgrade?previousProtocol:PROTOCOL)||row.profile.version!==(upgrade?previousVersion:4)||(!upgrade&&(!Crc(row.crc64)||!Digest(row.profile.tlsCertificateSha256)||typeof row.profile.tlsServerName!=='string'||row.profile.tlsServerName.length<1||row.profile.tlsServerName.length>253))||row.ticketHash!==TokenHash(value.secret,'LAUNCHER',id,row.ticketNonce,legacy))Invalid();
-   if(['CONSUMED','REVOKED'].includes(row.status)&&(!value.flows[row.flowId]||value.flows[row.flowId].launcherId!==id))Invalid();
+   // A key generation may revoke an unused A before any flow exists. This
+   // exception requires the durable revoked key authority and a retired row.
+   const unusedKeyRevocation=row.status==='REVOKED'&&row.flowId===''&&Time(row.revokedAt)&&Time(row.retiredAt)&&
+    row.finalIssuedSignature&&value.issuedAKeyring?.keys[row.finalIssuedSignature.keyId]?.state==='REVOKED';
+   if(['CONSUMED','REVOKED'].includes(row.status)&&!unusedKeyRevocation&&(!value.flows[row.flowId]||value.flows[row.flowId].launcherId!==id))Invalid();
   }
   const sessionIds=new Set();
   for(const [id,row]of Object.entries(value.flows)){

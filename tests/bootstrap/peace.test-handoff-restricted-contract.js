@@ -1,11 +1,13 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Reviewable source-boundary checks, not a substitute for the actual Windows
 // process/token/ACL/CNG contracts in Cozy.HandoffProcessProbe.dproj.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../../../Railway');
-const read = name => fs.readFileSync(path.join(root, name), 'utf8').replaceAll('\r', '');
+const read = name => ReadContractFile(path.join(root, name), 'utf8').replaceAll('\r', '');
 const restricted = read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.Restricted.pas');
 const handoff = read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas');
 const overlay = read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas');

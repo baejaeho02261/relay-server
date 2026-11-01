@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Executable fixture tests + source ABI/ownership contracts. This suite does
 // not compile Delphi and never reports production WinSock/SChannel execution.
 const {test}=require('node:test'),assert=require('node:assert/strict');
@@ -7,7 +9,7 @@ const {Cases,Serve,Evaluate}=require('../../tools/network/peace.native-socket-fi
 const {Run}=require('../../tools/network/peace.native-socket-tests');
 const {Certificates}=require('../../tools/integrity/peace.native-receive-fixture');
 const native=path.resolve(__dirname,'../../../Railway'),unit=path.join(native,'Cozy.Source/Cozy.Network/Cozy.Relay.Socket.pas');
-const read=p=>fs.readFileSync(p,'utf8').replaceAll('\r','');
+const read=p=>ReadContractFile(p,'utf8').replaceAll('\r','');
 test('production resolver owns synchronous provider lifetime and bounded address candidates',{skip:!fs.existsSync(unit)},()=>{
  const source=read(unit),resolve=source.split('procedure THostResolution.Resolve;')[1].split('function THostResolution.Wait(')[0];
  assert.match(source,/MaxResolvedCandidates = 8;/);assert.match(source,/MaxResolverEntries = 64;/);assert.match(source,/MaxOutstandingResolvers = 4;/);

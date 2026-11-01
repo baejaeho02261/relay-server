@@ -3246,6 +3246,9 @@
           },
           "persistentSignature": {
             "$ref": "signature"
+          },
+          "tpmEvidence": {
+            "$ref": "object"
           }
         },
         "required": [
@@ -3254,6 +3257,46 @@
           "challengeId",
           "appSignature",
           "persistentSignature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "keylessTpmActivate",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "keylessTpmActivate"
+            ]
+          },
+          "version": {
+            "$ref": "version1"
+          },
+          "challengeId": {
+            "$ref": "challenge"
+          },
+          "appSignature": {
+            "$ref": "signature"
+          },
+          "persistentSignature": {
+            "$ref": "signature"
+          },
+          "secret": {
+            "type": "string",
+            "minLength": 44,
+            "maxLength": 44
+          }
+        },
+        "required": [
+          "action",
+          "version",
+          "challengeId",
+          "appSignature",
+          "persistentSignature",
+          "secret"
         ],
         "additionalProperties": false
       }

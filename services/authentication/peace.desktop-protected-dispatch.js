@@ -11,6 +11,7 @@ const ROUTES=Object.freeze({
  'bootstrap.keylessPolicy': ['bootstrap','PUBLIC_LIVE_V3_LAUNCHER','PUBLIC_DEVICE_POLICY_ONLY'],
  'bootstrap.keylessChallenge': ['bootstrap','EXACT_V3_FILE_AND_DEVICE_POLICY','BOUNDED_NONCE_NOT_AUTHORITY'],
  'bootstrap.keylessProve': ['bootstrap','DUAL_SIGNED_NONCE','REQUEST_ADMIN_APPROVAL_ONLY'],
+ 'bootstrap.keylessTpmActivate': ['bootstrap','DUAL_SIGNED_TPM_ACTIVATION','REQUEST_ADMIN_RECOVERY_APPROVAL_ONLY'],
  'bootstrap.keylessStatus': ['bootstrap','DUAL_SIGNED_BOUND_REQUEST','APPROVAL_STATUS_NO_RENEWAL'],
  'bootstrap.beginKeyless': ['bootstrap','DUAL_PROOF_AND_EXPLICIT_ADMIN_APPROVAL','CONSUME_ONCE_BOUND_FLOW'],
  'bootstrap.begin': ['bootstrap','LAUNCHER_TICKET_AND_COHORT','CREATE_BOUND_FLOW'],

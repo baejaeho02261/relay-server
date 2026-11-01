@@ -1,10 +1,12 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Server codec behavior and source wiring, not Delphi/Windows execution.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const fixture=require('../fixtures/network/peace.server-profile-v4.json'),codec=require('../../services/bootstrap/peace.launcher-public-config');
 const profile=()=>structuredClone(fixture.profile),config=p=>({schema:3,profile:p,launcherId:'AB'.repeat(12),expiresAt:1793000000000});
 const native=path.resolve(__dirname,'../../../Railway'),available=fs.existsSync(native);
-const read=name=>fs.readFileSync(path.join(native,name),'utf8').replaceAll('\r','');
+const read=name=>ReadContractFile(path.join(native,name),'utf8').replaceAll('\r','');
 test('shared public profile fixture preserves exact server codec bytes and public binding fields',()=>{
  assert.equal(fixture.purpose,'PUBLIC_TEST_TRUST_MATERIAL_ONLY_NO_NETWORK');
  for(const port of [1,443,65535])for(const host of ['profile-fixture.invalid','127.0.0.1']){

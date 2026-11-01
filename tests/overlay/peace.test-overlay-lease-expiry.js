@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Portable evaluator/adapter regression, not Windows execution evidence.
@@ -63,7 +65,7 @@ async function Main(){
   }finally{adapter.Dispose();assert.equal(service.Execute,original);}
  });
  await test('production startup has no lease hold and harness never closes lease O window',()=>{
-  const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),native=fs.readFileSync(path.join(root,"Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),'utf8'),observer=fs.readFileSync(path.join(root,"Relay Server/tools/fixtures/OverlayLeaseObserver.cs"),'utf8');
+  const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),native=ReadContractFile(path.join(root,"Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),'utf8'),observer=ReadContractFile(path.join(root,"Relay Server/tools/fixtures/OverlayLeaseObserver.cs"),'utf8');
   assert(native.includes("{$IFDEF GAME_PRODUCT_FAULT_TESTS}"));assert(native.includes("ProductFaultLeaseGranted(FClient.LeaseRequestTick, UInt64(Lease), Deadline)"));assert(native.includes('if FLeaseRenewalHeld then'));assert(observer.includes('window==observedWindow'));assert(observer.includes('GetWindowThreadProcessId'));assert(observer.includes('WaitForSingleObject(process,0)==0x102'));assert(!/SetWindowPos|ShowWindow|SendMessage/.test(observer));
  });
  console.log(JSON.stringify({suite:'OVERLAY_LEASE_EXPIRY_CONTRACTS',checks:count,status:'PASS',windowsExecuted:false,actualLeaseIntegration:'NOT_RUN'}));

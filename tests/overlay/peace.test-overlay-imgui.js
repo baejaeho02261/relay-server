@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Cross-language/source contracts for the Delphi renderer replacement.
@@ -14,7 +16,7 @@ if (!fs.existsSync(native)) {
   console.log('SKIP ImGui native-source contracts: private Railway tree absent; Delphi/Windows NOT_RUN.');
   process.exit(0);
 }
-const read = name => fs.readFileSync(path.join(native, name), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+const read = name => ReadContractFile(path.join(native, name), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
 const pascal = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.ImGui.pas");
 const renderer = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas");
 const header = read("Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.h");
@@ -40,7 +42,7 @@ function method(name, next) {
 
 check('Every C export has an exact cdecl Pascal declaration and matching Win64 primitive ABI', () => {
   const abi = require(path.join(native, 'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js'));
-  const schema = JSON.parse(fs.readFileSync(abi.schemaPath, 'utf8'));
+  const schema = JSON.parse(ReadContractFile(abi.schemaPath, 'utf8'));
   assert.equal(abi.check(abi.loadSources(), schema).exports, 28);
   abi.verifyProbes(schema);
   const cTypes = {
@@ -354,7 +356,7 @@ check('O prepares its unsigned PE exception table before publishing the release 
   // The corrective build step must not turn native/server admission into an
   // accept-unsorted path: malformed images still fail independently.
   assert.match(read("Cozy.Source/Cozy.Integrity/Cozy.CodeIntegrity.pas"), /BeginRVA >= PreviousEnd/);
-  const server = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../services/cryptography/peace.crc-layers.js"), 'utf8');
+  const server = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../services/cryptography/peace.crc-layers.js"), 'utf8');
   assert.match(server, /rva<previous/);
   assert(fs.existsSync(path.join(native, "Cozy.ImGui/Cozy.Tests/Cozy.Unwind/Cozy.Test-PE-Unwind.ps1")));
 });

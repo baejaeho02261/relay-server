@@ -23,11 +23,12 @@ function setup(){
  const activation=proof(d,'redeem',{...common,licenseKey:issue.licenseKey,deviceName:'Transfer test'}),prepared=proof(d,'overlay',{...common,activationToken:activation.activationToken});
  for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize)bootstrap.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset});
  const finished=bootstrap.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,prepared.finishCanonical)});
- const o=bootstrap.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,...fixture.Delegated(d,overlayDevice,'O',finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
+ const claim={action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,...fixture.Delegated(d,overlayDevice,'O',finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64};
+ const o=bootstrap.Execute(claim);
  const context={stage:'O',sessionId:o.sessionId,sessionToken:o.sessionToken,machineId:d.machineId};
  fixture.Enroll(overlayDevice,context);
  const commit={action:'overlayCommit',handoffVersion:1,sessionId:b.sessionId,sessionToken:b.sessionToken,overlayId:prepared.overlayId,signature:fixture.Sign(d,['GAME-OVERLAY-TRANSFER-V1',b.sessionId,prepared.overlayId].join('\n'))};
- return {d,overlayDevice,b,o,prepared,context,commit,common,activation};
+ return {d,overlayDevice,b,o,prepared,context,commit,common,activation,claim};
 }
 function observe(s){
  clock++;
@@ -75,4 +76,27 @@ const revoked=setup();verify(revoked);
 check('An old O authorization is rejected until O measures and verifies again',()=>{clock+=30001;reject(()=>bootstrap.Execute(revoked.commit),'BOOTSTRAP_OVERLAY_NOT_READY');verify(revoked);bootstrap.Execute(revoked.commit);});
 check('License revocation remains authoritative after B is fully retired',()=>{licenses.Revoke(revoked.activation.licenseId,{requestId:require('node:crypto').randomUUID(),reason:'TEST_TRANSFER_LICENSE_REVOKE'},'TEST');reject(()=>overlay.AuthenticateIntegrityReport(revoked.context),'DESKTOP_ACTIVATION_INVALID');});
 check('Durable validators reject one-sided or resurrected transfer records',()=>{const db=structuredClone(bootstrap.Initialize()),row=db.flows[parent(s).id];overlay.ValidateStore(db);overlay.ValidateTransferRows(db);overlay.ValidateParentTransfer(db,row);row.sessionHash='a'.repeat(64);assert.throws(()=>overlay.ValidateParentTransfer(db,row),/OVERLAY_STORE_INVALID/);delete row.sessionHash;delete db.overlays[s.prepared.overlayId].transferVersion;assert.throws(()=>overlay.ValidateParentTransfer(db,row),/OVERLAY_STORE_INVALID/);});
+const generation=setup();verify(generation);bootstrap.Execute(generation.commit);
+check('Issuer retirement keeps transferred O, issuer revocation closes O after B has retired',()=>{
+ const ring=require('../../services/bootstrap/peace.issued-a-keyring'),signing=require('../../services/bootstrap/peace.issued-a-signing');
+ const keyId=signing.ConfiguredPublic().find(k=>k.legacy).keyId;
+ ring.Mutate({action:'initialize',expectedRevision:0},'TEST');
+ assert.ok(ring.Status().keys.find(k=>k.keyId===keyId).liveOverlays>0);
+ ring.Mutate({action:'state',expectedRevision:1,keyId,state:'RETIRING'},'TEST');assert.equal(verify(generation).status,'ACTIVE');
+ // Isolate the live authorization fence from eager cleanup: a stale active O
+ // projection must still honor the original key's durable revocation state.
+ const store=require('../../services/bootstrap/peace.desktop-bootstrap-store'),load=store.Load,stale=structuredClone(load());stale.issuedAKeyring.keys[keyId].state='REVOKED';
+ store.Load=()=>stale;try{reject(()=>overlay.AuthenticateIntegrityReport(generation.context),'ISSUED_A_SIGNING_KEY_REVOKED');}finally{store.Load=load;}
+ ring.Mutate({action:'state',expectedRevision:2,keyId,state:'REVOKED'},'TEST');
+ assert.equal(parent(generation).status,'REVOKED');assert.equal(child(generation).status,'REVOKED');assert.equal(child(generation).sessionNonce,undefined);
+ reject(()=>overlay.AuthenticateIntegrityReport(generation.context),'BOOTSTRAP_REVOKED');
+ reject(()=>bootstrap.Execute({action:'overlayChunk',overlayId:generation.prepared.overlayId,overlayTicket:generation.prepared.overlayTicket,offset:0}),'BOOTSTRAP_REVOKED');
+ reject(()=>bootstrap.Execute(generation.claim),'BOOTSTRAP_REVOKED');
+ const db=structuredClone(bootstrap.Initialize());overlay.ValidateStore(db);overlay.ValidateTransferRows(db);overlay.ValidateParentTransfer(db,parent(generation));
+});
+check('Revoked transferred O stays revoked across a fresh authority-store load',()=>{
+ const script="const x=JSON.parse(require('node:fs').readFileSync(0,'utf8'));Date.now=()=>x.clock;const b=require(process.argv[1]),o=require(process.argv[2]);b.Initialize();try{o.AuthenticateIntegrityReport(x.context);throw Error('UNSAFE_O');}catch(e){if(e.message!=='BOOTSTRAP_REVOKED')throw e;}if(b.Initialize().overlays[x.id].status!=='REVOKED')throw Error('LOST_REVOCATION');console.log('REVOKED_O_RELOAD_OK');";
+ const out=cp.spawnSync(process.execPath,['-e',script,require.resolve('../../services/bootstrap/peace.desktop-bootstrap'),require.resolve('../../services/overlay/peace.desktop-overlay')],{env:process.env,input:JSON.stringify({clock,context:generation.context,id:generation.prepared.overlayId}),encoding:'utf8',timeout:10000});
+ assert.equal(out.status,0,out.stderr);assert.match(out.stdout,/REVOKED_O_RELOAD_OK/);
+});
 console.log(`Overlay transfer lifecycle: ${checks} checks passed`);

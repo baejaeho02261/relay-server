@@ -1,9 +1,11 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Structural contracts only. Delphi/CNG execution is covered by the existing
 // optional native probes and is not claimed by this Node test.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../../../Railway'),available=fs.existsSync(root);
-const read=p=>available?fs.readFileSync(path.join(root,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'):'';
+const read=p=>available?ReadContractFile(path.join(root,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'):'';
 const contracts=read('Cozy.Source/Cozy.Platform/Cozy.Api.Contracts.pas');
 const transport=read('Cozy.Source/Cozy.Network/Cozy.Transport.pas');
 const probe=read('Cozy.Tests/Cozy.Platform/Cozy.NativeApiContractsProbe.dpr');

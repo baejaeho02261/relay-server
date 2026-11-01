@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Independent public fixtures: execute production JS parser/encoders and compare
 // native constants when the private source tree is present. Never runs a session.
 const test = require('node:test');
@@ -12,7 +14,7 @@ const fixtures = require('../fixtures/protocol/peace.native-policy-contract-vect
 const sha = text => crypto.createHash('sha512').update(text, 'utf8').digest('hex');
 const native = process.env.COZY_NATIVE_SOURCE_ROOT || path.resolve(__dirname, '../../../Railway');
 const available = fs.existsSync(native);
-const read = file => fs.readFileSync(path.join(native, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+const read = file => ReadContractFile(path.join(native, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
 function independent(body, c) {
   const argsSha512 = sha(JSON.stringify(body.args));
   const fields = ['COZY-SERVER-OPERATION-V1', body.stage, body.sessionId, body.machineId,

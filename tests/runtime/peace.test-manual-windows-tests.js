@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Portable tooling contracts only: never claims a Windows executable ran here.
@@ -62,22 +64,22 @@ try{
  });
  fs.writeFileSync(path.join(run,'execution.json'),JSON.stringify({startedAt:'TEST',environment:{platform:'portable-test'},stages:[]}));
  test(()=>{const r=t.Finalize(run,path.join(dir,'result.json'));assert.equal(r.outcome,'INCOMPLETE');assert.equal(r.nativeBuild,'NOT_RUN');assert.equal(Object.hasOwn(r,'ciEvidenceCreated'),false);assert.equal(r.hardwareAttested,false);assert.equal(r.publicationApproval,false);assert(r.stages.every(x=>x.outcome==='NOT_RUN'));});
- test(()=>{const p=JSON.parse(fs.readFileSync(path.join(run,'plan.json'),'utf8'));p.stages[p.stages.length-1].preparationError='MANUAL_ABO_RELEASE_BUILD_REQUIRED';fs.writeFileSync(path.join(run,'plan.json'),JSON.stringify(p));const r=t.Finalize(run,path.join(dir,'invalid-final-result.json'));assert.equal(r.outcome,'FAIL');assert.equal(r.stages.at(-1).outcome,'FAIL');});
+ test(()=>{const p=JSON.parse(ReadContractFile(path.join(run,'plan.json'),'utf8'));p.stages[p.stages.length-1].preparationError='MANUAL_ABO_RELEASE_BUILD_REQUIRED';fs.writeFileSync(path.join(run,'plan.json'),JSON.stringify(p));const r=t.Finalize(run,path.join(dir,'invalid-final-result.json'));assert.equal(r.outcome,'FAIL');assert.equal(r.stages.at(-1).outcome,'FAIL');});
  test(()=>{
   // Synthetic Windows-shaped report checks serialization only, not execution.
-  const p=JSON.parse(fs.readFileSync(path.join(run,'plan.json'),'utf8'));
+  const p=JSON.parse(ReadContractFile(path.join(run,'plan.json'),'utf8'));
   p.environment={nodePlatform:'win32',nodeArchitecture:'x64'};
   p.inputs={A:row,B:row,O:row};
   fs.writeFileSync(path.join(run,'plan.json'),JSON.stringify(p));
   fs.writeFileSync(path.join(run,'execution.json'),JSON.stringify({startedAt:'2026-01-01T00:00:00.1234567Z',environment:{},stages:[]}));
   const first=t.Finalize(run,path.join(dir,'windows-shaped-1.json')),second=t.Finalize(run,path.join(dir,'windows-shaped-2.json'));
   assert.notEqual(first.publicVerificationFile,second.publicVerificationFile);
-  const exported=JSON.parse(fs.readFileSync(first.publicVerificationFile,'utf8'));
+  const exported=JSON.parse(ReadContractFile(first.publicVerificationFile,'utf8'));
   assert.equal(exported.startedAt,'2026-01-01T00:00:00.123Z');
   assert.equal(exported.publicationApproval,false);assert.equal(exported.hardwareAttested,false);
   assert(!JSON.stringify(exported).includes(dir));assert(!Object.hasOwn(first.environment,'nodePath'));assert(!first.stages.some(stage=>Object.hasOwn(stage,'log')));assert(!Object.hasOwn(first.inputs.A,'source'));assert(!Object.hasOwn(first.inputs.A,'executedCopy'));assert.equal(exported.stages.length,require("../../services/runtime/peace.desktop-manual-verification").CURRENT_STAGES.length);
  });
- test(()=>{const ps=fs.readFileSync(path.join(root,"Relay Server/tools/runtime/manual-windows-tests.ps1"),'utf8'),bat=fs.readFileSync(path.join(root,"Relay Server/tools/runtime/Run_Manual_Windows_Tests.bat"),'utf8');assert(!/dcc64\.exe|msbuild\.exe|ci-evidence\.json|Run_Windows_CI/i.test(ps+bat));assert(ps.includes('WindowsJob]::Start'));assert(ps.includes('Get-TestEnvironment'));assert(ps.includes('MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED'));});
- test(()=>{const props=fs.readFileSync(path.join(root,"Railway/Cozy.Tests/Cozy.Build/Cozy.ManualProbe.props"),'utf8');assert(props.includes('units\\$(ProjectName)\\$(Platform)\\$(Config)'));assert(!props.includes('GAME_APPLICATION_BUILD'));for(const name of t.PROBES.filter(x=>!["Cozy.NativeAbiSdkProbe","Cozy.OverlayGpuFaultProbe"].includes(x)))assert(fs.existsSync(NativeFile(name+'.dproj')),name);});
+ test(()=>{const ps=ReadContractFile(path.join(root,"Relay Server/tools/runtime/manual-windows-tests.ps1"),'utf8'),bat=ReadContractFile(path.join(root,"Relay Server/tools/runtime/Run_Manual_Windows_Tests.bat"),'utf8');assert(!/dcc64\.exe|msbuild\.exe|ci-evidence\.json|Run_Windows_CI/i.test(ps+bat));assert(ps.includes('WindowsJob]::Start'));assert(ps.includes('Get-TestEnvironment'));assert(ps.includes('MANUAL_PRIVATE_FIXTURE_CLEANUP_FAILED'));});
+ test(()=>{const props=ReadContractFile(path.join(root,"Railway/Cozy.Tests/Cozy.Build/Cozy.ManualProbe.props"),'utf8');assert(props.includes('units\\$(ProjectName)\\$(Platform)\\$(Config)'));assert(!props.includes('GAME_APPLICATION_BUILD'));for(const name of t.PROBES.filter(x=>!["Cozy.NativeAbiSdkProbe","Cozy.OverlayGpuFaultProbe"].includes(x)))assert(fs.existsSync(NativeFile(name+'.dproj')),name);});
  console.log(JSON.stringify({suite:'MANUAL_WINDOWS_TOOL_CONTRACTS',checks,status:'PASS',windowsExecuted:false,nativeBuild:'NOT_RUN'}));
 }finally{fs.rmSync(dir,{recursive:true,force:true});}

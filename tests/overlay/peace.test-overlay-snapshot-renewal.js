@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Real server handlers with an isolated store; explicit scheduling models and
@@ -6,7 +8,7 @@ const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {OverlayFixture}=require("../fixtures/security/peace.security-state-test-fixture");
 const root=process.env.GAME_TEST_NATIVE_ROOT||path.resolve(MODULE_RESOURCE_ROOT,'../../Railway');
-const read=n=>fs.readFileSync(path.join(root,n),'utf8').replaceAll('\r','');
+const read=n=>ReadContractFile(path.join(root,n),'utf8').replaceAll('\r','');
 const client=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),worker=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),state=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas"),consoleSource=read("Cozy.Source/Cozy.Application/Cozy.Console.pas");
 function part(s,a,b){const i=s.indexOf(a),j=s.indexOf(b,i+a.length);assert.ok(i>=0&&j>i,a);return s.slice(i,j);}
 function order(s,...markers){let i=-1;for(const m of markers){i=s.indexOf(m,i+1);assert.ok(i>=0,'missing/out of order: '+m);}}
@@ -48,7 +50,7 @@ test('source: snapshot scheduling does not grant runtime permission',()=>{const 
 test('source: skip useless batch proof only when known snapshot ceiling is already attained',()=>{assert.match(state,/if not Force and \(SnapshotDeadline <> 0\)/);assert.match(state,/SnapshotDeadline - Deadline <= 1000/);assert.match(maintenanceSource,/FClient.LeaseSnapshotLimited/);order(state,'if Deadline <= NowTick then',"raise EInvalidOpException.Create('OVERLAY_LEASE_EXPIRED')",'if not Force and (SnapshotDeadline <> 0)');});
 test('source: monotonic snapshot mapping retains same snapshot earliest bound',()=>{assert.match(client,/SnapshotDeadline := VerifyRequestTick \+ UInt64\(Remaining\)/);assert.match(client,/SnapshotExpiresAt = FLastSnapshotExpiresAt/);assert.match(client,/OldSnapshotDeadline < SnapshotDeadline/);assert.match(client,/Remaining > 120000/);});
 test('source: cleanup never force-kills arbitrary lock owner or fabricates deletion success',()=>{const h=read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"),fn=part(h,'procedure THandoffContext.CleanupOwnImageForShutdown;','destructor THandoffContext.Destroy;');assert.doesNotMatch(fn,/TerminateProcess|MoveFileEx|cmd\.exe|FileRemoved := True|DispositionAccepted := True/);assert.match(fn,/UnlinkVerifiedOwnImage/);assert.match(fn,/ERROR_FILE_NOT_FOUND/);} );
-test('source: complete snapshot audit comes only after persistence',()=>{const s=fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../services/integrity/peace.desktop-integrity-reports.js"),'utf8'),r=part(s,'function Record(input){','function Auth(body)');order(r,'try{Save(next);}',"record.snapshotStatus==='COMPLETE_PASS'","DESKTOP_MODULE_SNAPSHOT_ACCEPTED");assert.match(s,/FRESHNESS=\{A:180000,B:120000,O:120000\}/);} );
+test('source: complete snapshot audit comes only after persistence',()=>{const s=ReadContractFile(path.join(MODULE_RESOURCE_ROOT,"../services/integrity/peace.desktop-integrity-reports.js"),'utf8'),r=part(s,'function Record(input){','function Auth(body)');order(r,'try{Save(next);}',"record.snapshotStatus==='COMPLETE_PASS'","DESKTOP_MODULE_SNAPSHOT_ACCEPTED");assert.match(s,/FRESHNESS=\{A:180000,B:120000,O:120000\}/);} );
 
 // Independent timing models are deliberately labelled; the native probe exercises
 // cozy.Overlay.State itself when built by the supported Delphi toolchain.

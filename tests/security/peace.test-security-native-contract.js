@@ -1,9 +1,11 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Textual scope/contracts only; this is not a Pascal parser or a Windows test.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),c=name=>fs.readFileSync(path.join(root,'Railway',name),'utf8'),s=name=>fs.readFileSync(path.join(root,'Relay Server',name),'utf8');
+const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),c=name=>ReadContractFile(path.join(root,'Railway',name),'utf8'),s=name=>ReadContractFile(path.join(root,'Relay Server',name),'utf8');
 let count=0;function test(name,fn){fn();count++;console.log('PASS '+name);}
 const native=c("Cozy.Source/Cozy.Security/Cozy.ServerAuthority.pas"),transport=c("Cozy.Source/Cozy.Network/Cozy.Transport.pas");
 test('Bounded read-only API metadata survives unit finalization until process exit',()=>{

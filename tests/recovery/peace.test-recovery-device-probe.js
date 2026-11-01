@@ -1,10 +1,12 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Source/build boundary contracts. This suite does not execute Windows, CNG,
 // TPM or Delphi and must never be imported as native execution evidence.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),read=name=>fs.readFileSync(path.join(root,name),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
+const root=path.resolve(MODULE_RESOURCE_ROOT,'../..'),read=name=>ReadContractFile(path.join(root,name),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
 const key=read("Railway/Cozy.Source/Cozy.Identity/Cozy.DeviceKey.pas"),probe=read("Railway/Cozy.Tests/Cozy.Identity/Cozy.RecoveryDeviceProbe.dpr"),project=read("Railway/Cozy.Tests/Cozy.Identity/Cozy.RecoveryDeviceProbe.dproj"),metadata=read("Railway/Cozy.Source/Cozy.Configuration/Cozy.Metadata.inc");
 const noComments=text=>text.replace(/\{(?!\$)[\s\S]*?\}|\(\*[\s\S]*?\*\)|\/\/[^\n]*/g,'');
 let checks=0;

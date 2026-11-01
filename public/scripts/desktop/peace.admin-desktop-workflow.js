@@ -17,41 +17,54 @@ async function showDesktopFirstDeviceApproval(){
  const owner=desktopWorkflowOwner(),base='/api/desktop/bootstrap/security-operations/keyless-approvals';
  let initial=await api(base);if(!roleIsAdmin()||session?.csrf!==owner)return;
  let requests=[],closed=false,busy=false;projection(initial);
- const done=openModal({title:'A 실행마다 기기 연결 승인',message:'외부의 신뢰할 수 있는 수단으로 고객·기기를 확인한 뒤 선택한 요청만 승인하세요.',html:'<section id="desktop-first-device-approval"><p class="small-note">새 서버 정책 연결 형식 A가 보낸 키 소유 증명을 조회합니다. 이 기록은 실제 고객 신원이나 TPM 하드웨어 증명이 아닙니다. 같은 PC라도 새 A를 실행할 때마다 별도 승인이 필요합니다. 선택한 요청만 원래 5분 요청 기한 안에서 승인하고, 승인 후 60초 안에 해당 실행이 시작되어야 합니다. 다시 누르거나 다른 요청에 복사해 승인 기한을 연장할 수 없습니다. A 발급의 1회 사용, 라이선스 사용 제한, 기존 PC 차단 정책은 그대로 적용됩니다.</p><button type="button" id="desktop-first-device-refresh">승인 대기 새로고침</button><label>승인 대기 요청<select id="desktop-first-device-request"></select></label><dl id="desktop-first-device-details" class="server-state-artifacts"></dl><label><input type="checkbox" id="desktop-first-device-confirm"> 외부의 신뢰할 수 있는 수단으로 고객·기기를 확인했고, 아래 공개 기기키 지문과 A 발급 ID가 해당 고객의 요청임을 확인했습니다.</label><p class="small-note">확인할 수 없다면 승인하지 마세요. 실행 파일·라이선스·서버 정책의 다른 검사는 계속 적용됩니다.</p><button type="button" id="desktop-first-device-submit" disabled>선택한 이번 실행 승인</button><p id="desktop-first-device-status" role="status" aria-live="polite"></p></section>',confirmLabel:'닫기'});
+ const done=openModal({title:'A 실행마다 기기 연결 승인',message:'외부의 신뢰할 수 있는 수단으로 고객·기기를 확인한 뒤 선택한 요청만 승인하세요.',html:'<section id="desktop-first-device-approval"><p class="small-note">새 서버 정책 연결 형식 A가 보낸 키 소유 증명을 조회합니다. 일반 키 소유 증명은 TPM 하드웨어 증명이 아닙니다. TPM 증명이 있는 요청은 아래에 별도로 표시하며, 그 증명만으로 기존과 같은 물리 PC인지 또는 실제 고객 신원을 확인할 수는 없습니다. 같은 PC라도 새 A를 실행할 때마다 별도 승인이 필요합니다. 선택한 요청만 원래 5분 요청 기한 안에서 승인하고, 승인 후 60초 안에 해당 실행이 시작되어야 합니다. 다시 누르거나 다른 요청에 복사해 승인 기한을 연장할 수 없습니다. A 발급의 1회 사용, 라이선스 사용 제한, 기존 PC 차단 정책은 그대로 적용됩니다.</p><button type="button" id="desktop-first-device-refresh">승인 대기 새로고침</button><label>승인 대기 요청<select id="desktop-first-device-request"></select></label><dl id="desktop-first-device-details" class="server-state-artifacts"></dl><label><input type="checkbox" id="desktop-first-device-confirm"> 외부의 신뢰할 수 있는 수단으로 고객·기기를 확인했고, 위 공개 기기키 지문과 A 발급 ID가 해당 고객의 요청임을 확인했습니다.</label><label id="desktop-first-device-recovery-label" hidden><input type="checkbox" id="desktop-first-device-recovery-confirm"> 위의 기존 등록·기존 키와 요청한 새 키를 대조했고, 외부 확인을 통해 이 고객·기기에 대한 TPM 등록·갱신·교체를 승인합니다. 기존과 같은 물리 PC라는 자동 판정이 아님을 확인했습니다.</label><p id="desktop-first-device-recovery-note" class="small-note" hidden>이 승인은 지정한 TPM 후보와 이번 A 요청에만 적용됩니다. 승인만으로 등록을 교체하거나 실행 권한을 만들지 않으며, 해당 A의 1회 사용과 다른 검사를 통과해야 반영됩니다. 다른 기기의 차단이나 라이선스 제한을 해제하지 않습니다.</p><p class="small-note">확인할 수 없다면 승인하지 마세요. 실행 파일·라이선스·서버 정책의 다른 검사는 계속 적용됩니다.</p><button type="button" id="desktop-first-device-submit" disabled>선택한 이번 실행 승인</button><p id="desktop-first-device-status" role="status" aria-live="polite"></p></section>',confirmLabel:'닫기'});
  const root=document.getElementById('desktop-first-device-approval'),live=()=>!closed&&root.isConnected&&roleIsAdmin()&&session?.csrf===owner,q=id=>root.querySelector('#'+id);
  function projection(value){
   if(value?.ok!==true||!Array.isArray(value.requests)||value.requests.length>256)throw Error('승인 대기 응답을 확인하지 못했습니다.');
   const seen=new Set();return value.requests.map(row=>{
-   if(!row||!/^[a-f0-9]{48}$/.test(row.id||'')||seen.has(row.id)||!/^[A-F0-9]{24}$/.test(row.launcherId||'')||!/^[a-f0-9]{128}$/.test(row.launcherSha512||'')||!/^[A-F0-9]{64}$/.test(row.appKeyId||'')||!/^[A-F0-9]{64}$/.test(row.persistentKeyId||'')||!Number.isSafeInteger(row.createdAt)||!Number.isSafeInteger(row.expiresAt)||row.createdAt<1||row.expiresAt<=row.createdAt||row.status!=='PENDING_APPROVAL'||row.proof!=='PERSISTENT_KEY_POSSESSION'||row.hardwareAttested!==false)throw Error('승인 대기 요청의 형식을 확인하지 못했습니다.');
-   seen.add(row.id);return {id:row.id,launcherId:row.launcherId,launcherSha512:row.launcherSha512,appKeyId:row.appKeyId,persistentKeyId:row.persistentKeyId,createdAt:row.createdAt,expiresAt:row.expiresAt};
+   if(!row||!/^[a-f0-9]{48}$/.test(row.id||'')||seen.has(row.id)||!/^[A-F0-9]{24}$/.test(row.launcherId||'')||!/^[a-f0-9]{128}$/.test(row.launcherSha512||'')||!/^[A-F0-9]{64}$/.test(row.appKeyId||'')||!/^[A-F0-9]{64}$/.test(row.persistentKeyId||'')||!Number.isSafeInteger(row.createdAt)||!Number.isSafeInteger(row.expiresAt)||row.createdAt<1||row.expiresAt<=row.createdAt||row.status!=='PENDING_APPROVAL')throw Error('승인 대기 요청의 형식을 확인하지 못했습니다.');
+   let recovery;
+   if(row.proof==='PERSISTENT_KEY_POSSESSION'&&row.hardwareAttested===false&&row.recovery===undefined){}
+   else if(row.proof==='TPM_CERTIFY_ACTIVATE'&&row.hardwareAttested===true){
+    const r=row.recovery;
+    if(!r||!['ENROLL','RENEW','REPLACE'].includes(r.kind)||!/^[a-f0-9]{64}$/.test(r.bindingId||'')||!/^[A-F0-9]{64}$/.test(r.newKeyId||'')||r.newKeyId!==row.persistentKeyId||!Number.isSafeInteger(r.identityRevision)||r.identityRevision<0||r.hardwareAttested!==true||r.physicalPcIdentity!=='ADMINISTRATOR_VERIFICATION_REQUIRED'||(r.kind==='ENROLL'?(r.oldEnrollmentId!==''||r.oldKeyId!==''):(!/^[a-f0-9]{64}$/.test(r.oldEnrollmentId||'')||!/^[A-F0-9]{64}$/.test(r.oldKeyId||'')||(r.kind==='RENEW'?r.oldKeyId!==r.newKeyId:r.oldKeyId===r.newKeyId))))throw Error('승인 대기 요청의 형식을 확인하지 못했습니다.');
+    recovery={kind:r.kind,oldEnrollmentId:r.oldEnrollmentId,oldKeyId:r.oldKeyId,newKeyId:r.newKeyId,bindingId:r.bindingId,identityRevision:r.identityRevision,hardwareAttested:true,physicalPcIdentity:r.physicalPcIdentity};
+   }else throw Error('승인 대기 요청의 형식을 확인하지 못했습니다.');
+   seen.add(row.id);return {id:row.id,launcherId:row.launcherId,launcherSha512:row.launcherSha512,appKeyId:row.appKeyId,persistentKeyId:row.persistentKeyId,createdAt:row.createdAt,expiresAt:row.expiresAt,status:row.status,proof:row.proof,hardwareAttested:row.hardwareAttested,...(recovery?{recovery}:{})};
   });
  }
  const selected=()=>requests.find(row=>row.id===q('desktop-first-device-request').value);
- function controls(){if(!live())return;for(const el of root.querySelectorAll('button,input,select'))el.disabled=busy;q('desktop-first-device-submit').disabled=busy||!selected()||!q('desktop-first-device-confirm').checked;}
+ function controls(){if(!live())return;for(const el of root.querySelectorAll('button,input,select'))el.disabled=busy;const row=selected();q('desktop-first-device-submit').disabled=busy||!row||!q('desktop-first-device-confirm').checked||!!(row.recovery&&!q('desktop-first-device-recovery-confirm').checked);}
  function details(){
-  q('desktop-first-device-confirm').checked=false;const row=selected(),area=q('desktop-first-device-details');area.replaceChildren();
-  if(row)for(const [label,value]of [['요청 ID',row.id],['A 발급 ID',row.launcherId],['발급 A SHA-512',row.launcherSha512],['공개 기기키 지문',row.persistentKeyId],['현재 앱 키 지문',row.appKeyId],['승인 만료 (한국 시간)',new Date(row.expiresAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})]]){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;area.append(dt,dd);}
+  q('desktop-first-device-confirm').checked=false;q('desktop-first-device-recovery-confirm').checked=false;const row=selected(),area=q('desktop-first-device-details');area.replaceChildren();
+  q('desktop-first-device-recovery-label').hidden=!row?.recovery;q('desktop-first-device-recovery-note').hidden=!row?.recovery;
+  const pairs=row?[['요청 ID',row.id],['A 발급 ID',row.launcherId],['발급 A SHA-512',row.launcherSha512],['공개 기기키 지문',row.persistentKeyId],['현재 앱 키 지문',row.appKeyId],['증명 범위',row.hardwareAttested?'TPM 키 인증·활성화 증명 확인 · 고객·물리 PC는 별도 확인':'일반 키 소유 증명 · TPM 증명 없음'],['승인 만료 (한국 시간)',new Date(row.expiresAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})]]:[];
+  if(row?.recovery){const r=row.recovery;pairs.push(['TPM 요청 종류',{ENROLL:'최초 등록',RENEW:'같은 키 증명 갱신',REPLACE:'분실·교체 키 재등록'}[r.kind]],['기기 연결 ID',r.bindingId],['기존 등록 ID',r.oldEnrollmentId||'기존 등록 없음'],['기존 키 지문',r.oldKeyId||'기존 키 없음'],['요청한 새 키 지문',r.newKeyId],['기기 정책 개정',String(r.identityRevision)]);}
+  for(const [label,value]of pairs){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;area.append(dt,dd);}
   controls();
  }
  function render(value){requests=projection(value);const select=q('desktop-first-device-request');select.replaceChildren();const blank=document.createElement('option');blank.value='';blank.textContent=requests.length?'요청 선택':'현재 승인 대기 없음';select.append(blank);for(const row of requests){const option=document.createElement('option');option.value=row.id;option.textContent=row.launcherId+' · '+row.persistentKeyId.slice(0,12)+'…';select.append(option);}details();}
  function status(message){if(live())q('desktop-first-device-status').textContent=message;}
  function failure(error){
-  const messages={KEYLESS_REQUEST_EXPIRED:'요청이 만료되었습니다. 현재 대기 목록을 새로고침하세요.',KEYLESS_APPROVAL_MISMATCH:'선택한 기기키 또는 A 발급 정보가 현재 요청과 다릅니다. 다시 조회하고 외부에서 확인하세요.',KEYLESS_RATE_LIMIT:'요청이 많아 잠시 후 다시 조회해야 합니다.',KEYLESS_PROOF_INVALID:'서버가 키 소유 증명을 확인하지 못했습니다.',KEYLESS_REQUEST_INVALID:'서버가 요청을 확인하지 못했습니다. 대기 목록을 다시 조회하세요.'};
+  const messages={KEYLESS_REQUEST_EXPIRED:'요청이 만료되었습니다. 현재 대기 목록을 새로고침하세요.',KEYLESS_APPROVAL_MISMATCH:'선택한 기기키 또는 A 발급 정보가 현재 요청과 다릅니다. 다시 조회하고 외부에서 확인하세요.',KEYLESS_RATE_LIMIT:'요청이 많아 잠시 후 다시 조회해야 합니다.',KEYLESS_PROOF_INVALID:'서버가 키 소유 증명을 확인하지 못했습니다.',KEYLESS_REQUEST_INVALID:'서버가 요청을 확인하지 못했습니다. 대기 목록을 다시 조회하세요.',DEVICE_RECOVERY_APPROVAL_REQUIRED:'TPM 등록·교체 대상의 기존 키와 새 키를 외부에서 확인한 뒤 별도 확인란을 선택하세요.',DEVICE_RECOVERY_CONFLICT:'기기 등록 또는 TPM 신뢰 설정이 바뀌었습니다. 새 요청을 조회하고 다시 확인하세요.'};
   status(messages[error.code]||'처리 완료를 확인하지 못했습니다. 현재 대기 목록을 다시 조회하세요.');
  }
  q('desktop-first-device-request').onchange=()=>{if(!busy&&live())details();};
  q('desktop-first-device-confirm').onchange=controls;
+ q('desktop-first-device-recovery-confirm').onchange=controls;
  q('desktop-first-device-refresh').onclick=async()=>{if(busy||!live())return;busy=true;controls();try{const value=await api(base);if(live()){render(value);status('현재 승인 대기를 조회했습니다. 승인할 기기를 다시 확인하세요.');}}catch(error){if(live())failure(error);}finally{busy=false;controls();}};
  q('desktop-first-device-submit').onclick=async()=>{
-  if(busy||!live()||!q('desktop-first-device-confirm').checked)return;const row=selected();if(!row)return;
-  const snapshot={...row};busy=true;controls();
+  if(busy||!live()||!q('desktop-first-device-confirm').checked)return;const row=selected();if(!row||(row.recovery&&!q('desktop-first-device-recovery-confirm').checked))return;
+  const snapshot={...row,...(row.recovery?{recovery:{...row.recovery}}:{})};busy=true;controls();
   try{
-   const response=await api(base+'/'+encodeURIComponent(snapshot.id)+'/approve',{method:'POST',body:{identityConfirmed:true,persistentKeyId:snapshot.persistentKeyId,launcherId:snapshot.launcherId}});
+   const body={identityConfirmed:true,persistentKeyId:snapshot.persistentKeyId,launcherId:snapshot.launcherId};
+   if(snapshot.recovery){const r=snapshot.recovery;body.recovery={kind:r.kind,oldEnrollmentId:r.oldEnrollmentId,oldKeyId:r.oldKeyId,newKeyId:r.newKeyId,bindingId:r.bindingId,identityRevision:r.identityRevision,confirmed:true};}
+   const response=await api(base+'/'+encodeURIComponent(snapshot.id)+'/approve',{method:'POST',body});
    if(!live())return;
-   if(response?.version!==1||response.id!==snapshot.id||response.status!=='APPROVED'||response.hardwareAttested!==false||!Number.isSafeInteger(response.expiresAt))throw Error('승인 응답을 확인하지 못했습니다.');
-   requests=requests.filter(item=>item.id!==snapshot.id);render({ok:true,requests:requests.map(item=>({...item,status:'PENDING_APPROVAL',proof:'PERSISTENT_KEY_POSSESSION',hardwareAttested:false}))});
+   if(response?.version!==1||response.id!==snapshot.id||response.status!=='APPROVED'||response.hardwareAttested!==snapshot.hardwareAttested||!Number.isSafeInteger(response.expiresAt))throw Error('승인 응답을 확인하지 못했습니다.');
+   requests=requests.filter(item=>item.id!==snapshot.id);render({ok:true,requests});
    status('선택한 기기 연결 승인을 서버에 기록했습니다. A의 실행 완료를 확인한 것은 아닙니다.');
-  }catch(error){if(live()){q('desktop-first-device-confirm').checked=false;failure(error);}}finally{busy=false;controls();}
+  }catch(error){if(live()){q('desktop-first-device-confirm').checked=false;q('desktop-first-device-recovery-confirm').checked=false;failure(error);}}finally{busy=false;controls();}
  };
  try{render(initial);initial=null;await done;}finally{closed=true;requests=[];initial=null;if(root.isConnected)root.replaceChildren();}
 }

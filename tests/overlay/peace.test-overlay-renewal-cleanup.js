@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Source contracts + explicit timing models + actual server handlers with isolated
@@ -6,7 +8,7 @@ const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {OverlayFixture}=require("../fixtures/security/peace.security-state-test-fixture");
 const nativeRoot=process.env.GAME_TEST_NATIVE_ROOT||path.resolve(MODULE_RESOURCE_ROOT,'../../Railway');
-const read=n=>fs.readFileSync(path.join(nativeRoot,n),'utf8').replaceAll('\r','');
+const read=n=>ReadContractFile(path.join(nativeRoot,n),'utf8').replaceAll('\r','');
 const overlay=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),client=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),handoff=read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"),state=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas");
 function part(s,a,b){const i=s.indexOf(a);assert.ok(i>=0,a);const j=s.indexOf(b,i+a.length);assert.ok(j>i,b);return s.slice(i,j);}
 function order(s,...markers){let n=-1;for(const m of markers){n=s.indexOf(m,n+1);assert.ok(n>=0,'missing/order: '+m);}}

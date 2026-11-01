@@ -49,6 +49,10 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
     const check=guard.CheckSession(session,pathname,method);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
     Json(res,200,{ok:true,...require('../../../services/operations/peace.registration-reset').Status(new URL(req.url,'http://localhost').searchParams.get('requestId')||undefined)});return true;
   }
+  if(method==='GET'&&pathname===prefix+'/issued-a-keys'){
+    const check=guard.CheckSession(session,pathname,method);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
+    Json(res,200,{ok:true,...require('../../../services/bootstrap/peace.issued-a-keyring').Status()});return true;
+  }
   if(method==='GET'&&pathname===prefix+'/mitigation-compatibility'){Json(res,200,{ok:true,...require("../../../services/security/peace.desktop-mitigation-compatibility").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/mitigation-profiles'){Json(res,200,{ok:true,...require("../../../services/security/peace.desktop-mitigation-profiles").Status()});return true;}
   if(method==='GET'&&pathname===prefix+'/tls-pin-transition'){Json(res,200,{ok:true,...require("../../../services/network/peace.desktop-tls-pin-transition").Status()});return true;}
@@ -76,6 +80,7 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   const live=guard.CheckSession(session,pathname,method);
   if(!live.ok){ApiError(res,live.status||403,live.reason);return true;}
   const action=pathname.slice(prefix.length+1),actor=guard.Identity(session)||'ADMIN:'+session.id;
+  if(action==='issued-a-keys'){Json(res,200,{ok:true,...require('../../../services/bootstrap/peace.issued-a-keyring').Mutate(body,actor)});return true;}
   const keylessApproval=/^keyless-approvals\/([a-f0-9]{48})\/approve$/.exec(action);
   if(keylessApproval){Json(res,200,{ok:true,...require('../../../services/bootstrap/peace.keyless-bootstrap').Approve(keylessApproval[1],body,actor)});return true;}
   if(action==='registration-reset'){

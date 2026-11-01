@@ -1,8 +1,10 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../../../Railway');
 const available=fs.existsSync(root);
-const read=p=>available?fs.readFileSync(path.join(root,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'):'';
+const read=p=>available?ReadContractFile(path.join(root,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n'):'';
 const source=read('Cozy.Source/Cozy.Network/Cozy.Transport.pas');
 const encoder=read('Cozy.Source/Cozy.Handoff/Cozy.JsonEnvelope.pas');
 const probe=read('Cozy.Tests/Cozy.Network/Cozy.TransportProbe.dpr');

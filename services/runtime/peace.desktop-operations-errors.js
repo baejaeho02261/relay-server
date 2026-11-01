@@ -1,6 +1,23 @@
 'use strict';
 // Public administrator guidance only. Never reflect tokens, PEMs or arbitrary errors.
 const rows={
+ ISSUED_A_KEYRING_REQUIRED:['발급 서명키 세대 관리를 먼저 초기화하세요.','기존 발급키 설정을 유지하고 있습니다.','서버 보안 · 배포 운영에서 [최종 A 발급 서명키 · 세대 관리]의 현재 상태를 조회한 뒤 초기화하세요.','security'],
+ ISSUED_A_KEYRING_CONFLICT:['발급 서명키 상태가 변경되었습니다.','이전 조회 결과를 적용하지 않았습니다.','발급 서명키 상태를 다시 조회하고 대상 키와 상태를 확인하세요.','security'],
+ ISSUED_A_KEYRING_ALREADY_MANAGED:['발급 서명키 세대 관리가 이미 초기화됐습니다.','기존 키의 세대와 철회 기록을 유지합니다.','현재 상태를 다시 조회하세요.','security'],
+ ISSUED_A_KEYRING_CAPACITY:['발급 서명키의 보관 한도에 도달했습니다.','새 키를 등록하지 않았습니다.','기존 세대와 철회 기록을 유지한 상태에서 키 보관 정책을 검토하세요.','security'],
+ ISSUED_A_KEYRING_INPUT_INVALID:['발급 서명키 관리 입력을 확인하세요.','요청한 변경을 적용하지 않았습니다.','현재 상태를 다시 조회하고 키 ID와 변경 상태를 확인하세요.','security'],
+ ISSUED_A_PUBLIC_JSON_INVALID:['발급 서명키 공개 JSON 형식이 올바르지 않습니다.','새 공개키를 등록하지 않았습니다.','전용 발급키 도구가 만든 공개 JSON을 사용하세요. 개인키는 입력하지 마세요.','security'],
+ ISSUED_A_KEY_ALREADY_REGISTERED:['이미 등록한 발급 서명키입니다.','같은 키에 새 세대를 부여하지 않았습니다.','기존 키 상태를 확인하거나 별개의 새 키를 준비하세요.','security'],
+ ISSUED_A_SIGNING_KEY_RETIRING:['이 발급 서명키는 신규 발급이 중단된 상태입니다.','기존 발급물 검증을 위한 키이며 새 A를 발급하지 않습니다.','정상 사용 중인 새 발급키에 연결된 A 템플릿을 승인·등록·게시하세요.','deploy'],
+ ISSUED_A_SIGNING_KEY_REVOKED:['철회된 발급 서명키입니다.','이 키로 발급한 A의 서버 사용을 허용하지 않습니다.','정상 사용 중인 발급키와 템플릿으로 새 A를 발급하세요.','deploy'],
+ ISSUED_A_SIGNING_KEY_UNKNOWN:['관리 목록에서 이 발급 서명키를 찾지 못했습니다.','등록되지 않은 키를 대신 선택하지 않습니다.','서버 키 설정과 A 템플릿의 공개 검증 키를 함께 확인하세요.','security'],
+ ISSUED_A_KEY_REVOKED_IRREVERSIBLE:['철회된 발급 서명키는 복원할 수 없습니다.','철회 기록을 유지합니다.','별개의 새 키를 등록하고 해당 공개키를 포함한 A를 준비하세요.','security'],
+ ISSUED_A_KEY_STATE_UNCHANGED:['이미 요청한 상태인 발급 서명키입니다.','추가 상태 변경이 없습니다.','현재 상태를 다시 조회하세요.','security'],
+ ISSUED_A_KEYRING_CLOCK_INVALID:['서버 시각과 발급키 기록을 확인하지 못했습니다.','키 상태 변경을 중단했습니다.','서버 시각과 운영 기록을 확인한 뒤 다시 시도하세요.','security'],
+ ISSUED_A_KEYRING_STORAGE_INVALID:['발급 서명키 관리 기록을 확인하지 못했습니다.','기존 단일 키 방식으로 자동 전환하지 않습니다.','서버 저장소와 복구 기록을 점검하세요.','security'],
+ DEVICE_RECOVERY_APPROVAL_REQUIRED:['TPM 기기 복구 대상의 명시적 승인이 필요합니다.','이전 기기 키와 새 키를 교체하지 않았습니다.','최초 기기 연결 승인에서 이전·새 키와 발급 A를 확인하고 복구 대상을 승인하세요.','security'],
+ DEVICE_RECOVERY_CONFLICT:['TPM 기기 등록 상태가 변경되었습니다.','이전 상태에 대한 복구 승인을 적용하지 않았습니다.','기기 상태를 새로 조회하고 새 연결 요청으로 진행하세요.','security'],
+ DEVICE_TPM_TRUST_NOT_CONFIGURED:['TPM 증명 검증을 위한 신뢰 설정이 필요합니다.','TPM 표시만으로 기기를 승인하지 않습니다.','서버의 TPM 신뢰 루트와 기기 정책을 확인하세요.','security'],
  RELEASE_AUDIT_BUSY:['다른 등록 파일 검사가 진행 중입니다.','진행 중인 검사가 끝날 때까지 추가 검사를 받지 않습니다.','잠시 후 [등록 파일 보안 검사]를 다시 누르세요.','security'],
  RELEASE_AUDIT_TIMEOUT:['등록 파일 검사 시간이 초과되었습니다.','검사를 중단했으며 이 결과로 배포를 승인하지 않습니다.','서버 부하와 등록 파일 상태를 확인한 뒤 다시 검사하세요.','security'],
  RELEASE_AUDIT_CANCELLED:['등록 파일 검사가 취소되었습니다.','취소된 검사의 결과는 사용하지 않습니다.','필요하면 관리자 웹에서 검사를 다시 시작하세요.','security'],

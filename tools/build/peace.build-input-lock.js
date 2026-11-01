@@ -47,7 +47,7 @@ function collect(native,web,bds,node=process.execPath,tools){
  if(!files['bds/include/windows/sdk/d3d11.h'])throw Error('WINDOWS_TEST_CLASSIC_SDK_REQUIRED');
  // Pin every categorized include/bridge file and the exact native build recipe.
  // The generated object directory is deliberately outside these source trees.
- for(const name of ['Cozy.ImGui/Cozy.Vendor','Cozy.ImGui/Cozy.Bridge','Cozy.ImGui/Cozy.Build'])tree('native/'+name,path.join(native,...name.split('/')));
+ for(const name of ['Cozy.ImGui/Cozy.Vendor','Cozy.ImGui/Cozy.Bridge','Cozy.ImGui/Cozy.Build','Cozy.ImGui/Cozy.Strings'])tree('native/'+name,path.join(native,...name.split('/')));
  for(const name of ['Cozy.Build/Cozy.BuildIsolation.targets','Cozy.Build/Cozy.Tasks/Cozy.BuildSearchPaths.cs'])add('native/'+name,path.join(native,...name.split('/')));
  for(const name of ['package.json','package-lock.json'])add('web/'+name,path.join(web,name));
  add('runtime/node.exe',node);

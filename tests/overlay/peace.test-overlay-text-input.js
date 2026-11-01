@@ -1,10 +1,12 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Source integration contracts complement the executable C++ state/core tests.
 // Actual Windows message delivery, Korean IME and GPU presentation are NOT_RUN.
 const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const native=path.resolve(__dirname,'../../../Railway');
-const read=p=>fs.readFileSync(path.join(native,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
+const read=p=>ReadContractFile(path.join(native,p),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
 const renderer=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas');
 const bridge=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.cpp');
 const wrapper=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.ImGui.pas');

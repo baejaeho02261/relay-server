@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),cp=require('node:child_process');
 const contract=require('../../services/protocol/peace.packet-schema'),schema=require('../../contracts/protocol/peace.packet-schema-v1.json'),fixtures=require('../fixtures/protocol/peace.document-schema-cases.json');
 const clone=structuredClone;
@@ -42,7 +44,7 @@ test('generated schema is current and actual native parser paths enforce the gen
  const args=['tools/build/peace.generate-packet-schema.js','--check'];if(fs.existsSync(native))args.push('--native-root',native);
  const checked=cp.spawnSync(process.execPath,args,{cwd:relay,encoding:'utf8'});assert.equal(checked.status,0,checked.stderr);
  if(fs.existsSync(native)){
-  const client=fs.readFileSync(path.join(native,'Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas'),'utf8'),authority=fs.readFileSync(path.join(native,'Cozy.Source/Cozy.Security/Cozy.ServerAuthority.pas'),'utf8');
+  const client=ReadContractFile(path.join(native,'Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas'),'utf8'),authority=ReadContractFile(path.join(native,'Cozy.Source/Cozy.Security/Cozy.ServerAuthority.pas'),'utf8');
   assert(client.indexOf('RequireOverlayDocument(Action, TJSONObject(Value))')<client.indexOf('Result := TJSONObject(Value.Clone)'));
   for(const name of ['authorityChallenge','authorityPayload','authorityReply'])assert(authority.includes("RequireAuthorityDocument('"+name+"'"));
   assert(authority.indexOf("RequireAuthorityDocument('authorityPayload'")<authority.indexOf('PayloadText := Evidence.ToJSON'));

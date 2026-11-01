@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const sourceLayout=require('../fixtures/source/peace.project-layout');
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
@@ -18,7 +20,7 @@ function isolated(relative,names=[],overrides={}){
  loaded.filename=filename;loaded.paths=Module._nodeModulePaths(path.dirname(filename));
  const real=Module.createRequire(filename);
  loaded.require=sourceLayout.MockRequire(filename,overrides);
- loaded._compile(fs.readFileSync(filename,'utf8')+'\nmodule.exports.__probe={'+names.join(',')+'};\n',filename);
+ loaded._compile(ReadContractFile(filename,'utf8')+'\nmodule.exports.__probe={'+names.join(',')+'};\n',filename);
  return loaded.exports;
 }
 const pair=crypto.generateKeyPairSync('rsa',{modulusLength:2048});
@@ -91,7 +93,7 @@ async function body(bytes,max=131072,split=0){const req=new PassThrough(),promis
     const decision=authority.Evaluate(value,{hashVersion:3},{},{});assert.equal(decision.status,'INDETERMINATE');assert.equal(decision.reason,status==='READ_ERROR'?'MEASUREMENT_UNAVAILABLE':status);
     const row=reports.Record({stage:'A',status:'CLIENT_DIAGNOSTIC',check:'OWN_CODE',reason:decision.reason,measurementStatus:status});assert.equal(row.measurementStatus,status);assert.equal(row.attested,false);
    }
-   const stored=JSON.parse(fs.readFileSync(reports.FILE,'utf8')).data.records;assert.deepEqual(stored.map(r=>r.measurementStatus),failures);
+   const stored=JSON.parse(ReadContractFile(reports.FILE,'utf8')).data.records;assert.deepEqual(stored.map(r=>r.measurementStatus),failures);
    assert.deepEqual(reports.List().items.map(r=>r.measurementStatus).sort(),[...failures].sort());
    assert.throws(()=>reports.Payload('{"version":1,"hashVersion":3,"check":"OWN_IMAGE","reason":"PERIODIC","own":{"status":"MEASURED"}}'),/INTEGRITY_REPORT_INVALID/);
    assert.throws(()=>reports.Payload('{"version":1,"hashVersion":3,"check":"OWN_IMAGE","reason":"PERIODIC","own":{"status":"MADE_UP"}}'),/INTEGRITY_REPORT_INVALID/);
@@ -143,11 +145,11 @@ async function body(bytes,max=131072,split=0){const req=new PassThrough(),promis
   });
   await check('A/B/O source contracts: five module metadata fields and typed failure propagation remain connected',()=>{
    for(const file of ["Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas","Cozy.Source/Cozy.Platform/Cozy.Api.pas","Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"]){
-    const source=fs.readFileSync(path.join(native,file),'utf8');
+    const source=ReadContractFile(path.join(native,file),'utf8');
     for(const name of ['measurementPlanVersion','measurementStartedTick','measurementFinishedTick','moduleGenerationStable','coverage'])assert(source.includes("'"+name+"'"),file+': '+name);
     assert(source.includes('MeasurementStatusName'),file);assert(source.includes('MeasurementFailureStatus'),file);
    }
-   const probe=fs.readFileSync(path.join(native,"Cozy.Tests/Cozy.Security/Cozy.HardeningContractsProbe.dpr"),'utf8');
+   const probe=ReadContractFile(path.join(native,"Cozy.Tests/Cozy.Security/Cozy.HardeningContractsProbe.dpr"),'utf8');
    assert.match(probe,/on E: EInvalidOpException do[\s\S]*OVERLAY_STATE_TRANSITION/);
    assert.match(probe,/on E: EInvalidOpException do[\s\S]*OVERLAY_LEASE_EXPIRED/);
    assert.match(probe,/on E: EImageIntegrity do/); // reparse test must retain its actual exception.
@@ -155,7 +157,7 @@ async function body(bytes,max=131072,split=0){const req=new PassThrough(),promis
    function identifier(pos,end){const first=resource.readUInt16LE(pos);pos+=2;if(first===65535)return {id:resource.readUInt16LE(pos),next:pos+2};let v=first;while(v){assert(pos+2<=end);v=resource.readUInt16LE(pos);pos+=2;}return {id:null,next:pos};}
    while(at<resource.length){assert(at+8<=resource.length);const size=resource.readUInt32LE(at),header=resource.readUInt32LE(at+4),end=at+header;assert(header>=32&&end+size<=resource.length);const type=identifier(at+8,end),name=identifier(type.next,end);if(type.id===24&&name.id===1)manifests.push(resource.subarray(end,end+size));at=(end+size+3)&~3;}
    assert.equal(manifests.length,1);assert.deepEqual(manifests[0],fs.readFileSync(path.join(native,"Cozy.Projects/Cozy.Overlay/Cozy.Overlay.manifest")));assert(manifests[0].includes(Buffer.from('PerMonitorV2, PerMonitor')));
-   const version=fs.readFileSync(path.join(native,"Cozy.ImGui/Cozy.Vendor/Cozy.Core/Cozy.imgui.h"),'utf8').match(/^#define IMGUI_VERSION\s+"([^"]+)"/m)[1];
+   const version=ReadContractFile(path.join(native,"Cozy.ImGui/Cozy.Vendor/Cozy.Core/Cozy.imgui.h"),'utf8').match(/^#define IMGUI_VERSION\s+"([^"]+)"/m)[1];
    assert.equal(require("../../contracts/runtime/dependency-provenance-v1.json").imguiVersion,version);
    assert.equal(require("../../setup/releases/release-manifest-spec.example.json").toolchain.imgui,version);
   });

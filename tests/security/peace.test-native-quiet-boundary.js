@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 
 // Source boundaries only: does not execute A/B/O or certify Windows behavior.
 const assert = require('node:assert/strict');
@@ -6,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 const native = path.resolve(__dirname, '../../../Railway');
-const read = name => fs.readFileSync(path.join(native, name), 'utf8').replaceAll('\r', '');
+const read = name => ReadContractFile(path.join(native, name), 'utf8').replaceAll('\r', '');
 const stripComments = source => source.replace(/\{[\s\S]*?\}|\(\*[\s\S]*?\*\)|\/\/[^\n]*/g, '');
 
 test('Production A/B/O reject invalid invocation shapes before startup work and catch failures silently', () => {

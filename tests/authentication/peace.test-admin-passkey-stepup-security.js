@@ -73,7 +73,7 @@ test('revoked credential invalidates its session even after password reauthentic
 });
 test('all critical categories retain the freshness floor when optional flag is zero', () => {
     const s = session(); stale(s);
-    for (const route of [critical, '/api/desktop/bootstrap/security-authority', '/api/desktop/bootstrap/integrity-policy',
+    for (const route of [critical, '/api/desktop/bootstrap/security-operations/issued-a-keys', '/api/desktop/bootstrap/security-authority', '/api/desktop/bootstrap/integrity-policy',
         '/api/desktop/bootstrap/security-operations/activate', '/api/desktop/bootstrap/security-operations/controls',
         '/api/desktop/bootstrap/security-operations/recovery/apply',
         '/api/desktop/bootstrap/server-state/device-replacement', '/api/production/transport', '/api/production/config/apply',

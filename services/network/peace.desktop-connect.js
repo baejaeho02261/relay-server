@@ -39,7 +39,7 @@ function Seal(opened,result){
  const clear=Buffer.from(JSON.stringify(result),'utf8');try{if(clear.length>MAX_RESPONSE_CLEAR)throw Error('CONNECT_RESPONSE_TOO_LARGE');const ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);return {v:1,requestId:opened.requestId,nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};}finally{clear.fill(0);opened.key.fill(0);}
 }
 async function Dispatch(opened,absoluteDeadline){
- const payload=opened.payload;let devicePrepared;
+ const payload=opened.payload;let devicePrepared,keylessPrepared;
  try{
   require('../operations/peace.registration-reset').AssertAvailable();
   try{require('../protocol/peace.packet-schema').ValidateEnvelope(payload);}
@@ -52,10 +52,11 @@ async function Dispatch(opened,absoluteDeadline){
   // proof work: waiting cannot extend the authenticated certificate window.
   const pinTransition=require('./peace.desktop-tls-pin-transition');pinTransition.Offer();
   if(payload.operation==='device')devicePrepared=await require("../devices/peace.desktop-device-identity").PrepareTpm(payload.body,absoluteDeadline);
-  const execute=()=>{require('../operations/peace.registration-reset').AssertAvailable();require('./peace.desktop-transport-rotation').AssertUse(opened.keyId,payload);pinTransition.Offer();return protectedDispatch.Execute(dispatchTicket,payload,{policy:body=>require('../security/peace.server-policy-operations').Execute(body),device:body=>require("../devices/peace.desktop-device-identity").Handle(body,devicePrepared),security:body=>require("../security/peace.desktop-security-authority").Execute(body),report:body=>require("../integrity/peace.desktop-integrity-reports").Execute(body),bootstrap:body=>require("../bootstrap/peace.desktop-bootstrap").Execute(body),challenge:body=>desktop.Challenge(body),execute:body=>desktop.Execute(body)});};
+  if(payload.operation==='bootstrap')keylessPrepared=await require('../bootstrap/peace.keyless-bootstrap').PrepareTpm(payload.body,absoluteDeadline);
+  const execute=()=>{require('../operations/peace.registration-reset').AssertAvailable();require('./peace.desktop-transport-rotation').AssertUse(opened.keyId,payload);pinTransition.Offer();return protectedDispatch.Execute(dispatchTicket,payload,{policy:body=>require('../security/peace.server-policy-operations').Execute(body),device:body=>require("../devices/peace.desktop-device-identity").Handle(body,devicePrepared),security:body=>require("../security/peace.desktop-security-authority").Execute(body),report:body=>require("../integrity/peace.desktop-integrity-reports").Execute(body),bootstrap:body=>require("../bootstrap/peace.desktop-bootstrap").Execute(body,keylessPrepared),challenge:body=>desktop.Challenge(body),execute:body=>desktop.Execute(body)});};
   const proofWork=require("../integrity/peace.desktop-proof-work"),jobs=proofWork.Prepare(payload.operation,payload.body);
   const data=await proofWork.Run(jobs,execute,{deadline:absoluteDeadline,key:String(payload.body.sessionId||payload.body.flowId||payload.body.deviceId||'').slice(0,160),renewal:work.IsRenewal(payload.operation,payload.body.action)||payload.operation==='security'&&payload.body.intent==='verify'});return {ok:true,data};
- }catch(error){const code=error.desktopError?error.message:['CONNECT_RATE_LIMIT','WORK_QUEUE_BUSY'].includes(error.message)?'DESKTOP_RATE_LIMIT':['CONNECT_DEADLINE','WORK_DEADLINE'].includes(error.message)?'CONNECT_DEADLINE':'INPUT_INVALID';require("../runtime/peace.desktop-runtime-diagnostics").Record(payload?.operation,payload?.body,code);return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}finally{devicePrepared?.secret?.fill(0);}
+ }catch(error){const code=error.desktopError?error.message:['CONNECT_RATE_LIMIT','WORK_QUEUE_BUSY'].includes(error.message)?'DESKTOP_RATE_LIMIT':['CONNECT_DEADLINE','WORK_DEADLINE'].includes(error.message)?'CONNECT_DEADLINE':'INPUT_INVALID';require("../runtime/peace.desktop-runtime-diagnostics").Record(payload?.operation,payload?.body,code);return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}finally{devicePrepared?.secret?.fill(0);keylessPrepared?.secret?.fill(0);}
 }
 function Accept(socket){
  let buffer=Buffer.alloc(0),complete=false;

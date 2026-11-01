@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Source contracts only. Arithmetic is executed separately by ClockMathProbe.
 // Actual Win64 QPC, suspend/resume, cancellation scheduling and A/B/O: NOT_RUN.
 const assert = require('node:assert/strict');
@@ -6,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const root = path.resolve(__dirname, '../../../Railway');
-const read = p => fs.readFileSync(path.join(root, p), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+const read = p => ReadContractFile(path.join(root, p), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
 const clock = read('Cozy.Source/Cozy.Platform/Cozy.Clock.pas');
 const impl = clock.slice(clock.indexOf('\nimplementation\n'));
 const wait = impl.slice(impl.indexOf('function CozyWaitForDelay('), impl.indexOf('procedure CozyPause('));
@@ -15,7 +17,7 @@ function files(dir) {
 }
 test('owned production timing has one clock domain and no Sleep/GetTickCount calls', () => {
   for (const file of files(path.join(root, 'Cozy.Source')).filter(p => p.endsWith('.pas'))) {
-    const src = fs.readFileSync(file, 'utf8');
+    const src = ReadContractFile(file, 'utf8');
     assert.doesNotMatch(src, /\b(?:GetTickCount(?:64)?|Sleep)\s*\(/, path.relative(root, file));
     assert.doesNotMatch(src, /BindApiPointer\([^\n]*(?:HASH_GetTickCount64|HASH_Sleep)/, path.relative(root, file));
   }

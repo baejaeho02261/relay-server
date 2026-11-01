@@ -1,11 +1,13 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Cross-language fixtures + native source security contracts. This does not
 // execute Delphi, Windows handles, CNG, or the A/B/O lifecycle.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=path.resolve(MODULE_RESOURCE_ROOT,'../../Railway');
-const read=name=>fs.readFileSync(path.join(base,name),'utf8');
+const read=name=>ReadContractFile(path.join(base,name),'utf8');
 const security=read("Cozy.Source/Cozy.Security/Cozy.Security.pas"),handoff=read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"),cipher=read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.Crypto.pas");
 const bootstrap=read("Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas"),overlay=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas");
 const vector=JSON.parse(read("Cozy.Tests/Cozy.Handoff/Cozy.HandoffV3Vector.json"));

@@ -1,11 +1,13 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Source boundary contracts supplement real Windows probes and server behavior
 // tests. They do not execute Delphi, Windows object lifetimes or pipe handles.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=path.resolve(MODULE_RESOURCE_ROOT,'../../Railway');
-const read=name=>fs.readFileSync(path.join(base,name),'utf8').replaceAll('\r','');
+const read=name=>ReadContractFile(path.join(base,name),'utf8').replaceAll('\r','');
 const api=read("Cozy.Source/Cozy.Platform/Cozy.Api.pas"),bootstrap=read("Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas"),overlay=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),handoff=read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"),security=read("Cozy.Source/Cozy.Security/Cozy.Security.pas"),cipher=read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.Crypto.pas"),authority=read("Cozy.Source/Cozy.Security/Cozy.ServerAuthority.pas");
 let count=0;
 function check(name,run){run();count++;console.log('PASS '+name);}

@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 const sha512=value=>require('node:crypto').createHash('sha512').update(value).digest('hex');
@@ -15,7 +17,7 @@ function Reject(fn,pattern=/^BOOTSTRAP_/){assert.throws(fn,error=>pattern.test(e
 const releaseFields=['id','version','hashVersion','sha512','crc64','xxh3_128','blake3','codeSha512','codeCrc64','codeXxh3_128','codeBlake3','codeAlgorithm','size'].sort();
 const nativeBootstrap=path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas");
 if(fs.existsSync(nativeBootstrap)){
- const source=fs.readFileSync(nativeBootstrap,'utf8'),parseRelease=source.match(/function ParseRelease\(Obj: TJSONObject\): TBootstrapRelease;([\s\S]*?)function RequiredObject/);
+ const source=ReadContractFile(nativeBootstrap,'utf8'),parseRelease=source.match(/function ParseRelease\(Obj: TJSONObject\): TBootstrapRelease;([\s\S]*?)function RequiredObject/);
  assert.ok(parseRelease,'Locate the native ParseRelease implementation');
  const schema=parseRelease[1].match(/BootstrapValidateObject\(Obj,\s*'([^']+)',\s*(\d+)\)/);
  assert.ok(schema,'Locate the native exact-field release validator');
@@ -185,8 +187,8 @@ Check('Historical native templates and personalized overlays are rejected on reu
  }
 });
 Check('Schemas 1 through 4 are archived once and cannot revive old launchers, sessions or releases',()=>{
- const v2=JSON.parse(fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"fixtures/bootstrap/desktop-bootstrap-authority-v2.json"),'utf8'));
- const v3=JSON.parse(fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"fixtures/bootstrap/desktop-bootstrap-authority-v3.json"),'utf8'));
+ const v2=JSON.parse(ReadContractFile(path.join(MODULE_RESOURCE_ROOT,"fixtures/bootstrap/desktop-bootstrap-authority-v2.json"),'utf8'));
+ const v3=JSON.parse(ReadContractFile(path.join(MODULE_RESOURCE_ROOT,"fixtures/bootstrap/desktop-bootstrap-authority-v3.json"),'utf8'));
  for(const schema of [1,2,3,4]){
   const original=structuredClone(schema===2?v2:v3);original.schema=schema;
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'game-bootstrap-migrate-'+schema+'-')),authorityDir=path.join(dir,'desktop-bootstrap'),file=path.join(authorityDir,'authority.json');fs.mkdirSync(authorityDir);fs.writeFileSync(file,JSON.stringify(original));
@@ -197,7 +199,7 @@ Check('Schemas 1 through 4 are archived once and cannot revive old launchers, se
   for(let run=0;run<2;run++){
    const result=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(MODULE_RESOURCE_ROOT,'..'),env:{...process.env,DATA_DIR:dir},input:JSON.stringify({launcherId,sessionId:flow.sessionId,deviceId:flow.deviceId}),encoding:'utf8'});assert.equal(result.status,0,result.stderr);
    const out=JSON.parse(result.stdout.slice(result.stdout.lastIndexOf('RESULT:')+7));assert.deepEqual(out,{issue:'BOOTSTRAP_NOT_READY',download:'BOOTSTRAP_LAUNCHER_INVALID',session:'BOOTSTRAP_SESSION_INVALID'});
-   const stored=JSON.parse(fs.readFileSync(file,'utf8'));assert.equal(stored.schema,5);assert.equal(stored.revision,original.revision+1);assert.equal(stored.secret,original.secret);
+   const stored=JSON.parse(ReadContractFile(file,'utf8'));assert.equal(stored.schema,5);assert.equal(stored.revision,original.revision+1);assert.equal(stored.secret,original.secret);
    for(const key of ['artifacts','active','launchers','flows','issueReceipts'])assert.deepEqual(stored[key],{},key+' requires new v4 authority');
    assert.equal(stored.legacyArchive.schema,schema);const archived=fs.readFileSync(path.join(authorityDir,stored.legacyArchive.file));assert.deepEqual(JSON.parse(archived),original,'all historical audit data retained');assert.equal(sha512(archived),stored.legacyArchive.sha512);
    if(archive)assert.equal(stored.legacyArchive.file,archive,'restart must not archive again');archive=stored.legacyArchive.file;

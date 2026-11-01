@@ -133,7 +133,7 @@ function StateSnapshot(store, authority) {
   // an administrator's read-only check.
   return { artifactRevision: db.revision, policy, artifacts,
     identity: JSON.stringify({ artifacts, active: db.active, policyRevision: policy.revision,
-      operationsRevision: db.securityOperations?.revision || 0 }) };
+      operationsRevision: db.securityOperations?.revision || 0, issuedKeyRevision: db.issuedAKeyring?.revision || 0 }) };
 }
 let runner, stopRegistered = false;
 function Runner() {

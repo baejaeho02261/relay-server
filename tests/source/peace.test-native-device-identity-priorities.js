@@ -1,9 +1,11 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Wiring/lifetime source checks only. The native --contracts mode executes the
 // real guards on Windows. Production server/TPM transcript tests run separately.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../../../Railway');
-const read=n=>fs.readFileSync(path.join(root,n),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
+const read=n=>ReadContractFile(path.join(root,n),'utf8').replace(/^\uFEFF/,'').replace(/\r\n/g,'\n');
 const source=read('Cozy.Source/Cozy.Identity/Cozy.DeviceIdentity.pas'),contract=read('Cozy.Source/Cozy.Identity/Cozy.DeviceIdentity.Contracts.pas'),probe=read('Cozy.Tests/Cozy.Identity/Cozy.DeviceIdentityProbe.dpr'),cases=read('Cozy.Tests/Cozy.Identity/Cozy.DeviceIdentityContracts.inc');
 for(const name of ['ReadIdentityPolicy','ReadIdentityChallenge','ValidateIdentityActivation','ValidateIdentityActivationDomain','ValidateIdentityEnrolled'])assert(source.includes(name+'('),'Production must call '+name);
 assert(source.includes("Transport.PostJSON('device',Request.Body,BudgetMs)"));

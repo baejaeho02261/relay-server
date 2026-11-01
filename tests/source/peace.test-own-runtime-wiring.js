@@ -1,10 +1,12 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Source/lifetime wiring evidence only, never a replacement for Win64 probes.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const railway = path.resolve(__dirname, '../../../Railway');
-const read = file => fs.readFileSync(path.join(railway, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
+const read = file => ReadContractFile(path.join(railway, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
 const own = read('Cozy.Source/Cozy.Integrity/Cozy.OwnMeasurement.pas');
 const runtime = read('Cozy.Source/Cozy.Integrity/Cozy.OwnedRuntime.pas');
 function routine(source, name) {

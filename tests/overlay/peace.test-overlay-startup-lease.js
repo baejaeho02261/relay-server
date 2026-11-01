@@ -1,9 +1,11 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),path=require('node:path');
 const {OverlayFixture}=require("../fixtures/security/peace.security-state-test-fixture"),tracker=require("../../services/overlay/peace.desktop-overlay-startup");
-const native=n=>fs.readFileSync(path.resolve(MODULE_RESOURCE_ROOT,'../../Railway',n),'utf8');
+const native=n=>ReadContractFile(path.resolve(MODULE_RESOURCE_ROOT,'../../Railway',n),'utf8');
 function Progress(f,phase='CLAIMED',sequence=1,elapsedMs=100){const b={action:'overlayProgress',sessionId:f.row.sessionId,sessionToken:'TOKEN',sequence,phase,elapsedMs,signature:'pending'};b.signature=crypto.sign('sha256',Buffer.from(tracker.Canonical(b)),f.keys.privateKey).toString('base64');return b;}
 test('verified startup observation changes no authority row or license',()=>{const f=OverlayFixture();f.row.status='CLAIMED';const before=JSON.stringify([f.row,f.parent,f.license]),b=Progress(f);assert.equal(f.api.__probe.Progress(b).recorded,true);assert.equal(JSON.stringify([f.row,f.parent,f.license]),before);assert.equal(f.calls.writes,0);assert.equal(tracker.View(f.row.sessionId).attested,false);});
 test('wrong session token and bad signature cannot record startup',()=>{const f=OverlayFixture();f.row.status='CLAIMED';const b=Progress(f);assert.throws(()=>f.api.__probe.Progress({...b,sessionToken:'WRONG'}),/SESSION_INVALID/);assert.throws(()=>f.api.__probe.Progress({...b,signature:crypto.randomBytes(256).toString('base64')}),/PROOF_INVALID/);assert.equal(tracker.View(f.row.sessionId).phase,'NOT_REPORTED');});

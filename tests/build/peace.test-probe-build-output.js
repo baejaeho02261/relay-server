@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Exercise the actual BAT :build helpers with a controlled compiler stub.
@@ -14,7 +16,7 @@ if(process.platform!=='win32'){
  const definitions=[['Cozy.Tests/Cozy.Build/Cozy.Build_NativeProbes_Win64.bat','PROBE'],['Cozy.Tests/Cozy.Overlay/Cozy.Build_OverlayContracts_Win64.bat','OVERLAY_TEST']];
  try{
   for(const [file,prefix]of definitions){
-   const source=fs.readFileSync(path.join(native,file),'utf8').replace(/\r\n/g,'\n');
+   const source=ReadContractFile(path.join(native,file),'utf8').replace(/\r\n/g,'\n');
    const start=source.indexOf('\n:build\n');assert(start>=0,'Actual build helper missing: '+file);
    let helper=source.slice(start+1).split('\n:failed\n')[0];
    const compiler=/^"%BDS%\\bin\\dcc64\.exe"[^\n]*$/m;
@@ -33,11 +35,11 @@ if(process.platform!=='win32'){
     fs.writeFileSync(harness,text.replace(/\n/g,'\r\n'));
     const r=cp.spawnSync(process.env.ComSpec||'cmd.exe',['/d','/s','/c','""'+harness+'""'],{encoding:'utf8',timeout:15000,windowsHide:true,windowsVerbatimArguments:true});
     if(r.error)throw r.error;assert.equal(r.signal,null);const label=file+' '+role+' '+mode+'\n'+r.stdout+r.stderr;
-    assert.equal(fs.readFileSync(unrelated,'utf8'),'do not change',label);
+    assert.equal(ReadContractFile(unrelated,'utf8'),'do not change',label);
     if(mode==='success'){assert.equal(r.status,0,label);assert.deepEqual(fs.readFileSync(expected),pe,label);}
     else{
      assert.notEqual(r.status,0,label);
-     if(mode==='directory-output'){assert.match(r.stdout,/PROBE_OUTPUT_IS_DIRECTORY/,label);assert.equal(fs.readFileSync(path.join(expected,'keep.txt'),'utf8'),'directory contents');}
+     if(mode==='directory-output'){assert.match(r.stdout,/PROBE_OUTPUT_IS_DIRECTORY/,label);assert.equal(ReadContractFile(path.join(expected,'keep.txt'),'utf8'),'directory contents');}
      else assert.equal(fs.existsSync(expected),false,label);
      if(['no-output','wrong-output'].includes(mode))assert.match(r.stdout,/PROBE_NO_FRESH_OUTPUT/,label);
      if(mode==='error-output')assert.match(r.stdout,/PROBE_COMPILER_FAILED/,label);

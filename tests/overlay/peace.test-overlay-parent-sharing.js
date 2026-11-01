@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 // Sharing regression for the native B -> O handoff. This models the Windows
@@ -7,10 +9,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const handoff = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"), 'utf8');
-const integrity = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Integrity/Cozy.Integrity.pas"), 'utf8');
-const consoleSource = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Application/Cozy.Console.pas"), 'utf8');
-const overlay = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"), 'utf8');
+const handoff = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"), 'utf8');
+const integrity = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Integrity/Cozy.Integrity.pas"), 'utf8');
+const consoleSource = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Application/Cozy.Console.pas"), 'utf8');
+const overlay = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"), 'utf8');
 const openSafeImage = handoff.slice(handoff.indexOf('function OpenSafeImage('), handoff.indexOf('function SameIdentity('));
 const READ = 1, WRITE = 2, DELETE = 4;
 let checks = 0;

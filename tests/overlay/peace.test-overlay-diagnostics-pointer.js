@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
 
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
@@ -15,12 +17,12 @@ test('summary includes failed DLL from all batches, not only the last batch',()=
 test('summary bounds the number of names without hiding omitted failures',()=>{const d=Summarize(payload,Array.from({length:30},(_,i)=>row(i+'.dll',{status:'READ_ERROR'})),[]);assert.equal(d.incomplete.length,16);assert.equal(d.omittedFailureCount,14);});
 test('summary strips path, exception, address and raw hashes',()=>{const d=Summarize(payload,[row('C:\\secret\\a.dll',{status:'READ_ERROR',message:'SECRET',address:'RAW_ADDRESS'})],[]);assert.equal(d.incomplete[0].name,'unknown');for(const x of ['SECRET','RAW_ADDRESS','a'.repeat(128),'C:'])assert.ok(!JSON.stringify(d).includes(x));});
 test('generation-only failure is visible even with no unreadable module',()=>{const d=Summarize({...payload,moduleGenerationStatus:'TRACKED_CHANGED'},[row('ok.dll')],['MEASUREMENT_GENERATION_INCOMPLETE']);assert.equal(d.failedModuleCount,0);assert.equal(d.generation,'TRACKED_CHANGED');});
-const root=path.resolve(MODULE_RESOURCE_ROOT,'../../Railway'),code=fs.readFileSync(path.join(root,"Cozy.Source/Cozy.Integrity/Cozy.CodeIntegrity.pas"),'utf8');
+const root=path.resolve(MODULE_RESOURCE_ROOT,'../../Railway'),code=ReadContractFile(path.join(root,"Cozy.Source/Cozy.Integrity/Cozy.CodeIntegrity.pas"),'utf8');
 test('native source contract: no RPM binding/call in code measurement',()=>assert.ok(!/ReadProcessMemory/.test(code)));
 test('native source contract: direct current-process copy keeps bounds and exception failure',()=>{for(const text of ['Move(PByte(Address)^','on E: EAccessViolation','AfterRegion.Protect = Region.Protect','Region.AllocationBase = Pointer(Module)','Region.Kind = MEM_IMAGE','High(NativeUInt) - NativeUInt(Region.BaseAddress)','if Count <> 0 then FillChar(Span.Write(0, Count)^, Count, 0)'])assert.ok(code.includes(text),text);});
 test('native source contract: current scanner retains bounded PE alias/name checks',()=>{assert.ok(code.includes('NameCount <= MaximumExportEntries'));assert.ok(code.includes('MaximumExportStringBytes = 4096'));assert.ok(code.includes('U16(FileBytes, UInt64(OrdinalAt) + Cardinal(EntryIndex) * 2) < FunctionCount'));assert.ok(code.includes('StringWork <= MaximumExportStringWork'));});
-test('native source contract: O inventory receives retained own-image handle',()=>{const s=fs.readFileSync(path.join(root,"Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),'utf8');assert.ok(s.includes('CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity)'));});
-test('native source contract: module failure phase is emitted without exception text',()=>{const s=fs.readFileSync(path.join(root,"Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas"),'utf8');assert.ok(s.includes("Result.AddPair('failurePhase', TJSONNumber.Create(FailurePhase))"));assert.ok(!s.includes("Result.AddPair('error', E.Message)"));});
+test('native source contract: O inventory receives retained own-image handle',()=>{const s=ReadContractFile(path.join(root,"Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),'utf8');assert.ok(s.includes('CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity)'));});
+test('native source contract: module failure phase is emitted without exception text',()=>{const s=ReadContractFile(path.join(root,"Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas"),'utf8');assert.ok(s.includes("Result.AddPair('failurePhase', TJSONNumber.Create(FailurePhase))"));assert.ok(!s.includes("Result.AddPair('error', E.Message)"));});
 
 const parse=require("../../services/integrity/peace.desktop-integrity-reports").Payload;
 function rawModule(extra={}){return JSON.stringify({version:1,hashVersion:3,check:'MODULE_INVENTORY',reason:'PERIODIC',snapshotId:'TEST-SNAPSHOT',batchIndex:0,batchCount:1,complete:true,truncated:false,totalModules:1,measuredModules:0,modules:[{name:'valid.dll',status:'READ_ERROR',codeStatus:'READ_ERROR',...extra}]});}

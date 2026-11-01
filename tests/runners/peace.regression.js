@@ -5,6 +5,10 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["bootstrap/peace.test-issued-a-keyring.js"],
+  ["bootstrap/peace.test-keyless-tpm-recovery.js"],
+  ["source/peace.test-native-string-contract-reader.js"],
+  ["web/peace.test-issued-a-keyring-ui.js"],
   ["security/peace.test-release-audit-runner.js"],
   ["security/peace.test-release-audit-file-races.js"],
   ["security/peace.test-release-readiness-route-lifetime.js"],

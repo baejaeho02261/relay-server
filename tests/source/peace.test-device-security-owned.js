@@ -1,10 +1,12 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Source ownership and independent wire fixtures. Actual Delphi/CNG execution
 // belongs to the native DeviceSecurityOwnedProbe and is never implied here.
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const native=path.resolve(__dirname,'../../../Railway');
 const present=fs.existsSync(native);
-const read=p=>present?fs.readFileSync(path.join(native,p),'utf8').replace(/\r/g,'').replace(/^\uFEFF/,''):'';
+const read=p=>present?ReadContractFile(path.join(native,p),'utf8').replace(/\r/g,'').replace(/^\uFEFF/,''):'';
 const source=read('Cozy.Source/Cozy.Security/Cozy.Security.pas');
 const probe=read('Cozy.Tests/Cozy.Security/Cozy.DeviceSecurityOwnedProbe.dpr');
 function method(name,next){const s=source.slice(source.indexOf(name));return next?s.slice(0,s.indexOf(next,1)):s;}

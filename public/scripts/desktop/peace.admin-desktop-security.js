@@ -23,7 +23,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
   const owner=session.csrf,base='/api/desktop/bootstrap/security-operations';
   let data=await api('/api/desktop/bootstrap/security-authority'),policyPreview='',policyPreviewResult=null,pairPreview=null,rolloutPreview='',busy=false,closed=false;
   let recoveryPreview=null,recoveryDraft='',recoveryRequestId='';
-  let nextPanel='';
+  let nextPanel='',issuedKeys=null;
   let activationState=(await api(base+'/activation')).status,activationPreview=null;
   if(!roleIsAdmin()||session?.csrf!==owner)return;
   const done=openModal({title:'서버 보안 · 배포 운영',html:'<section id="desktop-security-root" class="desktop-security"></section>',confirmLabel:'닫기'});
@@ -117,6 +117,13 @@ async function showDesktopSecurityOperations(initialPair=null) {
       <p class="small-note">현재 운영 A/B/O의 서버 저장 파일과 등록 해시·배포 승인 서명·CFG 구조를 직접 대조합니다. 실행 파일을 고객 PC에서 실행하거나 발급하지 않으며, 정책과 운영 데이터를 변경하지 않습니다.</p>
       ${button('audit-release-readiness','등록 파일 보안 검사')}<div id="sec-release-readiness" class="desktop-security-result" role="status" aria-live="polite">버튼을 누르면 현재 파일을 한 번 검사합니다.</div>
       <details><summary>파일 검사 상세 결과</summary><pre id="sec-release-readiness-json"></pre></details></details>
+      <details><summary>최종 A 발급 서명키 · 세대 관리</summary>
+      <p class="small-note">템플릿의 공개키와 일치하는 서버 키만 발급에 사용합니다. ACTIVE는 새 발급, RETIRING은 기존 발급 사용, REVOKED는 서버 사용 거절입니다. 전환·철회는 되돌릴 수 없습니다. 개인키는 서버 변수에만 설정하세요.</p>
+      ${button('issued-keys-load','발급 서명키 상태 조회')}
+      <div id="sec-issued-key-state">${issuedKeys?`<p>${issuedKeys.managed?'세대 관리 사용 중':'기존 단일 키 모드'} · revision ${esc(issuedKeys.revision)} · ${esc(issuedKeys.configurationError||'서버 설정 읽기 완료')}</p><table><thead><tr><th>세대 / 공개 키 ID</th><th>상태</th><th>등록 A / 미사용 / A·B 흐름 / O</th><th>변경</th></tr></thead><tbody>${(issuedKeys.keys||[]).map(k=>`<tr><td>${esc(k.generation)} · <code>${esc(k.keyId)}</code></td><td>${esc(k.state)}${k.privateKeyConfigured?' · 서버 키 설정됨':''}</td><td>${esc(k.issued)} / ${esc(k.unused)} / ${esc(k.liveFlows)} / ${esc(k.liveOverlays||0)}</td><td>${k.state==='ACTIVE'?`<button type="button" data-security-action="issued-key-retire" data-key="${esc(k.keyId)}">기존 발급만 허용</button>`:''}${k.state!=='REVOKED'?`<button type="button" class="danger" data-security-action="issued-key-revoke" data-key="${esc(k.keyId)}">이 키의 발급·실행 철회</button>`:''}</td></tr>`).join('')}</tbody></table>${!issuedKeys.managed?button('issued-keys-initialize','기존 발급을 보존하며 세대 관리 시작'):''}`:'조회 버튼을 누르면 공개 키 ID와 상태만 읽습니다.'}</div>
+      <label>새 발급 서명키 공개 JSON · 개인키 금지<textarea id="sec-issued-public-json" rows="4" maxlength="4096" placeholder="version, algorithm, keyId, publicBlob만 포함한 공개 JSON" spellcheck="false" autocomplete="off"></textarea></label>
+      ${button('issued-key-register','서버 설정과 대조해 새 키 등록')}
+      <p class="small-note">서버에 새 개인키를 추가한 뒤 공개 JSON을 등록하고, 해당 공개키를 포함한 새 A 템플릿을 승인·게시하세요. 새 A 발급을 확인한 뒤 이전 키를 RETIRING으로 전환하세요. 이미 배포된 A의 공개키를 바꾸거나 Windows 게시자 서명을 추가하지 않습니다.</p></details>
       <details><summary>정책 편집 · 적용 전 영향 미리보기</summary><div class="desktop-security-grid">
       <label>검사 결과 정책${select('sec-mode',[['enforce','검사 실패 시 작업 보류'],['observe','관찰만']],p.mode)}</label>
       <label>동적 코드${select('sec-dynamic',[['observe','상태 조회만'],['prohibit','생성·수정 제한 요구']],p.dynamicCode)}</label>
@@ -225,7 +232,16 @@ async function showDesktopSecurityOperations(initialPair=null) {
     try{
       let changed=false,successMessage='',statusState='success';
       if(action==='refresh')await reload();
-      else if(action==='audit-release-readiness'){
+      else if(action==='issued-keys-load'){
+        const out=await api(base+'/issued-a-keys');if(alive()){issuedKeys=out;render();}
+      }else if(['issued-keys-initialize','issued-key-register','issued-key-retire','issued-key-revoke'].includes(action)){
+        if(!issuedKeys)throw Error('발급 서명키 상태를 먼저 조회하세요.');
+        const request={action:action==='issued-keys-initialize'?'initialize':action==='issued-key-register'?'register':'state',expectedRevision:issuedKeys.revision};
+        if(request.action==='register'){const text=node('sec-issued-public-json').value;if(text.length>4096)throw Error('공개 JSON 크기를 확인하세요.');const value=JSON.parse(text);if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).sort().join(',')!=='algorithm,keyId,publicBlob,version'||value.version!==1||value.algorithm!=='RSA2048-PKCS1-SHA256'||typeof value.keyId!=='string'||!/^[a-f0-9]{64}$/.test(value.keyId)||typeof value.publicBlob!=='string'||!/^[A-Za-z0-9+/]{378}==$/.test(value.publicBlob)||btoa(atob(value.publicBlob))!==value.publicBlob)throw Error('발급 서명키 공개 JSON만 입력하세요. 개인키는 전송하지 않습니다.');request.publicKey=value;}
+        if(request.action==='state'){request.keyId=target.dataset.key;request.state=action==='issued-key-retire'?'RETIRING':'REVOKED';}
+        if(action==='issued-key-revoke'&&!window.confirm('이 키의 미사용 A와 연결된 실행을 철회합니다. 복원할 수 없습니다. 진행할까요?')){successMessage='키 철회를 취소했습니다.';}
+        else{const out=await api(base+'/issued-a-keys',{method:'POST',body:request});if(alive()){issuedKeys=out.status;node('sec-issued-public-json').value='';}changed=true;}
+      }else if(action==='audit-release-readiness'){
         const out=await api('/api/desktop/bootstrap/security-authority/release-readiness');
         if(!out.readiness||out.readiness.scope!=='REGISTERED_RELEASE_BYTES'||!Array.isArray(out.readiness.releases))throw Error('등록 파일 검사 응답을 확인하지 못했습니다. 다시 검사하세요.');
         if(alive()){
@@ -343,7 +359,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
   });
   render();
   if(initialPair&&node('sec-a'))node('sec-a').closest('details').open=true;
-  try{await done;}finally{closed=true;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';policyPreviewResult=null;pairPreview=null;rolloutPreview='';if(root.isConnected)root.replaceChildren();}
+  try{await done;}finally{closed=true;issuedKeys=null;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';policyPreviewResult=null;pairPreview=null;rolloutPreview='';if(root.isConnected)root.replaceChildren();}
   if(nextPanel==='release-safety'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopReleaseSafety();
   if(nextPanel==='registration-reset'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopRegistrationReset();
 }

@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 
 // Source/build-contract checks only. These do not execute Pascal or certify
 // native worker scheduling. Cozy.HashLifecycleProbe performs the Win64 checks.
@@ -6,7 +8,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const native = path.resolve(__dirname, '../../../Railway');
-function read(file) { return fs.readFileSync(path.join(native, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n'); }
+function read(file) { return ReadContractFile(path.join(native, file), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n'); }
 const hashes = read('Cozy.Source/Cozy.Crypto/Cozy.Hashes.pas');
 const workers = read('Cozy.Source/Cozy.Crypto/Cozy.Hashes.Workers.pas');
 const integrity = read('Cozy.Source/Cozy.Integrity/Cozy.Integrity.pas');

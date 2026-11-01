@@ -1,9 +1,11 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 // Native source/wire-fixture contracts, never a native CNG execution attestation.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'../../../Railway');
 if(!fs.existsSync(root)){console.log('SKIP private native source unavailable; no CNG execution claim');process.exit(0);}
-const read=n=>fs.readFileSync(path.join(root,n),'utf8');
+const read=n=>ReadContractFile(path.join(root,n),'utf8');
 const source=read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.Crypto.pas'),kdf=read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.Kdf.pas'),handoff=read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas'),probe=read('Cozy.Tests/Cozy.Handoff/Cozy.HandoffCryptoProbe.dpr');
 const decrypt=source.split('function THandoffCipher.Decrypt(')[1].split('function HandoffDecryptAes256Gcm(')[0],encrypt=source.split('class function THandoffCipher.Encrypt(')[1].split('function THandoffCipher.Decrypt(')[0],generic=source.split('function HandoffDecryptAes256Gcm(')[2].split('procedure THandoffCipher.Close;')[0];
 let cases=0;const check=(label,fn)=>{fn();cases++;console.log('PASS '+label);};

@@ -1,11 +1,13 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const c=require('../../services/observability/peace.lifecycle-event-contract');
 const root=path.resolve(__dirname,'../..'),native=path.resolve(root,'../Railway/Cozy.Source/Cozy.Lifecycle'),available=fs.existsSync(native);
 test('native enum tables exactly derive from the deployed role/event/status schema',{skip:!available},()=>{
- const source=fs.readFileSync(path.join(root,'contracts/runtime/peace.lifecycle-events-v1.json'),'utf8');
- assert.equal(fs.readFileSync(path.join(native,'Cozy.Lifecycle.Events.inc'),'utf8'),require('../../tools/build/peace.generate-lifecycle-contract').render(source));
- const sourceUnit=fs.readFileSync(path.join(native,'Cozy.Lifecycle.Contracts.pas'),'utf8');
+ const source=ReadContractFile(path.join(root,'contracts/runtime/peace.lifecycle-events-v1.json'),'utf8');
+ assert.equal(ReadContractFile(path.join(native,'Cozy.Lifecycle.Events.inc'),'utf8'),require('../../tools/build/peace.generate-lifecycle-contract').render(source));
+ const sourceUnit=ReadContractFile(path.join(native,'Cozy.Lifecycle.Contracts.pas'),'utf8');
  assert(sourceUnit.includes('{$I Cozy.Lifecycle.Events.inc}'));
 });
 test('all role pairs and event/status combinations share one explicit allowlist',()=>{
@@ -29,7 +31,7 @@ test('one-use batches reject duplicate/backward/false parent success and retain 
  assert(c.validate([{event:'FILE_CLEANUP',status:'REMOVED'}],'O','B',{ordered:false}));
 });
 test('diagnostic locking is nonblocking and actual observations remain separate',{skip:!available},()=>{
- const s=fs.readFileSync(path.join(native,'Cozy.Lifecycle.pas'),'utf8').replaceAll('\r','');
+ const s=ReadContractFile(path.join(native,'Cozy.Lifecycle.pas'),'utf8').replaceAll('\r','');
  const note=s.split('procedure TLifecycleReporter.Note(')[1].split('procedure TLifecycleReporter.ObserveCleanup(')[0];
  assert.match(note,/if not TMonitor.Enter\(FLock,0\) then Exit/);
  assert(note.indexOf("Entry.AddPair('status'")<note.indexOf('C.Events.AddElement(Entry)'));

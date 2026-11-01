@@ -67,6 +67,29 @@ function openssl(args){return execFileSync('openssl',args,{cwd:temp,env:{...proc
   try{return {c,k,finish:{...auth,action:'tpmActivate',challengeId:c.challengeId,secret:clear.toString('base64'),signature:Sign(k,response.activationCanonical),appSignature:Sign(app,response.activationCanonical)}};}finally{clear.fill(0);}
  }
  function tpmPolicy(){identity.AdminPolicy({expectedRevision:0,requestId:crypto.randomUUID(),mode:'TPM_ATTESTED',requireForEnrolled:true,trust},'ADMIN');}
+ Check('compatible TPM sessions retain attestation expiry and trust requirements',()=>{
+  reset();tpmPolicy();identity.Handle(pendingTpm().finish);
+  identity.AdminPolicy({expectedRevision:1,requestId:crypto.randomUUID(),mode:'COMPATIBLE',requireForEnrolled:true,trust},'ADMIN');
+  identity.Handle(pendingTpm().finish);identity.AssertSession(row,'B');
+  const s=identity.State(),enrollment=Object.values(s.enrollments)[0],expiry=enrollment.attestedUntil,currentTrust=s.trust;
+  try{enrollment.attestedUntil=Date.now()-1;Reject(()=>identity.AssertSession(row,'B'),/^DEVICE_TPM_REQUIRED$/);enrollment.attestedUntil=expiry;
+   s.trust={...currentTrust,validUntil:Date.now()-1};Reject(()=>identity.AssertSession(row,'B'),/^DEVICE_TPM_REQUIRED$/);
+   s.trust=undefined;Reject(()=>identity.AssertSession(row,'B'),/^DEVICE_TPM_REQUIRED$/);
+  }finally{enrollment.attestedUntil=expiry;s.trust=currentTrust;}
+  identity.AssertSession(row,'B');
+ });
+ Check('a removed TPM root requires fresh proof before bootstrap and cannot authorize a compatible session',()=>{
+  reset();tpmPolicy();identity.Handle(pendingTpm().finish);
+  identity.AdminPolicy({expectedRevision:1,requestId:crypto.randomUUID(),mode:'COMPATIBLE',requireForEnrolled:true,trust},'ADMIN');
+  identity.Handle(pendingTpm().finish);const persistentPublic=blob(device);assert(identity.CheckBootstrapKey(persistentPublic,machine,'PLATFORM').keyId);identity.AssertSession(row,'B');
+  openssl(['req','-x509','-newkey','rsa:2048','-nodes','-keyout','replacement-root.key','-out','replacement-root.pem','-subj','/CN=GAME SYNTHETIC REPLACEMENT ROOT','-days','2','-sha256','-addext','basicConstraints=critical,CA:TRUE,pathlen:1','-addext','keyUsage=critical,keyCertSign,cRLSign']);
+  const s=identity.State(),currentTrust=s.trust;
+  try{s.trust={...currentTrust,roots:[fs.readFileSync(path.join(temp,'replacement-root.pem'),'utf8')]};
+   Reject(()=>identity.CheckBootstrapKey(persistentPublic,machine,'PLATFORM'),/^DEVICE_TPM_REQUIRED$/);
+   Reject(()=>identity.AssertSession(row,'B'),/^DEVICE_TPM_REQUIRED$/);
+  }finally{s.trust=currentTrust;}
+  assert(identity.CheckBootstrapKey(persistentPublic,machine,'PLATFORM').keyId);identity.AssertSession(row,'B');
+ });
  Check('TPM required provider cannot silently fall back to software',()=>{reset();tpmPolicy();Reject(()=>start(),/^DEVICE_TPM_REQUIRED$/);assert.equal(identity.List().items.length,0);});
  Check('policy mode change during TPM activation rejects delayed success',()=>{reset();tpmPolicy();const pending=pendingTpm();identity.AdminPolicy({expectedRevision:1,requestId:crypto.randomUUID(),mode:'COMPATIBLE',requireForEnrolled:true},'ADMIN');Reject(()=>identity.Handle(pending.finish),/^DEVICE_CHALLENGE_EXPIRED$/);assert.equal(identity.List().items.length,0);assert.equal(db.flows[row.id].deviceIdentityProofs,undefined);});
  Check('recovery epoch change during TPM activation rejects delayed success',()=>{reset();tpmPolicy();const pending=pendingTpm();epoch++;Reject(()=>identity.Handle(pending.finish),/^DEVICE_CHALLENGE_EXPIRED$/);assert.equal(identity.List().items.length,0);assert.equal(db.flows[row.id].deviceIdentityProofs,undefined);});

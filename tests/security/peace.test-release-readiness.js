@@ -139,6 +139,7 @@ test('active audit uses production verifier, bounds IO, preserves records and re
         ()=>{view={...stable,active:{...stable.active,A:''}};},
         ()=>{view={...stable,artifacts:{...stable.artifacts,[published.id]:{...stable.artifacts[published.id],version:'2.0.0'}}};},
         ()=>{view={...stable,securityOperations:{...stable.securityOperations,revision:(stable.securityOperations?.revision||0)+1}};},
+        ()=>{view={...stable,issuedAKeyring:{...stable.issuedAKeyring,revision:(stable.issuedAKeyring?.revision||0)+1}};},
         ()=>{policyView={...policyView,revision:policyView.revision+1};}
       ];
       for(const mutate of staleCases){view=stable;policyView=originalPolicy();const job=AuditActive();mutate();await assert.rejects(job,{message:'RELEASE_AUDIT_STALE',status:409});}

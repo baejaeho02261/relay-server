@@ -1,4 +1,6 @@
 'use strict';
+// Semantic native literals resolve from the current separate constant units.
+const {ReadContractFile}=require("../fixtures/source/peace.native-string-contract");
 
 // Cross-language data and source-boundary checks; NOT Delphi or Windows execution.
 const assert = require('node:assert/strict');
@@ -8,7 +10,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 const policy = require('../../services/artifacts/peace.server-policy-protection');
 const native = path.resolve(__dirname, '../../../Railway');
-const read = name => fs.readFileSync(path.join(native, name), 'utf8').replaceAll('\r', '');
+const read = name => ReadContractFile(path.join(native, name), 'utf8').replaceAll('\r', '');
 const engine = read('Cozy.Source/Cozy.Protection/Cozy.Protection.Engine.pas');
 const launcher = read('Cozy.Source/Cozy.Application/Cozy.Launcher.pas');
 const bootstrap = read('Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas');
