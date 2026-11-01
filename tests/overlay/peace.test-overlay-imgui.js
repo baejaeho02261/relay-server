@@ -80,7 +80,7 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     pExports.set(name, { result: kind === 'procedure' ? 'void' : pTypes[result], args });
   }
   assert.equal(cExports.size, 29, 'One bounded reviewed product scene extends the existing text-input ABI');
-  assert.deepEqual(cExports.get('game_imgui_scene_v1'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32']});
+  assert.deepEqual(cExports.get('game_imgui_scene_v2'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32']});
   assert.deepEqual(cExports.get('game_imgui_set_dpi'), { result: 'i32', args: ['ptr', 'f32'] });
   assert.deepEqual(pExports, cExports);
   assert.match(pascal, /TImGuiContext\s*=\s*Pointer\s*;/);
@@ -219,7 +219,7 @@ check('B readiness remains downstream of a visible Present and a fresh authority
   assert.match(pascal, /IMGUI_PRESENT_OCCLUDED\s*=\s*0;/);
   assert.match(pascal, /IMGUI_PRESENT_VISIBLE\s*=\s*1;/);
   const run = method('function TOverlayWindow.Run(', 'function RunOverlayUI(');
-  inOrder(run, ['if not AuthorityValid then Exit;', 'ApiCreateWindowExW(', 'if not AuthorityValid then Exit;', 'ImGuiCreate(', 'if not AuthorityValid then Exit;', 'ApiShowWindow(', 'ApiGetMessageW(', 'if not AuthorityValid then Break;', 'ApiDispatchMessageW(', 'if FRendered and (FWindow <> 0)', '(Msg.message = WM_TIMER)', 'if not AuthorityValid then Break;', 'Tick();', 'if not AuthorityValid then Break;'], 'Dispatch and readiness');
+  inOrder(run, ['if not AuthorityValid then Exit;', 'ApiCreateWindowExW(', 'if not AuthorityValid then Exit;', 'ImGuiCreate(', 'if not AuthorityValid then Exit;', 'ApiShowWindow(', 'ApiGetMessageW(', 'if not ObserveShutdownReceipt and (FClosing or not AuthorityValid) then Break;', 'ApiDispatchMessageW(', 'if not FReceiptOnly and FRendered and (FWindow <> 0)', '(Msg.message = WM_TIMER)', 'if not AuthorityValid then Break;', 'Tick();', 'if not AuthorityValid then Break;'], 'Dispatch and readiness');
   assert.equal((run.match(/\bTick\(\)/g) || []).length, 1, 'Only gated readiness callback');
   const authority = method('function TOverlayWindow.AuthorityValid:', 'function TOverlayWindow.Run(');
   inOrder(authority, ['not FFailed and Assigned(FShouldClose) and not FShouldClose()', 'FFailed := True;', 'CancelInteraction;', 'SW_HIDE', 'ApiPostQuitMessage(1)'], 'Authority expiry');
@@ -381,33 +381,65 @@ check('Intentional capture release preserves ImGui mouse-up; unexpected capture/
   assert.match(move, /FDragOrigin\.Y \+ Cursor\.Y - FDragAnchor\.Y/);
 });
 
-check('Product scene is rendered and actions commit only after visible Present and fresh authority', () => {
-  const paint = method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
-  inOrder(paint, ['ImGuiNewFrame(', 'ImGuiScene(FContext, FScenePhase, FSceneSelected, SceneFlags,',
-    'SceneActions := SceneActions or Integer(FSceneKeyActions);', 'FSceneKeyActions := 0;',
+check('Compact scene requests shutdown only after visible Present and fresh authority', () => {
+  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint,['FScenePhase := ReadRunState;', 'ImGuiNewFrame(',
+    'ImGuiScene(FContext, FScenePhase, FSceneSelected, SceneFlags,',
+    'SceneActions := SceneActions or Integer(FSceneKeyActions);','FSceneKeyActions := 0;',
     'ImGuiEndCanvas(', 'if not AuthorityValid then Exit;', 'ImGuiPresent(',
-    'FRendered := PresentResult = IMGUI_PRESENT_VISIBLE;',
-    'if FRendered and AuthorityValid then ApplySceneActions(Cardinal(SceneActions));'], 'Presentation input commit');
-  const actions = method('procedure TOverlayWindow.ApplySceneActions(', 'function TOverlayWindow.SceneKey(');
-  inOrder(actions, ['FClosing or FSessionPaused or not AuthorityValid then Exit;',
-    'FScenePhase := 1', 'FScenePhase := 2'], 'Local scene transitions');
-  assert.doesNotMatch(actions, /CreateProcess|ShellExecute|InvokeServerPolicy|\.Post\(/);
-  for (const index of ['FIRST','SECOND','THIRD']) assert.match(actions,new RegExp('IMGUI_SCENE_SELECT_'+index));
-  const keyboard = method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
-  inOrder(keyboard, ['if SyncTextInput then Exit;', 'VK_ESCAPE: if FScenePhase > 0',
-    'if Result and not Repeated then FSceneKeyActions := FSceneKeyActions or Action;'], 'Owned keyboard events');
-  assert.doesNotMatch(keyboard, /VK_RETURN:/, 'Enter belongs to the focused ImGui item');
-  const cancel = method('procedure TOverlayWindow.CancelInteraction;', 'procedure TOverlayWindow.PointerDown(');
-  inOrder(cancel,['FSceneKeyActions := 0;', 'ImGuiClearInput('], 'Focus/capture cancellation clears pending scene actions');
+    'if FRendered and AuthorityValid then ApplySceneActions(Cardinal(SceneActions));'],'Visible action gate');
+  const actions=method('procedure TOverlayWindow.ApplySceneActions(', 'function TOverlayWindow.SceneKey(');
+  inOrder(actions,['FClosing or FReceiptOnly or FSessionPaused or', 'not AuthorityValid then Exit;',
+    'FScenePhase := ReadRunState;', 'if Assigned(FRequestRun) then FRequestRun();'],'Nonblocking Run callback');
+  assert.doesNotMatch(actions,/CreateProcess|ShellExecute|InvokeServerPolicy|\.Post\(/);
+  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+2\) mod 3/);
+  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+1\) mod 3/);
+  assert.match(paint,/Ease := 1-Exp\(-14\*Delta\)/);
+  assert.doesNotMatch(renderer,/IMGUI_SCENE_(CONTINUE|BACK|MOTION|THEME)/);
+  const keyboard=method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
+  assert.match(keyboard,/if SyncTextInput or FReceiptOnly/);
+  assert.match(keyboard,/if Result and not Repeated then/);
+  assert.doesNotMatch(keyboard,/VK_RETURN:/,'Enter belongs to the focused ImGui item');
+  const cancel=method('procedure TOverlayWindow.CancelInteraction;', 'procedure TOverlayWindow.PointerDown(');
+  inOrder(cancel,['FSceneKeyActions := 0;', 'ImGuiClearInput('],'Cancellation clears pending actions');
+});
+
+check('Terminal receipt has its own input-free bounded renderer and never extends ordinary authority',()=>{
+  const observe=method('function TOverlayWindow.ObserveShutdownReceipt:', 'procedure TOverlayWindow.PaintReceipt;');
+  inOrder(observe,['ReadRunState = 2','FReceiptOnly := True;','FReceiptDeadline := CozyTick+SceneReceiptMs;',
+    'FRequestRun := nil;', 'CancelInteraction;', 'ImGuiClearInput(', 'ImGuiTextInputEnable(FContext,False);'], 'Terminal receipt admission');
+  assert.match(observe,/CozyTick >= FReceiptDeadline/);
+  assert.match(renderer,/SceneReceiptMs = 1200;/);
+  const receipt=method('procedure TOverlayWindow.PaintReceipt;', 'procedure TOverlayWindow.ApplySceneActions(');
+  assert.match(receipt,/ImGuiScene\(FContext,2,FSceneSelected,0,/);
+  assert.doesNotMatch(receipt,/AuthorityValid|ApplySceneActions\(|Tick\(|FRequestRun\(|\.Post\(/);
+  const authority=method('function TOverlayWindow.AuthorityValid:', 'function TOverlayWindow.Run(');
+  assert.doesNotMatch(authority,/FReceiptOnly|FRunState/,'Ordinary authority has no terminal bypass');
+  const handle=method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
+  inOrder(handle,['if ObserveShutdownReceipt then','WM_MOUSEMOVE,WM_MOUSEWHEEL,WM_MOUSEHWHEEL,WM_KEYDOWN,WM_KEYUP,WM_CHAR: Exit(0);'], 'Receipt input isolation');
+  const dispatch=method('function TOverlayWindow.Run(', 'function RunOverlayUI(');
+  inOrder(dispatch,['ApiDispatchMessageW(Msg);','if ObserveShutdownReceipt then Continue;',
+    'if Assigned(TestBeforeReady) then TestBeforeReady();','if ObserveShutdownReceipt then Continue;',
+    'Tick();'],'Late acknowledgement suppresses ordinary Tick');
+  const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
+  const worker=controller.slice(controller.indexOf('function TOverlayWorker.ProcessRunRequest:'),controller.indexOf('procedure TOverlayWorker.Execute;'));
+  inOrder(worker,['FRunState=1','FTransferred and FParentRetirementDone','FRunRequestedAt+2000',
+    'FClient.PrepareLifecycle(', 'FClient.RequestCohortShutdown;', 'FRunState:=2;'], 'Serialized cohort shutdown');
+  assert.match(controller,/if ProcessRunRequest then Break;/,'No renewal follows terminal acknowledgement');
+  const client=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas');
+  const request=client.slice(client.indexOf('procedure TOverlayClient.RequestCohortShutdown;'),client.indexOf('procedure TOverlayClient.CancelPending;'));
+  inOrder(request,["Body.AddPair('sessionId',FSession.SessionID)","Body.AddPair('sessionToken',FSession.SessionToken)",
+    "Body.AddPair('requestId',FSession.SessionID)","Reply:=Post('overlayShutdown',Body)", 'Reply.Count<>6'], 'Bounded own-cohort command');
+  for(const marker of ['FParentSessionID',"'OWNED_A_B_O'","'PENDING'","'CLOSED'"])assert(request.includes(marker));
 });
 
 check('Responsive scene uses only the empty header for window dragging and stays within work area', () => {
   const hit = method('function TOverlayWindow.ButtonHit(', 'procedure TOverlayWindow.ApplySceneActions(');
   inOrder(hit, ['X < 0', 'X >= Area.Right', 'Scale := Area.Right / SceneWidth;',
     'VerticalScale := Area.Bottom / SceneHeight;', 'if VerticalScale < Scale then Scale := VerticalScale;',
-    'Y >= SceneHeaderHeight * Scale', 'X >= Area.Right - SceneHeaderControlsWidth * Scale'], 'Responsive header versus content hit test');
-  assert.match(renderer, /InitialWidth = 1040;/);
-  assert.match(renderer, /InitialHeight = 720;/);
+    'Y >= SceneHeaderHeight * Scale'], 'Responsive header versus content hit test');
+  assert.match(renderer, /InitialWidth = 680;/);
+  assert.match(renderer, /InitialHeight = 440;/);
   const display = method('procedure TOverlayWindow.FitToWorkArea;', 'procedure TOverlayWindow.ReconcileDisplay;');
   assert.match(display, /if Width > Info.Work.Right - Info.Work.Left then Width := Info.Work.Right - Info.Work.Left;/);
   assert.match(display, /if Height > Info.Work.Bottom - Info.Work.Top then Height := Info.Work.Bottom - Info.Work.Top;/);
@@ -416,6 +448,16 @@ check('Responsive scene uses only the empty header for window dragging and stays
   const handle = method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
   inOrder(handle, ['DpiChangedMessage:', 'SetDpi(LOWORD(WParam), PRect(LParam));',
     'FitToWorkArea; Exit;'], 'Per-monitor DPI transition fits the OS suggestion');
+});
+
+check('Rounded HWND regions transfer ownership only after success and cached resizing prevents reentry',()=>{
+  const shape=method('procedure TOverlayWindow.ApplyWindowShape;', 'procedure TOverlayWindow.ReconcileDisplay;');
+  inOrder(shape,['if FShaping or (FWindow=0) then Exit;', 'FShaping:=True; Region:=0;',
+    'Region:=ApiCreateRoundRectRgn(', 'if ApiSetWindowRgn(FWindow,Region,False)=0 then',
+    'Region:=0;', 'if (Region<>0) and not ApiDeleteObject(Region)', 'FShaping:=False;'], 'GDI ownership');
+  assert.match(renderer,/BindApiPointer\(Slot_CreateRoundRectRgn, RequireProcAddressHash64/);
+  assert.match(renderer,/BindApiPointer\(Slot_SetWindowRgn, RequireProcAddressHash64/);
+  assert.match(renderer,/BindApiPointer\(Slot_DeleteObject, RequireProcAddressHash64/);
 });
 
 console.log(`${checks} ImGui cross-language/provenance/renderer contracts passed (no Delphi or Windows execution).`);

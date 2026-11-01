@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "54f188c7178dc2eb8755c7bdfb7aca25a8bdcde25fd02005903bd0a11eaf5144b0d058e49469c0c5193a4ed4539f07867317c563a5ec4e1abba2d0c61ddd95b1",
+  "schemaSha512": "98a147c0e2731b0c283427da5510f577618253c2e05d9be9eb945445ba35d6c0f452c10e00e573bf26fd46173bc7aa54eaa3dba013a2d5bdb338572d45d47f4d",
   "cases": [
     {
       "operation": "bootstrap",
@@ -231,6 +231,16 @@
         "sessionToken": "{}",
         "overlayId": "AAAAAAAAAAAAAAAAAAAAAAAA",
         "signature": "{}"
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "overlayShutdown",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "requestId": "rrrrrrrr"
       }
     },
     {

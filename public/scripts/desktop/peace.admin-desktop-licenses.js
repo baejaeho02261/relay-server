@@ -209,7 +209,7 @@ async function renderDesktopLicenses(silent = false) {
       <header class="desktop-page-header" data-desktop-key="security-page-header"><div><span class="desktop-eyebrow">SECURITY & OPERATIONS</span><h2>보안 · 검사 설정</h2><p>서버 정책과 검사 기준을 관리합니다. 회원별 실행 기록은 회원 상세에서 확인하세요.</p></div><div class="actions"><button type="button" data-desktop-action="security-operations" class="primary">서버 보안 · 배포 운영</button></div></header>
       <div class="desktop-panel-grid" data-desktop-key="security-workspace-links"><section class="section-card"><div class="section-head"><div><h3>보안 검사</h3><p class="small-note">자동 시험, 탐지와 배포물 검사를 확인합니다.</p></div></div><button type="button" data-desktop-action="security-center">보안 검사 열기</button></section><section class="section-card"><div class="section-head"><div><h3>서버 작업</h3><p class="small-note">서버 통계, 일괄 작업과 저장공간을 관리합니다.</p></div></div><div class="actions"><button type="button" data-desktop-action="workspace">작업함 · 저장공간</button><button type="button" data-desktop-action="server-state">복구 · 장치 · 저장소</button></div></section></div>
       ${desktopPanelMarkup(['baselines','policy'],desktopIntegritySettingsMarkup(baselineData,desktopIntegrityPolicy))}
-      <details class="section-card desktop-progressive" data-desktop-key="registration-reset-controls"><summary>등록 데이터 초기화</summary><p class="small-note">등록과 발급 기록 전체를 초기화하는 관리 작업입니다. 진행 범위와 영향을 다음 화면에서 확인하세요.</p><button type="button" class="danger" data-desktop-action="registration-reset">${desktopPendingRegistrationReset?'초기화 결과 확인':'등록 데이터 전체 초기화'}</button></details>
+      <details class="section-card desktop-progressive" data-desktop-key="registration-reset-controls"><summary>웹 전체 초기화</summary><div class="section-body"><p class="small-note">키와 웹 저장 데이터를 포함해 새로 시작합니다. 현재 수량·삭제 범위·유지 항목을 다음 화면에서 확인하세요.</p><div class="actions"><button type="button" class="danger" data-desktop-action="web-reset">${typeof desktopPendingWebReset!=='undefined'&&desktopPendingWebReset?'웹 초기화 결과 확인':'웹 전체 초기화 · 키 포함'}</button><button type="button" data-desktop-action="registration-reset">${desktopPendingRegistrationReset?'등록 초기화 결과 확인':'등록·발급 데이터만 초기화'}</button></div></div></details>
     </div>
   </div>`;
   const previous=content.querySelector('.desktop-workspace');
@@ -402,11 +402,12 @@ async function handleDesktopLicenseAction(event) {
   if(!action)return false;if(!roleIsAdmin())throw Error('관리자만 사용할 수 있습니다.');
   if(desktopLicenseActionPending)return true;
   const row=action==='machine-unblock'?desktopMachineRows.get(target.dataset.desktopMachine):action==='session-revoke'?desktopBootstrapSessions.get(target.dataset.id):desktopLicenseRows.get(target.dataset.id);
-  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','security-center','server-state','registration-reset','workspace','executable-protection','packed-release','retry-panels','revoke-retry'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
+  if(!['create','artifact-upload','launcher-create','baseline-upload','integrity-policy','security-operations','security-center','server-state','registration-reset','web-reset','workspace','executable-protection','packed-release','retry-panels','revoke-retry'].includes(action)&&!row)throw Error('목록을 새로고침한 후 다시 선택해주세요.');
   const actionOwner=session?.csrf;
   desktopLicenseActionPending=true;target.disabled=true;
   try{
     if(action==='retry-panels'){for(const x of desktopPanels.values())if(x.error)x.at=0;await renderCurrent();return true;}
+    if(action==='web-reset'){await showDesktopWebReset();if(session?.csrf===actionOwner){desktopInvalidatePanels();await renderCurrent();}return true;}
     if(action==='registration-reset'){await showDesktopRegistrationReset();if(session?.csrf===actionOwner){desktopInvalidatePanels();await renderCurrent();}return true;}
     if(action==='workspace'){await showDesktopWorkspace();return true;}
     if(action==='packed-release'){await showDesktopPackedRelease();desktopInvalidatePanels();await renderCurrent();return true;}

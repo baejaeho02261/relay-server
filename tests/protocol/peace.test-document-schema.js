@@ -19,7 +19,7 @@ function Cases(rule,value,at=[]){rule=Resolve(rule);if(rule.anyOf){const selecte
  return rows;
 }
 test('all generated response/evidence fixtures have strict recursive field, type and range rules',()=>{
- assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,12);let rejected=0;
+ assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,13);let rejected=0;
  for(const row of fixtures.cases){assert.equal(contract.ValidateDocument(row.name,row.value),row.value);assert.deepEqual(contract.ParseDocument(row.name,JSON.stringify(row.value)),row.value);
   for(const mutation of Cases(schema.documents[row.name],row.value)){const body=clone(row.value);let candidate;if(mutation.at.length){Set(body,mutation.at,mutation.value);candidate=body;}else candidate=mutation.value;
    assert.throws(()=>contract.ValidateDocument(row.name,candidate),/PROTOCOL_SCHEMA_INVALID/,row.name+':'+mutation.at.join('.')+':'+mutation.reason);rejected++;

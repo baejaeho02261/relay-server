@@ -172,6 +172,57 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       assert.equal(parent(unrelated).status,'CLAIMED');assert.equal(child(unrelated).status,'CLAIMED');
       store.Atomic(db=>{db.artifacts[artifactId].ownMeasurementVersion=0;});
     });
+    await t.test('Run shutdown retires only the transferred caller cohort and preserves cleanup-only reporting', () => {
+      const s=setup(),other=setup();observeAndVerify(s);observeAndVerify(other);
+      const shutdown={action:'overlayShutdown',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,requestId:s.o.sessionId};
+      const initialRevision=store.Load().revision;
+      assert.throws(()=>boot.Execute(shutdown),/BOOTSTRAP_OVERLAY_NOT_READY/);
+      assert.equal(store.Load().revision,initialRevision,'untransferred O cannot end B through this intent');
+      const requestId=crypto.randomUUID(),permit=boot.Execute({action:'lifecycleChallenge',stage:'O',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,targetRole:'O',requestId});
+      boot.Execute({action:'overlayCommit',handoffVersion:1,sessionId:s.b.sessionId,sessionToken:s.b.sessionToken,
+        overlayId:s.prepared.overlayId,signature:fixture.Sign(s.device,['GAME-OVERLAY-TRANSFER-V1',s.b.sessionId,s.prepared.overlayId].join('\n'))});
+      const otherBefore=structuredClone([parent(other),child(other),licenses.DB().licenses[other.activation.licenseId]]);
+      assert.throws(()=>boot.Execute({...shutdown,sessionToken:other.o.sessionToken}),/BOOTSTRAP_SESSION_INVALID/);
+      assert.throws(()=>boot.Execute({...shutdown,targetSessionId:other.o.sessionId}),/BOOTSTRAP_INPUT_INVALID/);
+      let response,drift=0;Date.now=()=>clock+drift++;
+      try{response=boot.Execute(shutdown);}finally{clock+=drift;Date.now=()=>clock;}
+      assert.deepEqual(response,{version:1,sessionId:s.o.sessionId,parentSessionId:s.b.sessionId,status:'CLOSED',scope:'OWNED_A_B_O',cleanup:'PENDING'});
+      assert.deepEqual([parent(other),child(other),licenses.DB().licenses[other.activation.licenseId]],otherBefore);
+      assert.equal(parent(s).status,'CLOSED');assert.equal(child(s).status,'CLOSED');
+      assert.equal(store.Load().launchers[parent(s).launcherId].status,'CONSUMED');
+      assert.equal(parent(s).licenseLeaseExpiresAt,0);assert.equal(boot.LicenseActivity(s.activation.licenseId).leaseExpiresAt,0);
+      assert.equal(child(s).sessionNonce,undefined);assert.equal(child(s).verifyReceipt,undefined);
+      assert.equal(child(s).shutdownIntent.until,child(s).retiredAt+30000);
+      const malformed=structuredClone(store.Load());malformed.overlays[s.prepared.overlayId].shutdownIntent.until++;
+      assert.throws(()=>overlay.ValidateTransferRows(malformed),/OVERLAY_STORE_INVALID/);
+      reject(()=>fixture.Gate(s.device,s.b));reject(()=>overlay.AuthenticateIntegrityReport(s.context));reject(()=>boot.Execute(s.invitation.body));
+      const trace=require('../../services/observability/peace.desktop-lifecycle-trace');
+      assert.equal(trace.Flow(s.begin.flowId).roles.O.fileCleanup,'NOT_REPORTED','intent acknowledgement does not invent local cleanup');
+      const revision=store.Load().revision,state=require('../../core/peace.runtime-state'),maintenance=state.maintenanceMode;
+      try{state.maintenanceMode=true;assert.deepEqual(boot.Execute(shutdown),response);}finally{state.maintenanceMode=maintenance;}
+      assert.equal(store.Load().revision,revision,'same bounded acknowledgement performs no repeated retirement');
+      assert.throws(()=>boot.Execute({...shutdown,requestId:crypto.randomUUID()}),/BOOTSTRAP_REQUEST_REUSED/);
+      const summary={version:1,joinElapsedMs:45,joinBudgetMissed:false,durationTruncated:false},work=require('../../services/runtime/peace.desktop-work-queue');
+      const before=work.Snapshot().shutdown.received;
+      assert.equal(boot.Execute({action:'overlayClose',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,shutdown:summary}).status,'CLOSED');
+      const cleanupRevision=store.Load().revision;
+      assert.equal(work.Snapshot().shutdown.received,before+1,'final teardown diagnostics remain accepted after the earlier intent');
+      boot.Execute({action:'overlayClose',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,shutdown:summary});
+      assert.equal(store.Load().revision,cleanupRevision);assert.equal(work.Snapshot().shutdown.received,before+1);
+      assert.throws(()=>boot.Execute({action:'overlayClose',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,shutdown:{...summary,joinElapsedMs:46}}),/BOOTSTRAP_REQUEST_REUSED/);
+      const intentAt=child(s).shutdownIntent.at;clock=intentAt+31000;
+      assert.throws(()=>boot.Execute(shutdown),/BOOTSTRAP_SESSION_CLOSED/);
+      assert.throws(()=>boot.Execute({action:'overlayClose',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken}),/BOOTSTRAP_SESSION_CLOSED/);
+      assert.throws(()=>boot.Execute({action:'overlayClose',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,shutdown:summary}),/BOOTSTRAP_SESSION_CLOSED/);
+      const eventsJson=JSON.stringify([{event:'SHUTDOWN_BEGIN',status:'REQUESTED'},{event:'FILE_CLEANUP',status:'REMOVED',win32Error:0}]);
+      const report={action:'lifecycleReport',permitId:permit.permitId,requestId,eventsJson,
+        signature:fixture.Sign(s.overlayDevice,['GAME-LIFECYCLE-REPORT-V1',permit.permitId,permit.nonce,requestId,fixture.sha512(eventsJson)].join('\n'))};
+      assert.equal(boot.Execute(report).status,'RECORDED','preissued signed diagnostic permit survives authority retirement and the 30-second close window');
+      assert.equal(trace.Flow(s.begin.flowId).roles.O.fileCleanup,'REMOVED');
+      assert.equal(trace.Flow(s.begin.flowId).events.at(-1).source,'CLIENT_REPORTED');
+      clock=intentAt+1;assert.throws(()=>boot.Execute(shutdown),/BOOTSTRAP_SESSION_CLOSED/,'wall-clock rollback cannot reopen expired acknowledgement');
+      clock=intentAt+31001;
+    });
     await t.test('retired cohorts survive a fresh store load without restoring runtime capabilities', () => {
       const script = 'const out=console.log;console.log=()=>{};Date.now=()=>Number(process.argv[1]);const boot=require(process.argv[2]),overlay=require(process.argv[3]);const db=boot.Initialize();overlay.ValidateStore(db);overlay.ValidateTransferRows(db);for(const row of [...Object.values(db.flows),...Object.values(db.overlays)]){if(["CLOSED","REVOKED","EXPIRED"].includes(row.status)&&row.sessionNonce!==undefined)throw Error("RETIRED_CAPABILITY_RESTORED");}boot.Stop();out("COHORT_RELOAD_OK");';
       const result = require('node:child_process').spawnSync(process.execPath, ['-e', script, String(clock),

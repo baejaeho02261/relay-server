@@ -32,6 +32,7 @@ const ROUTES=Object.freeze({
  'overlay.progress': ['bootstrap','SIGNED_O_SEQUENCE','DIAGNOSTIC_ONLY'],
  'overlay.verify': ['bootstrap','O_SESSION_LICENSE_COHORT_AND_FRESH_MEASUREMENTS','RENEW_BOUNDED_O_LEASE'],
  'overlay.commit': ['bootstrap','SIGNED_PARENT_AND_CURRENT_O_AUTHORITY','TRANSFER_ONCE'],
+ 'overlay.shutdown': ['bootstrap','CURRENT_O_TRANSFERRED_COHORT_CAPABILITY','END_EXACT_COHORT_AUTHORITY_ONLY'],
  'overlay.close': ['bootstrap','RETAINED_O_SESSION_CAPABILITY','TERMINAL_ONLY'],
  'overlay.abort': ['bootstrap','SIGNED_BOUND_PARENT','TERMINAL_ONLY'],
  'authority.challenge': ['security','AUTHENTICATED_STAGE_CONTEXT','MEASUREMENT_CHALLENGE_NOT_GRANT'],

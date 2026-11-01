@@ -9,7 +9,7 @@ let draining=false,restartTimer,restartStarted=false;
 function Fail(code) { throw Error('REGISTRATION_RESET_' + code); }
 function PublicFail(code,status=409){const error=Error('REGISTRATION_RESET_'+code);error.desktopError=true;error.status=status;throw error;}
 function IsDraining(){return draining;}
-function AssertAvailable(){if(draining)PublicFail('IN_PROGRESS',503);}
+function AssertAvailable(){if(draining||require('./peace.web-reset').IsDraining())PublicFail('IN_PROGRESS',503);}
 function Request(environment = process.env) {
   const id = environment.COZY_REGISTRATION_RESET_ID || '';
   const scope = environment.COZY_REGISTRATION_RESET_SCOPE || '';

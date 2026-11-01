@@ -25,6 +25,10 @@ catch (error) { console.error('[WEB_ADMIN_CONFIGURATION_ERROR]'); throw error; }
 require("./services/storage/peace.desktop-storage-acl").Check();
 require("./services/storage/peace.desktop-single-writer").Acquire(config.DATA_DIR, { haEnabled: config.HA_ENABLED });
 storageOwned=true;
+// Complete a deliberately authorized fresh-install reset before provisioning
+// or caching application keys/stores. A Linux execve then starts fresh memory.
+const webReset=require('./services/operations/peace.web-reset');
+if(webReset.PrepareStartup())webReset.ReplaceProcess();
 require("./tools/runtime/peace.runtime-pem-files").ProvisionAuthority();
 const { EnsureDirs } = require("./core/peace.utilities.js");
 const { LoadRecentAudit } = require("./storage/audit/peace.audit.js");
@@ -70,6 +74,7 @@ require("./services/devices/peace.desktop-device-registry").Prune();
 // Explicit one-shot registration maintenance finishes durably before any
 // connection listener or background application worker can accept new work.
 require("./services/operations/peace.registration-reset").Run();
+webReset.CompleteStartup();
 require("./services/network/peace.ha-coordinator").Start();
 console.log('Game Windows License Service');
 console.log('WEB_ADMIN_ENABLED', WEB_ADMIN_VERSION);

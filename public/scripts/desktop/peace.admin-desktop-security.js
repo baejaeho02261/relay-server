@@ -115,7 +115,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
     policyPreview='';policyPreviewResult=null;rolloutPreview='';activationPreview=null;recoveryPreview=null;
     if(pairPreview&&(pairPreview.policyRevision!==p.revision||pairPreview.operationsRevision!==s.revision))pairPreview=null;
     root.innerHTML=`<p class="small-note">정책·검사 기준·승인·배포 이력은 서버에 저장합니다. 이 화면은 메모리에서만 초안을 유지합니다. 시험 기록은 운영자 확인 자료이며 하드웨어 실행 증명이 아닙니다.</p>
-      <div class="actions">${button('refresh','새로고침')}${button('release-safety','정상본 보존 · 배포 묶음 관리')}<button type="button" class="danger" data-security-action="registration-reset">등록 데이터 전체 초기화</button></div>
+      <div class="actions">${button('refresh','새로고침')}${button('release-safety','정상본 보존 · 배포 묶음 관리')}<button type="button" class="danger" data-security-action="web-reset">웹 전체 초기화 · 키 포함</button><button type="button" data-security-action="registration-reset">등록·발급 데이터만 초기화</button></div>
       <p id="security-status" role="status" aria-live="polite"></p>
       <div class="kv"><div>정책 / 운영 revision</div><div>${p.revision} / ${s.revision}</div><div>관리자 보호</div><div>${box.adminProtection?.recentReauthenticationRequired?'1인 운영 · 중요 변경 시 최근 재인증 필요':'1인 운영 · 기존 관리자 로그인 사용'}</div><div>감사 저장</div><div>${esc(box.auditHealth.status)} · 프로세스 시작 후 실패 ${box.auditHealth.failedWrites}건</div></div>
       <details open><summary>1인 운영 · 현재 가능한 보호 적용</summary>
@@ -239,6 +239,7 @@ async function showDesktopSecurityOperations(initialPair=null) {
     const target=event.target.closest('[data-security-action]');if(!target||busy||!alive())return;
     const action=target.dataset.securityAction,revision=data.operations.operations.revision;
     if(action==='release-safety'){nextPanel='release-safety';modalCancel.click();return;}
+    if(action==='web-reset'){nextPanel='web-reset';modalCancel.click();return;}
     if(action==='registration-reset'){nextPanel='registration-reset';modalCancel.click();return;}
     const sectionIndex=sections().indexOf(target.closest('details'));
     busy=true;target.disabled=true;reportStatus('서버에서 처리하고 있습니다.','busy',sectionIndex);updatePairStatus(node('sec-pair-status').textContent);
@@ -380,5 +381,6 @@ async function showDesktopSecurityOperations(initialPair=null) {
   if(initialPair&&node('sec-a'))node('sec-a').closest('details').open=true;
   try{await done;}finally{closed=true;issuedKeys=null;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';policyPreviewResult=null;pairPreview=null;rolloutPreview='';if(root.isConnected)root.replaceChildren();}
   if(nextPanel==='release-safety'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopReleaseSafety();
+  if(nextPanel==='web-reset'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopWebReset();
   if(nextPanel==='registration-reset'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopRegistrationReset();
 }

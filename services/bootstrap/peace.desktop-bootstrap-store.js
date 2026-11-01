@@ -53,6 +53,7 @@ function Load(){
   if(value.issuedAKeyring!==undefined)require('./peace.issued-a-keyring').ValidateState(value.issuedAKeyring);
   if(value.serverRecovery!==undefined)require("../recovery/peace.desktop-recovery").Validate(value);
   if(value.registrationResetAuthorization!==undefined)require('../operations/peace.registration-reset-authorization').Validate(value.registrationResetAuthorization);
+  if(value.webResetAuthorization!==undefined)require('../operations/peace.web-reset').ValidateAuthorization(value.webResetAuthorization);
   if(value.serverAuditOutbox!==undefined)require("../storage/peace.desktop-operation-audit").Validate(value.serverAuditOutbox);
   if(value.deviceRegistry!==undefined)require("../devices/peace.desktop-device-registry").Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require("../devices/peace.desktop-device-identity").Validate(value.deviceIdentity);

@@ -45,6 +45,10 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   }
   if(pathname!==prefix&&!pathname.startsWith(prefix+'/'))return false;
   if(!session||session.role!=='admin'){ApiError(res,403,'ADMIN_REQUIRED');return true;}
+  if(method==='GET'&&pathname===prefix+'/web-reset'){
+    const check=guard.CheckSession(session,pathname,method);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
+    Json(res,200,{ok:true,...require('../../../services/operations/peace.web-reset').Status(new URL(req.url,'http://localhost').searchParams.get('requestId')||undefined)});return true;
+  }
   if(method==='GET'&&pathname===prefix+'/registration-reset'){
     const check=guard.CheckSession(session,pathname,method);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
     Json(res,200,{ok:true,...require('../../../services/operations/peace.registration-reset').Status(new URL(req.url,'http://localhost').searchParams.get('requestId')||undefined)});return true;
@@ -85,6 +89,11 @@ async function Handle({method,pathname,body,req,res,session,desktopAuthorization
   if(keylessApproval){Json(res,200,{ok:true,...require('../../../services/bootstrap/peace.keyless-bootstrap').Approve(keylessApproval[1],body,actor)});return true;}
   if(action==='registration-reset'){
     const reset=require('../../../services/operations/peace.registration-reset'),result=reset.Schedule(body,session,desktopAuthorization?.ticket);
+    if(result.restartRequired)reset.AfterResponse(res);
+    Json(res,result.restartRequired?202:200,{ok:true,...result});return true;
+  }
+  if(action==='web-reset'){
+    const reset=require('../../../services/operations/peace.web-reset'),result=reset.Schedule(body,session,desktopAuthorization?.ticket);
     if(result.restartRequired)reset.AfterResponse(res);
     Json(res,result.restartRequired?202:200,{ok:true,...result});return true;
   }

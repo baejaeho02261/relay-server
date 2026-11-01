@@ -7,7 +7,9 @@ async function HandleApiRequest(req, res, session) {
     let pathname = url.pathname;
     const method = String(req.method || 'GET').toUpperCase();
     const reset=require('../../services/operations/peace.registration-reset');
+    const webReset=require('../../services/operations/peace.web-reset');
     if(reset.IsDraining()&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
+    if(webReset.IsDraining()&&!(method==='GET'&&pathname===webReset.PATH)){ApiError(res,503,'WEB_RESET_IN_PROGRESS');return;}
     let body = {};
     const desktopMode = require("../../services/runtime/peace.desktop-mode");
     if (desktopMode.RetiredPath(pathname)) { desktopMode.Reject(res); return; }
@@ -28,6 +30,7 @@ async function HandleApiRequest(req, res, session) {
 
     if (!body || typeof body !== 'object' || Array.isArray(body)) { ApiError(res, 400, 'INPUT_INVALID'); return; }
     if(reset.IsDraining()&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
+    if(webReset.IsDraining()&&!(method==='GET'&&pathname===webReset.PATH)){ApiError(res,503,'WEB_RESET_IN_PROGRESS');return;}
     if (desktopMode.RetiredTarget(pathname, body, url.searchParams)) { desktopMode.Reject(res); return; }
 
     if (!['GET', 'HEAD'].includes(method) && pathname !== '/api/logout' && !require("../../services/network/peace.ha-coordinator").CanAcceptTraffic()) {
@@ -95,6 +98,7 @@ async function HandleApiRequest(req, res, session) {
         // A false asynchronous handler yields too: recheck between dispatches,
         // not only once before the first router receives the request.
         if(reset.IsDraining()&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
+        if(webReset.IsDraining()&&!(method==='GET'&&pathname===webReset.PATH)){ApiError(res,503,'WEB_RESET_IN_PROGRESS');return;}
         if(await handle(context))return;
     }
     ApiError(res, 404, 'NOT_FOUND');

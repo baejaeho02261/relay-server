@@ -4,12 +4,12 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const all=fs.readFileSync(path.resolve(__dirname,'../../public/scripts/desktop/peace.admin-desktop-workflow.js'),'utf8');
 const source=all.slice(all.indexOf('let desktopPendingRegistrationReset=null;'),all.indexOf('async function showDesktopReleaseSafety(){'));
-const base='/api/desktop/bootstrap/security-operations/registration-reset',id='11'.repeat(32),otherId='22'.repeat(32),scope='ABO_LICENSES_ISSUANCE_OPERATIONS_V1';
+const base='/api/desktop/bootstrap/security-operations/registration-reset',id='11'.repeat(32),otherId='22'.repeat(32),scope='ABO_LICENSES_ISSUANCE_OPERATIONS_V1',fullBase='/api/desktop/bootstrap/security-operations/web-reset',fullScope='WEB_ALL_DATA_KEYS_V1';
 const turn=()=>new Promise(resolve=>setImmediate(resolve));
-function State(operation=null){return {ok:true,scope,confirmation:'전체 초기화',epoch:4,counts:{artifacts:3,activeArtifacts:3,licenses:7,issuedLaunchers:2,flows:1,overlays:0,issueReceipts:2,packingEvidence:3,releaseManifests:1},relatedCounts:{machine:{bindings:2},integrity:{baselines:3},workspace:{jobs:4}},operation};}
-function Fixture({postError,postResult,fetchRows=[],holdFetch=false,loseSessionDuringPost=false}={}){
+function State(operation=null,full=false){return {ok:true,scope:full?fullScope:scope,confirmation:full?'웹 전체 초기화':'전체 초기화',epoch:4,ready:true,blockedReasons:[],retiredEnvironmentVariables:['DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64'],counts:{files:17,directories:4,bytes:123456,artifacts:3,activeArtifacts:3,licenses:7,issuedLaunchers:2,flows:1,overlays:0,issueReceipts:2,packingEvidence:3,releaseManifests:1},relatedCounts:{machine:{bindings:2},integrity:{baselines:3},workspace:{jobs:4}},preserved:['플랫폼 연결 설정','관리자 접근 수단'],operation};}
+function Fixture({postError,postResult,fetchRows=[],holdFetch=false,loseSessionDuringPost=false,full=false}={}){
  const elements={},requests=[],reads=[],timers=new Map(),selected=new Set(['license']),roots=[];let nextTimer=0,currentRoot,close,options,finished,invalidations=0;
- const state=State();
+ const state=State(null,full);
  const ctx={URL,Uint8Array,AbortController,console,session:{csrf:'owner'},roleIsAdmin:()=>true,desktopWorkflowOwner:()=>ctx.session?.csrf,
   desktopSelectedLicenses:selected,desktopPendingIssue:{old:true},desktopPendingRevoke:{old:true},desktopPendingLauncher:{old:true},desktopInvalidatePanels(){invalidations++;},
   crypto:{getRandomValues(bytes){bytes.fill(0x11);return bytes;}},
@@ -20,13 +20,13 @@ function Fixture({postError,postResult,fetchRows=[],holdFetch=false,loseSessionD
    for(const match of value.html.matchAll(/id="([^"]+)"/g))elements[match[1]]={value:'',disabled:false,hidden:false,textContent:'',innerHTML:'',dataset:{}};
    return new Promise(resolve=>{const root=currentRoot;close=()=>{root.isConnected=false;resolve(null);};});},
   api:async(url,opt)=>{requests.push({url,opt:opt?structuredClone(opt):undefined});if(opt?.method==='POST'){if(loseSessionDuringPost){ctx.showLogin();throw new TypeError('restart while receiving response');}if(postError)throw postError;return postResult||{ok:true,operation:{id,status:'QUEUED'},restartRequired:true};}return structuredClone(state);},
-  fetch:async(url,opt)=>{reads.push({url,opt});if(holdFetch)return new Promise((resolve,reject)=>opt.signal.addEventListener('abort',()=>reject(Error('ABORTED')),{once:true}));const row=fetchRows.shift()||{status:401};if(row.error)throw row.error;const status=row.status||200;return {status,ok:status===200,json:async()=>row.value||State()};},
+  fetch:async(url,opt)=>{reads.push({url,opt});if(holdFetch)return new Promise((resolve,reject)=>opt.signal.addEventListener('abort',()=>reject(Error('ABORTED')),{once:true}));const row=fetchRows.shift()||{status:401};if(row.error)throw row.error;const status=row.status||200;return {status,ok:status===200,json:async()=>row.value||State(null,full)};},
   showLogin(){ctx.session=null;close();}
  };
- vm.createContext(ctx);vm.runInContext(source+'\nglobalThis.run=showDesktopRegistrationReset;globalThis.pending=()=>desktopPendingRegistrationReset;',ctx);
+ vm.createContext(ctx);vm.runInContext(source+'\nglobalThis.run='+(full?'showDesktopWebReset':'showDesktopRegistrationReset')+';globalThis.pending=()=>'+(full?'desktopPendingWebReset':'desktopPendingRegistrationReset')+';',ctx);
  return {ctx,elements,requests,reads,state,timers,selected,roots,get options(){return options;},get invalidations(){return invalidations;},
   async start(){finished=ctx.run();await turn();},
-  async submit(text='전체 초기화'){elements['desktop-reset-confirmation'].value=text;elements['desktop-reset-confirmation'].oninput();await elements['desktop-reset-submit'].onclick();},
+  async submit(text=full?'웹 전체 초기화':'전체 초기화'){elements['desktop-reset-confirmation'].value=text;elements['desktop-reset-confirmation'].oninput();await elements['desktop-reset-submit'].onclick();},
   async close(){close();await finished;await turn();},
   status(){return elements['desktop-reset-status'].textContent;},
   async reopen(){ctx.session={csrf:'new-owner'};finished=ctx.run();await turn();},
@@ -35,7 +35,7 @@ function Fixture({postError,postResult,fetchRows=[],holdFetch=false,loseSessionD
 }
 test('main toolbar and server operations both expose the reset entry point',()=>{
  for(const file of ['peace.admin-desktop-licenses.js','peace.admin-desktop-security.js']){
-  const text=fs.readFileSync(path.resolve(__dirname,'../../public/scripts/desktop',file),'utf8');assert(text.includes('registration-reset'));assert(text.includes('등록 데이터 전체 초기화'));
+  const text=fs.readFileSync(path.resolve(__dirname,'../../public/scripts/desktop',file),'utf8');assert(text.includes('registration-reset'));assert(text.includes('web-reset'));assert(text.includes('웹 전체 초기화 · 키 포함'));assert(text.includes('등록·발급 데이터만 초기화'));assert(!text.includes('등록 데이터 전체 초기화'));
  }
 });
 test('dialog explains counts, irreversible scope and preserved authentication/security',async()=>{
@@ -91,4 +91,39 @@ test('stale epoch displays actionable Korean guidance without reusing approval',
 });
 test('closing during status fetch aborts request and clears timeout resources',async()=>{
  const f=Fixture({holdFetch:true});await f.start();const action=f.submit();await turn();assert.equal(f.reads.length,1);const signal=f.reads[0].opt.signal;await f.close();await action;assert(signal.aborted);assert.equal(f.timers.size,0);
+});
+
+test('full web reset declares the key scope and requires both acknowledgement and distinct phrase',async()=>{
+ const f=Fixture({full:true,fetchRows:[{value:State({id,status:'COMPLETE',completedAt:123},true)}]});await f.start();try{
+  assert.equal(f.options.title,'웹 전체 초기화 · 키 포함');assert(f.options.html.includes('앱 발급·서명·신뢰 키'));
+  assert(f.elements['desktop-reset-preserved'].textContent.includes('관리자 접근 수단'));
+  assert.equal(f.elements['desktop-reset-submit'].disabled,true);
+  await f.submit();assert.equal(f.requests.filter(x=>x.opt).length,0);
+  f.elements['desktop-reset-acknowledged'].checked=true;f.elements['desktop-reset-acknowledged'].onchange();
+  await f.submit('전체 초기화');assert.equal(f.requests.filter(x=>x.opt).length,0);
+  await f.submit();const posts=f.requests.filter(x=>x.opt);assert.equal(posts.length,1);assert.equal(posts[0].url,fullBase);
+  assert.deepEqual(posts[0].opt.body,{requestId:id,scope:fullScope,confirmation:'웹 전체 초기화',expectedEpoch:4});
+  assert.equal(f.elements['desktop-reset-status'].dataset.state,'success');assert(f.status().includes('새 키'));
+ }finally{await f.close();}
+});
+test('full reset never resumes a registration-only nonce or confirms another reset scope',async()=>{
+ const f=Fixture({full:true,fetchRows:[{value:State({id,status:'COMPLETE',completedAt:123})},{status:401}]});
+ vm.runInContext('desktopPendingRegistrationReset={id:"'+otherId+'"};',f.ctx);
+ await f.start();try{
+  assert.equal(f.requests[0].url,fullBase);assert.equal(f.pending(),null);
+  f.elements['desktop-reset-acknowledged'].checked=true;await f.submit();
+  assert.notEqual(f.elements['desktop-reset-status'].dataset.state,'success');assert.equal(f.pending().id,id);
+  assert(f.reads.every(x=>x.url===fullBase+'?requestId='+id));assert.equal(f.requests.filter(x=>x.opt).length,1);
+ }finally{await f.close();}
+});
+
+test('full reset blocks an unready server and renders names without key material',async()=>{
+ const f=Fixture({full:true});f.state.ready=false;f.state.blockedReasons=['EXTERNAL_RECOVERY_WITNESS_CONFIGURED'];await f.start();try{
+  f.elements['desktop-reset-acknowledged'].checked=true;f.elements['desktop-reset-acknowledged'].onchange();await f.submit();
+  assert.equal(f.requests.filter(x=>x.opt).length,0);assert.equal(f.elements['desktop-reset-submit'].disabled,true);
+  assert(f.elements['desktop-reset-counts'].innerHTML.includes('17건'));assert(f.elements['desktop-reset-counts'].innerHTML.includes('123,456 바이트'));
+  assert(f.elements['desktop-reset-key-note'].textContent.includes('재사용이 차단'));
+  assert.equal(f.elements['desktop-reset-key-names'].textContent,'DESKTOP_ISSUED_A_SIGNING_PRIVATE_KEY_B64');
+  assert(f.status().includes('진행할 수 없는 상태'));
+ }finally{await f.close();}
 });

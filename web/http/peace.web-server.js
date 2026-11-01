@@ -175,6 +175,8 @@ async function RequestHandler(req, res) {
     }
     const reset=require('../../services/operations/peace.registration-reset');
     if(reset.IsDraining()&&pathname.startsWith('/api/')&&!(method==='GET'&&pathname===reset.PATH)){ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
+    const webReset=require('../../services/operations/peace.web-reset');
+    if(webReset.IsDraining()&&pathname.startsWith('/api/')&&!(method==='GET'&&pathname===webReset.PATH)){ApiError(res,503,'WEB_RESET_IN_PROGRESS');return;}
     const desktopMode = require("../../services/runtime/peace.desktop-mode");
     if (desktopMode.RetiredPath(pathname)) { desktopMode.Reject(res); return; }
     // Desktop HMAC challenge/execute have their own authentication, rate limits
@@ -296,6 +298,7 @@ async function RequestHandler(req, res) {
             try {
                 const upload = await ReadReleaseUpload(req, meta);
                 if(reset.IsDraining()){try{fs.unlinkSync(upload.tmp);}catch(_){}ApiError(res,503,'REGISTRATION_RESET_IN_PROGRESS');return;}
+                if(webReset.IsDraining()){try{fs.unlinkSync(upload.tmp);}catch(_){}ApiError(res,503,'WEB_RESET_IN_PROGRESS');return;}
                 // A slow upload must not retain authority after logout, expiry
                 // or credential rotation. Never publish its temporary file.
                 if (!require("../authentication/peace.web-auth").IsSessionActive(session)) {

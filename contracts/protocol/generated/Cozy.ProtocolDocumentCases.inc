@@ -1,6 +1,6 @@
 { Generated document shapes only; no authorization or Windows test evidence. }
 const
-  ProtocolDocumentSchemaCases: array[0..11] of string = (
+  ProtocolDocumentSchemaCases: array[0..12] of string = (
     '{"name":"overlayRelease","value":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"AAAAAAAAAAAAAAAA","xxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaa","size":1,"codeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","c' +
@@ -36,5 +36,7 @@ const
     '":"measured","digest":"AAAAAAAAAAAAAAAA","bytes":0},"crc32c":{"algorithm":"CRC-32/ISCSI","role":"r","status":"measured","digest":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' +
     'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","bytes":0,"digestAlgorithm":"SHA-512-PAGE-MANIFEST","pageSize":4096,"pages":1},"crc16_arc":{"algorit' +
     'hm":"CRC-16/ARC","role":"r","status":"measured","digest":"AAAA","bytes":0},"crc8_smbus":{"algorithm":"CRC-8/SMBUS","role":"r","status":"measured","digest":"AA","bytes":0}}}}',
-    '{"name":"authorityReply","value":{"version":1,"accepted":true,"status":"PASS","reason":"R","proceed":true,"sequence":1,"expiresAt":1,"attested":false}}'
+    '{"name":"authorityReply","value":{"version":1,"accepted":true,"status":"PASS","reason":"R","proceed":true,"sequence":1,"expiresAt":1,"attested":false}}',
+    '{"name":"overlayShutdown","value":{"version":1,"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","parentSessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","status":"CLOSED","scope":"OWNED_A_B_O","cleanup"' +
+    ':"PENDING"}}'
   );

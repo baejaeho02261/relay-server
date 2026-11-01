@@ -1,6 +1,6 @@
 { Generated packet shapes only; these dummy keys never authorize execution. }
 const
-  ProtocolSchemaCases: array[0..41] of string = (
+  ProtocolSchemaCases: array[0..42] of string = (
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"begin","requestId":"rrrrrrrr","launcherId":"AAAAAAAAAAAAAAAAAAAAAAAA","launcherSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","launcherCrc64":"AAAAAAAAAAAAAAAA","aCodeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","aCodeCrc64":"AAAAAAAAAAAAAAAA","publicKey":"{}","deviceId":"AAAAAAAAAAAAAAAAAAAA' +
@@ -40,6 +40,7 @@ const
     '0,"signature":"{}"}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"overlayCommit","handoffVersion":1,"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","overlayId":"AAAAAAAAAAAAA' +
     'AAAAAAAAAAA","signature":"{}"}}',
+    '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"overlayShutdown","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","requestId":"rrrrrrrr"}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"overlayClose","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}"}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"overlayAbort","handoffVersion":3,"parentSessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","parentSessionToken":"{}","signature":"{}' +
     '","overlayId":"AAAAAAAAAAAAAAAAAAAAAAAA"}}',

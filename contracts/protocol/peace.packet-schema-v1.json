@@ -3044,6 +3044,46 @@
           "additionalProperties": false
         }
       ]
+    },
+    "overlayShutdown": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "enum": [
+            1
+          ]
+        },
+        "sessionId": {
+          "$ref": "id24"
+        },
+        "parentSessionId": {
+          "$ref": "id24"
+        },
+        "status": {
+          "enum": [
+            "CLOSED"
+          ]
+        },
+        "scope": {
+          "enum": [
+            "OWNED_A_B_O"
+          ]
+        },
+        "cleanup": {
+          "enum": [
+            "PENDING"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "sessionId",
+        "parentSessionId",
+        "status",
+        "scope",
+        "cleanup"
+      ],
+      "additionalProperties": false
     }
   },
   "commands": [
@@ -3866,6 +3906,36 @@
           "sessionToken",
           "overlayId",
           "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayShutdown",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayShutdown"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "requestId": {
+            "$ref": "request"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken",
+          "requestId"
         ],
         "additionalProperties": false
       }
@@ -4991,6 +5061,9 @@
     },
     "authorityReply": {
       "$ref": "authorityReply"
+    },
+    "overlayShutdown": {
+      "$ref": "overlayShutdown"
     }
   }
 }

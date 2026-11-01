@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const schema=require('../../contracts/protocol/peace.packet-schema-v1.json'),contract=require('../../services/protocol/peace.packet-schema'),protocol=require('../../services/protocol/peace.desktop-request-protocol'),fixtures=require('../fixtures/protocol/peace.packet-schema-cases.json');
 let checks=0;function reject(x){assert.throws(()=>contract.ValidateEnvelope(x),/PROTOCOL_SCHEMA_INVALID/);checks++;}
 function clone(x){return structuredClone(x);}function resolve(x){return x.$ref?schema.definitions[x.$ref]:x;}
-assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,42);
+assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,43);
 for(let i=0;i<fixtures.cases.length;i++){
  const packet=fixtures.cases[i],command=schema.commands[i];
  assert.equal(contract.ValidateEnvelope(packet),packet);protocol.Resolve(packet.operation,packet.body.action);checks++;
@@ -32,4 +32,4 @@ for(const invalid of [text+'x',text.replace('"version":1','"version":1,"version"
 const newline=clone(good);newline.body.launcherId='A'.repeat(23)+'\n';reject(newline);
 assert.equal(cp.spawnSync(process.execPath,['tools/build/peace.generate-packet-schema.js','--check'],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8'}).status,0);checks++;
 assert.notEqual(cp.spawnSync(process.execPath,['tools/build/peace.generate-packet-schema.js','--unknown'],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8'}).status,0);checks++;
-console.log('PACKET_SCHEMA_TEST_PASS commands=42 checks='+checks+' (generated-shape fixtures; domain authorization remains mandatory)');
+console.log('PACKET_SCHEMA_TEST_PASS commands=43 checks='+checks+' (generated-shape fixtures; domain authorization remains mandatory)');
