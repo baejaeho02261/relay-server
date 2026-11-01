@@ -24,6 +24,7 @@ test('explicit public key status read does not initialize or expose private inpu
   assert.equal(f.calls.some(r=>r.url.endsWith('/issued-a-keys')),false);await f.click('issued-keys-load');
   assert.equal(f.calls.filter(r=>r.url.endsWith('/issued-a-keys')).length,1);assert.equal(f.calls.filter(r=>r.options.method==='POST').length,0);
   assert.match(f.w.document.querySelector('#sec-issued-key-state').textContent,/기존 단일 키/);
+  assert.doesNotMatch(f.w.document.querySelector('#sec-issued-key-state').textContent,/운영 가능한 발급 서명키가 없습니다/);
   assert.match(f.w.document.querySelector('#sec-issued-public-json').placeholder,/publicBlob/);
   await f.click('issued-keys-initialize');assert.deepEqual(f.calls.find(r=>r.options.method==='POST').options.body,{action:'initialize',expectedRevision:0});
  }finally{await f.close();}
@@ -77,10 +78,19 @@ test('blocked pair previews explain retired, revoked and unknown issuer keys and
   const selector=f.w.document.querySelector('#sec-a');selector.value='';selector.dispatchEvent(new f.w.Event('change',{bubbles:true}));assert.ok(!f.w.document.querySelector('#sec-issued-template-key').textContent.includes(keyId));
  }finally{await f.close();}
 });
-test('status text is escaped and revoked rows offer no restore or further state action',async()=>{
+test('revoked-only status shows no key rows, identifiers or actions and reports no operational key',async()=>{
  const f=await fixture();try{
-  Object.assign(f.ring,{managed:true,revision:3,configurationError:'<img src=x onerror=alert(1)>',keys:[{keyId:'c'.repeat(64),generation:1,state:'REVOKED',issued:1,unused:0,liveFlows:0}]});await f.click('issued-keys-load');
+  const revokedKeyId='c'.repeat(64);Object.assign(f.ring,{managed:true,revision:3,configurationError:'<img src=x onerror=alert(1)>',keys:[{keyId:revokedKeyId,generation:1,state:'REVOKED',issued:1,unused:0,liveFlows:0}]});await f.click('issued-keys-load');
   assert.equal(f.w.document.querySelector('#sec-issued-key-state img'),null);assert.equal(f.w.document.querySelector('[data-security-action="issued-key-retire"]'),null);assert.equal(f.w.document.querySelector('[data-security-action="issued-key-revoke"]'),null);
+  assert.equal(f.w.document.querySelectorAll('#sec-issued-key-state tbody tr').length,0);assert.ok(!f.w.document.querySelector('#desktop-security-root').innerHTML.includes(revokedKeyId));assert.match(f.w.document.querySelector('#sec-issued-key-state').textContent,/운영 가능한 발급 서명키가 없습니다/);
+ }finally{await f.close();}
+});
+test('mixed status omits revoked rows completely while retaining active and retiring key controls',async()=>{
+ const f=await fixture();try{
+  const activeKeyId='a'.repeat(64),retiringKeyId='b'.repeat(64),revokedKeyId='c'.repeat(64);
+  Object.assign(f.ring,{managed:true,revision:4,keys:[{keyId:revokedKeyId,generation:1,state:'REVOKED',issued:1,unused:0,liveFlows:0},{keyId:activeKeyId,generation:2,state:'ACTIVE',issued:2,unused:1,liveFlows:0},{keyId:retiringKeyId,generation:3,state:'RETIRING',issued:3,unused:2,liveFlows:1}]});await f.click('issued-keys-load');
+  const table=f.w.document.querySelector('#sec-issued-key-state');assert.equal(table.querySelectorAll('tbody tr').length,2);assert.ok(!f.w.document.querySelector('#desktop-security-root').innerHTML.includes(revokedKeyId));
+  assert.ok(table.textContent.includes(activeKeyId));assert.ok(table.textContent.includes(retiringKeyId));assert.ok(table.querySelector(`[data-security-action="issued-key-retire"][data-key="${activeKeyId}"]`));assert.ok(table.querySelector(`[data-security-action="issued-key-revoke"][data-key="${activeKeyId}"]`));assert.ok(table.querySelector(`[data-security-action="issued-key-revoke"][data-key="${retiringKeyId}"]`));assert.equal(table.querySelector(`[data-security-action="issued-key-retire"][data-key="${retiringKeyId}"]`),null);assert.doesNotMatch(table.textContent,/운영 가능한 발급 서명키가 없습니다/);
  }finally{await f.close();}
 });
 test('private fields, malformed public objects and oversized drafts are not sent',async()=>{
