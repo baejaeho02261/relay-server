@@ -33,6 +33,15 @@ test('approved count, not claimed count, selects expected topology',()=>{
  for(const field of ['sha512','crc64']){const bad={...valid,[field]:valid[field].replace(/^./,valid[field][0]==='A'?'B':'A')};assert.equal(g.Compare(bad,2).matched,false);}
  for(const extra of [{address:'0x1234'},{attested:true},{scope:'ALL_PROCESS_MEMORY'}])assert.equal(g.Validate({...valid,...extra}),false);
 });
+test('slot mismatch keeps exact denial and bounded server/observed diagnostic snapshots',()=>{
+ const observed=g.Expected(218),comparison=g.Compare(observed,222);
+ assert.equal(comparison.matched,false);assert.equal(comparison.reason,'POINTER_GRAPH_MISMATCH');
+ assert.deepEqual(comparison.expected,g.Summary(g.Expected(222)));assert.deepEqual(comparison.observed,g.Summary(observed));
+ assert.equal(comparison.expected.slots,222);assert.equal(comparison.observed.slots,218);assert.deepEqual(Object.keys(comparison.expected),['slots','nodes','edges','depth','sha512','crc64']);
+ observed.slots=1;assert.equal(comparison.observed.slots,218,'diagnostic snapshot does not alias a mutable report');
+ const missing=g.Compare(g.Expected(2),undefined);assert.equal(missing.expected,null);assert.equal(missing.observed.slots,2);assert.equal(missing.matched,false);
+ for(const value of [{...g.Expected(2),address:'<svg onload=x>'},{...g.Expected(2),slots:1025},{...g.Expected(2),sha512:'<img src=x>'},null])assert.equal(g.Compare(value,2).observed,null);
+});
 test('only an exact server build contract permits graph comparison',()=>{
  const artifact={component:'B',sha512:'a'.repeat(128),ownMeasurementVersion:2};
  const db={securityOperations:undefined};

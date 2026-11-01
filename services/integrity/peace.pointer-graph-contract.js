@@ -52,10 +52,16 @@ function Validate(value) {
  if(value.status==='FAILED')return value.slots===0&&value.nodes===0&&value.edges===0&&value.depth===0&&value.sha512===''&&value.crc64==='';
  return value.status==='MEASURED'&&Integer(value.slots,1,1024)&&value.nodes===1+3*value.slots&&value.edges===3*value.slots&&value.depth===3&&typeof value.sha512==='string'&&/^[a-f0-9]{128}$/.test(value.sha512)&&typeof value.crc64==='string'&&/^[A-F0-9]{16}$/.test(value.crc64);
 }
-function Compare(value, slots) {
- if(!Integer(slots,1,1024))return {matched:false,reason:'POINTER_GRAPH_BUILD_CONTRACT_REQUIRED'};
- if(!Validate(value)||value.status!=='MEASURED')return {matched:false,reason:'POINTER_GRAPH_INCOMPLETE'};
- const expected=Expected(slots),matched=Object.keys(expected).every(k=>value[k]===expected[k]);
- return {matched,reason:matched?'POINTER_GRAPH_MATCH':'POINTER_GRAPH_MISMATCH',scope:'SEALED_API_ARENA',attested:false};
+function Summary(value) {
+ if(!Validate(value)||value.status!=='MEASURED')return null;
+ return Object.fromEntries(['slots','nodes','edges','depth','sha512','crc64'].map(key=>[key,value[key]]));
 }
-module.exports={CONTRACT,MAX_NODES,MAX_EDGES,MAX_DEPTH,Bytes,Shape,Expected,Validate,Compare};
+function Compare(value, slots) {
+ const expected=Integer(slots,1,1024)?Expected(slots):null;
+ const detail={scope:'SEALED_API_ARENA',attested:false,expected:Summary(expected),observed:Summary(value)};
+ if(!expected)return {matched:false,reason:'POINTER_GRAPH_BUILD_CONTRACT_REQUIRED',...detail};
+ if(!Validate(value)||value.status!=='MEASURED')return {matched:false,reason:'POINTER_GRAPH_INCOMPLETE',...detail};
+ const matched=Object.keys(expected).every(k=>value[k]===expected[k]);
+ return {matched,reason:matched?'POINTER_GRAPH_MATCH':'POINTER_GRAPH_MISMATCH',...detail};
+}
+module.exports={CONTRACT,MAX_NODES,MAX_EDGES,MAX_DEPTH,Bytes,Shape,Expected,Validate,Summary,Compare};

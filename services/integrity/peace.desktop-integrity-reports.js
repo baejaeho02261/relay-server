@@ -32,6 +32,14 @@ function ExtendedDigest(value,size){if(value===''||value===null||value===undefin
 const EXTENDED_FIELDS=['fileXxh3_128','fileBlake3','codeXxh3_128','codeBlake3','exportTableXxh3_128','exportTableBlake3'];
 function HasExtendedPair(row,prefix){return typeof row[prefix+'Xxh3_128']==='string'&&/^[a-f0-9]{32}$/.test(row[prefix+'Xxh3_128'])&&typeof row[prefix+'Blake3']==='string'&&/^[a-f0-9]{64}$/.test(row[prefix+'Blake3']);}
 function ExtendedComparison(row,baseline,prefix){const fields=[prefix+'Xxh3_128',prefix+'Blake3'];return {mismatch:fields.some(key=>row[key]&&baseline[key]&&row[key]!==baseline[key]),verified:HasExtendedPair(row,prefix)&&HasExtendedPair(baseline,prefix)&&fields.every(key=>row[key]===baseline[key])};}
+function UncomparedOwnHashes(own,artifact){
+ const fields={expectedSha512:artifact.codeSha512,observedSha512:own?.codeSha512,expectedCrc64:artifact.codeCrc64,observedCrc64:own?.codeCrc64,
+  expectedXxh3_128:artifact.codeXxh3_128,observedXxh3_128:own?.codeXxh3_128,expectedBlake3:artifact.codeBlake3,observedBlake3:own?.codeBlake3,
+  expectedFileXxh3_128:artifact.fileXxh3_128,observedFileXxh3_128:own?.fileXxh3_128,expectedFileBlake3:artifact.fileBlake3,observedFileBlake3:own?.fileBlake3,
+  hashComparisonStatus:'NOT_REACHED',fileHashesReported:!!own&&Object.hasOwn(own,'fileSha512')};
+ if(fields.fileHashesReported)Object.assign(fields,{expectedFileSha512:artifact.sha512,observedFileSha512:own.fileSha512,expectedFileCrc64:artifact.crc64,observedFileCrc64:own.fileCrc64});
+ return fields;
+}
 function AuditBinding(machineId){return /^[A-F0-9]{64}$/.test(machineId||'')?require("../devices/peace.desktop-device-registry").BindingId(machineId):'';}
 function Identifier(value){if(value===undefined||value==='')return '';if(typeof value!=='string'||!/^[-A-Za-z0-9_]{1,100}$/.test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}
 function Token(value){if(typeof value!=='string'||!/^[-A-Z0-9_]{1,64}$/.test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}
@@ -154,6 +162,13 @@ function Record(input){
   record.pointerGraphVerified=input.pointerGraphVerified===true;
   record.ownedGraphReported=input.ownMeasurement?.ownedGraph!==undefined;
   record.ownedGraphValidated=input.ownedGraphValidated===true;
+  if(record.pointerGraphReported||Number.isInteger(input.expectedPointerGraphSlots)){
+   // Expected values come only from the authenticated artifact's server build
+   // contract. Freeze this comparison snapshot rather than today's policy.
+   const graph=require('./peace.pointer-graph-contract').Compare(input.ownMeasurement?.pointerGraph,input.expectedPointerGraphSlots);
+   record.pointerGraphComparison={version:1,scope:'SEALED_API_ARENA',expected:graph.expected,observed:graph.observed};
+  }
+  if(input.hashComparisonStatus==='NOT_REACHED')record.hashComparisonStatus='NOT_REACHED';
   record.fileHashesReported=input.fileHashesReported===true;
   record.fileHashesVerified=record.fileHashesReported&&input.fileHashesVerified===true;
   if(record.fileHashesReported)for(const prefix of ['expectedFile','observedFile']){
@@ -177,7 +192,11 @@ function Record(input){
  if(record.snapshotFinal&&record.snapshotStatus==='COMPLETE_PASS')try{
   require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_MODULE_SNAPSHOT_ACCEPTED',JSON.stringify({stage:record.stage,sessionId:record.sessionId,flowId:record.flowId,snapshotId:record.snapshotId,acceptedAt:record.at,expiresAt:record.at+FRESHNESS[record.stage],status:record.status,coverage:record.coverage,measuredModules:record.measuredModules,totalModules:record.totalModules,strictPolicyRevision:record.strictPolicyRevision,attested:false}));
  }catch(_){console.error('MODULE_SNAPSHOT_AUDIT_FAILED');}
- if(record.status==='REJECTED')require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_INTEGRITY_REJECTED',JSON.stringify({reportId:record.id,stage:record.stage,check:record.check,reason:record.reason,sessionId:record.sessionId,bindingId:AuditBinding(record.machineId),...(record.snapshotDiagnostics?{snapshotDiagnostics:record.snapshotDiagnostics}:{})}));
+ if(record.status==='REJECTED'){
+  const graph=record.pointerGraphComparison;
+  const pointerGraphComparison=graph?{expectedSlots:graph.expected?.slots??null,observedSlots:graph.observed?.slots??null,mismatchedFields:graph.expected&&graph.observed?['slots','nodes','edges','depth','sha512','crc64'].filter(key=>graph.expected[key]!==graph.observed[key]):[]}:null;
+  require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_INTEGRITY_REJECTED',JSON.stringify({reportId:record.id,stage:record.stage,check:record.check,reason:record.reason,sessionId:record.sessionId,bindingId:AuditBinding(record.machineId),...(record.snapshotDiagnostics?{snapshotDiagnostics:record.snapshotDiagnostics}:{}),...(pointerGraphComparison?{pointerGraphComparison}:{})}));
+ }
  return record;
 }
 function Auth(body){return require("../bootstrap/peace.desktop-bootstrap").AuthenticateIntegrityReport(body);}
@@ -212,13 +231,13 @@ function Submit(body){
  const binding=ReceiptBinding(row);
  if(deadline.Expired(challenge))Fail('INTEGRITY_REPORT_CHALLENGE_INVALID',401);
  function Complete(response){receipts.put(body.reportId,'report.submit',body,response,{context,publicKey:row.publicKey,binding});return response;}
- const fields={stage:row.stage||'B',machineId:row.machineId,sessionId:row.sessionId,flowId:row.id,artifactId:artifact.id,check:payload.check,reason:payload.reason,hashVersion:payload.hashVersion};
+ const fields={stage:row.stage||'B',machineId:row.machineId,sessionId:row.sessionId,flowId:row.id,artifactId:artifact.id,check:payload.check,reason:payload.reason,hashVersion:payload.hashVersion,expectedPointerGraphSlots:artifact.pointerGraphSlots};
  let result;
  const graphReason=measurementPlan.GraphReason(payload,artifact,artifact.pointerGraphSlots);
  if(graphReason){
   require('../security/peace.desktop-security-authority').Invalidate(row,row.stage||'B',graphReason);
   require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_'+graphReason},'INTEGRITY_REPORT');
-  result=Record({...fields,check:'OWN_CODE',status:'REJECTED',reason:graphReason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,pointerGraphVerified:false,trusted:true});
+  result=Record({...fields,...UncomparedOwnHashes(payload.own,artifact),check:'OWN_CODE',status:'REJECTED',reason:graphReason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,pointerGraphVerified:false,ownedGraphValidated:false,trusted:true});
   return Complete({accepted:true,status:'REJECTED',reportId:result.id,terminate:true});
  }
  if(payload.check==='OVERLAY_START'){
