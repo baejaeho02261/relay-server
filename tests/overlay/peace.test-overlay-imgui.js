@@ -8,6 +8,12 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const native = path.resolve(MODULE_RESOURCE_ROOT, '../../Railway');
+// Relay-only repositories intentionally omit the private native tree. A tree
+// that exists but is incomplete remains an error; do not silently skip files.
+if (!fs.existsSync(native)) {
+  console.log('SKIP ImGui native-source contracts: private Railway tree absent; Delphi/Windows NOT_RUN.');
+  process.exit(0);
+}
 const read = name => fs.readFileSync(path.join(native, name), 'utf8').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
 const pascal = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.ImGui.pas");
 const renderer = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas");
@@ -33,6 +39,10 @@ function method(name, next) {
 }
 
 check('Every C export has an exact cdecl Pascal declaration and matching Win64 primitive ABI', () => {
+  const abi = require(path.join(native, 'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js'));
+  const schema = JSON.parse(fs.readFileSync(abi.schemaPath, 'utf8'));
+  assert.equal(abi.check(abi.loadSources(), schema).exports, 28);
+  abi.verifyProbes(schema);
   const cTypes = {
     void: 'void', int32_t: 'i32', uint32_t: 'u32', float: 'f32',
     'void*': 'ptr', 'const void*': 'ptr', 'const GameImGuiHost*': 'ptr',
@@ -71,6 +81,32 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
   assert.deepEqual(cExports.get('game_imgui_set_dpi'), { result: 'i32', args: ['ptr', 'f32'] });
   assert.deepEqual(pExports, cExports);
   assert.match(pascal, /TImGuiContext\s*=\s*Pointer\s*;/);
+});
+
+check('ABI comparator rejects independent declaration/layout/version mutations and build failure propagates', () => {
+  const child = require('node:child_process');
+  const env = {...process.env};
+  // A surrounding `node --test` exports this private marker. Inheriting it
+  // makes a nested test run return success after skipping its entire suite.
+  delete env.NODE_TEST_CONTEXT;
+  const proof = child.execFileSync(process.execPath, ['--test', '--test-reporter=tap', path.join(native,
+    'Cozy.ImGui/Cozy.Tests/Cozy.Abi/Cozy.test_imgui_abi.js')], {encoding:'utf8', timeout:30000, env});
+  assert.match(proof,/^# tests 40$/m,'ABI negative cases must actually execute');
+  assert.match(proof,/^# pass 40$/m);
+  for (const metric of ['fail','cancelled','skipped']) assert.match(proof,new RegExp('^# '+metric+' 0$','m'));
+  const build = read('Cozy.ImGui/Cozy.Build/Cozy.Build_ImGui_Win64.bat');
+  inOrder(build, [
+    'set "GAME_IMGUI_STAGE=validate C/Pascal ABI source contract"',
+    'where.exe node.exe', 'if errorlevel 1 (',
+    'node "Cozy.Build\\Cozy.Check-ImGui-Abi.js"', 'if errorlevel 1 goto failed',
+    'set "GAME_IMGUI_STAGE=compile ABI type and field layout assertions"',
+    '"%GAME_IMGUI_COMPILER%" -std=c++11 -fsyntax-only',
+    'Cozy.Tests\\Cozy.Abi\\Cozy.test_imgui_abi_layout.cpp', 'if errorlevel 1 goto failed',
+    'set "GAME_IMGUI_STAGE=compile C++ bridge"',
+    'Cozy.Audit-Object.ps1', 'move /y'
+  ], 'Fail-closed ABI preflight');
+  assert.doesNotMatch(build,/Cozy\.Check-ImGui-Abi\.js"?\s+--write-probes/,
+    'Production preparation checks reviewed generated files; it never rewrites them');
 });
 
 check('Host callback layout is versioned and checked before static-object creation', () => {
