@@ -392,9 +392,10 @@ check('Compact scene requests shutdown only after visible Present and fresh auth
   inOrder(actions,['FClosing or FReceiptOnly or FSessionPaused or', 'not AuthorityValid then Exit;',
     'FScenePhase := ReadRunState;', 'if Assigned(FRequestRun) then FRequestRun();'],'Nonblocking Run callback');
   assert.doesNotMatch(actions,/CreateProcess|ShellExecute|InvokeServerPolicy|\.Post\(/);
-  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+2\) mod 3/);
-  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+1\) mod 3/);
-  assert.match(paint,/Ease := 1-Exp\(-14\*Delta\)/);
+  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+5\) mod 6/);
+  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+1\) mod 6/);
+  assert.match(paint,/FCarouselPosition := FSceneSelected;/);
+  assert.doesNotMatch(paint,/FCarouselPosition\s*:=.*\*Ease/,'Native pointer-follow owns the sole visual interpolation');
   assert.doesNotMatch(renderer,/IMGUI_SCENE_(CONTINUE|BACK|MOTION|THEME)/);
   const keyboard=method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
   assert.match(keyboard,/if SyncTextInput or FReceiptOnly/);
@@ -437,7 +438,10 @@ check('Responsive scene uses only the empty header for window dragging and stays
   const hit = method('function TOverlayWindow.ButtonHit(', 'procedure TOverlayWindow.ApplySceneActions(');
   inOrder(hit, ['X < 0', 'X >= Area.Right', 'Scale := Area.Right / SceneWidth;',
     'VerticalScale := Area.Bottom / SceneHeight;', 'if VerticalScale < Scale then Scale := VerticalScale;',
-    'Y >= SceneHeaderHeight * Scale'], 'Responsive header versus content hit test');
+    'OriginX := (Area.Right-SceneWidth*Scale)/2;', 'OriginY := (Area.Bottom-SceneHeight*Scale)/2;',
+    'Y >= OriginY+SceneHeaderHeight*Scale', 'X >= OriginX+258*Scale', 'Y >= OriginY+39*Scale'], 'Responsive header versus content hit test');
+  assert.match(hit,/X < OriginX\+428\*Scale/);
+  assert.match(hit,/Y < OriginY\+67\*Scale/);
   assert.match(renderer, /InitialWidth = 680;/);
   assert.match(renderer, /InitialHeight = 440;/);
   const display = method('procedure TOverlayWindow.FitToWorkArea;', 'procedure TOverlayWindow.ReconcileDisplay;');
@@ -455,6 +459,7 @@ check('Rounded HWND regions transfer ownership only after success and cached res
   inOrder(shape,['if FShaping or (FWindow=0) then Exit;', 'FShaping:=True; Region:=0;',
     'Region:=ApiCreateRoundRectRgn(', 'if ApiSetWindowRgn(FWindow,Region,False)=0 then',
     'Region:=0;', 'if (Region<>0) and not ApiDeleteObject(Region)', 'FShaping:=False;'], 'GDI ownership');
+  assert.match(shape,/Radius:=Round\(6\*Scale\); if Radius<3 then Radius:=3;/);
   assert.match(renderer,/BindApiPointer\(Slot_CreateRoundRectRgn, RequireProcAddressHash64/);
   assert.match(renderer,/BindApiPointer\(Slot_SetWindowRgn, RequireProcAddressHash64/);
   assert.match(renderer,/BindApiPointer\(Slot_DeleteObject, RequireProcAddressHash64/);
