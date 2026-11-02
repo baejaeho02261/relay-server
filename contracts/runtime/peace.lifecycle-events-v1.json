@@ -71,6 +71,21 @@
         "OBSERVED"
       ],
       "scope": "A-self"
+    },
+    {
+      "name": "RENEWAL_FAILED",
+      "statuses": [
+        "TIMEOUT",
+        "FAILED"
+      ],
+      "scope": "self"
+    },
+    {
+      "name": "UI_RUNTIME_FAILURE",
+      "statuses": [
+        "FAILED"
+      ],
+      "scope": "self"
     }
   ],
   "ordering": {

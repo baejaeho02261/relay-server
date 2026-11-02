@@ -13,8 +13,8 @@ const WEB_ADMIN_SESSION_MS = Number(process.env.WEB_ADMIN_SESSION_MS || 30 * 60 
 // Optional own-window capture privacy; Windows affinity is not a security guarantee.
 const OVERLAY_CAPTURE_PRIVACY = String(process.env.OVERLAY_CAPTURE_PRIVACY || '') === '1';
 const ENABLE_LEGACY_TCP_ADMIN = String(process.env.ENABLE_LEGACY_TCP_ADMIN || '') === '1';
-const WEB_ADMIN_VERSION = '5.0.1';
-const WEB_UI_REVISION = 'cozy-peace-v17-compact';
+const WEB_ADMIN_VERSION = '5.0.2';
+const WEB_UI_REVISION = 'cozy-peace-v18-overlay-polish';
 const UPDATE_BASE_URL = String(process.env.UPDATE_BASE_URL || (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : '')).replace(/\/+$/, '');
 
 const DATA_DIR = runtime.DATA_DIR;

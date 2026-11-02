@@ -160,3 +160,46 @@ test('server explanation: OVERLAY_TRANSFERRED is normal handoff, not an unknown 
  const r=require("../../services/runtime/peace.desktop-operations-errors").Explain('OVERLAY_TRANSFERRED');
  assert.match(r.title,/인계를 완료/);assert.doesNotMatch(r.current,/완료를 확인하지 못했습니다/);assert.match(r.next,/별도로/);
 });
+
+// Recovery model is intentionally labelled: the supported native probe calls
+// the actual Pascal scheduling predicate; this model tests independent traces.
+const transientCodes=new Set(['CONNECT_TIMEOUT']);
+function retryAllowed(now,deadline,cost,retried,code){if(retried||deadline<=now||!transientCodes.has(code))return false;return deadline-now>Math.max(12000,Math.min(cost,120000)*2+1000);}
+test('recovery model: one transient timeout can obtain fresh proof inside the unchanged old grant',()=>{
+ const state={now:1000,deadline:22000,cost:3000,retried:false,proofs:0};
+ assert(retryAllowed(state.now,state.deadline,state.cost,state.retried,'CONNECT_TIMEOUT'));
+ state.retried=true;state.now+=250;const old=state.deadline;
+ // The retry itself grants nothing; only an authenticated fresh response may
+ // publish a new lease while the preexisting one is still valid.
+ state.now+=4000;state.proofs++;assert(state.now<old);assert.equal(state.deadline,old);
+ assert(!retryAllowed(state.now,state.deadline,state.cost,state.retried,'CONNECT_TIMEOUT'));
+ state.deadline=state.now+40000;assert.equal(state.proofs,1);
+});
+test('recovery model: cancellation, invalid authority and exhausted time never become retries',()=>{
+ for(const code of ['CONNECT_CANCELLED','CONNECT_AUTHENTICATION_FAILED','CONNECT_CRYPTO_FAILED','CONNECT_INVALID_RESPONSE','CONNECT_FAILED','INTEGRITY_REJECTED','BOOTSTRAP_REVOKED','CONNECT_UNAVAILABLE','CONNECT_SEND_FAILED','CONNECT_RECEIVE_FAILED','NETWORK_UNAVAILABLE',''])assert(!retryAllowed(1000,60000,3000,false,code),code);
+ for(const [now,deadline,cost,retried]of [[1000,1000,0,false],[1000,13000,0,false],[1000,22000,3000,true],[1000,120000,Number.MAX_SAFE_INTEGER,false]])assert(!retryAllowed(now,deadline,cost,retried,'CONNECT_TIMEOUT'));
+ assert(retryAllowed(1000,13001,0,false,'CONNECT_TIMEOUT'));
+});
+test('source: renewal retry preserves the live grant and cancellation generation',()=>{
+ const recover=part(overlay,'function TOverlayWorker.RecoverTransientRenewal(', 'procedure TOverlayWorker.NoteRenewalFailure(');
+ order(recover,'not Terminated and not FFailed and FReadyForTransfer','OverlayTransientRetryAllowed(CozyTick, FDeadline,','if Allowed then Retried := True;','CozyWaitForDelay(250,','if RequestCancelled then Exit;','MaintainLease(True);','Result := not RequestCancelled;');
+ assert.doesNotMatch(recover,/FDeadline\s*:=|FFailed\s*:=|ResetCancellation|CancelPending|FRunState|RequestCohortShutdown/);
+ const predicate=part(state,'function OverlayTransientRetryAllowed(NowTick, Deadline, LastDuration: UInt64;\n  AlreadyRetried: Boolean; const TransportCode: string): Boolean;\nvar Reserve:', 'function OverlayGraphicsFailure(');
+ for(const code of transientCodes)assert(predicate.includes("'"+code+"'"));
+ assert.match(predicate,/AlreadyRetried or \(Deadline <= NowTick\)/);assert.match(predicate,/Reserve < 12000/);assert.match(predicate,/Deadline - NowTick > Reserve/);
+ assert.doesNotMatch(predicate,/SessionToken|FDeadline\s*:=|osAuthorized/);
+ order(execute,'on E: EConnectTransport do','RecoverTransientRenewal(E.Code, Retried)','NextCheck := CozyTick;','Continue;');
+});
+test('source: failed renewal and runtime UI causes use closed optional diagnostic events',()=>{
+ const note=part(overlay,'procedure TOverlayWorker.NoteRenewalFailure(', 'procedure TOverlayWorker.Execute;');
+ assert.match(note,/TransportCode = 'CONNECT_TIMEOUT'/);assert.match(note,/Outcome := 'TIMEOUT'/);assert.match(note,/Outcome := 'FAILED'/);
+ assert.match(note,/Lifecycle\.Note\('O', 'RENEWAL_FAILED', Outcome\)/);assert.doesNotMatch(note,/\.Message|\.Post|Submit\(|SessionToken/);
+ assert.match(overlay,/Lifecycle\.Note\('O', 'UI_RUNTIME_FAILURE', 'FAILED',\s+0, Cardinal\(NativeCode\)\)/);
+ assert.match(execute,/if not Terminated then/);assert.match(execute,/NoteRenewalFailure\(EConnectTransport\(E\)\.Code\)/);
+});
+test('source: START is no longer connected to native cohort shutdown',()=>{
+ assert.doesNotMatch(overlay,/ProcessRunRequest|Worker\.RequestRun|Worker\.RunState|FRunRequestedAt|RequestCohortShutdown/);
+ assert.doesNotMatch(client,/procedure TOverlayClient\.RequestCohortShutdown/);
+ assert.match(overlay,/nil,nil,nil,nil,\s+procedure\(Stage: string; NativeCode: Integer\)/);
+ assert.match(overlay,/Client\.ShutdownClose\(Budget\.Deadline/,'ordinary close cleanup remains');
+});

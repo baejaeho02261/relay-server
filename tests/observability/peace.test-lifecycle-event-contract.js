@@ -40,3 +40,13 @@ test('diagnostic locking is nonblocking and actual observations remain separate'
  assert.match(s,/Observation.ExitObserved and not Observation.ExitTimedOut/);
  assert.match(s,/Observation.FileRemoved and Observation.CleanupAttempted/);
 });
+
+test('closed runtime diagnostics cannot claim authority or another role failure',()=>{
+ assert(c.validate([{event:'RENEWAL_FAILED',status:'TIMEOUT'},{event:'UI_RUNTIME_FAILURE',status:'FAILED'},{event:'SHUTDOWN_BEGIN',status:'REQUESTED'}],'O','O'));
+ assert(c.validate([{event:'RENEWAL_FAILED',status:'FAILED'}],'O','O'));
+ assert(!c.validate([{event:'RENEWAL_FAILED',status:'OBSERVED'}],'O','O'));
+ assert(!c.validate([{event:'RENEWAL_FAILED',status:'TIMEOUT'}],'O','B'));
+ assert(!c.validate([{event:'UI_RUNTIME_FAILURE',status:'FAILED'},{event:'UI_RUNTIME_FAILURE',status:'FAILED'}],'O','O'));
+ const ui=fs.readFileSync(path.join(root,'public/scripts/desktop/peace.admin-desktop-server-state.js'),'utf8');
+ assert.match(ui,/RENEWAL_FAILED:'오버레이 갱신 실패'/);assert.match(ui,/UI_RUNTIME_FAILURE:'오버레이 화면 오류'/);
+});

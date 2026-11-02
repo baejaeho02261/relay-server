@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'cozy-peace-v17-compact';
+const WEB_UI_REVISION = 'cozy-peace-v18-overlay-polish';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -304,9 +304,9 @@ async function updateWebVersion() {
   if (!webVersionLabel) return;
   try {
     const { system } = await api('/api/system');
-    webVersionLabel.textContent = `웹 v${system.webAdminVersion || '5.0.1'} · 화면 ${WEB_UI_REVISION}`;
+    webVersionLabel.textContent = `웹 v${system.webAdminVersion || '5.0.2'} · 화면 ${WEB_UI_REVISION}`;
   } catch (_) {
-    webVersionLabel.textContent = `웹 v5.0.1 · 화면 ${WEB_UI_REVISION}`;
+    webVersionLabel.textContent = `웹 v5.0.2 · 화면 ${WEB_UI_REVISION}`;
   }
 }
 
