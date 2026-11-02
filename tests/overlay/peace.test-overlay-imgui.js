@@ -400,7 +400,7 @@ check('Local START commits only after visible Present and fresh authority', () =
   assert.doesNotMatch(paint,/FCarouselPosition\s*:=.*\*Ease/,'Native pointer-follow owns the sole visual interpolation');
   assert.doesNotMatch(renderer,/IMGUI_SCENE_(CONTINUE|BACK|MOTION|THEME)/);
   const keyboard=method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
-  assert.match(keyboard,/if SyncTextInput\s+or \(ReadRunState<>0\) then Exit/);
+  assert.match(keyboard,/if not FSceneRevealComplete or SyncTextInput\s+or \(ReadRunState<>0\) then Exit/);
   assert.match(keyboard,/if Result and not Repeated then/);
   assert.doesNotMatch(keyboard,/VK_RETURN:/,'Enter belongs to the focused ImGui item');
   const cancel=method('procedure TOverlayWindow.CancelInteraction;', 'procedure TOverlayWindow.PointerDown(');
@@ -419,7 +419,7 @@ check('START loading and toast stay inside ordinary authority and return to the 
   const authority=method('function TOverlayWindow.AuthorityValid:', 'function TOverlayWindow.Run(');
   assert.doesNotMatch(authority,/FScenePhase|ReadRunState/,'A toast cannot bypass session authority');
   const handle=method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
-  inOrder(handle,['if ReadRunState<>0 then', 'WM_LBUTTONDOWN,WM_LBUTTONUP,WM_RBUTTONDOWN,WM_RBUTTONUP,',
+  inOrder(handle,['if not FSceneRevealComplete or (ReadRunState<>0) then', 'WM_LBUTTONDOWN,WM_LBUTTONUP,WM_RBUTTONDOWN,WM_RBUTTONUP,',
     'WM_MOUSEMOVE,WM_MOUSEWHEEL,WM_MOUSEHWHEEL,WM_KEYDOWN,WM_KEYUP,WM_CHAR,',
     'WM_IME_STARTCOMPOSITION,WM_IME_COMPOSITION,WM_IME_ENDCOMPOSITION,WM_IME_CHAR: Exit(0);'], 'Input isolation');
   assert.match(handle,/WM_SETCURSOR:[\s\S]*?if FScenePhase=1 then ApiSetCursor\(FBusyCursor\)[\s\S]*?else ApiSetCursor\(FNormalCursor\)/);
@@ -439,8 +439,8 @@ check('Responsive scene uses only the empty header for window dragging and stays
   inOrder(hit, ['X < 0', 'X >= Area.Right', 'Scale := Area.Right / SceneWidth;',
     'VerticalScale := Area.Bottom / SceneHeight;', 'if VerticalScale < Scale then Scale := VerticalScale;',
     'OriginX := (Area.Right-SceneWidth*Scale)/2;', 'OriginY := (Area.Bottom-SceneHeight*Scale)/2;',
-    'Y >= OriginY+SceneHeaderHeight*Scale', 'X >= OriginX+238*Scale', 'Y >= OriginY+37*Scale'], 'Responsive header versus content hit test');
-  assert.match(hit,/X < OriginX\+452\*Scale/);
+    'Y >= OriginY+SceneHeaderHeight*Scale', 'X >= OriginX+252*Scale', 'Y >= OriginY+37*Scale'], 'Responsive header versus content hit test');
+  assert.match(hit,/X < OriginX\+428\*Scale/);
   assert.match(hit,/Y < OriginY\+72\*Scale/);
   assert.match(renderer, /InitialWidth = 680;/);
   assert.match(renderer, /InitialHeight = 440;/);
@@ -452,6 +452,28 @@ check('Responsive scene uses only the empty header for window dragging and stays
   const handle = method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
   inOrder(handle, ['DpiChangedMessage:', 'SetDpi(LOWORD(WParam), PRect(LParam));',
     'FitToWorkArea; Exit;'], 'Per-monitor DPI transition fits the OS suggestion');
+});
+
+
+check('Initial reveal advances only after showing, then latches full-size input after visible Present',()=>{
+  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint,['if not FWindowShown or (FWindow=0) or not ApiIsWindowVisible(FWindow) then',
+    'begin FRendered:=False; Exit; end;', 'NowSeconds := CozyFrameSeconds;',
+    'ImGuiScene(', 'ImGuiPresent(', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE)',
+    'if FRendered and (FSceneSeconds>=SceneRevealSeconds) then FSceneRevealComplete:=True;',
+    'if FRendered and AuthorityValid then ApplySceneActions'], 'Visible one-shot reveal');
+  assert.match(renderer,/SceneRevealSeconds = 0\.45;/);
+  assert.doesNotMatch(renderer,/FSceneRevealComplete\s*:=\s*False/i,'Phase changes cannot replay the initial reveal');
+  const keys=method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
+  assert.match(keys,/not FSceneRevealComplete/);
+  const actions=method('procedure TOverlayWindow.ApplySceneActions(', 'function TOverlayWindow.SceneKey(');
+  assert.match(actions,/not FSceneRevealComplete/);
+  const probe=read('Cozy.Tests/Cozy.Overlay/Cozy.OverlayEnvironmentProbe.dpr');
+  for(const name of ['INTRO_FIRST_VISIBLE_FRAME_IS_PARTIAL','INTRO_BLOCKS_HOST_AND_SCENE_INPUT',
+    'INTRO_COMPLETES_BEFORE_INTERACTION_CONTRACT','START_DOES_NOT_RESTART_INTRO']) assert(probe.includes(name));
+  inOrder(probe,['if not IntroChecked then begin IntroChecked:=True; IntroContract; end;',
+    'if not OverlayTestEnvironment.RevealComplete then', 'INTRO_COMPLETION_DEADLINE',
+    'if not ContractDone then begin ContractDone := True; Contract; end;'],'Probe waits for real render completion');
 });
 
 check('Rounded composition corners use soft clipping and a premultiplied transparent flip chain',()=>{
