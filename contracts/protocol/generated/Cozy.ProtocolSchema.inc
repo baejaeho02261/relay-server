@@ -1,7 +1,7 @@
 { Generated from peace.packet-schema-v1.json. Do not edit. }
 const
   ProtocolSchemaMaximumRequestBytes = 32768;
-  ProtocolSchemaSHA512 = '98a147c0e2731b0c283427da5510f577618253c2e05d9be9eb945445ba35d6c0f452c10e00e573bf26fd46173bc7aa54eaa3dba013a2d5bdb338572d45d47f4d';
+  ProtocolSchemaSHA512 = 'e3d74c1596ecc5bcbbbc692c718214347ac66bc0ba955426e24e9f54b0b521a1bdf6c217061f36f39626cf45b2177be88ffb2c09e94dc3bc47e391aafdc9e348';
   ProtocolSchemaJSON: string =
     '{"schemaVersion":1,"protocol":"GAME-CONNECT-4","maximumRequestBytes":32768,"envelope":{"type":"object","properties":{"operation":{"enum":["bootstrap","challenge","execute","report"' +
     ',"security","device","policy"]},"tlsPinVersion":{"enum":[1]},"body":{"$ref":"object"}},"required":["operation","body"],"additionalProperties":false},"definitions":{"id24":{"type":"' +
@@ -225,74 +225,76 @@ const
     '4","codeSha512","codeCrc64"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayProgress","body":{"type":"object","properties":{"action":{"enum":["overlayProg' +
     'ress"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"sequence":{"type":"integer","minimum":1,"maximum":32},"phase":{"enum":["CLAIMED","IMAGE_BOUND","GPU_BEGIN","GPU' +
     '_READY","OWN_BEGIN","OWN_READY","MODULES_BEGIN","MODULES_READY","AUTHORITY_BEGIN","AUTHORIZED","VISIBLE","FAILED"]},"elapsedMs":{"type":"integer","minimum":0,"maximum":180000},"sig' +
-    'nature":{"$ref":"signature"}},"required":["action","sessionId","sessionToken","sequence","phase","elapsedMs","signature"],"additionalProperties":false}},{"operation":"bootstrap","a' +
-    'ction":"overlayCommit","body":{"type":"object","properties":{"action":{"enum":["overlayCommit"]},"handoffVersion":{"enum":[1]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"t' +
-    'oken"},"overlayId":{"$ref":"id24"},"signature":{"$ref":"signature"}},"required":["action","handoffVersion","sessionId","sessionToken","overlayId","signature"],"additionalProperties' +
-    '":false}},{"operation":"bootstrap","action":"overlayShutdown","body":{"type":"object","properties":{"action":{"enum":["overlayShutdown"]},"sessionId":{"$ref":"id24"},"sessionToken"' +
-    ':{"$ref":"token"},"requestId":{"$ref":"request"}},"required":["action","sessionId","sessionToken","requestId"],"additionalProperties":false}},{"operation":"bootstrap","action":"ove' +
-    'rlayClose","body":{"type":"object","properties":{"action":{"enum":["overlayClose"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"shutdown":{"$ref":"object"}},"requi' +
-    'red":["action","sessionId","sessionToken"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayAbort","body":{"type":"object","properties":{"action":{"enum":["' +
-    'overlayAbort"]},"handoffVersion":{"enum":[3]},"parentSessionId":{"$ref":"id24"},"parentSessionToken":{"$ref":"token"},"signature":{"$ref":"signature"},"overlayId":{"$ref":"id24"},"' +
-    'prepareRequestId":{"$ref":"request"}},"required":["action","handoffVersion","parentSessionId","parentSessionToken","signature"],"additionalProperties":false,"exactlyOne":["overlayI' +
-    'd","prepareRequestId"]}},{"operation":"bootstrap","action":"lifecycleChallenge","body":{"type":"object","properties":{"action":{"enum":["lifecycleChallenge"]},"stage":{"$ref":"stag' +
-    'e"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"targetRole":{"$ref":"stage"},"requestId":{"$ref":"request"}},"required":["action","stage","sessionId","sessionToken' +
-    '","targetRole","requestId"],"additionalProperties":false}},{"operation":"bootstrap","action":"lifecycleReport","body":{"type":"object","properties":{"action":{"enum":["lifecycleRep' +
-    'ort"]},"permitId":{"$ref":"challenge"},"requestId":{"$ref":"request"},"eventsJson":{"type":"string","minLength":2,"maxBytes":32768},"signature":{"$ref":"signature"}},"required":["a' +
-    'ction","permitId","requestId","eventsJson","signature"],"additionalProperties":false}},{"operation":"device","action":"policy","body":{"type":"object","properties":{"action":{"enum' +
-    '":["policy"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"}},"required":["action","stage","sessionId","session' +
-    'Token","machineId"],"additionalProperties":false}},{"operation":"device","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":' +
-    '"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"publicKey":{"$ref":"publicKey"},"keyProvider":{"' +
-    'enum":["SOFTWARE","PLATFORM"]}},"required":["action","stage","sessionId","sessionToken","machineId","requestId","publicKey","keyProvider"],"additionalProperties":false}},{"operatio' +
-    'n":"device","action":"complete","body":{"type":"object","properties":{"action":{"enum":["complete"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"to' +
-    'ken"},"machineId":{"$ref":"machine"},"challengeId":{"$ref":"challenge"},"appSignature":{"$ref":"signature"},"signature":{"$ref":"signature"},"tpmEvidence":{"$ref":"object"}},"requi' +
-    'red":["action","stage","sessionId","sessionToken","machineId","challengeId","appSignature","signature"],"additionalProperties":false}},{"operation":"device","action":"tpmActivate",' +
-    '"body":{"type":"object","properties":{"action":{"enum":["tpmActivate"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"ma' +
-    'chine"},"challengeId":{"$ref":"challenge"},"secret":{"$ref":"token"},"signature":{"$ref":"signature"},"appSignature":{"$ref":"signature"}},"required":["action","stage","sessionId",' +
-    '"sessionToken","machineId","challengeId","secret","signature","appSignature"],"additionalProperties":false}},{"operation":"security","action":"challenge","body":{"type":"object","p' +
-    'roperties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"intent":{"enum":["f' +
-    'inish","redeem","verify","observe"]},"binding":{"$ref":"hash"},"mitigationProfileVersion":{"$ref":"version1"},"mitigationEnvironment":{"$ref":"object"},"deviceSignalsVersion":{"$re' +
-    'f":"version1"}},"required":["action","stage","sessionId","sessionToken","machineId","intent","binding"],"additionalProperties":false}},{"operation":"security","action":"submit","bo' +
-    'dy":{"type":"object","properties":{"action":{"enum":["submit"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},' +
-    '"intent":{"enum":["finish","redeem","verify","observe"]},"binding":{"$ref":"hash"},"challengeId":{"$ref":"challenge"},"payload":{"$ref":"payload"},"signature":{"$ref":"signature"}}' +
-    ',"required":["action","stage","sessionId","sessionToken","machineId","intent","binding","challengeId","payload","signature"],"additionalProperties":false}},{"operation":"report","a' +
-    'ction":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"stage":{"$ref":"stage"},"machi' +
-    'neId":{"$ref":"machine"},"binarySha512":{"$ref":"hash"},"binaryCrc64":{"$ref":"crc"},"codeSha512":{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sess' +
-    'ionToken"],"additionalProperties":false}},{"operation":"report","action":"submit","body":{"type":"object","properties":{"action":{"enum":["submit"]},"sessionId":{"$ref":"id24"},"se' +
-    'ssionToken":{"$ref":"token"},"reportId":{"$ref":"challenge"},"payload":{"$ref":"payload"},"signature":{"$ref":"signature"},"stage":{"$ref":"stage"},"machineId":{"$ref":"machine"},"' +
-    'binarySha512":{"$ref":"hash"},"binaryCrc64":{"$ref":"crc"},"codeSha512":{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sessionToken","reportId","payl' +
-    'oad","signature"],"additionalProperties":false}},{"operation":"policy","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"s' +
-    'tage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLeng' +
-    'th":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"}},"required":["action","stage","sessionId","sessionToken","m' +
-    'achineId","requestId","policyId","functionId","args"],"additionalProperties":false}},{"operation":"policy","action":"invoke","body":{"type":"object","properties":{"action":{"enum":' +
-    '["invoke"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"s' +
-    'tring","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challe' +
-    'nge"},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"a' +
-    'dditionalProperties":false}},{"operation":"policy","action":"result","body":{"type":"object","properties":{"action":{"enum":["result"]},"stage":{"$ref":"stage"},"sessionId":{"$ref"' +
-    ':"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9' +
-    ']{64}$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["act' +
-    'ion","stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"challenge","a' +
-    'ction":"redeem","body":{"type":"object","properties":{"action":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"pa' +
-    'yloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"redeem","body":{"' +
-    'type":"object","properties":{"action":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"chall' +
-    'enge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"' +
-    '$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operat' +
-    'ion":"challenge","action":"verify","body":{"type":"object","properties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$re' +
-    'f":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action"' +
-    ':"verify","body":{"type":"object","properties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challeng' +
-    'eId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":409' +
-    '6},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","paylo' +
-    'adJson"]}},{"operation":"challenge","action":"release","body":{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machin' +
-    'e"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operatio' +
-    'n":"execute","action":"release","body":{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref"' +
-    ':"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minL' +
-    'ength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne' +
-    '":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"de' +
-    'viceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalPropert' +
-    'ies":false}},{"operation":"execute","action":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machin' +
-    'e"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson"' +
-    ':{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProper' +
-    'ties":false,"exactlyOne":["payloadJSON","payloadJson"]}}],"scope":"Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shu' +
-    'tdown summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization.","documents":{"overlayRelease":{"$ref":"overlayReleas' +
-    'e"},"overlayPrepare":{"$ref":"overlayPrepare"},"overlayChunk":{"$ref":"overlayChunk"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"overlayClaim"},"overlayVerify' +
-    '":{"$ref":"overlayVerify"},"overlayCommit":{"$ref":"overlayCommit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"authorityChallenge":{"$ref":"auth' +
-    'orityChallenge"},"authorityPayload":{"$ref":"authorityPayload"},"authorityReply":{"$ref":"authorityReply"},"overlayShutdown":{"$ref":"overlayShutdown"}}}';
+    'nature":{"$ref":"signature"},"failure":{"type":"object","properties":{"version":{"enum":[1]},"stage":{"enum":["BINDING","FONT_READ","FONT_DATA","CREATE","GPU_IDENTITY","FLOATING_PO' +
+    'INT","UNKNOWN"]},"code":{"type":"integer","minimum":-2147483648,"maximum":2147483647}},"required":["version","stage","code"],"additionalProperties":false}},"required":["action","se' +
+    'ssionId","sessionToken","sequence","phase","elapsedMs","signature"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayCommit","body":{"type":"object","proper' +
+    'ties":{"action":{"enum":["overlayCommit"]},"handoffVersion":{"enum":[1]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"overlayId":{"$ref":"id24"},"signature":{"$ref"' +
+    ':"signature"}},"required":["action","handoffVersion","sessionId","sessionToken","overlayId","signature"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlaySh' +
+    'utdown","body":{"type":"object","properties":{"action":{"enum":["overlayShutdown"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"requestId":{"$ref":"request"}},"req' +
+    'uired":["action","sessionId","sessionToken","requestId"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayClose","body":{"type":"object","properties":{"acti' +
+    'on":{"enum":["overlayClose"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"shutdown":{"$ref":"object"}},"required":["action","sessionId","sessionToken"],"additional' +
+    'Properties":false}},{"operation":"bootstrap","action":"overlayAbort","body":{"type":"object","properties":{"action":{"enum":["overlayAbort"]},"handoffVersion":{"enum":[3]},"parentS' +
+    'essionId":{"$ref":"id24"},"parentSessionToken":{"$ref":"token"},"signature":{"$ref":"signature"},"overlayId":{"$ref":"id24"},"prepareRequestId":{"$ref":"request"}},"required":["act' +
+    'ion","handoffVersion","parentSessionId","parentSessionToken","signature"],"additionalProperties":false,"exactlyOne":["overlayId","prepareRequestId"]}},{"operation":"bootstrap","act' +
+    'ion":"lifecycleChallenge","body":{"type":"object","properties":{"action":{"enum":["lifecycleChallenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref"' +
+    ':"token"},"targetRole":{"$ref":"stage"},"requestId":{"$ref":"request"}},"required":["action","stage","sessionId","sessionToken","targetRole","requestId"],"additionalProperties":fal' +
+    'se}},{"operation":"bootstrap","action":"lifecycleReport","body":{"type":"object","properties":{"action":{"enum":["lifecycleReport"]},"permitId":{"$ref":"challenge"},"requestId":{"$' +
+    'ref":"request"},"eventsJson":{"type":"string","minLength":2,"maxBytes":32768},"signature":{"$ref":"signature"}},"required":["action","permitId","requestId","eventsJson","signature"' +
+    '],"additionalProperties":false}},{"operation":"device","action":"policy","body":{"type":"object","properties":{"action":{"enum":["policy"]},"stage":{"$ref":"stage"},"sessionId":{"$' +
+    'ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"}},"required":["action","stage","sessionId","sessionToken","machineId"],"additionalProperties":false}},{"o' +
+    'peration":"device","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"' +
+    '$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"publicKey":{"$ref":"publicKey"},"keyProvider":{"enum":["SOFTWARE","PLATFORM"]}},"required":["action","' +
+    'stage","sessionId","sessionToken","machineId","requestId","publicKey","keyProvider"],"additionalProperties":false}},{"operation":"device","action":"complete","body":{"type":"object' +
+    '","properties":{"action":{"enum":["complete"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"challengeId":{"$' +
+    'ref":"challenge"},"appSignature":{"$ref":"signature"},"signature":{"$ref":"signature"},"tpmEvidence":{"$ref":"object"}},"required":["action","stage","sessionId","sessionToken","mac' +
+    'hineId","challengeId","appSignature","signature"],"additionalProperties":false}},{"operation":"device","action":"tpmActivate","body":{"type":"object","properties":{"action":{"enum"' +
+    ':["tpmActivate"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"challengeId":{"$ref":"challenge"},"secret":{"' +
+    '$ref":"token"},"signature":{"$ref":"signature"},"appSignature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","challengeId","secret","sig' +
+    'nature","appSignature"],"additionalProperties":false}},{"operation":"security","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"' +
+    '$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"intent":{"enum":["finish","redeem","verify","observe"]},"binding":{"$ref"' +
+    ':"hash"},"mitigationProfileVersion":{"$ref":"version1"},"mitigationEnvironment":{"$ref":"object"},"deviceSignalsVersion":{"$ref":"version1"}},"required":["action","stage","sessionI' +
+    'd","sessionToken","machineId","intent","binding"],"additionalProperties":false}},{"operation":"security","action":"submit","body":{"type":"object","properties":{"action":{"enum":["' +
+    'submit"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"intent":{"enum":["finish","redeem","verify","observe"' +
+    ']},"binding":{"$ref":"hash"},"challengeId":{"$ref":"challenge"},"payload":{"$ref":"payload"},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToke' +
+    'n","machineId","intent","binding","challengeId","payload","signature"],"additionalProperties":false}},{"operation":"report","action":"challenge","body":{"type":"object","properties' +
+    '":{"action":{"enum":["challenge"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"stage":{"$ref":"stage"},"machineId":{"$ref":"machine"},"binarySha512":{"$ref":"hash"' +
+    '},"binaryCrc64":{"$ref":"crc"},"codeSha512":{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sessionToken"],"additionalProperties":false}},{"operation"' +
+    ':"report","action":"submit","body":{"type":"object","properties":{"action":{"enum":["submit"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"reportId":{"$ref":"chall' +
+    'enge"},"payload":{"$ref":"payload"},"signature":{"$ref":"signature"},"stage":{"$ref":"stage"},"machineId":{"$ref":"machine"},"binarySha512":{"$ref":"hash"},"binaryCrc64":{"$ref":"c' +
+    'rc"},"codeSha512":{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sessionToken","reportId","payload","signature"],"additionalProperties":false}},{"ope' +
+    'ration":"policy","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$r' +
+    'ef":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type' +
+    '":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"}},"required":["action","stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args"],' +
+    '"additionalProperties":false}},{"operation":"policy","action":"invoke","body":{"type":"object","properties":{"action":{"enum":["invoke"]},"stage":{"$ref":"stage"},"sessionId":{"$re' +
+    'f":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0' +
+    '-9]{64}$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["a' +
+    'ction","stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"policy","ac' +
+    'tion":"result","body":{"type":"object","properties":{"action":{"enum":["result"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{' +
+    '"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type":"integer","minimum":2,"m' +
+    'aximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","r' +
+    'equestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"challenge","action":"redeem","body":{"type":"object","properties":{' +
+    '"action":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requ' +
+    'estId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"redeem","body":{"type":"object","properties":{"action":{"enum":["redeem' +
+    '"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":' +
+    '{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","devic' +
+    'eId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"verify","body":{"type":"obj' +
+    'ect","properties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"requir' +
+    'ed":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"verify","body":{"type":"object","properties":{"actio' +
+    'n":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signatu' +
+    're"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action"' +
+    ',"requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"release"' +
+    ',"body":{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$' +
+    'ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"release","body":{"type":"object' +
+    '","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"sign' +
+    'ature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"' +
+    '}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challe' +
+    'nge","action":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"public' +
+    'Key"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"overlay"' +
+    ',"body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$' +
+    'ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payl' +
+    'oadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]' +
+    '}}],"scope":"Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain sub' +
+    'ject to existing domain validators; this schema grants no authorization.","documents":{"overlayRelease":{"$ref":"overlayRelease"},"overlayPrepare":{"$ref":"overlayPrepare"},"overla' +
+    'yChunk":{"$ref":"overlayChunk"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"overlayClaim"},"overlayVerify":{"$ref":"overlayVerify"},"overlayCommit":{"$ref":"ov' +
+    'erlayCommit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"authorityChallenge":{"$ref":"authorityChallenge"},"authorityPayload":{"$ref":"authority' +
+    'Payload"},"authorityReply":{"$ref":"authorityReply"},"overlayShutdown":{"$ref":"overlayShutdown"}}}';

@@ -3856,6 +3856,38 @@
           },
           "signature": {
             "$ref": "signature"
+          },
+          "failure": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "enum": [
+                  1
+                ]
+              },
+              "stage": {
+                "enum": [
+                  "BINDING",
+                  "FONT_READ",
+                  "FONT_DATA",
+                  "CREATE",
+                  "GPU_IDENTITY",
+                  "FLOATING_POINT",
+                  "UNKNOWN"
+                ]
+              },
+              "code": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647
+              }
+            },
+            "required": [
+              "version",
+              "stage",
+              "code"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

@@ -6,7 +6,7 @@
     ".dockerignore": "245b8235797306fd8422405c4c9733a66b3159b7683bd1b1e98bbd315812905ad07dbdb36097939ff463c94e28453d68aea41dbab7eeb82f668e8f533b18888b",
     ".gitignore": "e9ecbcefa51ffca72626f963f5e89292f4ba8ed42fd874a6bc1a6a36fdd802cbc935480d625b4aa13a1f3651da7f0013d5f458ff32c592327bc8d9a75b17464b",
     ".node-version": "81085aec546805e50b78384a30026a5a0d587f913a45a22e2b78517d2bb698a57ed4e0075ef6a3c458169a7f106f0413261051581953e4ae267528b9b9eb8dc0",
-    "Dockerfile": "180db5d92d99ad6ff9738550bab6c6c5e14906617c73a10d36d99b90eec3a1eae6db0cdc5ef09caed8e0666a044ce37abcd50993194af28c283c73e98427abea",
+    "Dockerfile": "6b3268a2aad53802e8c4158bcf8df435399823ee37887d9ecebb54e13e4653ca4710b2b701ec1d14426231500247c689952cdd8dcf7d44227ea2adc557ab9a15",
     "Dockerfile.dockerignore": "245b8235797306fd8422405c4c9733a66b3159b7683bd1b1e98bbd315812905ad07dbdb36097939ff463c94e28453d68aea41dbab7eeb82f668e8f533b18888b",
     "admin/peace.admin-request-handler.js": "28725e4e16e1da51d3010393d7c17a3d2cb5bb1c9d1e3efdca2731a2bf9974829f5438789fbdcb02af9c4364c1159c666567bc9bde738a1764d7cf74bac153e4",
     "admin/peace.auth.js": "2d0f7501546fcb2004791c06bef3472be2f47070a7ba093494061d315652e28e442fb88f17e2e57518edb65adcec986391da4388b7159c4aee454ad25abff504",
@@ -18,9 +18,9 @@
     "contracts/protocol/completion-4-6-v2.json": "88bcaffbb4f10694879532060aacc9ed5f29e0092eec458d4984a6f83e6ad84eb38277308b922894acc91a6225ef14789821ebe914d31f8ad707d93a83678fef",
     "contracts/protocol/completion-6-10.json": "750245ef26f5108501e099e57be0d7eeb34b97f7fa2fca698176386726d1bfec728eadcfe3a75f2432315264ee6acaabc094b024d9dca8c20135d899496ded40",
     "contracts/protocol/generated/Cozy.ProtocolDocumentCases.inc": "6dc36eff9e7c640e5daef4ced575dfa496c9937c39ae931565757412e861b2afbbb9286be88afec7265a9af8e5f1867291aab96e2788513856b832afb1001996",
-    "contracts/protocol/generated/Cozy.ProtocolSchema.inc": "2e66f9a3fb353c18b1689df1696e2c005542c0ec80d064d5fd3505a63822e65d8938d0b5f0bb02d0758890cd7e4b953559549fc3712af63d51dfcb8b84b86454",
+    "contracts/protocol/generated/Cozy.ProtocolSchema.inc": "b7a86b9e83ac78806bdc89a8dbfca82fb6702f9e022b15b1d065d5e17972cd0eccb9b3f5c2f01061f9ad8c833a86462aa7554922acb8b428e5d27d8bedf630ac",
     "contracts/protocol/generated/Cozy.ProtocolSchemaCases.inc": "cfbe25e8eac3d02cbd6c60c36a2a72e6624c766eb61a79f710f554a99cdf4ed5a3936b9b4a766427b405c78cbb02c0047ef1693cf22639d53136d12167a93592",
-    "contracts/protocol/peace.packet-schema-v1.json": "0d92330fb3b6b6a9468edf392184419addeecbd5183bbe726a7ebb4427cee4141ab49000bba2c7de255fe27fb1f4e19de9a21ee333bb0126fa58f14340ae3547",
+    "contracts/protocol/peace.packet-schema-v1.json": "b5034342345188dd9a58c6cb1bdb246c94bfc69f8811bffc1b95ec5124c3360c4a0951eb4fb48333a5fce841dcdbd1815c2abdfef151ef6bdad7ed7a09499c56",
     "contracts/runtime/capabilities-status-v1.json": "8c92633e496f9730426da9be190f2e4e09349882f893b7f2710c5e431b4d4f6a5564a11439b0978ee643c30369888ed88ced173ddafdbdc99e65d4bee36bb8a6",
     "contracts/runtime/compatibility-matrix-v1.json": "b2ddd1811c9649620009b3ef91623c186ab76e73df5196d8c94b88ff5dccb5d7a226b98ec484061bc371d3f4dec27ad3e71eb00f0a9c110bef853cae0f366a4e",
     "contracts/runtime/crypto-purpose-v1.json": "bb01e6292adc933d587b020fb9ee0db05e841831a6582cc88e67e1b7d7bc9058e8feb04f81c088d77a66aa2d5febdb77a005e2f50a1de6f709af5a722fbfa41b",
@@ -55,7 +55,7 @@
     "maintenance/security123/changed-files.json": "352cf719bb562e275deec71b92eabe50060bea566799c78db956faa8131660b26f13bf8419885c62dfe6081ae6f1e6216ccb1e88d5a001a73b5215f0027038e5",
     "maintenance/security123/test-results.json": "1d9843c6ae932827db2eb3ab37a45520f0c8f50eda83827c1d5b4a56284c7517055fbb494e2b9105d8a82e914610fe71d6d100b77361aab94503cf303a0ea14f",
     "maintenance/server-operations.ko.md": "c4f1bf9c751336cbbc00004c18d2d1ebf8f960649964002f8638724fbebcb03c6f920615763d58dc301e2cce825986673f07b19289bbbb0d36e6b824b5f60217",
-    "maintenance/source-manifest.json": "09732d2a4992fcbe88bc83e0f986770c1cc95bfc1700afbd84e33aaf4d5753fe41a93752c4b1d35fc64d6a201cceb721f702e843a56c29b99ac7922880e954d5",
+    "maintenance/source-manifest.json": "cfa84560c90a3eeee309b6c0d5fb28d6a4a64006dff3692e7c353cf012f7d65128e648cfd156f442c44e388d627f688ecc8022b75b2b95e4bd2510ef9eca2009",
     "maintenance/tpm-device-recovery.ko.md": "18e21ede3b13b4424b3e4b9f75495c4090416ac1d116874b7a336ed759f0b09c938b2cd281e0df44810fbfa2edb6aa89aedbdb91e6302cdae8e8a8171acca279",
     "maintenance/windows-signing.ko.md": "2a8692701693419b861d339643afc02a58e7f5b145de3b9d2dc9153790917d757ab653235bd4b3546b18e89681d6800b5a5ce5aa3c446be9a2c4d83cd4cd6c66",
     "package-lock.json": "fa65cf6208ee274d9f7bbc7fd53821d3e1407daf49851fc98490f3861af2d63e70d22838dbcfd95b75da1c53d7cfeb48c61fde41aa67467d80aa5edb4674a87f",
@@ -236,15 +236,15 @@
     "services/observability/peace.system-health.js": "254b372177f06d36e3c37b66ea25ade8af7ab8fc0c4e95a0bec5411d859e0b31b12cd09db3cd1b18afade0e64b6c87c1220bdbce588c470f498d91505d088b98",
     "services/operations/peace.admin-activity.js": "2df2f3d46d7848e88a6d07b41e70a543704057cc2a370e13d62468b91b5388786fa4da5ca565b6f74b16cd6b5129bb154b37855b72686d3b7c055c8c2bd0aa6f",
     "services/operations/peace.desktop-workspace-store.js": "58ed3374bd47e5e983fd89329aef7dfabd50bb836488f66d02157c3e365cf5f8a417438b94f76b62ee86607a9fe58cdb9c5fa7f1940b4e9a8c14741463bf0a0c",
-    "services/operations/peace.desktop-workspace.js": "021e9ba65508c1149590fe1dac20f8ba18a89675b3f99b00647ec60f5707c6238f713337a627910f82e06d32bddb13fc927c0cb974115bd19c7a88ae1007d598",
+    "services/operations/peace.desktop-workspace.js": "a4f9e7bc9ce945bd978cbc44d2e99895dbc2d6dd3c0ef67b0701e2ee8c70526d10dd242cf9b067566b8a754d2a3388bb45c2bda349a34e9b9efd0a2d3968a561",
     "services/operations/peace.registration-reset-authorization.js": "4d951230b9ffd34c46a0e8fd8cd3f5793d7319c6641f2fe5617ebb1daab688af7563e6ed834c58d0f27d0d10e2569a34e34b7f2ed7cf3a45b5c72c9b1542dc96",
     "services/operations/peace.registration-reset-stores.js": "e628020860347b88d0d71f0f7fd22cbce05bd29d285e7fb802557d2c79063df254ad4d7d08c7d60831e7a9cd4e81e76de1ed1ceffe4f50d1a9b69c1320864b10",
     "services/operations/peace.registration-reset.js": "649d7d04f1588e725b964bc6f1849e6d0e264b593184cefdb15bb151f9145a5bce09d8767d62d33dc42ab685363002978f340f674ad1bd1b0cff2df1c1586c11",
     "services/operations/peace.web-reset.js": "cdca430a239c18e1aa2d4c5430151797f1cef7022555c01d0180f108f332a67d3a069527ef090d7bc94bb070019e479c5dcf21240cea6bb04669aa7d0fe97bdc",
-    "services/overlay/peace.desktop-overlay-startup.js": "98fb1cf404c25bcc9191f67bc7ce0036ffe56f3178475cdfbb77a9171e6db5931c8a4dfec6a9cd5d8929a898e28f3a01173bfd3adb00358570bf159f9c84293b",
+    "services/overlay/peace.desktop-overlay-startup.js": "17f5bf31368857a0d24d7b030b8ccd76411a9a3074abce7d454c22732aa4a5143c5271c632c001d3528d9e7f961d51317dca4bd2d8105f3b7ed0301eb6a3caae",
     "services/overlay/peace.desktop-overlay.js": "48a0867e7c5624118e118ef7fc7abb20a869775bfc26420a4af7cd60d77d5d2a2a04a18dbee6b35198db5d00751d0e5362794094defd5459276b952b87d7cae7",
     "services/protocol/peace.desktop-request-protocol.js": "dad8ffc8eba0af68a1938e89a79b7f1c35351785811218eb8d53ce6b9360ddbf8103cbbd7a9b7648fdb05cdc25f9c6b66544066d29de87919dbb0c7b8e688789",
-    "services/protocol/peace.packet-schema.generated.js": "c207ec80d0f32f81e5a9732afd6761cd76803253ee00f3bb5ff19aedfbb812a2cbbb5d06eb3c8bba2f0bba704221f3e9ba3059084015ec6c9c8359002cca28cc",
+    "services/protocol/peace.packet-schema.generated.js": "5c92540682129b2f5379c455286ba4b9f4be8cc25b5c1bb33fd41835e229782297589d15d773032fa5586f68ab253a265eedba657a30521ff2f9ffb0eaf51403",
     "services/protocol/peace.packet-schema.js": "d8c9ae94cd0418c79b574fe8d73f5e82d264a495b2c17ea0446875799931396703cf901163db6e00ca7b0c8493833a1f909ac543100578e7feccb84a6481a8f8",
     "services/protocol/peace.strict-json.js": "86df0cccf25567f542532e02ea0c603b507fe94ec1437ab274494b4f9b5dcd80ae144addd0a9793971874219f9f25a3f5b9aa8d065894a54493f52f8e53c15a6",
     "services/recovery/peace.desktop-recovery-witness.js": "737c7d75a99c0ae61ae1db489af4d817321e5836c2eccae760b7d43e218f033f13884fbf3c9cdfa24c9277a12b2cdaf7d76037b621449fa85d0eeeb4b6619887",
@@ -450,9 +450,9 @@
     "tests/fixtures/network/peace.server-profile-v4.json": "bde6af588ecf8a8662d9c033eeeb006787ed9148becaf4442aef3afc26e7c14b50eb8f7c7ef5878a1511811ddb51b0bac14ddaf3c1baf46d4003c36190209753",
     "tests/fixtures/network/peace.tls-request-fixture.js": "1726445ffa10e98fa8ed666907a6af02ee183ba0b5d5e44a7b31446cc9c26d449b0d8cb8f007228d733ebfe929e93a39e8fa36c2017c7824a92c5c56c8751f0f",
     "tests/fixtures/protocol/peace.completion-6-10-fixture.js": "98b609c3f3cff2a92b1003a3b6c59a18810030a9060ac3425a6a37e13a5ec4831b50c1828a0b192963321bcbe52137d1fc2eadd0401b3c94b1fb563029573b20",
-    "tests/fixtures/protocol/peace.document-schema-cases.json": "dff6bed21ed7b8a90b5ccb721b33fd1b203713b5b6bd2283063580c6d744d033db12938b027acccfd5efcee2911af50d3b890a2ee485f0bf46598c8ddea3abea",
+    "tests/fixtures/protocol/peace.document-schema-cases.json": "c13ec83746a63686bea28ea022dd8fbbb8886d9dda68988b3f3fdbcf059eb78d709b62f4b87b41750dccbf2480250251e9fdcb255d147a50078fd5f979cec5dc",
     "tests/fixtures/protocol/peace.native-policy-contract-vectors.json": "253e6c4496a00e2e7da3fc8849c967b2f5fd15b8a8a2924de44900295b9f2c2d2bdf2a1ca02505c5cdf3514fc742630c7b97bf0cd13b96c545986b49a6c09ccd",
-    "tests/fixtures/protocol/peace.packet-schema-cases.json": "e0be5f11457569cef4402d820d57ed3d6a16ee116f6cc07e04e51f344749c4a40258022ff2755a4c0f7b2b7ece73a984e4f0eefcb21b1f3487713f1c722ebb17",
+    "tests/fixtures/protocol/peace.packet-schema-cases.json": "8ecf09b4f4c752a49aeb97309e272646382377b72a35a2733336ebad997057a09db0a7783b5a189249a45f24eb37bfd675ae5ed06199de17cb3d2c300e4ee2ed",
     "tests/fixtures/runtime/peace.crc-test-fixture.js": "71fe540701fa10f0976fb2e094bf128d4e180013cc1f9910b07d84019a11394ff2b29bc3168925086dcccf7915e678427b3b983fe41e6451393d2d46621d2759",
     "tests/fixtures/runtime/peace.lifecycle-test-fixture.js": "c17c524af883600e899795dc7cca746d5aa443273f1c8b49dba31d63f02ecf764bc0c4743cde047731e40a7d12ea47d9e85b0a438a6cfde1ca1952d062472433",
     "tests/fixtures/runtime/peace.modern-http-fixture.js": "3cd957cf1d8c8b19dbf036341e5c3b9d1903176f2e041e0e1c812adf3df4950a185b671ae780f201a610492402967ab21bea058e29b1ebfab7be3e4a6dd6972f",
@@ -517,6 +517,7 @@
     "tests/overlay/peace.test-overlay-renewal-cleanup.js": "5a063536ec92ededeffd48b587a8d1787c0f3d9236088bd78c0e90b735c7d1ac8c7a0e0dfa68624cb83b7d8eee2857e4de050d2e4e44b42d8ac1b49093bfb5da",
     "tests/overlay/peace.test-overlay-snapshot-renewal.js": "770194b6cc543d4d0bd51bb431d37c10095a664fbcec017bf48c5a6587fbadcc86877b3038c22a23469ddb30e5aa13a17e88140b114c2ad337ca37fc6cdbd9c7",
     "tests/overlay/peace.test-overlay-start-diagnostics.js": "70da012de192989a18a2661f80fea952019d286f82a7eb41aff2b4b670cf06fbf218acf71808b4365a2bc68a6440889b411ee81204775f1cfdc5e3ea5c504642",
+    "tests/overlay/peace.test-overlay-startup-failure.js": "e048d57215e4145381d065dcc1bfde1fdbc9bdd4caef1b05f0512f090b727c1a4d8b1eb66179a143cc7e44a193ce9c5ecf89fd4e09b2a2bf9570d44046d426b6",
     "tests/overlay/peace.test-overlay-startup-lease.js": "0390510afa019390bde4bff5e321f01c8c4c33165f057030ec89e0b1a17ae0baee7288bfa53555935995a99f5079ad34c51cd922f637272c1bf61fd75da36d77",
     "tests/overlay/peace.test-overlay-text-input.js": "e360ffc5b2760f71db153c5b6ba7d94e6219776fa741d9d40666a01a527728aeb793fca6c640e13a1444a05bd4fece0362fa3260b941aa6bfb23549b8ae298ac",
     "tests/overlay/peace.test-overlay-transfer.js": "c675eec5f31e6415e8e9b384d849d5e9a3faade03534c2c0bb508e1809e92dfb174e02115cd02c50004497b0ac4efcb4c5c8dfecc4821b313ed1965de7010675",
@@ -5886,37 +5887,42 @@
     },
     {
       "file": "services/operations/peace.desktop-workspace.js",
-      "line": 21,
+      "line": 11,
+      "request": "../overlay/peace.desktop-overlay-startup"
+    },
+    {
+      "file": "services/operations/peace.desktop-workspace.js",
+      "line": 22,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/operations/peace.desktop-workspace.js",
-      "line": 37,
+      "line": 38,
       "request": "../members/peace.desktop-members"
     },
     {
       "file": "services/operations/peace.desktop-workspace.js",
-      "line": 54,
+      "line": 57,
       "request": "../runtime/peace.desktop-operations-errors"
     },
     {
       "file": "services/operations/peace.desktop-workspace.js",
-      "line": 58,
+      "line": 61,
       "request": "../observability/peace.desktop-lifecycle-trace"
     },
     {
       "file": "services/operations/peace.desktop-workspace.js",
-      "line": 80,
+      "line": 83,
       "request": "../runtime/peace.desktop-operations-errors"
     },
     {
       "file": "services/operations/peace.desktop-workspace.js",
-      "line": 83,
+      "line": 86,
       "request": "../observability/peace.desktop-performance-metrics"
     },
     {
       "file": "services/operations/peace.desktop-workspace.js",
-      "line": 129,
+      "line": 132,
       "request": "../network/peace.ha-coordinator"
     },
     {
@@ -6216,7 +6222,7 @@
     },
     {
       "file": "services/overlay/peace.desktop-overlay-startup.js",
-      "line": 18,
+      "line": 35,
       "request": "../../storage/audit/peace.audit.js"
     },
     {
@@ -12858,6 +12864,36 @@
       "file": "tests/overlay/peace.test-overlay-start-diagnostics.js",
       "line": 9,
       "request": "../../services/security/peace.desktop-security-authority"
+    },
+    {
+      "file": "tests/overlay/peace.test-overlay-startup-failure.js",
+      "line": 5,
+      "request": "../fixtures/security/peace.security-state-test-fixture"
+    },
+    {
+      "file": "tests/overlay/peace.test-overlay-startup-failure.js",
+      "line": 6,
+      "request": "../../services/overlay/peace.desktop-overlay-startup"
+    },
+    {
+      "file": "tests/overlay/peace.test-overlay-startup-failure.js",
+      "line": 7,
+      "request": "../../storage/audit/peace.audit.js"
+    },
+    {
+      "file": "tests/overlay/peace.test-overlay-startup-failure.js",
+      "line": 25,
+      "request": "../../services/protocol/peace.packet-schema"
+    },
+    {
+      "file": "tests/overlay/peace.test-overlay-startup-failure.js",
+      "line": 60,
+      "request": "../fixtures/protocol/peace.completion-6-10-fixture"
+    },
+    {
+      "file": "tests/overlay/peace.test-overlay-startup-failure.js",
+      "line": 111,
+      "request": "../fixtures/protocol/peace.completion-6-10-fixture"
     },
     {
       "file": "tests/overlay/peace.test-overlay-startup-lease.js",

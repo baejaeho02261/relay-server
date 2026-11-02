@@ -8,6 +8,7 @@ const licenses=require("../licensing/peace.desktop-licenses");
 const bootstrap=require("../bootstrap/peace.desktop-bootstrap");
 const bootStore=require("../bootstrap/peace.desktop-bootstrap-store");
 const space=require("../storage/peace.desktop-storage-space");
+const overlayStartup=require('../overlay/peace.desktop-overlay-startup');
 const plans=new Map();
 let runner=false,timer,scheduledPump,summary={asOf:0,pending:true};
 function Fail(code,status=400){const e=Error(code);e.desktopError=true;e.status=status;throw e;}
@@ -51,7 +52,9 @@ function Detail(id){
   // Restrict this rendering exception to its real observation event; unknown
   // event kinds and actual failures retain the existing error guidance.
   const baselineMatched=e.type==='DESKTOP_SECURITY_AUTHORITY'&&d.kind==='OBSERVATION'&&d.reason==='BASELINE_MATCH'&&(!Object.hasOwn(d,'status')||d.status==='PASS');
-  timeline.push({at:e.time||e.at||0,type:String(e.type).slice(0,80),label:baselineMatched?'서버 보안 검사 정상':e.type==='DESKTOP_OVERLAY_PROGRESS'?'O 시작 단계 · '+String(d.phase||'UNKNOWN').slice(0,40)+' · 클라이언트 보고 '+(Number.isSafeInteger(d.elapsedMs)?d.elapsedMs+'ms':''):e.type==='DESKTOP_RUNTIME_REQUEST_FAILED'?'서버에서 요청 거절':String(e.type).slice(0,80),reason:typeof d.reason==='string'?d.reason.slice(0,80):'',problem:!baselineMatched&&typeof d.reason==='string'?require("../runtime/peace.desktop-operations-errors").Explain(d.reason):null});
+  const progress=e.type==='DESKTOP_OVERLAY_PROGRESS',failure=progress&&d.phase==='FAILED'?overlayStartup.FailureLabel(d.failure):'';
+  const label=baselineMatched?'서버 보안 검사 정상':progress?'O 시작 단계 · '+String(d.phase||'UNKNOWN').slice(0,40)+(failure?' · '+failure:'')+' · 클라이언트 보고 '+(Number.isSafeInteger(d.elapsedMs)?d.elapsedMs+'ms':''):e.type==='DESKTOP_RUNTIME_REQUEST_FAILED'?'서버에서 요청 거절':String(e.type).slice(0,80);
+  timeline.push({at:e.time||e.at||0,type:String(e.type).slice(0,80),label,...(progress?{source:'SIGNED_CLIENT_REPORT',attested:false}:{}),reason:typeof d.reason==='string'?d.reason.slice(0,80):'',problem:!baselineMatched&&typeof d.reason==='string'?require("../runtime/peace.desktop-operations-errors").Explain(d.reason):null});
  }
  const histories=flows.map(f=>({flowId:f.id,sessionId:f.sessionId,launcherId:f.launcherId,status:bootstrap.SessionView(f).status,createdAt:f.createdAt,version:boot.artifacts[f.releaseId]?.version||'',binarySha512:boot.artifacts[f.releaseId]?.sha512||'',machineId:f.machineId||'',lastVerifiedAt:f.lastVerifiedAt||0}));
  const traceFlows=[...flows].sort((a,b)=>b.createdAt-a.createdAt).slice(0,100);
