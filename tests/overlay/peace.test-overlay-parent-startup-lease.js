@@ -47,7 +47,7 @@ function Fixture(clock){
    if(!crypto.verify('sha256',Buffer.from(canonical),keys.publicKey,Buffer.from(signature,'base64')))fail('PROOF_INVALID');
   }
  };
- const overlay=Isolated('services/overlay/peace.desktop-overlay.js',['Live'],{
+ const overlay=Isolated('services/overlay/peace.desktop-overlay.js',['Live','Prepare'],{
   '../bootstrap/peace.desktop-bootstrap':boot,
   '../bootstrap/peace.desktop-bootstrap-store':{Load:()=>db,AfterCommit:fn=>fn()},
   '../bootstrap/peace.desktop-handoff-delegation':{
@@ -58,7 +58,7 @@ function Fixture(clock){
    // an accepted child identity to exercise the production Claim lease logic.
    Check:()=>({publicKey,deviceId:'CHILD_DEVICE',nonce:'F'.repeat(64)})
   },
-  '../recovery/peace.desktop-recovery':{Assert(){}},
+  '../recovery/peace.desktop-recovery':{Assert(){},Epoch:()=>1},
   '../devices/peace.desktop-device-registry':{AssertMachineAllowed(){},ObserveVerified(){}},
   '../devices/peace.desktop-machine-policy':{AssertAllowed(){}},
   '../devices/peace.desktop-device-identity':{AssertSession(){},RetireContext(){}},
@@ -102,7 +102,7 @@ function Fixture(clock){
   return overlay.Execute(body);
  }
  RenewParent();
- return {parent,row,license,Claim,RenewParent,Verify,Progress,overlay,tracker,writes:()=>writes};
+ return {db,parent,row,license,Claim,RenewParent,Verify,Progress,overlay,tracker,writes:()=>writes};
 }
 
 test('Claim close to the parent deadline inherits only its remaining startup time',()=>Clock(clock=>{
@@ -166,4 +166,11 @@ test('fresh parent verification still cannot extend O past the license expiry',(
  const f=Fixture(clock);clock.advance(1000);f.RenewParent();
  f.license.expiresAt=clock.now()+15000;
  assert.equal(f.Claim().expiresAt,f.license.expiresAt);
+}));
+
+test('new download budget remains capped by an existing legacy license deadline',()=>Clock(clock=>{
+ const f=Fixture(clock);f.db.overlays={};f.license.expiresAt=clock.now()+15000;
+ const prepared=f.overlay.__probe.Prepare(f.parent,f.license,'test-prepare-budget','e'.repeat(64));
+ assert.equal(prepared.expiresAt,f.license.expiresAt);
+ assert.equal(f.db.overlays[prepared.overlayId].expiresAt,f.license.expiresAt);
 }));

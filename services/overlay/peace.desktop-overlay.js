@@ -3,7 +3,10 @@
 // own-process O artifacts; it never accesses another process or injects code.
 const delegation=require("../bootstrap/peace.desktop-handoff-delegation"),crypto=require('node:crypto'),fs=require('node:fs'),store=require("../bootstrap/peace.desktop-bootstrap-store");
 const config=require("../../config/peace.runtime-configuration");
-const HANDOFF_MS=120000,SESSION_MS=120000,TRANSFER_RECOVERY_MS=30000,CHUNK_SIZE=262144;
+// One immutable B->O startup capability: the native parent allows at most
+// 300s to download/verify O and 110s for authenticated child startup. This is
+// not a lease: every use still requires the parent's CURRENT live authority.
+const HANDOFF_MS=410000,SESSION_MS=120000,TRANSFER_RECOVERY_MS=30000,CHUNK_SIZE=262144;
 const TERMINAL=['CLOSED','REVOKED','EXPIRED'];
 const sha512=value=>crypto.createHash('sha512').update(value).digest('hex');
 const sha=value=>crypto.createHash('sha256').update(value).digest('hex');
@@ -33,7 +36,11 @@ function Prepare(parent,license,requestId,fingerprint){
  if(parent.status!=='CLAIMED'||parent.licenseId!==license.id)Fail('BOOTSTRAP_LICENSE_MISMATCH');
  const prior=Object.values(Rows()).find(r=>r.parentFlowId===parent.id);
  if(prior){if(prior.requestId!==requestId||prior.fingerprint!==fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);Live(prior);if(prior.status!=='PREPARED')Fail('BOOTSTRAP_LAUNCHER_USED',409);return PrepareResult(prior);}
- const row={serverEpoch:require("../recovery/peace.desktop-recovery").Epoch(db),id:id(),sessionId:id(),parentFlowId:parent.id,parentSessionId:parent.sessionId,launcherId:parent.launcherId,releaseId:artifact.id,licenseId:license.id,deviceId:parent.deviceId,publicKey:parent.publicKey,handoffVersion:delegation.Version(parent),...(delegation.Version(parent)===3?{parentDeviceId:parent.deviceId,parentPublicKey:parent.publicKey}:{}),machineId:parent.machineId,machinePolicyGeneration:parent.machinePolicyGeneration,requestId,fingerprint,status:'PREPARED',createdAt:now(),expiresAt:Math.min(now()+HANDOFF_MS,parent.sessionExpiresAt,license.expiresAt||Number.MAX_SAFE_INTEGER),ticketNonce:nonce(),chunkOffsets:[],lastVerifiedAt:0};
+ // Freezing a renewable parent lease here made a slow, otherwise valid
+ // download expire even after B had renewed. Keep the signed startup budget
+ // fixed instead; RequireArtifact/AssertFlowLifetime gate the live parent.
+ const createdAt=now();
+ const row={serverEpoch:require("../recovery/peace.desktop-recovery").Epoch(db),id:id(),sessionId:id(),parentFlowId:parent.id,parentSessionId:parent.sessionId,launcherId:parent.launcherId,releaseId:artifact.id,licenseId:license.id,deviceId:parent.deviceId,publicKey:parent.publicKey,handoffVersion:delegation.Version(parent),...(delegation.Version(parent)===3?{parentDeviceId:parent.deviceId,parentPublicKey:parent.publicKey}:{}),machineId:parent.machineId,machinePolicyGeneration:parent.machinePolicyGeneration,requestId,fingerprint,status:'PREPARED',createdAt,expiresAt:Math.min(createdAt+HANDOFF_MS,license.expiresAt||Number.MAX_SAFE_INTEGER),ticketNonce:nonce(),chunkOffsets:[],lastVerifiedAt:0};
  row.ticketHash=sha(Ticket(row));row.ticketBinding=sha512(Ticket(row));AssertLifetime(row);License(row);RequireArtifact(row);Boot().ReadArtifactBytes(artifact);AssertLifetime(row);Boot().AssertFlowLifetime(parent);
  Atomic('OVERLAY_PREPARE','SERVER',next=>{next.overlays||={};if(Object.values(next.overlays).some(r=>r.parentFlowId===parent.id))Fail('BOOTSTRAP_REQUEST_REUSED',409);next.overlays[row.id]=row;});
  Audit('PREPARED',row);return PrepareResult(row);
