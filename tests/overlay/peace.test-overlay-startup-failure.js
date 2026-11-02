@@ -43,6 +43,41 @@ test('V2 signs closed stage and signed HRESULT without changing authority',()=>{
  for(const secret of [b.sessionToken,f.keys.privateKey.export({type:'pkcs8',format:'pem'})])assert.ok(!JSON.stringify(e).includes(secret));
  assert.equal(tracker.FailureLabel(failure),'CREATE · 0x8007000E');
 });
+test('closed CPU admission codes identify their gate without relabeling legacy or driver errors',()=>{
+ const cases=[
+  [-2147171839,'8004C201','CPU 컨텍스트 할당 실패'],
+  [-2147171838,'8004C202','CPU 고정 메모리 예약 실패'],
+  [-2147171837,'8004C203','폰트 복사 메모리 할당 실패'],
+  [-2147171836,'8004C204','프레임·업로드용 여유 메모리 확보 실패']
+ ];
+ for(const [code,hex,label]of cases){
+  const f=fixture(),failure={version:1,stage:'CREATE',code},before=JSON.stringify([f.row,f.parent,f.license]);
+  assert.deepEqual(f.api.__probe.Progress(signed(f,{failure})),{recorded:true});
+  assert.equal(JSON.stringify([f.row,f.parent,f.license]),before);assert.equal(f.calls.writes,0);
+  assert.equal(tracker.FailureLabel(tracker.View(f.row.sessionId).failure),'CREATE · 0x'+hex+' · '+label);
+  assert.equal(tracker.FailureLabel({...failure,stage:'FONT_DATA'}),'FONT_DATA · 0x'+hex);
+ }
+ assert.equal(tracker.FailureLabel({version:1,stage:'CREATE',code:-2147024882}),'CREATE · 0x8007000E');
+ assert.equal(tracker.FailureLabel({version:1,stage:'CREATE',code:-2147171835}),'CREATE · 0x8004C205');
+ assert.equal(tracker.FailureLabel({version:1,stage:'CREATE',code:0}),'CREATE · 원인 코드 없음');
+ // The input has no free-text field, and unknown signed32 values display only
+ // their numeric code. They cannot select a native gate description.
+ assert.equal(tracker.FailureLabel({version:1,stage:'CREATE',code:-2005270523}),'CREATE · 0x887A0005');
+ // Cross-language contract: when the private native source is present, its
+ // public C constants and Delphi classifier must agree with these wire codes.
+ // Relay-only deployments intentionally contain neither native source nor a
+ // Delphi compiler; the real signed-handler cases above still execute there.
+ const fs=require('node:fs'),path=require('node:path'),root=path.resolve(__dirname,'../../../Railway');
+ if(fs.existsSync(root)){
+  const {ReadContractFile}=require('../fixtures/source/peace.native-string-contract');
+  const header=ReadContractFile(path.join(root,'Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.h'),'utf8');
+  for(const [name,code]of [['HOST_CONTEXT',-2147171839],['HOST_ARENA',-2147171838],['FONT_COPY',-2147171837],['FRAME_RESERVE',-2147171836]])
+   assert.match(header,new RegExp('\\bGI_ERROR_'+name+'\\s*=\\s*'+code+'\\b'));
+  const state=ReadContractFile(path.join(root,'Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas'),'utf8');
+  assert.match(state,/\$8004C201,\s*\$8004C202,\s*\$8004C203,\s*\$8004C204:\s*Result := 'OVERLAY_GRAPHICS_RESOURCE_ADMISSION_FAILED'/);
+  assert.match(state,/\$8007000E:\s*Result := 'OVERLAY_GRAPHICS_OUT_OF_MEMORY'/);
+ }
+});
 test('failure is copied on admission and projection; exact retries never refresh retention',()=>{
  const f=fixture(),first=signed(f,{phase:'GPU_BEGIN',sequence:3,elapsedMs:50});f.api.__probe.Progress(first);
  const until=tracker.View(f.row.sessionId).until,b=signed(f,{failure:{version:1,stage:'CREATE',code:-2147024882}});

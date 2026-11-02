@@ -55,7 +55,7 @@
     "maintenance/security123/changed-files.json": "352cf719bb562e275deec71b92eabe50060bea566799c78db956faa8131660b26f13bf8419885c62dfe6081ae6f1e6216ccb1e88d5a001a73b5215f0027038e5",
     "maintenance/security123/test-results.json": "1d9843c6ae932827db2eb3ab37a45520f0c8f50eda83827c1d5b4a56284c7517055fbb494e2b9105d8a82e914610fe71d6d100b77361aab94503cf303a0ea14f",
     "maintenance/server-operations.ko.md": "c4f1bf9c751336cbbc00004c18d2d1ebf8f960649964002f8638724fbebcb03c6f920615763d58dc301e2cce825986673f07b19289bbbb0d36e6b824b5f60217",
-    "maintenance/source-manifest.json": "cfa84560c90a3eeee309b6c0d5fb28d6a4a64006dff3692e7c353cf012f7d65128e648cfd156f442c44e388d627f688ecc8022b75b2b95e4bd2510ef9eca2009",
+    "maintenance/source-manifest.json": "66c1efba102e34777486415df644799ee42c934156262032429b8abe546746d7a5d9369fbd0e839bde7ffc782fc64e6c84621d0dd237b9998420f0d6d95a564a",
     "maintenance/tpm-device-recovery.ko.md": "18e21ede3b13b4424b3e4b9f75495c4090416ac1d116874b7a336ed759f0b09c938b2cd281e0df44810fbfa2edb6aa89aedbdb91e6302cdae8e8a8171acca279",
     "maintenance/windows-signing.ko.md": "2a8692701693419b861d339643afc02a58e7f5b145de3b9d2dc9153790917d757ab653235bd4b3546b18e89681d6800b5a5ce5aa3c446be9a2c4d83cd4cd6c66",
     "package-lock.json": "fa65cf6208ee274d9f7bbc7fd53821d3e1407daf49851fc98490f3861af2d63e70d22838dbcfd95b75da1c53d7cfeb48c61fde41aa67467d80aa5edb4674a87f",
@@ -241,7 +241,7 @@
     "services/operations/peace.registration-reset-stores.js": "e628020860347b88d0d71f0f7fd22cbce05bd29d285e7fb802557d2c79063df254ad4d7d08c7d60831e7a9cd4e81e76de1ed1ceffe4f50d1a9b69c1320864b10",
     "services/operations/peace.registration-reset.js": "649d7d04f1588e725b964bc6f1849e6d0e264b593184cefdb15bb151f9145a5bce09d8767d62d33dc42ab685363002978f340f674ad1bd1b0cff2df1c1586c11",
     "services/operations/peace.web-reset.js": "cdca430a239c18e1aa2d4c5430151797f1cef7022555c01d0180f108f332a67d3a069527ef090d7bc94bb070019e479c5dcf21240cea6bb04669aa7d0fe97bdc",
-    "services/overlay/peace.desktop-overlay-startup.js": "17f5bf31368857a0d24d7b030b8ccd76411a9a3074abce7d454c22732aa4a5143c5271c632c001d3528d9e7f961d51317dca4bd2d8105f3b7ed0301eb6a3caae",
+    "services/overlay/peace.desktop-overlay-startup.js": "46e083e798d768f28e30d6ef4afa793febe2c1b014adfead636571177b4624c975cf28b2d5d3fdaf78ef3233571917feb7c78b30f1d9b2a753b9602fbbf9f63e",
     "services/overlay/peace.desktop-overlay.js": "48a0867e7c5624118e118ef7fc7abb20a869775bfc26420a4af7cd60d77d5d2a2a04a18dbee6b35198db5d00751d0e5362794094defd5459276b952b87d7cae7",
     "services/protocol/peace.desktop-request-protocol.js": "dad8ffc8eba0af68a1938e89a79b7f1c35351785811218eb8d53ce6b9360ddbf8103cbbd7a9b7648fdb05cdc25f9c6b66544066d29de87919dbb0c7b8e688789",
     "services/protocol/peace.packet-schema.generated.js": "5c92540682129b2f5379c455286ba4b9f4be8cc25b5c1bb33fd41835e229782297589d15d773032fa5586f68ab253a265eedba657a30521ff2f9ffb0eaf51403",
@@ -517,7 +517,7 @@
     "tests/overlay/peace.test-overlay-renewal-cleanup.js": "5a063536ec92ededeffd48b587a8d1787c0f3d9236088bd78c0e90b735c7d1ac8c7a0e0dfa68624cb83b7d8eee2857e4de050d2e4e44b42d8ac1b49093bfb5da",
     "tests/overlay/peace.test-overlay-snapshot-renewal.js": "770194b6cc543d4d0bd51bb431d37c10095a664fbcec017bf48c5a6587fbadcc86877b3038c22a23469ddb30e5aa13a17e88140b114c2ad337ca37fc6cdbd9c7",
     "tests/overlay/peace.test-overlay-start-diagnostics.js": "70da012de192989a18a2661f80fea952019d286f82a7eb41aff2b4b670cf06fbf218acf71808b4365a2bc68a6440889b411ee81204775f1cfdc5e3ea5c504642",
-    "tests/overlay/peace.test-overlay-startup-failure.js": "e048d57215e4145381d065dcc1bfde1fdbc9bdd4caef1b05f0512f090b727c1a4d8b1eb66179a143cc7e44a193ce9c5ecf89fd4e09b2a2bf9570d44046d426b6",
+    "tests/overlay/peace.test-overlay-startup-failure.js": "f7944629dfb953160d8e108c478bf53cb1684fffdf93fe7db7728b941935bf6ecbacd69cb8bb594d6a9fea63dc9cf4e6ea1acda82f4535dc0646a09af10bbfaf",
     "tests/overlay/peace.test-overlay-startup-lease.js": "0390510afa019390bde4bff5e321f01c8c4c33165f057030ec89e0b1a17ae0baee7288bfa53555935995a99f5079ad34c51cd922f637272c1bf61fd75da36d77",
     "tests/overlay/peace.test-overlay-text-input.js": "e360ffc5b2760f71db153c5b6ba7d94e6219776fa741d9d40666a01a527728aeb793fca6c640e13a1444a05bd4fece0362fa3260b941aa6bfb23549b8ae298ac",
     "tests/overlay/peace.test-overlay-transfer.js": "c675eec5f31e6415e8e9b384d849d5e9a3faade03534c2c0bb508e1809e92dfb174e02115cd02c50004497b0ac4efcb4c5c8dfecc4821b313ed1965de7010675",
@@ -6222,7 +6222,7 @@
     },
     {
       "file": "services/overlay/peace.desktop-overlay-startup.js",
-      "line": 35,
+      "line": 44,
       "request": "../../storage/audit/peace.audit.js"
     },
     {
@@ -12887,12 +12887,17 @@
     },
     {
       "file": "tests/overlay/peace.test-overlay-startup-failure.js",
-      "line": 60,
+      "line": 72,
+      "request": "../fixtures/source/peace.native-string-contract"
+    },
+    {
+      "file": "tests/overlay/peace.test-overlay-startup-failure.js",
+      "line": 95,
       "request": "../fixtures/protocol/peace.completion-6-10-fixture"
     },
     {
       "file": "tests/overlay/peace.test-overlay-startup-failure.js",
-      "line": 111,
+      "line": 146,
       "request": "../fixtures/protocol/peace.completion-6-10-fixture"
     },
     {

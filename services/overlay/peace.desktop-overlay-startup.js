@@ -2,6 +2,15 @@
 // Process-local bounded diagnostics only. Nothing here writes or renews a lease.
 const phases=Object.freeze(['CLAIMED','IMAGE_BOUND','GPU_BEGIN','GPU_READY','OWN_BEGIN','OWN_READY','MODULES_BEGIN','MODULES_READY','AUTHORITY_BEGIN','AUTHORIZED','VISIBLE','FAILED']);
 const failureStages=Object.freeze(['BINDING','FONT_READ','FONT_DATA','CREATE','GPU_IDENTITY','FLOATING_POINT','UNKNOWN']);
+// Closed native FACILITY_ITF codes describe only the bridge's own CPU gate.
+// Legacy E_OUTOFMEMORY and arbitrary driver codes remain unclassified: neither
+// is evidence of a particular GPU allocation or system-wide memory shortage.
+const admissionFailures=Object.freeze({
+ '-2147171839':'CPU 컨텍스트 할당 실패',
+ '-2147171838':'CPU 고정 메모리 예약 실패',
+ '-2147171837':'폰트 복사 메모리 할당 실패',
+ '-2147171836':'프레임·업로드용 여유 메모리 확보 실패'
+});
 const entries=new Map(),TTL=180000,MAX=2048;
 function Fail(code){const e=Error(code);e.desktopError=true;e.status=400;throw e;}
 function ValidFailure(value){
@@ -36,5 +45,10 @@ function Record(row,b){
  return {recorded:true};
 }
 function View(id){const e=entries.get(id);return e&&Date.now()<e.until?{...e,...(e.failure?{failure:CopyFailure(e.failure)}:{})}:{phase:'NOT_REPORTED',source:'NO_OBSERVATION',attested:false};}
-function FailureLabel(value){return ValidFailure(value)?value.stage+' · '+(value.code===0?'원인 코드 없음':'0x'+(value.code>>>0).toString(16).toUpperCase().padStart(8,'0')):'';}
+function FailureLabel(value){
+ if(!ValidFailure(value))return '';
+ const label=value.stage+' · '+(value.code===0?'원인 코드 없음':'0x'+(value.code>>>0).toString(16).toUpperCase().padStart(8,'0'));
+ const detail=value.stage==='CREATE'&&Object.hasOwn(admissionFailures,String(value.code))?admissionFailures[String(value.code)]:'';
+ return label+(detail?' · '+detail:'');
+}
 module.exports={Parse,Canonical,Record,View,phases,FailureLabel};
