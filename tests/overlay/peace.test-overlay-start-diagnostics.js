@@ -7,7 +7,7 @@ require("../../core/peace.utilities.js").EnsureDirs();
 const fixture=require("../fixtures/bootstrap/peace.desktop-bootstrap-fixture"),bootstrap=require("../../services/bootstrap/peace.desktop-bootstrap");
 const licenses=require("../../services/licensing/peace.desktop-licenses"),reports=require("../../services/integrity/peace.desktop-integrity-reports");
 const authority=require("../../services/security/peace.desktop-security-authority"),workspace=require("../../services/operations/peace.desktop-workspace"),state=require("../../core/peace.runtime-state");
-const reasons=['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_CIPHER_FAILED','HANDOFF_DELEGATION_INVALID','HANDOFF_BOOTSTRAP_INVALID','HANDOFF_CHILD_BINDING_INVALID','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED'];
+const reasons=['OVERLAY_PREPARE_FAILED','OVERLAY_LAUNCH_FAILED','OVERLAY_DOWNLOAD_TIMEOUT','OVERLAY_DOWNLOAD_TICKET_EXPIRED','OVERLAY_TRANSFER_FAILED','HANDOFF_KEY_EXPORT_FAILED','HANDOFF_CIPHER_FAILED','HANDOFF_DELEGATION_INVALID','HANDOFF_BOOTSTRAP_INVALID','HANDOFF_CHILD_BINDING_INVALID','HANDOFF_PROCESS_CREATE_FAILED','HANDOFF_PIPE_TIMEOUT','HANDOFF_PIPE_FAILED','HANDOFF_CHILD_EXITED','HANDOFF_READY_TIMEOUT','HANDOFF_WAIT_FAILED'];
 let checks=0;
 function check(label,fn){fn();checks++;console.log('PASS '+label);}
 function reject(code,fn){assert.throws(fn,error=>error.message===code);}
@@ -63,8 +63,8 @@ try{
  });
  check('Diagnostics reject measurements, snapshot fields, free text and unknown codes',()=>{
   const before=reports.List().revision;
-  for(const field of ['own','modules','crcLayers','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust','message','status','trusted'])reject('INTEGRITY_REPORT_INVALID',()=>reports.Execute(signed(ctx,{...payload(),[field]:null})));
-  for(const reason of ['BASELINE_MATCH','PASS','HANDOFF_UNKNOWN','C:\\private\\token'])reject('INTEGRITY_REPORT_INVALID',()=>reports.Execute(signed(ctx,payload(reason))));
+  for(const field of ['own','modules','crcLayers','snapshotId','batchIndex','batchCount','complete','truncated','totalModules','measuredModules','scope','trust','message','status','trusted','downloadedBytes','totalBytes','elapsedMs'])reject('INTEGRITY_REPORT_INVALID',()=>reports.Execute(signed(ctx,{...payload(),[field]:null})));
+  for(const reason of ['BASELINE_MATCH','PASS','HANDOFF_UNKNOWN','OVERLAY_DOWNLOAD_TIMEOUT:12345','OVERLAY_DOWNLOAD_UNKNOWN','C:\\private\\token'])reject('INTEGRITY_REPORT_INVALID',()=>reports.Execute(signed(ctx,payload(reason))));
   assert.equal(reports.List().revision,before);assert.equal(bootstrap.AuthenticateIntegrityReport(ctx.auth).status,'CLAIMED');
  });
  check('An authenticated A flow cannot submit B overlay diagnostics',()=>{
