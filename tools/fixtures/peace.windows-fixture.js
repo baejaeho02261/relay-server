@@ -17,7 +17,7 @@ function Write(name,value){const target=path.join(run,name),tmp=target+'.next';f
  let approveFixtureEnrollment=null,claimBarrier=null;
  function CurrentStatus(){const status=Status();status.fixtureEnrollmentApprovalUsed=approveFixtureEnrollment?approveFixtureEnrollment():false;status.fixtureClaimObservationBarrierUsed=claimBarrier?claimBarrier.Used():false;if(profileState)status.mitigationProfile=require('./peace.profile-fixture').Status(profileState);return status;}
  listener=require("../../services/network/peace.desktop-connect").CreateServer();await new Promise((resolve,reject)=>{listener.once('error',reject);listener.listen(0,'127.0.0.1',resolve);});process.env.DESKTOP_PUBLIC_PORT=String(listener.address().port);
- const license=require("../../services/licensing/peace.desktop-licenses").Create({requestId:crypto.randomUUID(),label:'Ephemeral Windows test'},'ISOLATED_WINDOWS_TEST');
+ const license=require("../../services/licensing/peace.desktop-licenses").Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Ephemeral Windows test'},'ISOLATED_WINDOWS_TEST');
  const issue=bootstrap.IssueLauncher({requestId:crypto.randomUUID(),label:'Ephemeral Windows test',licenseId:license.license.id},'ISOLATED_WINDOWS_TEST');
  approveFixtureEnrollment=KeylessApproval(run,out,issue);
  claimBarrier=ClaimObservationBarrier(run,()=>Write('status.json',CurrentStatus()));

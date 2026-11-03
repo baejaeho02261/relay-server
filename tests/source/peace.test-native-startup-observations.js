@@ -15,7 +15,7 @@ const gate = startup.split('procedure RequireNativeStartup(Role: TGameComponentR
 const capture = startup.split('function CaptureNativeStartupObservation(Role: TGameComponentRole): TNativeStartupObservation;').at(-1).split('function NativeStartupObservationComplete')[0];
 const publish = (startup.split('procedure PublishStartupObservation')[1] || '').split('procedure SetApiContract')[0];
 const checks = {skip: !available};
-const roles = [['Cozy.Launcher', 'gcrLauncher', 'RunLauncher'], ['Cozy.Client', 'gcrConnect', 'RunGameConsole'], ['Cozy.Overlay', 'gcrOverlay', 'RunOverlay']];
+const roles = [['Cozy.Launcher', 'gcrLauncher', 'RunLauncher'], ['Cozy.Client', 'gcrConnect', 'RunLicenseClient'], ['Cozy.Overlay', 'gcrOverlay', 'RunOverlay']];
 
 test('actual product local gates retain their matching role before application work', checks, () => {
   for (const [name, role, run] of roles) {
@@ -103,9 +103,26 @@ for (const [name, role] of roles) test(`${role} isolated fixture has exact produ
   const expectedResource = path.resolve(root, `Cozy.Projects/${name}/${name}Resources.res`);
   const resource = fixture.match(/\{\$R '([^']+)'\}/)[1].replace(/\\/g, '/');
   assert.equal(path.resolve(root, path.dirname(fixturePath), resource), expectedResource);
-  assert(fs.existsSync(expectedResource));
+  // The fixture deliberately binds the same role output, generated from the
+  // reviewed RC before a Windows build. A fresh package has no operational A
+  // issuer resource until its public anchor is configured; never invent one.
+  const rc=read(`Cozy.Projects/${name}/${name}.rc`),project=read(`Cozy.Projects/${name}/${name}.dproj`);
+  assert.match(rc,new RegExp('^1 24 "'+name.replaceAll('.','\\.')+'\\.manifest"','m'));
+  assert.match(rc,/^1 VERSIONINFO\s*\n\s*FILEVERSION /m);
+  assert.doesNotMatch(rc,/\bMAINICON\s+ICON/);
+  assert.match(project,/<Import Project="\.\.\\\.\.\\Cozy\.Build\\Cozy\.ReleaseMetadata\.targets"/);
+  const preparation=read('Cozy.Build/Cozy.ReleaseMetadata.targets');
+  assert.match(preparation,/BeforeTargets="[^"\n]*_PasCoreCompile[^"\n]*PrepareOverlayNative"/);
+  assert.match(preparation,/Cozy\.Prepare-IssuedATrust\.ps1/);
+  assert.match(preparation,/brcc32\.exe&quot; -fo&quot;\$\(_GameProjectName\)Resources\.res/);
+  if(name==='Cozy.Overlay')assert.match(project,/brcc32\.exe&quot; -fo&quot;Cozy\.OverlayResources\.pending\.res/);
+  if(fs.existsSync(expectedResource)){
+    const bytes=fs.readFileSync(expectedResource);
+    assert(bytes.length>32,'supplied generated role resource cannot be empty');
+    assert.equal(bytes.readUInt32LE(4),32,'supplied role resource must be a Windows RES');
+  }
   assert.match(fixture, /\{\$IFNDEF GAME_STARTUP_ROLE_PROBE\}/);
-  assert.doesNotMatch(fixture, /DEFINE GAME_APPLICATION_BUILD|ExitCode := RunLauncher|ExitCode := RunGameConsole|ExitCode := RunOverlay|RequireCozyProtection\(/);
+  assert.doesNotMatch(fixture, /DEFINE GAME_APPLICATION_BUILD|ExitCode := RunLauncher|ExitCode := RunLicenseClient|ExitCode := RunOverlay|RequireCozyProtection\(/);
   assert(fixture.includes(`RunStartupRoleProbe(${role});`));
   assert.match(read(`Cozy.Tests/Cozy.Startup/${name}StartupProbe.dproj`), /<TestOnlyDefine>GAME_STARTUP_ROLE_PROBE<\/TestOnlyDefine>/);
   const contract = read('Cozy.Tests/Cozy.Startup/Cozy.StartupRoleProbeContracts.inc');

@@ -38,7 +38,7 @@ function Proof(device,action,payload){
 }
 function Seed(){
  Load();const f=require("../../tests/fixtures/bootstrap/peace.desktop-bootstrap-fixture"),licenses=require("../../services/licensing/peace.desktop-licenses");
- const device=f.Device(),issued=licenses.Create({requestId:crypto.randomUUID(),label:'ISOLATED RECOVERY DRILL FIXTURE'},'DRILL'),session=f.Session(device),payload={...f.Evidence(device,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,licenseKey:issued.licenseKey};
+ const device=f.Device(),issued=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'ISOLATED RECOVERY DRILL FIXTURE'},'DRILL'),session=f.Session(device),payload={...f.Evidence(device,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,licenseKey:issued.licenseKey};
  const activated=licenses.Execute(Proof(device,'redeem',payload));assert.equal(activated.status,'USED');
  // Generated synthetic fixture issuer stays in the owner-marked temporary root,
  // outside copied backup data and source. Never import an operator issuer here.

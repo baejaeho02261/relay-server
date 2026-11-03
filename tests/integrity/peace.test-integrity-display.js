@@ -32,11 +32,15 @@ const row = {
   ] }
 };
 function render(value) {
-  content.innerHTML = w.desktopIntegrityMarkup({ items: [value] }, { items: [] }, null);
+  content.innerHTML = w.desktopIntegrityRecordsMarkup([value], null, 'member-report-');
   return [...content.querySelectorAll('.desktop-extended-hashes strong')].map(el => el.textContent);
 }
 try {
+  content.innerHTML = w.desktopIntegrityMarkup({ items: [row] }, { items: [] }, null);
+  assert.equal(content.querySelector('.desktop-integrity-record'), null, 'Global settings must not restore the retired cross-member record list');
+  assert.match(content.textContent, /해당 회원의 상세 관리/);
   let digests = render(row);
+  assert.equal(content.querySelector('.desktop-integrity-record').dataset.desktopKey, 'member-report-CRC_REPORT');
   assert.match(content.querySelector('summary').textContent, /A · 검사 범위 부족 · 거부/);
   assert.ok(content.querySelector('.desktop-integrity-rejected'));
   assert.match(content.textContent, /CRC_COVERAGE_INCOMPLETE/);

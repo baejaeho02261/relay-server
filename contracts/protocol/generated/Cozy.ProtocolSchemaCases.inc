@@ -1,6 +1,6 @@
 { Generated packet shapes only; these dummy keys never authorize execution. }
 const
-  ProtocolSchemaCases: array[0..42] of string = (
+  ProtocolSchemaCases: array[0..43] of string = (
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"begin","requestId":"rrrrrrrr","launcherId":"AAAAAAAAAAAAAAAAAAAAAAAA","launcherSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","launcherCrc64":"AAAAAAAAAAAAAAAA","aCodeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","aCodeCrc64":"AAAAAAAAAAAAAAAA","publicKey":"{}","deviceId":"AAAAAAAAAAAAAAAAAAAA' +
@@ -86,5 +86,7 @@ const
     '{"operation":"challenge","tlsPinVersion":1,"body":{"action":"overlay","requestId":"rrrrrrrr","deviceId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","publicKe' +
     'y":"{}","payloadHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}',
     '{"operation":"execute","tlsPinVersion":1,"body":{"action":"overlay","requestId":"rrrrrrrr","deviceId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","publicKey"' +
-    ':"{}","challengeId":"{}","signature":"{}","payloadJSON":"{}"}}'
+    ':"{}","challengeId":"{}","signature":"{}","payloadJSON":"{}"}}',
+    '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"overlayStart","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","productId":"cleaner.pubg","requestId":"rrrrrr' +
+    'rr","sequence":1,"signature":"{}"}}'
   );

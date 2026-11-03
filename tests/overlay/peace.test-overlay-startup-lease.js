@@ -27,7 +27,51 @@ test('110s startup ready bound is absolute; ordinary pipe/AB stays 45s (source)'
 test('native expired old lease cannot be revived by repeated server receipt (source)',()=>{const s=native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas");assert.match(s,/PreviousDeadline := FLeaseDeadlineTick;\s+FLeaseDeadlineTick := 0;/);assert.match(s,/FLeaseDeadlineTick := VerifyRequestTick \+ UInt64\(Result\)/);assert.match(s,/ServerTime = FLastLeaseServerTime/);assert.match(s,/if PreviousDeadline < FLeaseDeadlineTick then FLeaseDeadlineTick := PreviousDeadline/);assert.match(s,/if ServerTime < FLastLeaseServerTime then InvalidResponse/);});
 test('no API-removal shortcut for virtual memory or synchronization (source)',()=>{const ci=native("Cozy.Source/Cozy.Integrity/Cozy.CodeIntegrity.pas");assert.match(ci,/VirtualQuery/);assert.ok(!ci.includes('ReadProcessMemory'));for(const n of ["Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas","Cozy.Source/Cozy.Integrity/Cozy.Integrity.pas","Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas"]){assert.match(native(n),/THandle\(NativeInt\(-1\)\)/);assert.ok(!/Slot_GetCurrentProcess\s*:=/.test(native(n)));}});
 test('290s download timeout remains a separately named A deadline (source)',()=>{const s=native("Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas");assert.match(s,/290000/);assert.match(s,/BOOTSTRAP_DOWNLOAD_DEADLINE/);assert.match(native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas"),/if Delay > 10000 then Delay := 10000/);});
-test('all three .res files have no custom ICON but retain version and manifest (binary resource)',()=>{for(const name of ["Cozy.Client","Cozy.Launcher","Cozy.Overlay"]){const b=fs.readFileSync(path.resolve(MODULE_RESOURCE_ROOT,'../../Railway','Cozy.Projects',name,name+'Resources.res')),types=[];let at=0;while(at<b.length){const size=b.readUInt32LE(at),head=b.readUInt32LE(at+4);assert.ok(head>=8&&at+head+size<=b.length);if(b.readUInt16LE(at+8)===0xffff)types.push(b.readUInt16LE(at+10));at=(at+head+size+3)&~3;}assert.ok(!types.includes(3)&&!types.includes(14));assert.ok(types.includes(16)&&types.includes(24));assert.ok(!/MAINICON\s+ICON/.test(native('Cozy.Projects/'+name+'/'+name+'.rc')));}});
+test('role resource inputs and mandatory prebuild preserve version/manifest without a custom icon (source)',()=>{
+  // A's resource deliberately is not distributable before its new public trust
+  // anchor is installed. A fresh source tree must compile the reviewed RC input
+  // before Delphi; a checked-in generated resource is not a prerequisite.
+  const shared=native('Cozy.Build/Cozy.ReleaseMetadata.targets');
+  assert.match(shared,/<Target Name="PrepareCozyReleaseMetadata"[\s\S]*?BeforeTargets="[^"\n]*_PasCoreCompile[^"\n]*PrepareOverlayNative"/);
+  assert.match(shared,/<Error Condition="!Exists\('\$\(BDS\)\\bin\\brcc32\.exe'\)"/);
+  assert.match(shared,/<Exec Condition="'\$\(_GameRole\)'=='A' or '\$\(_GameRole\)'=='B'"[\s\S]*?brcc32\.exe&quot; -fo&quot;\$\(_GameProjectName\)Resources\.res&quot; &quot;\$\(_GameProjectName\)\.rc&quot;/);
+  assert.ok(shared.indexOf('Cozy.Prepare-IssuedATrust.ps1')<shared.indexOf('brcc32.exe&quot; -fo'));
+  assert.doesNotMatch(shared,/ContinueOnError="(?:true|WarnAndContinue)"|IgnoreExitCode="true"/i);
+  for(const name of ['Cozy.Client','Cozy.Launcher','Cozy.Overlay']){
+    const base='Cozy.Projects/'+name+'/'+name,rc=native(base+'.rc'),project=native(base+'.dproj');
+    assert.match(rc,new RegExp('^1 24 "'+name.replaceAll('.','\\.')+'\\.manifest"','m'));
+    assert.match(rc,/^1 VERSIONINFO\s*\r?\n\s*FILEVERSION /m);
+    assert.doesNotMatch(rc,/\b(?:ICON|GROUP_ICON)\s+(?:"|\d)|\bMAINICON\s+ICON/i);
+    assert.match(native(base+'.dpr'),new RegExp("\\{\\$R '"+name.replaceAll('.','\\.')+"Resources\\.res'\\}"));
+    assert.match(project,/<Import Project="\.\.\\\.\.\\Cozy\.Build\\Cozy\.ReleaseMetadata\.targets"/);
+    assert.match(project,/<Icon_MainIcon\s*\/>/);
+  }
+  const overlay=native('Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dproj');
+  assert.match(overlay,/<Target Name="PrepareOverlayNative" BeforeTargets="PreBuildEvent;_PasCoreCompile"/);
+  const compile=overlay.indexOf('brcc32.exe&quot; -fo&quot;Cozy.OverlayResources.pending.res'),
+    audit=overlay.indexOf('Cozy.Assert-OverlayManifest.ps1',compile),publish=overlay.indexOf('<Move SourceFiles="$(MSBuildProjectDirectory)\\Cozy.OverlayResources.pending.res"');
+  assert.ok(compile>=0&&compile<audit&&audit<publish,'O publishes only the compiled and manifest-audited resource');
+  assert.doesNotMatch(overlay,/ContinueOnError="(?:true|WarnAndContinue)"|IgnoreExitCode="true"/i);
+});
+test('any supplied generated resource is structurally valid and retains version/manifest without icons',()=>{
+  for(const name of ['Cozy.Client','Cozy.Launcher','Cozy.Overlay']){
+    const file=path.resolve(MODULE_RESOURCE_ROOT,'../../Railway','Cozy.Projects',name,name+'Resources.res');
+    if(!fs.existsSync(file))continue; // Validated source/prebuild contract above covers a clean tree.
+    const b=fs.readFileSync(file),types=[];let at=0;
+    assert.ok(b.length>=32);
+    while(at<b.length){
+      assert.ok(at+12<=b.length);
+      const size=b.readUInt32LE(at),head=b.readUInt32LE(at+4);
+      assert.ok(head>=12&&at+head+size<=b.length);
+      if(b.readUInt16LE(at+8)===0xffff)types.push(b.readUInt16LE(at+10));
+      at=(at+head+size+3)&~3;
+      assert.ok(at<=b.length);
+    }
+    assert.equal(at,b.length);
+    assert.ok(!types.includes(3)&&!types.includes(14));
+    assert.ok(types.includes(16)&&types.includes(24));
+  }
+});
 test('Delphi declaration order and TProc<string> callback signature stay compatible (source)',()=>{const c=native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),o=native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas");assert.ok(c.indexOf('FTransferConfirmed, FCapturePrivacy: Boolean;')<c.indexOf('procedure StartupPhaseCore'));assert.match(o,/procedure\(Phase: string\)/);assert.doesNotMatch(o,/procedure\(const Phase: string\)/);});
 test('test-only lease observation binds actual verify request and bounded duration (source)',()=>{const c=native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),o=native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),f=native("Cozy.Source/Cozy.Application/Cozy.ProductFaults.pas");assert.match(c,/FLeaseRequestTick := VerifyRequestTick/);assert.match(c,/FLeaseRequestTick := PreviousRequestTick/);assert.match(c,/Result <> FLastLeaseDuration/);assert.match(o,/ProductFaultLeaseGranted\(FClient.LeaseRequestTick, UInt64\(Lease\), Deadline\)/);assert.match(f,/\(LeaseMs > 0\) and \(LeaseMs <= 120000\)/);assert.doesNotMatch(f,/LeaseMs = 120000/);});
 function ShortLease(){const r=require('./peace.test-overlay-lease-expiry').Result(),n=r.nativeEvents[0],s=r.fixture.lease;n.leaseMs=45000;n.deadlineTick=n.requestStartedTick+n.leaseMs;r.leaseWindow.hiddenTick=n.deadlineTick+30;r.overlayExitTick=n.deadlineTick+100;s.expiresAt=s.authorizedAt+n.leaseMs;s.serverObservedAt=s.expiresAt+100;s.prunedAt=s.expiresAt+51;s.prunedElapsedMs=45050;s.monotonicElapsedMs=45099;return r;}

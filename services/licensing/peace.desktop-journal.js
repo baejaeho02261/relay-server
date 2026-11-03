@@ -51,7 +51,7 @@ function Apply(result,event,{checkpoint=false}={}){
  const ids=new Set();
  for(const license of event.licenses){
   if(!license||typeof license.id!=='string'||['__proto__','prototype','constructor'].includes(license.id)||ids.has(license.id))Corrupt();ids.add(license.id);
-  const old=result.licenses[license.id];if(old?.consumed&&!license.consumed||old&&['REVOKED','RELEASED'].includes(old.status)&&license.status==='AVAILABLE')Corrupt();result.licenses[license.id]=license;
+  const old=result.licenses[license.id];if(old?.consumed&&!license.consumed||old&&['REVOKED','RELEASED'].includes(old.status)&&license.status==='AVAILABLE'||old&&old.productId!==license.productId)Corrupt();result.licenses[license.id]=license;
  }
  for(const [id,receipt]of Object.entries(event.receipts)){if(id.startsWith('RESET:')&&!ResetReceiptValid(id,receipt))Corrupt();if(result.receipts[id]&&JSON.stringify(result.receipts[id])!==JSON.stringify(receipt))Corrupt();result.receipts[id]=receipt;}
  result.revision=event.revision;
@@ -109,7 +109,7 @@ function Commit(previous,next,{fullSnapshot=false}={}){
  AssertHealthy();if(!head)Load();if(!auth){Auth();Checkpoint().Open(head,true);}
  // Compaction cannot remove security history or replace established secrets.
  if(next.revision!==previous.revision+1||previous.signingSecret&&next.signingSecret!==previous.signingSecret)Corrupt();
- for(const [id,old]of Object.entries(previous.licenses))if(!next.licenses[id]||old.consumed&&!next.licenses[id].consumed||['REVOKED','RELEASED'].includes(old.status)&&next.licenses[id].status==='AVAILABLE')Corrupt();
+ for(const [id,old]of Object.entries(previous.licenses))if(!next.licenses[id]||old.productId!==next.licenses[id].productId||old.consumed&&!next.licenses[id].consumed||['REVOKED','RELEASED'].includes(old.status)&&next.licenses[id].status==='AVAILABLE')Corrupt();
  for(const [id,old]of Object.entries(previous.receipts))if(JSON.stringify(next.receipts[id])!==JSON.stringify(old))Corrupt();
  for(const [id,receipt]of Object.entries(next.receipts))if(id.startsWith('RESET:')&&(!previous.receipts[id]||!ResetReceiptValid(id,receipt)))Corrupt();
  const event={version:1,revision:next.revision,licenses:Object.values(next.licenses).filter(row=>fullSnapshot||JSON.stringify(previous.licenses[row.id])!==JSON.stringify(row)),receipts:Object.fromEntries(Object.entries(next.receipts).filter(([id,row])=>fullSnapshot||JSON.stringify(previous.receipts[id])!==JSON.stringify(row)))};

@@ -26,7 +26,7 @@ function setup(){
  const launcher=fixture.Device(),device=fixture.Child(launcher),overlayDevice=fixture.Child(device),begin=fixture.Begin(launcher).begin;
  fixture.Download(begin);const session=fixture.Claim(launcher,begin,fixture.Finish(launcher,begin),device),s={device,overlayDevice,session};
  s.common={...fixture.Evidence(device,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,appVersion:'88.0.0'};
- const issued=licenses.Create({requestId:crypto.randomUUID(),label:'Overlay lifetime regression'},'TEST');
+ const issued=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Overlay lifetime regression'},'TEST');
  s.activation=proof(s,'redeem',{...s.common,licenseKey:issued.licenseKey,deviceName:'Synthetic lifetime fixture'});
  s.prepared=proof(s,'overlay',{...s.common,activationToken:s.activation.activationToken});
  return s;

@@ -37,7 +37,7 @@ function ProtectedPolicy(){const i=require("../../services/devices/peace.desktop
 async function BeginProof(machineId,persistent){
  if(!persistent||typeof persistent.sign!=='function'||typeof persistent.publicKey!=='string'||!['SOFTWARE','PLATFORM'].includes(persistent.provider))Fail('RECOVERY_NATIVE_BOOTSTRAP_SIGNER_REQUIRED');
  const f=require("../../tests/fixtures/bootstrap/peace.desktop-bootstrap-fixture"),boot=require("../../services/bootstrap/peace.desktop-bootstrap"),licenses=require("../../services/licensing/peace.desktop-licenses"),keyless=require("../../services/bootstrap/peace.keyless-bootstrap");
- const app=f.Device();app.machineId=machineId;const license=licenses.Create({requestId:crypto.randomUUID(),label:'Isolated recovery identity challenge'},'ISOLATED_RECOVERY');
+ const app=f.Device();app.machineId=machineId;const license=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Isolated recovery identity challenge'},'ISOLATED_RECOVERY');
  const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Isolated recovery identity challenge',licenseId:license.license.id},'ISOLATED_RECOVERY');
  const bytes=boot.LauncherBytes(issue.launcherId),config=f.Config(bytes),code=f.CodeImage(bytes),policy=boot.Execute({action:'keylessPolicy',version:1,launcherId:config.launcherId,machineId});
  if(policy.keyProvider!==persistent.provider)Fail('RECOVERY_NATIVE_BOOTSTRAP_PROVIDER_MISMATCH');
@@ -120,7 +120,7 @@ async function Main(root){
   // policy is COMPATIBLE; unchanged A/B/O must open this exact replacement.
   boot.Execute({action:'abort',flowId:deniedContext.begin.flowId,downloadTicket:deniedContext.begin.downloadTicket});
   Object.assign(status.recovery,{oldKeyChallengeDenied:true,replacementNamespace:newNamespace,replacementEnrollmentId:replacementProof.reply.enrollmentId,replacementExclusiveCreated:true,replacementPrivateExportBlocked:true,originalKeyDeleted:false,replacementDeleted:false});
-  const replacementId=identity.EnrollmentId(replacement.publicKey),license=licenses.Create({requestId:crypto.randomUUID(),label:'Recovered product positive execution'},'ISOLATED_RECOVERY');
+  const replacementId=identity.EnrollmentId(replacement.publicKey),license=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Recovered product positive execution'},'ISOLATED_RECOVERY');
   const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Recovered product positive execution',licenseId:license.license.id},'ISOLATED_RECOVERY');
   const execution=path.join(root,'execution');fs.mkdirSync(execution,{mode:0o700});const launcher=path.join(execution,issue.downloadName);fs.writeFileSync(launcher,boot.LauncherBytes(issue.launcherId),{flag:'wx',mode:0o600});
   const automaticLicense=store.Load().artifacts[store.Load().active.B].backgroundVersion===1;

@@ -30,7 +30,7 @@ async function renderCurrent(){}
 `, dom.getInternalVMContext());
 const byId = id => document.getElementById(id);
 const candidates = ['A', 'B', 'O', 'O'].map((component, i) => ({ id: component + (i + 1), component, version: '3.2.1', sha512: String(i + 1).repeat(128) }));
-let active = { A: 'A1', B: 'B2', O: 'O3' }, uploadError = true;
+let active = { A: 'A1', B: 'B2', O: 'O3' }, uploadError = true, incompletePolicyPreview = true;
 let policy = { revision: 8, mode: 'enforce', dynamicCode: 'observe', freshnessMs: 45000, challengeMs: 15000, minVersionA: '1', minVersionB: '2', minVersionO: '3.2.1', enforceLegacy: false, requireReadonlyApi: true, requireCfg: false, requireReleaseSignature: false, trustedReleaseKeys: [], revokedSha512: [] };
 const operations = { revision: 12, requireBuildContract: false, requireTestEvidence: false, rollout: { enabled: false, artifactKeys: [], patch: {} }, activations: [], signerStates: {} };
 const manifestId='a'.repeat(128),manifest={releaseName:'Verified operator baseline',securityVersion:3,artifacts:{A:candidates[0].sha512,B:candidates[1].sha512,O:candidates[2].sha512}};
@@ -51,7 +51,10 @@ w.api = async (url, options = {}) => {
     }
     return { artifact: candidates[2] };
   }
-  if (url === '/api/desktop/bootstrap/security-authority/preview') return { preview: { readOnly: true } };
+  if (url === '/api/desktop/bootstrap/security-authority/preview') return { preview: incompletePolicyPreview ? { readOnly: true } : {
+    readOnly: true, eligible: true, releases: [],
+    baseRevision: body.expectedRevision, operationsRevision: body.expectedOperationsRevision
+  } };
   if (url === '/api/desktop/bootstrap/security-authority') {
     if (body) policy = { ...policy, ...body, revision: policy.revision + 1 };
     return { policy: clone(policy), operations: listing(), recentBuildObservations: [], events: [] };
@@ -137,7 +140,15 @@ async function close(pending) { byId('modal-cancel').click(); await pending; }
     byId('sec-min-o').value = '4.0';
     await securityAction('preview-policy');
     assert.equal(last('/api/desktop/bootstrap/security-authority/preview').body.minVersionO, '4.0');
+    assert.equal(byId('sec-policy-apply').disabled, true, 'Incomplete preview cannot authorize a policy write');
+    await securityAction('save-policy');
+    assert.equal(count('/api/desktop/bootstrap/security-authority'), 0);
+    incompletePolicyPreview = false;
+    await securityAction('preview-policy');
+    assert.equal(byId('sec-policy-apply').disabled, false, 'Eligible preview binds both policy and operations revisions');
     byId('sec-min-o').value = '4.1';
+    byId('sec-min-o').dispatchEvent(new w.Event('input', { bubbles: true }));
+    assert.equal(byId('sec-policy-apply').disabled, true, 'Editing the reviewed version invalidates the preview');
     await securityAction('save-policy');
     assert.equal(count('/api/desktop/bootstrap/security-authority'), 0, 'Changed O policy requires a new preview');
     await securityAction('preview-policy');

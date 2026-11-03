@@ -19,6 +19,21 @@ try{
  test('expired proof and revoked release key fail closed',()=>{assert.throws(()=>profile.Verify(envelope,db,statement.expiresAt),/UNTRUSTED/);db.securityOperations.signerStates[keyId]={state:'REVOKED'};assert.throws(()=>profile.Verify(envelope,db),/UNTRUSTED/);db.securityOperations.signerStates[keyId]={state:'ACTIVE'};});
  test('CFG metadata-only and unknown O GPU never authorize strict profile',()=>{assert.throws(()=>profile.Statement({...statement,settings:{...statement.settings,requireCfg:true}}),/INSTRUMENTATION_REQUIRED/);assert.throws(()=>profile.Statement({...statement,component:'O',environment:{...statement.environment,gpuIdentitySha512:'unknown'}}),/GPU_EVIDENCE_REQUIRED/);});
  test('environment-selected profile does not activate another OS build',()=>{db.mitigationProfiles={version:1,entries:{[id]:{envelope,enabled:true,registeredAt:now}}};const a={component:'B',sha512:artifactSha512};assert.equal(profile.Select(a,statement.environment,{dynamicCode:'observe',requireCfg:false}).id,id);assert.throws(()=>profile.Select(a,{...statement.environment,windowsBuild:22631},{dynamicCode:'observe',requireCfg:false}),/ENVIRONMENT_UNVERIFIED/);assert.throws(()=>profile.Select(a,undefined,{dynamicCode:'observe'}),/ENVIRONMENT_REQUIRED/);});
+ test('graphical B profiles bind the exact GPU and cannot reuse headless or other-GPU evidence',()=>{
+  const gpu='9'.repeat(128),graphical={...statement,environment:{...statement.environment,gpuIdentitySha512:gpu}},e=sign(graphical),gid=profile.Id(e),prior=db.mitigationProfiles;
+  assert.equal(profile.Verify(e,db).environment.gpuIdentitySha512,gpu);
+  for(const value of ['unknown','bad'])assert.throws(()=>profile.Statement({...graphical,environment:{...graphical.environment,gpuIdentitySha512:value}}),/INVALID|GPU_EVIDENCE_REQUIRED/);
+  assert.throws(()=>profile.Statement({...graphical,component:'A'}),/INVALID/);
+  assert.throws(()=>profile.Verify({...e,statement:{...graphical,environment:{...graphical.environment,gpuIdentitySha512:'8'.repeat(128)}}},db),/SIGNATURE_INVALID/);
+  try{
+   db.mitigationProfiles={version:1,entries:{[gid]:{envelope:e,enabled:true,registeredAt:now}}};
+   const a={component:'B',sha512:artifactSha512},policy={dynamicCode:'prohibit',requireCfg:false};
+   assert.equal(profile.Select(a,graphical.environment,policy).id,gid);
+   for(const gpuIdentitySha512 of ['none','unknown','8'.repeat(128)])assert.throws(()=>profile.Select(a,{...graphical.environment,gpuIdentitySha512},policy),/ENVIRONMENT_UNVERIFIED/);
+   db.mitigationProfiles={version:1,entries:{[id]:{envelope,enabled:true,registeredAt:now}}};
+   assert.throws(()=>profile.Select(a,graphical.environment,policy),/ENVIRONMENT_UNVERIFIED/);
+  }finally{db.mitigationProfiles=prior;}
+ });
  test('observed policy flags are required even when setters report success',()=>{const selected={id,...statement.settings},d={version:2,profileId:id,requestedMode:'prohibit',strictHandleQueried:true,strictHandleFlags:3,imageLoadQueried:true,imageLoadFlags:3,dynamicQueried:true,dynamicFlags:1};assert.equal(profile.Check(selected,d),'');assert.equal(profile.Check(selected,{...d,imageLoadFlags:0,imageSetSucceeded:true}),'SECURITY_IMAGE_POLICY_UNAVAILABLE');assert.equal(profile.Check(selected,{...d,profileId:'f'.repeat(128)}),'SECURITY_MITIGATION_PROFILE_MISMATCH');});
  test('existing base policy cannot be weakened by a selected profile',()=>{const weak=sign({...statement,settings:{...statement.settings,dynamicCode:'observe'}}),wid=profile.Id(weak);db.mitigationProfiles.entries={[wid]:{envelope:weak,enabled:true,registeredAt:now}};assert.throws(()=>profile.Select({component:'B',sha512:artifactSha512},statement.environment,{dynamicCode:'prohibit',requireCfg:false}),/ENVIRONMENT_UNVERIFIED/);});
  test('profile signature binds build inputs and logs; own profile attachment is mandatory',()=>{const e=sign(statement);for(const field of ['buildInputSha512','logsSha512'])assert.throws(()=>profile.Verify({...e,statement:{...e.statement,[field]:'f'.repeat(128)}},db),/SIGNATURE_INVALID/);assert.throws(()=>profile.Verify({...e,compatibility:{version:1,profileIds:[]}},db),/PROFILE_BINDING_REQUIRED/);});

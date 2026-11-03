@@ -20,8 +20,8 @@ async function run(){
   const sa=fixture.Session(a),sb=fixture.Session(b);
   flowA=Object.values(store.Load().flows).find(r=>r.sessionId===sa.sessionId);
   flowB=Object.values(store.Load().flows).find(r=>r.sessionId===sb.sessionId);
-  licenseA=licenses.Create({label:'Existing A',requestId:requestId()},actor);
-  licenseB=licenses.Create({label:'Existing B',requestId:requestId()},actor);
+  licenseA=licenses.Create({productId:'cleaner.pubg',label:'Existing A',requestId:requestId()},actor);
+  licenseB=licenses.Create({productId:'cleaner.pubg',label:'Existing B',requestId:requestId()},actor);
   const before=JSON.stringify(store.Load());
   const view=members.List();assert.equal(view.items.length,0);assert.equal(view.unassigned.counts.flows,2);assert.equal(view.unassigned.counts.licenses,2);
   assert.equal(store.Load().members,undefined);assert.equal(JSON.stringify(store.Load()),before);
@@ -135,7 +135,7 @@ async function run(){
   for(const change of [s=>s.version=2,s=>s.extra=true,s=>s.items[alice.id].status='ADMIN',s=>s.assignments['FLOW:'+flowA.id]={kind:'FLOW',targetId:flowA.id,memberId:'F'.repeat(24),updatedAt:Date.now()},s=>s.receipts.bad={}]){const copy=structuredClone(members.State());change(copy);assert.throws(()=>members.Validate(copy),/MEMBER_STORAGE_INVALID/);}
  });
  check('License detail reflects a reassignment after member-list loading without altering authority',()=>{
-  const workspace=require('../../services/operations/peace.desktop-workspace'),issued=licenses.Create({label:'Reassignment detail fixture',requestId:requestId()},actor),id=issued.license.id;
+  const workspace=require('../../services/operations/peace.desktop-workspace'),issued=licenses.Create({productId:'cleaner.pubg',label:'Reassignment detail fixture',requestId:requestId()},actor),id=issued.license.id;
   assign('LICENSE',id,alice.id);const cached=members.Detail(alice.id,{category:'licenses'}),first=workspace.Detail(id);
   assert.ok(cached.categories.licenses.items.some(row=>row.id===id));assert.equal(first.membership.memberId,alice.id);
   const before={license:JSON.stringify(licenses.DB().licenses[id]),flows:JSON.stringify(store.Load().flows)};

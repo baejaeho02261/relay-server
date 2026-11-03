@@ -30,7 +30,18 @@ assert.doesNotMatch(renderer,/(?<!OptionalSystem)RequireProcAddressHash64\('wtsa
 const registration=renderer.slice(renderer.indexOf('procedure TOverlayWindow.TryRegisterSession;'),renderer.indexOf('procedure TOverlayWindow.UnregisterSession;'));
 assert.match(registration,/FSessionRegistrationAttempts >= SessionRegistrationLimit/);assert.match(registration,/At - FSessionRegistrationTick < SessionRegistrationIntervalMS/);assert.match(registration,/not Slot_WTSRegisterSessionNotification.IsBound/);assert.match(registration,/not Slot_WTSUnRegisterSessionNotification.IsBound/);
 assert.match(renderer,/SessionRegistrationLimit = 30/);assert.match(renderer,/SessionRegistrationIntervalMS = 1000/);assert.doesNotMatch(registration,/\b(?:Sleep|WaitForSingleObject|WaitForMultipleObjects)\s*\(/i);
-assert.match(renderer,/if not AuthorityValid then Break;\s*TryRegisterSession;\s*ApiTranslateMessage/);
+// The monitor-paced pump checks authority before draining a bounded message
+// batch and again before Present. Registration retries run once per batch;
+// neither an unbounded input flood nor a second fixed timer may starve frames.
+const pump=renderer.slice(renderer.indexOf('    while not QuitSeen do'),renderer.indexOf('    if not FFailed then Result := 0;'));
+assert.match(pump,/if FClosing or not AuthorityValid then Break;\s*TryRegisterSession;\s*MessageCount:=0;/);
+assert.match(pump,/while \(MessageCount<128\) and ApiPeekMessageW\(Msg,0,0,0,PM_REMOVE\) do/);
+assert.match(pump,/if Msg\.message=WM_QUIT then[\s\S]*?QuitSeen:=True; Break;/);
+assert.match(pump,/ApiTranslateMessage\(Msg\); ApiDispatchMessageW\(Msg\);\s*Inc\(MessageCount\);\s*if FClosing then Break;/);
+assert.match(pump,/if QuitSeen or FClosing or not AuthorityValid then Break;[\s\S]*?Paint;/);
+assert.match(pump,/if FRendered and not FSessionPaused and not FMinimized[\s\S]*?if not AuthorityValid then Break;\s*Tick\(\);/);
+assert.match(pump,/else if ApiWaitForInput=WAIT_FAILED then/);
+assert.doesNotMatch(pump,/\b(?:Sleep|SetTimer|WaitForSingleObject|WaitForMultipleObjects)\s*\(/i);
 // Exercise the complete orchestration with an isolated synthetic child and
 // temporary files. No Windows/GPU/physical measurement is claimed by this test.
 const vm=require('node:vm'),os=require('node:os'),crypto=require('node:crypto');

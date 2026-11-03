@@ -26,6 +26,7 @@ Add('overlay.claim', 'GAME-OVERLAY-CLAIM-V2 / GAME-HANDOFF-CLAIM-V3', 'O', 'over
 Add('overlay.progress', 'GAME-OVERLAY-PROGRESS-V1', 'O', 'session + increasing sequence', 'diagnostics only; never extends authority');
 Add('overlay.verify', 'OVERLAY_SESSION_CAPABILITY', 'O', 'server authority epoch + sequence', 'same observed renewal returns original bounded lease; current session, license, policy');
 Add('overlay.commit', 'GAME-OVERLAY-TRANSFER-V1', 'B', 'parentSessionId + overlayId', 'bounded same transfer; no new authority');
+Add('overlay.start', 'COZY-OVERLAY-START-V1', 'O', 'session + product + requestId + increasing sequence', 'exact bounded acknowledgement; current license, device, artifact and observation; no lease renewal');
 Add('overlay.shutdown', 'OVERLAY_SESSION_CAPABILITY', 'O', 'exact transferred caller cohort + requestId', 'end own A/B/O authority only; exact acknowledgement 30 seconds; client cleanup remains pending');
 Add('overlay.close', 'OVERLAY_SESSION_CAPABILITY', 'O', 'sessionId', 'terminal acknowledgement only; V3 30 seconds');
 Add('overlay.abort', 'GAME-OVERLAY-ABORT-V3', 'B', 'parentSessionId + scope + identifier', 'terminal cancellation only; 30 seconds');
@@ -36,7 +37,7 @@ Add('policy.challenge policy.invoke policy.result','COZY-SERVER-OPERATION-V1','A
 Object.freeze(catalog);
 function Purpose(name) { const value = Object.hasOwn(catalog,name) ? catalog[name] : null; if (!value) throw Error('DESKTOP_PURPOSE_INVALID'); return value; }
 function Resolve(operation, action) {
-  const bootstrap={keylessPolicy:'bootstrap.keylessPolicy',keylessChallenge:'bootstrap.keylessChallenge',keylessProve:'bootstrap.keylessProve',keylessTpmActivate:'bootstrap.keylessTpmActivate',keylessStatus:'bootstrap.keylessStatus',beginKeyless:'bootstrap.beginKeyless',begin:'bootstrap.begin',chunk:'bootstrap.download',finish:'bootstrap.finish',claim:'bootstrap.claim',status:'bootstrap.status',close:'bootstrap.close',abort:'bootstrap.abort',overlayChunk:'overlay.download',overlayFinish:'overlay.finish',overlayClaim:'overlay.claim',overlayVerify:'overlay.verify',overlayProgress:'overlay.progress',overlayCommit:'overlay.commit',overlayClose:'overlay.close',overlayShutdown:'overlay.shutdown',overlayAbort:'overlay.abort'};
+  const bootstrap={keylessPolicy:'bootstrap.keylessPolicy',keylessChallenge:'bootstrap.keylessChallenge',keylessProve:'bootstrap.keylessProve',keylessTpmActivate:'bootstrap.keylessTpmActivate',keylessStatus:'bootstrap.keylessStatus',beginKeyless:'bootstrap.beginKeyless',begin:'bootstrap.begin',chunk:'bootstrap.download',finish:'bootstrap.finish',claim:'bootstrap.claim',status:'bootstrap.status',close:'bootstrap.close',abort:'bootstrap.abort',overlayChunk:'overlay.download',overlayFinish:'overlay.finish',overlayClaim:'overlay.claim',overlayVerify:'overlay.verify',overlayStart:'overlay.start',overlayProgress:'overlay.progress',overlayCommit:'overlay.commit',overlayClose:'overlay.close',overlayShutdown:'overlay.shutdown',overlayAbort:'overlay.abort'};
   let name;
   if(operation==='policy'&&['challenge','invoke','result'].includes(action))name='policy.'+action;
   else if(operation==='device'&&['policy','challenge','complete','tpmActivate'].includes(action))name='device.'+action;

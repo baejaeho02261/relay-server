@@ -19,7 +19,7 @@ function signed(ctx,value=payload()){
 }
 function authorityState(){const x=authority.List();return {events:x.events,observations:x.recentBuildObservations,decisions:x.decisionCount,pending:x.pendingCount};}
 function redeem(ctx){
- const issued=licenses.Create({requestId:crypto.randomUUID(),label:'Overlay diagnostics'},'TEST');
+ const issued=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Overlay diagnostics'},'TEST');
  const value={...fixture.Evidence(ctx.device,ctx.session),bootstrapSessionId:ctx.session.sessionId,bootstrapSessionToken:ctx.session.sessionToken,licenseKey:issued.licenseKey,deviceName:'Diagnostic fixture',appVersion:'88.0.0'};
  const text=JSON.stringify(value),body={action:'redeem',requestId:crypto.randomUUID(),deviceId:ctx.device.deviceId,publicKey:ctx.device.publicKey,payloadHash:fixture.sha512(text)},challenge=licenses.Challenge(body);
  fixture.ObserveLicense(ctx.device,body.action,body.requestId,body.payloadHash,value);

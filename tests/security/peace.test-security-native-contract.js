@@ -38,7 +38,7 @@ test('API module ownership precedes parsing and target pinning precedes applicat
  assert.doesNotMatch(roleValidation,/DecodeApiPointer\(/);
  const resolverFinal=p.slice(p.lastIndexOf('finalization')).replace(/\{[\s\S]*?\}/g,'');
  assert.doesNotMatch(resolverFinal,/\b(?:PEB)?FreeLibrary\s*\(/i);
- for(const [file,role,run] of [["Cozy.Projects/Cozy.Launcher/Cozy.Launcher.dpr",'gcrLauncher','RunLauncher'],["Cozy.Projects/Cozy.Client/Cozy.Client.dpr",'gcrConnect','RunGameConsole'],["Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dpr",'gcrOverlay','RunOverlay']]){
+ for(const [file,role,run] of [["Cozy.Projects/Cozy.Launcher/Cozy.Launcher.dpr",'gcrLauncher','RunLauncher'],["Cozy.Projects/Cozy.Client/Cozy.Client.dpr",'gcrConnect','RunLicenseClient'],["Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dpr",'gcrOverlay','RunOverlay']]){
   const dpr=c(file).replace(/\{[\s\S]*?\}|\(\*[\s\S]*?\*\)|\/\/[^\r\n]*/g,'');
   // A may report its numeric startup stage through ExitCode; the security
   // ordering does not depend on this optional diagnostic output parameter.

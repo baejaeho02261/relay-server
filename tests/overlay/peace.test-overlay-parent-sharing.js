@@ -11,7 +11,7 @@ const path = require('node:path');
 
 const handoff = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"), 'utf8');
 const integrity = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Integrity/Cozy.Integrity.pas"), 'utf8');
-const consoleSource = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Application/Cozy.Console.pas"), 'utf8');
+const licenseSource = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.License/Cozy.License.Session.pas"), 'utf8');
 const overlay = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"), 'utf8');
 const openSafeImage = handoff.slice(handoff.indexOf('function OpenSafeImage('), handoff.indexOf('function SameIdentity('));
 const READ = 1, WRITE = 2, DELETE = 4;
@@ -107,7 +107,8 @@ check('A to B normal path and OS read-only fallback retain compatible strict pin
 });
 
 check('B retirement follows authorized visible O readiness and keeps O parent identity pinned', () => {
-  const redeem = consoleSource.slice(consoleSource.indexOf('procedure TIntegrityWorker.RedeemPending'), consoleSource.indexOf('procedure TIntegrityWorker.Execute'));
+  const redeem = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.RedeemPending'), licenseSource.indexOf('procedure TLicenseWorker.Execute'));
+  assert(redeem.includes('if not FApi.StartOverlay then'));
   assert(redeem.indexOf('if not FApi.StartOverlay then') < redeem.indexOf('FCommands.Complete(WorkerTransferred)'));
   assert.doesNotMatch(redeem, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);

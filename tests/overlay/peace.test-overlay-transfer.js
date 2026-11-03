@@ -19,7 +19,7 @@ function reject(fn,code){assert.throws(fn,e=>code?e.message===code:/^(BOOTSTRAP|
 function proof(d,action,payload){clock++;const body={action,requestId:crypto.randomUUID(),deviceId:d.deviceId,publicKey:d.publicKey,payloadHash:sha512(JSON.stringify(payload))},c=licenses.Challenge(body);fixture.ObserveLicense(d,action,body.requestId,body.payloadHash,payload);return licenses.Execute({...body,challengeId:c.challengeId,payloadJSON:JSON.stringify(payload),signature:fixture.Sign(d,c.canonical)});}
 function setup(){
  const parent=fixture.Device(),d=fixture.Child(parent),overlayDevice=fixture.Child(d),begin=fixture.Begin(parent).begin;fixture.Download(begin);const b=fixture.Claim(parent,begin,fixture.Finish(parent,begin),d);
- const common={...fixture.Evidence(d,b),bootstrapSessionId:b.sessionId,bootstrapSessionToken:b.sessionToken,appVersion:'89.0.0'},issue=licenses.Create({requestId:crypto.randomUUID(),label:'overlay transfer'},'TEST');
+ const common={...fixture.Evidence(d,b),bootstrapSessionId:b.sessionId,bootstrapSessionToken:b.sessionToken,appVersion:'89.0.0'},issue=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'overlay transfer'},'TEST');
  const activation=proof(d,'redeem',{...common,licenseKey:issue.licenseKey,deviceName:'Transfer test'}),prepared=proof(d,'overlay',{...common,activationToken:activation.activationToken});
  for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize)bootstrap.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset});
  const finished=bootstrap.Execute({action:'overlayFinish',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,signature:fixture.Sign(d,prepared.finishCanonical)});

@@ -13,7 +13,7 @@ function proof(action,payload){const body={action,requestId:crypto.randomUUID(),
 fixture.CurrentCohort({version:'88.0.0'});
 const parent=fixture.Child(d),overlayDevice=fixture.Child(d),begin=fixture.Begin(parent).begin;fixture.Download(begin);const session=fixture.Claim(parent,begin,fixture.Finish(parent,begin),d);
 const common={...fixture.Evidence(d,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,appVersion:'88.0.0'};
-const issued=licenses.Create({requestId:crypto.randomUUID(),label:'overlay regression'},'TEST');
+const issued=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'overlay regression'},'TEST');
 const activation=proof('redeem',{...common,licenseKey:issued.licenseKey,deviceName:'Overlay test'});
 let prepared,finished,claimed;
 check('Only a live licensed B session can prepare O',()=>{

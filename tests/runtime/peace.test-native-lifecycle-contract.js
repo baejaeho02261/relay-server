@@ -13,7 +13,7 @@ const native = path.resolve(MODULE_RESOURCE_ROOT, '../../Railway');
 const read = name => ReadContractFile(path.join(native, name), 'utf8').replaceAll('\r', '');
 const reporter = read("Cozy.Source/Cozy.Lifecycle/Cozy.Lifecycle.pas"), handoff = read("Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas");
 const overlay = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"), client = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas");
-const consoleSource = read("Cozy.Source/Cozy.Application/Cozy.Console.pas"), api = read("Cozy.Source/Cozy.Platform/Cozy.Api.pas");
+const licenseSource = read("Cozy.Source/Cozy.License/Cozy.License.Session.pas"), api = read("Cozy.Source/Cozy.Platform/Cozy.Api.pas");
 const launcher = read("Cozy.Source/Cozy.Application/Cozy.Launcher.pas"), renderer = read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas");
 const service = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../services/observability/peace.desktop-lifecycle-trace.js"), 'utf8');
 let count = 0;
@@ -86,7 +86,7 @@ test('A and B obtain permits before authority handoff and refresh during long ac
   order(runA, ['Client.BeginKeylessFlow(', "Lifecycle.Prepare('A'", 'Client.ReportIntegrity(']);
   order(runA, ["Lifecycle.Prepare('A'", 'Grant := Client.Finish(', 'HandoffSucceeded := LaunchWithHandoff(']);
   assert.match(launcher, /Bytes := Client\.Chunk\(Flow, Offset\);\s+if Lifecycle <> nil then Lifecycle\.Prepare\('A'/);
-  order(consoleSource, ['Session := Bootstrap.Claim(', "Lifecycle.Prepare('B'", "Lifecycle.Prepare('A'", 'Context.CompleteClaimAndCleanup(']);
+  order(licenseSource, ['Session := Bootstrap.Claim(', "Lifecycle.Prepare('B'", "Lifecycle.Prepare('A'", 'Context.CompleteClaimAndCleanup(']);
   const startOverlay = api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean): Boolean;')[1].split('function TGameApi.RedeemCore')[0];
   order(startOverlay, ["FLifecycle.Prepare('B'", 'TransferClient.CommitTransfer(', "FLifecycle.Note('B', 'CLOSE_RESPONSE', 'ACKNOWLEDGED')"]);
   const check = api.split('procedure TGameApi.CheckIntegrity;')[1].split('procedure TGameApi.RetireImagesForShutdown;')[0];
@@ -103,8 +103,8 @@ test('Parent exit observations use the inherited exact process handle, before it
   assert.match(reporter, /Observation\.DispositionAccepted then Status := 'SCHEDULED'/);
 });
 test('Actual cleanup follows worker join and image reader retirement, before final report', () => {
-  const b = consoleSource.split('function RunGameConsole: Integer;')[2];
-  order(b, ['Console.Free;', 'Api.RetireImagesForShutdown', 'Context.CleanupOwnImageForShutdown', 'Bootstrap.Close;', "Lifecycle.Submit('B'"]);
+  const b = licenseSource.split('function RunLicenseClient: Integer;')[2];
+  order(b, ['Worker.Free;', 'Api.RetireImagesForShutdown', 'Context.CleanupOwnImageForShutdown', 'Bootstrap.Close;', "Lifecycle.Submit('B'"]);
   const o = overlay.split('function RunOverlay: Integer;')[2];
   order(o, ['Worker.WaitFor;', 'FreeAndNil(Image)', 'Context.CleanupOwnImageForShutdown', 'Client.ShutdownClose(', "Lifecycle.Submit('O'"]);
   assert.match(handoff, /if not FCompleted then Exit;\s+FOwnObservation\.CleanupAttempted := True/);

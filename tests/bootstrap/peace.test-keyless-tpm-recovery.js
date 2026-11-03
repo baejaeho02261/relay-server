@@ -97,7 +97,7 @@ test('TPM pre-bootstrap recovery requires hardware transcript plus exact one-use
     store.Atomic(db=>{const id=devices.BindingId(retired.app.machineId,db);db.deviceRegistry||={version:1,revision:0,bindings:{},receipts:{},proofRetentionDays:30};db.deviceRegistry.bindings[id]={id,identificationScheme:'LEGACY_PC_HASH_V1',status:'RETIRED',firstSeenAt:clock,lastSeenAt:clock,retiredAt:clock,proofs:[]};});
     expect(()=>call(retired,'beginKeyless'),'DEVICE_BINDING_RETIRED');assert.equal(store.Load().launchers[retired.inv.issue.launcherId].status,'AVAILABLE');
     const locked=challenge();await attest(locked);approve(locked);
-    const created=licenses.Create({requestId:crypto.randomUUID(),label:'Synthetic consumed-license PC lock'},'ADMIN:TEST'),db=licenses.DB(),row=db.licenses[created.license.id];
+    const created=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Synthetic consumed-license PC lock'},'ADMIN:TEST'),db=licenses.DB(),row=db.licenses[created.license.id];
     // Synthetic durable-row seam: exercise real automatic-PC-lock projection;
     // do not manufacture a successful license-redeem or runtime attestation.
     Object.assign(row,{consumed:true,status:'USED',machineId:locked.app.machineId,machinePolicyGeneration:machines.Generation(locked.app.machineId),activatedAt:clock,bootstrapSessionId:'A'.repeat(24)});db.revision++;

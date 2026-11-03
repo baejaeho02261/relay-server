@@ -45,6 +45,8 @@ const checks = [
 
   ["protocol/peace.test-document-schema.js"],
   ["licensing/peace.test-desktop-members.js"],
+  ["licensing/peace.test-license-products.js"],
+  ["overlay/peace.test-overlay-products.js"],
   ["web/peace.test-desktop-member-ui.js"],
   ["overlay/peace.test-overlay-text-input.js"],
   ["overlay/peace.test-overlay-parent-startup-lease.js"],

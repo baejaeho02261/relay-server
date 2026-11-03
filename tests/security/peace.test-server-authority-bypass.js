@@ -192,7 +192,7 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
       await Denied('bootstrap', {action: 'finish', flowId: begin.flowId, downloadTicket: begin.downloadTicket,
         sha512: begin.release.sha512, crc64: begin.release.crc64, aCodeSha512: begin.finishCanonical.split('\n')[5],
         aCodeCrc64: begin.finishCanonical.split('\n')[6], signature: fixture.Sign(device, begin.finishCanonical)}, ['SECURITY_FRESH_OBSERVATION_REQUIRED']);
-      const session = await Session(device), issued = licenses.Create({requestId: crypto.randomUUID()}, 'BYPASS_TEST');
+      const session = await Session(device), issued = licenses.Create({productId:'cleaner.pubg',requestId: crypto.randomUUID()}, 'BYPASS_TEST');
       const proof = await LicenseProof(device, session, 'redeem', {licenseKey: issued.licenseKey}, {observe: false});
       await Denied('execute', proof, ['SECURITY_FRESH_OBSERVATION_REQUIRED']);
       assert.equal(licenses.Detail(issued.license.id).license.consumed, false);
@@ -200,7 +200,7 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
     await t.test('signed wrong B file or code measurements cannot redeem a license', async () => {
       for (const field of ['binarySha512', 'codeSha512']) {
         const device = fixture.Device(), session = await Session(device);
-        const issued = licenses.Create({requestId: crypto.randomUUID()}, 'BYPASS_TEST');
+        const issued = licenses.Create({productId:'cleaner.pubg',requestId: crypto.randomUUID()}, 'BYPASS_TEST');
         const proof = await LicenseProof(device, session, 'redeem', {licenseKey: issued.licenseKey, [field]: '0'.repeat(128)});
         const row = Object.values(boot.Initialize().flows).find(r => r.sessionId === session.sessionId);
         await Denied('execute', proof, [field === 'codeSha512' ? 'BOOTSTRAP_CODE_MISMATCH' : 'BOOTSTRAP_HASH_MISMATCH'],
@@ -234,8 +234,8 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
     });
     await t.test('changed signed license payload and another device cannot consume a license', async () => {
       const device = fixture.Device(), other = fixture.Device(), session = await Session(device);
-      const first = licenses.Create({requestId: crypto.randomUUID()}, 'BYPASS_TEST');
-      const second = licenses.Create({requestId: crypto.randomUUID()}, 'BYPASS_TEST');
+      const first = licenses.Create({productId:'cleaner.pubg',requestId: crypto.randomUUID()}, 'BYPASS_TEST');
+      const second = licenses.Create({productId:'cleaner.pubg',requestId: crypto.randomUUID()}, 'BYPASS_TEST');
       const proof = await LicenseProof(device, session, 'redeem', {licenseKey: first.licenseKey});
       const changed = JSON.stringify({...JSON.parse(proof.payloadJSON), licenseKey: second.licenseKey});
       await Denied('execute', {...proof, payloadJSON: changed}, ['DESKTOP_PROOF_INVALID']);
@@ -244,7 +244,7 @@ test('server authorization bypass matrix over real encrypted TLS', {timeout: 900
       assert.equal(licenses.Detail(second.license.id).license.consumed, false);
     });
     await t.test('revocation wins over previously signed valid requests and cached authority', async () => {
-      const device = fixture.Device(), session = await Session(device), issued = licenses.Create({requestId: crypto.randomUUID()}, 'BYPASS_TEST');
+      const device = fixture.Device(), session = await Session(device), issued = licenses.Create({productId:'cleaner.pubg',requestId: crypto.randomUUID()}, 'BYPASS_TEST');
       const redeem = await LicenseProof(device, session, 'redeem', {licenseKey: issued.licenseKey});
       const active = await Ok('execute', redeem);
       const verify = await LicenseProof(device, session, 'verify', {activationToken: active.activationToken});

@@ -9,7 +9,7 @@ const state=require("../../core/peace.runtime-state"),licenses=require("../../se
 let count=0;
 function test(name,fn){fn();count++;console.log('PASS '+name);}
 try {
-  const license=licenses.Create({label:'Timeline fixture',requestId:crypto.randomUUID()},'TEST').license;
+  const license=licenses.Create({productId:'cleaner.pubg',label:'Timeline fixture',requestId:crypto.randomUUID()},'TEST').license;
   function detail(type,data){
     state.events.length=0;
     state.events.push({time:Date.now(),type,detail:JSON.stringify({licenseId:license.id,...data})});

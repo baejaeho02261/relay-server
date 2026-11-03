@@ -75,7 +75,7 @@ if(!phase){
    for(const record of records){db.launchers[record.launcher.id]=record.launcher;if(record.flow)db.flows[record.flow.id]=record.flow;}
    db.issueReceipts[hash('ADMIN:SYNTHETIC_HISTORY')+'|'+context.issueRequestId]={fingerprint:hash(JSON.stringify({label:'Existing historical issuance'})),launcherId:context.available.launcherId};
   });
-  const created=licenses.Create({requestId:crypto.randomUUID(),label:'Existing legacy session license'},'ADMIN:SYNTHETIC_HISTORY');
+  const created=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Existing legacy session license'},'ADMIN:SYNTHETIC_HISTORY');
   const redeemed=LicenseCall(context,'redeem',{licenseKey:created.licenseKey,appVersion:'70.0.0'});
   assert.equal(redeemed.status,'USED');context.licenseId=created.license.id;context.activationToken=redeemed.activationToken;
   fs.writeFileSync(contextFile,JSON.stringify(context),{mode:0o600});template.fill(0);

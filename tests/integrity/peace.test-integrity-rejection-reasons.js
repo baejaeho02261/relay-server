@@ -18,7 +18,7 @@ function makeContext(stage){
  if(stage==='B')return {stage,device,bytes,artifactId:session.release.id,sessionId:session.sessionId,flowId:flow.id,auth:{stage,sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:device.machineId}};
  const common={...fixture.Evidence(device,session),bootstrapSessionId:session.sessionId,bootstrapSessionToken:session.sessionToken,appVersion:'88.0.0'};
  function proof(action,payload){const body={action,requestId:crypto.randomUUID(),deviceId:device.deviceId,publicKey:device.publicKey,payloadHash:fixture.sha512(JSON.stringify(payload))},challenge=licenses.Challenge(body);fixture.ObserveLicense(device,action,body.requestId,body.payloadHash,payload);return licenses.Execute({...body,challengeId:challenge.challengeId,payloadJSON:JSON.stringify(payload),signature:fixture.Sign(device,challenge.canonical)});}
- const issued=licenses.Create({requestId:crypto.randomUUID(),label:'integrity report coverage'},'TEST');
+ const issued=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'integrity report coverage'},'TEST');
  const activation=proof('redeem',{...common,licenseKey:issued.licenseKey,deviceName:'Report test'});
  const prepared=proof('overlay',{...common,activationToken:activation.activationToken}),chunks=[];
  for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize)chunks.push(Buffer.from(bootstrap.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset}).data,'base64'));

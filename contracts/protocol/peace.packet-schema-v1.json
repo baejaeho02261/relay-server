@@ -333,6 +333,12 @@
         },
         "release": {
           "$ref": "overlayRelease"
+        },
+        "productScopeVersion": {
+          "$ref": "version1"
+        },
+        "productId": {
+          "$ref": "assignedProduct"
         }
       },
       "required": [
@@ -341,7 +347,11 @@
         "expiresAt",
         "release"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOrNone": [
+        "productScopeVersion",
+        "productId"
+      ]
     },
     "overlayRenewalBudget": {
       "type": "object",
@@ -414,6 +424,12 @@
         },
         "renewalBudget": {
           "$ref": "overlayRenewalBudget"
+        },
+        "productScopeVersion": {
+          "$ref": "version1"
+        },
+        "productId": {
+          "$ref": "assignedProduct"
         }
       },
       "required": [
@@ -425,7 +441,11 @@
         "transferConfirmed",
         "parentSessionId"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOrNone": [
+        "productScopeVersion",
+        "productId"
+      ]
     },
     "overlayCommit": {
       "type": "object",
@@ -3084,6 +3104,105 @@
         "cleanup"
       ],
       "additionalProperties": false
+    },
+    "licensedProduct": {
+      "enum": [
+        "cleaner.pubg",
+        "cleaner.talesrunner",
+        "cleaner.lost-saga",
+        "cleaner.apex",
+        "cleaner.overwatch",
+        "cleaner.counter-strike",
+        "spoofer.battleye",
+        "spoofer.xigncode3",
+        "spoofer.easy-anti-cheat",
+        "spoofer.vanguard",
+        "spoofer.ricochet",
+        "spoofer.ace",
+        "mobile.roblox",
+        "mobile.brawl-stars",
+        "mobile.pubg-mobile",
+        "mobile.genshin-impact",
+        "mobile.pokemon-go",
+        "mobile.clash-royale"
+      ]
+    },
+    "assignedProduct": {
+      "enum": [
+        "",
+        "cleaner.pubg",
+        "cleaner.talesrunner",
+        "cleaner.lost-saga",
+        "cleaner.apex",
+        "cleaner.overwatch",
+        "cleaner.counter-strike",
+        "spoofer.battleye",
+        "spoofer.xigncode3",
+        "spoofer.easy-anti-cheat",
+        "spoofer.vanguard",
+        "spoofer.ricochet",
+        "spoofer.ace",
+        "mobile.roblox",
+        "mobile.brawl-stars",
+        "mobile.pubg-mobile",
+        "mobile.genshin-impact",
+        "mobile.pokemon-go",
+        "mobile.clash-royale"
+      ]
+    },
+    "overlayStart": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "version1"
+        },
+        "sessionId": {
+          "$ref": "id24"
+        },
+        "productId": {
+          "$ref": "licensedProduct"
+        },
+        "requestId": {
+          "$ref": "request"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "status": {
+          "enum": [
+            "AUTHORIZED"
+          ]
+        },
+        "durationMs": {
+          "enum": [
+            5000
+          ]
+        },
+        "serverTime": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "expiresAt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "version",
+        "sessionId",
+        "productId",
+        "requestId",
+        "sequence",
+        "status",
+        "durationMs",
+        "serverTime",
+        "expiresAt"
+      ],
+      "additionalProperties": false
     }
   },
   "commands": [
@@ -3737,6 +3856,9 @@
           },
           "delegationSignature": {
             "$ref": "signature"
+          },
+          "productScopeVersion": {
+            "$ref": "version1"
           }
         },
         "required": [
@@ -3795,6 +3917,9 @@
             "$ref": "version1"
           },
           "renewalBudgetVersion": {
+            "$ref": "version1"
+          },
+          "productScopeVersion": {
             "$ref": "version1"
           }
         },
@@ -5055,6 +5180,50 @@
           "payloadJson"
         ]
       }
+    },
+    {
+      "operation": "bootstrap",
+      "action": "overlayStart",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayStart"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "productId": {
+            "$ref": "licensedProduct"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken",
+          "productId",
+          "requestId",
+          "sequence",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
     }
   ],
   "scope": "Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization.",
@@ -5097,6 +5266,9 @@
     },
     "overlayShutdown": {
       "$ref": "overlayShutdown"
+    },
+    "overlayStart": {
+      "$ref": "overlayStart"
     }
   }
 }

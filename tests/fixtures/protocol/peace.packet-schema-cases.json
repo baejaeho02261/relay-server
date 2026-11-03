@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "30b79b44e60ce5b99134c8aeb3cd8e61267918c12792c8ff778f47867c6e2d5d4d2e2c8ea300c9e13aa79d2d61dc57d580cbc257671b018f1d88f5ddffcac537",
+  "schemaSha512": "2eeffe7ada6b9898f5dfcb511a92ca280cc0042a99a5eee2778726f38bc6fae42ede6162d7cc2611eb507100e4c4559bcb5fd9a1c665f834fe6639fd60a48686",
   "cases": [
     {
       "operation": "bootstrap",
@@ -534,6 +534,19 @@
         "challengeId": "{}",
         "signature": "{}",
         "payloadJSON": "{}"
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "overlayStart",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "productId": "cleaner.pubg",
+        "requestId": "rrrrrrrr",
+        "sequence": 1,
+        "signature": "{}"
       }
     }
   ]

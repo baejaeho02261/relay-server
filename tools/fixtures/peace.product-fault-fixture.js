@@ -29,7 +29,7 @@ async function Main(){
  if(contracts.TLS.includes(scenario))require("../../services/network/peace.connect-tls").Load().options.maxVersion='TLSv1.2';
  listener=require("../../services/network/peace.desktop-connect").CreateServer();adapter.Attach(listener);await new Promise((resolve,reject)=>{listener.once('error',reject);listener.listen(0,'127.0.0.1',resolve);});process.env.DESKTOP_PUBLIC_PORT=String(listener.address().port);
  if(contracts.TLS.includes(scenario)){proxy=await require('./peace.product-fault-tls-proxy').Start(listener.address().port,Event);process.env.DESKTOP_PUBLIC_PORT=String(proxy.port);}
- const license=require("../../services/licensing/peace.desktop-licenses").Create({requestId:crypto.randomUUID(),label:'Isolated product fault'},'ISOLATED_PRODUCT_FAULT');
+ const license=require("../../services/licensing/peace.desktop-licenses").Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Isolated product fault'},'ISOLATED_PRODUCT_FAULT');
  const issue=boot.IssueLauncher({requestId:crypto.randomUUID(),label:'Isolated product fault',licenseId:license.license.id},'ISOLATED_PRODUCT_FAULT');
  license.licenseKey=''; // Assigned server-side; do not persist an unused plaintext copy.
  const execution=path.join(root,'execution');fs.mkdirSync(execution);const launcher=path.join(execution,issue.downloadName);fs.writeFileSync(launcher,boot.LauncherBytes(issue.launcherId),{flag:'wx',mode:0o600});

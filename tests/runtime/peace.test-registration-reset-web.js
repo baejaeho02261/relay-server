@@ -63,7 +63,7 @@ const SNAPSHOT=`
    const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');require(M.utilities).EnsureDirs();require(M.database).LoadDatabase();
    const b=require(M.bootstrap),f=require(M.fixture),l=require(M.licenses),s=require(M.state);
    f.CurrentCohort({version:'80.0.0'});
-   const license=l.Create({requestId:crypto.randomUUID(),label:'synthetic web reset'},'RESET_TEST').license;f.Begin(f.Device());
+   const license=l.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'synthetic web reset'},'RESET_TEST').license;f.Begin(f.Device());
    require(M.workspace).Atomic(value=>{value.metadata[license.id]={note:'synthetic reset',tags:['fixture'],revision:1};});
    const req={headers:${JSON.stringify(Object.fromEntries(Object.entries(ingress).map(([k,v])=>[k.toLowerCase(),v])))},socket:{remoteAddress:'127.0.0.1'}};
    const web=require(M.web),pk=require(M.passkey),wire=require(M.wire),session=web.Login(req,'admin',process.env.ADMIN_SECRET).session;
@@ -100,7 +100,7 @@ const SNAPSHOT=`
   for(const file of before.artifactFiles)assert.equal(fs.existsSync(file),false,'owned registration EXE must be removed');
   for(const domain of ['DESKTOP_BOOTSTRAP','DESKTOP_JOURNAL','DESKTOP_MACHINE_POLICY','DESKTOP_INTEGRITY'])assert.ok(after.witness.heads[domain].current.seq>before.witness.heads[domain].current.seq,'witness must advance '+domain);
   assert.equal(after.witness.installationId,before.witness.installationId);
-  script(env,`require(M.utilities).EnsureDirs();require(M.database).LoadDatabase();require(M.licenses).Create({requestId:require('node:crypto').randomUUID(),label:'created after web reset'},'RESET_TEST');if(!require(M.database).SaveDatabase())throw Error('FIXTURE_SAVE_FAILED');require(M.sqlite).Close();console.log('WEB_RESET_TEST:'+JSON.stringify({created:true}));`);
+  script(env,`require(M.utilities).EnsureDirs();require(M.database).LoadDatabase();require(M.licenses).Create({productId:'cleaner.pubg',requestId:require('node:crypto').randomUUID(),label:'created after web reset'},'RESET_TEST');if(!require(M.database).SaveDatabase())throw Error('FIXTURE_SAVE_FAILED');require(M.sqlite).Close();console.log('WEB_RESET_TEST:'+JSON.stringify({created:true}));`);
   const replayed=await start(),newAdmin=await login(),current=await call(ROUTE,undefined,newAdmin);assert.equal(current.data.counts.licenses,1);
   const retryBody={...body,expectedEpoch:current.data.epoch},retryAction=await approve(newAdmin,retryBody),retry=await call(ROUTE,retryBody,newAdmin,{'X-Admin-Action':retryAction});
   assert.ok([200,202,409].includes(retry.status),JSON.stringify(retry.data));

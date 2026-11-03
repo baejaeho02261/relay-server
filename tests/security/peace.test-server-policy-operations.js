@@ -142,7 +142,7 @@ test('private server operations remain bound to authenticated A/B/O and exact in
   const authB={stage:'B',sessionId:bs.sessionId,sessionToken:bs.sessionToken,machineId:b.machineId};enroll(b,authB);
   function license(app,action,payload){const text=JSON.stringify(payload),request={action,requestId:crypto.randomUUID(),deviceId:app.deviceId,publicKey:app.publicKey,payloadHash:f.sha512(text)},c=licenses.Challenge(request);f.ObserveLicense(app,action,request.requestId,request.payloadHash,payload);return licenses.Execute({...request,challengeId:c.challengeId,payloadJSON:text,signature:f.Sign(app,c.canonical)});}
   await t.test('A capability stops after handoff and B requires actual consumed license lease',()=>{fail(()=>rpc.Execute(body(authA)),/BOOTSTRAP_LAUNCHER_USED/);fail(()=>rpc.Execute(body(authB)),/COZY_OPERATION_LICENSE_REQUIRED/);});
-  const common={...f.Evidence(b,bs),bootstrapSessionId:bs.sessionId,bootstrapSessionToken:bs.sessionToken,appVersion:'94.0.1'},lic=licenses.Create({requestId:crypto.randomUUID()},'ISOLATED_OPERATION_TEST');
+  const common={...f.Evidence(b,bs),bootstrapSessionId:bs.sessionId,bootstrapSessionToken:bs.sessionToken,appVersion:'94.0.1'},lic=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID()},'ISOLATED_OPERATION_TEST');
   const activation=license(b,'redeem',{...common,licenseKey:lic.licenseKey});
   await t.test('B executes registered custom functions with int32 arithmetic and exact server record',async()=>{
    assert.equal((await queued(prepare(b,body(authB,2,[2147483647,1])))).result,-2147483648);

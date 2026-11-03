@@ -44,7 +44,7 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       fixture.Download(begin);
       const b = fixture.Claim(parent, begin, fixture.Finish(parent, begin), device);
       const common = {...fixture.Evidence(device, b), bootstrapSessionId: b.sessionId, bootstrapSessionToken: b.sessionToken, appVersion: '91.0.0'};
-      const issued = licenses.Create({requestId: crypto.randomUUID()}, 'COHORT_TEST');
+      const issued = licenses.Create({productId:'cleaner.pubg',requestId: crypto.randomUUID()}, 'COHORT_TEST');
       const activation = licenseProof(device, 'redeem', {...common, licenseKey: issued.licenseKey});
       const prepared = licenseProof(device, 'overlay', {...common, activationToken: activation.activationToken});
       for (let offset = 0; offset < prepared.release.size; offset += prepared.chunkSize)

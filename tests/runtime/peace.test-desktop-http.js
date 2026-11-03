@@ -134,7 +134,7 @@ async function bootstrapDevice(device, auth) {
     try {
         await start();
         assert.equal((await call('/api/desktop/licenses')).status, 401);
-        assert.equal((await call('/api/desktop/licenses', { label: '미인증 요청' })).status, 401);
+        assert.equal((await call('/api/desktop/licenses', {productId:'cleaner.pubg', label: '미인증 요청' })).status, 401);
         for(const route of ['/api/desktop/challenge','/api/desktop/execute']) {
             const retired=await fetch(base+route,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
             assert.equal(retired.status,410);
@@ -217,7 +217,7 @@ async function bootstrapDevice(device, auth) {
         assert.equal((await call(integrityPolicyRoute,{enabled:true,requiredModules:['../ntdll.dll']},auth)).status,400);
 
         assert.equal((await call('/api/desktop/bootstrap/launchers', { requestId: crypto.randomUUID() }, auth, { csrf: false })).status, 403);
-        assert.equal((await call('/api/desktop/licenses', { label: 'CSRF 없는 요청' }, auth, { csrf: false })).status, 403);
+        assert.equal((await call('/api/desktop/licenses', {productId:'cleaner.pubg', label: 'CSRF 없는 요청' }, auth, { csrf: false })).status, 403);
         const empty = await call('/api/desktop/licenses', undefined, auth); assert.equal(empty.status, 200); assert.equal(empty.json.items.length, 0);
         const system = await call('/api/system', undefined, auth); assert.equal(system.status, 200);
         const savedClientVersion = system.json.system.minClientVersion;
@@ -226,8 +226,8 @@ async function bootstrapDevice(device, auth) {
         assert.equal(update.json.clientVersion, savedClientVersion);
         assert.equal((await call('/api/system', undefined, auth)).json.system.minClientVersion, savedClientVersion);
 
-        const period = await call('/api/desktop/licenses', {label:'Period rejected',validDays:7},auth);assert.equal(period.status,400);assert.equal(period.json.error,'DESKTOP_SINGLE_USE_ONLY');
-        const created = await call('/api/desktop/licenses', { label: 'HTTP 동시 등록 검사', requestId: 'HTTP-ADMIN-CREATE-01' }, auth);
+        const period = await call('/api/desktop/licenses', {productId:'cleaner.pubg',label:'Period rejected',validDays:7},auth);assert.equal(period.status,400);assert.equal(period.json.error,'DESKTOP_SINGLE_USE_ONLY');
+        const created = await call('/api/desktop/licenses', {productId:'cleaner.pubg', label: 'HTTP 동시 등록 검사', requestId: 'HTTP-ADMIN-CREATE-01' }, auth);
         assert.equal(created.status, 200);
         const id = created.json.license.id, key = created.json.licenseKey;
         assert.match(id,/^[A-F0-9]{24}$/);assert.match(key,/^[A-F0-9]{64}$/);
@@ -248,7 +248,7 @@ async function bootstrapDevice(device, auth) {
         assert.equal(list.json.items[0].deviceId, winner.deviceId);
         const detail=await call('/api/desktop/licenses/'+id,undefined,auth);assert.equal(detail.status,200);assert.equal(detail.json.licenseKey,undefined);assert.equal(detail.json.license.status,'USED');
         const active = await call('/api/desktop/licenses?status=USED', undefined, auth); assert.equal(active.status, 200); assert.equal(active.json.items.length, 1);
-        const unused = await call('/api/desktop/licenses', { label: 'Global status count', requestId: crypto.randomUUID() }, auth); assert.equal(unused.status, 200);
+        const unused = await call('/api/desktop/licenses', {productId:'cleaner.pubg', label: 'Global status count', requestId: crypto.randomUUID() }, auth); assert.equal(unused.status, 200);
         const filtered = await call('/api/desktop/licenses?status=USED', undefined, auth); assert.equal(filtered.json.items.length, 1); assert.equal(filtered.json.counts.AVAILABLE, 1); assert.equal(filtered.json.counts.USED, 1);
         const overview = await call('/api/desktop/bootstrap', undefined, auth); assert.equal(overview.status, 200); assert.ok(overview.json.bootstrap.artifacts.A && overview.json.bootstrap.artifacts.B);
         const linked = overview.json.bootstrap.sessions.find(row => row.id === winner.bootstrap.sessionId); assert.equal(linked.licenseId, id); assert.equal(linked.licenseStatus, 'USED'); assert.equal(linked.deviceId, winner.deviceId);
@@ -268,7 +268,7 @@ async function bootstrapDevice(device, auth) {
         assert.equal(revokedReplay.json.ok, false); assert.equal(revokedReplay.json.error, 'DESKTOP_REVOKED');
 
         // PC policy is admin-only and cannot be changed without CSRF.
-        const policyKey=(await call('/api/desktop/licenses',{label:'PC policy',requestId:crypto.randomUUID()},auth)).json.licenseKey;
+        const policyKey=(await call('/api/desktop/licenses',{productId:'cleaner.pubg',label:'PC policy',requestId:crypto.randomUUID()},auth)).json.licenseKey;
         const policyDevice=device('Policy Windows');await bootstrapDevice(policyDevice,auth);
         const registered=await execute(policyDevice,'redeem',{licenseKey:policyKey});assert.equal(registered.json.ok,true);
         const policyRoute='/api/desktop/machines/'+policyDevice.machineId;

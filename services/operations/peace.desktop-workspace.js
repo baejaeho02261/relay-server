@@ -5,6 +5,7 @@ const crypto=require('node:crypto');
 const state=require("../../core/peace.runtime-state");
 const db=require('./peace.desktop-workspace-store');
 const licenses=require("../licensing/peace.desktop-licenses");
+const products=require('../licensing/peace.licensed-products');
 const bootstrap=require("../bootstrap/peace.desktop-bootstrap");
 const bootStore=require("../bootstrap/peace.desktop-bootstrap-store");
 const space=require("../storage/peace.desktop-storage-space");
@@ -27,7 +28,7 @@ function Query(query={}){
  const linked=new Set(),match=values=>values.some(x=>String(x||'').toLowerCase().includes(q));
  if(q){const b=bootStore.Load();for(const a of Object.values(b.launchers))if(a.assignedLicenseId&&match([a.id,a.label,b.artifacts[a.artifactId]?.version,b.artifacts[a.artifactId]?.sha512]))linked.add(a.assignedLicenseId);
   for(const f of Object.values(b.flows)){const a=b.launchers[f.launcherId];if(match([f.id,f.sessionId,f.launcherId,b.artifacts[f.releaseId]?.version,b.artifacts[f.releaseId]?.sha512,a?.label,b.artifacts[a?.artifactId]?.version,b.artifacts[a?.artifactId]?.sha512])){const id=f.licenseId||a?.assignedLicenseId;if(id)linked.add(id);}}}
- const all=result.items.filter(r=>!q||linked.has(r.id)||match([r.id,r.label,r.deviceId,r.deviceName,r.machineId,r.binarySha512,r.bootstrapSessionId,r.appVersion,metadata[r.id]?.note,...(metadata[r.id]?.tags||[])]));
+ const all=result.items.filter(r=>!q||linked.has(r.id)||match([r.id,r.label,r.productId,r.productName,r.productCategory,r.deviceId,r.deviceName,r.machineId,r.binarySha512,r.bootstrapSessionId,r.appVersion,metadata[r.id]?.note,...(metadata[r.id]?.tags||[])]));
  const actual=Math.min(page,Math.max(0,Math.ceil(all.length/pageSize)-1));
  return{...result,items:all.slice(actual*pageSize,(actual+1)*pageSize).map(r=>({...r,metadata:Meta(r.id)})),filteredCount:all.length,page:actual,pageSize,pages:Math.max(1,Math.ceil(all.length/pageSize))};
 }
@@ -88,10 +89,10 @@ function ProjectJob(j){return{id:j.id,kind:j.kind,status:j.status,createdAt:j.cr
 function Jobs(){return{items:Object.values(db.Load().jobs).sort((a,b)=>b.createdAt-a.createdAt).slice(0,100).map(ProjectJob),serverTime:Date.now(),storage:'SERVER_ONLY'};}
 function Ids(input){if(!Array.isArray(input)||!input.length||input.length>100||new Set(input).size!==input.length)Fail('INPUT_INVALID');for(const id of input)licenses.Detail(id);return input;}
 async function Preview(body,session){
- Fields(body,['kind','count','prefix','ids','note','tags'],['kind']);let items=[];
+ Fields(body,['kind','count','prefix','productId','ids','note','tags'],['kind']);let items=[];
  if(body.kind==='CREATE'){
-  if(!Number.isSafeInteger(body.count)||body.count<1||body.count>100)Fail('INPUT_INVALID');const prefix=Text(body.prefix||'사용자',100);
-  items=Array.from({length:body.count},(_,n)=>({label:prefix+' '+String(n+1).padStart(3,'0')}));
+  if(!Number.isSafeInteger(body.count)||body.count<1||body.count>100)Fail('INPUT_INVALID');const prefix=Text(body.prefix||'사용자',100),productId=products.Require(body.productId).id;
+  items=Array.from({length:body.count},(_,n)=>({label:prefix+' '+String(n+1).padStart(3,'0'),productId}));
  }else if(body.kind==='METADATA'){
   const m=MetadataInput({note:body.note,tags:body.tags});items=Ids(body.ids).map(id=>({id,...m,expectedRevision:Meta(id).revision}));
  }else if(body.kind==='EXPORT')items=Ids(body.ids).map(id=>({id}));
@@ -118,13 +119,13 @@ function Submit(body,session){
 }
 function DoItem(job,index){
  const item=job.items[index],input=item.input,actor='WORKSPACE_JOB:'+job.id;
- if(job.kind==='CREATE')return licenses.CreateReference({label:input.label,requestId:job.id+'-'+index},actor);
+ if(job.kind==='CREATE')return licenses.CreateReference({label:input.label,productId:products.Require(input.productId).id,requestId:job.id+'-'+index},actor);
  if(job.kind==='METADATA'){
   const previous=Meta(input.id);if(previous.lastJob===job.id+':'+index)return {id:input.id,metadata:previous};
   if(previous.revision!==input.expectedRevision)Fail('WORKSPACE_CONFLICT',409);licenses.Detail(input.id);
   Atomic('WORKSPACE_DO_ITEM',actor,next=>{next.metadata[input.id]={note:input.note,tags:input.tags,revision:previous.revision+1,updatedAt:Date.now(),updatedBy:job.createdBy,lastJob:job.id+':'+index};});return{id:input.id,metadata:Meta(input.id)};
  }
- if(job.kind==='EXPORT'){const l=licenses.Detail(input.id).license;return{id:l.id,label:l.label,status:l.status,issuedAt:l.issuedAt,lastVerifiedAt:l.lastVerifiedAt||0,appVersion:l.appVersion||'',metadata:Meta(l.id)};}
+ if(job.kind==='EXPORT'){const l=licenses.Detail(input.id).license;return{id:l.id,label:l.label,...products.Projection(l),status:l.status,issuedAt:l.issuedAt,lastVerifiedAt:l.lastVerifiedAt||0,appVersion:l.appVersion||'',metadata:Meta(l.id)};}
  if(job.kind==='CLEANUP')return space.DeleteCandidate(input.id,input.sha512);
  Fail('INPUT_INVALID');
 }

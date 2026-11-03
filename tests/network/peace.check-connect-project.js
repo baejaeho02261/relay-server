@@ -12,16 +12,36 @@ const root = path.resolve(MODULE_RESOURCE_ROOT, '../../Railway');
 const read = name => ReadContractFile(path.join(root, name), 'utf8');
 const projectDirectory = name => path.join('Cozy.Projects', name);
 const projectFile = (name, extension) => path.join(projectDirectory(name), name + extension);
-const sourceDirectories = ['Cozy.Application','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration','Cozy.Protection'].map(name=>'Cozy.Source/'+name);
+const sourceDirectories = ['Cozy.Application','Cozy.License','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration','Cozy.Protection'].map(name=>'Cozy.Source/'+name);
 for(const directory of sourceDirectories){
   const files=fs.readdirSync(path.join(root,directory));
   assert(files.some(name=>/\.(?:pas|inc)$/i.test(name)),'Functional source group must contain actual source: '+directory);
 }
 for(const entry of fs.readdirSync(root,{withFileTypes:true}))assert(!entry.isFile()||!/\.(?:pas|dpr|dproj|inc|bat|targets)$/i.test(entry.name),'No flat native source aliases: '+entry.name);
-const contained = (directory, relative) => {
+// Generated issuer bytes and RES outputs are created by mandatory build
+// targets. Never distribute an old/default issuer just to satisfy a source
+// archive check; all other project references still must exist now.
+const releaseTargets=read('Cozy.Build/Cozy.ReleaseMetadata.targets');
+assert.match(releaseTargets,/<Target Name="PrepareCozyReleaseMetadata"[\s\S]*?BeforeTargets="[^"\n]*_PasCoreCompile[^"\n]*PrepareOverlayNative"/);
+assert.match(releaseTargets,/<Error Condition="!Exists\('\$\(BDS\)\\bin\\brcc32\.exe'\)"/);
+assert.match(releaseTargets,/<Exec Condition="'\$\(_GameRole\)'=='A' or '\$\(_GameRole\)'=='B'"[\s\S]*?brcc32\.exe&quot; -fo&quot;\$\(_GameProjectName\)Resources\.res&quot; &quot;\$\(_GameProjectName\)\.rc&quot;/);
+assert.ok(releaseTargets.indexOf('Cozy.Prepare-IssuedATrust.ps1')<releaseTargets.indexOf('brcc32.exe&quot; -fo'));
+assert.doesNotMatch(releaseTargets,/ContinueOnError="(?:true|WarnAndContinue)"|IgnoreExitCode="true"/i);
+const prepareTrust=read('Cozy.Build/Cozy.Prepare-IssuedATrust.ps1');
+assert.match(prepareTrust,/\$outputPath = Join-Path \$configuration 'Cozy\.IssuedA\.Trust\.bin'/);
+assert.match(prepareTrust,/if \(\$source\.Contains\('COZY_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED'\)\)\s*\{\s*throw 'COZY_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED'/);
+assert.match(prepareTrust,/ISSUED_A_PUBLIC_KEY_ID_INVALID/);
+assert.match(prepareTrust,/\$stream\.Write\(\$anchor, 0, \$anchor\.Length\); \$stream\.Flush\(\$true\)/);
+assert.match(prepareTrust,/\[IO\.File\]::Move\(\$pending, \$outputPath\)/);
+const generatedProjectInputs=new Set([
+  'Cozy.Source/Cozy.Configuration/Cozy.IssuedA.Trust.bin',
+  ...['Cozy.Client','Cozy.Launcher','Cozy.Overlay'].map(name=>'Cozy.Projects/'+name+'/'+name+'Resources.res')
+].map(relative=>path.join(root,relative)));
+const contained = (directory, relative, allowGenerated=false) => {
   const target=path.resolve(directory,...relative.split(/[\\/]+/));
   const rel=path.relative(root,target);
   assert(rel && rel!=='..' && !rel.startsWith('..'+path.sep) && !path.isAbsolute(rel),'Project reference escapes native root');
+  if(allowGenerated&&generatedProjectInputs.has(target)&&!fs.existsSync(target))return target;
   assert(fs.statSync(target).isFile(),'Missing project reference '+relative);return target;
 };
 for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy.Overlay",'O']]) {
@@ -57,12 +77,12 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
     assert.deepEqual(listed.slice(0,-1),sourceDirectories.map(x=>'$(CozyNativeRoot)\\'+x.replaceAll('/','\\')));
     assert.equal(listed.at(-1),'$('+property+')');
   }
-  if(role==='O')assert(project.includes('<DCC_ObjPath>$(CozyNativeRoot)\\Cozy.BuildOutputs\\Cozy.ImGui;$(DCC_ObjPath)</DCC_ObjPath>'));
+  if(role==='O'||role==='B')assert(project.includes('<DCC_ObjPath>$(CozyNativeRoot)\\Cozy.BuildOutputs\\Cozy.ImGui;$(DCC_ObjPath)</DCC_ObjPath>'));
   for(const entry of fs.readdirSync(directory))assert(!/\.(?:pas|inc)$/i.test(entry),'Product project must not shadow functional source units');
   assert.match(project, /<Icon_MainIcon\s*\/>/);
   assert.ok(!/\.ico\b/i.test(project));
   for (const [, file] of project.matchAll(/(?:DCCReference|None)\s+Include="([^"]+)"/g)) {
-    contained(directory,file);
+    contained(directory,file,true);
   }
   const dpr = read(projectFile(name, '.dpr'));
   for(const unit of ['Cozy.Hashes.XXH3','Cozy.Hashes.SHA512']) {
@@ -88,7 +108,23 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   assert.match(dpr, /function GameBuildConfiguration: LongWord; stdcall;\s*begin\s*\{\$IFDEF RELEASE\}\s*Result := 2;\s*\{\$ELSE\}\s*Result := 1;/, 'Marker value must follow the actual compiler configuration');
   assert.match(dpr, /exports\s*\{\$IFDEF RELEASE\}\s*GameBuildConfiguration name 'GAME_BUILD_RELEASE_V1';\s*\{\$ELSE\}\s*GameBuildConfiguration name 'GAME_BUILD_DEBUG_V1';/, 'Debug must not carry the Release export marker');
   for (const [, res] of dpr.matchAll(/\{\$R\s+'([^']+)'\}/g)) {
-    const bytes = fs.readFileSync(contained(directory,res));
+    assert.equal(res,name+'Resources.res','DPR must bind this exact role resource');
+    const resourceFile=contained(directory,res,true),rc=read(projectFile(name,'.rc'));
+    assert.match(project,/<Import Project="\.\.\\\.\.\\Cozy\.Build\\Cozy\.ReleaseMetadata\.targets"/);
+    assert.match(rc,new RegExp('^1 24 "'+name.replaceAll('.','\\.')+'\\.manifest"','m'));
+    assert.match(rc,/^1 VERSIONINFO\s*\r?\n\s*FILEVERSION /m);
+    assert.doesNotMatch(rc,/\b(?:ICON|GROUP_ICON)\s+(?:"|\d)|\bMAINICON\s+ICON/i);
+    if(role==='O'){
+      const prepare=project.match(/<Target Name="PrepareOverlayNative"[\s\S]*?<\/Target>/)?.[0];
+      assert(prepare,'O resource/native preparation is mandatory');
+      assert.match(prepare,/BeforeTargets="PreBuildEvent;_PasCoreCompile"/);
+      const compile=prepare.indexOf('brcc32.exe&quot; -fo&quot;Cozy.OverlayResources.pending.res'),
+        audit=prepare.indexOf('Cozy.Assert-OverlayManifest.ps1'),publish=prepare.indexOf('<Move SourceFiles="$(MSBuildProjectDirectory)\\Cozy.OverlayResources.pending.res"');
+      assert(compile>=0&&compile<audit&&audit<publish,'O resource is compiled and audited before publication');
+      assert.doesNotMatch(prepare,/ContinueOnError="(?:true|WarnAndContinue)"|IgnoreExitCode="true"/i);
+    }
+    if(!fs.existsSync(resourceFile))continue; // Prebuild contract above covers clean source packages.
+    const bytes = fs.readFileSync(resourceFile);
     assert.ok(bytes.length > 32, 'Missing compiled resource: ' + res);
     assert.equal(bytes.readUInt32LE(4), 32, 'Expected Windows RES header: ' + res);
     const types = [];
@@ -141,15 +177,20 @@ assert.ok(tls.indexOf('if not VerifyCertificate(CertificateSha256) then Exit;') 
 assert.ok(read("Cozy.Source/Cozy.Platform/Cozy.Api.pas").includes('FImageIntegrity.VerifyNow'));
 for(const name of ["Cozy.Client","Cozy.Launcher","Cozy.Overlay"])assert.ok(read(projectFile(name,'.dproj')).includes("Cozy.Integrity.pas")&&read(projectFile(name,'.dproj')).includes("Cozy.Tls.pas"));
 
-const consoleSource = read("Cozy.Source/Cozy.Application/Cozy.Console.pas");
-const entry = consoleSource.slice(consoleSource.indexOf('function RunGameConsole: Integer;', consoleSource.indexOf('implementation')));
-assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') >= 0 && entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('if not AllocConsole'), 'User console must start only after authenticated handoff and cleanup');
-assert.ok(entry.indexOf('Api.CheckIntegrity;') < entry.indexOf('if not AllocConsole'));
-assert.ok(entry.includes('Console := TConsoleSession.Create(Api);') && entry.includes('Result := Console.Run;'));
-assert.ok(consoleSource.includes('FWorker.SubmitKey(Key)'));
-assert.ok(!consoleSource.includes('SERVER_ASSIGNED_V1'));
+const licenseSource = fs.readFileSync(path.join(root, "Cozy.Source/Cozy.License/Cozy.License.Session.pas"), 'utf8');
+const windowSource = fs.readFileSync(path.join(root, "Cozy.Source/Cozy.License/Cozy.License.Window.pas"), 'utf8');
+const entry = licenseSource.slice(licenseSource.indexOf('function RunLicenseClient: Integer;', licenseSource.indexOf('implementation')));
+assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') >= 0 && entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('RunLicenseWindow('), 'License window starts only after authenticated handoff and cleanup');
+assert.ok(entry.includes('Api.CheckIntegrity;') && entry.includes('Worker.StartChecks;'));
+assert.ok(entry.includes('Worker := TLicenseWorker.Create(Api);') && entry.includes('Worker.SubmitKey(Key)'));
+assert.ok(windowSource.includes('SetMitigationGpuIdentity'));
+for (const source of [licenseSource, windowSource]) {
+  assert.doesNotMatch(source, /\b(?:AllocConsole|FreeConsole|ReadConsoleW|WriteConsoleW|GetStdHandle|WriteLn|ShowMessage|MessageBox)\s*\(/i, 'B uses only the ImGui license window');
+  assert.ok(!source.includes('SERVER_ASSIGNED_V1'));
+}
 assert.ok(!read("Cozy.Source/Cozy.Platform/Cozy.Api.pas").includes('SERVER_ASSIGNED_V1'));
-assert.ok(!/\b(?:WriteLn|ShowMessage|MessageBox)\s*\(/i.test(consoleSource), 'User diagnostics must remain silent');
+assert.ok(!fs.existsSync(path.join(root, 'Cozy.Source/Cozy.Application/Cozy.Console.pas')));
+assert.ok(!fs.existsSync(path.join(root, 'Cozy.Source/Cozy.Application/Cozy.Console.Commands.pas')));
 const sources=[];
 function collect(directory){
   for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
@@ -171,8 +212,14 @@ for (const name of sources) {
     assert.ok(!/https?:\/\//i.test(executableSource), 'Embedded HTTP endpoint: ' + name);
   }
   if (/\.(?:pas|dpr)$/.test(name)) {
-    assert.ok(source.startsWith('\uFEFF'), 'Missing UTF-8 BOM: ' + name);
-    assert.ok(!source.replace(/\r\n/g, '').includes('\n'), 'Mixed source line endings: ' + name);
+    const raw=fs.readFileSync(path.join(root,name));
+    const original=new TextDecoder('utf-8',{fatal:true}).decode(raw);
+    // Delphi needs an explicit encoding marker for non-ASCII source. Pure
+    // ASCII probes are unambiguous without one. Both consistent LF and CRLF
+    // are legal source; mixed endings and lone CR still fail this check.
+    assert.ok(raw.subarray(0,3).equals(Buffer.from([0xef,0xbb,0xbf]))||raw.every(value=>value<128),'Non-ASCII Pascal source requires UTF-8 BOM: '+name);
+    assert.ok(!/\r(?!\n)/.test(original),'Bare CR source line ending: '+name);
+    if(original.includes('\r\n'))assert.ok(!original.replace(/\r\n/g,'').includes('\n'),'Mixed source line endings: '+name);
     assert.ok(!/\b(?:Vcl|FMX)\./i.test(source), 'Retired GUI dependency: ' + name);
     if(name.endsWith('.pas')){
       const declared=source.match(/\bunit\s+([A-Za-z0-9_.]+)\s*;/i);

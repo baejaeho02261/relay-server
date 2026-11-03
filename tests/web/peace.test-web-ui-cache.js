@@ -25,6 +25,10 @@ function testBundle() {
     const declaredRevision = originalAdmin.match(/const WEB_UI_REVISION\s*=\s*'([^']+)'/);
     assert.ok(declaredRevision, 'Admin runtime must declare its UI revision');
     assert.equal(declaredRevision[1], currentRevision, 'Admin runtime and release manifest must use the same UI revision');
+    const assetVersion=require("../../config/peace.runtime-configuration").WEB_ADMIN_VERSION+'-'+currentRevision;
+    const assetUrls=[...source('public/index.html').matchAll(/(?:href|src)="(\/(?:styles|scripts)\/[^"]+)"/g)].map(match=>new URL(match[1],origin));
+    assert.ok(assetUrls.length>30,'Revision check must cover the actual administrator shell');
+    for(const asset of assetUrls)assert.equal(asset.searchParams.get('v'),assetVersion,'Fresh asset URL for '+asset.pathname);
     const corruptedAdmin = originalAdmin.replace(`'${currentRevision}'`, "'corrupted'");
     assert.notEqual(originalAdmin, corruptedAdmin, 'Corruption fixture must alter the released revision');
     fs.writeFileSync(path.join(temp, 'scripts/application/peace.admin.js'), corruptedAdmin);
@@ -89,7 +93,7 @@ async function testWorker() {
   const handlers = {}, removed = [], puts = [], reads = [], network = [], installed = [];
   const { WEB_ADMIN_VERSION, WEB_UI_REVISION } = require("../../config/peace.runtime-configuration");
   const currentCache = `relay-admin-shell-v${WEB_ADMIN_VERSION}-${WEB_UI_REVISION}`;
-  const oldCaches = ['relay-admin-shell-old', 'relay-admin-shell-v4.26.0-fix39', 'relay-admin-shell-v5.0.0-fix42'];
+  const oldCaches = ['relay-admin-shell-old', 'relay-admin-shell-v4.26.0-fix39', 'relay-admin-shell-v5.0.0-fix42', 'relay-admin-shell-v5.0.2-cozy-peace-v18-overlay-polish'];
   let failNetwork = false, responseStatus = 200;
   const cache = {
     addAll: async requests => { for (const r of requests) {
