@@ -266,7 +266,12 @@ function Submit(body){
  }
  if(payload.check==='MODULE_INVENTORY'){Load();if(payload.modules.map(module=>CompareModule(module,payload.hashVersion)).some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason:'INTEGRITY_KNOWN_MODULE_CODE_MISMATCH'},'INTEGRITY_REPORT');result=Record({...fields,status:'CLIENT_DIAGNOSTIC',modules:payload.modules,trusted:false});}else result=AcceptSnapshot(row,fields,payload); }
  if(result.status==='REJECTED'){return Complete({accepted:true,status:result.status,reportId:result.id,terminate:true});}
- return Complete({accepted:true,status:result.status,reportId:result.id,terminate:false});
+ // Report the existing persisted observation deadline, not a new execution
+ // grant. Partial batches and diagnostics cannot renew it; receipt replay
+ // must retain this exact acceptance time and expiry.
+ const snapshotBudget=result.check==='MODULE_SNAPSHOT'&&result.snapshotFinal===true&&result.complete===true&&result.snapshotStatus==='COMPLETE_PASS'
+  ?{version:1,snapshotId:result.snapshotId,serverTime:result.at,expiresAt:result.at+FRESHNESS[result.stage]}:undefined;
+ return Complete({accepted:true,status:result.status,reportId:result.id,terminate:false,...(snapshotBudget?{snapshotBudget}:{})});
 }
 function Execute(body){if(!Plain(body))Fail('INTEGRITY_REPORT_INVALID');if(body.action==='challenge'){requestProtocol.Purpose('report.challenge');return Challenge(body);}if(body.action==='submit'){requestProtocol.Purpose('report.submit');return Submit(body);}Fail('INTEGRITY_REPORT_INVALID');}
 function List(query={}){Load();const machineId=String(query.machineId||''),sessionId=String(query.sessionId||'');if(machineId&&!/^[A-F0-9]{64}$/.test(machineId)||sessionId&&!/^[-A-Za-z0-9_]{1,100}$/.test(sessionId))Fail('INTEGRITY_REPORT_INVALID');return {items:records.filter(row=>(!machineId||row.machineId===machineId)&&(!sessionId||row.sessionId===sessionId)).slice(-100).reverse(),revision,serverTime:Date.now(),scope:'SHA-512, CRC64-ECMA, XXH3-128 and BLAKE3 comparisons cover files, executable sections and registered DLL export tables. Measurements are client-reported, not hardware attestation.',policy:Policy(),attested:false,limit:100};}

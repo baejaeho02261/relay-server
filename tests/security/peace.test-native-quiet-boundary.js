@@ -33,7 +33,7 @@ test('B owns masked key input outside ImGui and rejects output paths for secrets
   const worker = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Session.pas'));
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));
   const mailbox = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Commands.pas'));
-  assert.match(window, /ImGuiLicenseScene\(FContext, Phase, FKey\.Count, FElapsed\)/);
+  assert.match(window, /ImGuiLicenseScene\(FContext, Phase, FKey\.Count, Percent \/ 100\)/);
   assert.doesNotMatch(window, /CopyText|ImGuiTextInput|InputText|PWideChar\(.*Key|PAnsiChar\(.*Key/);
   assert.match(window, /Key := FKey; FKey := nil;/);
   assert.match(window, /finally\s+FreeAndNil\(Key\);/);

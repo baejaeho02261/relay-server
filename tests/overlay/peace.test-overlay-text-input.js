@@ -47,7 +47,7 @@ test('bounded UTF8, UTF16 and glyph admission are independent of the old display
   assert.match(bridge,/count\+c->extra_glyph_count>=128/);
   assert.match(bridge,/Flags\|=ImFontFlags_NoLoadGlyphs/);
   assert.match(wrapper,/game_imgui_text_input_version <> 1/);
-  assert.match(read('Cozy.ImGui/Cozy.Build/Cozy.Audit-Object.ps1'),/all 28 C ABI entries/);
+  assert.match(read('Cozy.ImGui/Cozy.Build/Cozy.Audit-Object.ps1'),/all 32 C ABI entries/);
 });
 test('owned Windows probe includes duplicate, cancel, focus, UTF16 and opt-out cases without attesting them here',()=>{
   const probe=read('Cozy.Tests/Cozy.Overlay/Cozy.OverlayEnvironmentProbe.dpr');

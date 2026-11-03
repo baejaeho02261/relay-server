@@ -12,6 +12,7 @@ def read(relative):
 handoff=read('Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas')
 license_session=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Session.pas')
 window=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Window.pas')
+commands=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Commands.pas')
 api=read('Railway/Cozy.Source/Cozy.Platform/Cozy.Api.pas')
 overlay=read('Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas')
 module_inventory=read('Railway/Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas')
@@ -30,24 +31,30 @@ main=license_session.split('function RunLicenseClient: Integer;')[-1].split('\ni
 check('A deletion stays in authenticated handoff', re.search(r'SetFileInfo\(LauncherFile,\s*FileDispositionInfoClass', claim) is not None)
 check('B is not unlinked at claim time', 'UnlinkVerifiedOwnImage(' not in claim)
 check('The verified B handle is transferred rather than reopened after license', 'FBinaryCleanupFile := BinaryFile;\n    BinaryFile := 0;' in claim and 'OpenSafeImage(' not in cleanup)
-check('Live license is checked before O launch and server transfer', redeem.index('LicenseState := FApi.Redeem(BoundaryKey);') < redeem.index('if not LicenseState.IsActive then') < redeem.index('if not FApi.StartOverlay then'))
-presentation=license_session.split('function TLicenseWorker.WaitForSubmitPresentation: Boolean;',1)[1].split('procedure TLicenseWorker.RedeemPending(',1)[0]
-check('Minimum submit presentation uses the accepted monotonic attempt and can be cancelled without transfer',
-      'StartedAt := FCommands.AttemptStartedAt;' in presentation
-      and 'while not Terminated and not FCommands.Stopping do' in presentation
-      and 'Elapsed := NowTick - StartedAt;' in presentation
-      and 'Elapsed >= LicenseSubmitMinimumMilliseconds' in presentation
-      and 'WaitForSingleObject(FStopEvent, Remaining)' in presentation
-      and 'if WaitResult <> WAIT_TIMEOUT then Exit;' in presentation
-      and 'StartOverlay' not in presentation and 'WorkerTransferred' not in presentation)
-check('Live lease and cancellation are checked after the submit presentation and before real handoff',
-      redeem.index('FApi.Redeem(BoundaryKey)') < redeem.index('if not WaitForSubmitPresentation then')
-      < redeem.index('if not LicenseState.IsActive then') < redeem.index('if not FApi.StartOverlay then'))
-check('Only definitive key rejection reopens the same B after the visual interval',
+check('Live license is checked before O launch and server transfer', redeem.index('LicenseState := FApi.Redeem(BoundaryKey);') < redeem.index('if not LicenseState.IsActive then') < redeem.index('if not FApi.StartOverlay(False,'))
+check('Submit has no artificial minimum wait or time-based completion',
+      all(token not in license_session+window+commands for token in
+          ['WaitForSubmitPresentation', 'LicenseSubmitMinimumMilliseconds', 'AttemptStartedAt', 'FSubmitAt']))
+progress=commands.split('procedure TLicenseCommandMailbox.ReportProgress(Value: Integer);',1)[1].split('function TLicenseCommandMailbox.Progress:',1)[0]
+completion=commands.split('procedure TLicenseCommandMailbox.Complete(Outcome: Integer);',1)[1].split('procedure TLicenseCommandMailbox.Stop;',1)[0]
+check('Worker milestones are monotonic and cannot publish transfer completion',
+      'if Value > 99 then Value := 99;' in progress
+      and 'if not FStopping and (FState = WorkerBusy) and (Value > FProgress) then' in progress
+      and 'FProgress := Value;' in progress
+      and 'if Outcome = WorkerTransferred then' in completion
+      and 'FState := WorkerTransferred; FProgress := 100; FStopping := True;' in completion)
+check('B displays completed worker milestones and keeps API locks away from rendering',
+      'FCommands.ReportProgress(40);' in redeem
+      and 'procedure(Value: Integer) begin FCommands.ReportProgress(Value); end)' in redeem
+      and 'Percent := FProgress();' in window
+      and 'ImGuiLicenseScene(FContext, Phase, FKey.Count, Percent / 100)' in window
+      and 'function TLicenseWindow.BusyVisual: Boolean;' in window
+      and 'Result := Assigned(FState) and (FState() = WorkerBusy);' in window)
+check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
-      and 'if WaitForSubmitPresentation then FCommands.Complete(WorkerIdle)' in redeem
+      and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem
       and 'else\n          FCommands.Complete(WorkerFailed);' in redeem)
-check('Confirmed transfer terminates B worker without another proof or active unlink', redeem.index('if not FApi.StartOverlay then') < redeem.index('FCommands.Complete(WorkerTransferred)') < redeem.index('Terminate;') and 'CleanupBinaryAfterLicense' not in license_session and 'WorkerActive' not in license_session)
+check('Confirmed transfer terminates B worker without another proof or active unlink', redeem.index('if not FApi.StartOverlay(False,') < redeem.index('FCommands.Complete(WorkerTransferred)') < redeem.index('Terminate;') and 'CleanupBinaryAfterLicense' not in license_session and 'WorkerActive' not in license_session)
 check('B window exits on transfer and joins worker before destroying resources', 'State = WorkerTransferred' in window and main.index('Worker.Free;') < main.index('Api.Free;') < main.index('Context.Free;'))
 check('Cleanup is guarded once and preserves nonfatal OS refusal', 'if FBinaryCleanupAttempted then Exit;' in cleanup and 'FBinaryCleanupInfo, False);' in cleanup)
 check('Cleanup pins the directory but retains the owner after OS refusal', cleanup.index('PinDirectories(') < cleanup.index('UnlinkVerifiedOwnImage(') < cleanup.index('finally') < cleanup.index('CloseAll(Pins)') and 'Close(FBinaryCleanupFile)' not in cleanup)
@@ -55,7 +62,7 @@ check('Integrity owns a separate read file object while the cleanup pin remains 
 check('Worker is joined before handoff context can be freed', 'FreeAndNil(Context)' not in main and main.index('Worker.Free;') < main.index('Context.Free;'))
 destroy=handoff.split('destructor THandoffContext.Destroy;',1)[1].split('end;',1)[0]
 check('Destructor releases both B ownership and uncommitted O parent pins', all(s in destroy for s in ['Close(FBinaryCleanupFile);', 'Close(FParentImage);', 'CloseAll(FParentPins);']))
-start=api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean): Boolean;',1)[1].split('function TGameApi.RedeemCore(',1)[0]
+start=api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean;',1)[1].split('function TGameApi.RedeemCore(',1)[0]
 check('B transfer is committed only after native O ready', start.index('Result := LaunchOverlay(') < start.index('TransferClient.CommitTransfer(') < start.index('FOverlayStarted := True;'))
 check('Only a confirmed transfer skips redundant B close after the worker is joined', 'property OverlayTransferred: Boolean read GetOverlayTransferred;' in api and 'try Result := FOverlayStarted; finally TMonitor.Exit(FLock); end;' in api and main.index('Worker.Free;') < main.index('if Api <> nil then Transferred := Api.OverlayTransferred;') < main.index('if (Bootstrap <> nil) and not Transferred then') < main.index('Bootstrap.Close;') < main.index('Api.Free;'))
 retire=handoff.split('procedure THandoffContext.CleanupTransferredParentCore;',1)[1].split('procedure THandoffContext.CleanupBinaryAfterLicenseCore;',1)[0]
@@ -114,4 +121,52 @@ check('Generation retry is bounded from the first scan, includes cancellation an
 check('Generation-only retry cannot hide read failures, code differences, missing digests or one-shot device evidence',
       all(value in predicate for value in ["'TRACKED_CHANGED'", "'PARTIAL'", "'UNVERIFIED_BASELINE'", "'MATCH_LOCAL_FILE'", "'failurePhase'", "'fileSha512', 128", "'codeSha512', 128", "'MEASURED'", "'NO_EXPORTS'", "'SECTION_HASHED'", "'COMPLETE'", "'unknownStart'", "'unreadable'", "'NOT_REQUESTED'"])
       and not any(value in predicate for value in ['.AddPair(', '.RemovePair(', 'Exit(True)']))
+budget=api.split('procedure TGameApi.ApplyModuleSnapshotBudget(',1)[1].split('function TGameApi.ReportModulesIfDue:',1)[0]
+send=api.split('procedure TGameApi.SendIntegrityReport(',1)[1].split('procedure TGameApi.ReportMeasurementFailure',1)[0]
+maintenance=start.split('      MaintainParent :=',1)[1].split('      CheckIntegrityCore;',1)[0]
+check('B only maps a completed matching receipt within the unchanged server freshness bound',
+      all(value in budget for value in ["Reply.GetValue('snapshotBudget')", 'SnapshotID <> FModuleSnapshotID',
+        'ExpiresAt - ServerTime > MaxLeaseMilliseconds', 'Elapsed >= UInt64(Duration)', 'RequireModuleSnapshotLease;',
+        'ServerTime < FModuleReceiptServerTime'])
+      and send.index('StartedAt := CozyTick;') < send.index('Challenge := PostJSON(')
+      and send.index('Reply := PostJSON(') < send.index('ApplyModuleSnapshotBudget(Reply, StartedAt);')
+      and "JsonInteger(Payload, 'batchIndex') + 1 =" in send
+      and "JsonInteger(Payload, 'batchCount'))" in send)
+check('Cached receipt mapping never extends the first monotonic deadline or revives an elapsed window',
+      budget.index('RequireModuleSnapshotLease;') < budget.index('if SnapshotID = FModuleReceiptID then')
+      and 'if Deadline < FModuleDeadlineTick then FModuleDeadlineTick := Deadline;' in budget
+      and '(ServerTime <> FModuleReceiptServerTime)' in budget
+      and '(ExpiresAt <> FModuleReceiptExpiresAt)' in budget
+      and '(FModuleDeadlineTick <> 0) and (FModuleDeadlineTick <= CozyTick)' in api)
+check('B schedules full refresh using observed collection and all batches plus a chunk/renewal reserve',
+      'ModuleSnapshotCheckpointReserve = 30000;' in api
+      and 'FModuleCycleMilliseconds := NowTick - FModuleGenerationStarted;' in modules
+      and 'Reserved := FModuleCycleMilliseconds + ModuleSnapshotCheckpointReserve;' in modules
+      and 'FNextModules := FModuleDeadlineTick - Reserved;' in modules
+      and '((FModuleDeadlineTick <> 0) and (At >= FModuleDeadlineTick))' in modules)
+check('O download drains due snapshots and child wait yields between batches to observe readiness',
+      'if BeforeChild then ParentWaitingForChild := True;' in start
+      and maintenance.index('repeat') < maintenance.index('then RenewParent();') < maintenance.index('MoreModules := ReportModulesIfDue;') < maintenance.index('until not MoreModules or ParentWaitingForChild;')
+      and 'if BeforeChild and (FModuleSnapshot = nil) then FNextModules := 0;' in maintenance
+      and 'RequireParentPending();' in maintenance)
+check('B progress cannot signal completion until the actual O transfer is acknowledged',
+      start.index('TransferClient.CommitTransfer(') < start.index('FOverlayStarted := True;') < start.index('Progress(100)')
+      and 'MaintainParent, Progress);' in start)
+readiness=api.split('function TGameApi.GetModuleInventoryReadyCore: Boolean;',1)[1].split('function TGameApi.GetOverlayTransferredCore:',1)[0]
+check('A fresh completed snapshot allows queued redemption even when the next scan is already due',
+      'FModuleSnapshotCompleted and (FModuleSnapshot = nil)' in readiness
+      and 'FModuleDeadlineTick - At > ModuleSnapshotCheckpointReserve' in readiness
+      and 'FNextModules' not in readiness)
+check('Packing retains every row while respecting both payload and escaped signed-envelope byte limits',
+      'ModuleBatchMaximum = 16;' in api
+      and 'ModulePayloadMaximum = 24576;' in api and 'ModuleEnvelopeMaximum = 32768;' in api
+      and 'Payload := CreateModulePayload(255, 256);' in modules
+      and 'EncodedMetadataBytes := EncodedStringBytes(Payload.ToJSON);' in modules
+      and 'Bytes := EncodedStringBytes(TJSONArray(Modules).Items[I].ToJSON) - 2;' in modules
+      and 'SubmitOverhead := IntegritySubmitOverheadBytes;' in modules
+      and 'Int64(LargestEncodedModuleBytes + 1) * FModuleBatchSize > ModuleEnvelopeMaximum' in modules
+      and 'FModuleBatchCount := (Total + FModuleBatchSize - 1) div FModuleBatchSize;' in modules
+      and 'Batch.AddElement(TJSONValue(TJSONArray(Modules).Items[FModuleNextIndex].Clone));' in modules
+      and 'Inc(FModuleNextIndex);' in modules
+      and 'TEncoding.UTF8.GetByteCount(Text) > ModulePayloadMaximum' in send)
 print(f'License-success source contracts: {count} passed. Static checks only; no Windows deletion or rendering test.')

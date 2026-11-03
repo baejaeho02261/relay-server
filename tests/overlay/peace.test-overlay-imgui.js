@@ -130,7 +130,7 @@ check('Host callback layout is versioned and checked before static-object creati
   assert.match(pascal, /TImGuiAlloc\s*=\s*function\(Bytes: NativeUInt\): Pointer; cdecl;/);
   assert.match(pascal, /TImGuiFree\s*=\s*procedure\(Memory: Pointer\); cdecl;/);
   assert.match(pascal, /\{\$ALIGN 8\}/);
-  assert.match(pascal, /ImGuiHostABIVersion\s*=\s*2;/);
+  assert.match(pascal, /ImGuiHostABIVersion\s*=\s*3;/);
   assert.match(pascal, /ImGuiHostBytes\s*=\s*32;/);
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt; LicenseOnly: Boolean): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
   inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'FontBytes := ReadKoreanSystemFont;', 'CreateResult := game_imgui_create_korean_v1(Pointer(Window), @Host,', '@FontBytes[0], Length(FontBytes), Result)', 'FillChar(FontBytes[0], Length(FontBytes), 0)', 'FontBytes := nil;'], 'Host validation');
@@ -391,7 +391,7 @@ check('Product START queues only after visible Present, exact entitlement and fr
     'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
     'if (FLicensedCard < -1) or (FLicensedCard > 17) then FLicensedCard := -1;',
     'ImGuiNewFrame(', 'ImGuiProductScene(FContext, FScenePhase, FSceneSelected, SceneFlags,',
-    'FSceneSeconds, FCarouselPosition, FLicensedCard, CountdownSeconds);',
+    'FSceneSeconds, FCarouselPosition, FLicensedCard, RunProgress);',
     'SceneActions := SceneActions or Integer(FSceneKeyActions);','FSceneKeyActions := 0;',
     'ImGuiEndCanvas(', 'if not AuthorityValid then Exit;', 'ImGuiPresent(',
     'if FRendered and AuthorityValid then ApplySceneActions(Cardinal(SceneActions));'],'Visible scoped action gate');
@@ -400,7 +400,7 @@ check('Product START queues only after visible Present, exact entitlement and fr
     'if FScenePhase<>0 then Exit;', 'Card := OverlayCategoryCard(FSceneCategory,FSceneSelected);',
     'if not OverlayProductCanStart(FLicensedCard,Card) or',
     'not Assigned(FRequestProductRun) or not Assigned(FProductRunState) then Exit;',
-    'if not FRequestProductRun(Card) then Exit;', 'FScenePhase:=1; FRunDeadline:=0;',
+    'if not FRequestProductRun(Card) then Exit;', 'FScenePhase:=1; FRunStarted:=0; FRunDeadline:=0;', 'FRunDuration:=OverlayProductRunMilliseconds(Card);',
     'CancelInteraction; UpdateCursor;', 'Exit;'],'Queue scoped authorization without starting a local timer');
   assert.doesNotMatch(actions,/CreateProcess|ShellExecute|InvokeServerPolicy|\.Post\(/);
   for(const [name,category] of [['CLEANNER',0],['MOBILE',1],['SPOOFER',2]])assert(actions.includes('IMGUI_SCENE_TAB_'+name+')<>0 then FSceneCategory:='+category));
@@ -416,19 +416,24 @@ check('Product START queues only after visible Present, exact entitlement and fr
   inOrder(cancel,['FSceneKeyActions := 0;', 'ImGuiClearInput('],'Cancellation clears pending actions');
 });
 
-check('Only a fresh server product grant begins the five-second countdown and restores controls',()=>{
+check('Only a fresh server product grant begins bounded product progress and restores controls',()=>{
   const state=method('function TOverlayWindow.ReadRunState:', 'procedure TOverlayWindow.ApplySceneActions(');
   inOrder(state,['if FScenePhase=1 then', 'State := 3;',
     'if Assigned(FProductRunState) then State := FProductRunState();', 'if State=2 then',
-    'FScenePhase:=2; FRunDeadline:=CozyTick+SceneCountdownMs;', 'else if State<>1 then',
-    'FScenePhase:=0; FRunDeadline:=0; UpdateCursor;',
-    'if (FScenePhase=2) and (CozyTick>=FRunDeadline) then', 'FScenePhase:=0; FRunDeadline:=0;',
-    'CancelInteraction; UpdateCursor;', 'Result:=FScenePhase;'], 'Authorized monotonic countdown and denial recovery');
-  assert.match(renderer,/SceneCountdownMs = 5000;/);
+    'FScenePhase:=2; FRunStarted:=CozyTick;', 'FRunDeadline:=FRunStarted+FRunDuration+OverlayRunSettleMilliseconds;', 'else if State<>1 then',
+    'FScenePhase:=0; FRunStarted:=0; FRunDeadline:=0; FRunDuration:=0; UpdateCursor;',
+    'if (FScenePhase=2) and (CozyTick>=FRunDeadline) then', 'FScenePhase:=0; FRunStarted:=0; FRunDeadline:=0; FRunDuration:=0;',
+    'CancelInteraction; UpdateCursor;', 'Result:=FScenePhase;'], 'Authorized monotonic progress and denial recovery');
+  assert.doesNotMatch(renderer,/SceneCountdownMs|CountdownSeconds/);
+  const productState=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas');
+  assert.match(productState,/if \(Card < 0\) or \(Card > 17\) then Exit\(0\);/);
+  assert.match(productState,/Result := 2400 \+ \(\(Card \* 7\) mod 18\) \* 110;/);
+  assert.match(productState,/OverlayRunSettleMilliseconds = 160;/);
+  assert.match(productState,/OverlayRunGrantMarginMilliseconds = 250;/);
   assert.doesNotMatch(renderer,/FToastDeadline|SceneToastMs|SceneLoadingMs/);
   assert.doesNotMatch(state,/Close|Shutdown/);
   const authority=method('function TOverlayWindow.AuthorityValid:', 'function TOverlayWindow.Run(');
-  assert.doesNotMatch(authority,/FScenePhase|ReadRunState/,'A countdown cannot bypass session authority');
+  assert.doesNotMatch(authority,/FScenePhase|ReadRunState/,'Presentation progress cannot bypass session authority');
   const handle=method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
   inOrder(handle,['if not FSceneRevealComplete or (ReadRunState<>0) then', 'WM_LBUTTONDOWN,WM_LBUTTONUP,WM_RBUTTONDOWN,WM_RBUTTONUP,',
     'WM_MOUSEMOVE,WM_MOUSEWHEEL,WM_MOUSEHWHEEL,WM_KEYDOWN,WM_KEYUP,WM_CHAR,',
@@ -437,16 +442,19 @@ check('Only a fresh server product grant begins the five-second countdown and re
   assert.match(renderer,/FBusyCursor:=ApiLoadCursorW\(0,PWideChar\(NativeUInt\(32648\)\)\)/);
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['SceneFlags := Cardinal(FSceneCategory) shl 4;', 'if FScenePhase=0 then SceneFlags := SceneFlags or IMGUI_SCENE_RUN_AVAILABLE;'], 'Only idle phase is actionable');
+  inOrder(paint,['RunProgress := 0;', 'ProgressTick := CozyTick;',
+    'if (FScenePhase=2) and (FRunDuration>0) and (ProgressTick>=FRunStarted) then',
+    'RunProgress := (ProgressTick-FRunStarted)/FRunDuration;', 'if RunProgress>1 then RunProgress:=1;'], 'Progress is normalized, bounded and begins after approval');
   const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
   const request=controller.slice(controller.indexOf('function TOverlayWorker.RequestProductRun('),controller.indexOf('function TOverlayWorker.ProductRunState:'));
   assert.match(request,/OverlayProductCanStart\(FProductCard, Card\)/);
   assert.doesNotMatch(request,/AuthorizeProductStart|\.Post\(/,'The UI callback only queues bounded work');
   const process=controller.slice(controller.indexOf('procedure TOverlayWorker.ProcessProductRun;'),controller.indexOf('function TOverlayWorker.ShouldClose:'));
   inOrder(process,['MaintainLease(False);', 'FClient.AuthorizeProductStart(FContext.Security, Card,',
-    'not OverlayProductCanStart(FProductCard, Card)', '(GrantDeadline <= CozyTick + 5000)',
+    'not OverlayProductCanStart(FProductCard, Card)', '(GrantDeadline <= CozyTick +', 'OverlayProductRunMilliseconds(Card) + OverlayRunGrantMarginMilliseconds)',
     'FProductRunState := 3;', 'FProductGrantDeadline := GrantDeadline;', 'FProductRunState := 2;'],'Worker rejects denied or stale grants');
   const grant=controller.slice(controller.indexOf('function TOverlayWorker.ProductRunState:'),controller.indexOf('procedure TOverlayWorker.ProcessProductRun;'));
-  assert.match(grant,/FProductGrantDeadline <= CozyTick \+ 5000/);
+  assert.match(grant,/FProductGrantDeadline <= CozyTick \+\s*OverlayProductRunMilliseconds\(FRunProductCard\) \+ OverlayRunGrantMarginMilliseconds/);
   assert.match(grant,/if Result in \[2,3\] then/,'An accepted or rejected grant is consumed once');
   assert.doesNotMatch(controller,/RequestCohortShutdown|FRunRequestedAt/,'START has no cohort-shutdown path');
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
@@ -454,7 +462,7 @@ check('Only a fresh server product grant begins the five-second countdown and re
   assert.match(scene,/if\(run&&start_allowed\)actions=8/);
   assert.match(scene,/if\(phase==1\|\|phase==2\)\{[\s\S]*?scene_blur_active=true[\s\S]*?actions=0;/);
   assert.match(scene,/licensed_card< -1\|\|licensed_card>17/);
-  assert.match(scene,/countdown_seconds>=0&&countdown_seconds<=5/);
+  assert.match(scene,/run_progress>=0&&run_progress<=1/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
   assert.match(legacy,/carousel_position,-1,0,true\)/,'Legacy scene has no entitlement and cannot START');
 });
