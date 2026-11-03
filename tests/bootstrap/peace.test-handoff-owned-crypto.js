@@ -37,7 +37,7 @@ check('KDF domain and order stay stable; temporary hasher digest is erased',()=>
  assert.match(kdf,/cozy\.Client\.Handoff\.V3\.AES256GCM\.ContentKey\.v1/);
  assert.match(kdf,/Hasher\.Update\(Seed\.Read\(0, 32\)\^, 32\);\s+Hasher\.Update\(AuthenticatedTranscript\[0\], Length\(AuthenticatedTranscript\)\)/);
  assert.match(kdf,/finally\s+if Length\(Digest\) <> 0 then FillChar\(Digest\[0\], Length\(Digest\), 0\);\s+Digest := nil;/);
- assert.match(kdf,/except\s+Result\.Free; Result := nil; raise;/);
+ assert.match(kdf,/except\s+Result\.Free; raise;/);
 });
 check('Generic GCM follows the same verified-output and finally-owned-scope contract',()=>{
  assert.match(generic,/Plain := TApiSensitiveBuffer\.Create\(Length\(Cipher\)\)/);

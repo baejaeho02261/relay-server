@@ -21,6 +21,10 @@ try{
   const block=text=>text.replace(/\r\n/g,'\n').split('// BEGIN STANDALONE PE PREFLIGHT\n')[1].split('// END STANDALONE PE PREFLIGHT')[0];
   const create=block(worker('Create_Approval.bat')),check=block(worker('Check_Approval.bat'));
   assert.equal(check,create);assert.match(create,/PE_EXCEPTION_TABLE_UNSORTED/);
+  for(const name of ['Create_Approval.bat','Check_Approval.bat']){
+   const modules=[...worker(name).matchAll(/require\('([^']+)'\)/g)].map(match=>match[1]);
+   assert.deepEqual(modules.sort(),['node:crypto','node:fs','node:path'],name+' requires only built-in modules');
+  }
  });
  Test('Both standalone workers admit Release exports and legacy unmarked bytes, but reject renamed Debug and malformed configuration exports',()=>{
   const pair=crypto.generateKeyPairSync('ed25519'),keyFile=path.join(temp,'configuration.pem');
@@ -62,10 +66,10 @@ try{
   for(const [name,image,error] of cases){
    const file=path.join(temp,name+'.exe'),output=path.join(temp,name+'-created.approval.json'),input=path.join(temp,name+'-existing.approval.json');
    fs.writeFileSync(file,image);fs.writeFileSync(input,JSON.stringify(legacyApproval(image)));
-   const env={...process.env,GC_APPROVAL_COMPONENT:'B',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_OUTPUT:output,GC_APPROVAL_JSON:input};
+   const env={...process.env,GC_APPROVAL_COMPONENT:'B',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_OUTPUT:output,GC_APPROVAL_JSON:input,GC_APPROVAL_PREPARED_SHA512:sha512(image)};
    // Rejection must happen before opening any private key or creating approval.
-   const created=require('node:child_process').spawnSync(process.execPath,['-e',createWorker],{env:{...env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_KEY:error?path.join(temp,'must-not-open-configuration.pem'):keyFile},encoding:'utf8'});
-   const inspected=require('node:child_process').spawnSync(process.execPath,['-e',checkWorker],{env:{...env,GC_APPROVAL_ACTION:'inspect'},encoding:'utf8'});
+   const created=require('node:child_process').spawnSync(process.execPath,['-e',createWorker],{env:{...env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_KEY:error?path.join(temp,'must-not-open-configuration.pem'):keyFile},cwd:temp,encoding:'utf8'});
+   const inspected=require('node:child_process').spawnSync(process.execPath,['-e',checkWorker],{env:{...env,GC_APPROVAL_ACTION:'inspect'},cwd:temp,encoding:'utf8'});
    if(error){
     for(const result of [created,inspected]){assert.equal(result.status,1,name);assert.equal(result.stderr.trim(),error,name);assert.equal(result.stdout,'',name);}
     assert.equal(fs.existsSync(output),false,name);
@@ -78,15 +82,16 @@ try{
    assert.deepEqual(JSON.parse(ReadContractFile(input,'utf8')),legacyApproval(image),name+' approval is read-only');
   }
  });
- Test('Create embeds the unchanged strict normalizer and prepares O before key selection and signing',()=>{
+ Test('Create embeds the unchanged strict normalizer and prepares B/O before key selection and signing',()=>{
   const text=ReadContractFile(path.join(MODULE_RESOURCE_ROOT,"../tools/artifacts/Create_Approval.bat"),'utf8').replace(/\r\n/g,'\n');
   const canonical=ReadContractFile(path.join(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.ImGui/Cozy.Build/Cozy.Normalize-PE-Unwind.ps1"),'utf8').replace(/\r\n/g,'\n');
   const core=(source,name)=>source.split(name+" = @'\n")[1].split("\n'@")[0];
   assert.equal(core(text,'$script:OverlayNormalizerSource'),core(canonical,'$source'));
   const main=text.slice(text.indexOf('function Main {'));
   const prepare=main.indexOf('Prepare-OverlayImage'),key=main.indexOf('Choose-Key'),sign=main.indexOf("GC_APPROVAL_ACTION='sign'");
-  assert(prepare>=0&&key>prepare&&sign>key,'Finalize selected O before choosing key/signing');
-  assert.match(main.slice(0,prepare),/\$component -eq 'O'/);
+  assert(prepare>=0&&key>prepare&&sign>key,'Finalize selected B/O before choosing key/signing');
+  assert.match(main.slice(0,prepare),/\$component -in @\('B','O'\)/);
+  assert.match(main,/Prepare-OverlayImage -ImagePath \$exe -Component \$component/);
   assert.match(main,/GC_APPROVAL_PREPARED_SHA512/);
   for(const name of ['Create_Approval.bat','Check_Approval.bat'])assert.doesNotMatch(ReadContractFile(RelayFile(name),'utf8'),/Finalize_Overlay\.bat|Normalize-PE-Unwind\.ps1/,'Two BATs are standalone');
  });
@@ -101,15 +106,24 @@ try{
   assert.equal(Audit(file).authorityVersion,1);assert.equal(Audit(file).compiledCfg,false);
   assert.throws(()=>a.ValidatePolicy({...policy,trustedReleaseKeys:[{...out.trustedKey,publicKey:privatePem}]}));
  });
- Test('Overlay approvals match both offline batch workers and the server V2 canonical',()=>{
-  const pair=crypto.generateKeyPairSync('ed25519'),keyFile=path.join(temp,'overlay-signing.pem'),file=path.join(temp,'overlay.exe'),approvalFile=path.join(temp,'overlay.approval.json');
-  fs.writeFileSync(keyFile,pair.privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});fs.writeFileSync(file,PE('O',a.DOMAIN));
-  const env={...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_KEY:keyFile,GC_APPROVAL_EXE:file,GC_APPROVAL_OUTPUT:approvalFile,GC_APPROVAL_COMPONENT:'O',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_PREPARED_SHA512:sha512(fs.readFileSync(file))};
-  const signed=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{env,encoding:'utf8'});assert.equal(signed.status,0,signed.stderr);
-  const approval=JSON.parse(ReadContractFile(approvalFile,'utf8'));assert.equal(approval.sha512,sha512(fs.readFileSync(file)));assert.match(approval.trustedKey.keyId,/^[a-f0-9]{64}$/);
-  const checked=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{env:{...env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_JSON:approvalFile},encoding:'utf8'});assert.equal(checked.status,0,checked.stderr);assert.equal(JSON.parse(checked.stdout).ok,true);assert.equal(JSON.parse(checked.stdout).pePreflightChecked,true);
-  assert.equal(a.VerifyApproval({component:'O',version:'93.0.0',sha512:approval.sha512,releaseApproval:approval.approval},{...a.Defaults(),requireReleaseSignature:true,trustedReleaseKeys:[approval.trustedKey]}),true);
-  fs.appendFileSync(file,'tampered');const bad=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{env:{...env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_JSON:approvalFile},encoding:'utf8'});assert.notEqual(bad.status,0);assert.match(bad.stderr,/EXE_SHA512_MISMATCH/);
+ Test('B/O approvals match both offline batch workers and the server V2 canonical',()=>{
+  const pair=crypto.generateKeyPairSync('ed25519'),keyFile=path.join(temp,'graphics-signing.pem');
+  const keyBytes=Buffer.from(pair.privateKey.export({type:'pkcs8',format:'pem'}));fs.writeFileSync(keyFile,keyBytes,{mode:0o600});
+  for(const component of ['B','O']){
+   const file=path.join(temp,component+'-graphics.exe'),approvalFile=path.join(temp,component+'-graphics.approval.json'),image=PE(component,a.DOMAIN);fs.writeFileSync(file,image);
+   const env={...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_KEY:keyFile,GC_APPROVAL_EXE:file,GC_APPROVAL_OUTPUT:approvalFile,GC_APPROVAL_COMPONENT:component,GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_PREPARED_SHA512:sha512(image)};
+   const signed=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{env,cwd:temp,encoding:'utf8'});assert.equal(signed.status,0,component+': '+signed.stderr);
+   const approval=JSON.parse(ReadContractFile(approvalFile,'utf8'));assert.equal(approval.sha512,sha512(image));assert.match(approval.trustedKey.keyId,/^[a-f0-9]{64}$/);
+   assert.equal(approval.approval.signature,SignRelease(component,'93.0.0',file,keyFile).approval.signature);
+   assert.equal(JSON.stringify(approval).includes('PRIVATE KEY'),false);assert.equal(JSON.stringify(approval).includes(keyBytes.toString()),false);
+   const checked=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{env:{...env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_JSON:approvalFile},cwd:temp,encoding:'utf8'});assert.equal(checked.status,0,component+': '+checked.stderr);assert.equal(JSON.parse(checked.stdout).ok,true);assert.equal(JSON.parse(checked.stdout).pePreflightChecked,true);
+   assert.equal(a.VerifyApproval({component,version:'93.0.0',sha512:approval.sha512,releaseApproval:approval.approval},{...a.Defaults(),requireReleaseSignature:true,trustedReleaseKeys:[approval.trustedKey]}),true);
+   const savedApproval=fs.readFileSync(approvalFile);
+   const duplicate=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{env,cwd:temp,encoding:'utf8'});assert.equal(duplicate.status,1);assert.equal(duplicate.stderr.trim(),'OUTPUT_ALREADY_EXISTS');assert.deepEqual(fs.readFileSync(approvalFile),savedApproval);
+   assert.deepEqual(fs.readFileSync(keyFile),keyBytes);assert.deepEqual(fs.readFileSync(file),image);
+   fs.appendFileSync(file,'tampered');const bad=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{env:{...env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_JSON:approvalFile},cwd:temp,encoding:'utf8'});assert.notEqual(bad.status,0);assert.match(bad.stderr,/EXE_SHA512_MISMATCH/);
+  }
+  const duplicateKey=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{env:{...process.env,GC_APPROVAL_ACTION:'new-key',GC_APPROVAL_KEY:keyFile},cwd:temp,encoding:'utf8'});assert.equal(duplicateKey.status,1);assert.equal(duplicateKey.stderr.trim(),'KEY_ALREADY_EXISTS');assert.deepEqual(fs.readFileSync(keyFile),keyBytes);
  });
  Test('Approval inspection rejects a valid legacy signature over an unsorted EXE without changing either input',()=>{
   const pair=crypto.generateKeyPairSync('ed25519'),bytes=PE('O',a.DOMAIN),pdata=1280,first=Buffer.from(bytes.subarray(pdata,pdata+12));bytes.copy(bytes,pdata,pdata+12,pdata+24);first.copy(bytes,pdata+12);
@@ -118,16 +132,19 @@ try{
   assert.equal(crypto.verify(null,Buffer.from(canonical),pair.publicKey,Buffer.from(signature,'base64')),true);
   const json=JSON.stringify({component:'O',version:'93.0.0',sha512:digest,trustedKey:{keyId,publicKey:pair.publicKey.export({type:'spki',format:'pem'}).toString()},approval:{keyId,signature}});
   const file=path.join(temp,'legacy-unsorted.exe'),approvalFile=path.join(temp,'legacy-unsorted.approval.json');fs.writeFileSync(file,bytes);fs.writeFileSync(approvalFile,json);
-  const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_COMPONENT:'O',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_JSON:approvalFile}});
+  const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Check_Approval.bat')],{cwd:temp,encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'inspect',GC_APPROVAL_COMPONENT:'O',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_JSON:approvalFile}});
   assert.equal(result.status,1);assert.equal(result.stderr.trim(),'PE_EXCEPTION_TABLE_UNSORTED');assert.equal(result.stdout,'');
   assert.deepEqual(fs.readFileSync(file),bytes);assert.equal(ReadContractFile(approvalFile,'utf8'),json);
  });
- Test('O signing binds to final preparation bytes before opening the key; missing or stale receipt cannot create approval',()=>{
-  const bytes=PE('O',a.DOMAIN),file=path.join(temp,'prepared-binding.exe');fs.writeFileSync(file,bytes);
-  for(const [name,prepared,code] of [['missing','', 'OVERLAY_PREPARATION_REQUIRED'],['malformed','invalid','OVERLAY_PREPARATION_REQUIRED'],['stale','0'.repeat(128),'OVERLAY_PREPARED_IMAGE_CHANGED']]){
-   const output=path.join(temp,name+'-preparation.approval.json');
-   const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_COMPONENT:'O',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_KEY:path.join(temp,'must-not-be-opened.pem'),GC_APPROVAL_OUTPUT:output,GC_APPROVAL_PREPARED_SHA512:prepared}});
-   assert.equal(result.status,1);assert.equal(result.stderr.trim(),code);assert.equal(fs.existsSync(output),false);assert.deepEqual(fs.readFileSync(file),bytes);
+ Test('B/O signing binds to final preparation bytes before opening the key; missing or stale receipt cannot create approval',()=>{
+  for(const component of ['B','O']){
+   const bytes=PE(component,a.DOMAIN),file=path.join(temp,component+'-prepared-binding.exe');fs.writeFileSync(file,bytes);
+   const prefix=component==='B'?'CLIENT':'OVERLAY';
+   for(const [name,prepared,code] of [['missing','',prefix+'_PREPARATION_REQUIRED'],['malformed','invalid',prefix+'_PREPARATION_REQUIRED'],['stale','0'.repeat(128),prefix+'_PREPARED_IMAGE_CHANGED']]){
+    const output=path.join(temp,component+'-'+name+'-preparation.approval.json');
+    const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{cwd:temp,encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_COMPONENT:component,GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_KEY:path.join(temp,'must-not-be-opened.pem'),GC_APPROVAL_OUTPUT:output,GC_APPROVAL_PREPARED_SHA512:prepared}});
+    assert.equal(result.status,1,component+': '+name);assert.equal(result.stderr.trim(),code);assert.equal(result.stdout,'');assert.equal(fs.existsSync(output),false);assert.deepEqual(fs.readFileSync(file),bytes);
+   }
   }
  });
  Test('Approval preflight rejects unsorted and malformed unwind tables before opening a key or writing JSON',()=>{
@@ -139,10 +156,10 @@ try{
    ['directory-bounds','PE_EXCEPTION_TABLE_INVALID',b=>b.writeUInt32LE(0x2ff0,opt+136)],
    ['incomplete-directory','PE_EXCEPTION_TABLE_INVALID',b=>b.writeUInt32LE(0,opt+140)]
   ];
-  for(const [name,code,mutate] of cases){
+  for(const component of ['B','O'])for(const [name,code,mutate] of cases){
    const bytes=Buffer.from(original);mutate(bytes);
-   const file=path.join(temp,name+'.exe'),output=path.join(temp,name+'.approval.json');fs.writeFileSync(file,bytes);
-   const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_COMPONENT:'O',GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_KEY:path.join(temp,'must-not-be-opened.pem'),GC_APPROVAL_OUTPUT:output}});
+   const file=path.join(temp,component+'-'+name+'.exe'),output=path.join(temp,component+'-'+name+'.approval.json');fs.writeFileSync(file,bytes);
+   const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{cwd:temp,encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_COMPONENT:component,GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_KEY:path.join(temp,'must-not-be-opened.pem'),GC_APPROVAL_OUTPUT:output}});
    assert.equal(result.status,1,name);assert.equal(result.stderr.trim(),code,name);assert.equal(result.stdout,'',name);
    assert.equal(fs.existsSync(output),false,name);assert.deepEqual(fs.readFileSync(file),bytes,name);
    assert.throws(()=>require("../../services/integrity/peace.desktop-integrity").CodeImage(bytes),new RegExp(code),name);
@@ -156,7 +173,7 @@ try{
     const image=Buffer.from(bytes),name=component+(missing?'-absent':'-sorted');
     if(missing){const opt=image.readUInt32LE(0x3c)+24;image.writeUInt32LE(0,opt+136);image.writeUInt32LE(0,opt+140);}
     const file=path.join(temp,name+'.exe'),output=path.join(temp,name+'.approval.json');fs.writeFileSync(file,image);
-    const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_COMPONENT:component,GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_KEY:keyFile,GC_APPROVAL_OUTPUT:output,GC_APPROVAL_PREPARED_SHA512:component==='O'?sha512(image):'ignored-for-A-B'}});
+    const result=require('node:child_process').spawnSync(process.execPath,['-e',worker('Create_Approval.bat')],{cwd:temp,encoding:'utf8',env:{...process.env,GC_APPROVAL_ACTION:'sign',GC_APPROVAL_COMPONENT:component,GC_APPROVAL_VERSION:'93.0.0',GC_APPROVAL_EXE:file,GC_APPROVAL_KEY:keyFile,GC_APPROVAL_OUTPUT:output,GC_APPROVAL_PREPARED_SHA512:component==='A'?'ignored-for-A':sha512(image)}});
     assert.equal(result.status,0,result.stderr);const approval=JSON.parse(ReadContractFile(output,'utf8'));
     assert.equal(approval.sha512,sha512(image));assert.equal(approval.approval.signature,SignRelease(component,'93.0.0',file,keyFile).approval.signature);
     assert.deepEqual(fs.readFileSync(file),image);assert.deepEqual(fs.readFileSync(keyFile),keyBytes);

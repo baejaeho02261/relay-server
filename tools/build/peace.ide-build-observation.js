@@ -78,7 +78,7 @@ function before(run,role,config,properties){
 function ready(run,role,config,properties){
  const s=session(run),b=json(path.join(run,role+'-before.json'));if(b.role!==role||b.configuration!==config||b.sessionId!==s.id)fail('BEFORE_INVALID');recheck(s);
  const values=typeof properties==='string'?json(properties):properties;if(!values||key(values.project||'')!==key(roleProject(s.native,role,'.dproj'))||values.configuration!==config||values.platform!=='Win64')fail('EVALUATED_PROJECT_MISMATCH');
- const generated=generatedSnapshot(s),required=[roleProject(s.native,role,'Resources.res'),...(role==='O'?[path.join(s.native,...IMGUI_OBJECT.split('/'))]:[])];
+ const generated=generatedSnapshot(s),required=[roleProject(s.native,role,'Resources.res'),...(['B','O'].includes(role)?[path.join(s.native,...IMGUI_OBJECT.split('/'))]:[])];
  for(const file of required)if(!generated.files[key(file)])fail('GENERATED_REFERENCE_MISSING');
  const result={version:1,kind:'IDE_BEFORE_COMPILER_HOOK_DECLARATION',sessionId:s.id,role,pid:process.pid,time:new Date().toISOString(),beforeSha512:hash(regular(path.join(run,role+'-before.json'))),generated,properties:values,environment:environment(),compilerArgumentsObserved:false,independentAttestation:false};result.marker=marker(run,role,'ready',s.id);return writeJson(path.join(run,role+'-ready.json'),result);
 }
@@ -141,7 +141,7 @@ function corroborate(run,role,traceFile,pid){
 }
 function checksum(bytes,offset){let sum=0;for(let i=0;i<bytes.length;i+=2){let word=i>=offset&&i<offset+4?0:bytes[i];if(i+1<bytes.length&&!(i+1>=offset&&i+1<offset+4))word|=bytes[i+1]<<8;sum+=word;sum=(sum&65535)+(sum>>>16);}sum=(sum&65535)+(sum>>>16);return ((sum&65535)+(sum>>>16)+bytes.length)>>>0;}
 function normalizedRelation(original,final,role){
- if(original.equals(final))return{kind:'IDENTICAL_BYTES',changed:false};if(role!=='O'||original.length!==final.length)fail('FINAL_BYTES_UNLINKED');
+ if(original.equals(final))return{kind:'IDENTICAL_BYTES',changed:false};if(!['B','O'].includes(role)||original.length!==final.length)fail('FINAL_BYTES_UNLINKED');
  const pe=pe64(original),opt=pe+24,size=original.readUInt16LE(pe+20),count=original.readUInt16LE(pe+6),table=opt+size;
  if(size<144||opt+size>original.length||count<1||count>96||table+count*40>original.length||original.readUInt32LE(opt+108)<4)fail('NORMALIZATION_PE_INVALID');
  const rva=original.readUInt32LE(opt+136),length=original.readUInt32LE(opt+140);if(!rva||!length||length%12||length>16*1024*1024)fail('NORMALIZATION_PE_INVALID');

@@ -14,6 +14,7 @@ license_session=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Session.pas'
 window=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Window.pas')
 api=read('Railway/Cozy.Source/Cozy.Platform/Cozy.Api.pas')
 overlay=read('Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas')
+module_inventory=read('Railway/Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas')
 count=0
 
 def check(name,condition):
@@ -30,6 +31,22 @@ check('A deletion stays in authenticated handoff', re.search(r'SetFileInfo\(Laun
 check('B is not unlinked at claim time', 'UnlinkVerifiedOwnImage(' not in claim)
 check('The verified B handle is transferred rather than reopened after license', 'FBinaryCleanupFile := BinaryFile;\n    BinaryFile := 0;' in claim and 'OpenSafeImage(' not in cleanup)
 check('Live license is checked before O launch and server transfer', redeem.index('LicenseState := FApi.Redeem(BoundaryKey);') < redeem.index('if not LicenseState.IsActive then') < redeem.index('if not FApi.StartOverlay then'))
+presentation=license_session.split('function TLicenseWorker.WaitForSubmitPresentation: Boolean;',1)[1].split('procedure TLicenseWorker.RedeemPending(',1)[0]
+check('Minimum submit presentation uses the accepted monotonic attempt and can be cancelled without transfer',
+      'StartedAt := FCommands.AttemptStartedAt;' in presentation
+      and 'while not Terminated and not FCommands.Stopping do' in presentation
+      and 'Elapsed := NowTick - StartedAt;' in presentation
+      and 'Elapsed >= LicenseSubmitMinimumMilliseconds' in presentation
+      and 'WaitForSingleObject(FStopEvent, Remaining)' in presentation
+      and 'if WaitResult <> WAIT_TIMEOUT then Exit;' in presentation
+      and 'StartOverlay' not in presentation and 'WorkerTransferred' not in presentation)
+check('Live lease and cancellation are checked after the submit presentation and before real handoff',
+      redeem.index('FApi.Redeem(BoundaryKey)') < redeem.index('if not WaitForSubmitPresentation then')
+      < redeem.index('if not LicenseState.IsActive then') < redeem.index('if not FApi.StartOverlay then'))
+check('Only definitive key rejection reopens the same B after the visual interval',
+      all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
+      and 'if WaitForSubmitPresentation then FCommands.Complete(WorkerIdle)' in redeem
+      and 'else\n          FCommands.Complete(WorkerFailed);' in redeem)
 check('Confirmed transfer terminates B worker without another proof or active unlink', redeem.index('if not FApi.StartOverlay then') < redeem.index('FCommands.Complete(WorkerTransferred)') < redeem.index('Terminate;') and 'CleanupBinaryAfterLicense' not in license_session and 'WorkerActive' not in license_session)
 check('B window exits on transfer and joins worker before destroying resources', 'State = WorkerTransferred' in window and main.index('Worker.Free;') < main.index('Api.Free;') < main.index('Context.Free;'))
 check('Cleanup is guarded once and preserves nonfatal OS refusal', 'if FBinaryCleanupAttempted then Exit;' in cleanup and 'FBinaryCleanupInfo, False);' in cleanup)
@@ -81,4 +98,20 @@ check('UI expiry is sticky and snapshots readiness with its deadline under one l
       and 'AwaitingTransfer' not in close)
 check('Overlay shutdown joins the worker before closing its authenticated client or context',
       run.index('Worker.Stop;') < run.index('Worker.WaitFor;') < run.index('Worker.Free;') < run.index('Client.ShutdownClose(') < run.index('Context.Free;'))
+modules=api.split('function TGameApi.ReportModulesIfDue: Boolean;',1)[1].split('function TGameApi.ContinueModuleInventoryCore:',1)[0]
+retry=modules.split('if (FModuleGenerationRetries < ModuleGenerationRetryLimit)',1)[1].split('FModuleSnapshotID := RequestID;',1)[0]
+predicate=module_inventory.split('function ModuleInventoryGenerationRetryable(Snapshot: TJSONObject): Boolean;')[-1].split('function CollectModuleInventoryJSON(',1)[0]
+check('An interrupted loader generation is discarded before any server batch and cannot unblock key redemption',
+      modules.index('ModuleInventoryGenerationRetryable(FModuleSnapshot)') < modules.index('FModuleSnapshotID := RequestID;') < modules.index('SendIntegrityReport(Payload);')
+      and retry.index('FModuleSnapshotCompleted := False;') < retry.index('ClearModuleSnapshot;') < retry.index('Exit(True);')
+      and 'FNextModules := NowTick;' in retry)
+check('Generation retry is bounded from the first scan, includes cancellation and resets only after server acceptance',
+      'ModuleGenerationRetryLimit = 2;' in api and 'ModuleGenerationRetryMilliseconds = 90000;' in api
+      and modules.index('if FModuleGenerationRetries = 0 then FModuleGenerationStarted := NowTick;') < modules.index('CollectModuleInventoryJSON(')
+      and '(At < FModuleGenerationStarted)' in modules
+      and '(At - FModuleGenerationStarted >= ModuleGenerationRetryMilliseconds)' in modules
+      and modules.index('SendIntegrityReport(Payload);') < modules.index('FModuleGenerationRetries := 0;'))
+check('Generation-only retry cannot hide read failures, code differences, missing digests or one-shot device evidence',
+      all(value in predicate for value in ["'TRACKED_CHANGED'", "'PARTIAL'", "'UNVERIFIED_BASELINE'", "'MATCH_LOCAL_FILE'", "'failurePhase'", "'fileSha512', 128", "'codeSha512', 128", "'MEASURED'", "'NO_EXPORTS'", "'SECTION_HASHED'", "'COMPLETE'", "'unknownStart'", "'unreadable'", "'NOT_REQUESTED'"])
+      and not any(value in predicate for value in ['.AddPair(', '.RemovePair(', 'Exit(True)']))
 print(f'License-success source contracts: {count} passed. Static checks only; no Windows deletion or rendering test.')

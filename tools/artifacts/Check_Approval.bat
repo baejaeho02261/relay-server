@@ -314,7 +314,8 @@ function Main {
     Write-Host '=== cozy.Client 공개 배포 승인 점검 ==='
     Write-Host 'EXE와 approval.json을 읽기만 합니다. 개인키는 필요하지 않습니다.'
     Write-Host '네트워크 접속, 서버 신뢰 등록, 소스 변경, 새 파일 저장은 하지 않습니다.'
-    Write-Host 'O 승인 생성은 Create_Approval.bat에서 O를 선택하세요. EXE 예외 테이블 정리 후 새 JSON을 생성합니다.'
+    Write-Host '실행 버전: FIX5 / B·O ImGui 승인 점검'
+    Write-Host 'B/O 승인 생성은 Create_Approval.bat에서 해당 구분을 선택하세요. EXE 예외 테이블 정리 후 새 JSON을 생성합니다.'
     Write-Host '정리로 EXE가 변경되면 이전 JSON은 일치하지 않습니다. 새 EXE와 함께 생성된 새 JSON을 선택하세요.'
     $node = Find-ExistingNode $base
     Write-Host ('사용 Node: ' + $node)
@@ -367,11 +368,13 @@ catch {
     Write-Host 'PRIVATE_KEY_NOT_ALLOWED: PEM 개인키가 아니라 공개 approval.json을 선택하세요.'
     Write-Host 'SECURITY_DEBUG_BUILD_NOT_PUBLISHABLE: Debug EXE는 배포 승인할 수 없습니다. Release로 빌드한 최종 EXE를 선택하세요.'
     Write-Host 'SECURITY_BUILD_CONFIGURATION_INVALID: EXE의 빌드 구성 표식이 잘못되었습니다. 정상 프로젝트에서 다시 빌드하세요.'
-    Write-Host 'PE_EXCEPTION_TABLE_UNSORTED: O 빌드의 예외 테이블 정렬 단계가 완료되지 않았습니다.'
-    Write-Host 'Create_Approval.bat 실행 > O 선택 > 같은 새 O EXE 선택 순서로 진행해 자동 정리와 승인 JSON 재생성을 완료하세요.'
+    Write-Host 'PE_EXCEPTION_TABLE_UNSORTED: B/O 빌드의 예외 테이블 정렬 단계가 완료되지 않았습니다. Create_Approval.bat FIX5에서 해당 구분을 선택해 새 승인을 생성하세요.'
+    Write-Host 'Create_Approval.bat 실행 > B 또는 O 선택 > 해당 구분의 새 EXE 선택 순서로 진행해 자동 정리와 승인 JSON 재생성을 완료하세요.'
     Write-Host '그 후 정리된 같은 EXE와 새 JSON으로 Check_Approval.bat를 다시 실행하세요. 점검 도구는 EXE를 수정하지 않습니다.'
     Write-Host 'PE_EXCEPTION_TABLE_INVALID / BOOTSTRAP_PE_INVALID: 정상 Win64 Release EXE와 빌드 로그를 확인하세요.'
     Write-Host 'TRUSTED_KEY_MISSING_OR_INVALID / PUBLIC_KEY_FORMAT_INVALID: 이 도구로 만든 완전한 공개 승인 JSON을 선택하세요.'
     Write-Host '입력 파일과 서버는 변경하지 않았습니다. 원본 자료는 삭제하거나 덮어쓰지 않았습니다.'
+    Write-Host ''
+    Write-Host ('[실제 오류] ' + $_.Exception.Message)
     exit 1
 }

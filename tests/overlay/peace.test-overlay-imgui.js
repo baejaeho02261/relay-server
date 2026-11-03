@@ -518,7 +518,11 @@ check('Rounded composition corners use soft clipping and a premultiplied transpa
   assert.doesNotMatch(bridge,/composition_visual->SetClip\(|clip->Set(?:Left|Top|Right|Bottom)/,
     'SDK overload layout must not dispatch DirectComposition clip calls');
   assert.match(bridge,/radius=6\.0f\*scale/);
-  assert.match(bridge,/game_make_render_target\(c\)&&game_composition_clip\(c,width,height\)/);
+  assert.match(bridge,/if\(!game_make_render_target\(c\)\|\|!game_composition_clip\(c,width,height\)\)return 0;/);
+  inOrder(bridge.slice(bridge.indexOf('if(!ImGui_ImplDX11_Init(')),
+    ['ImGui_ImplDX11_CreateDeviceObjects()', 'if(c->license_only)',
+     'game_blur_prepare(c->scene_blur', 'if(FAILED(hr))return game_create_failure'],
+    'B prepares the full-panel blur before authentication can begin');
   inOrder(bridge.slice(bridge.indexOf('static void game_destroy_context(')),
     ['composition_target->SetRoot(0)', 'composition->Commit()', 'composition_clip->Release()',
      'composition_visual->Release()', 'composition_target->Release()', 'composition->Release()',

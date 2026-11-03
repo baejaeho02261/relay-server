@@ -62,9 +62,9 @@ function SignRelease(component, version, file, keyFile) {
   const bytes = ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID');
   ValidatePeImage(bytes,stop,true);
   const sha512 = crypto.createHash('sha512').update(bytes).digest('hex');
-  if (component === 'O') {
-    if (typeof env.GC_APPROVAL_PREPARED_SHA512 !== 'string' || !/^[a-f0-9]{128}$/.test(env.GC_APPROVAL_PREPARED_SHA512)) stop('OVERLAY_PREPARATION_REQUIRED');
-    if (sha512 !== env.GC_APPROVAL_PREPARED_SHA512) stop('OVERLAY_PREPARED_IMAGE_CHANGED');
+  if (component === 'B' || component === 'O') {
+    if (typeof env.GC_APPROVAL_PREPARED_SHA512 !== 'string' || !/^[a-f0-9]{128}$/.test(env.GC_APPROVAL_PREPARED_SHA512)) stop(component === 'B' ? 'CLIENT_PREPARATION_REQUIRED' : 'OVERLAY_PREPARATION_REQUIRED');
+    if (sha512 !== env.GC_APPROVAL_PREPARED_SHA512) stop(component === 'B' ? 'CLIENT_PREPARED_IMAGE_CHANGED' : 'OVERLAY_PREPARED_IMAGE_CHANGED');
   }
   const keyBytes = ReadBoundedInput(keyFile, 1, 16384, 'KEY_FILE_INVALID');
   let key;
@@ -301,9 +301,11 @@ catch (e) {
 
 # BEGIN INTEGRATED OVERLAY PREPARATION
 # Embedded build normalization core: identical to the existing ImGui normalizer.
-# The JavaScript worker signs only the hash returned by this preparation step.
+# B and O both link the native ImGui object. The JavaScript worker signs only
+# the hash returned by this preparation step; A remains read-only.
 $script:OverlayNormalizerLoaded = $false
 $script:OverlayPreparationAttempted = $false
+$script:PreparationComponent = ''
 $script:OverlayNormalizerSource = @'
 using System;
 using System.Collections.Generic;
@@ -510,7 +512,8 @@ namespace GameImGui {
 '@
 
 function Prepare-OverlayImage {
-    param([Parameter(Mandatory = $true)][string]$ImagePath)
+    param([Parameter(Mandatory = $true)][string]$ImagePath,
+          [ValidateSet('B','O')][string]$Component = 'O')
     $temporary = $null
     $stream = $null
     try {
@@ -552,11 +555,11 @@ function Prepare-OverlayImage {
         } finally { $sha512.Dispose() }
         if ($savedBytes.Length -ne $result.Bytes.Length -or $savedHash -ne $expectedHash) { throw 'PE_UNWIND_READBACK_MISMATCH' }
         if ($result.Changed) {
-            Write-Host ('[O 준비] 예외 테이블 정렬 완료: {0}개 항목, 역순 {1}곳 교정' -f $result.RecordCount, $result.Inversions)
+            Write-Host ('[{0} 준비] 예외 테이블 정렬 완료: {1}개 항목, 역순 {2}곳 교정' -f $Component, $result.RecordCount, $result.Inversions)
         } else {
-            Write-Host ('[O 준비] 예외 테이블 정상: {0}개 항목, EXE 변경 없음' -f $result.RecordCount)
+            Write-Host ('[{0} 준비] 예외 테이블 정상: {1}개 항목, EXE 변경 없음' -f $Component, $result.RecordCount)
         }
-        Write-Host ('[O 준비] 저장 결과 재검사 통과 / SHA-512: ' + $savedHash)
+        Write-Host ('[{0} 준비] 저장 결과 재검사 통과 / SHA-512: {1}' -f $Component, $savedHash)
         return [pscustomobject]@{ image=$resolved; sha512=$savedHash; changed=[bool]$result.Changed; records=$verified.RecordCount; bytes=$savedBytes.Length }
     } finally {
         if ($null -ne $stream) { $stream.Dispose() }
@@ -794,11 +797,11 @@ function Main {
     $homeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'cozy.ClientReleaseTools'
     Write-Host ''
     Write-Host '=== cozy.Client 공개 배포 승인 파일 생성 ==='
-    Write-Host 'O는 선택한 EXE의 예외 테이블을 검사·정렬한 뒤 승인 JSON을 생성합니다.'
-    Write-Host 'A/B EXE와 기존 승인 JSON은 변경하지 않습니다.'
+    Write-Host 'B/O는 선택한 EXE의 예외 테이블을 검사·정렬한 뒤 승인 JSON을 생성합니다.'
+    Write-Host 'A EXE와 기존 승인 JSON은 변경하지 않습니다.'
     Write-Host '승인 JSON은 EXE 폴더가 아니라 이 BAT와 같은 폴더에 저장합니다.'
     Write-Host '서버로 자동 업로드하거나 정책/신뢰 키를 자동 변경하지 않습니다.'
-    Write-Host '실행 버전: FIX4 / BAT 단독형 (O 자동 정렬 + 승인 JSON 생성)'
+    Write-Host '실행 버전: FIX5 / BAT 단독형 (B/O 자동 정렬 + 승인 JSON 생성)'
     Write-Host '서명 도구: 이 BAT에 포함된 독립 서명기'
     $node = Get-NodeRuntime $homeDirectory $base
     Write-Host ('사용 Node: ' + $node)
@@ -807,6 +810,7 @@ function Main {
     $keyPath = $null
     do {
         $script:OverlayPreparationAttempted = $false
+        $script:PreparationComponent = ''
         Write-Host ''
         Write-Host 'A = 런처 / B = 클라이언트 / O = 오버레이'
         $component = (Read-Host '생성할 구분 [A/B/O]').Trim().ToUpperInvariant()
@@ -826,16 +830,17 @@ function Main {
         Write-Host ('구분/버전: ' + $component + ' / ' + $version)
         Write-Host ('승인 파일: ' + $target)
         $confirmPrompt = '위 파일에 대한 공개 승인 파일을 생성할까요? [Y/N]'
-        if ($component -eq 'O') {
-            Write-Host '선택한 O EXE의 예외 테이블이 역순이면 이 파일을 직접 정렬하고 저장합니다.'
+        if ($component -in @('B','O')) {
+            Write-Host ('선택한 ' + $component + ' EXE의 예외 테이블이 역순이면 이 파일을 직접 정렬하고 저장합니다.')
             Write-Host '정렬된 최종 EXE에 맞는 새 JSON을 생성합니다. 이 EXE의 이전 JSON은 다시 사용하지 마세요.'
-            $confirmPrompt = '선택한 O EXE를 검사·정렬한 뒤 공개 승인 파일을 생성할까요? [Y/N]'
+            $confirmPrompt = '선택한 ' + $component + ' EXE를 검사·정렬한 뒤 공개 승인 파일을 생성할까요? [Y/N]'
         }
         if ((Read-Host $confirmPrompt).Trim() -notmatch '^(?i)y(es)?$') { throw '서명을 취소했습니다.' }
         $prepared = $null
-        if ($component -eq 'O') {
+        if ($component -in @('B','O')) {
             $script:OverlayPreparationAttempted = $true
-            $prepared = Prepare-OverlayImage -ImagePath $exe
+            $script:PreparationComponent = $component
+            $prepared = Prepare-OverlayImage -ImagePath $exe -Component $component
             $exe = $prepared.image
         }
         if (-not $keyPath) { $keyPath = Choose-Key $homeDirectory $node $base }
@@ -843,7 +848,7 @@ function Main {
             GC_APPROVAL_ACTION='sign'; GC_APPROVAL_COMPONENT=$component;
             GC_APPROVAL_VERSION=$version; GC_APPROVAL_EXE=$exe; GC_APPROVAL_KEY=$keyPath; GC_APPROVAL_OUTPUT=$target
         }
-        if ($component -eq 'O') { $signValues.GC_APPROVAL_PREPARED_SHA512 = $prepared.sha512 }
+        if ($component -in @('B','O')) { $signValues.GC_APPROVAL_PREPARED_SHA512 = $prepared.sha512 }
         $result = Invoke-Worker $node $signValues $base
         Write-Host ''
         Write-Host '[완료] 공개 배포 승인 파일을 생성했습니다.'
@@ -860,25 +865,29 @@ function Main {
 try { Main; exit 0 }
 catch {
     Write-Host ''
-    Write-Host ('[중단] ' + $_.Exception.Message)
+    $failureMessage = $_.Exception.GetBaseException().Message
+    Write-Host ('[중단] ' + $failureMessage) -ForegroundColor Red
     if ($script:OverlayPreparationAttempted) {
-        Write-Host 'O EXE는 준비 단계에서 이미 정렬되어 저장됐을 수 있습니다. 이후 서명 실패나 취소는 EXE를 이전 상태로 되돌리지 않습니다.'
-        Write-Host '다시 이 도구에서 O와 같은 EXE를 선택해 새 승인 JSON 생성을 완료하세요.'
+        Write-Host ($script:PreparationComponent + ' EXE는 준비 단계에서 이미 정렬되어 저장됐을 수 있습니다. 이후 서명 실패나 취소는 EXE를 이전 상태로 되돌리지 않습니다.')
+        Write-Host ('다시 이 도구에서 ' + $script:PreparationComponent + '와 같은 EXE를 선택해 새 승인 JSON 생성을 완료하세요.')
     }
     Write-Host '기존 개인키와 기존 승인 JSON은 덮어쓰지 않았습니다.'
     Write-Host '이 버전은 peace.sign-release-approval.js, services, vendor, npm 설치가 필요하지 않습니다.'
     Write-Host 'BOOTSTRAP_PE_INVALID / RELEASE_FILE_INVALID: 실제 Win64 EXE인지 확인하세요.'
     Write-Host 'SECURITY_DEBUG_BUILD_NOT_PUBLISHABLE: Debug EXE는 배포 승인할 수 없습니다. Release로 빌드한 최종 EXE를 선택하세요.'
     Write-Host 'SECURITY_BUILD_CONFIGURATION_INVALID: EXE의 빌드 구성 표식이 잘못되었습니다. 정상 프로젝트에서 다시 빌드하세요.'
-    Write-Host 'PE_EXCEPTION_TABLE_UNSORTED: 이 도구에서 O를 선택하면 서명 전에 자동 정렬합니다.'
-    Write-Host 'PE_UNWIND_*: O 예외 테이블 준비가 실패했습니다. 위 상세 오류와 정상 Win64 Release 빌드를 확인하세요.'
-    Write-Host 'OVERLAY_PREPARATION_REQUIRED: 이 BAT에서 O 준비와 서명을 순서대로 실행하세요.'
-    Write-Host 'OVERLAY_PREPARED_IMAGE_CHANGED: O 준비 후 EXE가 변경됐습니다. 빌드를 마친 뒤 이 도구로 다시 생성하세요.'
+    Write-Host 'PE_EXCEPTION_TABLE_UNSORTED: 이 FIX5 도구에서 B 또는 O를 선택하면 서명 전에 자동 정렬합니다.'
+    Write-Host 'PE_UNWIND_*: B/O 예외 테이블 준비가 실패했습니다. 실제 오류 코드와 정상 Win64 Release 빌드를 확인하세요.'
+    Write-Host 'CLIENT_PREPARATION_REQUIRED / OVERLAY_PREPARATION_REQUIRED: 이 BAT에서 B/O 준비와 서명을 순서대로 실행하세요.'
+    Write-Host 'CLIENT_PREPARED_IMAGE_CHANGED / OVERLAY_PREPARED_IMAGE_CHANGED: 준비 후 EXE가 변경됐습니다. 빌드를 마친 뒤 이 도구로 다시 생성하세요.'
     Write-Host 'PE_EXCEPTION_TABLE_INVALID: 예외 테이블 범위가 잘못되었습니다. 정상 Release 빌드와 빌드 로그를 확인하세요.'
     Write-Host 'ED25519_KEY_REQUIRED / KEY_PEM_INVALID: 올바른 배포용 Ed25519 개인키를 선택하세요.'
     Write-Host 'ENCRYPTED_KEY_NOT_SUPPORTED: 기존 도구와 같은 비암호화 PEM만 지원합니다.'
     Write-Host 'NODE_RUNTIME_MODULE_MISSING: 서버 소스가 아니라 Node 런타임 파일을 확인하세요.'
     Write-Host 'SIGNING_FAILED이면 실제 Win64 EXE와 비암호화 Ed25519 PEM 개인키인지 확인하세요.'
     Write-Host '다운로드 오류이면 nodejs.org 연결/프록시를 확인하세요. 인증서 검사는 끄지 않습니다.'
+    Write-Host ''
+    Write-Host '위 목록은 참고 안내입니다. 이번 실패의 실제 오류는 아래 한 줄입니다.'
+    Write-Host ('[실제 오류] ' + $failureMessage) -ForegroundColor Red
     exit 1
 }

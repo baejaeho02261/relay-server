@@ -35,7 +35,7 @@
     "core/peace.utilities.js": "e2dc2ee547775c72fc6a279a2a7032c6d165633aaeabce4c7da0f16541b53df87fd9b648bba587ca25ab7ee046dc5b4430354968234bb794fc22e07f4af04e70",
     "identity/peace.identity-manager.js": "a9909f23ac1a093163029609f90a13fe6270e7eff7a2b4fd423c4e6b72373ce91c3079b55a5e8fb7ab382ae5905482fa6fad61f700e5c62ed884483fff9524a3",
     "license/peace.license-manager.js": "5b7a27d981bc4e28a184d96baccb74b5a4b3e34f31ec249c39642dd5feab95293934b8087ccba9301f6358256faa4d6b0bd89833b8b4b44ab0c96fac9028013f",
-    "maintenance/Cozy.product-license-ui.ko.md": "83cf5ae79575241964b2db36c84fd730436df801a5c75e688a87e51f74b6fe3d10e000735f3be3d87a2524b47aa61b2c1c6ed48c518e0be9fa2a24be4683179c",
+    "maintenance/Cozy.product-license-ui.ko.md": "412a4eb84ad383c6fc51e13ed3d05dc0fa11364a134bd57ccdbbef43f2766dd05585b633bb4563d13fdd2f506a613669aa8751d554f6ff6223d310047acf3dc7",
     "maintenance/code-page-integrity.ko.md": "89a4179f5ca1210ca9bccbf4cbdc4857af08c1e35a974808701e85953f0f8b393495e00207a4347258bede6b1e98fcbedcaaa870fb0542911fa83c7d10b3ec27",
     "maintenance/handoff-restricted-profile.ko.md": "54ae61ecf27ac4e5074aa0b6f551fd534c7c73c33a117304752fbae960649451516c12caf5b133851b863a352bd0b16c58bcd68a1bd9dd55115dec6df6850710",
     "maintenance/immediate-security-checks.ko.md": "cee1aca6ca2b62574ac789c317fbcf6b3281ccb1c221d397aba707a0778955cc0fdd1a1d247ed33ffc0ae129ddacdfc377540ad16c0acae276f89973964d0715",
@@ -59,7 +59,7 @@
     "maintenance/security123/changed-files.json": "352cf719bb562e275deec71b92eabe50060bea566799c78db956faa8131660b26f13bf8419885c62dfe6081ae6f1e6216ccb1e88d5a001a73b5215f0027038e5",
     "maintenance/security123/test-results.json": "1d9843c6ae932827db2eb3ab37a45520f0c8f50eda83827c1d5b4a56284c7517055fbb494e2b9105d8a82e914610fe71d6d100b77361aab94503cf303a0ea14f",
     "maintenance/server-operations.ko.md": "c4f1bf9c751336cbbc00004c18d2d1ebf8f960649964002f8638724fbebcb03c6f920615763d58dc301e2cce825986673f07b19289bbbb0d36e6b824b5f60217",
-    "maintenance/source-manifest.json": "9a6b94bda2024e6993e2bf42d8d92494f0e1db4ed328a281d7ec84921c823e8fda21e3efee4bb9fc7b1a8c29d75f35ac7c5eb90cb12f4e3a02a139c8217628ba",
+    "maintenance/source-manifest.json": "0c3b913437765d74d527b868a1228d52d01f6cc755e03d373c6ec29a6200cce6c6013a9619a66a1973b4b09faa1872da0b2fce7877d928125b787963b6c8ba10",
     "maintenance/tpm-device-recovery.ko.md": "18e21ede3b13b4424b3e4b9f75495c4090416ac1d116874b7a336ed759f0b09c938b2cd281e0df44810fbfa2edb6aa89aedbdb91e6302cdae8e8a8171acca279",
     "maintenance/windows-signing.ko.md": "2a8692701693419b861d339643afc02a58e7f5b145de3b9d2dc9153790917d757ab653235bd4b3546b18e89681d6800b5a5ce5aa3c446be9a2c4d83cd4cd6c66",
     "package-lock.json": "fa65cf6208ee274d9f7bbc7fd53821d3e1407daf49851fc98490f3861af2d63e70d22838dbcfd95b75da1c53d7cfeb48c61fde41aa67467d80aa5edb4674a87f",
@@ -385,7 +385,7 @@
     "tests/bootstrap/peace.test-handoff-completion-contract.js": "6943804b72ba30948c8d34ba3eac0384df2fed1ef99431621b08842f83122a6718ea09e3e69a4b266eef1e66b06c963fe2ee4b7d582c2229c14e147b04ea709b",
     "tests/bootstrap/peace.test-handoff-delegation.js": "aa3d361825084529b52747f1cd5cb3e3a4a7fc5f543c34022c564efbfc10ecccc89417275acf6372ad5f842fedc267fef064e76671a5da2886bfbc4a3b79ca0a",
     "tests/bootstrap/peace.test-handoff-native-contract.js": "17b7a6c8fdea6bd95d10c944ea25c8195824d4c86c9ac5544459cb3ecd841cb4031641b068a847b865876c5ddfa4aa0f718bdfd974bb988cc3ada2917ef7ef32",
-    "tests/bootstrap/peace.test-handoff-owned-crypto.js": "15d1ce100515686b5af4db1df16847866996a2bcecaa13ac8baf82319af570ff5f30fb0031485d72f8f59f36fa9b1607f8cb32153e9a7a037cae665d80128f9f",
+    "tests/bootstrap/peace.test-handoff-owned-crypto.js": "eaea2c5702d8c451b6fed67b64972f19c6b7043027acf5df32febcca118e6bd386e2c3a55d177f7bd82bf1dc8cfd4a86d73e0f98691cb5fce1f056dc0e856025",
     "tests/bootstrap/peace.test-handoff-pipe-fragments.js": "acb600357a7033908c62350cfd8e7d3cabd75714cbd80d2e7da57960492ef06d2f9bf147c5c96a663e30d96bf818d97a97cbfbb6a63a996560c2d59b44dfc978",
     "tests/bootstrap/peace.test-handoff-restricted-contract.js": "f4bf44700365de359210511633254a177a5e53baa3a69076e1152aab5b480caa2d401635f30b87f671f6609d679d4d9ca1a122140357968da62e3faa91ca7fa2",
     "tests/bootstrap/peace.test-issued-a-keyring.js": "e4196709c3f0bafba4f277079b5a9a2426b1cebe905d0ed0f87a224b052194bacdad2548c69db4b20cfd7b969ddf68fcd006daac6c0cf74d7d64f94698906362",
@@ -406,7 +406,7 @@
     "tests/build/peace.test-final-windows-inputs.js": "ac9bd77405db0969ee6289c44fa1c81edb6d00389d8edb6a0328e26238d52af1baf556571bcbb81ee414e18ed6e2b2738676a216765d7c3bd46e7cccc050c882",
     "tests/build/peace.test-final-windows-provision.js": "c19c06e1d575b41d975a2d53b7b051113f26088869cec031d1152c664ee4d0e7534a9bd3019e59f887cbe3d85fef4ca683a91a0bd3eda5ec58b2494dfbd09709",
     "tests/build/peace.test-final-windows-v2-inputs.js": "e9dd7a5c0322528da485d5bd532785d8811ad3f2a9b1d0473935a7fb9fcdc6a7cc5a423fca155f2a4ed03436c0151d1e32fe1f7d423ec7855991629f7f6172d0",
-    "tests/build/peace.test-ide-build-observation.js": "beb5a48c8defa1fa684588d78d2e4650912a740630ebf98fc045f06b18d90554be92122449e940a7a4e4e314dbeb434416630136a3360acaa36b364aaa18085e",
+    "tests/build/peace.test-ide-build-observation.js": "0ee34ceefa87b3e37d300bb3d86f2b92dccaeb4007abd6a92a11ad75ac35345967893cd912bca5fec07e9b0a9d195316ff8e83f4a6e5d1d1cb8a5a9d69ee3508",
     "tests/build/peace.test-probe-build-output.js": "c96112693c238c49dedcb8b5961a86b9ec672074b3869ae38b576fa16819d5fc0c15997d13ed1eb6f805568f9975287f04c6260dc4fbebe27a240cc5faec40e9",
     "tests/build/peace.test-separated-signing-security.js": "c8e0ca5c0fbcb5b340a9c6296c3f59b190a9360dff580c172ebb2cd0d87e70ca4ff5ed3fce7935da9940130e20a8e2068ba7ac34f9a4fa13cf08b3e6569b92b4",
     "tests/build/peace.test-source-snapshot.js": "733d19bc285f8ad5449d2c861b1efbc8879dd3419d387952a05ce4ca2858b94d3fd6ad1753a391aa5643815c030f4d15de0f091a429c45d6a8b7d870cf4fad4f",
@@ -484,11 +484,11 @@
     "tests/integrity/peace.test-pointer-graph-lifecycle.js": "ae6c34961acc1d8f46c8f6fd441f9bcffe6d75b785025ae721356e7d81c756133cc02bb76615ff9ce4fc2a4cccecfbaeff90c7469c3ab315fbcb3dd08d4bfd65",
     "tests/integrity/peace.test-remaining-own-measurement.js": "5943995db50e76b59fd7097db0a2c42b340a27c1706a2c840070268d4097b08b784975e0fa452867b67b03306ac365c025842d39a09ae6fc7608375db1bc763e",
     "tests/licensing/peace.test-desktop-license-migration.js": "485f7aa2aacd51dfbfeaa88374d11b2b69e7b679240de59060a50d2b5c2864dd1f051553d8ad7d5e13359ebb98e1fe37cd43188d07857edc62c452086392331f",
-    "tests/licensing/peace.test-desktop-licenses.js": "ce2a515101d36dd29c4c4c4880a669be0876a3a2586d7ab66bc5a04566a5e43eacc536cc630dd01773b0b370662432232e279fecd184d2298db6dc36a2f6d38c",
+    "tests/licensing/peace.test-desktop-licenses.js": "bcf0a0808af2f3f32d487e413ee7d476ada0fba71c1ce4102a1f39be1ae165917cc8d93871f0866b59af027b775e795d20547e060cb19d17f734de46bc56c477",
     "tests/licensing/peace.test-desktop-members.js": "c18df79e80bb8d0976c807a430d58a64e3bd0285a95c54c672434b878bc1825e2ca4b5c4e3bc339cd35d062fa9fb65477bdedf8befca87956ece9c15491290f9",
     "tests/licensing/peace.test-desktop-retirement.js": "5b446d4ed171bddfd5861013269646c451322eeca606877abb4689ef957a4ccc47c6e2838b988538350793f468cc6297cad83cce3aa298872fafafd11fd730c0",
     "tests/licensing/peace.test-license-products.js": "1ef88cb227a1680e9a8a0c86bf338ede0ac094a4888d8d0930a4b12c11f19999dfab2c408cacd83f2bb241b4e832a809bd1d1b370b7de809346e1a3bce68784e",
-    "tests/licensing/test-license-success-contract.py": "bfb4eb4630cdd3e0a8d88ee268ddc76529da3d5e8db27643dbdbfff76a8d3b2ecb1c927936a143a7e29888f66761c7b164abc398469cc83119449637ccbb0d2a",
+    "tests/licensing/test-license-success-contract.py": "151f302337a72ec3975f5a99e31cc7c152b79859a81562034c6bbd58948c101e399f6a1242e3051e6c99315300d3230278296f0520c6973d19da226f033aa8c4",
     "tests/network/peace.check-connect-project.js": "3cc1c6a9a5cd6d0d5dd4170ef2b9d37cd4bd484957b785ec638712d4253097f5e438a3534d70e51615110311ac12af18162088a38d39c9be51ac875756853b52",
     "tests/network/peace.test-connect-deployment.js": "c3746e3ad5b6667144944d71c479471a293325f895341a47c28dbe0a2e9b7c677eb2ea884db9d17f3db50bf193bb689cca40ede5b66e132998e5b5baaaa6639e",
     "tests/network/peace.test-connect-tls-flush.js": "e426dff2fa8323fae711369461939b8f03f5798d1f4aeb34142facb940dd1608f699d66e374fdb9b37646d4c56d2edf1b915b74a4ec52b324aca9e0bd7723e7e",
@@ -516,7 +516,7 @@
     "tests/overlay/peace.test-overlay-diagnostics-pointer.js": "9becf03c4c92f6c62efa87f9e2a90ef9f2fd8956e5130da275a5e2b53fcc111712449850d872d9d5b7751388f894a93fddc0982cf966087b31ab9a56925d438f",
     "tests/overlay/peace.test-overlay-download-lifetime.js": "d32909521e81e3cd902c9825e799ddebc73b439abcc20283563be8c8e1941f5c329e7b6654b988d59cd184eb6c9ca66a03f21d8981894e4afca26d30e2efa8e6",
     "tests/overlay/peace.test-overlay-environment.js": "c859d318429301ae6c3eb822531a6ab314b740c6ecc773caf6f89760907b2670325bab47f2602ddc0caf96f97febe511a25610ba68a4261429eb4a7595fd88c3",
-    "tests/overlay/peace.test-overlay-imgui.js": "8192285804a3e744fc9a168d7fe26d0545d727a941110dbbbd7b2176bb51291f25f045aa7962f352cae343e71d77a0eea46dc1467435587625776a69948969f7",
+    "tests/overlay/peace.test-overlay-imgui.js": "ab1adc1c681ee8c5c2e2a1684b8879e0859ce26445a1a6d87e7ae953cdcccf9863854306cebefc911ee412d304bd082a9226f95264dc80fcda9c2a78767b571c",
     "tests/overlay/peace.test-overlay-lease-expiry.js": "b3b40a7fd2d20b193616b9f73244512761830b493ba16e809726906dfe910c1d9e557cb724451346133b1aa5dd6a1dd55236e11173ccb95a516191abf098fcbe",
     "tests/overlay/peace.test-overlay-parent-sharing.js": "da400dd708a158d4a2f529edb138dd166318438befe0ccf5feb9f4a3ef4f2397513b63373f5a4f2348710b9a4ade3df16d7499da269c9a040d9e351bc548c29b",
     "tests/overlay/peace.test-overlay-parent-startup-lease.js": "202453306f40f3cbf5ad84b52ce75e173465ef2f8152381fea26fb651a444e29044a72058f89edafa12677648a49d0959194c4060d80de9b17795a5125804815",
@@ -615,7 +615,7 @@
     "tests/security/peace.test-security-native-contract.js": "a529e8ecd3c89aec02e794872c94db2f98a116cae448e3d1775dfbc186d14351f887e00875366338eb57bfe81f815de156d93e6578b4c9b844267c03ea00690d",
     "tests/security/peace.test-security-operations.js": "017116feaced21979e28e370119487c50a07446ebb73f668bcc97374770fa612c40f7ac0ce205b8df0c9718330143ed7fa2657071bfa65dec5d253a748e64363",
     "tests/security/peace.test-security-resource-isolation.js": "d2fe0e2106146aac9600f22754426286153f80e208e22d6625db683678ff3a124e3f0058302a0c842e26fe9f0c20c112eaffeb9abe0f3276b39a9773596ebb0d",
-    "tests/security/peace.test-security-tools.js": "fb93a4451d65cb6f926f20096a24ba616e8e8475832ef0df8d4241fd909a3ec17fb90432974aaf58471cdd0f1ac503d5b33d2b91d98ebcc6e1b54305293f6c79",
+    "tests/security/peace.test-security-tools.js": "586a0f224b94ed620132fdedb49d253cee7e7373b228ed073f5065dd0e361b6c66ac6d90944ec1bb361787df1841c86d9f9f546b2347050987663543b1c47256",
     "tests/security/peace.test-security-v4.js": "c700704fcb81d980506c54474654ee836483406352f90bcff40af71063216bb0fdb7957e90254fb45baad1bcc58c13d2f6d2c47581da1af80d1e0b5b4521cc20",
     "tests/security/peace.test-security-wire.js": "c0448902fb834661cc83646d3dfccedcb7a6ed3f882043ae549fdc11138e3d427a66f227ac32fa40268feb1b7b9c27f1659d5dc935d978d551d7153e575bd14f",
     "tests/security/peace.test-server-authority-bypass.js": "55061ad2c104b1357564daeb67ba2717308417a5e84c8ecacd60f20ef6f94cd0126527127b0e1ccf01acb55a3ffb081662116705f3ebda78e96d41b4dd234558",
@@ -671,10 +671,10 @@
     "tests/web/peace.test-workspace-shell.js": "0241fb588d401df5afa3d7d8aa623a0109e30d949f29e72068ab40906d34ce55764a1deb965e417c5d6e6ac3dca7657576f7a6fb009f1cc1ebc5720efc02a0d3",
     "tests/web/test-workspace-browser.py": "da5cb610d13c2a53dc1ad0cf3c055adb0d2f724236abb0afd1df8800d3088f800f296750bcad9c323b614e20c128e9122c32f01db43f65e2ed8728ec564a389d",
     "tools/artifacts/Audit_Final_Artifacts.bat": "fb2977ce710eeec76f587962192fa4c90f07a6674fcedd70a36f09ea76791255952d71bb50f0633b225da0306e66f9b179baf6c6e29374209f5d9b1e4aeee0d4",
-    "tools/artifacts/Check_Approval.bat": "bcc6dc5319477ee1fc02b48df20fb321e3ebe34b66bb8206394f2d693e49c3b25af92e15aece0eaebef1de56705ae1ff15036314693f2480b605b2d803ac4fb1",
+    "tools/artifacts/Check_Approval.bat": "60de9d4b01a1538081bce28dade2c117afabf5cc1f8b5e0fe0ad009d597d35a4a7b84c35b482f1185a21176f5e0fec006aa7fd9d32f2cd67473acfe83beaa65a",
     "tools/artifacts/Check_Manual_Release.bat": "7e6f7c1d14b670060ab4566326ce5c506163197730fb8325df4b3e466fe4d8c68d9df60ef48b1832e6c859aa816a6a34e350d2bc486a5de053fe82ac6f668178",
     "tools/artifacts/Check_Release_Manifest.bat": "bb4d4710c22fe5de615b21f2b9fff130abc1ec2054157196e6dbd90583e1b44a3caded5d23aeb382a79dcbce7c8f194097500ccd94233621210d0ed1a727f338",
-    "tools/artifacts/Create_Approval.bat": "7e88ef1ad7aa8d174ba60c9793d29f4b0a47fb0ecdd73d820d6a5786702413dbe53a15bea5cf537afc1e87ddcf663c101474f61c2e8e40d5a2e386229a54b391",
+    "tools/artifacts/Create_Approval.bat": "3ef23fca6f85faba5f6f021b2466f32b2d134c851aca7a2e528c8c18f1dddfe97f5e60a434b786a879cdfea036aa8eae4e75e2c5e064f3c08f6adce1b8a0f98b",
     "tools/artifacts/Create_Release_Manifest.bat": "53f6aada9bed01d6d2d41a5046f9b7e24c47afdbed0370024548c8c06c56392279df5eb4a22c9e86c9c4af9f7723b0ecde9c02527ba618d91cc0332178b95f01",
     "tools/artifacts/Create_Spec.bat": "c0541495b3f64274cb66ef64eff9f98d63598d838ff9a30ee480589dbaa12bdfbb689e066e0c9c9b1c1174c1b554f6885f951c430aa96042da3a4566baf176d3",
     "tools/artifacts/Create_Verification_Report.bat": "27ded6abb1870ef3dd4565ed228faff5d501c26904b0b6a66f4f7e577465ac4e3bdd02d4d3cb612a738eb76cf69b47178e69f9920ffe2f7ee0cce7e61792a8dd",
@@ -715,7 +715,7 @@
     "tools/build/peace.cfg-evidence.js": "6f896c6ed94fcbb948b3085a37bd0fe812088f5c3be6c2ea637cbaeca7df2444393508fe2bf196f8cb71f0235f46e819ace10aa753332e612697de702a288e46",
     "tools/build/peace.generate-lifecycle-contract.js": "802d88c96e1f0b1068c14bbda75821f978fda5d9a5d3f0fa749ec2885c9a2592afef5f2cd2d90e9b2d1ebc45b0e44efbe865be5e6243a84222e8b4c92ede69b6",
     "tools/build/peace.generate-packet-schema.js": "149b3c38b355a616220cf670190202b4345f8700a9ac38a97b13ee8253c6955b99c071bd232a93954f803b7d523c64b2e78433767cb715ba3b87e660e240f9eb",
-    "tools/build/peace.ide-build-observation.js": "26b9c5ed989e9b3135e5409216760a77a37276ac88c4e0d9db6a6a4179821f56720d0d6989d93648b5f1548911a58f0b7ef12a76e2d62fdfa610d4a838c280e1",
+    "tools/build/peace.ide-build-observation.js": "3cbf632544b1f84411e09f1792497c7290536c8cbb160bf6a616a9b24b0de0eaabf6ec76240b66b68803ca4fb72cdd49d4958186204979314a40f73b6b9a937c",
     "tools/build/peace.source-snapshot.js": "890862814fc5e5966289f15c9cf2a8adf5aeaf8e05b293181e41e00a173c01b5b92c5296060d118f2d9ff7047786caf6588100a573aea15d76d4dc39aea8fbf4",
     "tools/build/peace.verify-relay-source.js": "eeb416c3acc4f64fa49a0bb3dc09189a7aa371cebcf4288001cfd3135c417a3644ec669780399731f4e545855e8a0f559ca2fff0866f724480ccaa4990b7f072",
     "tools/fixtures/LifecycleFileObserver.cs": "820718766348b8d5d1b5f6f5a200c1bfdd6e1e93e3eeb6648046bf678a2fb218a6061cd3e86f7a895838f5610537fef4ad8d990eb59330280f1463b16c2db072",
@@ -12104,7 +12104,17 @@
     },
     {
       "file": "tests/licensing/peace.test-desktop-licenses.js",
-      "line": 77,
+      "line": 35,
+      "request": "../../services/devices/peace.desktop-machine-policy"
+    },
+    {
+      "file": "tests/licensing/peace.test-desktop-licenses.js",
+      "line": 40,
+      "request": "../../services/devices/peace.desktop-machine-policy"
+    },
+    {
+      "file": "tests/licensing/peace.test-desktop-licenses.js",
+      "line": 92,
       "request": "../../web/http/peace.desktop-api"
     },
     {
@@ -15004,22 +15014,22 @@
     },
     {
       "file": "tests/security/peace.test-security-tools.js",
-      "line": 31,
+      "line": 35,
       "request": "../artifacts/peace.test-desktop-pe-exports"
     },
     {
       "file": "tests/security/peace.test-security-tools.js",
-      "line": 148,
+      "line": 165,
       "request": "../../services/integrity/peace.desktop-integrity"
     },
     {
       "file": "tests/security/peace.test-security-tools.js",
-      "line": 163,
+      "line": 180,
       "request": "../../services/integrity/peace.desktop-integrity"
     },
     {
       "file": "tests/security/peace.test-security-tools.js",
-      "line": 184,
+      "line": 201,
       "request": "../../services/integrity/peace.desktop-integrity"
     },
     {

@@ -60,7 +60,10 @@ try{
  const retainedTrace=fs.readFileSync(traceFile);fs.appendFileSync(traceFile,'\n');assert.throws(()=>observation.verify(sealed.seal,sealed.sha512,finalFile,approvalFile,policyFile),/SEALED_ARCHIVE_MISMATCH/);put(traceFile,retainedTrace);
  const changed=Buffer.from(pe);changed[600]^=1;put(finalFile,changed);approve('A',changed,approvalFile,policyFile,key);assert.throws(()=>observation.verify(sealed.seal,sealed.sha512,finalFile,approvalFile,policyFile),/SEALED_FILE_MISMATCH/);assert.throws(()=>observation.seal(run,'A',finalFile,approvalFile,policyFile),/FINAL_BYTES_UNLINKED/);put(finalFile,pe);approve('A',pe,approvalFile,policyFile,key);
  // Source mutation between hooks, including newly shadowing candidates, fails.
- observation.before(run,'B','Release',properties('B'));put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'generated resource B');observation.ready(run,'B','Release',properties('B'));put(observation.stagePath(session,'B','Release'),pe);put(path.join(native,'shadow.pas'),'unit shadow;');assert.throws(()=>observation.after(run,'B'),/INPUTS_CHANGED/);fs.unlinkSync(path.join(native,'shadow.pas'));
+ observation.before(run,'B','Release',properties('B'));put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'generated resource B');
+ assert.throws(()=>observation.ready(run,'B','Release',properties('B')),/GENERATED_REFERENCE_MISSING/);
+ put(path.join(native,'Cozy.BuildOutputs/Cozy.ImGui/Cozy.game_imgui_bridge.o'),'generated B reference');
+ observation.ready(run,'B','Release',properties('B'));put(observation.stagePath(session,'B','Release'),pe);put(path.join(native,'shadow.pas'),'unit shadow;');assert.throws(()=>observation.after(run,'B'),/INPUTS_CHANGED/);fs.unlinkSync(path.join(native,'shadow.pas'));
  put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'changed during compiler');assert.throws(()=>observation.after(run,'B'),/GENERATED_REFERENCES_CHANGED/);put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'generated resource B');
  const newDcu=path.join(native,'Cozy.Projects','Cozy.Client','dcu','Cozy.New.dcu');put(newDcu,'new generated dcu');observation.after(run,'B');
  const br=get(path.join(run,'B-ready.json')),ba=get(path.join(run,'B-after.json')),bTrace=path.join(run,'b.csv'),bRows=[event(br.pid,'ReadFile',br.marker,undefined,'node.exe'),event(pid,'ReadFile',path.join(native,"Cozy.Projects/Cozy.Client/Cozy.Client.dpr")),event(pid,'WriteFile',newDcu),event(pid,'ReadFile',newDcu),event(pid,'WriteFile',observation.stagePath(session,'B','Release')),event(ba.pid,'ReadFile',ba.marker,undefined,'node.exe')];put(bTrace,csv(bRows));
@@ -69,14 +72,18 @@ try{
  observation.before(run,'O','Release',properties('O'));assert.throws(()=>observation.ready(run,'O','Release',properties('O')),/GENERATED_REFERENCE_MISSING/);
  for(const file of ["Cozy.Projects/Cozy.Overlay/Cozy.OverlayResources.res",'Cozy.BuildOutputs/Cozy.ImGui/Cozy.game_imgui_bridge.o'])put(path.join(native,file),'generated O reference');
  const oReady=observation.ready(run,'O','Release',properties('O'));assert.equal(Object.keys(oReady.generated.files).length,4);put(observation.stagePath(session,'O','Release'),pe);assert.equal(observation.after(run,'O').role,'O');
- // Strict O relation: exact record sort only, no code/resource changes; a
+ // Strict B/O relation: exact record sort only, no code/resource changes; a
  // nonzero checksum must be recomputed, not arbitrarily zeroed or forged.
  const original=Buffer.from(pe),first=Buffer.from(original.subarray(1280,1292));original.copy(original,1280,1292,1304);first.copy(original,1292);
- assert.equal(observation.normalizedRelation(original,pe,'O').changed,true);assert.throws(()=>observation.normalizedRelation(original,pe,'B'),/FINAL_BYTES_UNLINKED/);
- const wrong=Buffer.from(pe);wrong[600]^=1;assert.throws(()=>observation.normalizedRelation(original,wrong,'O'),/FINAL_BYTES_UNLINKED/);
- const checksumOriginal=Buffer.from(original),checksumFinal=Buffer.from(pe);checksumOriginal.writeUInt32LE(1,0x80+24+64);assert.throws(()=>observation.normalizedRelation(checksumOriginal,checksumFinal,'O'),/FINAL_BYTES_UNLINKED/);
- const overlap=Buffer.from(original);overlap.writeUInt32LE(0x1000,1280);assert.throws(()=>observation.normalizedRelation(overlap,pe,'O'),/NORMALIZATION_OVERLAP/);
- assert.throws(()=>observation.normalizedRelation(pe,wrong,'O'),/FINAL_BYTES_UNLINKED/);
+ assert.throws(()=>observation.normalizedRelation(original,pe,'A'),/FINAL_BYTES_UNLINKED/);
+ for(const role of ['B','O']) {
+  assert.equal(observation.normalizedRelation(original,pe,role).changed,true);
+  const wrong=Buffer.from(pe);wrong[600]^=1;assert.throws(()=>observation.normalizedRelation(original,wrong,role),/FINAL_BYTES_UNLINKED/);
+  const checksumOriginal=Buffer.from(original),checksumFinal=Buffer.from(pe);checksumOriginal.writeUInt32LE(1,0x80+24+64);assert.throws(()=>observation.normalizedRelation(checksumOriginal,checksumFinal,role),/FINAL_BYTES_UNLINKED/);
+  const overlap=Buffer.from(original);overlap.writeUInt32LE(0x1000,1280);assert.throws(()=>observation.normalizedRelation(overlap,pe,role),/NORMALIZATION_OVERLAP/);
+  assert.throws(()=>observation.normalizedRelation(pe,wrong,role),/FINAL_BYTES_UNLINKED/);
+  assert.throws(()=>observation.normalizedRelation(original,Buffer.concat([pe,Buffer.from([0])]),role),/FINAL_BYTES_UNLINKED/);
+ }
  // Invalid trust/signature and file aliases never become successful evidence.
  let bad=get(approvalFile);bad.approval.signature=Buffer.alloc(64).toString('base64');json(approvalFile,bad);assert.throws(()=>observation.approved('A',pe,approvalFile,policyFile),/APPROVAL_SIGNATURE/);approve('A',pe,approvalFile,policyFile,key);
  const policy=get(policyFile);policy.revokedSha512=[hash(pe)];json(policyFile,policy);assert.throws(()=>observation.approved('A',pe,approvalFile,policyFile),/APPROVAL_BINDING/);
@@ -84,5 +91,5 @@ try{
  if(process.platform!=='win32')assert.throws(()=>observation.prepare(native,bds,path.join(root,'new-run')),/WINDOWS_NOT_RUN/);
  assert.equal(fs.existsSync(path.join(native,'build')),false,'Production observation must not create a shared build tree');
  assert.equal(fs.existsSync(path.join(native,'bin')),false,'Production observation must not create a shared bin tree');
- console.log('PASS: optional IDE observation synthetic contracts; fresh output, changed inputs, real-trace-shaped read/write correlation, strict O byte relation, final approval binding and externally anchored tamper detection. Windows RAD IDE / real ProcMon capture / C# task execution: NOT_RUN. Independent full provenance: NOT_PROVEN.');
+ console.log('PASS: optional IDE observation synthetic contracts; fresh output, changed inputs, real-trace-shaped read/write correlation, strict B/O byte relation, final approval binding and externally anchored tamper detection. Windows RAD IDE / real ProcMon capture / C# task execution: NOT_RUN. Independent full provenance: NOT_PROVEN.');
 }finally{fs.rmSync(root,{recursive:true,force:true});}
