@@ -7,7 +7,7 @@ const tracker=require('../../services/overlay/peace.desktop-overlay-startup');
 const audit=require('../../storage/audit/peace.audit.js'),originalLog=audit.LogEvent,events=[];
 audit.LogEvent=(kind,payload)=>events.push({kind,...JSON.parse(payload)});
 process.once('exit',()=>{audit.LogEvent=originalLog;});
-const stages=['BINDING','FONT_READ','FONT_DATA','CREATE','GPU_IDENTITY','FLOATING_POINT','UNKNOWN'];
+const stages=['BINDING','FONT_READ','FONT_DATA','CREATE','RESIZE','GPU_IDENTITY','FLOATING_POINT','UNKNOWN'];
 function fixture(){const f=OverlayFixture();f.row.status='CLAIMED';return f;}
 function signed(f,{phase='FAILED',sequence=12,elapsedMs=5000,failure}={}){
  const b={action:'overlayProgress',sessionId:f.row.sessionId,sessionToken:'TOKEN',sequence,phase,elapsedMs,signature:'pending',...(failure===undefined?{}:{failure})};
@@ -42,6 +42,22 @@ test('V2 signs closed stage and signed HRESULT without changing authority',()=>{
  const e=events.find(x=>x.sessionId===f.row.sessionId);assert.deepEqual(e.failure,failure);assert.equal(e.attested,false);
  for(const secret of [b.sessionToken,f.keys.privateKey.export({type:'pkcs8',format:'pem'})])assert.ok(!JSON.stringify(e).includes(secret));
  assert.equal(tracker.FailureLabel(failure),'CREATE · 0x8007000E');
+});
+test('initial resize HRESULT and Windows exception codes survive signed admission without authority changes',()=>{
+ const packet=require('../../services/protocol/peace.packet-schema');
+ for(const [stage,code,hex]of [['RESIZE',-2005270527,'887A0001'],['RESIZE',-1073741819,'C0000005'],['CREATE',-1073741819,'C0000005']]){
+  const f=fixture(),failure={version:1,stage,code},b=signed(f,{failure});
+  const before=JSON.stringify([f.row,f.parent,f.license]);
+  const admitted=packet.ParseRequest(JSON.stringify({operation:'bootstrap',body:b})).body;
+  assert.deepEqual(f.api.__probe.Progress(admitted),{recorded:true});
+  assert.deepEqual(tracker.View(f.row.sessionId).failure,failure);
+  assert.equal(tracker.FailureLabel(tracker.View(f.row.sessionId).failure),stage+' · 0x'+hex);
+  assert.equal(JSON.stringify([f.row,f.parent,f.license]),before);
+  assert.equal(f.calls.writes,0);assert.equal(f.calls.fresh,0);
+  assert.deepEqual(events.find(x=>x.sessionId===f.row.sessionId).failure,failure);
+  rejected(()=>packet.ParseRequest(JSON.stringify({operation:'bootstrap',body:{...b,failure:{...failure,address:'0x1234'}}})),/SCHEMA_INVALID/);
+  rejected(()=>f.api.__probe.Progress({...b,failure:{...failure,code:0}}),/PROOF_INVALID/);
+ }
 });
 test('closed CPU admission codes identify their gate without relabeling legacy or driver errors',()=>{
  const cases=[

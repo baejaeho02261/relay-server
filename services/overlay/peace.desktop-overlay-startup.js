@@ -1,7 +1,7 @@
 'use strict';
 // Process-local bounded diagnostics only. Nothing here writes or renews a lease.
 const phases=Object.freeze(['CLAIMED','IMAGE_BOUND','GPU_BEGIN','GPU_READY','OWN_BEGIN','OWN_READY','MODULES_BEGIN','MODULES_READY','AUTHORITY_BEGIN','AUTHORIZED','VISIBLE','FAILED']);
-const failureStages=Object.freeze(['BINDING','FONT_READ','FONT_DATA','CREATE','GPU_IDENTITY','FLOATING_POINT','UNKNOWN']);
+const failureStages=Object.freeze(['BINDING','FONT_READ','FONT_DATA','CREATE','RESIZE','GPU_IDENTITY','FLOATING_POINT','UNKNOWN']);
 // Closed native FACILITY_ITF codes describe only the bridge's own CPU gate.
 // Legacy E_OUTOFMEMORY and arbitrary driver codes remain unclassified: neither
 // is evidence of a particular GPU allocation or system-wide memory shortage.

@@ -3871,6 +3871,7 @@
                   "FONT_READ",
                   "FONT_DATA",
                   "CREATE",
+                  "RESIZE",
                   "GPU_IDENTITY",
                   "FLOATING_POINT",
                   "UNKNOWN"

@@ -487,8 +487,11 @@ check('Rounded composition corners use soft clipping and a premultiplied transpa
     'SetBorderMode(DCOMPOSITION_BORDER_MODE_SOFT)', 'CreateSwapChainForComposition']) assert(bridge.includes(value),value);
   assert.match(bridge,/const float black\[\]=\{0,0,0,0\}/);
   assert.match(bridge,/ImGuiWindowFlags_NoBackground/);
-  for(const corner of ['TopLeft','TopRight','BottomLeft','BottomRight']) for(const axis of ['X','Y'])
-    assert(bridge.includes('Set'+corner+'Radius'+axis+'(radius)'));
+  for(const corner of ['top_left','top_right','bottom_left','bottom_right']) for(const axis of ['x','y'])
+    assert(bridge.includes('game_dcomp_clip_'+corner+'_radius_'+axis+'(clip,radius)'));
+  assert.match(bridge,/game_dcomp_visual_clip\(c->composition_visual,c->composition_clip\)/);
+  assert.doesNotMatch(bridge,/composition_visual->SetClip\(|clip->Set(?:Left|Top|Right|Bottom)/,
+    'SDK overload layout must not dispatch DirectComposition clip calls');
   assert.match(bridge,/radius=6\.0f\*scale/);
   assert.match(bridge,/game_make_render_target\(c\)&&game_composition_clip\(c,width,height\)/);
   inOrder(bridge.slice(bridge.indexOf('static void game_destroy_context(')),
