@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "2eeffe7ada6b9898f5dfcb511a92ca280cc0042a99a5eee2778726f38bc6fae42ede6162d7cc2611eb507100e4c4559bcb5fd9a1c665f834fe6639fd60a48686",
+  "schemaSha512": "431812577376e144cae3caa2851f9c32b9cce77238710edb438b8fb5295cf16ef44b749f7dd32475461741e999e9c085ad443d5c9285828f9717b74c72f1eca6",
   "cases": [
     {
       "operation": "bootstrap",
@@ -546,6 +546,87 @@
         "productId": "cleaner.pubg",
         "requestId": "rrrrrrrr",
         "sequence": 1,
+        "signature": "{}"
+      }
+    },
+    {
+      "operation": "security",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "nhwTrustChallenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "machineId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "operation": "security",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "nhwTrustSubmit",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "machineId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "challengeId": "{}",
+        "payload": "{}",
+        "signature": "{}"
+      }
+    },
+    {
+      "operation": "security",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "nhwDriverChallenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "machineId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "operation": "security",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "nhwDriverSubmit",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "machineId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "challengeId": "{}",
+        "payload": "{}",
+        "signature": "{}"
+      }
+    },
+    {
+      "operation": "security",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "nhwIntegrityChallenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "machineId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "operation": "security",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "nhwIntegritySubmit",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "machineId": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "binding": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "challengeId": "{}",
+        "payload": "{}",
         "signature": "{}"
       }
     }

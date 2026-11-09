@@ -12,7 +12,7 @@ const root = path.resolve(MODULE_RESOURCE_ROOT, '../../Railway');
 const read = name => ReadContractFile(path.join(root, name), 'utf8');
 const projectDirectory = name => path.join('Cozy.Projects', name);
 const projectFile = (name, extension) => path.join(projectDirectory(name), name + extension);
-const sourceDirectories = ['Cozy.Application','Cozy.License','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration','Cozy.Protection'].map(name=>'Cozy.Source/'+name);
+const sourceDirectories = ['Cozy.Security.NHW','Cozy.Application','Cozy.License','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration','Cozy.Protection'].map(name=>'Cozy.Source/'+name);
 for(const directory of sourceDirectories){
   const files=fs.readdirSync(path.join(root,directory));
   assert(files.some(name=>/\.(?:pas|inc)$/i.test(name)),'Functional source group must contain actual source: '+directory);
@@ -181,8 +181,11 @@ const licenseSource = fs.readFileSync(path.join(root, "Cozy.Source/Cozy.License/
 const windowSource = fs.readFileSync(path.join(root, "Cozy.Source/Cozy.License/Cozy.License.Window.pas"), 'utf8');
 const entry = licenseSource.slice(licenseSource.indexOf('function RunLicenseClient: Integer;', licenseSource.indexOf('implementation')));
 assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') >= 0 && entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('RunLicenseWindow('), 'License window starts only after authenticated handoff and cleanup');
-assert.ok(entry.includes('Api.CheckIntegrity;') && entry.includes('Worker.StartChecks;'));
-assert.ok(entry.includes('Worker := TLicenseWorker.Create(Api);') && entry.includes('Worker.SubmitKey(Key)'));
+assert.ok(!entry.includes('Api.CheckIntegrity;') && entry.includes('Worker.StartChecks;'));
+const startupWorker=licenseSource.split('procedure TLicenseWorker.Execute;')[1].split('function RunLicenseClient: Integer;')[0];
+assert.ok(startupWorker.includes('FApi.CheckIntegrity;') && startupWorker.includes('InterlockedExchange(FInitializationSucceeded, 1)'));
+assert.ok(licenseSource.includes('WaitForSingleObject(FInitializedEvent, 45000)'));
+assert.ok(entry.includes('Worker := TLicenseWorker.Create(Api, Watch);') && entry.includes('Worker.SubmitKey(Key)'));
 assert.ok(windowSource.includes('SetMitigationGpuIdentity'));
 for (const source of [licenseSource, windowSource]) {
   assert.doesNotMatch(source, /\b(?:AllocConsole|FreeConsole|ReadConsoleW|WriteConsoleW|GetStdHandle|WriteLn|ShowMessage|MessageBox)\s*\(/i, 'B uses only the ImGui license window');

@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const { performance } = require('node:perf_hooks');
 const deadline = require("../runtime/peace.desktop-deadline");
 const requestProtocol = require("../protocol/peace.desktop-request-protocol");
+const nhwAttestation = require('./peace.nhw-attestation');
 const receipts = requestProtocol.CreateReceipts({ conflict: 'SECURITY_REQUEST_REUSED' });
 const store = require("../bootstrap/peace.desktop-bootstrap-store");
 const DOMAIN = 'GAME-AUTHORITY-V2';
@@ -69,6 +70,26 @@ function Audit(kind, reason, row, extra = {}) {
   try { require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_SECURITY_AUTHORITY', JSON.stringify(event)); }
   catch (_) { console.error('DESKTOP_SECURITY_AUDIT_FAILED'); }
 }
+function RecordFinding(row, stage, reason, { invalidated = false, confirmed = false, crcComparison, sequence = 0, source = 'peace.desktop-security-authority' } = {}) {
+  // This record is independent of Audit and of enforcement. Losing the
+  // diagnostic writer must never revive a rejected capability or session.
+  try {
+    // A denied operation is not itself corroborated tampering. CRC_ROLE_MISMATCH
+    // also carries failed reads; only an actual mismatched role can confirm it.
+    confirmed = confirmed && require('./peace.security-detection-catalog').Get(reason)?.signalClass === 'MISMATCH' &&
+      (reason !== 'CRC_ROLE_MISMATCH' || crcComparison?.signals?.some(signal => signal.status === 'MISMATCH') === true);
+    require('./peace.security-detections').RecordServer({ row, stage, id: reason,
+      source, confidence: confirmed ? 100 : 0,
+      correlation: confirmed, evidenceFamilies: ['COZY_INTEGRITY'], invalidated,
+      attestationSequence: BigInt(sequence).toString(16).padStart(16, '0') });
+  } catch (_) { console.error('SECURITY_DETECTION_RECORD_FAILED'); }
+}
+function RecordAttestation(row,stage,challenge,status,hardwareAttested=false){
+ if(!challenge.nhwChallenge)return;
+ try{require('./peace.security-detections').RecordAttestation({row,stage,
+  sequence:challenge.nhwChallenge.readBigUInt64LE(20).toString(16).padStart(16,'0'),
+  status,hardwareAttested});}catch(_){console.error('SECURITY_ATTESTATION_RECORD_FAILED');}
+}
 function VersionAtLeast(version, minimum) {
   if (typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) return false;
   const a = version.split('.').map(BigInt), b = minimum.split('.').map(BigInt);
@@ -105,7 +126,12 @@ function CoverageReason(artifact, policy) {
 function ArtifactReason(artifact, policy) {
   return ArtifactMetadataReason(artifact, policy) || CoverageReason(artifact, policy);
 }
-function RequireArtifact(artifact,{allowUnsealedPolicySource=false}={}) { const reason = ArtifactReason(artifact, Policy()) || require('./peace.desktop-security-operations').ArtifactReason(artifact) || require('./peace.server-policy-registry').Reason(store.Load(),artifact,{allowUnsealed:allowUnsealedPolicySource}); if (reason) Fail(reason); }
+function RequireArtifact(artifact,{allowUnsealedPolicySource=false,row,stage}={}) {
+  let source='peace.desktop-security-authority',reason=ArtifactReason(artifact,Policy());
+  if(!reason){reason=require('./peace.desktop-security-operations').ArtifactReason(artifact);source='peace.desktop-security-operations';}
+  if(!reason){reason=require('./peace.server-policy-registry').Reason(store.Load(),artifact,{allowUnsealed:allowUnsealedPolicySource});source='peace.server-policy-registry';}
+  if(reason){if(row&&['A','B','O'].includes(stage))RecordFinding(row,stage,reason,{source});Fail(reason);}
+}
 function PeCapabilities(bytes) {
   const {authorityVersion,compiledCfg}=require("../artifacts/peace.desktop-pe-cache").Get(bytes,'capabilities') || require("../artifacts/peace.pe-capabilities").PeCapabilities(bytes);
   return {authorityVersion,compiledCfg};
@@ -180,8 +206,8 @@ function SetPolicy(body, actor) {
   Audit('POLICY','POLICY_CHANGED',null,{revision:next.revision,actor});
   return Policy();
 }
-function InvalidateAll() { require('./peace.server-policy-operations').Stop(); pending.clear(); decisions.clear(); receipts.clear(); }
-function RetireContext(row,stage){require('./peace.server-policy-operations').RetireContext(row,stage);const context=Context(row,stage);for(const [id,value]of pending)if(value.context===context)pending.delete(id);for(const id of decisions.keys())if(id.startsWith(context+':'))decisions.delete(id);receipts.deleteWhere(meta=>meta.context===context);rates.delete(context);observations.delete(context);}
+function InvalidateAll() { require('./peace.nhw-response-paths').Clear(); require('./peace.server-policy-operations').Stop(); pending.clear(); decisions.clear(); receipts.clear(); }
+function RetireContext(row,stage){require('./peace.nhw-response-paths').RetireContext(row,stage);require('./peace.server-policy-operations').RetireContext(row,stage);const context=Context(row,stage);for(const [id,value]of pending)if(value.context===context)pending.delete(id);for(const id of decisions.keys())if(id.startsWith(context+':'))decisions.delete(id);receipts.deleteWhere(meta=>meta.context===context);rates.delete(context);observations.delete(context);}
 function Context(row, stage) { return stage + ':' + (stage === 'A' ? row.id : row.sessionId); }
 function Binding(operationId, payloadHash) { return sha(operationId + '|' + payloadHash); }
 function RowArtifact(row, stage) {
@@ -203,13 +229,14 @@ function Authenticate(body) {
       typeof body.binding !== 'string' || !/^[a-f0-9]{128}$/.test(body.binding)) Fail('SECURITY_INPUT_INVALID', 400);
   const row = require("../bootstrap/peace.desktop-bootstrap").AuthenticateIntegrityReport(body);
   require("../devices/peace.desktop-device-identity").AssertSession(row,body.stage);
-  RequireArtifact(RowArtifact(row, body.stage));
+  RequireArtifact(RowArtifact(row, body.stage),{row,stage:body.stage});
   return row;
 }
 function Challenge(body) {
-  Fields(body, [...AUTH_FIELDS,'mitigationProfileVersion','mitigationEnvironment','deviceSignalsVersion']);
+  Fields(body, [...AUTH_FIELDS,'mitigationProfileVersion','mitigationEnvironment','deviceSignalsVersion','nhwVersion']);
   if(body.mitigationProfileVersion!==undefined&&body.mitigationProfileVersion!==1||body.mitigationEnvironment!==undefined&&body.mitigationProfileVersion!==1)Fail('SECURITY_INPUT_INVALID',400);
   if(body.deviceSignalsVersion!==undefined&&body.deviceSignalsVersion!==1)Fail('SECURITY_INPUT_INVALID',400);
+  if(body.nhwVersion!==undefined&&(body.nhwVersion!==1))Fail('SECURITY_INPUT_INVALID',400);
   const row = Authenticate(body), policy = require('./peace.desktop-security-operations').EffectivePolicy(Policy(),RowArtifact(row,body.stage)), context = Context(row, body.stage);
   const mitigationProfile=require('./peace.desktop-mitigation-profiles').Select(RowArtifact(row,body.stage),body.mitigationEnvironment,policy);
   Prune(); const rate = rates.get(context) || { count: 0, deadline: performance.now() + 60000 };
@@ -218,6 +245,7 @@ function Challenge(body) {
   rates.set(context, rate);
   const item = { challengeId: crypto.randomBytes(24).toString('hex'), nonce: crypto.randomBytes(24).toString('hex'),
     mitigationProfile, epoch, sequence: ++sequence, revision: policy.revision, operationsRevision:require('./peace.desktop-security-operations').Revision(), ...deadline.After(policy.challengeMs), context, stage: body.stage, intent: body.intent, binding: body.binding };
+  if(body.nhwVersion===1)item.nhwChallenge=nhwAttestation.Issue(row);
   // A newly admitted measurement invalidates the previous result for exactly
   // this operation binding. A skipped/failed replacement cannot inherit PASS.
   const decisionId=context+':'+body.intent+':'+body.binding;
@@ -227,7 +255,8 @@ function Challenge(body) {
   pending.set(item.challengeId, item);
   return require('../protocol/peace.packet-schema').ValidateDocument('authorityChallenge', { version: 1, challengeId: item.challengeId, nonce: item.nonce, epoch, sequence: item.sequence,
     revision: item.revision, expiresAt: item.expiresAt, dynamicCode: mitigationProfile?.dynamicCode||policy.dynamicCode, ...(mitigationProfile?{mitigationProfile}: {}),
-    ...(policy.deviceSignalsRequested&&body.deviceSignalsVersion===1?{deviceSignalsRequested:true}:{}) });
+    ...(policy.deviceSignalsRequested&&body.deviceSignalsVersion===1?{deviceSignalsRequested:true}:{}),
+    ...(item.nhwChallenge?{nhwChallenge:item.nhwChallenge.toString('base64')}:{}) });
 }
 function Canonical(body, challenge, payload) {
   return [DOMAIN, body.stage, body.sessionId, body.intent, body.binding, challenge.challengeId,
@@ -238,7 +267,7 @@ function Payload(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail('SECURITY_INPUT_INVALID', 400);
   let value; try { value = require("../protocol/peace.strict-json").Parse(text); } catch (_) { Fail('SECURITY_INPUT_INVALID', 400); }
   try { require('../protocol/peace.packet-schema').ValidateDocument('authorityPayload',value); } catch (_) { Fail('SECURITY_INPUT_INVALID',400); }
-  Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg', 'mitigationDiagnostics', 'ownMeasurement']);
+  Fields(value, ['version', 'hashVersion', 'measurement', 'fileSha512', 'fileCrc64', 'codeSha512', 'codeCrc64', 'codeXxh3_128', 'codeBlake3', 'crcLayers', 'apiSealed', 'apiSlots', 'dynamicCode', 'cfg', 'mitigationDiagnostics', 'ownMeasurement', 'nhwEvidence', 'nhwResponses', 'nhwInvalidated', 'nhwQuote']);
   if (value.hashVersion !== 3 || value.version !== 1 || !measurementStatus.IsStatus(value.measurement) ||
       typeof value.apiSealed !== 'boolean' || !Number.isInteger(value.apiSlots) || value.apiSlots < 0 || value.apiSlots > 1024 ||
       !['UNAVAILABLE', 'ALLOWED', 'PROHIBITED'].includes(value.dynamicCode) || !['UNAVAILABLE', 'DISABLED', 'ENABLED'].includes(value.cfg)) Fail('SECURITY_INPUT_INVALID', 400);
@@ -297,6 +326,20 @@ function Submit(body) {
   const id = context + ':' + body.intent + ':' + body.binding, old = decisions.get(id);
   if (challenge.superseded || old && old.sequence >= challenge.sequence) Fail('SECURITY_OBSERVATION_REPLAY', 409);
   if (!old && decisions.size >= 4096) Fail('SECURITY_CAPACITY', 503);
+  let nhw,quoteResult;
+  try{
+    nhw = nhwAttestation.Evidence(value, challenge.nhwChallenge);
+    if (value.nhwQuote !== undefined && !nhw) Fail('SECURITY_NHW_EVIDENCE_INVALID',400);
+    if (nhw) quoteResult=require('./peace.nhw-tpm-quote').VerifySession(value.nhwQuote, nhw.frame, row, body.stage);
+  }catch(error){
+    // App proof has already been verified. Persist only the fixed failure
+    // identity, never TPM blobs, PCR bytes, raw WBCL, nonce or signatures.
+    const entry=require('./peace.security-detection-catalog').Get(error.message);
+    if(entry)RecordFinding(row,body.stage,entry.id,{sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0,
+      source:entry.sourceUnits.includes('peace.nhw-tpm-quote')?'peace.nhw-tpm-quote':'peace.desktop-security-authority'});
+    RecordAttestation(row,body.stage,challenge,'REJECTED');
+    throw error;
+  }
   require('./peace.desktop-mitigation-profiles').RequireCurrent(challenge.mitigationProfile,artifact);
   const profileReason=require('./peace.desktop-mitigation-profiles').Check(challenge.mitigationProfile,value.mitigationDiagnostics);
   if(profileReason)Fail(profileReason,403);
@@ -304,12 +347,36 @@ function Submit(body) {
   if(graphReason){
     Invalidate(row,body.stage,graphReason);
     require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_'+graphReason},'INTEGRITY_REPORT');
+    RecordFinding(row,body.stage,graphReason,{invalidated:true,confirmed:graphReason.endsWith('_MISMATCH'),sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
+    RecordAttestation(row,body.stage,challenge,'REJECTED');
     Fail('SECURITY_'+graphReason,403);
   }
   const result = Evaluate(value, row.integrityArtifact, challenge.mitigationProfile?{...policy,dynamicCode:challenge.mitigationProfile.dynamicCode,requireCfg:policy.requireCfg||challenge.mitigationProfile.requireCfg}:policy, artifact);
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
+  if (nhw && (nhw.invalidated || policy.mode === 'enforce' && result.status === 'MISMATCH')) {
+    const reason = nhw.invalidated ? 'SECURITY_SESSION_STOP' : result.reason;
+    const response = { version: 1, accepted: true, status: 'MISMATCH', reason, proceed: false,
+      sequence: challenge.sequence, expiresAt: challenge.expiresAt, attested: false,
+      nhwVerdict: nhwAttestation.Verdict(nhw, false) };
+    require('../protocol/peace.packet-schema').ValidateDocument('authorityReply',response);
+    Invalidate(row,body.stage,reason);
+    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
+    // The independent NHW reports retain their own causes. Do not replace
+    // them with a fabricated Cozy detection for the generic stop sentinel.
+    if (!nhw.invalidated) RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:result.status==='MISMATCH',crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
+    RecordAttestation(row,body.stage,challenge,'REJECTED');
+    return response;
+  }
+  if(nhw){
+    const quoteVerified=quoteResult?.status==='VERIFIED'&&quoteResult.scope==='TPM_QUOTE_ONLY';
+    const attestationStatus=result.status!=='PASS'||quoteResult?.status==='UNKNOWN'?'UNKNOWN':quoteVerified?'TPM_QUOTE_ONLY':'VERIFIED_BINDING';
+    RecordAttestation(row,body.stage,challenge,attestationStatus,attestationStatus==='TPM_QUOTE_ONLY');
+    if(quoteResult?.reason==='TPM_CLOCK_UNSAFE')RecordFinding(row,body.stage,'TPM_CLOCK_UNSAFE',{source:'peace.nhw-tpm-quote',sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
+  }
+  if(result.status!=='PASS')RecordFinding(row,body.stage,result.reason,{confirmed:result.status==='MISMATCH',crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
   if(observations.size>=4096&&!observations.has(context)) observations.delete(observations.keys().next().value);
-  observations.set(context,{at:Date.now(),stage:body.stage,sessionId:body.sessionId,artifactId:artifact.id,value:{...value},baseline:Object.fromEntries(['hashVersion','sha512','crc64','codeSha512','codeCrc64','codeXxh3_128','codeBlake3','crcLayers'].map(k=>[k,row.integrityArtifact[k]]))});
+  const {nhwEvidence,nhwResponses,nhwInvalidated,nhwQuote,...observedValue}=value;
+  observations.set(context,{at:Date.now(),stage:body.stage,sessionId:body.sessionId,artifactId:artifact.id,value:observedValue,baseline:Object.fromEntries(['hashVersion','sha512','crc64','codeSha512','codeCrc64','codeXxh3_128','codeBlake3','crcLayers'].map(k=>[k,row.integrityArtifact[k]]))});
   Audit('OBSERVATION', result.reason, {...row,stage:body.stage}, { sequence: challenge.sequence, revision: policy.revision, intent: body.intent });
   // Synchronous durable audit can consume the remaining authorization budget.
   // Recheck before publishing either a fresh decision or a reusable receipt.
@@ -324,12 +391,13 @@ function Submit(body) {
   for (const item of pending.values()) if (item.context === context && item.intent === body.intent && item.binding === body.binding && item.sequence < challenge.sequence) item.superseded = true;
   const response = { version: 1, accepted: true, status:result.status,reason:result.reason, proceed: decision.measurementComplete && (result.status === 'PASS' || policy.mode === 'observe'),
     sequence: challenge.sequence, expiresAt: decision.expiresAt, attested: false };
+  if (nhw && response.proceed) response.nhwVerdict = nhwAttestation.Verdict(nhw,true);
   require('../protocol/peace.packet-schema').ValidateDocument('authorityReply',response);
   receipts.put(body.challengeId, 'authority.submit', body, response, { context, id }, { ttlMs: policy.freshnessMs });
   return response;
 }
 function RequireFresh(row, stage, intent, binding) {
-  const artifact = RowArtifact(row, stage), policy = require('./peace.desktop-security-operations').EffectivePolicy(Policy(),artifact); RequireArtifact(artifact);
+  const artifact = RowArtifact(row, stage), policy = require('./peace.desktop-security-operations').EffectivePolicy(Policy(),artifact); RequireArtifact(artifact,{row,stage});
   Prune(); const item = decisions.get(Context(row, stage) + ':' + intent + ':' + binding);
   require('./peace.desktop-mitigation-profiles').RequireCurrent(item?.mitigationProfile,artifact);
   let code = '';
@@ -337,7 +405,7 @@ function RequireFresh(row, stage, intent, binding) {
   else if (item.measurementComplete !== true) code = 'SECURITY_MEASUREMENT_INCOMPLETE';
   else if (policy.mode === 'enforce' && item.status === 'MISMATCH') code = 'SECURITY_OBSERVATION_MISMATCH';
   else if (policy.mode === 'enforce' && item.status !== 'PASS') code = 'SECURITY_OBSERVATION_INDETERMINATE';
-  if (code) { Audit('HOLD', code, { ...row, stage }, { revision: policy.revision, intent }); Fail(code); }
+  if (code) { if(require('./peace.security-detection-catalog').Get(code))RecordFinding(row,stage,code);Audit('HOLD', code, { ...row, stage }, { revision: policy.revision, intent }); Fail(code); }
   require('./peace.server-policy-registry').RequireOperation(store.Load(),row,stage,{mode:policy.mode,status:item.status,measurementComplete:item.measurementComplete});
 }
 function RenewalIdentity(row, stage, intent, binding) {
@@ -360,6 +428,7 @@ function Invalidate(row, stage, reason) {
   Audit('INVALIDATED', reason, { ...row, stage });
 }
 function Execute(body) {
+  if(require('./peace.nhw-response-paths').ParseAction(body?.action))return require('./peace.nhw-response-paths').Execute(body);
   if (!plain(body)) Fail('SECURITY_INPUT_INVALID', 400);
   require("../bootstrap/peace.desktop-bootstrap").EnsureSecurityAvailable();
   if (body.action === 'challenge') { requestProtocol.Purpose('authority.challenge'); return Challenge(body); }
@@ -402,6 +471,7 @@ function List() {
     persistence: 'policy and audit: server; fresh decisions: server RAM only' };
 }
 function ProofTasks(body){
+ if(require('./peace.nhw-response-paths').ParseAction(body?.action))return require('./peace.nhw-response-paths').ProofTasks(body);
  if(body.action!=='submit')return [];const challenge=pending.get(body.challengeId);if(!challenge)return [];
  const row=Authenticate(body);return [require("../integrity/peace.desktop-proof-work").Job(row.publicKey,Canonical(body,challenge,body.payload),body.signature)];
 }

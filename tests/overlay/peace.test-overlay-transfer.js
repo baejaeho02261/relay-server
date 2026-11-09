@@ -76,6 +76,34 @@ const revoked=setup();verify(revoked);
 check('An old O authorization is rejected until O measures and verifies again',()=>{clock+=30001;reject(()=>bootstrap.Execute(revoked.commit),'BOOTSTRAP_OVERLAY_NOT_READY');verify(revoked);bootstrap.Execute(revoked.commit);});
 check('License revocation remains authoritative after B is fully retired',()=>{licenses.Revoke(revoked.activation.licenseId,{requestId:require('node:crypto').randomUUID(),reason:'TEST_TRANSFER_LICENSE_REVOKE'},'TEST');reject(()=>overlay.AuthenticateIntegrityReport(revoked.context),'DESKTOP_ACTIVATION_INVALID');});
 check('Durable validators reject one-sided or resurrected transfer records',()=>{const db=structuredClone(bootstrap.Initialize()),row=db.flows[parent(s).id];overlay.ValidateStore(db);overlay.ValidateTransferRows(db);overlay.ValidateParentTransfer(db,row);row.sessionHash='a'.repeat(64);assert.throws(()=>overlay.ValidateParentTransfer(db,row),/OVERLAY_STORE_INVALID/);delete row.sessionHash;delete db.overlays[s.prepared.overlayId].transferVersion;assert.throws(()=>overlay.ValidateParentTransfer(db,row),/OVERLAY_STORE_INVALID/);});
+function securityStop(s, overlayId=s.prepared.overlayId, scope='COHORT') {
+ return {action:'overlayAbort',handoffVersion:3,parentSessionId:s.b.sessionId,parentSessionToken:s.b.sessionToken,overlayId,securityStop:true,
+   signature:fixture.Sign(s.d,['GAME-OVERLAY-ABORT-V3',s.b.sessionId,scope,overlayId].join('\n'))};
+}
+check('Confirmed security stop before transfer retires the exact live cohort',()=>{
+ const stopped=setup();verify(stopped);
+ const body=securityStop(stopped);
+ assert.equal(overlay.ProofTasks(body)[0].message.toString(),['GAME-OVERLAY-ABORT-V3',stopped.b.sessionId,'COHORT',stopped.prepared.overlayId].join('\n'));
+ reject(()=>bootstrap.Execute(securityStop(stopped,revoked.prepared.overlayId)),'BOOTSTRAP_FLOW_INVALID');
+ reject(()=>bootstrap.Execute(securityStop(stopped,stopped.prepared.overlayId,'OVERLAY')),'BOOTSTRAP_PROOF_INVALID');
+ assert.equal(bootstrap.Execute(body).status,'REVOKED');
+ assert.equal(parent(stopped).status,'REVOKED');assert.equal(child(stopped).status,'REVOKED');
+ assert.equal(child(stopped).sessionNonce,undefined);
+ reject(()=>bootstrap.Execute(stopped.commit));
+});
+check('Confirmed security stop after transfer uses only the exact retired-parent receipt',()=>{
+ const stopped=setup(),unrelated=setup();verify(stopped);verify(unrelated);bootstrap.Execute(stopped.commit);
+ const body=securityStop(stopped);
+ reject(()=>bootstrap.Execute({...body,parentSessionToken:unrelated.b.sessionToken}),'BOOTSTRAP_SESSION_INVALID');
+ reject(()=>bootstrap.Execute(securityStop(stopped,unrelated.prepared.overlayId)),'BOOTSTRAP_FLOW_INVALID');
+ assert.equal(bootstrap.Execute(body).status,'REVOKED');
+ assert.equal(parent(stopped).status,'CLOSED');assert.equal(child(stopped).status,'REVOKED');
+ assert.equal(child(stopped).sessionNonce,undefined);assert.equal(child(unrelated).status,'CLAIMED');
+ const revision=bootstrap.Initialize().revision;
+ assert.equal(bootstrap.Execute(body).status,'REVOKED');assert.equal(bootstrap.Initialize().revision,revision);
+ clock+=30001;
+ reject(()=>bootstrap.Execute(body),'BOOTSTRAP_SESSION_INVALID');
+});
 const generation=setup();verify(generation);bootstrap.Execute(generation.commit);
 check('Issuer retirement keeps transferred O, issuer revocation closes O after B has retired',()=>{
  const ring=require('../../services/bootstrap/peace.issued-a-keyring'),signing=require('../../services/bootstrap/peace.issued-a-signing');

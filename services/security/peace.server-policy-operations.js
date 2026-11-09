@@ -84,7 +84,7 @@ function Current(body, fresh) {
   // O authentication already checks the live exact parent/license cohort.
   const authority = require('./peace.desktop-security-authority');
   const artifact = db.artifacts[body.stage === 'A' ? db.launchers[row.launcherId].artifactId : row.releaseId];
-  authority.RequireArtifact(artifact);
+  authority.RequireArtifact(artifact,{row,stage:body.stage});
   if (fresh) {
     require('../integrity/peace.desktop-integrity-reports').RequireSnapshot(row,body.stage);
     authority.RequireFresh(row,body.stage,'observe',Binding(body));

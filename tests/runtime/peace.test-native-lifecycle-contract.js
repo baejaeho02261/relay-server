@@ -117,4 +117,86 @@ test('UI_HIDDEN follows actual native visibility query, never shutdown intent al
   assert.match(renderer, /BindApiPointer\(Slot_IsWindowVisible, RequireProcAddressHash64\('user32\.dll', HASH_IsWindowVisible\)\)/);
   assert.match(overlay, /FDeadline <> 0\) and \(CozyTick >= FDeadline\)[\s\S]*?Lifecycle\.Note\('O', 'LEASE_EXPIRED', 'OBSERVED'\)/);
 });
+test('A and B arm an own-process deadline before final joins without freeing live worker ownership', () => {
+  const a = launcher.split('function RunLauncher: Integer;')[2];
+  const b = licenseSource.split('function RunLicenseClient: Integer;')[2];
+  order(a, ['ShutdownGuard.Start;', 'ShutdownGuard.ArmAfter(15000)', 'Watch.RequestStop;', 'Watch.Free;', 'ShutdownGuard.Cancel; ShutdownGuard.Free;']);
+  order(b, ['ShutdownGuard.Start;', 'ShutdownGuard.ArmAfter(15000)', 'Worker.RequestStop;', 'Worker.StopAndJoin;', 'Worker.Free;', 'Watch.Free;', 'ShutdownGuard.Cancel; ShutdownGuard.Free;']);
+  const guard=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.ShutdownGuard.pas');
+  assert(guard.includes('At > UInt64(High(Int64)) - UInt64(TimeoutMS)'));
+  assert(guard.includes('Call(THandle(High(NativeUInt)), $E0000009)'));
+  assert.doesNotMatch(guard, /TerminateThread|OpenProcess|CreateProcess/i);
+});
+test('Bounded security-cause flush precedes session closure and stays outside UI callbacks', () => {
+  const a = launcher.split('function RunLauncher: Integer;')[2];
+  const b = licenseSource.split('function RunLicenseClient: Integer;')[2];
+  const o = overlay.split('function RunOverlay: Integer;')[2];
+  order(a, ['Watch.RequestStop;', 'Client.FlushNHWReports;', 'Client.AbortFlow(Flow)']);
+  order(b, ['Worker.Free;', 'Api.FlushNHWReports;', 'Api.FinishNHWStop;', 'Bootstrap.Close;']);
+  order(o, ['Worker.WaitFor;', 'Client.FlushNHWReports(Cardinal(ReportBudget))', 'Client.ShutdownClose(']);
+  assert(o.includes('ReportBudget := (Budget.Deadline - ReportNow) div 2'));
+  assert(o.includes('if ReportBudget > 750 then ReportBudget := 750'));
+  for (const [text,type] of [[api,'TGameApi'],[client,'TOverlayClient'],[read('Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas'),'TBootstrapClient']]) {
+    const flush=text.split('procedure '+type+'.FlushNHWReports(')[1].split('procedure '+type+'.AttachNHW(')[0];
+    assert(flush.includes('if TimeoutMS > 3500 then TimeoutMS := 3500'));
+    assert(flush.includes('except'));
+  }
+});
+test('Pre-handoff security drains precede fresh proofs and recheck rejection without extending authority', () => {
+  const a = launcher.split('function RunLauncher: Integer;')[2];
+  order(a, ['Result := 31034;', 'RequireLauncherWatch(Watch);', 'ReportNow := BootstrapUTCNowMS;',
+    'if (ReportNow <= 0) or (Flow.ExpiresAt <= ReportNow) then Fail;',
+    'ReportBudget := Flow.ExpiresAt - ReportNow;', 'if ReportBudget > 1500 then ReportBudget := 1500;',
+    'Client.FlushNHWReports(Cardinal(ReportBudget));', 'RequireLauncherWatch(Watch);',
+    'if BootstrapUTCNowMS >= Flow.ExpiresAt then Fail;', 'Grant := Client.Finish(',
+    'RequireLauncherWatch(Watch);', 'HandoffSucceeded := LaunchWithHandoff(']);
+  assert.match(launcher, /if \(Watch <> nil\) and Watch\.Confirmed then Fail;/);
+  const start = api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean;')[1].split('function TGameApi.RedeemCore')[0];
+  const maintenance = start.split('      MaintainParent :=')[1].split('      CheckIntegrityCore;')[0];
+  order(maintenance, ['if BeforeChild then', 'ReportDeadline := ParentStartupDeadline;',
+    'if FCurrent.LeaseDeadlineTick < ReportDeadline then', 'ReportDeadline := FCurrent.LeaseDeadlineTick;',
+    'At := CozyTick;', 'if At < ReportDeadline then', 'ReportBudget := ReportDeadline - At;',
+    'if ReportBudget > 1500 then ReportBudget := 1500;', 'FlushNHWReports(Cardinal(ReportBudget));',
+    'RequireParentPending();', 'if BeforeChild or', 'then RenewParent();', 'ParentWaitingForChild := True;']);
+  const launch = client.split('function LaunchOverlay(Profile: TConnectServerProfile; Security: TDeviceSecurity;').at(-1).split('function TOverlayClient.ClaimCore')[0];
+  order(launch, ['FileHandle := DownloadVerifiedBinary(', "Client.Post('overlayFinish'", 'OwnedParentMaintenance(True);', 'Result := LaunchWithHandoff(']);
+  const afterReady = start.slice(start.indexOf('Result := LaunchOverlay('));
+  order(afterReady, ['RequireParentPending();', 'TransferClient.CommitTransfer(']);
+  assert(!afterReady.includes('FlushNHWReports('), 'no drain wait consumes O fresh-proof lifetime after native ready');
+  const pending = start.split('      RequireParentPending :=')[1].split('      RenewParent :=')[0];
+  order(pending, ['RequireRunning;', 'RequireModuleSnapshotLease;', 'CozyTick >= ParentStartupDeadline', 'FCurrent.LeaseDeadlineTick <= CozyTick']);
+  assert.match(api, /procedure TGameApi\.RequireRunning;[\s\S]*?FStopRequested, 0, 0\) <> 0\) or NHWStopConfirmed then/);
+  const authority = read('Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Authority.pas').split('procedure TCozyNHWAuthority.FlushSecurityReports(')[1];
+  order(authority, ['Started := WinTick64;', 'WakeForFlush;', 'repeat', 'HasPending', 'WinTick64 - Started >= TimeoutMS']);
+  assert.equal((authority.match(/Started := WinTick64/g) || []).length, 1, 'one total drain budget across all paths');
+});
+test('Pre-handoff deadline model blocks a verdict during drain and keeps offline waits bounded', () => {
+  // Independent model of the source ordering above, not native execution.
+  function beforeHandoff(now, deadline, pendingUntil, rejectAt) {
+    if (now <= 0 || now >= deadline) return { handoff: false, waited: 0 };
+    const budget = Math.min(1500, deadline - now);
+    const waited = Math.min(budget, Math.max(0, pendingUntil - now));
+    const after = now + waited;
+    return { handoff: after < deadline && !(rejectAt >= now && rejectAt <= after), waited };
+  }
+  assert.deepEqual(beforeHandoff(100, 10000, 100, Infinity), { handoff: true, waited: 0 });
+  assert.deepEqual(beforeHandoff(100, 10000, 500, 450), { handoff: false, waited: 400 });
+  assert.deepEqual(beforeHandoff(100, 10000, Infinity, Infinity), { handoff: true, waited: 1500 });
+  assert.deepEqual(beforeHandoff(100, 500, Infinity, Infinity), { handoff: false, waited: 400 });
+  assert.deepEqual(beforeHandoff(500, 500, Infinity, Infinity), { handoff: false, waited: 0 });
+  for (let remaining = 1; remaining < 3000; remaining++) {
+    const result = beforeHandoff(100, 100 + remaining, Infinity, Infinity);
+    assert(result.waited <= Math.min(1500, remaining));
+  }
+});
+test('ETW consumer initializes execution fields before RTL-owned start and keeps join ownership', () => {
+  const etw = read('Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ETW.Consumer.pas');
+  const ctor = etw.split('constructor TETWConsumerThread.Create(Handle: UInt64);')[1].split('function TETWConsumerThread.ProcessingStopped:')[0];
+  order(ctor, ['FTrace := Handle;', 'FWorkerFinished := 0;', 'inherited Create(False);', 'FreeOnTerminate := False;']);
+  assert.doesNotMatch(ctor, /^\s*Start\s*;/m);
+  assert.match(etw, /finally\s+TInterlocked\.Exchange\(FWorkerFinished, 1\);/);
+  const monitor = read('Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ETW.pas');
+  const destroy = monitor.split('destructor TETWMonitor.Destroy;')[1];
+  order(destroy, ['RequestStop;', 'EtwCloseTrace(FConsumer);', 'FWorker.WaitFor;', 'FWorker.Free;', 'FFastRing.Free;']);
+});
 console.log(`NATIVE_LIFECYCLE_SOURCE_CONTRACTS_PASS ${count}; Windows execution NOT_RUN`);

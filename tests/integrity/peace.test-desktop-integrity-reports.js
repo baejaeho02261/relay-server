@@ -34,6 +34,10 @@ try{
   const denied=reports.Execute(signed(aCtx,payload));assert.equal(denied.terminate,true);assert.equal(denied.status,'REJECTED');assert.equal(Object.hasOwn(denied,'snapshotBudget'),false);
   const stored=reports.List().items.find(row=>row.id===denied.reportId);assert.ok(stored);assert.equal(stored.pointerGraphComparison.expected.slots,222);assert.equal(stored.pointerGraphComparison.observed.slots,218);assert.equal(stored.hashComparisonStatus,'NOT_REACHED');assert.equal(stored.observedXxh3_128,aBaseline.codeXxh3_128);assert.equal(stored.observedFileXxh3_128,aBaseline.fileXxh3_128);for(const flag of ['pointerGraphVerified','ownedGraphValidated','extendedHashesVerified','fileExtendedVerified','codeExtendedVerified','fileHashesVerified'])assert.equal(stored[flag],false);
   assert.equal(bootstrap.Overview().sessions.find(x=>x.flowId===began.begin.flowId).status,'REVOKED');
+  const finding=require('../../services/security/peace.security-detections').ForFlow(began.begin.flowId).find(item=>item.detectionId==='POINTER_GRAPH_MISMATCH');
+  assert.equal(finding.role,'A');assert.equal(finding.invalidated,true);assert.equal(finding.correlation,true);
+  assert.equal(finding.sensor,'peace.desktop-integrity-reports');assert.equal(finding.epoch,String(bootstrap.Initialize().flows[began.begin.flowId].createdAt));
+  assert.ok(!JSON.stringify(finding).includes(aCtx.auth.sessionToken));assert.ok(!JSON.stringify(finding).includes(a.machineId));
   const event=auditEvents.filter(x=>x.kind==='DESKTOP_INTEGRITY_REJECTED').map(x=>JSON.parse(x.text)).find(x=>x.reportId===stored.id);assert.deepEqual(event.pointerGraphComparison,{expectedSlots:222,observedSlots:218,mismatchedFields:['slots','nodes','edges','sha512','crc64']});assert.ok(!JSON.stringify(event).includes(aCtx.auth.sessionToken));assert.ok(!JSON.stringify(event).includes(a.machineId));
  }finally{bootstrap.AuthenticateIntegrityReport=originalAuth;}
  // Trusted baseline publication rejects EXE masquerading as DLL and paths.

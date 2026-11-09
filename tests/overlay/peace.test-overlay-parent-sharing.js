@@ -11,12 +11,21 @@ const path = require('node:path');
 
 const handoff = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas"), 'utf8');
 const integrity = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Integrity/Cozy.Integrity.pas"), 'utf8');
-const licenseSource = fs.readFileSync(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.License/Cozy.License.Session.pas"), 'utf8');
+const licenseSource = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.License/Cozy.License.Session.pas"), 'utf8');
+const api = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Platform/Cozy.Api.pas"), 'utf8');
 const overlay = ReadContractFile(path.join(MODULE_RESOURCE_ROOT, "../../Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"), 'utf8');
 const openSafeImage = handoff.slice(handoff.indexOf('function OpenSafeImage('), handoff.indexOf('function SameIdentity('));
 const READ = 1, WRITE = 2, DELETE = 4;
 let checks = 0;
 function check(name, fn) { fn(); checks++; console.log('PASS ' + name); }
+function order(source, ...markers) {
+  let previous = -1;
+  for (const marker of markers) {
+    const at = source.indexOf(marker, previous + 1);
+    assert(at > previous, 'Missing/out-of-order: ' + marker);
+    previous = at;
+  }
+}
 function file(access, share) { return { access, share }; }
 function canOpen(existing, next) {
   return existing.every(old => (next.access & ~old.share) === 0 && (old.access & ~next.share) === 0);
@@ -108,8 +117,25 @@ check('A to B normal path and OS read-only fallback retain compatible strict pin
 
 check('B retirement follows authorized visible O readiness and keeps O parent identity pinned', () => {
   const redeem = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.RedeemPending'), licenseSource.indexOf('procedure TLicenseWorker.Execute'));
-  assert(redeem.includes('if not FApi.StartOverlay then'));
-  assert(redeem.indexOf('if not FApi.StartOverlay then') < redeem.indexOf('FCommands.Complete(WorkerTransferred)'));
+  order(redeem, 'if Terminated or FCommands.Stopping or FWatch.Confirmed then Exit;',
+    'LicenseState := FApi.Redeem(BoundaryKey);', 'WipeText(BoundaryKey);',
+    'if Terminated or FCommands.Stopping or FWatch.Confirmed then Exit;',
+    'if not LicenseState.IsActive then', 'FCommands.Complete(WorkerFailed);',
+    'if not FApi.StartOverlay(False,',
+    'procedure(Value: Integer) begin FCommands.ReportProgress(Value); end) then',
+    "raise EGameApi.Create('OVERLAY_START_FAILED'", 'FCommands.Complete(WorkerTransferred);', 'Terminate;');
+  const failure = redeem.slice(redeem.indexOf('on E: EGameApi do'));
+  assert(!failure.includes("E.Code = 'OVERLAY_START_FAILED'"), 'overlay startup failure must not become retryable key input');
+  order(failure, "E.Code = 'LICENSE_KEY_INVALID'", 'if not Terminated and not FCommands.Stopping then',
+    'FCommands.Complete(WorkerIdle);', 'else', 'FCommands.Complete(WorkerFailed);',
+    'on Exception do', 'FCommands.Complete(WorkerFailed);', 'finally', 'WipeText(BoundaryKey);', 'FreeAndNil(Key);');
+  const start = api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean;')[1].split('function TGameApi.RedeemCore')[0];
+  order(start, 'Result := LaunchOverlay(', 'if not Result then', "raise EGameApi.Create('OVERLAY_START_FAILED'",
+    'TransferClient.CommitTransfer(', 'FOverlayStarted := True;', 'if NHWStopConfirmed then Exit(False);', 'Progress(100)');
+  const rollback = start.slice(start.indexOf('on E: Exception do'));
+  order(rollback, 'RecoveredTransfer := False;', 'TransferClient.AbortChild(',
+    "if RecoveredTransfer and (FailureReason = 'OVERLAY_TRANSFER_FAILED') then", 'if NHWStopConfirmed then Exit(False);', 'Exit(True);');
+  assert.match(rollback, /if not NHWStopConfirmed then ReportOverlayFailure\(FailureReason\);\s+raise;/);
   assert.doesNotMatch(redeem, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);
   const complete = handoff.slice(handoff.indexOf('procedure THandoffContext.CompleteOverlayClaimCore'), handoff.indexOf('procedure THandoffContext.ConfirmOverlayReadyCore'));

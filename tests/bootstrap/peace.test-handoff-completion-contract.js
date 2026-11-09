@@ -92,7 +92,9 @@ check('Authority and each signed report retry share one monotonic deadline acros
  assert.match(authority,/ObservationBudgetMs - Clock\.ElapsedMilliseconds/);
  assert.match(authority,/Transport\.PostJSON\('security', Body, RemainingBudget\(Clock, Cancelled\)\)/);
  assert.match(observe,/const Runtime: ICozyRuntimeMeasurement/);
- assert.match(observe,/FileSHA512, FileCRC64, Clock, Cancelled, OwnImage, Runtime\)/);
+ assert.match(observe,/FileSHA512, FileCRC64, Clock, Cancelled, OwnImage, Runtime, Extension\)/);
+ assert.match(observe,/Extension\.ConfigureResponses\(Transport, Security, Stage, SessionID, SessionToken\)/);
+ assert(observe.indexOf("Extension.ConfigureResponses") < observe.indexOf("for Attempt :="), "Independent response paths are configured before the ordinary observation retry loop");
  const once=authority.split('procedure ObserveOnce(')[1].split('procedure RequireServerObservation(')[0];
  assert.match(once,/CurrentImage, Code, CrcLayers, MeasurementState, Runtime\)/);
  assert.doesNotMatch(observe,/Runtime :=|\.Measurement\(/,'Retries retain the same admitted runtime context and lifetime');

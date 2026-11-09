@@ -154,6 +154,8 @@ test('private server operations remain bound to authenticated A/B/O and exact in
    finally{store.Atomic(db=>{db.flows[begin.flowId].licenseLeaseExpiresAt=priorLease;});}
    const input=prepare(b,body(authB)),record=store.Load().serverPolicies[input.policyId];store.Atomic(db=>{delete db.serverPolicies[input.policyId];});
    try{fail(()=>rpc.Execute(input),/COZY_SERVER_POLICY_RECORD_MISSING/);}finally{store.Atomic(db=>{db.serverPolicies[input.policyId]=record;});}
+   const finding=require('../../services/security/peace.security-detections').ForFlow(begin.flowId).find(e=>e.detectionId==='COZY_SERVER_POLICY_RECORD_MISSING');
+   assert.ok(finding,'authenticated policy-record failure must retain its exact cause');assert.equal(finding.role,'B');assert.equal(finding.sessionId,bs.sessionId);assert.equal(finding.invalidated,false);assert.equal(finding.correlation,false);
   });
   const prepared=license(b,'overlay',{...common,activationToken:activation.activationToken});
   for(let offset=0;offset<prepared.release.size;offset+=prepared.chunkSize)boot.Execute({action:'overlayChunk',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,offset});

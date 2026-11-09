@@ -108,6 +108,14 @@ function Reason(db, artifact, { allowUnsealed = false } = {}) {
     return '';
   } catch (_) { return 'COZY_SERVER_POLICY_RECORD_INVALID'; }
 }
+function RejectAuthenticatedRecord(reason, row, stage) {
+  // These callers already resolved the authenticated session. A diagnostic
+  // write cannot grant a capability or replace the unchanged policy rejection.
+  try { if (plain(row) && /^[A-F0-9]{24}$/.test(row.id || '') && Number.isSafeInteger(row.createdAt) && row.createdAt > 0) require('./peace.security-detections').RecordServer({row,stage,id:reason,
+    source:'peace.server-policy-registry',confidence:0,correlation:false,invalidated:false}); }
+  catch (_) { console.error('SECURITY_DETECTION_RECORD_FAILED'); }
+  const error=Error(reason);error.desktopError=true;error.status=403;throw error;
+}
 function RequireOperation(db, row, stage, grant) {
   // Only authority.RequireFresh calls this after authentication and current
   // device/session checks. The V2 path additionally requires enforce-mode PASS;
@@ -118,7 +126,7 @@ function RequireOperation(db, row, stage, grant) {
   if (artifact.ownProtection?.engine !== policy.ENGINE) return;
   if (!plain(grant) || grant.mode !== 'enforce' || grant.status !== 'PASS' || grant.measurementComplete !== true) Fail('AUTHORITY_REQUIRED', 403);
   const reason = Reason(db, artifact);
-  if (reason) { const error = Error(reason); error.desktopError = true; error.status = 403; throw error; }
+  if (reason) RejectAuthenticatedRecord(reason,row,stage);
   const record = db.serverPolicies[artifact.ownProtection.policyId];
   if (policy.EvaluateServerPolicy(record, 1, [ROLES.indexOf(stage) + 1, 1, 1]) !== 1) Fail('OPERATION_REJECTED', 403);
 }
@@ -128,7 +136,7 @@ function InvocationRecord(db, row, stage, policyId, functionId, args) {
   if (!artifact || artifact.component !== stage || artifact.ownProtection?.engine !== policy.ENGINE ||
       artifact.ownProtection.policyId !== policyId) Fail('OPERATION_POLICY_MISMATCH', 403);
   const reason = Reason(db, artifact);
-  if (reason) { const error = Error(reason); error.desktopError = true; error.status = 403; throw error; }
+  if (reason) RejectAuthenticatedRecord(reason,row,stage);
   const record = db.serverPolicies[policyId];
   policy.ValidateInvocation(record, functionId, args);
   return record; // Internal only: never serialize this return value to clients.

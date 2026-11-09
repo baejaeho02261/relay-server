@@ -153,7 +153,9 @@
     "test:probes:policy-startup": "node --test tests/integrity/peace.test-pointer-general-probe.js tests/protocol/peace.test-native-policy-contract-vectors.js tests/source/peace.test-native-startup-observations.js",
     "test:security:immediate": "node --test tests/security/peace.test-release-readiness.js tests/security/peace.test-server-operation-arguments.js && node tests/security/peace.test-release-readiness-http.js && node tests/bootstrap/peace.test-keyless-bootstrap.js",
     "test:runtime:recovery": "node --test tests/security/peace.test-release-audit-runner.js tests/security/peace.test-release-audit-file-races.js tests/security/peace.test-release-readiness-route-lifetime.js tests/security/peace.test-release-readiness.js tests/security/peace.test-server-operation-results.js tests/security/peace.test-server-policy-operations.js tests/security/peace.test-native-server-operations.js tests/source/peace.test-sensitive-copy-lifetime.js tests/network/peace.test-transport-owned-contract.js && node tests/security/peace.test-release-readiness-http.js",
-    "test:keys:recovery": "node --test tests/bootstrap/peace.test-issued-a-keyring.js tests/bootstrap/peace.test-keyless-tpm-recovery.js tests/source/peace.test-native-string-contract-reader.js tests/overlay/peace.test-overlay-transfer.js"
+    "test:keys:recovery": "node --test tests/bootstrap/peace.test-issued-a-keyring.js tests/bootstrap/peace.test-keyless-tpm-recovery.js tests/source/peace.test-native-string-contract-reader.js tests/overlay/peace.test-overlay-transfer.js",
+    "test:nhw:server": "node --test tests/security/peace.test-security-detection-catalog.js tests/security/peace.test-security-detections.js tests/security/peace.test-nhw-response-paths.js tests/security/peace.test-nhw-tpm-quote.js tests/runtime/peace.test-nhw-validation-gate.js",
+    "test:nhw:admin": "node tests/web/peace.test-security-detection-views.js"
   },
   "engines": {
     "node": "24.22.1"

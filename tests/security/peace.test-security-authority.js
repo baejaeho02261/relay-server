@@ -50,6 +50,33 @@ function LeaseProof(device, session, action, requestId, extra) {
   const challenge = licenses.Challenge(base);
   return { ...base, challengeId: challenge.challengeId, payloadJSON, signature: Sign(device, challenge.canonical) };
 }
+function NhwEvidence(challenge, { trust = 0, mask = 0, invalidated = false, measuredBoot = false } = {}) {
+  const frame = Buffer.alloc(179);
+  frame.write('NHWA');
+  frame.writeUInt16LE(1,4);
+  frame[6] = 2;
+  frame.writeUInt32LE(167,8);
+  Buffer.from(challenge.nhwChallenge,'base64').copy(frame,12,12);
+  frame.writeBigUInt64LE(19n,60);
+  frame[76] = trust;
+  frame[77] = mask;
+  if (measuredBoot) {
+    frame[78] = 1;
+    frame.writeUInt32LE(2,103);
+    frame.writeUInt32LE(65536,107);
+    crypto.createHash('sha256').update('test boot log digest').digest().copy(frame,111);
+  }
+  const nhwResponses = {};
+  for (const [index,path] of ['trust','driver','integrity'].entries()) {
+    if (!(mask & (1 << index))) continue;
+    const value = BigInt(index+1);
+    frame.writeBigUInt64LE(value,79+8*index);
+    nhwResponses[path] = { sequence: '0000000000000001', tick: '0000000000001000', digest: value.toString(16).padStart(16,'0') };
+  }
+  crypto.createHash('sha256').update(frame.subarray(12,78)).update(frame.subarray(79,103))
+    .update(frame.subarray(78,79)).update(frame.subarray(103,143)).digest().copy(frame,143);
+  return { nhwEvidence: frame.toString('base64'), nhwResponses, ...(invalidated ? {nhwInvalidated:true} : {}) };
+}
 let dev, parent, start, session, verifyContext;
 Check('Defaults preserve legacy builds, exact policy is bounded and immutable to caller', () => {
   assert.equal(auth.Policy().deviceSignalsRequested,false);
@@ -90,6 +117,72 @@ Check('One-use challenge, context binding and signature verification are enforce
   Reject(() => Fresh(session,'redeem',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
   Reject(() => auth.Execute({...ctx,authorityVersion:0}), 'SECURITY_INPUT_INVALID');
 });
+Check('NHW challenge, compact evidence and verdict are bound to exact signed authority', () => {
+  const ctx = Context(dev,'B',session,'verify',sha512('NHW binding'));
+  const c = auth.Execute({...ctx,nhwVersion:1});
+  const raw = Buffer.from(c.nhwChallenge,'base64');
+  assert.equal(raw.length,60);
+  assert.equal(raw.readBigUInt64LE(12),BigInt(Row(session).createdAt));
+  const evidence = NhwEvidence(c,{trust:1,mask:1,measuredBoot:true});
+  const signed = Signed(ctx,c,dev,evidence);
+  Reject(() => auth.Execute({...signed,payload:JSON.stringify(Evidence(ctx,NhwEvidence(c,{trust:2,mask:1})))}),'SECURITY_SIGNATURE_INVALID');
+  const out = auth.Execute(signed);
+  const verdict = Buffer.from(out.nhwVerdict,'base64');
+  assert.equal(verdict.length,93);
+  assert.deepEqual(verdict.subarray(12,60),raw.subarray(12,60));
+  assert.deepEqual(verdict.subarray(60,92),Buffer.from(evidence.nhwEvidence,'base64').subarray(143,175));
+  assert.equal(verdict[92],1);
+  assert.equal(out.attested,false);
+  const acceptedAttestation=Row(session).nhwAttestations.B.find(item=>item.sequence===raw.readBigUInt64LE(20).toString(16).padStart(16,'0'));
+  assert.equal(acceptedAttestation.status,'VERIFIED_BINDING');
+  assert.equal(acceptedAttestation.hardwareAttested,false);
+  assert.deepEqual(auth.Execute(signed),out);
+  const next = auth.Execute({...ctx,nhwVersion:1});
+  assert.ok(Buffer.from(next.nhwChallenge,'base64').readBigUInt64LE(20)>raw.readBigUInt64LE(20));
+  Reject(() => auth.Execute(Signed(ctx,next,dev,evidence)),'SECURITY_NHW_EVIDENCE_INVALID');
+  assert.equal(Row(session).status,'CLAIMED');
+  const rejectedEvidence=require('../../services/security/peace.security-detections').ForFlow(Row(session).id).find(item=>item.detectionId==='SECURITY_NHW_EVIDENCE_INVALID');
+  assert.equal(rejectedEvidence.attestation.status,'REJECTED');
+  assert.equal(rejectedEvidence.invalidated,false);
+  assert.equal(rejectedEvidence.localOnly,true);
+  const unavailable = auth.Execute({...ctx,nhwVersion:1});
+  assert.equal(auth.Execute(Signed(ctx,unavailable,dev)).nhwVerdict,undefined);
+  assert.equal(Row(session).status,'CLAIMED');
+});
+Check('NHW requires corresponding independent sinks before corroborated revocation', () => {
+  const device = Device(), isolated = NewSession(device);
+  const ctx = Context(device,'B',isolated,'verify',sha512('NHW revoke'));
+  let c = auth.Execute({...ctx,nhwVersion:1});
+  Reject(() => auth.Execute(Signed(ctx,c,device,NhwEvidence(c,{trust:3,mask:1,invalidated:true}))),'SECURITY_NHW_EVIDENCE_INVALID');
+  c = auth.Execute({...ctx,nhwVersion:1});
+  const wrong = NhwEvidence(c,{trust:3,mask:3,invalidated:true});
+  delete wrong.nhwResponses.driver;
+  Reject(() => auth.Execute(Signed(ctx,c,device,wrong)),'SECURITY_NHW_EVIDENCE_INVALID');
+  assert.equal(Row(isolated).status,'CLAIMED');
+  c = auth.Execute({...ctx,nhwVersion:1});
+  const signed = Signed(ctx,c,device,NhwEvidence(c,{trust:3,mask:3,invalidated:true}));
+  const denied = auth.Execute(signed);
+  assert.equal(denied.proceed,false);
+  assert.equal(denied.reason,'SECURITY_SESSION_STOP');
+  assert.equal(Buffer.from(denied.nhwVerdict,'base64')[92],0);
+  assert.equal(Row(isolated).status,'REVOKED');
+  assert.equal(Row(session).status,'CLAIMED');
+  Reject(() => auth.Execute(signed),'BOOTSTRAP_REVOKED');
+});
+Check('NHW sequence advances across a later server restart without resetting the session epoch', () => {
+  const codecPath = require.resolve('../../services/security/peace.nhw-attestation');
+  const row = Row(session);
+  const before = require(codecPath).Issue(row);
+  const afterTime = Number(before.readBigUInt64LE(20) >> 20n) + 1;
+  const script = 'const [file,createdAt,now]=process.argv.slice(1);Date.now=()=>Number(now);' +
+    "process.stdout.write(require(file).Issue({createdAt:Number(createdAt)}).toString('base64'));";
+  const restarted = child.spawnSync(process.execPath,['-e',script,codecPath,String(row.createdAt),String(afterTime)],{encoding:'utf8'});
+  assert.equal(restarted.status,0,restarted.stderr);
+  const after = Buffer.from(restarted.stdout,'base64');
+  assert.equal(after.readBigUInt64LE(12),before.readBigUInt64LE(12));
+  assert.ok(after.readBigUInt64LE(20)>before.readBigUInt64LE(20));
+  assert.notDeepEqual(after.subarray(28,60),before.subarray(28,60));
+});
 Check('Device signals require explicit policy opt-in and negotiated client support',()=>{
  const ctx=Context(dev,'B',session,'verify',sha512('optional-device-signals'));
  assert.equal(require("../../services/authentication/peace.desktop-admin-guard").Summary('/api/desktop/bootstrap/security-authority',{deviceSignalsRequested:true}).deviceSignalsRequested,true);
@@ -123,6 +216,10 @@ Check('READ_ERROR and unsealed storage hold work without revoking the session', 
 Check('Measured mismatch is distinct, does not permanently ban an account', () => {
   const ctx = Context(dev,'B',session,'verify',sha512('mismatch'));
   const out = Observe(ctx,dev,{codeSha512:'0'.repeat(128)}); assert.equal(out.status,'MISMATCH');
+  const finding=require('../../services/security/peace.security-detections').ForFlow(Row(session).id).find(item=>item.detectionId==='IMAGE_DIGEST_MISMATCH');
+  assert.equal(finding.sensor,'peace.desktop-security-authority');
+  assert.equal(finding.sessionId,session.sessionId);
+  assert.equal(finding.invalidated,false);
   Reject(() => Fresh(session,'verify',ctx.binding), 'SECURITY_OBSERVATION_MISMATCH');
   assert.equal(Row(session).status,'CLAIMED');
 });

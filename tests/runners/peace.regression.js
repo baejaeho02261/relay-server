@@ -5,6 +5,15 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["security/peace.test-nhw-native-path-isolation.js"],
+  ["security/peace.test-crc-detection-confidence.js"],
+  ["security/peace.test-security-outcome-routing.js"],
+  ["security/peace.test-security-detection-catalog.js"],
+  ["security/peace.test-security-detections.js"],
+  ["security/peace.test-nhw-response-paths.js"],
+  ["security/peace.test-nhw-tpm-quote.js"],
+  ["web/peace.test-security-detection-views.js"],
+  ["runtime/peace.test-nhw-validation-gate.js"],
   ["bootstrap/peace.test-issued-a-keyring.js"],
   ["bootstrap/peace.test-keyless-tpm-recovery.js"],
   ["source/peace.test-native-string-contract-reader.js"],
@@ -120,7 +129,8 @@ const checks = [
   ["network/peace.test-desktop-connect.js"], ["network/peace.test-desktop-connect.js", '--sqlite'],
   ["web/peace.test-desktop-admin-ui.js"], ["integrity/peace.test-integrity-display.js"], ["overlay/peace.test-overlay-admin-ui.js"], ["web/peace.test-web-ui-cache.js"],
   ["protocol/peace.test-hardening-protocol.js"], ["runtime/peace.test-hardening-work-queue.js"], ["integrity/peace.test-hardening-measurement.js"], ["artifacts/peace.test-hardening-pe-corpus.js"], ["runtime/peace.test-review-corrections.js"], ["storage/peace.test-server-storage-11-14.js"], ["protocol/peace.test-independent-contracts-14.js"], ["runtime/peace.test-production-boundaries-1-5.js"], ["runtime/peace.test-native-abi-field-contract.js"],
-  ["protocol/peace.test-completion-protocol-6-10.js"], ["integrity/peace.test-completion-measurement-6-10.js"], ["protocol/peace.test-completion-artifacts-6-10.js"], ["protocol/peace.test-completion-pin-6-10.js"]
+  ["protocol/peace.test-completion-protocol-6-10.js"], ["integrity/peace.test-completion-measurement-6-10.js"], ["protocol/peace.test-completion-artifacts-6-10.js"], ["protocol/peace.test-completion-pin-6-10.js"],
+  ["runtime/peace.test-nhw-journal-suite-wiring.js"]
 ];
 module.exports=checks;
 if(require.main===module){

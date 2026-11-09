@@ -48,12 +48,21 @@ try{
   const text=ReadContractFile(path.join(native,'Cozy.Source/Cozy.License/Cozy.License.Session.pas'),'utf8');
   const window=ReadContractFile(path.join(native,'Cozy.Source/Cozy.License/Cozy.License.Window.pas'),'utf8');
   const entry=text.split('function RunLicenseClient: Integer;').at(-1);
-  assert(entry.indexOf('Context.CompleteClaimAndCleanup(')<entry.indexOf('RunLicenseWindow('));
-  for(const word of ['Worker := TLicenseWorker.Create(Api);','Worker.SubmitKey(Key)','Worker.RequestStop;','Worker.StopAndJoin;','Worker.Free;'])assert(entry.includes(word),word);
-  for(const word of ['procedure TLicenseWindow.PasteKey;','FreeAndNil(Key)','ImGuiLicenseScene(FContext, Phase, FKey.Count, FElapsed)','FKey.Clear'])assert(window.includes(word),word);
+  function ordered(source,...steps){let previous=-1;for(const step of steps){const next=source.indexOf(step,previous+1);assert(next>previous,step);previous=next;}}
+  ordered(entry,'Context.CompleteClaimAndCleanup(','Worker := TLicenseWorker.Create(Api, Watch);','RunLicenseWindow(','Worker.StartChecks;','Worker.SubmitKey(Key)');
+  for(const word of ['Worker.RequestStop;','Worker.StopAndJoin;','Worker.Free;'])assert(entry.includes(word),word);
+  assert(!entry.includes('Api.CheckIntegrity;'),'initial proof belongs to the worker');
+  const startup=text.split('procedure TLicenseWorker.StartChecks;')[1].split('procedure TLicenseWorker.RequestStop;')[0];
+  ordered(startup,'Start;','WaitForSingleObject(FInitializedEvent, 45000)','InterlockedCompareExchange(FInitializationSucceeded, 0, 0) = 0','RequestStop;','raise EInvalidOpException');
+  const execute=text.split('procedure TLicenseWorker.Execute;')[1].split('function RunLicenseClient: Integer;')[0];
+  ordered(execute,'FApi.CheckIntegrity;','if FWatch <> nil then FWatch.Start;','InterlockedExchange(FInitializationSucceeded, 1);','finally','SetEvent(FInitializedEvent);','while not Terminated');
+  const run=window.split('function TLicenseWindow.Run(const BeforeShow: TProc): Integer;')[1].split('function RunLicenseWindow(')[0];
+  ordered(run,'BeforeShow();','ApiShowWindow(FWindow, SW_SHOW)','State = WorkerTransferred');
+  for(const word of ['procedure TLicenseWindow.PasteKey;','FreeAndNil(Key)','FKey.Clear'])assert(window.includes(word),word);
+  ordered(window,'if Phase = 1 then Percent := FProgress();','if Percent < 0 then Percent := 0;','if Percent > 99 then Percent := 99;','ImGuiLicenseScene(FContext, Phase, FKey.Count, Percent / 100)');
   assert(text.includes('FCommands.Complete(WorkerTransferred);'));
   assert(window.includes('State = WorkerTransferred'));
-  assert(entry.indexOf('Worker.Free;')<entry.indexOf('Api.Free;'));
+  ordered(entry,'Worker.Free;','Api.Free;');
   assert(!text.includes('SERVER_ASSIGNED_V1'));
   assert(!ReadContractFile(path.join(native,'Cozy.Source/Cozy.Platform/Cozy.Api.pas'),'utf8').includes('SERVER_ASSIGNED_V1'));
   assert(!fs.existsSync(path.join(native,'Cozy.Source/Cozy.Application/Cozy.Console.pas')));

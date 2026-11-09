@@ -1,7 +1,10 @@
 'use strict';
 // Real progress handler/RSA verification over isolated synthetic authority.
 // These reports describe client observations, never Windows rendering proof.
-const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-overlay-startup-failure-'));
+Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0'});
+process.once('exit',()=>fs.rmSync(temp,{recursive:true,force:true}));
 const {OverlayFixture}=require('../fixtures/security/peace.security-state-test-fixture');
 const tracker=require('../../services/overlay/peace.desktop-overlay-startup');
 const audit=require('../../storage/audit/peace.audit.js'),originalLog=audit.LogEvent,events=[];
@@ -174,10 +177,13 @@ test('member/license timeline formats bounded failure and excludes other license
   '../bootstrap/peace.desktop-bootstrap-store':{Load:()=>boot},
   '../storage/peace.desktop-storage-space':{},
   '../members/peace.desktop-members':{LicenseMembership:()=>({memberId:'EXPLICIT_MEMBER'})},
+  '../members/peace.desktop-security-detection-views':{ForFlows:()=>({items:[],totalCount:0,limit:100,truncated:false,scope:'SESSION_BOUND_AGGREGATED_EVIDENCE',hardwareAttested:false})},
   '../observability/peace.desktop-lifecycle-trace':{Flow:()=>({})}
  });
  const detail=workspace.Detail('LICENSE'),progress=detail.timeline.filter(x=>x.type==='DESKTOP_OVERLAY_PROGRESS');
  assert.equal(progress.length,2);assert.ok(progress.some(x=>x.label.includes('CREATE · 0x8007000E')));
  assert.ok(progress.every(x=>x.source==='SIGNED_CLIENT_REPORT'&&x.attested===false&&x.label.includes('클라이언트 보고')));
  assert.doesNotMatch(JSON.stringify(detail),/FONT_READ|private|token|failure/);
+ assert.equal(detail.securityDetections.totalCount,0);
+ assert.equal(fs.existsSync(path.join(temp,'desktop-bootstrap','authority.json')),false,'isolated timeline does not open production storage');
 });

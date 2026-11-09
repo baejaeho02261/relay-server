@@ -1,6 +1,6 @@
 { Generated packet shapes only; these dummy keys never authorize execution. }
 const
-  ProtocolSchemaCases: array[0..43] of string = (
+  ProtocolSchemaCases: array[0..49] of string = (
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"begin","requestId":"rrrrrrrr","launcherId":"AAAAAAAAAAAAAAAAAAAAAAAA","launcherSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","launcherCrc64":"AAAAAAAAAAAAAAAA","aCodeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","aCodeCrc64":"AAAAAAAAAAAAAAAA","publicKey":"{}","deviceId":"AAAAAAAAAAAAAAAAAAAA' +
@@ -88,5 +88,23 @@ const
     '{"operation":"execute","tlsPinVersion":1,"body":{"action":"overlay","requestId":"rrrrrrrr","deviceId":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","publicKey"' +
     ':"{}","challengeId":"{}","signature":"{}","payloadJSON":"{}"}}',
     '{"operation":"bootstrap","tlsPinVersion":1,"body":{"action":"overlayStart","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","productId":"cleaner.pubg","requestId":"rrrrrr' +
-    'rr","sequence":1,"signature":"{}"}}'
+    'rr","sequence":1,"signature":"{}"}}',
+    '{"operation":"security","tlsPinVersion":1,"body":{"action":"nhwTrustChallenge","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaa"}}',
+    '{"operation":"security","tlsPinVersion":1,"body":{"action":"nhwTrustSubmit","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaa","challengeId":"{}","payload":"{}","signature":"{}"}}',
+    '{"operation":"security","tlsPinVersion":1,"body":{"action":"nhwDriverChallenge","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaa"}}',
+    '{"operation":"security","tlsPinVersion":1,"body":{"action":"nhwDriverSubmit","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaa","challengeId":"{}","payload":"{}","signature":"{}"}}',
+    '{"operation":"security","tlsPinVersion":1,"body":{"action":"nhwIntegrityChallenge","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaaaaa"}}',
+    '{"operation":"security","tlsPinVersion":1,"body":{"action":"nhwIntegritySubmit","stage":"A","sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"{}","machineId":"AAAAAAAAAAAAAAAA' +
+    'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","binding":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
+    'aaaaaaaaa","challengeId":"{}","payload":"{}","signature":"{}"}}'
   );

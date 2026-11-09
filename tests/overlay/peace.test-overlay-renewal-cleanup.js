@@ -38,10 +38,16 @@ test('source: batch callback cannot manufacture a lease',()=>{
  assert.doesNotMatch(refresh,/FDeadline := CozyTick \+/);
 });
 test('source: periodic scan starts with ordinary renewal; unchanged snapshot across batches',()=>{
- order(core,"StartupPhaseCore('MODULES_BEGIN')",'MaintainLease(True);','Snapshot := CollectModuleInventoryJSON','SnapshotID := BootstrapRequestID;','repeat','MaintainLease(False);','Payload := TJSONObject.Create;',"Payload.AddPair('snapshotId', SnapshotID)",'Send(Payload);');
+ const payload=part(core,'function CreateModulePayload(Index, Count: Integer): TJSONObject;',"begin\n  StartupPhaseCore('OWN_BEGIN')");
+ order(payload,'Body := TJSONObject.Create;',"Body.AddPair('snapshotId', SnapshotID)","Body.AddPair('batchIndex', TJSONNumber.Create(Index))","Body.AddPair('batchCount', TJSONNumber.Create(Count))",'Result := Body;');
+ assert.match(payload,/Meta := Snapshot\.GetValue\(Name\);[\s\S]*TJSONValue\(Meta\.Clone\)/);
+ order(core,"StartupPhaseCore('MODULES_BEGIN')",'MaintainLease(True);','if Assigned(Cancelled) and Cancelled() then',"raise EBootstrap.Create('OVERLAY_CLOSING')",'Snapshot := CollectModuleInventoryJSON','SnapshotID := BootstrapRequestID;','repeat','MaintainLease(False);','Payload := CreateModulePayload(BatchIndex, BatchCount);','Send(Payload);','Payload.Free;','until BatchIndex >= BatchCount;','Snapshot.Free;');
  assert.equal((core.match(/CollectModuleInventoryJSON\(/g)||[]).length,1);
  assert.equal((core.match(/SnapshotID := BootstrapRequestID/g)||[]).length,1);
- assert.match(core,/Snapshot.Free/);
+ const batches=part(core,'BatchIndex := 0;',"StartupPhaseCore('MODULES_READY')");
+ assert.doesNotMatch(batches,/Snapshot\s*:=|SnapshotID\s*:=|CollectModuleInventoryJSON/);
+ const post=part(core,'function ReportPost(Body: TJSONObject;', 'procedure Send(Payload: TJSONObject);');
+ order(post,'if Assigned(Cancelled) and Cancelled() then','for Attempt := 1 to Attempts do','if Assigned(Cancelled) and Cancelled() then','FTransport.PostJSON(','if Assigned(Cancelled) and Cancelled() then','Result := TJSONObject(DataValue.Clone);');
 });
 test('source: default nil callback preserves existing callers',()=>{
  assert.equal((client.match(/const MaintainLease: TProc<Boolean> = nil/g)||[]).length,2);
@@ -195,7 +201,13 @@ test('source: failed renewal and runtime UI causes use closed optional diagnosti
  assert.match(note,/TransportCode = 'CONNECT_TIMEOUT'/);assert.match(note,/Outcome := 'TIMEOUT'/);assert.match(note,/Outcome := 'FAILED'/);
  assert.match(note,/Lifecycle\.Note\('O', 'RENEWAL_FAILED', Outcome\)/);assert.doesNotMatch(note,/\.Message|\.Post|Submit\(|SessionToken/);
  assert.match(overlay,/Lifecycle\.Note\('O', 'UI_RUNTIME_FAILURE', 'FAILED',\s+0, Cardinal\(NativeCode\)\)/);
- assert.match(execute,/if not Terminated then/);assert.match(execute,/NoteRenewalFailure\(EConnectTransport\(E\)\.Code\)/);
+ const failure=execute.slice(execute.lastIndexOf('on E: Exception do'));
+ order(failure,'if not Terminated and not ConfirmedWatch then','NoteRenewalFailure(EConnectTransport(E).Code)',"else NoteRenewalFailure('');",'end;','Stop;','finally if FCompleted <> nil then FCompleted.SetEvent;');
+ assert.match(failure,/else NoteRenewalFailure\(''\);\s*end;\s*\{[^}]*\}\s*Stop;/,'stopping remains outside the diagnostic-only guard');
+ const cancelled=part(overlay,'function TOverlayWorker.RequestCancelled: Boolean;','procedure TOverlayWorker.FirstFrameReady;');
+ order(cancelled,'Result := Terminated or FFailed or ConfirmedWatch or','if Result then','FFailed := True;','FDeadline := 0;','FShutdownGuard.Arm(');
+ const stop=part(overlay,'procedure TOverlayWorker.Stop;','function TOverlayWorker.JoinBefore(');
+ order(stop,'Terminate;','FShutdownGuard.Arm(','FClient.CancelPending;','FFailed := True;','FDeadline := 0;','FProductRunQueued := False;','FProductGrantDeadline := 0;');
 });
 test('source: START is no longer connected to native cohort shutdown',()=>{
  assert.doesNotMatch(overlay,/ProcessRunRequest|Worker\.RequestRun|Worker\.RunState|FRunRequestedAt|RequestCohortShutdown/);

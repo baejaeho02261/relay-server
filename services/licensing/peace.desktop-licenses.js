@@ -223,6 +223,9 @@ function Execute(body){
  RequireChallenge(c);
  const receiptKey=body.deviceId+':'+body.requestId,receipt=DB().receipts[receiptKey]||verifyReceipts.get(receiptKey),fingerprint=hash(body.action+'|'+payloadHash);
  const bootstrap=require("../bootstrap/peace.desktop-bootstrap").Gate(payload.bootstrapSessionId,payload.bootstrapSessionToken,body.deviceId,{allowReleased:body.action==='release'&&receipt?.action==='release',machineId:payload.machineId,hashVersion:3,binarySha512:payload.binarySha512,binaryCrc64:payload.binaryCrc64,codeSha512:payload.codeSha512,codeCrc64:payload.codeCrc64,securityIntent:body.action==='overlay'?'verify':body.action,securityBinding:require("../security/peace.desktop-security-authority").Binding(body.requestId,payloadHash)});
+ // Only a verified request with an authenticated bootstrap context can be
+ // attached to a member. Invalid anonymous signatures cannot name a victim.
+ try {
  RequireChallenge(c);
  if(body.action==='overlay'){const row=Activation(payload,body.deviceId);Active(row);SessionBinding(row,bootstrap);const result=require("../overlay/peace.desktop-overlay").Prepare(bootstrap,row,body.requestId,fingerprint);c.used=true;return result;}
  if(receipt){
@@ -264,6 +267,13 @@ function Execute(body){
   }else{result=Atomic(()=>{RequireChallenge(c);row.status='USED';row.releasedAt=now();row.reason='Windows 앱에서 연결 해제';DB().receipts[receiptKey]={fingerprint,licenseId:row.id,action:body.action,leaseExpiresAt:0,at:now(),...Operation(receiptKey,fingerprint)};AddAuditIntent(DB().receipts[receiptKey],row);return {...Result(row),released:true};});}
  }
  c.used=true;result.revision=DB().revision;if(body.action==='redeem')seen.set(result.licenseId,{at:now(),leaseExpiresAt:result.leaseExpiresAt,appVersion:payload.appVersion||''});return BootstrapResult(result,payload,body.deviceId,body.action,DB().receipts[receiptKey]||verifyReceipts.get(receiptKey));
+ } catch(error) {
+  const entry=require('../security/peace.security-detection-catalog').Get(error.message);
+  if(entry?.sourceUnits.includes('peace.desktop-licenses'))try{
+   require('../security/peace.security-detections').RecordServer({row:bootstrap,stage:'B',id:entry.id,source:'peace.desktop-licenses',confidence:0,correlation:false,invalidated:false});
+  }catch(_){console.error('SECURITY_DETECTION_RECORD_FAILED');}
+  throw error;
+ }
 }
 function RetireRuntime(row){for(const [id,value]of challenges)if(value.deviceId===row.deviceId)challenges.delete(id);for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);if(row.licenseId)seen.delete(row.licenseId);}
 module.exports={DrainAudit,ReconcileOperations,RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};

@@ -205,14 +205,31 @@ try{
  });
  Test('Challenge/canonical Delphi field contract stays in sync',()=>{
   const client=path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Source/Cozy.Security/Cozy.ServerAuthority.pas");
-  const text=ReadContractFile(client,'utf8');assert.match(text,/Reply\.Count <> 8/);assert.ok(text.includes(a.DOMAIN));
+  const text=ReadContractFile(client,'utf8');assert.ok(text.includes(a.DOMAIN));
   const parser=text.slice(text.indexOf('ExpectedChallengeFields := 8;'),text.indexOf("if Number(Challenge, 'version')"));
   assert.match(text,/Body\.AddPair\('deviceSignalsVersion', TJSONNumber\.Create\(1\)\)/);
   assert.match(parser,/ExpectedChallengeFields := 8;/);
   assert.match(parser,/ProfileValue := Challenge\.GetValue\('mitigationProfile'\);[\s\S]*if ProfileValue <> nil then[\s\S]*if not \(ProfileValue is TJSONObject\) then Invalid;[\s\S]*Inc\(ExpectedChallengeFields\)/);
   assert.match(parser,/DeviceSignalsValue := Challenge\.GetValue\('deviceSignalsRequested'\);[\s\S]*if DeviceSignalsValue <> nil then[\s\S]*if not \(DeviceSignalsValue is TJSONBool\) then Invalid;[\s\S]*Inc\(ExpectedChallengeFields\)/);
-  assert.equal((parser.match(/Inc\(ExpectedChallengeFields\)/g)||[]).length,2);
+  assert.match(text,/if Extension <> nil then\s*begin\s*Body\.AddPair\(NHWVersionField, TJSONNumber\.Create\(1\)\);\s*end;/);
+  assert.match(parser,/if Extension <> nil then\s*begin\s*NHWChallenge := Text\(Challenge, NHWChallengeField, 80\);\s*Inc\(ExpectedChallengeFields\);\s*end;/);
+  assert.equal((parser.match(/Inc\(ExpectedChallengeFields\)/g)||[]).length,3);
+  assert.equal((parser.match(/ExpectedChallengeFields\s*:=/g)||[]).length,1);
   assert.match(parser,/if Challenge\.Count <> ExpectedChallengeFields then Invalid;/);
+  // Optional NHW fields increase exact counts, not an open-ended upper bound.
+  // A verdict is accepted only for this negotiated, submitted NHW observation.
+  const reply=text.slice(text.indexOf('ExpectedReplyFields := 8;'),text.indexOf('ConfigureDeviceSignalsRequest(DeviceSignalsRequested'));
+  assert.match(text,/RequireAuthorityDocument\('authorityReply', Reply\);\s*ExpectedReplyFields := 8;/);
+  assert.match(reply,/ExpectedReplyFields := 8;\s*NHWVerdictValue := Reply\.GetValue\(NHWVerdictField\);\s*if NHWVerdictValue <> nil then Inc\(ExpectedReplyFields\);/);
+  assert.equal((reply.match(/Inc\(ExpectedReplyFields\)/g)||[]).length,1);
+  assert.equal((reply.match(/ExpectedReplyFields\s*:=/g)||[]).length,1);
+  assert.match(reply,/if \(Reply\.Count <> ExpectedReplyFields\) or/);
+  assert.match(reply,/Number\(Reply, 'sequence'\) <> Seq/);
+  assert.match(reply,/if NHWEvidenceSent and Proceed and \(NHWVerdictValue = nil\) then Invalid;/);
+  assert.match(reply,/if NHWVerdictValue <> nil then\s*begin\s*if \(Extension = nil\) or not NHWEvidenceSent or\s*not \(NHWVerdictValue is TJSONString\) then Invalid;/);
+  assert.match(reply,/if \(not Proceed and \(Status <> 'MISMATCH'\)\) or\s*not Extension\.ApplyVerdict\(NHWVerdictValue\.Value, Proceed\) then Invalid;/);
+  assert.match(reply,/if not Proceed then\s*raise EGameApi\.Create/);
+  assert.match(text,/NHWEvidenceSent := False;\s*if Extension <> nil then\s*begin[\s\S]*case Extension\.AddEvidence\(NHWChallenge, Evidence\) of\s*aerAdded: NHWEvidenceSent := True;\s*aerInvalid: Invalid;/);
   const fields=[...text.matchAll(/Evidence\.AddPair\('([^']+)'/g)].map(x=>x[1]);assert.equal(fields.length,16);assert.equal(new Set(fields).size,16);
   for(const name of ['version','hashVersion','codeXxh3_128','codeBlake3','crcLayers','measurement','fileSha512','fileCrc64','codeSha512','codeCrc64','apiSealed','apiSlots','dynamicCode','cfg','mitigationDiagnostics','ownMeasurement'])assert.ok(fields.includes(name));
   const body={stage:'B',sessionId:'SID',intent:'verify',binding:'BIND'},c={challengeId:'CID',nonce:'NONCE',epoch:'EPOCH',sequence:7,revision:2,expiresAt:12345};

@@ -68,7 +68,7 @@ function Apply(id){
   const current=db.registrationResetJob;if(current?.id!==id||current.phase!=='PREPARED'||(db.serverRecovery?.epoch||0)+1!==current.epoch)Fail('CONFLICT');
   ResetOperations(db);
   for(const name of ['artifacts','active','launchers','flows','overlays','issueReceipts'])db[name]={};
-  for(const name of ['lifecycleTrace','packingEvidence','workspaceGarbage','manualVerifications','mitigationProfiles','mitigationCompatibility','securityActivation'])delete db[name];
+  for(const name of ['lifecycleTrace','securityDetections','packingEvidence','workspaceGarbage','manualVerifications','mitigationProfiles','mitigationCompatibility','securityActivation'])delete db[name];
   if(db.deviceRegistry){db.deviceRegistry={...db.deviceRegistry,revision:db.deviceRegistry.revision+1,bindings:{},receipts:{}};require('../devices/peace.desktop-device-registry').Validate(db.deviceRegistry);}
   if(db.deviceIdentity){db.deviceIdentity={...db.deviceIdentity,revision:db.deviceIdentity.revision+1,enrollments:{},receipts:{},adminReceipts:{},legacyFlows:{},recoveryGrants:{}};require('../devices/peace.desktop-device-identity').Validate(db.deviceIdentity);}
   db.serverRecovery={version:1,epoch:current.epoch,receipts:db.serverRecovery?.receipts||{}};

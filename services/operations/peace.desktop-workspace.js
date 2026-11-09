@@ -59,7 +59,7 @@ function Detail(id){
  }
  const histories=flows.map(f=>({flowId:f.id,sessionId:f.sessionId,launcherId:f.launcherId,status:bootstrap.SessionView(f).status,createdAt:f.createdAt,version:boot.artifacts[f.releaseId]?.version||'',binarySha512:boot.artifacts[f.releaseId]?.sha512||'',machineId:f.machineId||'',lastVerifiedAt:f.lastVerifiedAt||0}));
  const traceFlows=[...flows].sort((a,b)=>b.createdAt-a.createdAt).slice(0,100);
- return{license,membership,metadata:Meta(id),timeline:timeline.sort((a,b)=>b.at-a.at).slice(0,150),flows:histories,lifecycle:{version:1,items:traceFlows.map(f=>require("../observability/peace.desktop-lifecycle-trace").Flow(f.id)),total:flows.length,truncated:flows.length>traceFlows.length,limit:100,scope:'SERVER_DECISIONS_AND_AUTHENTICATED_CLIENT_OBSERVATIONS'},timelineScope:'PERSISTED_FLOW_TIMES_AND_LAST_1000_SERVER_EVENTS',support:'APK_SUPPORT_RETIRED_NO_NEW_COLLECTION'};
+ return{license,membership,securityDetections:require('../members/peace.desktop-security-detection-views').ForFlows(flows.map(f=>f.id),{db:boot}),metadata:Meta(id),timeline:timeline.sort((a,b)=>b.at-a.at).slice(0,150),flows:histories,lifecycle:{version:1,items:traceFlows.map(f=>require("../observability/peace.desktop-lifecycle-trace").Flow(f.id)),total:flows.length,truncated:flows.length>traceFlows.length,limit:100,scope:'SERVER_DECISIONS_AND_AUTHENTICATED_CLIENT_OBSERVATIONS'},timelineScope:'PERSISTED_FLOW_TIMES_AND_LAST_1000_SERVER_EVENTS',support:'APK_SUPPORT_RETIRED_NO_NEW_COLLECTION'};
 }
 function SaveMetadata(id,body,actor){
  Fields(body,['expectedRevision','note','tags']);licenses.Detail(id);const value=MetadataInput({note:body.note,tags:body.tags});

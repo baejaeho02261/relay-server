@@ -68,7 +68,19 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));
   const entry = source.slice(source.lastIndexOf('function RunLicenseClient: Integer;'));
   assert(entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('RunLicenseWindow('));
-  assert(entry.indexOf('Api.CheckIntegrity;') < entry.indexOf('Worker.StartChecks;'));
+  assert(entry.includes('Worker.StartChecks;'));
+  assert(!entry.includes('Api.CheckIntegrity;'), 'initial measurement must run in the worker');
+  const execute = source.split('procedure TLicenseWorker.Execute;')[1].split('function RunLicenseClient: Integer;')[0];
+  assert.match(execute, /FApi\.CheckIntegrity;[\s\S]*?if FWatch <> nil then FWatch\.Start;[\s\S]*?InterlockedExchange\(FInitializationSucceeded, 1\);/);
+  assert.match(execute, /finally\s+if FInitializedEvent <> 0 then SetEvent\(FInitializedEvent\);\s+end;\s+while/);
+  const start = source.split('procedure TLicenseWorker.StartChecks;')[1].split('procedure TLicenseWorker.RequestStop;')[0];
+  assert(start.includes('WaitForSingleObject(FInitializedEvent, 45000)'));
+  assert(start.includes('InterlockedCompareExchange(FInitializationSucceeded, 0, 0) = 0'));
+  const workerDestroy = source.split('destructor TLicenseWorker.Destroy;')[1].split('function TLicenseWorker.')[0];
+  assert(workerDestroy.indexOf('inherited Destroy;') < workerDestroy.indexOf('FCommands.Free;'));
+  assert(execute.includes('if FCommands <> nil then FCommands.Stop;'));
+
+
   const create = window.split('constructor TLicenseWindow.Create(')[1].split('destructor TLicenseWindow.Destroy;')[0];
   assert(create.indexOf('ImGuiCreate(FWindow, True)') < create.indexOf('SetMitigationGpuIdentity(ImGuiGpuIdentity(FContext))'));
   const run = window.split('function TLicenseWindow.Run(')[1].split('function RunLicenseWindow(')[0];
@@ -79,10 +91,18 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   const destroy = window.split('destructor TLicenseWindow.Destroy;')[1].split('procedure TLicenseWindow.RequireOwner;')[0];
   assert(destroy.indexOf('ApiShowWindow(FWindow, SW_HIDE)') < destroy.indexOf('FJoinWorker()'));
   assert(destroy.indexOf('FJoinWorker()') < destroy.indexOf('ImGuiDestroy(FContext)'));
-  assert.match(entry, /begin Worker\.RequestStop; end,/);
+  assert.match(entry, /begin\s+ShutdownGuard\.ArmAfter\(15000\);\s+Worker\.RequestStop;\s+end,/);
   assert.match(entry, /begin Worker\.StopAndJoin; end\)/);
   assert.match(run, /if FState\(\) = WorkerTransferred then Result := 0/);
-  assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if Transferred then Result := 0;/);
+  assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if Api <> nil then Api\.FlushNHWReports;\s+if Watch <> nil then SecurityStopped := SecurityStopped or Watch\.Confirmed;\s+if \(Api <> nil\) and SecurityStopped then Api\.FinishNHWStop;\s+if SecurityStopped then Result := 1\s+else if Transferred then Result := 0;/);
+  assert.match(entry, /Watch\.RequestStop;\s+Watch\.StopChildObservers;\s+SecurityStopped := Watch\.Confirmed;/);
+  assert(entry.indexOf('Worker.Free;') < entry.indexOf('Watch.RequestStop;'));
+  assert(entry.indexOf('Watch.RequestStop;') < entry.indexOf('Api.FinishNHWStop;'));
+  assert(entry.indexOf('Watch.StopChildObservers;') < entry.indexOf('Context.CleanupOwnImageForShutdown;'));
+  assert(entry.indexOf('Api.FinishNHWStop;') < entry.indexOf('Api.RetireImagesForShutdown;'));
+  assert(entry.indexOf('Context.CleanupOwnImageForShutdown;') < entry.indexOf('Watch.Free;'));
+  assert(entry.indexOf('Bootstrap.Close;') < entry.indexOf('Watch.Free;'));
+  assert(entry.indexOf('Api.Free;') < entry.indexOf('Watch.Free;'));
   assert(entry.indexOf('Worker.Free;') < entry.indexOf('Api.Free;'));
   assert(entry.indexOf('Worker.Free;') < entry.indexOf('Context.Free;'));
 });

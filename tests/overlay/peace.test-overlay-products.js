@@ -1,5 +1,8 @@
 'use strict';
-const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-overlay-products-'));
+Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0'});
+process.once('exit',()=>fs.rmSync(temp,{recursive:true,force:true}));
 const {OverlayFixture}=require('../fixtures/security/peace.security-state-test-fixture');
 const products=require('../../services/licensing/peace.licensed-products'),packet=require('../../services/protocol/peace.packet-schema');
 function fixture(options={}){
@@ -12,6 +15,13 @@ function request(f,overrides={}){
  const body={action:'overlayStart',sessionId:f.row.sessionId,sessionToken:'TOKEN',productId:'cleaner.pubg',requestId:crypto.randomUUID(),sequence:1,...overrides};
  body.signature=crypto.sign('sha256',Buffer.from(f.api.__probe.StartCanonical(body)),f.keys.privateKey).toString('base64');return body;
 }
+test('isolated revoked-license response retains its cause without creating real persistent state',()=>{
+ const f=fixture();f.license.status='REVOKED';
+ assert.throws(()=>f.api.__probe.Start(request(f)),/DESKTOP_ACTIVATION_INVALID/);
+ assert.equal(f.findings.at(-1).id,'DESKTOP_ACTIVATION_INVALID');
+ assert.equal(f.findings.at(-1).stage,'O');assert.equal(f.findings.at(-1).row,f.row);
+ assert.equal(fs.existsSync(path.join(temp,'desktop-bootstrap','authority.json')),false);
+});
 test('START admits the signed licensed product without extending any session or license lease',()=>{
  const f=fixture(),body=request(f),before=JSON.stringify([f.parent,f.license]),expires=f.row.sessionExpiresAt;
  assert.equal(f.api.__probe.StartCanonical(body),['COZY-OVERLAY-START-V1',body.sessionId,body.productId,body.requestId,'1'].join('\n'));

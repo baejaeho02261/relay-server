@@ -22,7 +22,7 @@ parentPort.on('message',message=>{
     }finally{message.fill(0);signature.fill(0);job.message.fill(0);job.signature.fill(0);}});
   }else if(task.kind==='tpm-attestation'){
    const tpm=require("../devices/peace.desktop-tpm-attestation"),secret=Buffer.from(task.secret),nonce=Buffer.from(task.nonce);
-   try{if(secret.length!==32||nonce.length!==32)throw Error('WORK_TASK_INVALID');const verified=tpm.VerifyCertify(task.evidence,nonce,task.publicKey,task.trust);value={rootSha256:verified.rootSha256,notAfter:verified.notAfter,activationBlob:tpm.MakeCredential(verified.ekPublic,verified.akName,secret).toString('base64')};}
+   try{if(secret.length!==32||nonce.length!==32)throw Error('WORK_TASK_INVALID');const verified=tpm.VerifyCertify(task.evidence,nonce,task.publicKey,task.trust);value={rootSha256:verified.rootSha256,leafSha256:verified.leafSha256,akPublic:verified.akPublic,akQualifiedName:verified.akQualifiedName,notAfter:verified.notAfter,activationBlob:tpm.MakeCredential(verified.ekPublic,verified.akName,secret).toString('base64')};}
    finally{secret.fill(0);nonce.fill(0);task.secret.fill(0);task.nonce.fill(0);}
   }else if(task.kind==='server-policy-bind'){
    const bytes=Buffer.from(task.bytes);let bound;

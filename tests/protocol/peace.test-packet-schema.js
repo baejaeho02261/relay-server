@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const schema=require('../../contracts/protocol/peace.packet-schema-v1.json'),contract=require('../../services/protocol/peace.packet-schema'),protocol=require('../../services/protocol/peace.desktop-request-protocol'),fixtures=require('../fixtures/protocol/peace.packet-schema-cases.json');
 let checks=0;function reject(x){assert.throws(()=>contract.ValidateEnvelope(x),/PROTOCOL_SCHEMA_INVALID/);checks++;}
 function clone(x){return structuredClone(x);}function resolve(x){return x.$ref?schema.definitions[x.$ref]:x;}
-assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,44);
+assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,50);
 for(let i=0;i<fixtures.cases.length;i++){
  const packet=fixtures.cases[i],command=schema.commands[i];
  assert.equal(contract.ValidateEnvelope(packet),packet);protocol.Resolve(packet.operation,packet.body.action);checks++;

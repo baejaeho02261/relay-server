@@ -41,6 +41,19 @@ function UncomparedOwnHashes(own,artifact){
  return fields;
 }
 function AuditBinding(machineId){return /^[A-F0-9]{64}$/.test(machineId||'')?require("../devices/peace.desktop-device-registry").BindingId(machineId):'';}
+function RecordFinding(row,stage,reason,invalidated=false,crcComparison){
+ // The authenticated decision site supplies identity, never a submitted PID,
+ // raw path, machine label or exception message. Diagnostics cannot gate Revoke.
+ try{
+  const entry=require('../security/peace.security-detection-catalog').Get(reason);
+  // Failed/unavailable CRC measurement denies use but is not confirmed tamper.
+  const confirmed=entry?.signalClass==='MISMATCH'&&
+   (reason!=='CRC_ROLE_MISMATCH'||crcComparison?.signals?.some(signal=>signal.status==='MISMATCH')===true);
+  require('../security/peace.security-detections').RecordServer({row,stage,id:reason,
+   source:'peace.desktop-integrity-reports',confidence:confirmed?100:0,
+   correlation:confirmed,evidenceFamilies:['COZY_INTEGRITY'],invalidated});
+ }catch(_){console.error('SECURITY_DETECTION_RECORD_FAILED');}
+}
 function Identifier(value){if(value===undefined||value==='')return '';if(typeof value!=='string'||!/^[-A-Za-z0-9_]{1,100}$/.test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}
 function Token(value){if(typeof value!=='string'||!/^[-A-Z0-9_]{1,64}$/.test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}
 function ReadFile(file){const st=fs.lstatSync(file);if(st.isSymbolicLink()||!st.isFile())throw Error('INTEGRITY_REPORT_STORAGE_INVALID');return fs.readFileSync(file);}
@@ -201,7 +214,7 @@ function Record(input){
 }
 function Auth(body){return require("../bootstrap/peace.desktop-bootstrap").AuthenticateIntegrityReport(body);}
 const AUTH_FIELDS=['stage','action','sessionId','sessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64'];
-function Prune(){const clock=deadline.Now(),at=clock.wall;for(const [id,c] of pending)if(deadline.Expired(c,clock))pending.delete(id);for(const [id,r] of rates)if(r.until<=at)rates.delete(id);for(const [id,until] of finishedSnapshots)if(until<=at)finishedSnapshots.delete(id);for(const [id,snapshot] of snapshots)if(snapshot.expiresAt<=at){snapshots.delete(id);finishedSnapshots.set(id,at+900000);Record({...snapshot.fields,status:'CLIENT_DIAGNOSTIC',check:'MODULE_SNAPSHOT',reason:'SNAPSHOT_TIMEOUT',snapshotId:snapshot.snapshotId,snapshotStatus:'TIMED_OUT',snapshotFinal:true,snapshotReasons:['INCOMPLETE_SNAPSHOT'],strictPolicyRevision:snapshot.policyRevision});}}
+function Prune(){const clock=deadline.Now(),at=clock.wall;for(const [id,c] of pending)if(deadline.Expired(c,clock))pending.delete(id);for(const [id,r] of rates)if(r.until<=at)rates.delete(id);for(const [id,until] of finishedSnapshots)if(until<=at)finishedSnapshots.delete(id);for(const [id,snapshot] of snapshots)if(snapshot.expiresAt<=at){snapshots.delete(id);finishedSnapshots.set(id,at+900000);if(snapshot.reportOwner)RecordFinding(snapshot.reportOwner,snapshot.fields.stage,'SNAPSHOT_TIMEOUT');Record({...snapshot.fields,status:'CLIENT_DIAGNOSTIC',check:'MODULE_SNAPSHOT',reason:'SNAPSHOT_TIMEOUT',snapshotId:snapshot.snapshotId,snapshotStatus:'TIMED_OUT',snapshotFinal:true,snapshotReasons:['INCOMPLETE_SNAPSHOT'],strictPolicyRevision:snapshot.policyRevision});}}
 function Challenge(body){
  Keys(body,AUTH_FIELDS);const row=Auth(body),context=row.reportContextId||row.sessionId;Prune();const at=Date.now(),rate=rates.get(context)||{until:at+60000,count:0};
  if(rate.count>=256||pending.size>=MAX_PENDING||rates.size>=4096&&!rates.has(context))Fail('INTEGRITY_REPORT_RATE_LIMIT',429);rate.count++;rates.set(context,rate);
@@ -237,6 +250,7 @@ function Submit(body){
  if(graphReason){
   require('../security/peace.desktop-security-authority').Invalidate(row,row.stage||'B',graphReason);
   require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:'INTEGRITY_'+graphReason},'INTEGRITY_REPORT');
+  RecordFinding(row,row.stage||'B',graphReason,true);
   result=Record({...fields,...UncomparedOwnHashes(payload.own,artifact),check:'OWN_CODE',status:'REJECTED',reason:graphReason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,pointerGraphVerified:false,ownedGraphValidated:false,trusted:true});
   return Complete({accepted:true,status:'REJECTED',reportId:result.id,terminate:true});
  }
@@ -250,6 +264,7 @@ function Submit(body){
  if(measurementStatus.IsFailure(payload.own?.status)&&require("../security/peace.desktop-security-authority").UsesAuthority(row,row.stage||'B')){
   const reason=measurementStatus.FailureReason(payload.own.status);
   require("../security/peace.desktop-security-authority").Invalidate(row,row.stage||'B',reason);
+  RecordFinding(row,row.stage||'B',reason,false);
   result=Record({...fields,check:'OWN_CODE',status:'CLIENT_DIAGNOSTIC',reason,measurementStatus:payload.own.status,ownMeasurement:payload.ownMeasurement,crcComparison:require("../runtime/peace.desktop-crc-policy").Compare(payload.crcLayers,artifact.crcLayers),trusted:false});
   return Complete({accepted:true,status:'CLIENT_DIAGNOSTIC',reportId:result.id,terminate:false});
  }
@@ -260,11 +275,11 @@ function Submit(body){
   // Pair equality is an independent observation, not an overall execution PASS.
   // Incomplete CRC coverage must not turn matching file/code hashes into failures.
   const extendedHashesVerified=fileExtendedVerified&&codeExtendedVerified,unverifiedExtended=payload.hashVersion===3&&matches&&!extendedHashesVerified;
-  if(!matches)require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason:'INTEGRITY_'+rejectionReason},'INTEGRITY_REPORT');
+  if(!matches){require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason:'INTEGRITY_'+rejectionReason},'INTEGRITY_REPORT');RecordFinding(row,row.stage||'B',rejectionReason,true,crcComparison);}
   result=Record({...fields,check:'OWN_CODE',measurementStatus:own.status,status:matches?unverifiedExtended?'CLIENT_DIAGNOSTIC':'VERIFIED':'REJECTED',reason:matches?unverifiedExtended?'EXTENDED_BASELINE_UNAVAILABLE':'BASELINE_MATCH':rejectionReason,trusted:true,extendedHashesVerified,fileExtendedVerified,codeExtendedVerified,fileHashesReported,fileHashesVerified,...(fileHashesReported?{expectedFileSha512:artifact.sha512,observedFileSha512:own.fileSha512,expectedFileCrc64:artifact.crc64,observedFileCrc64:own.fileCrc64}:{}),crcComparison,expectedSha512:artifact.codeSha512,observedSha512:own.codeSha512,expectedCrc64:artifact.codeCrc64,observedCrc64:own.codeCrc64,expectedXxh3_128:artifact.codeXxh3_128,observedXxh3_128:own.codeXxh3_128,expectedBlake3:artifact.codeBlake3,observedBlake3:own.codeBlake3,expectedFileXxh3_128:artifact.fileXxh3_128,observedFileXxh3_128:own.fileXxh3_128,expectedFileBlake3:artifact.fileBlake3,observedFileBlake3:own.fileBlake3});
   if(!matches){return Complete({accepted:true,status:'REJECTED',reportId:result.id,terminate:true});}
  }
- if(payload.check==='MODULE_INVENTORY'){Load();if(payload.modules.map(module=>CompareModule(module,payload.hashVersion)).some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason:'INTEGRITY_KNOWN_MODULE_CODE_MISMATCH'},'INTEGRITY_REPORT');result=Record({...fields,status:'CLIENT_DIAGNOSTIC',modules:payload.modules,trusted:false});}else result=AcceptSnapshot(row,fields,payload); }
+ if(payload.check==='MODULE_INVENTORY'){Load();if(payload.modules.map(module=>CompareModule(module,payload.hashVersion)).some(m=>m.serverComparison==='REGISTERED_BASELINE_MISMATCH')){require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason:'INTEGRITY_KNOWN_MODULE_CODE_MISMATCH'},'INTEGRITY_REPORT');RecordFinding(row,row.stage||'B','KNOWN_MODULE_CODE_MISMATCH',true);result=Record({...fields,status:'CLIENT_DIAGNOSTIC',modules:payload.modules,trusted:false});}else result=AcceptSnapshot(row,fields,payload); }
  if(result.status==='REJECTED'){return Complete({accepted:true,status:result.status,reportId:result.id,terminate:true});}
  // Report the existing persisted observation deadline, not a new execution
  // grant. Partial batches and diagnostics cannot renew it; receipt replay
@@ -321,6 +336,7 @@ function SnapshotKey(stage,context,id){return stage+':'+context+':'+id;}
 function RevokeSnapshot(row,reason){require("../bootstrap/peace.desktop-bootstrap").Revoke(row.sessionId,{reason},'INTEGRITY_REPORT');}
 function SnapshotConflict(row,key,reason){
  const snapshot=snapshots.get(key),required=policy.enabled||measurementPlan.Required(row.integrityArtifact)===1;snapshots.delete(key);finishedSnapshots.set(key,Date.now()+900000);if(required)RevokeSnapshot(row,reason);
+ RecordFinding(row,row.stage||'B',reason,required);
  if(snapshot)Record({...snapshot.fields,check:'MODULE_SNAPSHOT',status:required?'REJECTED':'CLIENT_DIAGNOSTIC',reason,snapshotId:snapshot.snapshotId,snapshotStatus:required?'COMPLETE_REJECTED':'INCOMPLETE',snapshotFinal:true,complete:false,snapshotReasons:[reason],strictPolicyRevision:snapshot.policyRevision});
  Fail(reason,409);
 }
@@ -331,7 +347,7 @@ function AcceptSnapshot(row,fields,payload){
  let snapshot=snapshots.get(key);
  if(!snapshot){
   if(snapshots.size>=128||finishedSnapshots.size>=8192||[...snapshots.values()].filter(s=>s.context===context).length>=2)Fail('INTEGRITY_SNAPSHOT_LIMIT',429);
-  snapshot={context,fields,snapshotId:payload.snapshotId,metadata,policyRevision:policy.revision,expiresAt:Date.now()+SNAPSHOT_TTL,batches:new Map(),names:new Set(),duplicateNames:new Set(),duplicateCount:0,modules:[]};snapshots.set(key,snapshot);
+  snapshot={context,fields,reportOwner:{id:row.id,parentFlowId:row.parentFlowId,sessionId:row.sessionId,createdAt:row.createdAt},snapshotId:payload.snapshotId,metadata,policyRevision:policy.revision,expiresAt:Date.now()+SNAPSHOT_TTL,batches:new Map(),names:new Set(),duplicateNames:new Set(),duplicateCount:0,modules:[]};snapshots.set(key,snapshot);
  }
  if(snapshot.metadata!==metadata||snapshot.batches.has(payload.batchIndex))SnapshotConflict(row,key,'INTEGRITY_SNAPSHOT_CONFLICT');
  if(snapshot.policyRevision!==policy.revision)SnapshotConflict(row,key,'INTEGRITY_SNAPSHOT_POLICY_CHANGED');
@@ -352,6 +368,7 @@ function AcceptSnapshot(row,fields,payload){
  const requiredModuleResults=policy.requiredModules.map(name=>{const module=moduleRows.find(m=>m.name.toLowerCase()===name);let reason='BASELINE_MATCH';if(!module)reason='REQUIRED_MODULE_MISSING';else if(!module.fileSha512||!module.codeSha512||['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(module.status)||['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TOO_LONG','FILE_CHANGED','COVERAGE_INSUFFICIENT','CANCELLED','DEADLINE_EXCEEDED'].includes(module.codeStatus))reason='REQUIRED_MODULE_READ_FAILED';else if(module.serverComparison==='REGISTERED_BASELINE_MISMATCH')reason='REQUIRED_MODULE_CODE_MISMATCH';else if(module.serverComparison!=='MATCH_REGISTERED_BASELINE'||!module.exportTableVerified)reason='REQUIRED_MODULE_UNVERIFIED';else if(policy.requireExtendedHashes&&!module.extendedHashesVerified)reason='REQUIRED_MODULE_EXTENDED_UNVERIFIED';if(policy.enabled&&reason!=='BASELINE_MATCH')reasons.push(reason);return {name,reason,baselineId:module?.baselineId||'',extendedHashesVerified:module?.extendedHashesVerified===true};});
  const unique=[...new Set(reasons)],accepted=unique.length===0,reject=(policy.enabled||measurementPlan.Required(row.integrityArtifact)>0)&&!accepted;
  if(reject)RevokeSnapshot(row,'INTEGRITY_'+unique[0]);
+ for(const reason of unique)RecordFinding(row,stage,reason,reject);
  return Record({...base,check:'MODULE_SNAPSHOT',status:reject?'REJECTED':policy.enabled&&accepted?'VERIFIED':'CLIENT_DIAGNOSTIC',reason:accepted?'BASELINE_MATCH':unique[0],complete:accepted,snapshotStatus:accepted?'COMPLETE_PASS':reject?'COMPLETE_REJECTED':'INCOMPLETE',snapshotFinal:true,snapshotReasons:unique,snapshotDiagnostics:require("../runtime/peace.desktop-snapshot-diagnostics").Summarize(payload,snapshot.modules,unique),requiredModuleResults,extendedHashesVerified:payload.hashVersion===3&&requiredModuleResults.every(item=>item.reason==='BASELINE_MATCH'&&item.extendedHashesVerified)});
 }
 // Called only after bootstrap authentication. A fresh complete server-assembled
@@ -361,7 +378,7 @@ function RequireSnapshot(row,stage){
  Load();const db=require("../bootstrap/peace.desktop-bootstrap-store").Load(),artifact=db.artifacts[stage==='A'?db.launchers[row.launcherId]?.artifactId:row.releaseId],requiredPlan=measurementPlan.Required(artifact);if(!policy.enabled&&!requiredPlan)return;
  const candidates=observations.filter(item=>item.stage===stage&&item.sessionId===row.sessionId&&item.flowId===row.id).sort((a,b)=>b.at-a.at),last=candidates[0];
  let reason='';if(!last)reason='INTEGRITY_SNAPSHOT_REQUIRED';else if(last.strictPolicyRevision!==policy.revision)reason='INTEGRITY_SNAPSHOT_POLICY_CHANGED';else if(requiredPlan&&(last.measurementPlanVersion!==requiredPlan||last.planAssurance!=='COHERENT_PLAN_V1'||last.coverage!=='FULL'))reason='INTEGRITY_MEASUREMENT_PLAN_REQUIRED';else if(last.snapshotStatus!=='COMPLETE_PASS')reason='INTEGRITY_SNAPSHOT_REQUIRED';else if(Date.now()-last.at>FRESHNESS[stage]||last.at>Date.now()+1000)reason='INTEGRITY_SNAPSHOT_STALE';
- if(!reason)return {expiresAt:last.at+FRESHNESS[stage]};RevokeSnapshot(row,reason);Record({stage,sessionId:row.sessionId,flowId:row.id,machineId:row.machineId,check:'MODULE_POLICY',status:'REJECTED',reason,trusted:true,strictPolicyRevision:policy.revision});Fail(reason,403);
+ if(!reason)return {expiresAt:last.at+FRESHNESS[stage]};RevokeSnapshot(row,reason);RecordFinding(row,stage,reason,true);Record({stage,sessionId:row.sessionId,flowId:row.id,machineId:row.machineId,check:'MODULE_POLICY',status:'REJECTED',reason,trusted:true,strictPolicyRevision:policy.revision});Fail(reason,403);
 }
 
 function RetireContext(row){const ids=new Set([row.id,row.sessionId]);for(const [id,value]of pending)if(ids.has(value.sessionId))pending.delete(id);receipts.deleteWhere((meta,response)=>ids.has(meta.context)&&!response.terminate);for(const id of ids)rates.delete(id);for(const id of snapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))snapshots.delete(id);for(const id of finishedSnapshots.keys())if([...ids].some(value=>id.includes(':'+value+':')))finishedSnapshots.delete(id);}

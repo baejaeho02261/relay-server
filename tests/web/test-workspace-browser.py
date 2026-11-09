@@ -54,7 +54,7 @@ with sync_playwright() as p:
         # about:blank may lack randomUUID; use browser randomness for request
         # IDs. These UI tests do not replace the real server signature tests.
         page.add_script_tag(content="if(!crypto.randomUUID)crypto.randomUUID=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');")
-        for f in ['scripts/interface/peace.admin-modal.js','scripts/desktop/peace.admin-desktop-licenses.js','scripts/desktop/peace.admin-desktop-workflow.js']:
+        for f in ['scripts/interface/peace.admin-modal.js','scripts/desktop/peace.admin-desktop-licenses.js','scripts/desktop/peace.admin-desktop-members.js','scripts/desktop/peace.admin-desktop-workflow.js']:
             page.add_script_tag(content=(ROOT/'public'/f).read_text())
     def openfn(code,selector):
         page.evaluate('(code)=>{window.testPending=eval(code).catch(e=>errors.push(String(e)));}',code)

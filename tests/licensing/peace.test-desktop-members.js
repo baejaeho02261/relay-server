@@ -149,6 +149,7 @@ async function run(){
  assert.equal((await request('', 'GET',{},null)).status,403);
  assert.equal((await request('', 'GET',{}, {id:'viewer',role:'viewer'})).status,403);
  assert.equal((await request()).status,200);
+ const detectionView=await request('/'+alice.id+'?category=detections');assert.equal(detectionView.status,200);assert.ok(Array.isArray(detectionView.value.categories.detections.items));assert.ok(detectionView.value.categories.detections.items.every(row=>row.memberId===alice.id));
  const auditFirst=await request('?q=read-audit-check'),auditRepeat=await request('?q=read-audit-check');
  assert.equal(auditFirst.value.readAudit.repeated,false);assert.equal(auditRepeat.value.readAudit.repeated,true);
  assert.equal((await request('?q=read-audit-other')).value.readAudit.repeated,false);

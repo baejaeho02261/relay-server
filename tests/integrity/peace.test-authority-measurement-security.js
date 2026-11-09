@@ -1,7 +1,12 @@
 'use strict';
 // Real authority/parser/CRC logic and RSA signatures. Only identity, policy
 // persistence, audit and surrounding services are isolated; no live user data.
-const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
+const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+// Set isolation before importing application modules. A newly added transitive
+// persistence dependency must never create runtime keys in the Docker context.
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-authority-measurement-'));
+Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0'});
+process.once('exit',()=>fs.rmSync(temp,{recursive:true,force:true}));
 const {Isolated}=require("../fixtures/protocol/peace.completion-6-10-fixture");
 const contract=require("../../services/integrity/peace.measurement-plan-contract");
 const baseline=require("../../services/integrity/peace.desktop-integrity").CodeImage(require("../fixtures/runtime/peace.crc-test-fixture").crcTestFixture());
@@ -9,11 +14,12 @@ const keys=crypto.generateKeyPairSync('rsa',{modulusLength:2048});
 function Fixture(mode='enforce'){
  const artifact={id:'BUILD-B',component:'B',version:'1.0',authorityVersion:1,hashVersion:3,ownMeasurementVersion:1,sha512:'a'.repeat(128),crc64:'A'.repeat(16),codeSha512:baseline.sha512,codeCrc64:baseline.crc64,codeXxh3_128:baseline.xxh3_128,codeBlake3:baseline.blake3,crcLayers:structuredClone(baseline.crcLayers)};
  const row={id:'FLOW',sessionId:'SESSION',releaseId:artifact.id,machineId:'A'.repeat(64),publicKey:'ISOLATED_PUBLIC_KEY',integrityArtifact:artifact};
- const db={artifacts:{[artifact.id]:artifact},launchers:{}};let operationsRevision=1,enabled=true,revoked=0;
+ const db={artifacts:{[artifact.id]:artifact},launchers:{}},findings=[];let operationsRevision=1,enabled=true,revoked=0;
  const fail=code=>{const e=Error(code);e.desktopError=true;throw e;};
  const ops={PointerGraphSlots:()=>10,EffectivePolicy:p=>p,Revision:()=>operationsRevision,ArtifactReason:()=>'',EvaluateContract:()=>null};
  const auth=Isolated("services/security/peace.desktop-security-authority.js",['pending','decisions','receipts'],{
   "../bootstrap/peace.desktop-bootstrap-store":{Load:()=>db},"../../storage/audit/peace.audit.js":{LogEvent(){}},'./peace.desktop-security-operations':ops,
+  './peace.security-detections':{RecordServer(event){assert.equal(event.row,row);assert.equal(event.stage,'B');findings.push(event);}},
   "../bootstrap/peace.desktop-bootstrap":{Revoke(id){assert.equal(id,row.sessionId);revoked++;},EnsureSecurityAvailable(){if(!enabled)fail('SERVICE_DISABLED');},AuthenticateIntegrityReport(body){if(body.sessionId!==row.sessionId||body.sessionToken!=='SESSION_SECRET'||body.machineId!==row.machineId)fail('SESSION_INVALID');return row;}},
   "../devices/peace.desktop-device-identity":{AssertSession(){}},'./peace.desktop-mitigation-profiles':{Select:()=>undefined,RequireCurrent(){},Check:()=>''},
   "../licensing/peace.desktop-licenses":{ParseKey:()=>({key:keys.publicKey})},"../integrity/peace.desktop-proof-work":{Verify:(_pub,text,signature)=>crypto.verify('sha256',Buffer.from(text),keys.publicKey,Buffer.from(signature,'base64'))}
@@ -24,8 +30,14 @@ function Fixture(mode='enforce'){
  function Signed(c,v=Value(),b=body){const payload=JSON.stringify(v);return {...b,action:'submit',challengeId:c.challengeId,payload,signature:crypto.sign('sha256',Buffer.from(auth.Canonical(b,c,payload)),keys.privateKey).toString('base64')};}
  function Observe(v=Value(),b=body){const c=auth.Execute(b),signed=Signed(c,v,b);return {response:auth.Execute(signed),signed};}
  const Fresh=(b=body)=>auth.RequireFresh(row,'B',b.intent,b.binding);
- return {auth,db,artifact,row,body,Value,Signed,Observe,Fresh,revoked:()=>revoked,setOps:()=>operationsRevision++,disable:()=>enabled=false};
+ return {auth,db,artifact,row,body,Value,Signed,Observe,Fresh,findings,revoked:()=>revoked,setOps:()=>operationsRevision++,disable:()=>enabled=false};
 }
+test('isolated authority retains exact finding calls without opening real persistent storage',()=>{
+ const f=Fixture();assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);
+ assert.equal(f.findings.at(-1).id,'SECURITY_FRESH_OBSERVATION_REQUIRED');
+ assert.equal(f.findings.at(-1).confidence,0);assert.equal(f.findings.at(-1).correlation,false);
+ assert.equal(fs.existsSync(path.join(temp,'desktop-bootstrap','authority.json')),false);
+});
 test('FULL bundle with complete CRC passes actual RSA submit and fresh guard',()=>{const f=Fixture(),{response,signed}=f.Observe();assert.equal(response.proceed,true);assert.equal(response.status,'PASS');f.Fresh();assert.deepEqual(f.auth.Execute(signed),response);assert.equal(Object.keys(response).length,8);});
 for(const mode of ['enforce','observe']){
  test(mode+': no observation cannot authorize',()=>{const f=Fixture(mode);assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);});

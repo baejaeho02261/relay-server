@@ -205,11 +205,11 @@ function FlowLive(row,allowClaimed=false){if(row)require('./peace.issued-a-keyri
 function RequireFlowPair(row){const db=DB();
  require('./peace.issued-a-keyring').AssertLauncher(db.launchers[row.launcherId],db);
  const authority=require("../security/peace.desktop-security-authority");
- authority.RequireArtifact(db.artifacts[db.launchers[row.launcherId]?.artifactId]);
- authority.RequireArtifact(db.artifacts[row.releaseId]);
- if(row.overlayReleaseId)authority.RequireArtifact(db.artifacts[row.overlayReleaseId]);
+ authority.RequireArtifact(db.artifacts[db.launchers[row.launcherId]?.artifactId],{row,stage:row.status==='CLAIMED'?'B':'A'});
+ authority.RequireArtifact(db.artifacts[row.releaseId],{row,stage:row.status==='CLAIMED'?'B':'A'});
+ if(row.overlayReleaseId)authority.RequireArtifact(db.artifacts[row.overlayReleaseId],{row,stage:row.status==='CLAIMED'?'B':'A'});
  if(delegation.RequirePair(db.artifacts[db.launchers[row.launcherId]?.artifactId],db.artifacts[row.releaseId],db.artifacts[row.overlayReleaseId])!==delegation.Version(row))Fail('BOOTSTRAP_HANDOFF_VERSION_MISMATCH',409);require("../security/peace.desktop-security-operations").RequireRuntimePair(db.artifacts[db.launchers[row.launcherId]?.artifactId],db.artifacts[row.releaseId],db.artifacts[row.overlayReleaseId]);}
-function DownloadFlow(body,allowClaimed=false){const row=DB().flows[body.flowId];FlowLive(row,allowClaimed);if(!EqualHash(body.downloadTicket,row.downloadHash))Fail('BOOTSTRAP_FLOW_INVALID',401);require("../security/peace.desktop-security-authority").RequireArtifact(DB().artifacts[row.releaseId]);require("../security/peace.desktop-security-authority").RequireArtifact(DB().artifacts[DB().launchers[row.launcherId].artifactId]);RequireFlowPair(row);return row;}
+function DownloadFlow(body,allowClaimed=false){const row=DB().flows[body.flowId];FlowLive(row,allowClaimed);if(!EqualHash(body.downloadTicket,row.downloadHash))Fail('BOOTSTRAP_FLOW_INVALID',401);require("../security/peace.desktop-security-authority").RequireArtifact(DB().artifacts[row.releaseId],{row,stage:'A'});require("../security/peace.desktop-security-authority").RequireArtifact(DB().artifacts[DB().launchers[row.launcherId].artifactId],{row,stage:'A'});RequireFlowPair(row);return row;}
 function requireLauncherBeforeBegin(row){
  // A retry of an already-created flow is checked against that flow's original
  // cohort below. Only an unused launcher must match today's active selection.
@@ -283,7 +283,7 @@ function Gate(id,token,deviceId,options={}){
  Available();if(!id||!token)Fail('BOOTSTRAP_REQUIRED',403);const row=SessionAuthenticated(id,token);
  const released=options.allowReleased&&row.status==='CLOSED'&&row.closedByLicenseRelease;
  if(!released)FlowLive(row,true);
- const artifact=DB().artifacts[row.releaseId];if(MachinePolicy().Validate(options.machineId)!==row.machineId)Fail('BOOTSTRAP_HASH_MISMATCH',403);CheckFile(artifact,Sha(options.binarySha512),Crc(options.binaryCrc64),{stage:'B',row});MachinePolicy().AssertAllowed(row.machineId,row.machinePolicyGeneration,row.sessionId);
+ const artifact=DB().artifacts[row.releaseId];if(MachinePolicy().Validate(options.machineId)!==row.machineId){try{require('../security/peace.security-detections').RecordServer({row,stage:'B',id:'BOOTSTRAP_MACHINE_BINDING_MISMATCH',source:'peace.desktop-bootstrap',confidence:0,correlation:false,invalidated:false});}catch(_){console.error('SECURITY_DETECTION_RECORD_FAILED');}Fail('BOOTSTRAP_HASH_MISMATCH',403);}CheckFile(artifact,Sha(options.binarySha512),Crc(options.binaryCrc64),{stage:'B',row});MachinePolicy().AssertAllowed(row.machineId,row.machinePolicyGeneration,row.sessionId);
  if((row.status!=='CLAIMED'&&!released)||row.deviceId!==deviceId)Fail('BOOTSTRAP_SESSION_INVALID',403);CheckCode(artifact,Sha(options.codeSha512),Crc(options.codeCrc64),{stage:'B',row});if(!released)require("../integrity/peace.desktop-integrity-reports").RequireSnapshot(row,'B');
  if(!released&&options.securityIntent!=='release'){require("../devices/peace.desktop-device-identity").AssertSession(row,'B');RequireFlowPair(row);require("../security/peace.desktop-security-authority").RequireFresh(row,'B',options.securityIntent||'verify',options.securityBinding||'');}return row;
 }
@@ -295,6 +295,7 @@ function CheckFile(artifact,sha512,crc64,context){
  if(artifact&&sha512===artifact.sha512&&crc64===artifact.crc64)return;
  const row=context.row,info={stage:context.stage,machineId:row?.machineId||context.machineId||'',flowId:row?.id||'',sessionId:row?.sessionId||'',artifactId:context.artifactId||artifact?.id||'',check:'OWN_FILE',status:'REJECTED',reason:'FILE_DIGEST_MISMATCH',expectedSha512:artifact?.sha512||'',observedSha512:sha512,expectedCrc64:artifact?.crc64||'',observedCrc64:crc64,trusted:true};
  try{require("../integrity/peace.desktop-integrity-reports").Record(info);}catch(_){Audit('DESKTOP_INTEGRITY_REJECTED',info);}
+ if(row)try{require('../security/peace.security-detections').RecordServer({row,stage:context.stage,id:'FILE_DIGEST_MISMATCH',source:'peace.desktop-bootstrap',confidence:100,correlation:true,invalidated:false});}catch(_){console.error('SECURITY_DETECTION_RECORD_FAILED');}
  Fail('BOOTSTRAP_HASH_MISMATCH',403);
 }
 // Compare only with a baseline computed from administrator-published bytes.
@@ -306,6 +307,7 @@ function CheckCode(artifact,sha512,crc64,context){
  info.status='REJECTED';info.reason='CODE_DIGEST_MISMATCH';
  try{require("../integrity/peace.desktop-integrity-reports").Record(info);}catch(_){Audit('DESKTOP_INTEGRITY_REJECTED',info);}
  if(row&&!['CLOSED','REVOKED','EXPIRED'].includes(row.status))Atomic('BOOTSTRAP_CHECK_CODE','SERVER',db=>{const item=db.flows[row.id];item.status='REVOKED';item.revokedAt=now();item.reason='CODE_DIGEST_MISMATCH';item.codeIntegrityStatus='REJECTED';item.lastCodeVerifiedAt=now();RetireFlow(item,db);});
+ if(row)try{require('../security/peace.security-detections').RecordServer({row,stage:context.stage,id:'CODE_DIGEST_MISMATCH',source:'peace.desktop-bootstrap',confidence:100,correlation:true,invalidated:DB().flows[row.id]?.status==='REVOKED'});}catch(_){console.error('SECURITY_DETECTION_RECORD_FAILED');}
  Fail('BOOTSTRAP_CODE_MISMATCH',403);
 }
 // Only replay of an already cached denial may use this terminal-capable

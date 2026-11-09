@@ -59,6 +59,24 @@ async function Wire(frame){
   const wrongSlotsChallenge=await Round(ctx),wrongSlots=JSON.stringify({...JSON.parse(payload),apiSlots:1});
   const wrongSlotsResult=await Round({...ctx,action:'submit',challengeId:wrongSlotsChallenge.data.challengeId,payload:wrongSlots,signature:fixture.Sign(device,authority.Canonical(ctx,wrongSlotsChallenge.data,wrongSlots))});
   assert.equal(wrongSlotsResult.data.proceed,false);assert.equal(wrongSlotsResult.data.reason,'API_SLOT_COUNT_MISMATCH');
+  const nhw = await Round({...ctx,nhwVersion:1});
+  assert.equal(nhw.ok,true,JSON.stringify(nhw));
+  const frame = Buffer.alloc(179);
+  frame.write('NHWA');frame.writeUInt16LE(1,4);frame[6]=2;frame.writeUInt32LE(167,8);
+  Buffer.from(nhw.data.nhwChallenge,'base64').copy(frame,12,12);
+  frame.writeBigUInt64LE(1n,60);
+  crypto.createHash('sha256').update(frame.subarray(12,78)).update(frame.subarray(79,103))
+    .update(frame.subarray(78,79)).update(frame.subarray(103,143)).digest().copy(frame,143);
+  const nhwPayload = JSON.stringify({...JSON.parse(payload),nhwEvidence:frame.toString('base64'),nhwResponses:{}});
+  const nhwReply = await Round({...ctx,action:'submit',challengeId:nhw.data.challengeId,payload:nhwPayload,
+    signature:fixture.Sign(device,authority.Canonical(ctx,nhw.data,nhwPayload))});
+  assert.equal(nhwReply.ok,true,JSON.stringify(nhwReply));
+  assert.equal(nhwReply.data.attested,false);
+  const nhwVerdict = Buffer.from(nhwReply.data.nhwVerdict,'base64');
+  assert.deepEqual(nhwVerdict.subarray(12,60),frame.subarray(12,60));
+  assert.deepEqual(nhwVerdict.subarray(60,92),frame.subarray(143,175));
+  assert.equal(nhwVerdict[92],1);
+  console.log('NHW nested challenge and verdict PASS through TLS, AEAD, queued RSA and current session authority.');
   console.log('Security wire PASS: new-protocol A/finish gate and B build-contract slot check, TLS pin/name/time, encrypted challenge+signed submit, exact inner-response recovery without expiry/observation duplication, changed-body rejection, outer-frame replay rejection, original decision expiry, wrong-machine rejection. No Windows binary executed.');
  }finally{if(server)await new Promise(resolve=>server.close(resolve));fs.rmSync(temp,{recursive:true,force:true});}
 })().catch(e=>{console.error(e);process.exitCode=1;});
