@@ -79,7 +79,7 @@ test('new protocol validates explicit signal identity and rejects ambiguous extr
  assert.doesNotThrow(()=>observations.ParseRecords([item('dkPECodeIntegrity','DETECTED',{correlation:true,localOnly:false,families:3,confidence:90})],tick,4));
 });
 
-test('Delphi path supplies signal source independently of the detection kind',()=>{
+test('Delphi path supplies signal source independently of the detection kind', {skip:!fs.existsSync(path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas'))?'native source is delivered separately in full ZIP':false},()=>{
  const root=path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Security.NHW');
  const read=name=>fs.readFileSync(path.join(root,'Cozy.NHW.'+name+'.pas'),'utf8');
  assert.match(read('Engine'),/not \(Kind in Detected\)/);
