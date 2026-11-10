@@ -55,7 +55,7 @@ try{
   const startup=text.split('procedure TLicenseWorker.StartChecks;')[1].split('procedure TLicenseWorker.RequestStop;')[0];
   ordered(startup,'Start;','WaitForSingleObject(FInitializedEvent, 45000)','InterlockedCompareExchange(FInitializationSucceeded, 0, 0) = 0','RequestStop;','raise EInvalidOpException');
   const execute=text.split('procedure TLicenseWorker.Execute;')[1].split('function RunLicenseClient: Integer;')[0];
-  ordered(execute,'FApi.CheckIntegrity;','if FWatch <> nil then FWatch.Start;','InterlockedExchange(FInitializationSucceeded, 1);','finally','SetEvent(FInitializedEvent);','while not Terminated');
+  ordered(execute,'FApi.CheckIntegrity;',"FWatch.SecurityContext.SetPhase('B_ATTESTED');",'FWatch.Start;','InterlockedExchange(FInitializationSucceeded, 1);','finally','SetEvent(FInitializedEvent);','while not Terminated');
   const run=window.split('function TLicenseWindow.Run(const BeforeShow: TProc): Integer;')[1].split('function RunLicenseWindow(')[0];
   ordered(run,'BeforeShow();','ApiShowWindow(FWindow, SW_SHOW)','State = WorkerTransferred');
   for(const word of ['procedure TLicenseWindow.PasteKey;','FreeAndNil(Key)','FKey.Clear'])assert(window.includes(word),word);

@@ -16,7 +16,8 @@ function NHWMetadata(row) {
  if(row.id==='dkObservationUncertain')row.sourceUnits.push('Cozy.NHW.Handles','Cozy.NHW.Guard');
  return Freeze({...row,label:displayName,displayName,origin:'NHW',conditionLabel:WARING_OUTPUT.has(row.id)?row.label:'',standaloneOutput:!internal,
   observationClass:internal?'INTERNAL_EVIDENCE':warning?'COVERAGE_WARNING':'DETECTION',
-  sessionStopPolicy:internal?'OBSERVE_ONLY':warning?'STOP_ON_COVERAGE_WARNING':'STOP_ON_REPORTED_DETECTION'});
+  sessionStopPolicy:internal?'OBSERVE_ONLY':warning?'RECOVER_AND_REVALIDATE':'CONTEXT_AND_CORROBORATION',
+  contextPolicy:require('./peace.security-context-policy').PolicyClass({...row,standaloneOutput:!internal})});
 }
 const COZY_NAMES={
  IMAGE_DIGEST_MISMATCH:'Image Digest Detect',CODE_HASH_MISMATCH:'Code Hash Detect',FILE_HASH_MISMATCH:'File Hash Detect',
@@ -31,6 +32,7 @@ function CozyMetadata(row) {
  const name=COZY_NAMES[row.id]||row.id.split('_').map(word=>['API','CRC','TPM','NHW','CFG'].includes(word)?word:word[0]+word.slice(1).toLowerCase()).join(' ')+' Detect';
  return Freeze({...row,displayName:name,origin:'COZY',conditionLabel:'',observationClass:row.signalClass==='UNKNOWN'?'UNAVAILABLE_OR_INCOMPLETE':row.signalClass==='MISMATCH'?'INTEGRITY_MISMATCH':'POLICY_REJECTION',sessionStopPolicy:'SERVER_DECISION'});
 }
+const PEER_FINDINGS=['SECURITY_PEER_IMAGE_MISMATCH','SECURITY_PEER_IDENTITY_CHANGED','SECURITY_PEER_ENROLLMENT_REPLAY','SECURITY_HANDOFF_GRANT_REUSED'].map(id=>({id,label:id.replaceAll('_',' '),category:'FIRST_PARTY_BINDING',sourceUnits:['peace.nhw-peer-context'],responsePaths:['Trust','Driver','Integrity'],evidenceFamilies:['ARTIFACT_IDENTITY','SESSION_BINDING'],signalClass:'POLICY_REJECTION',sourceReferences:[{path:'services/security/peace.nhw-peer-context.js',lines:[]}]}));
 const MITIGATION_FINDINGS=['SECURITY_MITIGATION_PROFILE_UNEXPECTED','SECURITY_MITIGATION_PROFILE_MISMATCH','SECURITY_STRICT_HANDLES_UNAVAILABLE','SECURITY_IMAGE_POLICY_UNAVAILABLE','SECURITY_CFG_UNAVAILABLE','SECURITY_DYNAMIC_POLICY_UNAVAILABLE'].map(id=>({
  id,label:id.replaceAll('_',' '),category:'MITIGATION_POLICY',sourceUnits:['peace.desktop-mitigation-profiles','peace.desktop-security-authority'],responsePaths:['Integrity'],evidenceFamilies:['MITIGATION_POLICY'],signalClass:id.endsWith('_UNAVAILABLE')?'UNKNOWN':'POLICY_REJECTION',sourceReferences:[{path:'services/security/peace.desktop-mitigation-profiles.js',lines:[82]}]
 }));
@@ -11826,7 +11828,7 @@ const COZY = Object.freeze([
    }
   ]
  }
-].concat(MITIGATION_FINDINGS,MITIGATION_RUNTIME_FINDINGS).map(CozyMetadata));
+].concat(MITIGATION_FINDINGS,MITIGATION_RUNTIME_FINDINGS,PEER_FINDINGS).map(CozyMetadata));
 const byId = new Map([...NHW, ...COZY].map(row => [row.id, row]));
 function Get(id) { return typeof id === 'string' ? byId.get(id) || null : null; }
 function ResolveNHWOrdinal(ordinal) { return Number.isInteger(ordinal) && ordinal >= 0 && ordinal < NHW.length ? NHW[ordinal] : null; }

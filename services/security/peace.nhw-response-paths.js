@@ -1,12 +1,13 @@
 'use strict';
 // Each path has its own challenge, replay window, signed purpose and receipts.
-// Each independently delivered named detection can stop the exact caller cohort.
+// Each path independently adjudicates typed evidence and actor capabilities.
 // Client reports are not a hardware observation or a license/lease grant.
 const crypto = require('node:crypto');
 const deadline = require('../runtime/peace.desktop-deadline');
 const proof = require('../integrity/peace.desktop-proof-work');
 const protocol = require('../protocol/peace.desktop-request-protocol');
 const detections = require('./peace.security-detections');
+const peers = require('./peace.nhw-peer-context');
 const channels = ['trust', 'driver', 'integrity'];
 const states = new Map(channels.map(channel => [channel, {
   pending: new Map(), order: new Map(), votes: new Map(), rates: new Map(),
@@ -75,11 +76,12 @@ function Canonical(body, challenge, channel) {
 function Payload(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail();
   let value; try { value = require('../protocol/peace.strict-json').Parse(text); } catch (_) { Fail(); }
-  Fields(value,['version','sequence','tick','digest','confirmed','trust',...(value?.version===2?['detections']:[])]);
-  if (![1,2].includes(value.version) || typeof value.confirmed !== 'boolean' || !Number.isInteger(value.trust) || value.trust < 0 || value.trust > 3 ||
+  Fields(value,['version','sequence','tick','digest','confirmed','trust',...(value?.version>=2?['detections']:[]),...(value?.version===3?['peer']:[])]);
+  if (![1,2,3].includes(value.version) || typeof value.confirmed !== 'boolean' || !Number.isInteger(value.trust) || value.trust < 0 || value.trust > 3 ||
       value.version===1 && value.confirmed && value.trust !== 3) Fail();
   for (const key of ['sequence','tick','digest']) if (typeof value[key] !== 'string' || !/^[a-f0-9]{16}$/.test(value[key]) || /^0+$/.test(value[key])) Fail();
-  if(value.version===2){detections.ParseRecords(value.detections,value.tick);if(value.digest!==sha(JSON.stringify(value.detections)).slice(0,16))Fail('SECURITY_DETECTION_DIGEST_INVALID');}
+  if(value.version>=2){detections.ParseRecords(value.detections,value.tick,value.version);if(value.digest!==sha(JSON.stringify(value.detections)).slice(0,16))Fail('SECURITY_DETECTION_DIGEST_INVALID');}
+  if(value.version===3)peers.ParseEnrollment(value.peer);
   return value;
 }
 function Submit(body, channel) {
@@ -100,24 +102,34 @@ function Submit(body, channel) {
   const recovered=detections.RecoverBatch(row,body.stage,channel,value);
   if(!recovered){
     detections.CheckOrder(row,body.stage,channel,value);
-    if(value.version===2) detections.CheckCounters(row,body.stage,channel,value.detections);
+    if(value.version>=2) detections.CheckCounters(row,body.stage,channel,value.detections);
   }
   const previous=state.order.get(context),previousVote=state.votes.get(context);
   if (!recovered && previous && (BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
   if (!previous && state.order.size>=4096) Fail('SECURITY_CAPACITY',503);
+  let peerContext=null;
+  try{if(value.version===3)peerContext=peers.Enroll(row,body.stage,value.peer,value.sequence,{channel,recover:!!recovered});}
+  catch(error){
+    if(['SECURITY_PEER_IMAGE_MISMATCH','SECURITY_PEER_IDENTITY_CHANGED'].includes(error.message)){
+      require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:error.message},'SECURITY_AUTHORITY');
+      detections.RecordServer({row,stage:body.stage,id:error.message,source:'peace.nhw-peer-context',invalidated:true});
+    }
+    else if(error.message==='SECURITY_PEER_ENROLLMENT_REPLAY')detections.RecordServer({row,stage:body.stage,id:error.message,source:'peace.nhw-peer-context',confidence:0,correlation:false,invalidated:false});
+    throw error;
+  }
   state.order.set(context,{sequence:BigInt('0x'+value.sequence),tick:BigInt('0x'+(recovered?.tick||value.tick))});
   // v1 is retained only for deployed pre-catalog clients. v2 final policy is
   // computed here from actual named evidence, not the client confirmed bit.
   const confirmed=value.version===1&&value.confirmed;
-  if (confirmed) state.votes.set(context,{digest:value.digest,ids:value.version===2?detections.QualifiedIds(value.detections,value.tick):[],...deadline.After(90000)});
+  if (confirmed) state.votes.set(context,{digest:value.digest,ids:value.version>=2?detections.QualifiedIds(value.detections,value.tick):[],...deadline.After(90000)});
   else state.votes.delete(context);
   const voteMask=channels.reduce((mask,name,i)=>mask|(states.get(name).votes.has(context)?1<<i:0),0);
   const terminal=detections.TerminalAllowed(row,body.stage);
-  if(terminal&&value.version!==2)Fail('SECURITY_NHW_RESPONSE_INVALID');
-  const decision=value.version===2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value)):null;
+  if(terminal&&value.version<2)Fail('SECURITY_NHW_RESPONSE_INVALID');
+  const decision=value.version>=2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value,row)):null;
   const stopped=terminal||!!decision||(value.version===1&&(voteMask===3||voteMask===5||voteMask===6||voteMask===7));
   const response={version:1,channel,sequence:value.sequence,digest:value.digest,epoch:challenge.epoch,
-    accepted:true,stopped,scope:'OWNED_A_B_O',attested:false};
+    accepted:true,stopped,scope:'OWNED_A_B_O',attested:false,...(value.version===3?{peerContext:stopped?null:peerContext}: {})};
   const contributors=decision?[{channel,keys:decision.keys}]:[];
   // Persist every accepted observation, including local-only/unsupported
   // evidence. Persistence also keeps producer high-watermarks across restart.
@@ -129,13 +141,13 @@ function Submit(body, channel) {
     // supplied target ID, and retires the whole authorized cohort.
     const reason=decision?.reason||'SECURITY_SESSION_STOP';
     require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
-    if(value.version===2) detections.CommitInvalidation(row,body.stage,contributors,reason);
+    if(value.version>=2) detections.CommitInvalidation(row,body.stage,contributors,reason);
   }
   if(recordError) {
     if(!stopped){if(previous)state.order.set(context,previous);else state.order.delete(context);if(previousVote)state.votes.set(context,previousVote);else state.votes.delete(context);}
     throw recordError;
   }
-  if(!stopped||value.version===2) state.receipts.put(body.challengeId,purpose,body,response,{context});
+  if(!stopped||value.version>=2) state.receipts.put(body.challengeId,purpose,body,response,{context});
   return response;
 }
 function Execute(body) {
@@ -158,5 +170,5 @@ function RetireContext(row,stage) {
     state.receipts.deleteWhere(meta=>meta.context===context);
   }
 }
-function Clear() { for(const state of states.values()){for(const key of ['pending','order','votes','rates'])state[key].clear();state.receipts.clear();} }
+function Clear() { for(const state of states.values()){for(const key of ['pending','order','votes','rates'])state[key].clear();state.receipts.clear();} peers.Clear(); }
 module.exports={ParseAction,Domain,Canonical,Payload,Execute,ProofTasks,RetireContext,Clear};

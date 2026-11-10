@@ -2,11 +2,25 @@
 // Read-only attribution. A shared PC, client display name or raw process
 // identity never joins security evidence to an administrator's member record.
 const store=require('../bootstrap/peace.desktop-bootstrap-store');
-const PUBLIC_FIELDS=['id','recordId','flowId','detectionId','displayName','origin','conditionLabel','signalClass','observationClass','sessionStopPolicy','decisionReason','category','sensor','sourceUnit','responsePath','firstAt','lastAt','firstTick','lastTick','count','confirmationCount','sessionId','epoch','role','stage','confidence','correlation','localOnly','attestationSequence','attestationStatus','sessionInvalidated','invalidated','evidenceLevel','provenance','handoffStatus'];
+const PUBLIC_FIELDS=['id','recordId','flowId','detectionId','displayName','origin','conditionLabel','signalClass','observationClass','sessionStopPolicy','decisionReason','category','sensor','sourceUnit','responsePath','firstAt','lastAt','firstTick','lastTick','count','confirmationCount','sessionId','epoch','role','stage','confidence','correlation','localOnly','attestationSequence','attestationStatus','sessionInvalidated','invalidated','evidenceLevel','provenance','handoffStatus','disposition','coverageState'];
+// Context is a deliberately small public projection. Raw PID, image path,
+// token/logon identity and signed enrollment material are never UI fields.
+const CONTEXT_TEXT_FIELDS=['actorClass','actorRole','targetRole','phase','capability','coverage','capabilityDecision','bindingScope'];
+const CONTEXT_HASH_FIELDS=['actorIdentity','targetIdentity','peerId','grantId'];
+function PublicContext(context){
+ if(!context||typeof context!=='object'||Array.isArray(context))return null;
+ const value={};
+ for(const key of CONTEXT_TEXT_FIELDS)if(typeof context[key]==='string'&&context[key].length<=96)value[key]=context[key];
+ for(const key of CONTEXT_HASH_FIELDS)if(typeof context[key]==='string'&&(key.endsWith('Identity')?/^[a-f0-9]{64}$/i:/^[a-f0-9]{48}$/i).test(context[key]))value[key]=context[key];
+ for(const [key,max] of [['accessMask',0xffffffff],['tokenDelta',511]])if(Number.isInteger(context[key])&&context[key]>=0&&context[key]<=max)value[key]=context[key];
+ for(const key of ['baseline','contextMixed','firstPartyAttested','sameSession','serverBound'])if(typeof context[key]==='boolean')value[key]=context[key];
+ return value;
+}
 function Public(row){
  const value=Object.fromEntries(PUBLIC_FIELDS.filter(key=>Object.hasOwn(row,key)&&(typeof row[key]==='string'||typeof row[key]==='boolean'||Number.isFinite(row[key]))).map(key=>[key,row[key]]));
  value.algorithms=Array.isArray(row.algorithms)?row.algorithms.filter(v=>typeof v==='string'&&v.length<=80).slice(0,16):[];
  value.evidenceFamilies=Array.isArray(row.evidenceFamilies)?row.evidenceFamilies.filter(v=>typeof v==='string'||Number.isSafeInteger(v)).slice(0,32):[];
+ const context=PublicContext(row.context);if(context)value.context=context;
  if(row.attestation)value.attestation=Object.fromEntries(['sequence','status'].filter(key=>Object.hasOwn(row.attestation,key)).map(key=>[key,row.attestation[key]]));
  if(row.handoff)value.handoff=Object.fromEntries(['A','B','O'].filter(role=>typeof row.handoff[role]==='string').map(role=>[role,row.handoff[role]]));
  return value;

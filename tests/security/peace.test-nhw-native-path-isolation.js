@@ -35,7 +35,10 @@ function assertPath(name,map=bodies){
  assert.ok(submit.includes("ReadText(Reply,'channel',16) <> '"+name.toLowerCase()+"'"));
  for(const field of ['sequence','digest','epoch','scope'])assert.ok(submit.includes("ReadText(Reply,'"+field+"'"));
  assert.ok(submit.includes("not ReadBoolean(Reply,'accepted') or ReadBoolean(Reply,'attested')"));
- assert.ok(submit.indexOf("ReadBoolean(Reply,'stopped')")>submit.indexOf('Reply.Count <> 9'));
+ const replyCheck=submit.indexOf('Reply.Count <> 10');
+ assert.ok(replyCheck>=0,'v3 receipt must validate every response field');
+ assert.ok(submit.indexOf("ReadBoolean(Reply,'stopped')")>replyCheck);
+ assert.ok(submit.indexOf("ApplyServerReceipt(Reply.GetValue('peerContext'),Epoch,ReceiptStarted)")>replyCheck,'peer cache must only consume a checked server receipt');
  assert.ok(submit.includes('if FPendingBody = nil then'));
  assert.ok(submit.includes("Answer := FTransport.PostJSON('security', FPendingBody, 3000)"));
  assert.ok(submit.includes("Answer.GetValue('error').Value = 'SECURITY_CHALLENGE_INVALID'"));
@@ -67,7 +70,7 @@ function assertBoundedDrain(map=bodies,authority=authorityBodies){
  assert.match(prepare,/FlushRequested\s*:=\s*TInterlocked\.Exchange\(FFlush, 0\)\s*<>\s*0/);
  assert.match(prepare,/FLastAttempt\s*<>\s*0[\s\S]*not FlushRequested[\s\S]*ObserverClockTick\s*-\s*FLastAttempt\s*<\s*1000[\s\S]*then Exit/);
  assert.doesNotMatch(prepare,/FDraining/); // No flush-wide retry bypass.
- assert.match(prepare,/if Result then FLastAttempt\s*:=\s*ObserverClockTick/);
+ assert.match(prepare,/if Result then\s*begin\s*FDetectionGuard\.SecurityContext\.PrepareLocalIdentity;\s*FLastAttempt\s*:=\s*ObserverClockTick;\s*end;/);
  let resets=0;
  for(const [name,body] of map){
   const count=(body.match(/FLastAttempt\s*:=\s*0/g)||[]).length;
@@ -92,7 +95,8 @@ function assertBoundedDrain(map=bodies,authority=authorityBodies){
 test('bounded drain advances acknowledged batches, retains failure backoff and always exits drain mode',()=>{
  assertBoundedDrain();
  const journal=fs.readFileSync(path.join(path.dirname(file),'Cozy.NHW.DetectionJournal.pas'),'utf8');
- assert.match(code(journal),/NHWDetectionBatchCapacity\s*=\s*32/);
+ assert.match(code(journal),/NHWDetectionBatchCapacity\s*=\s*12/);
+ assert.match(get('EncodeDetectionPayload'),/Length\(TEncoding\.UTF8\.GetBytes\(PayloadText\)\)>16384/,'context batches must retain the bounded deployed wire contract');
 });
 test('a global retry bypass, premature progress reset or missing drain cleanup is detected',()=>{
  const bypass=new Map(bodies),prepare='TCozyNHWResponseChannel.PrepareBatch';
@@ -107,4 +111,30 @@ test('a global retry bypass, premature progress reset or missing drain cleanup i
  const noCleanup=new Map(authorityBodies),name='TCozyNHWAuthority.FlushSecurityReports';
  noCleanup.set(name,get(name,authorityBodies).replace('FResponses[Channel].EndFlush','FResponses[Channel].HasPending'));
  assert.throws(()=>assertBoundedDrain(bodies,noCleanup));
+});
+
+// Recovery may request an ordinary measurement; it must never manufacture a
+// lease, perform API work on a sensor callback, or race the inventory owner.
+test('coverage revalidation stays bounded and is consumed by each role owner',()=>{
+ const native=path.resolve(path.dirname(file),'..'),read=p=>code(fs.readFileSync(path.join(native,p),'utf8'));
+ const guard=methods(read('Cozy.Security.NHW/Cozy.NHW.Guard.pas'));
+ const record=get('TCozyNHWGuard.RecordIntegrityDetections',guard);
+ for(const kind of ['dkETWLoss','dkCoverageGap','dkObservationUncertain','dkSensorPressure','dkTraceGap','dkKernelTelemetryGap'])assert.ok(record.includes(kind));
+ assert.match(record,/Tick-UInt64\(Previous\)>=30000/);
+ assert.match(record,/TInterlocked\.Exchange\(FRevalidationRequested,1\)/);
+ assert.doesNotMatch(record,/PostJSON|CheckIntegrity|CollectModule|MaintainLease|\bRefresh\b|Renew|StopAndJoin/);
+ assert.match(get('TCozyNHWGuard.ConsumeRevalidationRequest',guard),/TInterlocked\.Exchange\(FRevalidationRequested,0\)/);
+ const a=read('Cozy.Application/Cozy.Launcher.pas');
+ assert.match(a,/CozyTick - Started >= DownloadDeadlineMS[\s\S]*?Watch\.ConsumeRevalidationRequest[\s\S]*?Assigned\(Revalidate\) then Revalidate\(\);\s*RequireLauncherWatch\(Watch\);\s*Bytes := Client\.Chunk/);
+ const b=methods(read('Cozy.Platform/Cozy.Api.pas')),modules=get('TGameApi.ReportModulesIfDue',b);
+ assert.match(modules,/\(FModuleSnapshot = nil\) and \(FNHWGuard <> nil\) and\s*FNHWGuard\.ConsumeRevalidationRequest then\s*begin\s*CheckIntegrityCore;\s*FNextModules := 0;\s*end/);
+ assert.ok(modules.indexOf('RequireModuleSnapshotLease;')>modules.indexOf('ConsumeRevalidationRequest'));
+ const o=read('Cozy.Overlay/Cozy.Overlay.pas');
+ assert.match(o,/if FParentRetirementDone and \(FWatch <> nil\) and\s*FWatch\.ConsumeRevalidationRequest then\s*begin\s*FLastSnapshotAt := 0;\s*NextCheck := CozyTick;\s*end;\s*if not FParentRetirementDone/);
+ const etw=methods(read('Cozy.Security.NHW/Cozy.NHW.ETW.pas')),recover=get('TETWMonitor.TryRecover',etw);
+ assert.match(recover,/if Stopping or \(Tick = 0\) then Exit/);
+ assert.match(recover,/ProcessingStopped then Exit;\s*if WaitForSingleObject\(FWorker.Handle, 0\) <> WAIT_OBJECT_0 then Exit/);
+ assert.match(recover,/Tick - FLastRecoveryTick < ETW_RECOVERY_BACKOFF_MS/);
+ assert.match(recover,/MarkCallbackLoss;\s*TryStartAt\(Tick\)/);
+ assert.match(read('Cozy.Security.NHW/Cozy.NHW.Engine.pas'),/KernelTrace.TryRecover\(WinTick64\);\s*KernelTrace.Drain/);
 });

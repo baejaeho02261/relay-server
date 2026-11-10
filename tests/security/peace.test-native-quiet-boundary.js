@@ -71,7 +71,9 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   assert(entry.includes('Worker.StartChecks;'));
   assert(!entry.includes('Api.CheckIntegrity;'), 'initial measurement must run in the worker');
   const execute = source.split('procedure TLicenseWorker.Execute;')[1].split('function RunLicenseClient: Integer;')[0];
-  assert.match(execute, /FApi\.CheckIntegrity;[\s\S]*?if FWatch <> nil then FWatch\.Start;[\s\S]*?InterlockedExchange\(FInitializationSucceeded, 1\);/);
+  assert.match(execute, /FApi\.CheckIntegrity;[\s\S]*?if FWatch <> nil then\s*begin\s*FWatch\.SecurityContext\.SetPhase\('B_ATTESTED'\);\s*FWatch\.Start;[\s\S]*?InterlockedExchange\(FInitializationSucceeded, 1\);/);
+  assert.match(entry, /Context := THandoffContext\.ReceiveFromCommandLine;\s*Watch := TCozyNHWClientGuard\.Create\(nrClient\);\s*Watch\.SecurityContext\.SetParentIdentity\(Context\.ParentIdentity\);\s*Watch\.Start;[\s\S]*?Session := Bootstrap\.Claim\(/, 'B sensors remain active during server claim and input initialization');
+  assert.doesNotMatch(execute, /SetPhase\('B_RUNTIME'\)/, 'license input alone must not claim runtime authorization');
   assert.match(execute, /finally\s+if FInitializedEvent <> 0 then SetEvent\(FInitializedEvent\);\s+end;\s+while/);
   const start = source.split('procedure TLicenseWorker.StartChecks;')[1].split('procedure TLicenseWorker.RequestStop;')[0];
   assert(start.includes('WaitForSingleObject(FInitializedEvent, 45000)'));
@@ -105,4 +107,20 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   assert(entry.indexOf('Api.Free;') < entry.indexOf('Watch.Free;'));
   assert(entry.indexOf('Worker.Free;') < entry.indexOf('Api.Free;'));
   assert(entry.indexOf('Worker.Free;') < entry.indexOf('Context.Free;'));
+});
+
+test('Handoff retains only scoped child capabilities and derives parent identity after pinned-image verification', () => {
+  const handoff = stripComments(read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas'));
+  const launch = handoff.slice(handoff.lastIndexOf('function LaunchWithHandoff('));
+  assert.match(launch, /DuplicateHandle\(GetCurrentProcess, Process\.hProcess, GetCurrentProcess,\s*@ReducedChild, SYNCHRONIZE or ProcessQueryLimitedInformation or\s*PROCESS_TERMINATE, False, 0\)/);
+  assert.match(launch, /Close\(Process\.hProcess\);\s*Process\.hProcess := ReducedChild;\s*ReducedChild := 0;/);
+  assert(launch.indexOf('Process.hProcess := ReducedChild;') < launch.indexOf('WritePublicFrame(WritePipe, PublicBootstrap);'), 'all-access child handle must be retired before handoff data');
+  const receive = handoff.split('class function THandoffContext.ReceiveRole(')[1].split('procedure THandoffContext.')[0];
+  assert(receive.indexOf('SameText(HashHandle(ImageFile), Result.LauncherSHA512)') < receive.indexOf('Result.ParentIdentity := NHWStableProcessIdentity('));
+  assert.match(receive, /Result\.ParentIdentity := NHWStableProcessIdentity\(\s*Result\.FParentProcess, ImageFile, Result\.FParentID\)/);
+  const restricted = stripComments(read('Cozy.Source/Cozy.Handoff/Cozy.Handoff.Restricted.pas'));
+  const create = restricted.slice(restricted.lastIndexOf('procedure CreateOverlayRestrictedProcess('));
+  assert.match(create, /CREATE_SUSPENDED/);
+  assert.match(create, /RequireOverlayRestrictedProcess\(Process\.hProcess\);\s*CloseToken\(Token\);\s*Require\(TResumeThreadProc/);
+  assert.match(create, /finally CloseToken\(Token\); end;/);
 });

@@ -166,7 +166,7 @@ function runPhase(phase) {
       console.log('PASS actual process restart recovered exact signed batches without recount and unblocked all three newer revisions');
     }
     if (phase === 'pending-stop') {
-      const subject = subjectB(), other = restore(saved.other), record = detection('dkRemoteThread');
+      const subject = subjectB(), other = restore(saved.other), record = detection('dkPECodeIntegrity');
       const originalRevoke = boot.Revoke, text = payload([record]), req = request(subject, 'integrity', text);
       boot.Revoke = () => { throw Error('INJECTED_REVOKE_WRITE_FAILURE'); };
       try { reject(() => authority.Execute(req.submit), 'INJECTED_REVOKE_WRITE_FAILURE'); }
@@ -191,7 +191,7 @@ function runPhase(phase) {
       console.log('PASS lost enforcement result resumed its original exact-cohort decision without replaying observations or relabeling confidence');
     }
     if (phase === 'terminal') {
-      const subject = subjectB(), other = restore(saved.other), record = detection('dkRemoteThread');
+      const subject = subjectB(), other = restore(saved.other), record = detection('dkPECodeIntegrity');
       const text = payload([record]), original = request(subject, 'integrity', text);
       assert.equal(authority.Execute(original.submit).stopped, true);
       assert.equal(row(subject).status, 'REVOKED');
@@ -232,7 +232,7 @@ function runPhase(phase) {
       for (const channel of channels) {
         let sequence = 0;
         for (let offset = 0; offset < catalog.NHW.length; offset += 32) {
-          const records = catalog.NHW.slice(offset, offset + 32).map(entry => detection(entry.id));
+          const records = catalog.NHW.slice(offset, offset + 32).map(entry => detection(entry.id, entry.id === 'dkProcess' ? {families:3, confidence:75, correlation:true, localOnly:false} : {}));
           assert.equal(send(subject, channel, records, ++sequence, 2000 + sequence).stopped, true);
           assert.equal(row(subject).status, 'REVOKED');
           grace ||= structuredClone(row(subject).nhwTerminalReport);

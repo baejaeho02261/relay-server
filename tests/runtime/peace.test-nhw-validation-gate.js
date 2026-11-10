@@ -104,6 +104,7 @@ const negatives = [
   ['build-B', r => { r.configuration = 'Debug'; }, 'debug build'],
   ['native-regressions', r => { r.cases.pop(); }, 'missing native case'],
   ['native-regressions', r => { r.cases = r.cases.filter(row => row.name !== 'Cozy.NHW.DetectionJournal'); }, 'missing detection journal regression'],
+  ['native-regressions', r => { r.cases = r.cases.filter(row => row.name !== 'Cozy.NHW.Context.Tests'); }, 'missing actor context regression'],
   ['native-regressions', r => { r.cases[0].name = 'Cozy.NHW.MadeUp'; }, 'substituted native case'],
   ['native-regressions', r => { r.cases[0].skipped = true; }, 'skipped native case'],
   ['guard-idle-A', r => { r.durationMs = 60000; }, 'short idle'],

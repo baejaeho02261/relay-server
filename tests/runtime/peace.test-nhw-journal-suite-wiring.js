@@ -36,11 +36,11 @@ test('journal project is built by all three FullValidation operations',()=>{
  assert.ok(project.includes('<DCC_ExeOutput>.</DCC_ExeOutput>'));
  assert.ok(fs.existsSync(path.join(root,name,name+'.dpr')));
 });
-test('all original79 cases remain and journal execution is required by both runner and gate',()=>{
+test('all original79 cases plus context remain and journal execution is required by both runner and gate',()=>{
  const catalog=read('Cozy.NHW.Validation/Cozy.NHW.Validation.Catalog.inc');
- assert.match(catalog,/VALIDATION_TEST_COUNT\s*=\s*79;/);
+ assert.match(catalog,/VALIDATION_TEST_COUNT\s*=\s*80;/);
  const original=[...catalog.matchAll(/'(Cozy\.NHW\.[A-Za-z0-9.]+)'/g)].map(m=>m[1]);
- assert.equal(original.length,79);assert.ok(!original.includes(name));
+ assert.equal(original.length,80);assert.equal(original.filter(x=>x!=='Cozy.NHW.Context.Tests').length,79);assert.ok(original.includes('Cozy.NHW.Context.Tests'));assert.ok(!original.includes(name));
  assert.deepEqual(gate.RequiredNativeCases(),[...original,name]);
  assert.ok(source.includes("INTEGRATION_JOURNAL_TEST = '"+name+"'"));
  assert.match(source,/TOTAL_VALIDATION_TEST_COUNT = VALIDATION_TEST_COUNT \+ 1;/);

@@ -31,10 +31,10 @@ check('Every NHW kind has one strict server mapping and accepts minimized unconf
 });
 check('All 204 kinds traverse signed handler; initial detections stop exact session and terminal drain preserves every name',()=>{
  const s=subject(),other=subject();let sequence=0;
- for(let i=0;i<catalog.NHW.length;i+=32)assert.equal(send(s,'integrity',catalog.NHW.slice(i,i+32).map(e=>detection(e.id)),++sequence).stopped,true);
+ for(let i=0;i<catalog.NHW.length;i+=32)assert.equal(send(s,'integrity',catalog.NHW.slice(i,i+32).map(e=>detection(e.id,e.id==='dkProcess'?{families:3,confidence:75,correlation:true,localOnly:false}:{})),++sequence).stopped,true);
  const events=reports.ForFlow(row(s).id);assert.equal(events.length,204);assert.equal(reports.ForFlow(row(other).id).length,0);assert.equal(row(s).status,'REVOKED');assert.equal(row(other).status,'STARTED');
- assert.ok(events.every(e=>e.localOnly&&e.sessionInvalidated&&e.attestation.status==='NOT_BOUND'));
- assert.equal(events.filter(e=>e.invalidated).length,32);assert.equal(new Set(events.map(e=>e.detectionId)).size,204);
+ assert.ok(events.every(e=>e.sessionInvalidated&&e.attestation.status==='NOT_BOUND'));
+ assert.equal(events.filter(e=>e.invalidated).length,1);assert.equal(new Set(events.map(e=>e.detectionId)).size,204);
 });
 check('Strict privacy/schema rejects raw PID/path and forged sensor/category/boolean ranges',()=>{
  for(const patch of [{path:'C:\\secret'},{pid:42},{source:'unregistered.sensor'},{families:256},{confidence:101},{localOnly:false},{firstTick:hex(5000)},{attestationSequence:'0'}])reject(()=>reports.ParseRecords([detection('dkProcess',patch)],hex(2000)),'SECURITY_DETECTION_INVALID');
@@ -54,39 +54,43 @@ check('Exact accepted batch recovers after volatile state is cleared; changed se
  reject(()=>send(s,'driver',[detection('dkNamespace')],2),'SECURITY_EVIDENCE_REPLAY');
  assert.equal(send(s,'driver',[detection('dkNamespace',{count:2,lastTick:hex(1200)})],2).stopped,false);
 });
-check('All 204 semantic states have explicit policy; stale/internal evidence never acts as a standalone detection',()=>{
- let detections=0,warning=0,internal=0;
+check('All 204 semantic states have explicit context policy; warnings/internal evidence never stop alone',()=>{
+ let warning=0,internal=0,actionable=0;
  for(const kind of catalog.NHW){
-  const result=reports.StopRecords([detection(kind.id)],hex(2000));
-  if(kind.standaloneOutput){assert.equal(result.length,1,kind.id);if(kind.signalClass==='UNKNOWN')warning++;else detections++;}
-  else {assert.equal(result.length,0,kind.id);internal++;}
-  assert.equal(reports.StopRecords([detection(kind.id)],hex(100000)).length,0,kind.id+' stale');
+  assert.ok(kind.contextPolicy,kind.id);
+  const strong=detection(kind.id,{families:3,confidence:75,correlation:true,localOnly:false});
+  const result=reports.StopRecords([strong],hex(2000));
+  if(!kind.standaloneOutput){assert.equal(result.length,0,kind.id);internal++;}
+  else if(kind.signalClass==='UNKNOWN'){assert.equal(result.length,0,kind.id);warning++;}
+  else {assert.equal(result.length,1,kind.id);actionable++;}
+  assert.equal(reports.StopRecords([strong],hex(100000)).length,0,kind.id+' stale');
  }
- assert.deepEqual({detections,warning,internal},{detections:191,warning:6,internal:7});
+ assert.deepEqual({actionable,warning,internal},{actionable:191,warning:6,internal:7});
  const s=subject();assert.equal(send(s,'integrity',catalog.NHW.filter(k=>!k.standaloneOutput).map(e=>detection(e.id)),1,{confirmed:true,trust:3}).stopped,false);assert.equal(row(s).status,'STARTED');
 });
 check('Each response channel independently stops an actual typed finding without inventing correlation or hardware trust',()=>{
- for(const [channel,id]of [['trust','dkProcess'],['driver','dkVulnerableDriver'],['integrity','dkWriteWatch']]){
+ for(const [channel,id]of [['trust','dkPECodeIntegrity'],['driver','dkVulnerableDriver'],['integrity','dkWriteIntegrity']]){
   const s=subject(),other=subject();assert.equal(send(s,channel,[detection(id)]).stopped,true);
-  assert.equal(row(s).status,'REVOKED');assert.equal(row(other).status,'STARTED');const e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,true);assert.equal(e.localOnly,true);assert.equal(e.confidence,0);assert.equal(e.attestation.hardwareAttested,false);assert.equal(e.decisionReason,'DETECTION_POLICY_STOP');
+  assert.equal(row(s).status,'REVOKED');assert.equal(row(other).status,'STARTED');const e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,true);assert.equal(e.localOnly,true);assert.equal(e.confidence,0);assert.equal(e.attestation.hardwareAttested,false);assert.ok(['EXACT_INTEGRITY_MUTATION','CONFIRMED_KERNEL_EVIDENCE','CONFIRMED_KERNEL_CONDITION'].includes(e.decisionReason));
  }
 });
-check('Original FP1 output warnings stop by coverage policy; new worker availability telemetry remains observation-only',()=>{
+check('Every coverage warning requests recovery without revoking; worker availability remains diagnostic',()=>{
  for(const id of ['dkETWLoss','dkCoverageGap','dkObservationUncertain','dkSensorPressure','dkTraceGap','dkKernelTelemetryGap']){
-  const s=subject();assert.equal(send(s,'integrity',[detection(id)]).stopped,true);const e=reports.ForFlow(row(s).id)[0];assert.equal(e.signalClass,'UNKNOWN');assert.equal(e.decisionReason,'COVERAGE_POLICY_STOP');assert.equal(e.confirmationCount,0);assert.equal(e.confidence,0);
+  const s=subject();assert.equal(send(s,'integrity',[detection(id)]).stopped,false);const e=reports.ForFlow(row(s).id)[0];assert.equal(e.signalClass,'UNKNOWN');assert.equal(e.decisionReason,'TRANSIENT_COVERAGE_GAP_RECOVERY_REQUIRED');assert.equal(e.confirmationCount,0);assert.equal(e.confidence,0);
  }
  for(const source of ['Cozy.NHW.Handles','Cozy.NHW.Guard']){
   const s=subject(),r=detection('dkObservationUncertain',{source,families:0});
-  assert.equal(send(s,'integrity',[r]).stopped,false);let e=reports.ForFlow(row(s).id)[0];assert.equal(e.sessionStopPolicy,'OBSERVE_ONLY');assert.equal(e.observationClass,'SENSOR_AVAILABILITY');assert.equal(e.invalidated,false);
+  assert.equal(send(s,'integrity',[r]).stopped,false);let e=reports.ForFlow(row(s).id)[0];assert.equal(e.sessionStopPolicy,'RECOVER_AND_REVALIDATE');assert.equal(e.observationClass,'SENSOR_AVAILABILITY');assert.equal(e.invalidated,false);
   reject(()=>send(subject(),'trust',[r]),'SECURITY_DETECTION_INVALID');
   reject(()=>reports.ParseRecords([{...r,confidence:1}],hex(2000)),'SECURITY_DETECTION_INVALID');
-  assert.equal(send(s,'integrity',[{...r,count:2,lastTick:hex(1200)},detection('dkProcess')],2).stopped,true);
+  assert.equal(send(s,'integrity',[{...r,count:2,lastTick:hex(1200)},detection('dkPECodeIntegrity')],2).stopped,true);
   e=reports.ForFlow(row(s).id).find(x=>x.sensor===source);assert.equal(e.invalidated,false);assert.equal(e.sessionInvalidated,true);
  }
 });
-check('Server policy stops authenticated local-only findings but never turns them into corroborated attack claims',()=>{
- const s=subject(),other=subject();assert.equal(send(s,'integrity',[detection('dkRemoteThread',{families:2})]).stopped,true);
- const e=reports.ForFlow(row(s).id)[0];assert.equal(e.correlation,false);assert.equal(e.confirmationCount,0);assert.equal(e.evidenceLevel,'CLIENT_LOCAL_OBSERVATION');assert.equal(e.invalidated,true);assert.equal(row(other).status,'STARTED');
+check('Unknown low-confidence local state stays unresolved; typed code corruption remains actionable',()=>{
+ const s=subject(),other=subject();assert.equal(send(s,'integrity',[detection('dkRemoteThread',{families:2})]).stopped,false);
+ const e=reports.ForFlow(row(s).id)[0];assert.equal(e.correlation,false);assert.equal(e.confirmationCount,0);assert.equal(e.evidenceLevel,'CLIENT_LOCAL_OBSERVATION');assert.equal(e.invalidated,false);assert.equal(e.disposition,'OBSERVATION_UNRESOLVED');assert.equal(row(other).status,'STARTED');
+ assert.equal(send(s,'integrity',[detection('dkPECodeIntegrity')],2).stopped,true);
 });
 check('Kernel semantic confidence and final stop policy remain distinct',()=>{
  const s=subject(),kernel=[detection('dkKernelTrustDowngrade',{families:128}),detection('dkBootTrust',{families:128})];
@@ -108,7 +112,7 @@ check('Server reason capture survives retirement and retains explicit source wit
 });
 check('All Cozy catalog outcomes persist named per-session records with their exact classified sources',()=>{
  const s=subject();for(const entry of catalog.COZY)reports.RecordServer({row:row(s),stage:'A',id:entry.id,source:entry.sourceUnits[0],confidence:0,correlation:false});
- const events=reports.ForFlow(row(s).id);assert.equal(events.length,118);assert.ok(events.every(e=>e.origin==='COZY'&&e.displayName.endsWith(' Detect')&&!e.invalidated));reports.Validate(store.Load().securityDetections,store.Load());
+ const events=reports.ForFlow(row(s).id);assert.equal(events.length,122);assert.ok(events.every(e=>e.origin==='COZY'&&e.displayName.endsWith(' Detect')&&!e.invalidated));reports.Validate(store.Load().securityDetections,store.Load());
 });
 check('CRC algorithm labels come only from actual failing comparisons; unavailable reads remain UNKNOWN',()=>{
  const crc=require('../../services/runtime/peace.desktop-crc-policy'),registry=require('../../services/cryptography/peace.crc-layers').registry;

@@ -53,6 +53,18 @@ try{
   finally{detections.MemberIndex=original;}
   assert.equal(JSON.stringify(store.Load()),before);
  });
+ check('Member projection preserves bounded server context and rejects raw identity material',()=>{
+  const original=detections.MemberIndex,base=original().find(row=>row.flowId===a.id);
+  const context={actorClass:'TRUSTED_A',actorRole:'A',actorIdentity:'a'.repeat(64),targetRole:'B',targetIdentity:'b'.repeat(64),phase:'A_HANDOFF_TO_B',capability:'PROCESS_QUERY_LIMITED_INFORMATION',accessMask:0x00101000,tokenDelta:0,coverage:'HEALTHY',capabilityDecision:'EXPECTED',firstPartyAttested:true,sameSession:true,bindingScope:'SERVER_BOUND_CLIENT_OBSERVATION',peerId:'c'.repeat(48),grantId:'d'.repeat(48),baseline:false,contextMixed:false,rawPath:'PRIVATE_PATH',pid:54321,tokenId:'PRIVATE_TOKEN',rawQuote:'PRIVATE_QUOTE'};
+  detections.MemberIndex=()=>[{...base,disposition:'EXPECTED_FIRST_PARTY',coverageState:'HEALTHY',context}];
+  try{
+   const item=members.Detail(alice.id,{category:'detections'}).categories.detections.items[0];
+   assert.equal(item.disposition,'EXPECTED_FIRST_PARTY');assert.equal(item.coverageState,'HEALTHY');assert.equal(item.context.actorIdentity,'a'.repeat(64));assert.equal(item.context.grantId,'d'.repeat(48));assert.equal(item.context.firstPartyAttested,true);assert.equal(item.context.contextMixed,false);assert.equal(item.context.accessMask,0x00101000);assert.equal(item.context.tokenDelta,0);
+   assert.doesNotMatch(JSON.stringify(item),/PRIVATE_|54321|rawPath|tokenId|rawQuote|"pid"/);
+   detections.MemberIndex=()=>[{...base,context:{...context,actorIdentity:'PRIVATE_PATH',targetIdentity:'PRIVATE_PID',peerId:'PRIVATE_PEER',grantId:'PRIVATE_GRANT'}}];
+   const invalid=views.ForFlows([a.id]).items[0];assert.equal(invalid.context.actorIdentity,undefined);assert.equal(invalid.context.grantId,undefined);assert.doesNotMatch(JSON.stringify(invalid),/PRIVATE_/);
+  }finally{detections.MemberIndex=original;}
+ });
  check('Mixed, missing and ambiguous flow/session identity never leaks into another member',()=>{
   const original=detections.MemberIndex,raw=original(),base=raw.find(r=>r.flowId===a.id);
   const hostile=[{...base,id:'a'.repeat(64),sessionId:b.sessionId},{...base,id:'b'.repeat(64),sessionId:'F'.repeat(24)},{...base,id:'c'.repeat(64),flowId:'F'.repeat(24)},{...base,id:'d'.repeat(64),epoch:'0'},{...base,id:'e'.repeat(64),role:'O'}];
@@ -87,6 +99,47 @@ try{
    assert.ok(!text.includes('CRC-64/ECMA-182'),'A matching CRC must not be presented as a detection');
    assert.ok(!text.includes('보안 사건 · 서버 기록'));
    assert.ok(window.content.querySelectorAll('.desktop-security-detections details').length===3);
+  }finally{window.close();}
+ });
+ check('Signed context survives real enrollment, policy, durable storage, member projection and renderer',()=>{
+  const authority=require('../../services/security/peace.desktop-security-authority'),paths=require('../../services/security/peace.nhw-response-paths'),peers=require('../../services/security/peace.nhw-peer-context'),policy=require('../../services/security/peace.security-context-policy');
+  const device=fixture.Device(),start=fixture.Begin(device),flow=store.Load().flows[start.begin.flowId],db=store.Load();
+  const peer={pid:12345,creationTime:h(100000),imageSha256:db.launchers[flow.launcherId].peerImageSha256,imageSha512:flow.launcherSha512,parentIdentity:'',phase:'A_BOOTSTRAP'};
+  const identity=peers.StableIdentity(peer),unknown=policy.UnknownContext('A'),context={...Object.fromEntries(policy.CONTEXT_FIELDS.map(key=>[key,unknown[key]])),actorClass:'SELF',actorRole:'A',actorIdentity:identity,targetRole:'A',targetIdentity:identity,phase:'A_BOOTSTRAP',capability:'TOKEN_STATE',baseline:true,coverage:'COMPLETE'};
+  const record={...sample('dkTokenObject'),context};
+  const send=(records,sequence)=>{
+   const payload=JSON.stringify({version:3,sequence:h(sequence),tick:h(100+sequence),digest:crypto.createHash('sha512').update(JSON.stringify(records)).digest('hex').slice(0,16),confirmed:false,trust:0,detections:records,peer});
+   const request={stage:'A',sessionId:flow.id,sessionToken:start.begin.downloadTicket,machineId:device.machineId,binding:crypto.createHash('sha512').update(payload).digest('hex'),action:'nhwIntegrityChallenge'},challenge=authority.Execute(request),submit={...request,action:'nhwIntegritySubmit',challengeId:challenge.challengeId,payload};
+   submit.signature=fixture.Sign(device,paths.Canonical(submit,challenge,'integrity'));return authority.Execute(submit);
+  };
+  assert.equal(send([record],1).stopped,false);
+  members.Assign(body({kind:'FLOW',targetId:flow.id,memberId:alice.id,expectedMemberId:''}),'TEST');
+  const before=views.ForFlows([flow.id]).items[0];assert.equal(before.disposition,'EXPECTED_FIRST_PARTY');assert.equal(before.context.actorIdentity,identity);assert.equal(before.context.accessMask,0);assert.equal(before.context.tokenDelta,0);assert.equal(before.context.sameSession,true);assert.equal(before.context.firstPartyAttested,true);assert.equal(before.invalidated,false);
+  assert.equal(send([{...sample('dkPECodeIntegrity'),context:{...context,capability:'MODULE_STATE',baseline:false}}],2).stopped,true);
+  const rows=members.Detail(alice.id,{category:'detections',pageSize:'100'}).categories.detections.items.filter(row=>row.flowId===flow.id),expected=rows.find(row=>row.detectionId==='dkTokenObject'),cause=rows.find(row=>row.detectionId==='dkPECodeIntegrity');
+  assert.equal(expected.invalidated,false);assert.equal(expected.sessionInvalidated,true);assert.equal(cause.invalidated,true);assert.equal(cause.disposition,'DETECTION');
+  const {JSDOM}=require('jsdom'),dom=new JSDOM('<main id="content"></main>',{runScripts:'outside-only'}),window=dom.window;
+  window.desktopDate=String;window.esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  require('node:vm').runInContext(fs.readFileSync(path.resolve(__dirname,'../../public/scripts/desktop/peace.admin-desktop-members.js'),'utf8'),dom.getInternalVMContext());
+  try{
+   window.document.getElementById('content').innerHTML=window.desktopSecurityDetectionsMarkup(rows);
+   const shown=window.document.querySelector('[data-desktop-key="security-detection-'+expected.id+'"]');assert.match(shown.textContent,/정상 역할 동작/);assert.match(shown.textContent,/동일 세션 바인딩 확인/);assert.match(shown.textContent,/무효화 기록 없음/);assert.doesNotMatch(shown.textContent,/서버 세션 무효화|PID 12345/);
+   assert.match(window.document.querySelector('[data-desktop-key="security-detection-'+cause.id+'"]').textContent,/서버 세션 무효화/);
+  }finally{window.close();}
+ });
+ check('Every NHW state and Cozy detection remains renderable with all disposition classes',()=>{
+  const {JSDOM}=require('jsdom'),dom=new JSDOM('<main id="content"></main>',{runScripts:'outside-only'}),window=dom.window;
+  window.desktopDate=String;window.esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  require('node:vm').runInContext(fs.readFileSync(path.resolve(__dirname,'../../public/scripts/desktop/peace.admin-desktop-members.js'),'utf8'),dom.getInternalVMContext());
+  try{
+   const kinds=[...catalog.NHW,...catalog.COZY],statuses=['INTERNAL_EVIDENCE','EXPECTED_FIRST_PARTY','COVERAGE_WARNING','COVERAGE_DEGRADED','CORROBORATED_ANOMALY','DETECTION','OBSERVATION_UNRESOLVED'];
+   assert.equal(catalog.NHW.length,204);assert.equal(catalog.COZY.length,122);
+   const rows=kinds.map((kind,index)=>({id:'all-'+index,detectionId:kind.id,displayName:kind.displayName||kind.label||kind.id,disposition:statuses[index%statuses.length],invalidated:false,context:{actorClass:'UNKNOWN',bindingScope:'UNVERIFIED_CLIENT_OBSERVATION'}}));
+   window.document.getElementById('content').innerHTML=window.desktopSecurityDetectionsMarkup(rows);
+   const text=window.document.body.textContent;assert.equal(window.document.querySelectorAll('.desktop-security-detections>details').length,326);
+   for(const row of rows)assert.ok(text.includes(row.detectionId),row.detectionId);
+   for(const status of statuses)assert.ok(text.includes(status),status);
+   assert.ok(!text.includes('동일 세션 바인딩 확인'));assert.ok(!text.includes('서버 세션 무효화'));
   }finally{window.close();}
  });
  console.log('SECURITY_DETECTION_VIEWS_PASS '+checks+' groups');

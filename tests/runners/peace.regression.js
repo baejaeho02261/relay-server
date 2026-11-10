@@ -6,10 +6,13 @@ const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
   ["security/peace.test-nhw-native-path-isolation.js"],
+  ["security/peace.test-nhw-native-context.js"],
   ["security/peace.test-crc-detection-confidence.js"],
   ["security/peace.test-security-outcome-routing.js"],
   ["security/peace.test-security-detection-catalog.js"],
   ["security/peace.test-security-detections.js"],
+  ["security/peace.test-nhw-context-policy.js"],
+  ["security/peace.test-nhw-peer-context.js"],
   ["security/peace.test-nhw-response-paths.js"],
   ["runtime/peace.test-nhw-pending-recovery.js"],
   ["security/peace.test-nhw-tpm-quote.js"],

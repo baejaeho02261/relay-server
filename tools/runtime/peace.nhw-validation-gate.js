@@ -34,7 +34,7 @@ function RequiredNativeCases() {
   const count = Number(text.match(/VALIDATION_TEST_COUNT\s*=\s*(\d+)/)?.[1]);
   const names = [...text.matchAll(/'(Cozy\.NHW\.[A-Za-z0-9.]+)'/g)].map(match => match[1]);
   if (count !== names.length || count < 79 || new Set(names).size !== count) throw Error('NATIVE_CATALOG_INVALID');
-  // The retained upstream catalog contains its original 79 cases. This
+  // The catalog retains all original 79 cases and the context regression. This
   // integration regression is additional and must have real execution proof.
   return [...names, 'Cozy.NHW.DetectionJournal'];
 }

@@ -12,7 +12,7 @@ test('NHW wire IDs preserve all204 source enum ordinals without alias collapse',
  for(const n of [-1,204,NaN,'1',1.5,Infinity])assert.equal(catalog.ResolveNHWOrdinal(n),null);
 });
 test('FP1 output taxonomy preserves 197 output states, 194 names and seven internal evidence kinds',()=>{
- assert.deepEqual(catalog.Counts,{nhw:204,cozy:118,nhwStandalone:197,nhwOutputNames:194,nhwInternalEvidence:7});
+ assert.deepEqual(catalog.Counts,{nhw:204,cozy:122,nhwStandalone:197,nhwOutputNames:194,nhwInternalEvidence:7});
  assert.deepEqual(catalog.NHW.filter(x=>!x.standaloneOutput).map(x=>x.id),['dkNamespace','dkDeviceMap','dkAllocation','dkCommit','dkMemoryRelease','dkAllocationBurst','dkReadGap']);
  assert.deepEqual(catalog.NHW.filter(x=>x.displayName==='Waring Detect').map(x=>x.id),['dkETWLoss','dkCoverageGap','dkObservationUncertain','dkSensorPressure']);
  for(const row of catalog.COZY){assert.match(row.displayName,/ Detect$/);assert.equal(row.origin,'COZY');}

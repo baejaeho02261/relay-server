@@ -71,6 +71,7 @@ function Report(body){
  const receipt={version:1,permitId:p.id,status:'RECORDED',recordedAt:Date.now(),eventCount:events.length};
  store.Atomic(next=>{const permit=next.lifecycleTrace?.permits[p.id];if(!permit||Expired(permit)||permit.serverEpoch!==require("../recovery/peace.desktop-recovery").Epoch(next))Fail('LIFECYCLE_PERMIT_EXPIRED',410);if(permit.receipt)Fail('LIFECYCLE_REQUEST_REUSED',409);
   for(const event of events)Append(next,p.flowId,{...event,role:p.targetRole,targetSessionId:p.targetSessionId,source:'CLIENT_REPORTED',reporterRole:p.reporterRole,reporterSessionId:p.reporterSessionId});permit.receipt=receipt;permit.fingerprint=fingerprint;
+  if(events.some(e=>e.event==='PROCESS_EXIT'&&e.status==='OBSERVED'))require('../security/peace.nhw-peer-context').ProcessExited(next,p.flowId,p.targetRole,p.targetSessionId);
   // Only a newly committed receipt contributes. An exact retry must not count
   // twice, and diagnostics persistence must never undo the authority commit.
   // Durations are authenticated client observations, not server OS attestation.

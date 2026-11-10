@@ -65,7 +65,7 @@ function Load(){
   if(value.releaseSafety!==undefined)require("../artifacts/peace.desktop-release-safety").ValidateState(value.releaseSafety);
   try{require("../artifacts/peace.desktop-packing-evidence").ValidateStore(value);}catch(_){Invalid();}
   if(value.securityDetections!==undefined)require('../security/peace.security-detections').Validate(value.securityDetections,value);
-  for(const row of [...Object.values(value.flows||{}),...Object.values(value.overlays||{})]){require('../security/peace.security-detections').ValidateOrder(row.nhwResponseOrders);require('../security/peace.security-detections').ValidateAttestations(row.nhwAttestations);require('../security/peace.security-detections').ValidateTerminal(row.nhwTerminalReport);}
+  for(const row of [...Object.values(value.flows||{}),...Object.values(value.overlays||{})]){require('../security/peace.security-detections').ValidateOrder(row.nhwResponseOrders);require('../security/peace.security-detections').ValidateAttestations(row.nhwAttestations);require('../security/peace.security-detections').ValidateTerminal(row.nhwTerminalReport);require('../security/peace.nhw-peer-context').Validate(row,value);}
   if(value.lifecycleTrace!==undefined)require("../observability/peace.desktop-lifecycle-trace").Validate(value.lifecycleTrace,value);
 
   if(value.schema<5){
@@ -184,7 +184,7 @@ function Atomic(fn){
  if(poisoned)throw Error('BOOTSTRAP_STORAGE_RESTART_REQUIRED');
  const before=Load(),next=structuredClone(before),previousCallbacks=commitCallbacks,callbacks=[];let result;
  commitCallbacks=callbacks;
- try{result=fn(next);require("../observability/peace.desktop-lifecycle-trace").ObserveTransitions(before,next);require("../security/peace.security-detections").ObserveTransitions(before,next);next.revision=before.revision+1;Write(next);current=next;}
+ try{result=fn(next);require("../observability/peace.desktop-lifecycle-trace").ObserveTransitions(before,next);require("../security/peace.security-detections").ObserveTransitions(before,next);require("../security/peace.nhw-peer-context").ObserveTransitions(before,next);next.revision=before.revision+1;Write(next);current=next;}
  catch(error){if(poisoned){current=next;error.authorityMayBeCommitted=true;}throw error;}
  finally{commitCallbacks=previousCallbacks;}
  for(const callback of callbacks)callback();

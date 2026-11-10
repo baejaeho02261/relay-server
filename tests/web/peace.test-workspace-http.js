@@ -130,7 +130,7 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
 (async()=>{try{
  await start();let auth=await login(),viewer=await login('viewer');
  await test('Production HTTP shell serves the current detection UI and matching script bundle',async()=>{
-  const expectedRevision='cozy-peace-v20-nhw-detections';
+  const expectedRevision='cozy-peace-v21-nhw-context';
   const headers={'X-Forwarded-Proto':'https',Cookie:auth.cookie};
   async function asset(url,type){const r=await fetch(base+url,{headers,signal:AbortSignal.timeout(5000)});assert.equal(r.status,200,url);assert.match(r.headers.get('content-type')||'',type,url);assert.match(r.headers.get('cache-control')||'',/no-store/,url);return r.text();}
   const html=await asset('/',/text\/html/);
@@ -145,6 +145,7 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
   const members=sources[scripts.indexOf(memberUrl)];
   assert.match(members,/desktopMemberCategory\s*=\s*'detections'/);
   assert.ok(members.includes('보안 감지 · 대응 경로'));
+  for(const marker of ['desktopDetectionContextMarkup','EXPECTED_FIRST_PARTY','COVERAGE_DEGRADED','SERVER_BOUND_CLIENT_OBSERVATION','행위자 안정 식별 해시','최종 판정 구분'])assert.ok(members.includes(marker),marker);
   assert.ok(!members.includes('보안 사건 · 서버 기록'));
   const sw=await asset('/peace.service-worker.js',/(?:application|text)\/javascript/);
   assert.ok(sw.includes('relay-admin-shell-v5.0.2-'+expectedRevision));
