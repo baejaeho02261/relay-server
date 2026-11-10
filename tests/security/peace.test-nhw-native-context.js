@@ -46,7 +46,7 @@ test('actual actor lifetime is required and target state is never promoted to an
 });
 test('all typed kinds are covered before logging, with separately retained benign observations',()=>{
  const engine=clean(read('Engine'));
- assert.match(engine,/ReportKinds := Detected \+ NHWContextObservations/);
+ assert.match(engine,/ReportKinds := VisibleDetected \+ NHWContextObservations/);
  assert.match(engine,/for Kind := Low\(TDetectionKind\) to High\(TDetectionKind\) do\s*if Kind in ReportKinds then/);
  assert.ok(engine.indexOf('NHWBeginContextCycle(')<engine.indexOf('KernelTrace.WakeHandle'));
  const guard=methods(read('Guard'));
@@ -69,7 +69,7 @@ test('each response path freezes the peer envelope and processes only an authent
   assert.ok(submit.includes("ApplyServerReceipt(Reply.GetValue('peerContext'),Epoch,ReceiptStarted)"));
  }
  const encoder=method(transport,'EncodeDetectionPayload');
- assert.ok(encoder.includes("Payload.AddPair('version', TJSONNumber.Create(4))"));
+ assert.ok(encoder.includes("Payload.AddPair('version', TJSONNumber.Create(5))"));
  assert.ok(encoder.includes("Detection.AddPair('signal'"));
  assert.ok(encoder.includes("Detection.AddPair('context', NHWContextJSON"));
  assert.ok(encoder.includes('>16384'));

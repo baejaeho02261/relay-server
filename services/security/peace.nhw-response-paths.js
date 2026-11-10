@@ -77,7 +77,7 @@ function Payload(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail();
   let value; try { value = require('../protocol/peace.strict-json').Parse(text); } catch (_) { Fail(); }
   Fields(value,['version','sequence','tick','digest','confirmed','trust',...(value?.version>=2?['detections']:[]),...(value?.version>=3?['peer']:[])]);
-  if (![1,2,3,4].includes(value.version) || typeof value.confirmed !== 'boolean' || !Number.isInteger(value.trust) || value.trust < 0 || value.trust > 3 ||
+  if (![1,2,3,4,5].includes(value.version) || typeof value.confirmed !== 'boolean' || !Number.isInteger(value.trust) || value.trust < 0 || value.trust > 3 ||
       value.version===1 && value.confirmed && value.trust !== 3) Fail();
   for (const key of ['sequence','tick','digest']) if (typeof value[key] !== 'string' || !/^[a-f0-9]{16}$/.test(value[key]) || /^0+$/.test(value[key])) Fail();
   if(value.version>=2){detections.ParseRecords(value.detections,value.tick,value.version);if(value.digest!==sha(JSON.stringify(value.detections)).slice(0,16))Fail('SECURITY_DETECTION_DIGEST_INVALID');}

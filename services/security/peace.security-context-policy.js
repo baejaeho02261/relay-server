@@ -78,7 +78,7 @@ function ExpectedCompatible(entry,r,context){
  if(ACCESS_KINDS.has(entry.id)&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability))return true;
  return TOKEN_KINDS.has(entry.id)&&context.capability==='TOKEN_STATE'&&context.baseline&&context.tokenDelta===0;
 }
-function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prior=null,now=Date.now()}={}){
+function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prior=null,now=Date.now(),version=4}={}){
  const base={context,disposition:'OBSERVATION_UNRESOLVED',decisionReason:'ADDITIONAL_CONTEXT_OR_CORROBORATION_REQUIRED',sessionStopPolicy:'CONTEXT_AND_CORROBORATION',coverageState:'UNKNOWN',stop:false};
  if(!Fresh(r,tick))return {...base,decisionReason:'STALE_OBSERVATION_RECORDED'};
  const cls=PolicyClass(entry);
@@ -99,6 +99,15 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
  const nativeFinding=r.signal==='DETECTED'||(r.signal===undefined&&r.context===undefined); // v2 only reported sensor flags
  const expected=ExpectedCompatible(entry,r,context);
  if(expected)return {...base,disposition:'EXPECTED_FIRST_PARTY',decisionReason:'SERVER_BOUND_ROLE_CAPABILITY_ALLOWED',sessionStopPolicy:'OBSERVE_ONLY'};
+ // V5 exclusively applies the native *post-filter* output contract. A
+ // server-bound, expected A/B/O scheduling operation is still an observation,
+ // never a reason to terminate its own session.
+ const expectedScheduling=version>=5&&entry.category==='SCHEDULING_MITIGATION'&&
+   context.serverBound===true&&context.firstPartyAttested===true&&
+   context.sameSession===true&&context.capabilityDecision==='EXPECTED'&&
+   !context.contextMixed&&r.localOnly===true&&r.correlation===false&&
+   ['PROCESS_ACCESS','THREAD_ACCESS'].includes(context.capability);
+ if(expectedScheduling)return {...base,disposition:'EXPECTED_FIRST_PARTY',decisionReason:'SERVER_BOUND_SCHEDULING_CAPABILITY_ALLOWED',sessionStopPolicy:'OBSERVE_ONLY'};
  const verifiedPeer=context.serverBound===true&&context.firstPartyAttested===true&&
    context.sameSession===true&&!context.contextMixed;
  const forbiddenRole=verifiedPeer&&context.capabilityDecision==='FORBIDDEN'&&
@@ -112,7 +121,30 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
  // Preserve it as evidence, and act only when independent corroboration exists.
  if(TokenMutation(r,context)&&nativeFinding&&corroborated)
   return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'CORROBORATED_TOKEN_SECURITY_TRANSITION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
+ // A server-identified SELF token initialization during the actual measured
+ // baseline can produce a delta without proving hostile intervention. Keep
+ // that specific isolated observation, never an unbound SELF claim, as
+ // evidence; independent correlation or a post-baseline delta is actionable.
+ // Baseline, binding and session are all mandatory; no role-wide bypass.
+ const isolatedStartupToken=version>=5&&TOKEN_KINDS.has(entry.id)&&
+   context.capability==='TOKEN_STATE'&&context.tokenDelta>0&&
+   context.tokenDelta<256&&context.baseline===true&&
+   context.actorClass==='SELF'&&context.firstPartyAttested===true&&
+   context.serverBound===true&&context.sameSession===true&&
+   !context.contextMixed&&r.localOnly===true&&r.correlation===false&&
+   !corroborated;
+ if(isolatedStartupToken)return {...base,disposition:'EXPECTED_FIRST_PARTY',
+   decisionReason:'SERVER_BOUND_STARTUP_TOKEN_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
+ // V1-V4 preserve their existing correlation/typed-evidence rules. Beginning
+ // with V5, DETECTED means the v109 native sensor emitted this standalone
+ // output AFTER baseline/cooldown suppression. Only this explicit finding is
+ // eligible here; context-only observations and coverage health never revoke.
+ // The authenticated report is not a hardware attestation. A compromised
+ // client can still lie; server-side ownership and exact-cohort checks remain.
+ if(version>=5&&r.signal==='DETECTED'&&entry.standaloneOutput===true&&
+    cls!=='COVERAGE_HEALTH'&&cls!=='INTERNAL_TELEMETRY')
+  return {...base,disposition:'DETECTION',decisionReason:'V5_NATIVE_SENSOR_OUTPUT',sessionStopPolicy:'STOP_ON_NATIVE_DETECTED_OUTPUT',stop:true};
  // These specific sensor families contain internal baseline/confirmation.
  // For legacy clients without the new source discriminator, require an
  // independent correlation rather than assuming every record was a finding.

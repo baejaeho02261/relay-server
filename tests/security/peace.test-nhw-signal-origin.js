@@ -82,9 +82,9 @@ test('new protocol validates explicit signal identity and rejects ambiguous extr
 test('Delphi path supplies signal source independently of the detection kind', {skip:!fs.existsSync(path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas'))?'native source is delivered separately in full ZIP':false},()=>{
  const root=path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Security.NHW');
  const read=name=>fs.readFileSync(path.join(root,'Cozy.NHW.'+name+'.pas'),'utf8');
- assert.match(read('Engine'),/not \(Kind in Detected\)/);
+ assert.match(read('Engine'),/not \(Kind in VisibleDetected\)/);
  assert.match(read('DetectionJournal'),/ObservedOnly/);
- assert.match(read('ResponseTransport'),/TJSONNumber\.Create\(4\)/);
+ assert.match(read('ResponseTransport'),/TJSONNumber\.Create\(5\)/);
  assert.match(read('ResponseTransport'),/Detection\.AddPair\('signal'/);
  assert.match(read('ClientGuard'),/Correlated, ObservedOnly: Boolean/);
 });
