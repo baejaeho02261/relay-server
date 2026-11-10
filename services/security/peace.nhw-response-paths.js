@@ -76,12 +76,12 @@ function Canonical(body, challenge, channel) {
 function Payload(text) {
   if (typeof text !== 'string' || Buffer.byteLength(text) > 16384) Fail();
   let value; try { value = require('../protocol/peace.strict-json').Parse(text); } catch (_) { Fail(); }
-  Fields(value,['version','sequence','tick','digest','confirmed','trust',...(value?.version>=2?['detections']:[]),...(value?.version===3?['peer']:[])]);
-  if (![1,2,3].includes(value.version) || typeof value.confirmed !== 'boolean' || !Number.isInteger(value.trust) || value.trust < 0 || value.trust > 3 ||
+  Fields(value,['version','sequence','tick','digest','confirmed','trust',...(value?.version>=2?['detections']:[]),...(value?.version>=3?['peer']:[])]);
+  if (![1,2,3,4].includes(value.version) || typeof value.confirmed !== 'boolean' || !Number.isInteger(value.trust) || value.trust < 0 || value.trust > 3 ||
       value.version===1 && value.confirmed && value.trust !== 3) Fail();
   for (const key of ['sequence','tick','digest']) if (typeof value[key] !== 'string' || !/^[a-f0-9]{16}$/.test(value[key]) || /^0+$/.test(value[key])) Fail();
   if(value.version>=2){detections.ParseRecords(value.detections,value.tick,value.version);if(value.digest!==sha(JSON.stringify(value.detections)).slice(0,16))Fail('SECURITY_DETECTION_DIGEST_INVALID');}
-  if(value.version===3)peers.ParseEnrollment(value.peer);
+  if(value.version>=3)peers.ParseEnrollment(value.peer);
   return value;
 }
 function Submit(body, channel) {
@@ -108,7 +108,7 @@ function Submit(body, channel) {
   if (!recovered && previous && (BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
   if (!previous && state.order.size>=4096) Fail('SECURITY_CAPACITY',503);
   let peerContext=null;
-  try{if(value.version===3)peerContext=peers.Enroll(row,body.stage,value.peer,value.sequence,{channel,recover:!!recovered});}
+  try{if(value.version>=3)peerContext=peers.Enroll(row,body.stage,value.peer,value.sequence,{channel,recover:!!recovered});}
   catch(error){
     if(['SECURITY_PEER_IMAGE_MISMATCH','SECURITY_PEER_IDENTITY_CHANGED'].includes(error.message)){
       require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:error.message},'SECURITY_AUTHORITY');
@@ -129,7 +129,7 @@ function Submit(body, channel) {
   const decision=value.version>=2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value,row)):null;
   const stopped=terminal||!!decision||(value.version===1&&(voteMask===3||voteMask===5||voteMask===6||voteMask===7));
   const response={version:1,channel,sequence:value.sequence,digest:value.digest,epoch:challenge.epoch,
-    accepted:true,stopped,scope:'OWNED_A_B_O',attested:false,...(value.version===3?{peerContext:stopped?null:peerContext}: {})};
+    accepted:true,stopped,scope:'OWNED_A_B_O',attested:false,...(value.version>=3?{peerContext:stopped?null:peerContext}: {})};
   const contributors=decision?[{channel,keys:decision.keys}]:[];
   // Persist every accepted observation, including local-only/unsupported
   // evidence. Persistence also keeps producer high-watermarks across restart.

@@ -156,7 +156,7 @@
     "test:keys:recovery": "node --test tests/bootstrap/peace.test-issued-a-keyring.js tests/bootstrap/peace.test-keyless-tpm-recovery.js tests/source/peace.test-native-string-contract-reader.js tests/overlay/peace.test-overlay-transfer.js",
     "test:nhw:server": "node --test tests/security/peace.test-security-detection-catalog.js tests/security/peace.test-security-detections.js tests/security/peace.test-nhw-response-paths.js tests/runtime/peace.test-nhw-pending-recovery.js tests/security/peace.test-nhw-tpm-quote.js tests/runtime/peace.test-nhw-validation-gate.js && node tests/security/peace.test-nhw-context-policy.js && node tests/security/peace.test-nhw-peer-context.js",
     "test:nhw:admin": "node tests/web/peace.test-security-detection-views.js",
-    "test:nhw:context": "node tests/security/peace.test-nhw-context-policy.js && node --test tests/security/peace.test-nhw-native-context.js"
+    "test:nhw:context": "node tests/security/peace.test-nhw-context-policy.js && node --test tests/security/peace.test-nhw-native-context.js tests/security/peace.test-nhw-signal-origin.js"
   },
   "engines": {
     "node": "24.22.1"

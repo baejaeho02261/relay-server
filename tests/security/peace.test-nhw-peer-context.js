@@ -19,11 +19,11 @@ function metadata(s,role,parentIdentity=''){
 function send(s,stage,peer,records=[],sequence=1,channel='integrity'){
  const device=stage==='A'?s.parent:stage==='B'?s.device:s.overlayDevice;
  const ctx=stage==='A'?{sessionId:s.start.begin.flowId,sessionToken:s.start.begin.downloadTicket}:stage==='B'?{sessionId:s.b.sessionId,sessionToken:s.b.sessionToken}:{sessionId:s.o.sessionId,sessionToken:s.o.sessionToken};
- const payload=JSON.stringify({version:3,sequence:hex(sequence),tick:hex(200000+sequence),digest:sha(JSON.stringify(records)).slice(0,16),confirmed:false,trust:0,detections:records,peer});
+ const payload=JSON.stringify({version:4,sequence:hex(sequence),tick:hex(200000+sequence),digest:sha(JSON.stringify(records)).slice(0,16),confirmed:false,trust:0,detections:records,peer});
  const prefix='nhw'+channel[0].toUpperCase()+channel.slice(1),body={...ctx,stage,machineId:device.machineId,binding:sha(payload),action:prefix+'Challenge'},challenge=authority.Execute(body),submit={...body,action:prefix+'Submit',challengeId:challenge.challengeId,payload};
  submit.signature=fixture.Sign(device,paths.Canonical(submit,challenge,channel));return authority.Execute(submit);
 }
-function record(id,c,tick=200000){return {id,source:'Cozy.NHW.Engine',firstTick:hex(tick),lastTick:hex(tick),count:1,families:8,confidence:30,correlation:false,attestationSequence:hex(0),localOnly:true,context:c};}
+function record(id,c,tick=200000){return {id,source:'Cozy.NHW.Engine',firstTick:hex(tick),lastTick:hex(tick),count:1,families:8,confidence:30,correlation:false,attestationSequence:hex(0),localOnly:true,context:c,signal:'DETECTED'};}
 function A(){const parent=fixture.Device(),s={parent,start:fixture.Begin(parent)};s.aPeer=metadata(s,'A');s.aIdentity=peers.StableIdentity(s.aPeer);s.aReceipt=send(s,'A',s.aPeer);return s;}
 function B(s=A()){
  s.device=fixture.Child(s.parent);fixture.Download(s.start.begin);s.finish=fixture.Finish(s.parent,s.start.begin);s.b=fixture.Claim(s.parent,s.start.begin,s.finish,s.device);s.bPeer=metadata(s,'B',s.aIdentity);s.bIdentity=peers.StableIdentity(s.bPeer);s.bReceipt=send(s,'B',s.bPeer);return s;
@@ -83,7 +83,7 @@ check('Token baseline is expected, privilege escalation remains forbidden, ordin
  const s=B(),c=context(s.bIdentity,'B');assert.equal(peers.ResolveContext(flow(s),'B',c).expected,true);
  for(const delta of [1,2,4,8,16,32,64,128])assert.equal(peers.ResolveContext(flow(s),'B',{...c,baseline:false,tokenDelta:delta}).forbidden,true);
  assert.equal(peers.ResolveContext(flow(s),'B',{...c,baseline:false,tokenDelta:256}).forbidden,false);
- assert.equal(send(s,'B',s.bPeer,[record('dkTokenRights',{...c,baseline:false,tokenDelta:2})],2).stopped,true);
+ assert.equal(send(s,'B',s.bPeer,[record('dkTokenRights',{...c,baseline:false,tokenDelta:2})],2).stopped,false); // an isolated token-state transition is evidence, not independent proof
 });
 check('Independent response paths share a monotonic server peer sequence without reusing report counters',()=>{
  const s=A(),first=s.aReceipt.peerContext;const next=send(s,'A',s.aPeer,[],1,'trust').peerContext;assert(BigInt('0x'+next.serverSequence)>BigInt('0x'+first.serverSequence));

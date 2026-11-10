@@ -58,15 +58,15 @@ function Resolve(row,stage,record){
  return Object.fromEntries([...CONTEXT_FIELDS,'capabilityDecision','serverBound','firstPartyAttested','sameSession','bindingScope'].map(k=>[k,(['actorRole','targetRole'].includes(k)&&merged[k]==='UNKNOWN')?'?':merged[k]]));
 }
 function Fresh(record,tick){const age=BigInt('0x'+tick)-BigInt('0x'+record.lastTick);return age>=0n&&age<=90000n;}
-function ForbiddenCapability(record){
- const c=record.context;if(!c||!ACCESS_KINDS.has(record.id))return false;
+function ForbiddenCapability(record,context=UnknownContext()){
+ const c=context;if(!c||!ACCESS_KINDS.has(record.id))return false;
  // Object-specific rights: process/thread/token bits have different meanings.
  if(c.capability==='PROCESS_ACCESS')return (c.accessMask&0x2a)!==0; // CREATE_THREAD | VM_OPERATION | VM_WRITE
  if(c.capability==='THREAD_ACCESS')return (c.accessMask&0x10)!==0; // SET_CONTEXT
  if(c.capability==='TOKEN_ACCESS')return (c.accessMask&0x1e7)!==0; // mutation, not QUERY / QUERY_SOURCE
  return false;
 }
-function TokenMutation(record){return TOKEN_KINDS.has(record.id)&&record.context?.capability==='TOKEN_STATE'&&(record.context.tokenDelta&255)!==0;}
+function TokenMutation(record,context=UnknownContext()){return TOKEN_KINDS.has(record.id)&&context.capability==='TOKEN_STATE'&&(context.tokenDelta&255)!==0;}
 function ExpectedCompatible(entry,r,context){
  if(context.capabilityDecision!=='EXPECTED'||context.firstPartyAttested!==true||context.serverBound!==true||context.sameSession!==true||context.contextMixed||r.correlation||r.localOnly!==true)return false;
  if(!categoryCapabilities[entry.category]?.includes(context.capability))return false;
@@ -74,7 +74,8 @@ function ExpectedCompatible(entry,r,context){
  // byte, injected execution, signer regression, or another semantic finding.
  // Expected classification is limited to explicitly attributed benign access
  // and initial state, never a role-wide or startup-wide exemption.
- if(ACCESS_KINDS.has(entry.id)&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability))return !ForbiddenCapability(r);
+ // The server-resolved capability matrix has already decided what was permitted.
+ if(ACCESS_KINDS.has(entry.id)&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability))return true;
  return TOKEN_KINDS.has(entry.id)&&context.capability==='TOKEN_STATE'&&context.baseline&&context.tokenDelta===0;
 }
 function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prior=null,now=Date.now()}={}){
@@ -91,16 +92,35 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
   const degraded=episode.observations>=3&&now-episode.startedAt>=30000;
   return {...base,disposition:degraded?'COVERAGE_DEGRADED':'COVERAGE_WARNING',decisionReason:degraded?'PERSISTENT_COVERAGE_GAP_REVALIDATION_REQUIRED':'TRANSIENT_COVERAGE_GAP_RECOVERY_REQUIRED',sessionStopPolicy:'RECOVER_AND_REVALIDATE',coverageState:degraded?'SESSION_DEGRADED':'RECOVERY_PENDING',coverageEpisode:episode};
  }
- if(ForbiddenCapability(r))return {...base,context:{...context,capabilityDecision:'FORBIDDEN'},disposition:'DETECTION',decisionReason:'FORBIDDEN_CAPABILITY_OBSERVED',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
- if(context.serverBound===true&&context.firstPartyAttested===true&&context.sameSession===true&&context.capabilityDecision==='FORBIDDEN'&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability)&&categoryCapabilities[entry.category]?.includes(context.capability))return {...base,disposition:'DETECTION',decisionReason:'FIRST_PARTY_CAPABILITY_MATRIX_VIOLATION',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
- if(TokenMutation(r))return {...base,context:{...context,capabilityDecision:'FORBIDDEN'},disposition:'DETECTION',decisionReason:'TOKEN_SECURITY_TRANSITION',sessionStopPolicy:'STOP_ON_TOKEN_SECURITY_TRANSITION',stop:true};
- // These states are emitted only after byte/canary mutation or a confirmed
- // exact driver identity / kernel correlation in the existing FP1 sensors.
- // Actor attribution may legitimately be unknown. Neither SELF nor baseline
- // claims can exempt them. They remain client evidence, not server OS proof.
- if(cls==='EXACT_INTEGRITY_MUTATION'||cls==='CONFIRMED_STRUCTURAL_INVARIANT'||cls==='SENSOR_VALIDATED_CORRELATION'||cls==='CONFIRMED_KERNEL_EVIDENCE'||cls==='CONFIRMED_KERNEL_CONDITION')return {...base,disposition:'DETECTION',decisionReason:cls,sessionStopPolicy:'STOP_ON_TYPED_SECURITY_EVIDENCE',stop:true};
+ // An access mask is a capability, not proof that a write, token change or
+ // injection happened. Resolve actor identity before applying role policy.
+ // Version 3 carried no distinction between sensor findings and context-only
+ // observations, so a single legacy access report must not revoke a session.
+ const nativeFinding=r.signal==='DETECTED'||(r.signal===undefined&&r.context===undefined); // v2 only reported sensor flags
+ const expected=ExpectedCompatible(entry,r,context);
+ if(expected)return {...base,disposition:'EXPECTED_FIRST_PARTY',decisionReason:'SERVER_BOUND_ROLE_CAPABILITY_ALLOWED',sessionStopPolicy:'OBSERVE_ONLY'};
+ const verifiedPeer=context.serverBound===true&&context.firstPartyAttested===true&&
+   context.sameSession===true&&!context.contextMixed;
+ const forbiddenRole=verifiedPeer&&context.capabilityDecision==='FORBIDDEN'&&
+   ['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability)&&
+   categoryCapabilities[entry.category]?.includes(context.capability);
+ // A confirmed, server-resolved cross-process permission violation is distinct
+ // from an untrusted report containing a large bitmask or an own-process handle.
+ if(forbiddenRole&&nativeFinding&&!context.baseline&&r.confidence>=30)
+  return {...base,disposition:'DETECTION',decisionReason:'FIRST_PARTY_CAPABILITY_MATRIX_VIOLATION',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
+ // A single token delta may be a legitimate startup privilege adjustment.
+ // Preserve it as evidence, and act only when independent corroboration exists.
+ if(TokenMutation(r,context)&&nativeFinding&&corroborated)
+  return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'CORROBORATED_TOKEN_SECURITY_TRANSITION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
+ if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
+ // These specific sensor families contain internal baseline/confirmation.
+ // For legacy clients without the new source discriminator, require an
+ // independent correlation rather than assuming every record was a finding.
+ if(nativeFinding&&(cls==='EXACT_INTEGRITY_MUTATION'||cls==='CONFIRMED_STRUCTURAL_INVARIANT'||
+    cls==='SENSOR_VALIDATED_CORRELATION'||cls==='CONFIRMED_KERNEL_EVIDENCE'||
+    cls==='CONFIRMED_KERNEL_CONDITION'))
+  return {...base,disposition:'DETECTION',decisionReason:cls,sessionStopPolicy:'STOP_ON_TYPED_SECURITY_EVIDENCE',stop:true};
  if(corroborated)return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'INDEPENDENT_EVIDENCE_CORROBORATION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
- if(ExpectedCompatible(entry,r,context))return {...base,disposition:'EXPECTED_FIRST_PARTY',decisionReason:'SERVER_BOUND_ROLE_CAPABILITY_ALLOWED',sessionStopPolicy:'OBSERVE_ONLY'};
  return base;
 }
 module.exports={ParseContext,ContextKey,UnknownContext,PolicyClass,Resolve,Evaluate,Fresh,ForbiddenCapability,TokenMutation,PHASES,CAPABILITIES,COVERAGE,DISPOSITIONS,CONTEXT_FIELDS};

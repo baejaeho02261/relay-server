@@ -133,6 +133,12 @@ function ResolveContext(row,stage,context){
  else if(context.actorClass!=='TRUSTED_'+actor.role||!context.peerId||context.peerId!==actor.peerId)return out;
  out.actorClass=actor.identity===self?.identity?'SELF':'TRUSTED_'+actor.role;out.actorRole=actor.role;out.targetRole=target.role;out.peerId=actor.peerId;out.firstPartyAttested=true;out.serverBound=true;out.sameSession=true;out.bindingScope='SERVER_BOUND_CLIENT_OBSERVATION';
  const grant=GrantFor(db,b,actor,target,context.grantId),same=actor.identity===target.identity;
+ // A process legitimately owns broad handles to itself. An access right on a
+ // self-handle is not a remote write, context hijack or token mutation.
+ // Token STATE transitions are evaluated separately and are not exempted.
+ if(same&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability)){
+  out.forbidden=false;out.capabilityDecision='OBSERVE';
+ }
  const phaseAllowed=context.phase===actor.phase||!!grant&&[actor.role+'_HANDOFF_TO_'+target.role,actor.role+'_SHUTDOWN'].includes(context.phase);
  const m=MATRIX[context.phase];
  if(grant)out.grantId=grant.id;
@@ -140,9 +146,9 @@ function ResolveContext(row,stage,context){
  if(!phaseAllowed){out.capabilityDecision='SUSPICIOUS';return out;}
  let allowed=false;
  switch(context.capability){
- case 'PROCESS_ACCESS':allowed=(context.accessMask&~m.processQueryMask)===0||!!grant&&(m.handoff||m.cleanup)&&(context.accessMask&~grant.allowedProcessMask)===0;break;
- case 'THREAD_ACCESS':allowed=(context.accessMask&~m.threadQueryMask)===0;break;
- case 'TOKEN_ACCESS':allowed=(context.accessMask&~m.tokenQueryMask)===0;break;
+ case 'PROCESS_ACCESS':allowed=same||(context.accessMask&~m.processQueryMask)===0||!!grant&&(m.handoff||m.cleanup)&&(context.accessMask&~grant.allowedProcessMask)===0;break;
+ case 'THREAD_ACCESS':allowed=same||(context.accessMask&~m.threadQueryMask)===0;break;
+ case 'TOKEN_ACCESS':allowed=same||(context.accessMask&~m.tokenQueryMask)===0;break;
  case 'TOKEN_STATE':allowed=same&&context.tokenDelta===0&&context.baseline===true;break;
  case 'SELF_MEMORY':case 'MODULE_STATE':allowed=same&&context.baseline===true;break;
  case 'ETW_STATE':allowed=same&&context.coverage==='COMPLETE';break;

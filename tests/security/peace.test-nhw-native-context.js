@@ -69,7 +69,8 @@ test('each response path freezes the peer envelope and processes only an authent
   assert.ok(submit.includes("ApplyServerReceipt(Reply.GetValue('peerContext'),Epoch,ReceiptStarted)"));
  }
  const encoder=method(transport,'EncodeDetectionPayload');
- assert.ok(encoder.includes("Payload.AddPair('version', TJSONNumber.Create(3))"));
+ assert.ok(encoder.includes("Payload.AddPair('version', TJSONNumber.Create(4))"));
+ assert.ok(encoder.includes("Detection.AddPair('signal'"));
  assert.ok(encoder.includes("Detection.AddPair('context', NHWContextJSON"));
  assert.ok(encoder.includes('>16384'));
  assert.doesNotMatch(encoder,/\.PostJSON\(|\.Sign\(|ApplyServerReceipt/);

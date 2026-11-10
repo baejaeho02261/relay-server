@@ -13,14 +13,15 @@ function row(s){return store.Load().flows[s.start.begin.flowId];}
 function subject(){const device=fixture.Device(),start=fixture.Begin(device),s={device,start,ctx:{stage:'A',sessionId:start.begin.flowId,sessionToken:start.begin.downloadTicket,machineId:device.machineId}},db=store.Load(),r=row(s);s.peer={pid:100+checks,creationTime:hex(100000+checks),imageSha256:db.launchers[r.launcherId].peerImageSha256,imageSha512:r.launcherSha512,parentIdentity:'',phase:'A_BOOTSTRAP'};assert.equal(s.peer.imageSha256.length,64);return s;}
 function context(patch={}){const c=policy.UnknownContext('A');return {...Object.fromEntries(policy.CONTEXT_FIELDS.map(k=>[k,c[k]])),...patch};}
 function self(s,patch={}){const identity=peers.StableIdentity(s.peer);return context({actorClass:'SELF',actorRole:'A',actorIdentity:identity,targetRole:'A',targetIdentity:identity,phase:s.peer.phase,...patch});}
-function record(id='dkTokenObject',patch={}){return {id,source:'Cozy.NHW.Engine',firstTick:hex(1000),lastTick:hex(1000),count:1,families:32,confidence:30,correlation:false,attestationSequence:hex(0),localOnly:true,context:context(),...patch};}
-function text(records,seq=1,peer=null,tick=2000){return JSON.stringify({version:3,sequence:hex(seq),tick:hex(tick),digest:hash(JSON.stringify(records)).slice(0,16),confirmed:false,trust:2,detections:records,peer});}
+function record(id='dkTokenObject',patch={}){return {id,source:'Cozy.NHW.Engine',firstTick:hex(1000),lastTick:hex(1000),count:1,families:32,confidence:30,correlation:false,attestationSequence:hex(0),localOnly:true,context:context(),signal:'DETECTED',...patch};}
+function text(records,seq=1,peer=null,tick=2000){return JSON.stringify({version:4,sequence:hex(seq),tick:hex(tick),digest:hash(JSON.stringify(records)).slice(0,16),confirmed:false,trust:2,detections:records,peer});}
 function request(s,channel,value){const cap=channel[0].toUpperCase()+channel.slice(1),body={...s.ctx,binding:hash(value),action:'nhw'+cap+'Challenge'},c=authority.Execute(body),submit={...body,action:'nhw'+cap+'Submit',challengeId:c.challengeId,payload:value};submit.signature=fixture.Sign(s.device,paths.Canonical(submit,c,channel));schema.ValidateEnvelope({operation:'security',body:submit});return submit;}
 function send(s,channel,records,seq=1,peer=s.peer,tick=2000+seq){return authority.Execute(request(s,channel,text(records,seq,peer,tick)));}
 fixture.CurrentCohort({version:'92.0.0'});
 check('All 204 NHW kinds and 122 Cozy outcomes retain explicit taxonomy and actionable policy classes',()=>{
  assert.equal(catalog.NHW.length,204);assert.equal(catalog.COZY.length,122);assert.equal(catalog.Counts.nhwOutputNames,194);
- for(const e of catalog.NHW){assert.ok(e.contextPolicy,e.id);const r=record(e.id);assert.equal(reports.ParseRecords([r],hex(2000),3)[0].id,e.id);const typed=policy.Evaluate(e,r,{tick:hex(2000)});assert.ok(policy.DISPOSITIONS.includes(typed.disposition),e.id);
+ for(const e of catalog.NHW){assert.ok(e.contextPolicy,e.id);const r=record(e.id);assert.equal(reports.ParseRecords([r],hex(2000),4)[0].id,e.id);
+  const observed={...r,signal:'OBSERVED'};assert.equal(policy.Evaluate(e,observed,{tick:hex(2000),corroborated:true}).stop,false,e.id+' observation');const typed=policy.Evaluate(e,r,{tick:hex(2000)});assert.ok(policy.DISPOSITIONS.includes(typed.disposition),e.id);
   const corroborated=policy.Evaluate(e,{...r,correlation:true,localOnly:false,confidence:75,families:3},{tick:hex(2000),corroborated:true});assert.equal(corroborated.stop,e.standaloneOutput&&e.signalClass!=='UNKNOWN',e.id);
   assert.equal(policy.Evaluate(e,r,{tick:hex(100000),corroborated:true}).stop,false,e.id+' stale');
  }
@@ -40,21 +41,23 @@ check('Signed approved self baseline is expected while unproven client SELF/TRUS
  const foreign=subject(),fake=record('dkTokenObject',{context:self(s,{capability:'TOKEN_STATE',baseline:true,actorClass:'TRUSTED_A'})});
  assert.equal(send(foreign,'integrity',[fake]).stopped,false);const f=reports.ForFlow(row(foreign).id)[0];assert.notEqual(f.disposition,'EXPECTED_FIRST_PARTY');assert.equal(f.context.firstPartyAttested,false);assert.equal(f.context.sameSession,false);
 });
-check('Trusted first party forbidden process/thread/token access still stops only its own cohort on each path',()=>{
+check('Signed self process/thread/token capability possession does not revoke a legitimate A session',()=>{
  for(const [channel,id,capability,accessMask] of [['trust','dkProcess','PROCESS_ACCESS',0x20],['driver','dkThread','THREAD_ACCESS',0x10],['integrity','dkTokenRights','TOKEN_ACCESS',0x20]]){
-  const s=subject(),other=subject();const reply=send(s,channel,[record(id,{context:self(s,{capability,accessMask})})]);assert.equal(reply.stopped,true);assert.equal(row(s).status,'REVOKED');assert.equal(row(other).status,'STARTED');
-  const e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,true);assert.equal(e.context.capabilityDecision,'FORBIDDEN');assert.equal(e.decisionReason,'FORBIDDEN_CAPABILITY_OBSERVED');assert.equal(e.context.firstPartyAttested,true);
+  const s=subject(),other=subject();const reply=send(s,channel,[record(id,{context:self(s,{capability,accessMask}),signal:'OBSERVED'})]);assert.equal(reply.stopped,false);assert.equal(row(s).status,'STARTED');assert.equal(row(other).status,'STARTED');
+  const e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,false);assert.equal(e.context.capabilityDecision,'EXPECTED');assert.equal(e.disposition,'EXPECTED_FIRST_PARTY');assert.equal(e.context.firstPartyAttested,true);
  }
 });
-check('A verified first-party access outside its phase matrix stops even when it is not a reserved injection bit',()=>{
- const s=subject(),other=subject();
- const value=record('dkProcess',{context:self(s,{capability:'PROCESS_ACCESS',accessMask:1})});
- assert.equal(send(s,'integrity',[value]).stopped,true);assert.equal(row(s).status,'REVOKED');assert.equal(row(other).status,'STARTED');
- const e=reports.ForFlow(row(s).id)[0];assert.equal(e.decisionReason,'FIRST_PARTY_CAPABILITY_MATRIX_VIOLATION');assert.equal(e.context.capabilityDecision,'FORBIDDEN');assert.equal(e.context.firstPartyAttested,true);
+check('Verified cross-process role-capability violations remain enforceable, mere observations do not',()=>{
+ const r=record('dkProcess',{context:context({capability:'PROCESS_ACCESS',accessMask:0x20,baseline:false}),signal:'DETECTED'});
+ const verified={...policy.UnknownContext('O'),capability:'PROCESS_ACCESS',capabilityDecision:'FORBIDDEN',sameSession:true,serverBound:true,firstPartyAttested:true,contextMixed:false,baseline:false};
+ const entry=catalog.Get(r.id);assert.equal(policy.Evaluate(entry,r,{tick:hex(2000),context:verified}).stop,true);
+ assert.equal(policy.Evaluate(entry,{...r,signal:'OBSERVED'},{tick:hex(2000),context:verified}).stop,false);
 });
-check('Token security deltas stop; ordinary impersonation observation alone does not',()=>{
- for(const tokenDelta of [1,2,4,8,16,32,64,128]){const s=subject();assert.equal(send(s,'integrity',[record('dkTokenChange',{context:self(s,{capability:'TOKEN_STATE',tokenDelta})})]).stopped,true);assert.equal(reports.ForFlow(row(s).id)[0].decisionReason,'TOKEN_SECURITY_TRANSITION');}
- const s=subject();assert.equal(send(s,'integrity',[record('dkThreadToken',{context:self(s,{capability:'TOKEN_STATE',tokenDelta:256})})]).stopped,false);assert.equal(row(s).status,'STARTED');
+check('Isolated token deltas remain recorded; corroborated actual transitions may revoke',()=>{
+ for(const tokenDelta of [1,2,4,8,16,32,64,128]){const s=subject();assert.equal(send(s,'integrity',[record('dkTokenChange',{context:self(s,{capability:'TOKEN_STATE',tokenDelta})})]).stopped,false);assert.equal(row(s).status,'STARTED');}
+ const s=subject(),real=record('dkTokenChange',{context:self(s,{capability:'TOKEN_STATE',tokenDelta:2,baseline:false}),correlation:true,localOnly:false,confidence:75,families:3});
+ assert.equal(send(s,'integrity',[real]).stopped,true);assert.equal(reports.ForFlow(row(s).id)[0].decisionReason,'CORROBORATED_TOKEN_SECURITY_TRANSITION');
+ const other=subject();assert.equal(send(other,'integrity',[record('dkThreadToken',{context:self(other,{capability:'TOKEN_STATE',tokenDelta:256})})]).stopped,false);
 });
 check('Neither a baseline claim nor a benign capability suppresses actual typed code and kernel findings',()=>{
  for(const id of ['dkPECodeIntegrity','dkHeapIntegrity','dkIAT','dkVulnerableDriver','dkKernelMappingEvidence','dkDriverSignerAttestation']){
@@ -70,18 +73,18 @@ check('Coverage episodes require fresh newer observations and server elapsed tim
  prior={lastTick:hex(1100),coverageEpisode:second.coverageEpisode};
  const third=policy.Evaluate(entry,{...r,count:65535,lastTick:hex(1200)},{tick:hex(2000),now:at+30000,prior});assert.equal(third.disposition,'COVERAGE_DEGRADED');assert.equal(third.stop,false);
  const reset=policy.Evaluate(entry,{...r,lastTick:hex(1300)},{tick:hex(2000),now:at+100000,prior:{lastTick:hex(1200),coverageEpisode:third.coverageEpisode}});assert.equal(reset.disposition,'COVERAGE_WARNING');
- const s=subject();send(s,'integrity',[r]);assert.equal(send(s,'integrity',[record('dkProcess',{context:context({actorClass:'EXTERNAL',capability:'PROCESS_ACCESS',accessMask:0x20})})],2).stopped,true);const old=reports.ForFlow(row(s).id).find(e=>e.detectionId==='dkETWLoss');assert.equal(old.invalidated,false);
+ const s=subject();send(s,'integrity',[r]);assert.equal(send(s,'integrity',[record('dkProcess',{context:context({actorClass:'EXTERNAL',capability:'PROCESS_ACCESS',accessMask:0x20})})],2).stopped,false);const old=reports.ForFlow(row(s).id).find(e=>e.detectionId==='dkETWLoss');assert.equal(old.invalidated,false);
 });
-check('Context identity isolates counters and preserves the actual causative context after termination',()=>{
+check('Context identity isolates counter lanes without inferring an attack from raw access rights',()=>{
  const s=subject(),good=record('dkProcess',{context:self(s,{capability:'PROCESS_ACCESS',accessMask:0x1000})});
  send(s,'integrity',[good]);
  const external=record('dkProcess',{context:context({actorClass:'EXTERNAL',actorIdentity:'e'.repeat(64),capability:'PROCESS_ACCESS',accessMask:0x20})});
- assert.equal(send(s,'integrity',[external],2).stopped,true);
- let events=reports.ForFlow(row(s).id);assert.equal(events.length,2);assert.equal(events.filter(e=>e.invalidated).length,1);assert.equal(events.find(e=>e.invalidated).context.actorIdentity,'e'.repeat(64));
+ assert.equal(send(s,'integrity',[external],2).stopped,false);
+ let events=reports.ForFlow(row(s).id);assert.equal(events.length,2);assert.equal(events.filter(e=>e.invalidated).length,0);assert.equal(events.find(e=>e.context.actorClass==='EXTERNAL').context.actorIdentity,'e'.repeat(64));
  send(s,'integrity',[{...external,count:2,lastTick:hex(1300),context:{...external.context,accessMask:0x1000}}],3);
- events=reports.ForFlow(row(s).id);assert.equal(events.find(e=>e.invalidated).context.accessMask,0x20);assert.equal(events.find(e=>!e.invalidated).disposition,'EXPECTED_FIRST_PARTY');reports.Validate(store.Load().securityDetections,store.Load());
+ events=reports.ForFlow(row(s).id);assert.ok(events.every(e=>!e.invalidated));assert.equal(events.find(e=>e.context.actorClass==='SELF').disposition,'EXPECTED_FIRST_PARTY');reports.Validate(store.Load().securityDetections,store.Load());
 });
-check('V3 exact-batch recovery neither recounts observations nor renews peer enrollment; tampering fails',()=>{
+check('V4 exact-batch recovery neither recounts observations nor renews peer enrollment; tampering fails',()=>{
  const s=subject(),records=[record('dkTokenObject',{context:self(s,{capability:'TOKEN_STATE',baseline:true})})],value=text(records,1,s.peer),req=request(s,'integrity',value),ack=authority.Execute(req),before=structuredClone(row(s).nhwPeerBindings.A),events=reports.ForFlow(row(s).id);
  assert.deepEqual(authority.Execute(req),ack);paths.Clear();assert.equal(authority.Execute(request(s,'integrity',text(records,1,s.peer,3000))).stopped,false);assert.deepEqual(row(s).nhwPeerBindings.A,before);assert.deepEqual(reports.ForFlow(row(s).id),events);
  reject(()=>authority.Execute(request(s,'integrity',text(records,1,{...s.peer,creationTime:hex(999999)},4000))),'SECURITY_EVIDENCE_REPLAY');assert.deepEqual(row(s).nhwPeerBindings.A,before);
@@ -96,7 +99,7 @@ check('Authenticated enrollment replay is recorded as a protocol rejection, not 
  const e=reports.ForFlow(row(s).id)[0];assert.equal(e.detectionId,'SECURITY_PEER_ENROLLMENT_REPLAY');assert.equal(e.decisionReason,'SERVER_PROTOCOL_REJECTION');assert.equal(e.sessionStopPolicy,'REJECT_REQUEST_ONLY');assert.equal(e.correlation,false);assert.equal(e.confidence,0);assert.equal(e.invalidated,false);assert.equal(row(s).status,'STARTED');
 });
 check('Context schema rejects raw identities/paths, unknown enums, oversized rights and fake extra authority',()=>{
- for(const patch of [{path:'C:\\private'},{pid:42},{actorIdentity:'123'},{phase:'LOGIN'},{accessMask:0x100000000},{tokenDelta:512},{firstPartyAttested:true},{capability:'PROCESS_ALL_ACCESS'}])reject(()=>reports.ParseRecords([record('dkProcess',{context:context(patch)})],hex(2000),3),'SECURITY_DETECTION_CONTEXT_INVALID');
+ for(const patch of [{path:'C:\\private'},{pid:42},{actorIdentity:'123'},{phase:'LOGIN'},{accessMask:0x100000000},{tokenDelta:512},{firstPartyAttested:true},{capability:'PROCESS_ALL_ACCESS'}])reject(()=>reports.ParseRecords([record('dkProcess',{context:context(patch)})],hex(2000),4),'SECURITY_DETECTION_CONTEXT_INVALID');
  const s=subject(),records=Array.from({length:12},(_,i)=>record(catalog.NHW[i].id,{context:self(s,{capability:'PROCESS_ACCESS',actorIdentity:String(i).padStart(64,'a'),peerId:'a'.repeat(48),grantId:'b'.repeat(48)})})),value=text(records,1,s.peer);
  assert.ok(Buffer.byteLength(value)<16384);schema.ValidateEnvelope({operation:'security',body:request(s,'driver',value)});assert.equal(paths.Payload(value).detections.length,12);
 });

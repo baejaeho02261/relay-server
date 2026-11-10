@@ -24,8 +24,11 @@ function ParseRecords(rows,tick,version=2){
  if(!Array.isArray(rows)||rows.length>32||!hex64(tick)||tick===ZERO)Fail();
  const seen=new Set();
  for(const r of rows){
-  Fields(r,['id','source','firstTick','lastTick','count','families','confidence','correlation','attestationSequence','localOnly',...(version===3?['context']:[])]);
-  if(version===3)contextPolicy.ParseContext(r.context);
+  Fields(r,['id','source','firstTick','lastTick','count','families','confidence','correlation','attestationSequence','localOnly',...(version>=3?['context']:[]),...(version>=4?['signal']:[])]);
+  if(version>=3)contextPolicy.ParseContext(r.context);
+  if(version>=4&&!['OBSERVED','DETECTED'].includes(r.signal))Fail();
+  // A mere observation cannot assert independent correlation or a remote vote.
+  if(version>=4&&r.signal==='OBSERVED'&&(r.correlation||!r.localOnly))Fail();
   const e=Entry(r.id);if(!e||!e.id.startsWith('dk')||!SourceAllowed(e,r.source))Fail();
   if(!hex64(r.firstTick)||r.firstTick===ZERO||!hex64(r.lastTick)||!hex64(r.attestationSequence)||BigInt('0x'+r.firstTick)>BigInt('0x'+r.lastTick)||BigInt('0x'+r.lastTick)>BigInt('0x'+tick))Fail();
   if(!Number.isInteger(r.count)||r.count<1||r.count>65535||!Number.isInteger(r.families)||r.families<0||r.families>255||!Number.isInteger(r.confidence)||r.confidence<0||r.confidence>100||typeof r.correlation!=='boolean'||typeof r.localOnly!=='boolean'||r.localOnly===r.correlation)Fail();
@@ -38,7 +41,7 @@ function KernelPolicy(rows){
  // Same conservative semantic policy as the native CorrelationPolicy after
  // AuthorityKinds excludes unverified CI provenance/telemetry-only signals.
  // These semantic families are NOT independent acquisition roots.
- const kinds=new Set(rows.filter(r=>(r.families&128)&&r.correlation&&!r.localOnly&&r.confidence>=50&&!KERNEL_EXCLUDED.has(r.id)).map(r=>r.id));
+ const kinds=new Set(rows.filter(r=>r.signal!=='OBSERVED'&&(r.families&128)&&r.correlation&&!r.localOnly&&r.confidence>=50&&!KERNEL_EXCLUDED.has(r.id)).map(r=>r.id));
  const any=names=>names.some(k=>kinds.has(k));let familyMask=0,score=0,strong=0;
  if(any(['dkBootTrust','dkVBSHVCI','dkBootAttestationContinuity','dkHypervisorVBSCrossView','dkKernelDMAIOMMUTrust'])){familyMask|=1;score+=2;}
  if(any(['dkDriverIdentity','dkDriverCrossView','dkSystemViewDisagreement'])){familyMask|=4;score+=2;}
@@ -47,17 +50,17 @@ function KernelPolicy(rows){
  const families=bitCount(familyMask);return {eligible:strong>=1&&families>=2&&score>=6||families>=3&&score>=8,score,families};
 }
 function UserModeVote(rows,tick){
- return rows.some(r=>BigInt('0x'+tick)-BigInt('0x'+r.lastTick)<=90000n&&STRONG.has(r.id)&&r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2);
+ return rows.some(r=>r.signal!=='OBSERVED'&&BigInt('0x'+tick)-BigInt('0x'+r.lastTick)<=90000n&&STRONG.has(r.id)&&r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2);
 }
 function CorrelatedVote(rows,tick){
  const fresh=rows.filter(r=>BigInt('0x'+tick)-BigInt('0x'+r.lastTick)<=90000n);
- const strong=fresh.some(r=>STRONG.has(r.id)&&r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2);
+ const strong=fresh.some(r=>r.signal!=='OBSERVED'&&STRONG.has(r.id)&&r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2);
  return strong||KernelPolicy(fresh).eligible;
 }
 function QualifiedIds(rows,tick){
  const fresh=rows.filter(r=>BigInt('0x'+tick)-BigInt('0x'+r.lastTick)<=90000n);
  const kernel=KernelPolicy(fresh).eligible;
- return fresh.filter(r=>r.correlation&&!r.localOnly&&r.confidence>=50&&(STRONG.has(r.id)&&bitCount(r.families&127)>=2||kernel&&(r.families&128)&&KERNEL_ALLOWED.has(r.id))).map(r=>r.id);
+ return fresh.filter(r=>r.signal!=='OBSERVED'&&r.correlation&&!r.localOnly&&r.confidence>=50&&(STRONG.has(r.id)&&bitCount(r.families&127)>=2||kernel&&(r.families&128)&&KERNEL_ALLOWED.has(r.id))).map(r=>r.id);
 }
 function RecordKey(r){return r.id+':'+r.source+(r.context?':'+contextPolicy.ContextKey(r.context):'');}
 function PolicyResults(row,stage,value){
@@ -69,7 +72,7 @@ function PolicyResults(row,stage,value){
   const context=row?contextPolicy.Resolve(row,stage,r):contextPolicy.UnknownContext(stage);
   const prior=b?old.find(e=>e.id===Key(b,stage,value._channel||'integrity',r.id,r.source,contextPolicy.ContextKey(r.context))):null;
   const independent=r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2;
-  const corroborated=independent||kernel&&(r.families&128)!==0&&KERNEL_ALLOWED.has(r.id);
+  const corroborated=r.signal!=='OBSERVED'&&(independent||kernel&&(r.families&128)!==0&&KERNEL_ALLOWED.has(r.id));
   return {record:r,key:RecordKey(r),...contextPolicy.Evaluate(Entry(r.id),r,{tick:value.tick,context,corroborated,prior})};
  });
 }
@@ -79,7 +82,7 @@ function StopDecision(stage,channel,value,row=null){
  const selected=value._policy.filter(x=>x.stop);if(!selected.length)return null;
  return {reason:('NHW_DETECTED:'+stage+':'+channel+':'+value.sequence+':'+[...new Set(selected.map(x=>x.record.id))].join(',')).slice(0,300),keys:selected.map(x=>x.key)};
 }
-function BatchDigest(value){return sha(JSON.stringify({version:value.version,sequence:value.sequence,digest:value.digest,confirmed:value.confirmed,trust:value.trust,detections:value.detections,...(value.version===3?{peer:value.peer}:{})}));}
+function BatchDigest(value){return sha(JSON.stringify({version:value.version,sequence:value.sequence,digest:value.digest,confirmed:value.confirmed,trust:value.trust,detections:value.detections,...(value.version>=3?{peer:value.peer}:{})}));}
 function RecoverBatch(row,stage,channel,value){
  const previous=row.nhwResponseOrders?.[stage+':'+channel];
  // A renewed nonce must still carry a freshly verified signature for the same
