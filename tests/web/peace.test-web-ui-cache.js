@@ -14,6 +14,13 @@ const source = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 function testBundle() {
   assert.equal(bundle.Check().ready, true);
+  // Turning motion off must NOT freeze surface-arrive at its opacity:0 frame.
+  // Login cards, reauthentication prompts and operation/security modals remain visible.
+  const motionCSS=source('public/styles/admin-workspace.css');
+  const pausedRule=motionCSS.match(/html\[data-motion="paused"\] \*,html\[data-motion="paused"\] \*::before,html\[data-motion="paused"\] \*::after \{([^}]+)\}/);
+  assert.ok(pausedRule, 'Paused-motion CSS selector must exist');
+  assert.match(pausedRule[1], /animation\s*:\s*none\s*!important/, 'Paused motion disables entrance animations and makes modal/login surfaces visible');
+  assert.doesNotMatch(pausedRule[1], /animation-play-state\s*:\s*paused/, 'Never freeze opacity:0 entrance frames');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-ui-bundle-'));
   try {
     for (const name of bundle.FILES) { fs.mkdirSync(path.dirname(path.join(temp,name)),{recursive:true});fs.copyFileSync(path.join(root, 'public', name), path.join(temp, name)); }

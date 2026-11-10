@@ -38,7 +38,7 @@
 @keyframes orb-drift-two { from { transform:translate3d(0,0,0) scale(1); } to { transform:translate3d(-12%,-15%,0) scale(1.08); } }
 @keyframes orb-drift-three { from { transform:translate3d(0,0,0) scale(1); } to { transform:translate3d(-10%,10%,0) scale(.95); } }
 @keyframes orbit-rotate { to { transform:rotate(360deg); } }
-html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-motion="paused"] *::after { animation-play-state:paused!important; transition-duration:0s!important; }
+html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-motion="paused"] *::after { animation:none!important; transition-duration:0s!important; }
 @media(max-width:1200px) { .app { grid-template-columns:226px minmax(0,1fr); }.main .topbar { padding:18px 24px 16px; gap:18px; }.main .content { padding:24px 24px 40px; }.workspace-tabs { padding:0 24px; gap:22px; }.topbar-actions { max-width:270px; }.login-screen { padding:40px; }.login-layout { gap:50px; grid-template-columns:minmax(0,1fr) minmax(340px,400px); }.login-story-title { font-size:54px; }.login-brand { margin-bottom:55px; } }
 @media(max-width:960px) { .main .topbar { flex-wrap:wrap; gap:16px; }.topbar-actions { max-width:none; }.page-heading { flex-basis:65%; }.topbar h2 { font-size:28px; }.login-screen { padding:40px 30px; }.login-layout { gap:36px; grid-template-columns:minmax(0,1fr) minmax(330px,380px); }.login-story-title { font-size:45px; }.login-story-copy { font-size:13px; }.login-proof { margin-top:30px; gap:9px; }.login-brand { margin-bottom:48px; }.login-card { padding:30px; } }
 @media(max-width:760px) {
