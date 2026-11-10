@@ -51,7 +51,8 @@ function RecordFinding(row,stage,reason,invalidated=false,crcComparison){
    (reason!=='CRC_ROLE_MISMATCH'||crcComparison?.signals?.some(signal=>signal.status==='MISMATCH')===true);
   require('../security/peace.security-detections').RecordServer({row,stage,id:reason,
    source:'peace.desktop-integrity-reports',confidence:confirmed?100:0,
-   correlation:confirmed,evidenceFamilies:['COZY_INTEGRITY'],invalidated});
+   correlation:confirmed,evidenceFamilies:['COZY_INTEGRITY'],invalidated,
+   ...(reason==='CRC_ROLE_MISMATCH'&&crcComparison?{crcComparison}:{})});
  }catch(_){console.error('SECURITY_DETECTION_RECORD_FAILED');}
 }
 function Identifier(value){if(value===undefined||value==='')return '';if(typeof value!=='string'||!/^[-A-Za-z0-9_]{1,100}$/.test(value))Fail('INTEGRITY_REPORT_INVALID');return value;}

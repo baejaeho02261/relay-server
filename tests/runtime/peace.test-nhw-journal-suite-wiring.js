@@ -52,3 +52,19 @@ test('removing actual child execution is detected even when project/gate entries
  const mutated=source.slice(0,execution)+source.slice(execution).replace("R := RunValidationChild(Exe, '', Cardinal(Options.TimeoutSeconds) * 1000, False);",'R := Default(TValidationRun);');
  assert.throws(()=>assertExecution(mutated));
 });
+test('a failed handle snapshot leaves independent probes live without advancing handle baselines',()=>{
+ const enginePath=path.resolve(root,'../../Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas');
+ const engine=code(fs.readFileSync(enginePath,'utf8'));
+ const acquisition=engine.slice(engine.lastIndexOf('HandleSnapshotValid := CollectHolders('));
+ const missing=acquisition.split('if not HandleSnapshotValid then')[1]?.split('else if Opt.ThreadWatch')[0];
+ assert.ok(missing,'handle failure branch missing');
+ assert.match(missing,/Unified\.MarkIncomplete;\s*BreakCorrelationCoverage;/);
+ assert.match(missing,/OnHandleCoverageUnavailable\(TickStart\);/);
+ assert.doesNotMatch(missing,/\b(?:Continue|Break|Exit)\b/i);
+ assert.match(acquisition,/NewMonitorBaseline := LocalBaselineRemaining > 0;/);
+ assert.match(acquisition,/if HandleSnapshotValid then\s*begin\s*Behavior\.BeginSnapshot/);
+ assert.match(acquisition,/if NativeThreadValid and HandleSnapshotValid then[\s\S]*?Lifecycle\.ExamineInheritance/);
+ assert.match(acquisition,/InspectThreadAndMemoryState;\s*InspectSystemAndSelfState;\s*InspectCodeAndInitialCorrelations;/);
+ assert.match(acquisition,/RecordCycleEvidence;[\s\S]*?if HandleSnapshotValid then\s*begin\s*Keys\.Clear;[\s\S]*?Dec\(ProcessBaselineRemaining\);\s*end;\s*if LocalBaselineRemaining > 0 then Dec\(LocalBaselineRemaining\);/);
+ assert.match(acquisition,/if ThreadSnapshotValid and \(ThreadBaselineRemaining > 0\) then\s*Dec\(ThreadBaselineRemaining\);\s*FinalizeSamplingAndReport;/);
+});

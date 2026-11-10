@@ -81,6 +81,7 @@ function RecordFinding(row, stage, reason, { invalidated = false, confirmed = fa
     require('./peace.security-detections').RecordServer({ row, stage, id: reason,
       source, confidence: confirmed ? 100 : 0,
       correlation: confirmed, evidenceFamilies: ['COZY_INTEGRITY'], invalidated,
+      ...(reason === 'CRC_ROLE_MISMATCH' && crcComparison ? {crcComparison} : {}),
       attestationSequence: BigInt(sequence).toString(16).padStart(16, '0') });
   } catch (_) { console.error('SECURITY_DETECTION_RECORD_FAILED'); }
 }
@@ -89,6 +90,14 @@ function RecordAttestation(row,stage,challenge,status,hardwareAttested=false){
  try{require('./peace.security-detections').RecordAttestation({row,stage,
   sequence:challenge.nhwChallenge.readBigUInt64LE(20).toString(16).padStart(16,'0'),
   status,hardwareAttested});}catch(_){console.error('SECURITY_ATTESTATION_RECORD_FAILED');}
+}
+function MitigationDecision(row,stage,action,args){
+ try{return require('./peace.desktop-mitigation-profiles')[action](...args);}
+ catch(error){
+  const entry=require('./peace.security-detection-catalog').Get(error.message);
+  if(entry?.sourceUnits.includes('peace.desktop-mitigation-profiles'))RecordFinding(row,stage,entry.id,{source:'peace.desktop-mitigation-profiles'});
+  throw error;
+ }
 }
 function VersionAtLeast(version, minimum) {
   if (typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) return false;
@@ -238,7 +247,7 @@ function Challenge(body) {
   if(body.deviceSignalsVersion!==undefined&&body.deviceSignalsVersion!==1)Fail('SECURITY_INPUT_INVALID',400);
   if(body.nhwVersion!==undefined&&(body.nhwVersion!==1))Fail('SECURITY_INPUT_INVALID',400);
   const row = Authenticate(body), policy = require('./peace.desktop-security-operations').EffectivePolicy(Policy(),RowArtifact(row,body.stage)), context = Context(row, body.stage);
-  const mitigationProfile=require('./peace.desktop-mitigation-profiles').Select(RowArtifact(row,body.stage),body.mitigationEnvironment,policy);
+  const mitigationProfile=MitigationDecision(row,body.stage,'Select',[RowArtifact(row,body.stage),body.mitigationEnvironment,policy]);
   Prune(); const rate = rates.get(context) || { count: 0, deadline: performance.now() + 60000 };
   if (++rate.count > 40 || pending.size >= 1024 || rates.size >= 4096 && !rates.has(context)) Fail('SECURITY_RATE_LIMIT', 429);
   if([...pending.values()].filter(x=>x.context===context&&x.intent===body.intent&&x.binding===body.binding).length>=2) Fail('SECURITY_OBSERVATION_BUSY',429);
@@ -340,9 +349,9 @@ function Submit(body) {
     RecordAttestation(row,body.stage,challenge,'REJECTED');
     throw error;
   }
-  require('./peace.desktop-mitigation-profiles').RequireCurrent(challenge.mitigationProfile,artifact);
+  MitigationDecision(row,body.stage,'RequireCurrent',[challenge.mitigationProfile,artifact]);
   const profileReason=require('./peace.desktop-mitigation-profiles').Check(challenge.mitigationProfile,value.mitigationDiagnostics);
-  if(profileReason)Fail(profileReason,403);
+  if(profileReason){RecordFinding(row,body.stage,profileReason,{source:'peace.desktop-mitigation-profiles',sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});Fail(profileReason,403);}
   const graphReason=require('../integrity/peace.measurement-plan-contract').GraphReason({own:{status:value.measurement},ownMeasurement:value.ownMeasurement},artifact,artifact?.ownMeasurementVersion>=2?require('./peace.desktop-security-operations').PointerGraphSlots(artifact):0);
   if(graphReason){
     Invalidate(row,body.stage,graphReason);
@@ -399,7 +408,7 @@ function Submit(body) {
 function RequireFresh(row, stage, intent, binding) {
   const artifact = RowArtifact(row, stage), policy = require('./peace.desktop-security-operations').EffectivePolicy(Policy(),artifact); RequireArtifact(artifact,{row,stage});
   Prune(); const item = decisions.get(Context(row, stage) + ':' + intent + ':' + binding);
-  require('./peace.desktop-mitigation-profiles').RequireCurrent(item?.mitigationProfile,artifact);
+  MitigationDecision(row,stage,'RequireCurrent',[item?.mitigationProfile,artifact]);
   let code = '';
   if (!item || item.revision !== policy.revision || item.operationsRevision!==require('./peace.desktop-security-operations').Revision()) code = 'SECURITY_FRESH_OBSERVATION_REQUIRED';
   else if (item.measurementComplete !== true) code = 'SECURITY_MEASUREMENT_INCOMPLETE';

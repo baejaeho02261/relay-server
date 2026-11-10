@@ -65,5 +65,29 @@ try{
    assert.equal(views.ForFlows([a.id,b.id]).totalCount,25);
   }finally{detections.MemberIndex=original;}
  });
+ check('Durable detection metadata reaches the actual member renderer with original names and actual CRC variants',()=>{
+  const dc=fixture.Device(),sc=fixture.Session(dc),c=Object.values(store.Load().flows).find(f=>f.sessionId===sc.sessionId);
+  members.Assign(body({kind:'FLOW',targetId:c.id,memberId:alice.id,expectedMemberId:''}),'TEST');
+  detections.RecordPath(c,'B','integrity',{sequence:h(1),tick:h(100),detections:[sample('dkProcess'),sample('dkSensorPressure')]},false);
+  detections.RecordServer({row:c,stage:'B',id:'CRC_ROLE_MISMATCH',source:'peace.desktop-security-authority',crcComparison:{signals:[{role:'crc32c',status:'MISMATCH'},{role:'ecma182',status:'MATCH'}]}});
+  const detail=members.Detail(alice.id,{category:'detections',pageSize:'100'}),rows=detail.categories.detections.items.filter(r=>r.flowId===c.id);
+  assert.equal(rows.length,3);
+  const process=rows.find(r=>r.detectionId==='dkProcess'),warning=rows.find(r=>r.detectionId==='dkSensorPressure'),crc=rows.find(r=>r.detectionId==='CRC_ROLE_MISMATCH');
+  assert.equal(process.displayName,'Process Detect');assert.equal(process.origin,'NHW');
+  assert.equal(warning.displayName,'Waring Detect');assert.match(warning.conditionLabel,/Sensor Pressure/);assert.equal(warning.signalClass,'UNKNOWN');
+  assert.equal(crc.origin,'COZY');assert.deepEqual(crc.algorithms,['CRC-32/ISCSI']);assert.equal(crc.displayName,'CRC-32/ISCSI Detect');
+  const {JSDOM}=require('jsdom'),dom=new JSDOM('<div id="content"></div>',{runScripts:'outside-only'}),window=dom.window;
+  window.content=window.document.getElementById('content');window.desktopDate=v=>String(v);
+  window.esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  require('node:vm').runInContext(fs.readFileSync(path.resolve(__dirname,'../../public/scripts/desktop/peace.admin-desktop-members.js'),'utf8'),dom.getInternalVMContext());
+  try{
+   window.content.innerHTML=window.desktopSecurityDetectionsMarkup(rows);
+   const text=window.content.textContent;
+   for(const name of ['Process Detect','Waring Detect','Sensor Pressure','CRC-32/ISCSI Detect','dkProcess','dkSensorPressure','CRC_ROLE_MISMATCH'])assert.ok(text.includes(name),name);
+   assert.ok(!text.includes('CRC-64/ECMA-182'),'A matching CRC must not be presented as a detection');
+   assert.ok(!text.includes('보안 사건 · 서버 기록'));
+   assert.ok(window.content.querySelectorAll('.desktop-security-detections details').length===3);
+  }finally{window.close();}
+ });
  console.log('SECURITY_DETECTION_VIEWS_PASS '+checks+' groups');
 }finally{bootstrap.Stop();require('../../services/observability/peace.desktop-performance-metrics').Close();require('../../storage/sqlite/peace.sqlite-database').Close();fs.rmSync(dir,{recursive:true,force:true});}

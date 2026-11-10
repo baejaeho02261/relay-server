@@ -129,6 +129,28 @@ async function test(name,fn){await fn();passed++;console.log('PASS '+name);}
 async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r;await delay(100);}throw Error('TEST_WAIT_TIMEOUT');}
 (async()=>{try{
  await start();let auth=await login(),viewer=await login('viewer');
+ await test('Production HTTP shell serves the current detection UI and matching script bundle',async()=>{
+  const expectedRevision='cozy-peace-v20-nhw-detections';
+  const headers={'X-Forwarded-Proto':'https',Cookie:auth.cookie};
+  async function asset(url,type){const r=await fetch(base+url,{headers,signal:AbortSignal.timeout(5000)});assert.equal(r.status,200,url);assert.match(r.headers.get('content-type')||'',type,url);assert.match(r.headers.get('cache-control')||'',/no-store/,url);return r.text();}
+  const html=await asset('/',/text\/html/);
+  const scripts=[...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map(x=>x[1]);
+  assert.ok(scripts.length>20,'The complete production shell must be served');
+  assert.ok(scripts.every(url=>url.endsWith('?v=5.0.2-'+expectedRevision)),'Mixed old/new script query versions');
+  const memberUrl=scripts.find(url=>url.startsWith('/scripts/desktop/peace.admin-desktop-members.js?'));
+  const workflowUrl=scripts.find(url=>url.startsWith('/scripts/desktop/peace.admin-desktop-workflow.js?'));
+  assert.ok(memberUrl&&workflowUrl);assert.ok(scripts.indexOf(memberUrl)<scripts.indexOf(workflowUrl));
+  const sources=await Promise.all(scripts.map(url=>asset(url,/(?:application|text)\/javascript/)));
+  for(let i=0;i<sources.length;i++)assert.equal(sources[i],fs.readFileSync(path.join(root,'public',scripts[i].split('?')[0]),'utf8'),scripts[i]);
+  const members=sources[scripts.indexOf(memberUrl)];
+  assert.match(members,/desktopMemberCategory\s*=\s*'detections'/);
+  assert.ok(members.includes('보안 감지 · 대응 경로'));
+  assert.ok(!members.includes('보안 사건 · 서버 기록'));
+  const sw=await asset('/peace.service-worker.js',/(?:application|text)\/javascript/);
+  assert.ok(sw.includes('relay-admin-shell-v5.0.2-'+expectedRevision));
+  const version=await call('/ui-version.json');
+  assert.equal(version.status,200);assert.equal(version.json.ready,true,JSON.stringify(version.json.issues));assert.equal(version.json.uiRevision,expectedRevision);
+ });
  const w='/api/desktop/workspace';let job,licenseIds=[];
  await test('New workspace routes require administrator authentication',async()=>{for(const p of ['/licenses','/summary','/jobs','/storage']){assert.equal((await call(w+p)).status,401);assert.equal((await call(w+p,undefined,viewer)).status,403);assert.equal((await call(w+p,undefined,auth)).status,200);}});
  await test('Product catalog is admin-only, read-only and has six explicit products per category',async()=>{const path='/api/desktop/products';assert.equal((await call(path)).status,401);assert.equal((await call(path,undefined,viewer)).status,403);const r=await call(path,undefined,auth);assert.equal(r.status,200);assert.equal(r.json.version,1);assert.equal(r.json.products.length,18);assert.equal(new Set(r.json.products.map(x=>x.id)).size,18);for(const category of ['cleaner','mobile','spoofer'])assert.equal(r.json.products.filter(x=>x.category===category).length,6);assert.equal((await call(path,{},auth)).status,405);});

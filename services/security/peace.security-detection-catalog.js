@@ -4,6 +4,39 @@
 // Semantic families are NOT independent acquisition roots. Unknown/unsupported/timeout
 // observations must never count as confirmed attacks. No raw PID/path/user values.
 function Freeze(row) { for (const value of Object.values(row)) if (Array.isArray(value)) { for(const item of value)if(item&&typeof item==='object'){if(Array.isArray(item.lines))Object.freeze(item.lines);Object.freeze(item);}Object.freeze(value); } return Object.freeze(row); }
+// FP1 has 204 state identities, 197 standalone output states and 194 printed
+// names. Internal evidence is never promoted to a standalone detection merely
+// because it arrived in an authenticated batch. Warnings retain their original
+// spelling without pretending that loss of coverage proves an attack.
+const INTERNAL_EVIDENCE = new Set(['dkNamespace','dkDeviceMap','dkAllocation','dkCommit','dkMemoryRelease','dkAllocationBurst','dkReadGap']);
+const WARING_OUTPUT = new Set(['dkETWLoss','dkCoverageGap','dkObservationUncertain','dkSensorPressure']);
+function NHWMetadata(row) {
+ const internal=INTERNAL_EVIDENCE.has(row.id),warning=row.signalClass==='UNKNOWN';
+ const displayName=internal?row.label.replace(/ Detect$/,' Evidence'):WARING_OUTPUT.has(row.id)?'Waring Detect':row.label;
+ if(row.id==='dkObservationUncertain')row.sourceUnits.push('Cozy.NHW.Handles','Cozy.NHW.Guard');
+ return Freeze({...row,label:displayName,displayName,origin:'NHW',conditionLabel:WARING_OUTPUT.has(row.id)?row.label:'',standaloneOutput:!internal,
+  observationClass:internal?'INTERNAL_EVIDENCE':warning?'COVERAGE_WARNING':'DETECTION',
+  sessionStopPolicy:internal?'OBSERVE_ONLY':warning?'STOP_ON_COVERAGE_WARNING':'STOP_ON_REPORTED_DETECTION'});
+}
+const COZY_NAMES={
+ IMAGE_DIGEST_MISMATCH:'Image Digest Detect',CODE_HASH_MISMATCH:'Code Hash Detect',FILE_HASH_MISMATCH:'File Hash Detect',
+ CODE_EXTENDED_HASH_MISMATCH:'Code Extended Hash Detect',FILE_EXTENDED_HASH_MISMATCH:'File Extended Hash Detect',
+ KNOWN_MODULE_CODE_MISMATCH:'Known Module Code Detect',REQUIRED_MODULE_CODE_MISMATCH:'Required Module Code Detect',
+ POINTER_GRAPH_MISMATCH:'API Pointer Graph Detect',RUNTIME_GRAPH_PROFILE_MISMATCH:'Runtime Object Graph Detect',
+ CRC_ROLE_MISMATCH:'CRC Detect',FILE_DIGEST_MISMATCH:'File Digest Detect',CODE_DIGEST_MISMATCH:'Code Digest Detect',
+ BOOTSTRAP_CODE_MISMATCH:'Bootstrap Code Detect',BOOTSTRAP_HASH_MISMATCH:'Bootstrap Hash Detect'
+};
+function CozyMetadata(row) {
+ if(row.id==='SECURITY_CFG_BUILD_REQUIRED')row.sourceUnits.push('peace.desktop-mitigation-profiles');
+ const name=COZY_NAMES[row.id]||row.id.split('_').map(word=>['API','CRC','TPM','NHW','CFG'].includes(word)?word:word[0]+word.slice(1).toLowerCase()).join(' ')+' Detect';
+ return Freeze({...row,displayName:name,origin:'COZY',conditionLabel:'',observationClass:row.signalClass==='UNKNOWN'?'UNAVAILABLE_OR_INCOMPLETE':row.signalClass==='MISMATCH'?'INTEGRITY_MISMATCH':'POLICY_REJECTION',sessionStopPolicy:'SERVER_DECISION'});
+}
+const MITIGATION_FINDINGS=['SECURITY_MITIGATION_PROFILE_UNEXPECTED','SECURITY_MITIGATION_PROFILE_MISMATCH','SECURITY_STRICT_HANDLES_UNAVAILABLE','SECURITY_IMAGE_POLICY_UNAVAILABLE','SECURITY_CFG_UNAVAILABLE','SECURITY_DYNAMIC_POLICY_UNAVAILABLE'].map(id=>({
+ id,label:id.replaceAll('_',' '),category:'MITIGATION_POLICY',sourceUnits:['peace.desktop-mitigation-profiles','peace.desktop-security-authority'],responsePaths:['Integrity'],evidenceFamilies:['MITIGATION_POLICY'],signalClass:id.endsWith('_UNAVAILABLE')?'UNKNOWN':'POLICY_REJECTION',sourceReferences:[{path:'services/security/peace.desktop-mitigation-profiles.js',lines:[82]}]
+}));
+const MITIGATION_RUNTIME_FINDINGS=['SECURITY_MITIGATION_PROFILE_RETIRED','SECURITY_MITIGATION_EVIDENCE_UNTRUSTED','SECURITY_MITIGATION_SIGNATURE_INVALID','SECURITY_MITIGATION_PROFILE_BINDING_REQUIRED','SECURITY_MITIGATION_ENVIRONMENT_REQUIRED','SECURITY_MITIGATION_ENVIRONMENT_UNVERIFIED','SECURITY_MITIGATION_PROFILE_AMBIGUOUS','SECURITY_MITIGATION_PROFILE_INVALID'].map(id=>({
+ id,label:id.replaceAll('_',' '),category:'MITIGATION_POLICY',sourceUnits:['peace.desktop-mitigation-profiles','peace.desktop-security-authority'],responsePaths:['Integrity'],evidenceFamilies:['MITIGATION_POLICY'],signalClass:id==='SECURITY_MITIGATION_PROFILE_INVALID'?'UNKNOWN':'POLICY_REJECTION',sourceReferences:[{path:'services/security/peace.desktop-mitigation-profiles.js',lines:[]}]
+}));
 const NHW = Object.freeze([
  {
   "id": "dkProcess",
@@ -36,9 +69,9 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3351,
-     3362,
-     3582
+     3357,
+     3368,
+     3589
     ]
    },
    {
@@ -92,9 +125,9 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3350,
-     3361,
-     3582
+     3356,
+     3367,
+     3589
     ]
    },
    {
@@ -145,8 +178,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3530,
-     3582
+     3536,
+     3589
     ]
    }
   ]
@@ -182,8 +215,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3356,
-     3583
+     3362,
+     3590
     ]
    },
    {
@@ -234,8 +267,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3354,
-     3583
+     3360,
+     3590
     ]
    }
   ]
@@ -275,7 +308,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3583
+     3590
     ]
    }
   ]
@@ -315,7 +348,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3583
+     3590
     ]
    }
   ]
@@ -356,7 +389,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3584
+     3591
     ]
    },
    {
@@ -402,7 +435,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     3584
+     3591
     ]
    }
   ]
@@ -2063,11 +2096,11 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1721,
-     1991,
-     2657,
-     2711,
-     2728
+     1710,
+     1980,
+     2648,
+     2702,
+     2719
     ]
    },
    {
@@ -2181,11 +2214,11 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1721,
-     1991,
-     2657,
-     2710,
-     2728
+     1710,
+     1980,
+     2648,
+     2701,
+     2719
     ]
    },
    {
@@ -3577,9 +3610,9 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1992,
-     2711,
-     2729
+     1981,
+     2702,
+     2720
     ]
    },
    {
@@ -5791,11 +5824,11 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1722,
-     1992,
-     2660,
-     2712,
-     2730
+     1711,
+     1981,
+     2651,
+     2703,
+     2721
     ]
    },
    {
@@ -5927,8 +5960,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1723,
-     2660
+     1712,
+     2651
     ]
    },
    {
@@ -6011,7 +6044,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1723
+     1712
     ]
    },
    {
@@ -6051,9 +6084,9 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1993,
-     2710,
-     2728
+     1982,
+     2701,
+     2719
     ]
    },
    {
@@ -6106,8 +6139,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1722,
-     2658
+     1711,
+     2649
     ]
    },
    {
@@ -6205,10 +6238,10 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1992,
-     2661,
-     2712,
-     2730
+     1981,
+     2652,
+     2703,
+     2721
     ]
    },
    {
@@ -6355,8 +6388,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1993,
-     2661
+     1982,
+     2652
     ]
    },
    {
@@ -6427,7 +6460,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1118
+     1123
     ]
    },
    {
@@ -6480,9 +6513,9 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1994,
-     2711,
-     2729
+     1983,
+     2702,
+     2720
     ]
    },
    {
@@ -6570,9 +6603,9 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     1993,
-     2712,
-     2729
+     1982,
+     2703,
+     2720
     ]
    },
    {
@@ -7239,7 +7272,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     2633
+     2624
     ]
    }
   ]
@@ -7553,8 +7586,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     2699,
-     2881
+     2690,
+     2872
     ]
    },
    {
@@ -7888,7 +7921,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     421
+     426
     ]
    },
    {
@@ -7907,7 +7940,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.KernelTrust.pas",
     "lines": [
-     497
+     494
     ]
    },
    {
@@ -7919,7 +7952,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     270
+     281
     ]
    },
    {
@@ -8065,7 +8098,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.KernelTrust.pas",
     "lines": [
-     498
+     495
     ]
    },
    {
@@ -8135,8 +8168,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.KernelTrust.pas",
     "lines": [
-     434,
-     537
+     431,
+     534
     ]
    },
    {
@@ -8215,7 +8248,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     423
+     428
     ]
    },
    {
@@ -8240,7 +8273,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     272
+     283
     ]
    },
    {
@@ -8307,7 +8340,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     422
+     427
     ]
    },
    {
@@ -8332,7 +8365,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     271
+     282
     ]
    },
    {
@@ -8396,8 +8429,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.KernelTrust.pas",
     "lines": [
-     499,
-     539
+     496,
+     536
     ]
    },
    {
@@ -8469,7 +8502,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     422
+     427
     ]
    },
    {
@@ -8488,8 +8521,8 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.KernelTrust.pas",
     "lines": [
-     524,
-     538
+     521,
+     535
     ]
    },
    {
@@ -8501,7 +8534,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     271
+     282
     ]
    },
    {
@@ -8620,7 +8653,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.KernelTrust.pas",
     "lines": [
-     540
+     537
     ]
    },
    {
@@ -8679,7 +8712,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     421
+     426
     ]
    },
    {
@@ -8704,7 +8737,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     270
+     281
     ]
    },
    {
@@ -8804,7 +8837,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     423
+     428
     ]
    },
    {
@@ -8823,7 +8856,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     272
+     283
     ]
    },
    {
@@ -8883,7 +8916,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     422
+     427
     ]
    },
    {
@@ -8908,7 +8941,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     271
+     282
     ]
    },
    {
@@ -8967,7 +9000,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas",
     "lines": [
-     423
+     428
     ]
    },
    {
@@ -8986,7 +9019,7 @@ const NHW = Object.freeze([
    {
     "path": "Cozy.Source/Cozy.Security.NHW/Cozy.NHW.ResponseTransport.pas",
     "lines": [
-     272
+     283
     ]
    },
    {
@@ -9116,7 +9149,7 @@ const NHW = Object.freeze([
    }
   ]
  }
-].map(Freeze));
+].map(NHWMetadata));
 const COZY = Object.freeze([
  {
   "id": "IMAGE_DIGEST_MISMATCH",
@@ -9137,7 +9170,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     286
+     295
     ]
    }
   ]
@@ -9161,7 +9194,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     273
+     274
     ]
    }
   ]
@@ -9185,7 +9218,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     273
+     274
     ]
    }
   ]
@@ -9209,7 +9242,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     273
+     274
     ]
    }
   ]
@@ -9233,7 +9266,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     273
+     274
     ]
    }
   ]
@@ -9257,8 +9290,8 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     192,
-     282
+     193,
+     283
     ]
    }
   ]
@@ -9282,7 +9315,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     368
+     369
     ]
    }
   ]
@@ -9378,7 +9411,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     95
+     96
     ]
    },
    {
@@ -9408,11 +9441,11 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     89,
-     96,
-     273,
-     365,
-     368
+     90,
+     97,
+     274,
+     366,
+     369
     ]
    },
    {
@@ -9450,9 +9483,9 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     89,
-     365,
-     368
+     90,
+     366,
+     369
     ]
    },
    {
@@ -9488,9 +9521,9 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     89,
-     365,
-     368
+     90,
+     366,
+     369
     ]
    },
    {
@@ -9526,9 +9559,9 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     89,
-     365,
-     368
+     90,
+     366,
+     369
     ]
    },
    {
@@ -9564,9 +9597,9 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     89,
-     365,
-     368
+     90,
+     366,
+     369
     ]
    },
    {
@@ -9602,7 +9635,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     273
+     274
     ]
    }
   ]
@@ -9650,7 +9683,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     284
+     293
     ]
    }
   ]
@@ -9674,7 +9707,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     122
+     131
     ]
    },
    {
@@ -9728,14 +9761,14 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     273
+     274
     ]
    },
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     123,
-     289
+     132,
+     298
     ]
    }
   ]
@@ -9759,7 +9792,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     290
+     299
     ]
    }
   ]
@@ -9783,7 +9816,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     292
+     301
     ]
    }
   ]
@@ -9807,7 +9840,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     293
+     302
     ]
    }
   ]
@@ -9831,7 +9864,6 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-operations.js",
     "lines": [
-     98,
      112
     ]
    }
@@ -10060,7 +10092,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     352
+     353
     ]
    }
   ]
@@ -10084,8 +10116,8 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     353,
-     380
+     354,
+     381
     ]
    }
   ]
@@ -10109,7 +10141,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     357
+     358
     ]
    }
   ]
@@ -10133,9 +10165,9 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     201,
-     349,
-     360
+     202,
+     350,
+     361
     ]
    }
   ]
@@ -10159,7 +10191,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     380
+     381
     ]
    }
   ]
@@ -10183,7 +10215,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     380
+     381
     ]
    }
   ]
@@ -10207,7 +10239,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     380
+     381
     ]
    }
   ]
@@ -10231,7 +10263,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     365
+     366
     ]
    }
   ]
@@ -10255,7 +10287,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     365
+     366
     ]
    }
   ]
@@ -10279,7 +10311,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     365
+     366
     ]
    }
   ]
@@ -10303,8 +10335,8 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     217,
-     366
+     218,
+     367
     ]
    }
   ]
@@ -10328,7 +10360,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     367
+     368
     ]
    }
   ]
@@ -10352,7 +10384,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     368
+     369
     ]
    }
   ]
@@ -10376,7 +10408,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     368
+     369
     ]
    }
   ]
@@ -10400,7 +10432,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     368
+     369
     ]
    }
   ]
@@ -10424,7 +10456,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     368
+     369
     ]
    }
   ]
@@ -10448,7 +10480,7 @@ const COZY = Object.freeze([
    {
     "path": "services/integrity/peace.desktop-integrity-reports.js",
     "lines": [
-     217
+     218
     ]
    }
   ]
@@ -10521,8 +10553,8 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     404,
-     416
+     413,
+     425
     ]
    }
   ]
@@ -10547,7 +10579,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     405
+     414
     ]
    }
   ]
@@ -10572,7 +10604,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     407
+     416
     ]
    }
   ]
@@ -10597,7 +10629,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     357
+     366
     ]
    }
   ]
@@ -10622,7 +10654,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     406
+     415
     ]
    }
   ]
@@ -10646,7 +10678,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     111
+     120
     ]
    },
    {
@@ -10678,7 +10710,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     112
+     121
     ]
    }
   ]
@@ -10702,7 +10734,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     113
+     122
     ]
    }
   ]
@@ -10726,7 +10758,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     114
+     123
     ]
    }
   ]
@@ -10750,7 +10782,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     115
+     124
     ]
    }
   ]
@@ -10774,7 +10806,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     116
+     125
     ]
    },
    {
@@ -10805,7 +10837,7 @@ const COZY = Object.freeze([
    {
     "path": "services/security/peace.desktop-security-authority.js",
     "lines": [
-     117
+     126
     ]
    },
    {
@@ -11794,9 +11826,9 @@ const COZY = Object.freeze([
    }
   ]
  }
-].map(Freeze));
+].concat(MITIGATION_FINDINGS,MITIGATION_RUNTIME_FINDINGS).map(CozyMetadata));
 const byId = new Map([...NHW, ...COZY].map(row => [row.id, row]));
 function Get(id) { return typeof id === 'string' ? byId.get(id) || null : null; }
 function ResolveNHWOrdinal(ordinal) { return Number.isInteger(ordinal) && ordinal >= 0 && ordinal < NHW.length ? NHW[ordinal] : null; }
-const Counts = Object.freeze({nhw: NHW.length, cozy: COZY.length});
+const Counts = Object.freeze({nhw: NHW.length, cozy: COZY.length,nhwStandalone:NHW.filter(row=>row.standaloneOutput).length,nhwOutputNames:new Set(NHW.filter(row=>row.standaloneOutput).map(row=>row.displayName)).size,nhwInternalEvidence:INTERNAL_EVIDENCE.size});
 module.exports = {NHW, COZY, Get, Find:Get, ResolveNHWOrdinal, Counts, nhwDetections:NHW, cozyDetections:COZY};

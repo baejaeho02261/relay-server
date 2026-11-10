@@ -39,7 +39,7 @@ function assertPath(name,map=bodies){
  assert.ok(submit.includes('if FPendingBody = nil then'));
  assert.ok(submit.includes("Answer := FTransport.PostJSON('security', FPendingBody, 3000)"));
  assert.ok(submit.includes("Answer.GetValue('error').Value = 'SECURITY_CHALLENGE_INVALID'"));
- assert.ok(submit.includes('FPendingEvent.Tick := WinTick64'));
+ assert.ok(submit.includes('FPendingEvent.Tick := ObserverClockTick'));
  assert.doesNotMatch(submit,/FPendingBatch\s*:=|Records\[[^\]]+\]\.(?:FirstTick|LastTick)\s*:=/);
 }
 for(const name of channels)test(name+' has its own complete challenge/sign/send/ACK control path',()=>assertPath(name));
@@ -56,4 +56,55 @@ test('removing one submission control body leaves the other two complete source 
   assert.throws(()=>assertPath(disabled,changed));
   for(const surviving of channels.filter(x=>x!==disabled))assertPath(surviving,changed);
  }
+});
+const authorityBodies=methods(fs.readFileSync(path.join(path.dirname(file),'Cozy.NHW.Authority.pas'),'utf8'));
+function assertBoundedDrain(map=bodies,authority=authorityBodies){
+ const own=name=>get('TCozyNHWResponseChannel.'+name,map);
+ assert.match(own('WakeForFlush'),/TInterlocked\.Exchange\(FDraining, 1\)/);
+ assert.match(own('WakeForFlush'),/TInterlocked\.Exchange\(FFlush, 1\)/);
+ assert.match(own('EndFlush'),/TInterlocked\.Exchange\(FDraining, 0\)/);
+ const prepare=own('PrepareBatch');
+ assert.match(prepare,/FlushRequested\s*:=\s*TInterlocked\.Exchange\(FFlush, 0\)\s*<>\s*0/);
+ assert.match(prepare,/FLastAttempt\s*<>\s*0[\s\S]*not FlushRequested[\s\S]*ObserverClockTick\s*-\s*FLastAttempt\s*<\s*1000[\s\S]*then Exit/);
+ assert.doesNotMatch(prepare,/FDraining/); // No flush-wide retry bypass.
+ assert.match(prepare,/if Result then FLastAttempt\s*:=\s*ObserverClockTick/);
+ let resets=0;
+ for(const [name,body] of map){
+  const count=(body.match(/FLastAttempt\s*:=\s*0/g)||[]).length;
+  if(count)assert.ok(channels.some(channel=>name==='TCozyNHWResponseChannel.'+channel+'Step'));
+  resets+=count;
+ }
+ assert.equal(resets,3);
+ for(const channel of channels){
+  const step=own(channel+'Step'),submit=step.indexOf('Submit'+channel+'(FPendingEvent');
+  const acknowledge=step.indexOf('AcknowledgeDetectionBatch(rpc'+channel),clear=step.indexOf('ClearPending;',acknowledge),reset=step.indexOf('FLastAttempt := 0');
+  assert.ok(submit>=0&&acknowledge>submit&&clear>acknowledge&&reset>clear,channel);
+  assert.match(step.slice(clear,reset+20),/if TInterlocked\.CompareExchange\(FDraining, 0, 0\)\s*<>\s*0 then FLastAttempt\s*:=\s*0/);
+  assert.ok(step.indexOf('finally',reset)>reset);
+  assert.doesNotMatch(step,/\bexcept\b/); // Failed submit cannot fall through to progress/reset.
+  assert.match(get('T'+channel+'Worker.Execute',map),new RegExp('try FOwner\\.'+channel+'Step; except[\\s\\S]*?end;\\s*if not FOwner\\.Wait then Exit;'));
+ }
+ assert.match(own('Wait'),/FWake\.WaitFor\(50\)/);
+ const drain=get('TCozyNHWAuthority.FlushSecurityReports',authority);
+ assert.match(drain,/if TimeoutMS\s*>\s*7000 then TimeoutMS\s*:=\s*7000/);
+ assert.match(drain,/try[\s\S]*ObserverClockTick\s*-\s*Started\s*>=\s*TimeoutMS[\s\S]*finally[\s\S]*FResponses\[Channel\]\.EndFlush/);
+}
+test('bounded drain advances acknowledged batches, retains failure backoff and always exits drain mode',()=>{
+ assertBoundedDrain();
+ const journal=fs.readFileSync(path.join(path.dirname(file),'Cozy.NHW.DetectionJournal.pas'),'utf8');
+ assert.match(code(journal),/NHWDetectionBatchCapacity\s*=\s*32/);
+});
+test('a global retry bypass, premature progress reset or missing drain cleanup is detected',()=>{
+ const bypass=new Map(bodies),prepare='TCozyNHWResponseChannel.PrepareBatch';
+ bypass.set(prepare,get(prepare).replace('not FlushRequested','not FlushRequested and (FDraining = 0)'));
+ assert.throws(()=>assertBoundedDrain(bypass));
+ for(const channel of channels){
+  const changed=new Map(bodies),name='TCozyNHWResponseChannel.'+channel+'Step',body=get(name);
+  const reset='if TInterlocked.CompareExchange(FDraining, 0, 0) <> 0 then FLastAttempt := 0;';
+  changed.set(name,body.replace(reset,'').replace('Submit'+channel+'(FPendingEvent',reset+' Submit'+channel+'(FPendingEvent'));
+  assert.throws(()=>assertBoundedDrain(changed));
+ }
+ const noCleanup=new Map(authorityBodies),name='TCozyNHWAuthority.FlushSecurityReports';
+ noCleanup.set(name,get(name,authorityBodies).replace('FResponses[Channel].EndFlush','FResponses[Channel].HasPending'));
+ assert.throws(()=>assertBoundedDrain(bodies,noCleanup));
 });

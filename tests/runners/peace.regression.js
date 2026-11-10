@@ -11,6 +11,7 @@ const checks = [
   ["security/peace.test-security-detection-catalog.js"],
   ["security/peace.test-security-detections.js"],
   ["security/peace.test-nhw-response-paths.js"],
+  ["runtime/peace.test-nhw-pending-recovery.js"],
   ["security/peace.test-nhw-tpm-quote.js"],
   ["web/peace.test-security-detection-views.js"],
   ["runtime/peace.test-nhw-validation-gate.js"],

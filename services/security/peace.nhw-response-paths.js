@@ -1,6 +1,6 @@
 'use strict';
 // Each path has its own challenge, replay window, signed purpose and receipts.
-// Only independently delivered confirmed votes can stop the exact caller cohort.
+// Each independently delivered named detection can stop the exact caller cohort.
 // Client reports are not a hardware observation or a license/lease grant.
 const crypto = require('node:crypto');
 const deadline = require('../runtime/peace.desktop-deadline');
@@ -97,35 +97,37 @@ function Submit(body, channel) {
       !proof.Verify(row.publicKey,Canonical(body,challenge,channel),body.signature)) Fail('SECURITY_SIGNATURE_INVALID',401);
   state.pending.delete(body.challengeId);
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID',401);
-  detections.CheckOrder(row,body.stage,channel,value);
-  if(value.version===2) detections.CheckCounters(row,body.stage,channel,value.detections);
+  const recovered=detections.RecoverBatch(row,body.stage,channel,value);
+  if(!recovered){
+    detections.CheckOrder(row,body.stage,channel,value);
+    if(value.version===2) detections.CheckCounters(row,body.stage,channel,value.detections);
+  }
   const previous=state.order.get(context),previousVote=state.votes.get(context);
-  if (previous && (BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
+  if (!recovered && previous && (BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
   if (!previous && state.order.size>=4096) Fail('SECURITY_CAPACITY',503);
-  state.order.set(context,{sequence:BigInt('0x'+value.sequence),tick:BigInt('0x'+value.tick)});
+  state.order.set(context,{sequence:BigInt('0x'+value.sequence),tick:BigInt('0x'+(recovered?.tick||value.tick))});
   // v1 is retained only for deployed pre-catalog clients. v2 final policy is
   // computed here from actual named evidence, not the client confirmed bit.
-  const confirmed=value.version===1?value.confirmed:value.trust===3&&detections.CorrelatedVote(value.detections,value.tick);
+  const confirmed=value.version===1&&value.confirmed;
   if (confirmed) state.votes.set(context,{digest:value.digest,ids:value.version===2?detections.QualifiedIds(value.detections,value.tick):[],...deadline.After(90000)});
   else state.votes.delete(context);
   const voteMask=channels.reduce((mask,name,i)=>mask|(states.get(name).votes.has(context)?1<<i:0),0);
   const terminal=detections.TerminalAllowed(row,body.stage);
   if(terminal&&value.version!==2)Fail('SECURITY_NHW_RESPONSE_INVALID');
-  const stopped=terminal||value.version===2&&channel==='integrity'&&detections.UserModeVote(value.detections,value.tick)||(voteMask===3||voteMask===5||voteMask===6||voteMask===7);
+  const decision=value.version===2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value)):null;
+  const stopped=terminal||!!decision||(value.version===1&&(voteMask===3||voteMask===5||voteMask===6||voteMask===7));
   const response={version:1,channel,sequence:value.sequence,digest:value.digest,epoch:challenge.epoch,
     accepted:true,stopped,scope:'OWNED_A_B_O',attested:false};
-  const contributors=channels.map(name=>({channel:name,ids:states.get(name).votes.get(context)?.ids||[]}));
-  if(value.version===2&&channel==='integrity'&&detections.UserModeVote(value.detections,value.tick))contributors.find(x=>x.channel===channel).ids=detections.QualifiedIds(value.detections,value.tick);
-  const reasonIds=[...new Set(contributors.flatMap(x=>x.ids))];
+  const contributors=decision?[{channel,keys:decision.keys}]:[];
   // Persist every accepted observation, including local-only/unsupported
   // evidence. Persistence also keeps producer high-watermarks across restart.
   // A telemetry failure cannot bypass an already-made exact-cohort decision.
   let recordError;
-  try { detections.RecordPath(row,body.stage,channel,value); } catch(error) { recordError=error; }
+  try { if(!recovered)detections.RecordPath(row,body.stage,channel,value,terminal?null:decision); } catch(error) { recordError=error; }
   if (stopped&&!terminal) {
     // Existing revoke follows exact stored parent/child links, never a caller
     // supplied target ID, and retires the whole authorized cohort.
-    const reason=reasonIds.length?('NHW_CORRELATED:'+reasonIds.join(',')).slice(0,300):'SECURITY_SESSION_STOP';
+    const reason=decision?.reason||'SECURITY_SESSION_STOP';
     require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
     if(value.version===2) detections.CommitInvalidation(row,body.stage,contributors,reason);
   }

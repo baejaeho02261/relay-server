@@ -111,8 +111,8 @@ check('O uses its own activated key and ends only its authenticated A/B/O cohort
  fixture.Enroll(device,current.ctx);
  const r=request(current,'trust',kernelV2());
  reject(()=>authority.Execute({...r.submit,signature:fixture.Sign(parent.device,paths.Canonical(r.submit,r.c,'trust'))}),'SECURITY_SIGNATURE_INVALID');
- assert.equal(authority.Execute(r.submit).stopped,false);assert.equal(send(current,'driver',kernelV2()).stopped,true);
- const events=require('../../services/security/peace.security-detections').ForFlow(row(parent).id);assert.equal(events.length,4);assert.ok(events.every(e=>e.role==='O'&&e.invalidated));
+ assert.equal(authority.Execute(r.submit).stopped,true);assert.equal(send(current,'driver',kernelV2()).stopped,true);
+ const events=require('../../services/security/peace.security-detections').ForFlow(row(parent).id);assert.equal(events.length,4);assert.ok(events.every(e=>e.role==='O'));assert.equal(events.filter(e=>e.invalidated).length,2);assert.equal(events.filter(e=>e.responsePath==='driver'&&e.invalidated).length,0);
  assert.equal(boot.Initialize().overlays[prepared.overlayId].status,'REVOKED');assert.equal(row(parent).status,'REVOKED');assert.equal(row(foreign).status,'CLAIMED');
 });
 check('A signed channel payload cannot substitute a different epoch or hash',()=>{
