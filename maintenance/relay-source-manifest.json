@@ -301,7 +301,7 @@
     "services/security/peace.release-audit-runner.js": "0b53bb71e9ff8fdd2205b41f892ed803e34d5a573d0115ac50c7100412cc9af0662a11a0994cad6a7555743792c75133c2731e487e66784f6b4ee5ea86fbbde3",
     "services/security/peace.release-readiness-worker.js": "f765a2ace214613ba83b6c88cdb830f18250c93574d4b167d016e1af5ff58b1df4251f2cf474bec39f9a61c1e390509b49a3d23d338a3f16225899fe715d823b",
     "services/security/peace.release-readiness.js": "1870a4e85402b0143224f6dad96aac564a2d7e02299653abcf625774043cba5bc147a9c48050618d376985ec8f79641fd3d70662c43cb6bdd6b0e93ceb91d9c7",
-    "services/security/peace.security-context-policy.js": "8efe1ce8f64e782d11a473f17891971cc46b78a123e65303d96ba483d5d66b6b9c97b995c100b21dd45479dde07377931735f5cb6f91207443c4689a19ff0557",
+    "services/security/peace.security-context-policy.js": "9b9025e7355b9a1674c1a56bec9922f4d2157811894364847c6694917c53c16c9b5760c62eb40879acd9bb55cfca4632007265826b768eff6a20e7b9f25080b2",
     "services/security/peace.security-dashboard.js": "6b89d98bd2e5c5ed0746c86dd23a416e79d91d5c6b7f233bfa93ba52d217f902d0b269cdadb48af511bfd025172de4bae146ec008a4582933d8f3c04eb2fa7af",
     "services/security/peace.security-detection-catalog.js": "bcd96174214243f53f724ed9c06ace2f706da0802ff0194e467fad244316772ea515c48b7d1762b30081388a924bf77533038630e961dd98970ae29da61af335",
     "services/security/peace.security-detection.js": "349262a0bdffbcad726960d40c01efb5907a444a177cfb963ebd85c755cc1d9c08052847a30d8392364ec93e6136afb6f732ce1e2f8a931ca86ab5f2e14d5721",
