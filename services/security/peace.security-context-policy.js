@@ -133,7 +133,7 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
    context.serverBound===true&&context.sameSession===true&&
    !context.contextMixed&&r.localOnly===true&&r.correlation===false&&
    !corroborated;
- if(isolatedStartupToken)return {...base,disposition:'EXPECTED_FIRST_PARTY',
+ if(isolatedStartupToken)return {...base,disposition:'OBSERVATION_UNRESOLVED',
    decisionReason:'SERVER_BOUND_STARTUP_TOKEN_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
  // V1-V4 preserve their existing correlation/typed-evidence rules. Beginning
