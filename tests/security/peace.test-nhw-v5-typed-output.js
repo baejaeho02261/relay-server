@@ -65,6 +65,7 @@ test('V5 self baseline token delta never escalates alone but unbound or corrobor
    capabilityDecision:'FORBIDDEN',serverBound:true,firstPartyAttested:true,
    sameSession:true,contextMixed:false};
   assert.equal(verdict(entry,r,5,own).stop,false,id+' verified startup');
+  assert.equal(verdict(entry,r,5,own).disposition,'OBSERVATION_UNRESOLVED',id+' does not claim a capability grant');
   assert.equal(verdict(entry,r,5,{...own,serverBound:false}).stop,true,id+' unbound claim');
   assert.equal(verdict(entry,r,5,{...own,baseline:false}).stop,true,id+' post-baseline');
   assert.equal(verdict(entry,r,5,{...own,sameSession:false}).stop,true,id+' foreign session');
