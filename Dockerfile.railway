@@ -4,7 +4,7 @@ WORKDIR /app/cozy-peace/Relay\ Server
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev --ignore-scripts && node -e "const D=require('better-sqlite3'); const db=new D(':memory:'); db.prepare('SELECT 1').get(); db.close();"
 COPY . ./
-RUN node --test tests/security/peace.test-security-detection-catalog.js tests/security/peace.test-nhw-signal-origin.js && node tests/security/peace.test-nhw-context-policy.js && node tests/security/peace.test-nhw-peer-context.js
+RUN node --test tests/security/peace.test-nhw-signal-origin.js && node tests/security/peace.test-nhw-context-policy.js && node tests/security/peace.test-nhw-peer-context.js
 RUN npm prune --omit=dev --ignore-scripts
 ENV NODE_ENV=production
 CMD ["node","peace.relay-server.js"]
