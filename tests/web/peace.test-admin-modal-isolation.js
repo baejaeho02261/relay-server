@@ -12,5 +12,10 @@ vm.runInContext(fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../public/script
  assert.equal(d.getElementById('draft'),draft);assert.equal(d.getElementById('modal').inert,true);
  const secret=d.querySelector('[data-modal-field="secret"]');d.querySelector('[data-modal-cancel]').click();assert.equal(await child,null);assert.equal(secret.value,'');assert.equal(d.getElementById('modal').inert,false);assert.equal(owner(),true);draft.click();assert.equal(clicks,1);
  const second=w.openModal({isolated:true,fields:[{name:'secret',type:'password'}]});w.closeAdminModals();assert.equal(await second,null);assert.equal(await parent,null);assert.equal(owner(),false);assert.equal(d.querySelector('.modal-isolated'),null);
+ const failed=d.createElement('section');d.body.append(failed);
+ w.displayAdminModalRenderFailure(failed,new Error('synthetic render failure'));
+ assert.match(failed.textContent,/운영 화면을 표시하지 못했습니다/);
+ assert.match(failed.textContent,/ADMIN_VIEW_RENDER_ERROR/);
+ assert.equal(failed.querySelector('[role="alert"]')!==null,true);
  console.log('PASS Reauthentication preserves parent form/handlers; cancellation wipes input; logout closes both promises and invalidates owner.');
 }finally{dom.window.close()}})().catch(e=>{console.error(e);process.exitCode=1});

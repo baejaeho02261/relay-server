@@ -23,6 +23,6 @@ async function showDesktopSecurityCenter(){
    else if(action==='fuzz-report')download(state.parserTests,'parser-fuzz-report.json');else if(action==='scan-report')download(state.artifactScan,'artifact-exposure-report.json');
    if(live())q('security-center-message').textContent='요청을 처리했습니다. RUNNING은 아직 완료가 아닙니다.';
   }catch(error){if(live())q('security-center-message').textContent=error.message;}finally{busy=false;}}
- root.addEventListener('click',act);render();poll=setInterval(()=>{if(live()&&!busy&&!document.hidden&&(state.parserTests?.status==='RUNNING'||state.artifactScan?.status==='RUNNING')){busy=true;refresh().catch(e=>{if(live())q('security-center-message').textContent=e.message;}).finally(()=>busy=false);}},3000);
+ root.addEventListener('click',act);try { render(); } catch(error) { displayAdminModalRenderFailure(root,error); }poll=setInterval(()=>{if(live()&&!busy&&!document.hidden&&(state.parserTests?.status==='RUNNING'||state.artifactScan?.status==='RUNNING')){busy=true;refresh().catch(e=>{if(live())q('security-center-message').textContent=e.message;}).finally(()=>busy=false);}},3000);
  try{await done;}finally{closed=true;clearInterval(poll);root.removeEventListener('click',act);state=null;candidates=[];}
 }

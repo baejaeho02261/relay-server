@@ -377,8 +377,10 @@ async function showDesktopSecurityOperations(initialPair=null) {
       if(alive()){node('sec-enable-all-button').disabled=!activationPreview?.ready;node('sec-activate').disabled=!publishReady();updatePolicyApplyState();}
     }
   });
-  render();
-  if(initialPair&&node('sec-a'))node('sec-a').closest('details').open=true;
+  try {
+    render();
+    if(initialPair&&node('sec-a'))node('sec-a').closest('details').open=true;
+  } catch(error) { displayAdminModalRenderFailure(root,error); }
   try{await done;}finally{closed=true;issuedKeys=null;recoveryPreview=null;recoveryDraft='';recoveryRequestId='';data=null;activationState=null;activationPreview=null;policyPreview='';policyPreviewResult=null;pairPreview=null;rolloutPreview='';if(root.isConnected)root.replaceChildren();}
   if(nextPanel==='release-safety'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopReleaseSafety();
   if(nextPanel==='web-reset'&&roleIsAdmin()&&session?.csrf===owner)await showDesktopWebReset();

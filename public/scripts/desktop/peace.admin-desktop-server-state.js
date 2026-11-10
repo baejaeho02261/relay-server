@@ -129,7 +129,7 @@ async function showDesktopServerState(){
    <p class="small-note">최대 64KiB. 검증 이력에서 대상을 선택하여 결과를 확인하세요. 게시 승인을 만들지 않습니다.</p></details>
    <details open><summary>A/B/O 종료 · 파일 정리 추적</summary><div id="server-lifecycle-panel">${lifecycleMarkup()}</div></details>
    <details open><summary>장기 운영 성능 · 갱신 · 포화 · 종료 지연</summary><div id="server-performance-panel">${performanceMarkup()}</div></details>
-   <details open><summary>복구 세대 · 외부 최신 상태 증거</summary><div class="kv"><div>복구 세대</div><div>${status.epoch}</div><div>외부 증거</div><div>${esc(status.witness.status)}</div><div>미보충 감사</div><div>${status.auditPending}</div><div>오프라인 무기한 승인</div><div>허용하지 않음</div></div>
+   <details open><summary>복구 세대 · 외부 최신 상태 증거</summary><div class="kv"><div>복구 세대</div><div>${status.epoch}</div><div>외부 증거</div><div>${esc(status.witness?.status||'NOT_CONFIGURED')}</div><div>미보충 감사</div><div>${status.auditPending}</div><div>오프라인 무기한 승인</div><div>허용하지 않음</div></div>
    <p class="small-note">NOT_CONFIGURED이면 전체 과거 DATA_DIR 복원을 탐지한다고 볼 수 없습니다. 별도 백업 범위·저장장치에 증거를 일회 등록하고 서버의 REQUIRED 설정을 켜야 합니다. 증거까지 함께 복원하면 이 보장이 없어집니다.</p>
    <label>복구 사유<select id="server-recovery-reason"><option value="BACKUP_RESTORE">백업 복원</option><option value="SECURITY_INCIDENT">침해 대응</option><option value="CREDENTIAL_ROTATION">자격증명 변경</option><option value="RECOVERY_DRILL">복구 훈련</option></select></label>
    <label><input id="server-recovery-confirm" type="checkbox"> 현재 A/B/O 및 관리자 세션 폐기를 확인합니다. 이미 사용한 라이선스를 복원하지 않습니다.</label>${button('recover','복구 세대 증가 · 구 세션 폐기')}
@@ -143,7 +143,7 @@ async function showDesktopServerState(){
    <details><summary>매 실행 기기 연결 승인 · 서버 정책 연결 A</summary><p class="small-note">새 A의 키 소유 증명 요청을 조회하고 외부에서 확인한 고객·기기만 승인합니다. 키 소유 증명은 고객 신원 또는 TPM 증명이 아니며 자동 승인하지 않습니다.</p>${button('first-device-approval','이번 A 실행 승인 요청 열기')}</details>
    <details><summary>장치 식별 · 앱 키 소유 증명</summary><p class="small-note">LEGACY_PC_HASH_V1 식별은 유지합니다. APP_KEY_POSSESSION은 현재 앱 키의 서명 증명이며 TPM 증명이 아닙니다. 상세 키 증명은 30일 후 정리하지만 폐기 tombstone은 유지합니다.</p>
    <pre class="desktop-security-result">${esc(JSON.stringify(devices,null,2))}</pre>
-   <label>폐기할 기존 장치<select id="server-device-old"><option value="">장치 선택</option>${devices.items.filter(x=>x.status==='REGISTERED').map(x=>`<option value="${esc(x.id)}">${esc(x.id)}</option>`).join('')}</select></label>
+   <label>폐기할 기존 장치<select id="server-device-old"><option value="">장치 선택</option>${(Array.isArray(devices?.items)?devices.items:[]).filter(x=>x.status==='REGISTERED').map(x=>`<option value="${esc(x.id)}">${esc(x.id)}</option>`).join('')}</select></label>
    <label>새 PC 식별 해시 (64자리)<input id="server-device-new" maxlength="64" autocomplete="off" spellcheck="false"></label>
    <label>교체 사유<select id="server-device-reason"><option value="MAINBOARD_REPLACED">메인보드 교체</option><option value="TPM_RESET">TPM 초기화</option><option value="WINDOWS_REINSTALLED">Windows 재설치</option><option value="ADMIN_RECOVERY">관리자 복구</option></select></label>
    <label><input id="server-device-confirm" type="checkbox"> 기존 장치를 폐기하고 새 장치는 별도 인증합니다. 라이선스는 자동 이월하지 않습니다.</label>${button('replace','서버 장치 교체 등록')}</details>
@@ -160,7 +160,7 @@ async function showDesktopServerState(){
    <details><summary>참조 없는 서버 파일 · 격리</summary><p class="small-note">활성 A/B/O를 종료한 뒤 서버의 배포 파일만 확인합니다. 참조·해시가 일치하는 파일을 격리하며 삭제는 별도 승인과 격리 후 7일 경과가 필요합니다. PC 파일이나 임의 경로는 처리하지 않습니다.</p>
    <div class="actions">${button('scan','고아 파일 검사')}${button('scan-next','다음 검사 구간',!nextAfter)}</div>
    ${candidates.map((x,i)=>`<div><code>${esc(x.name)}</code> ${x.eligible?button('quarantine-'+i,'격리'):'읽기/경로 검사 실패'}</div>`).join('')}
-   <h4>격리 기록</h4>${quarantine.items.map((x,i)=>`<div><code>${esc(x.name)}</code> ${esc(x.status)} ${button('delete-'+i,'유예 완료 파일 삭제',!x.deleteEligible)}</div>`).join('')||'<p>격리된 파일이 없습니다.</p>'}</details>`;
+   <h4>격리 기록</h4>${(Array.isArray(quarantine?.items)?quarantine.items:[]).map((x,i)=>`<div><code>${esc(x.name)}</code> ${esc(x.status)} ${button('delete-'+i,'유예 완료 파일 삭제',!x.deleteEligible)}</div>`).join('')||'<p>격리된 파일이 없습니다.</p>'}</details>`;
  }
  async function reload(){const values=await Promise.all([api(base),api(base+'/devices'),api(base+'/quarantine'),api(base+'/device-identity')]);if(alive()){[status,devices,quarantine,identity]=values;render();}}
  root.addEventListener('change',e=>{if(!alive())return;if(e.target.id==='server-verification-build'){selectedBuild=e.target.value;selectedReport='';refreshCapabilities();return;}if(e.target.id==='server-verification-history'){selectedReport=e.target.value;refreshCapabilities();return;}if(e.target.id==='server-lifecycle-flow'){selectedFlow=e.target.value;refreshLifecycle();return;}if(e.target.id==='server-performance-window'){if(performanceWindows.some(([value])=>value===e.target.value)){performanceWindow=e.target.value;void loadPerformance();}return;}if(e.target.id.startsWith('server-identity-')){identityPolicyRequestId=crypto.randomUUID();identityRevokeRequestId=crypto.randomUUID();}if(e.target.id.startsWith('server-device-'))replacementRequestId=crypto.randomUUID();if(e.target.id==='server-recovery-reason')recoveryRequestId=crypto.randomUUID();if(e.target.id.startsWith('server-storage-'))storageRequestId=crypto.randomUUID();});
@@ -214,5 +214,6 @@ async function showDesktopServerState(){
   }catch(e){message(e.message+(e.code?' · '+e.code:''),true);}
   finally{busy=false;if(alive()&&target.isConnected)target.disabled=false;}
  });
- render();void loadLifecycle();void loadPerformance();try{await done;}finally{closed=true;++lifecycleRequest;++performanceRequest;performance=null;lifecycle=null;selectedBuild='';selectedReport='';selectedFlow='';status=null;devices=null;quarantine=null;identity=null;candidates=[];nextAfter=null;recoveryRequestId='';checkpointRequestId='';replacementRequestId='';storageRequestId='';identityPolicyRequestId='';identityRevokeRequestId='';if(root.isConnected)root.replaceChildren();}
+ try { render();void loadLifecycle();void loadPerformance(); } catch(error) { displayAdminModalRenderFailure(root,error); }
+ try{await done;}finally{closed=true;++lifecycleRequest;++performanceRequest;performance=null;lifecycle=null;selectedBuild='';selectedReport='';selectedFlow='';status=null;devices=null;quarantine=null;identity=null;candidates=[];nextAfter=null;recoveryRequestId='';checkpointRequestId='';replacementRequestId='';storageRequestId='';identityPolicyRequestId='';identityRevokeRequestId='';if(root.isConnected)root.replaceChildren();}
 }

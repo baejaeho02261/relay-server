@@ -13,6 +13,26 @@ function closeAdminModals() {
   if (adminMainModal) adminMainModal.close(null);
 }
 
+function displayAdminModalRenderFailure(root, error) {
+  if (!root || !root.isConnected) return;
+  // Do not leave a modal with only a blurred backdrop when a page renderer
+  // throws after openModal has already displayed the surface.
+  root.replaceChildren();
+  const warning = document.createElement('div');
+  warning.className = 'security-section-status';
+  warning.dataset.state = 'error';
+  warning.setAttribute('role', 'alert');
+  const heading = document.createElement('strong');
+  heading.textContent = '운영 화면을 표시하지 못했습니다.';
+  const description = document.createElement('p');
+  description.textContent = '이 창을 닫고 다시 열어주세요. 문제가 계속되면 최신 화면 불러오기로 웹 파일을 갱신하세요.';
+  const detail = document.createElement('p');
+  const code = typeof error?.code === 'string' && /^[A-Z0-9_]{3,80}$/.test(error.code) ? error.code : 'ADMIN_VIEW_RENDER_ERROR';
+  detail.textContent = '화면 오류 코드: ' + code;
+  warning.append(heading, description, detail);
+  root.append(warning);
+}
+
 function openModal(options) {
   // Reauthentication has its own surface; never replace a live upload or
   // deployment form, its event handlers, or the promise waiting for it.

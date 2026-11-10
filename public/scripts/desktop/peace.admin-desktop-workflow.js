@@ -66,7 +66,7 @@ async function showDesktopFirstDeviceApproval(){
    status('선택한 기기 연결 승인을 서버에 기록했습니다. A의 실행 완료를 확인한 것은 아닙니다.');
   }catch(error){if(live()){q('desktop-first-device-confirm').checked=false;q('desktop-first-device-recovery-confirm').checked=false;failure(error);}}finally{busy=false;controls();}
  };
- try{render(initial);initial=null;await done;}finally{closed=true;requests=[];initial=null;if(root.isConnected)root.replaceChildren();}
+ try{try { render(initial); } catch(error) { displayAdminModalRenderFailure(root,error); }initial=null;await done;}finally{closed=true;requests=[];initial=null;if(root.isConnected)root.replaceChildren();}
 }
 // Only an operation nonce is retained in this tab while the server restarts.
 // No registration data, keys or reset approval is persisted in the browser.

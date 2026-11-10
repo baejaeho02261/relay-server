@@ -130,7 +130,7 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
 (async()=>{try{
  await start();let auth=await login(),viewer=await login('viewer');
  await test('Production HTTP shell serves the current detection UI and matching script bundle',async()=>{
-  const expectedRevision='cozy-peace-v21-nhw-context';
+  const expectedRevision='cozy-peace-v22-ui-recovery';
   const headers={'X-Forwarded-Proto':'https',Cookie:auth.cookie};
   async function asset(url,type){const r=await fetch(base+url,{headers,signal:AbortSignal.timeout(5000)});assert.equal(r.status,200,url);assert.match(r.headers.get('content-type')||'',type,url);assert.match(r.headers.get('cache-control')||'',/no-store/,url);return r.text();}
   const html=await asset('/',/text\/html/);

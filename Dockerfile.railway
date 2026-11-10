@@ -5,7 +5,17 @@ WORKDIR /app/cozy-peace/Relay\ Server
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev --ignore-scripts && node -e "const D=require('better-sqlite3'); const db=new D(':memory:'); db.prepare('SELECT 1').get(); db.close();"
 COPY . ./
-RUN node --test tests/security/peace.test-nhw-signal-origin.js && node tests/security/peace.test-nhw-context-policy.js && node tests/security/peace.test-nhw-peer-context.js
+# Validate the shipped web bundle, browser cache contract and modal controllers
+# before accepting an NHW/server change as a production-ready deployment.
+RUN node tests/web/peace.check-web-ui.js \
+ && node tests/web/peace.test-web-ui-cache.js \
+ && node tests/web/peace.test-admin-modal-isolation.js \
+ && node tests/web/peace.test-server-state-ui.js \
+ && node tests/web/peace.test-server-state-service-ui.js \
+ && node tests/web/peace.test-desktop-member-ui.js \
+ && node --test tests/security/peace.test-nhw-signal-origin.js \
+ && node tests/security/peace.test-nhw-context-policy.js \
+ && node tests/security/peace.test-nhw-peer-context.js
 RUN npm prune --omit=dev --ignore-scripts
 ENV NODE_ENV=production
 CMD ["node","peace.relay-server.js"]
