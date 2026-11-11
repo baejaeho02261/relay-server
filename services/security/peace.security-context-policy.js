@@ -135,6 +135,19 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
    !corroborated;
  if(isolatedStartupToken)return {...base,disposition:'OBSERVATION_UNRESOLVED',
    decisionReason:'SERVER_BOUND_STARTUP_TOKEN_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
+ // The NHW primary-token sampler cannot attribute who made a local token
+ // change (the native report intentionally sets ActorPID=0). A standalone
+ // delta from that sampler is not proof of external intervention. Keep the
+ // actual finding and pursue independent evidence, but never revoke on a
+ // lone UNKNOWN-actor TOKEN_STATE delta. Verified external token-handle
+ // access (TOKEN_ACCESS) and corroborated token mutation remain actionable.
+ const unattributedTokenDelta=version>=5&&TOKEN_KINDS.has(entry.id)&&
+   context.capability==='TOKEN_STATE'&&context.actorClass==='UNKNOWN'&&
+   context.actorIdentity===''&&context.serverBound!==true&&
+   r.localOnly===true&&r.correlation===false&&!corroborated;
+ if(unattributedTokenDelta)return {...base,disposition:'OBSERVATION_UNRESOLVED',
+   decisionReason:'TOKEN_STATE_ACTOR_UNATTRIBUTED',
+   sessionStopPolicy:'REQUIRE_INDEPENDENT_TOKEN_EVIDENCE'};
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
  // V1-V4 preserve their existing correlation/typed-evidence rules. Beginning
  // with V5, DETECTED means the v109 native sensor emitted this standalone
