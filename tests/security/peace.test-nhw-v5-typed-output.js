@@ -123,6 +123,35 @@ test('Delphi v5 publishes only post-filter detected output and keeps separate ob
  assert.doesNotMatch(finalize,/OnDetection\(Detected, CurrentTick/);
 });
 
+test('unattributed low-confidence A bootstrap token handles are retained without terminating an innocent A',()=>{
+ // Real administrator record: TOKEN_ALL_ACCESS 0x000f01ff, OBJECT_STATE only,
+ // confidence 10, unbound EXTERNAL with no stable actor identity or attestation.
+ const ctx={...policy.UnknownContext('A'),
+  phase:'A_BOOTSTRAP',capability:'TOKEN_ACCESS',accessMask:0x000f01ff,
+  actorClass:'EXTERNAL',actorRole:'?',actorIdentity:'',targetRole:'?',
+  targetIdentity:'a'.repeat(64),capabilityDecision:'FORBIDDEN',sameSession:false};
+ for(const id of ['dkTokenObject','dkTokenRights']){
+  const entry=catalog.Get(id),r={...record(id),confidence:10,families:32,count:27};
+  const observation=verdict(entry,r,5,ctx);
+  assert.equal(observation.stop,false,id+' low-assurance self-startup incident');
+  assert.equal(observation.disposition,'OBSERVATION_UNRESOLVED');
+  assert.equal(observation.decisionReason,'UNATTRIBUTED_BOOTSTRAP_TOKEN_HANDLE');
+  assert.equal(observation.sessionStopPolicy,'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION');
+  // Only the precise uncertainty pattern is exempted; do not white-list a
+  // name, entire bootstrap role, access rights, or the whole TOKEN_SECURITY family.
+  assert.equal(verdict(entry,r,5,{...ctx,phase:'A_ATTESTED'}).stop,true,'phase');
+  assert.equal(verdict(entry,r,5,{...ctx,actorIdentity:'b'.repeat(64)}).stop,true,'stable external attribution');
+  assert.equal(verdict(entry,r,5,{...ctx,contextMixed:true}).stop,true,'mixed context');
+  assert.equal(verdict(entry,r,5,{...ctx,serverBound:true}).stop,true,'not an unbound observation');
+  assert.equal(verdict(entry,{...r,confidence:11},5,ctx).stop,true,'stronger sensor assessment');
+  assert.equal(verdict(entry,{...r,families:33},5,ctx).stop,true,'independent acquisition roots');
+  assert.equal(verdict(entry,{...r,correlation:true,localOnly:false,confidence:90,families:33},5,ctx).stop,true,'correlated');
+  assert.equal(verdict(entry,{...r,signal:'OBSERVED'},5,ctx).stop,false,'mere observation');
+  assert.equal(verdict(entry,r,4,ctx).stop,false,'legacy V4 remains unchanged');
+ }
+ assert.equal(verdict(catalog.Get('dkProcess'),{...record('dkProcess'),confidence:10,families:32},5,ctx).stop,true,'non-token sensors unaffected');
+});
+
 test('stored V5 token decision remains valid after restart; malformed tags still fail closed',()=>{
  const flowId='A'.repeat(24),epoch=1700000000000,at=1700000000020;
  const detectionId='dkTokenRights',source='Cozy.NHW.Engine',responsePath='integrity';

@@ -148,6 +148,28 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
  if(unattributedTokenDelta)return {...base,disposition:'OBSERVATION_UNRESOLVED',
    decisionReason:'TOKEN_STATE_ACTOR_UNATTRIBUTED',
    sessionStopPolicy:'REQUIRE_INDEPENDENT_TOKEN_EVIDENCE'};
+ // During the first A bootstrap, a snapshot of an unbound foreign token
+ // handle is not evidence that the token was mutated. In particular, a
+ // TOKEN_ALL_ACCESS mask is a rights grant, not a successful TOKEN_ADJUST call.
+ // The native sampler may see this after its local baseline while the remote
+ // owner has no server-verifiable identity. Preserve the real NHW finding,
+ // but never call a single low-confidence OBJECT_STATE observation an attack.
+ // This does NOT exempt an identified actor, independent acquisition evidence,
+ // a later phase, stronger-confidence findings, or other sensor kinds.
+ const weakUnattributedBootstrapTokenHandle=version>=5&&r.signal==='DETECTED'&&
+   ['dkTokenObject','dkTokenRights'].includes(entry.id)&&
+   context.phase==='A_BOOTSTRAP'&&context.capability==='TOKEN_ACCESS'&&
+   context.actorClass==='EXTERNAL'&&context.actorRole==='?'&&
+   context.actorIdentity===''&&context.peerId===''&&context.grantId===''&&
+   context.serverBound!==true&&context.firstPartyAttested!==true&&
+   context.sameSession!==true&&!context.contextMixed&&!context.baseline&&
+   context.accessMask===0x000f01ff&&
+   r.localOnly===true&&r.correlation===false&&!corroborated&&
+   r.confidence<=10&&r.families===32; // OBJECT_STATE only
+ if(weakUnattributedBootstrapTokenHandle)return {...base,
+   disposition:'OBSERVATION_UNRESOLVED',
+   decisionReason:'UNATTRIBUTED_BOOTSTRAP_TOKEN_HANDLE',
+   sessionStopPolicy:'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION'};
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
  // V1-V4 preserve their existing correlation/typed-evidence rules. Beginning
  // with V5, DETECTED means the v109 native sensor emitted this standalone
