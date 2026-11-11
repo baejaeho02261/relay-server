@@ -44,12 +44,20 @@ function WeakUnattributedRuntimeOutput(stage,entry,r,context,corroborated,cls){
     context.peerId!==''||context.grantId!==''||context.contextMixed||
     context.serverBound===true||context.firstPartyAttested===true||
     context.sameSession===true)return false;
- // A single local acquisition root and a low sensor confidence do not
- // establish an attacker, even if the observed handle mask is broad.
- // Any identified actor, second independent root, verified policy violation,
- // strong signal or kernel evidence follows the existing terminal path.
+ // HANDLE_SNAPSHOT is an acquisition root, not proof that a holder used
+ // THREAD_SET_CONTEXT/PROCESS_VM_WRITE. A full-rights mask describes an
+ // available capability; an unknown actor cannot be promoted to a verified
+ // attacker based on that mask alone. The NHW handle-level sensor reports
+ // the sole-root dkThread event with confidence 30 during ordinary startup.
+ // This bounded exception applies to B/O process/thread capability semantics
+ // only; different acquisition roots, verified ownership, native mutation
+ // evidence and elevated confidence still take the terminal route.
+ const soleUnattributedHandleSnapshot=cls==='PROCESS_THREAD_CAPABILITY'&&
+   ['PROCESS_ACCESS','THREAD_ACCESS'].includes(context.capability)&&
+   r.families===1&&r.confidence<=30;
  return r.signal==='DETECTED'&&r.localOnly===true&&
-   r.correlation===false&&!corroborated&&r.confidence<=20&&
+   r.correlation===false&&!corroborated&&
+   (r.confidence<=20||soleUnattributedHandleSnapshot)&&
    (r.families&128)===0&&RootCount(r.families)<=1;
 }
 
@@ -213,10 +221,17 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
  // an irreversible cohort revoke merely because the native printer said DETECTED.
  // A later strong or independently corroborated finding still revokes exactly
  // the peer-bound cohort through the existing StopDecision -> Revoke path.
- if(version>=5&&WeakUnattributedRuntimeOutput(stage,entry,r,context,corroborated,cls))
+ if(version>=5&&WeakUnattributedRuntimeOutput(stage,entry,r,context,corroborated,cls)){
+  // Distinguish the captured 30-point single HANDLE_SNAPSHOT incident from
+  // the original <=20 weak signal without changing historical decisions.
+  const handleSnapshotOnly=cls==='PROCESS_THREAD_CAPABILITY'&&
+    ['THREAD_ACCESS','PROCESS_ACCESS'].includes(context.capability)&&
+    r.families===1&&r.confidence>20;
   return {...base,disposition:'OBSERVATION_UNRESOLVED',
-    decisionReason:'V5_RUNTIME_EVIDENCE_UNATTRIBUTED',
+    decisionReason:handleSnapshotOnly?'V5_UNATTRIBUTED_HANDLE_SNAPSHOT':
+      'V5_RUNTIME_EVIDENCE_UNATTRIBUTED',
     sessionStopPolicy:'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION'};
+ }
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
  // V1-V4 preserve their existing correlation/typed-evidence rules. Beginning
  // with V5, DETECTED means the v109 native sensor emitted this standalone
