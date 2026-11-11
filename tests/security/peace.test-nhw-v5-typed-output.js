@@ -73,6 +73,30 @@ test('V5 self baseline token delta never escalates alone but unbound or corrobor
  }
 });
 
+test('V5 initial A approval: unattributed native token deltas are retained, not false-revoked',()=>{
+ for(const id of ['dkTokenObject','dkTokenRights','dkTokenChange','dkThreadToken']){
+  const entry=catalog.Get(id),r=record(id),unattributed={...policy.UnknownContext('A'),
+   phase:'A_ISSUANCE',capability:'TOKEN_STATE',tokenDelta:2};
+  const outcome=verdict(entry,r,5,unattributed);
+  assert.equal(outcome.stop,false,id+' isolated A-approval token snapshot');
+  assert.equal(outcome.disposition,'OBSERVATION_UNRESOLVED');
+  assert.equal(outcome.decisionReason,'TOKEN_STATE_ACTOR_UNATTRIBUTED');
+  assert.equal(verdict(entry,r,4,unattributed).stop,false,id+' legacy V4 remains safe');
+  assert.equal(verdict(entry,r,5,{...unattributed,capability:'TOKEN_ACCESS',accessMask:0x20,tokenDelta:0}).stop,true,id+' external token right remains actionable');
+  const correlated={...r,correlation:true,localOnly:false,confidence:90,families:3};
+  assert.equal(policy.Evaluate(entry,correlated,{tick,version:5,context:unattributed,corroborated:true}).stop,true,id+' independently corroborated delta');
+ }
+});
+
+test('Native token rights detection observes startup handles while preserving post-baseline alerts',t=>{
+ const native=path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Security.pas');
+ if(!fs.existsSync(native)){t.skip('full native source shipped separately');return;}
+ const source=fs.readFileSync(native,'utf8'), part=source.split('procedure TSecurityMonitor.ExamineTokenHandles(')[1].split('procedure TSecurityMonitor.ExamineLocalState(')[0];
+ assert.match(part,/if not Baseline then Include\(Detected, dkTokenObject\)/);
+ assert.match(part,/if \(NewHolder or NewRights\) and not Baseline then\s*Include\(Detected, dkTokenRights\)/);
+ assert.match(part,/NHWNoteAccessContext\(dkTokenRights,/);
+});
+
 test('V5 wire payload is accepted with the unchanged signed JSON schema; unknown versions rejected',()=>{
  const detections=[record('dkAffinity')];
  const digest=crypto.createHash('sha512').update(JSON.stringify(detections)).digest('hex').slice(0,16);
