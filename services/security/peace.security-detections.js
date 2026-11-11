@@ -250,15 +250,16 @@ function PublicPolicy(e,entry,legacy){
  return {disposition,decisionReason:e.invalidated&&entry.origin==='NHW'?'LEGACY_RECORDED_SESSION_INVALIDATION':legacy.decisionReason,coverageState:entry.signalClass==='UNKNOWN'?'UNKNOWN':'NOT_APPLICABLE',context:contextPolicy.UnknownContext(e.role)};
 }
 function ValidatePolicyStorage(e,invalid){
- if(e.contextKey!==undefined&&!/^[a-f0-9]{64}$/.test(e.contextKey))invalid();
- if(e.disposition===undefined){if(['context','contextKey','decisionReason','sessionStopPolicy','coverageState','coverageEpisode'].some(k=>e[k]!==undefined))invalid();return;}
- if(!contextPolicy.DISPOSITIONS.includes(e.disposition)||typeof e.decisionReason!=='string'||!/^[A-Z_]{1,100}$/.test(e.decisionReason)||typeof e.sessionStopPolicy!=='string'||!/^[A-Z_]{1,100}$/.test(e.sessionStopPolicy)||!['UNKNOWN','RECOVERY_PENDING','SESSION_DEGRADED','NOT_APPLICABLE'].includes(e.coverageState)||!plain(e.context))invalid();
+ const reject=rule=>{console.error('[NHW_POLICY_VALIDATION] rule='+rule);invalid();};
+ if(e.contextKey!==undefined&&!/^[a-f0-9]{64}$/.test(e.contextKey))reject('context-key');
+ if(e.disposition===undefined){if(['context','contextKey','decisionReason','sessionStopPolicy','coverageState','coverageEpisode'].some(k=>e[k]!==undefined))reject('legacy-fields');return;}
+ if(!contextPolicy.DISPOSITIONS.includes(e.disposition)||typeof e.decisionReason!=='string'||!/^[A-Z_]{1,100}$/.test(e.decisionReason)||typeof e.sessionStopPolicy!=='string'||!/^[A-Z_]{1,100}$/.test(e.sessionStopPolicy)||!['UNKNOWN','RECOVERY_PENDING','SESSION_DEGRADED','NOT_APPLICABLE'].includes(e.coverageState)||!plain(e.context))reject('decision-fields');
  const allowed=[...contextPolicy.CONTEXT_FIELDS,'capabilityDecision','serverBound','firstPartyAttested','sameSession','bindingScope'];
- if(Object.keys(e.context).some(k=>!allowed.includes(k)))invalid();
- try{contextPolicy.ParseContext(Object.fromEntries(contextPolicy.CONTEXT_FIELDS.map(k=>[k,e.context[k]])));}catch(_){invalid();}
- if(!['EXPECTED','OBSERVE','SUSPICIOUS','FORBIDDEN'].includes(e.context.capabilityDecision)||typeof e.context.serverBound!=='boolean'||typeof e.context.firstPartyAttested!=='boolean'||![true,false,null].includes(e.context.sameSession)||!['SERVER_BOUND_CLIENT_OBSERVATION','UNVERIFIED_CLIENT_OBSERVATION'].includes(e.context.bindingScope))invalid();
- if(e.disposition==='EXPECTED_FIRST_PARTY'&&(!e.context.serverBound||!e.context.firstPartyAttested||e.context.sameSession!==true||e.context.contextMixed||e.context.capabilityDecision!=='EXPECTED'||e.context.bindingScope!=='SERVER_BOUND_CLIENT_OBSERVATION'))invalid();
- if(e.coverageEpisode!==undefined){const c=e.coverageEpisode;if(!plain(c)||Object.keys(c).sort().join(',')!=='lastAt,observations,startedAt'||!Number.isSafeInteger(c.startedAt)||c.startedAt<1||!Number.isSafeInteger(c.lastAt)||c.lastAt<c.startedAt||!Number.isInteger(c.observations)||c.observations<1||c.observations>65535)invalid();}
+ if(Object.keys(e.context).some(k=>!allowed.includes(k)))reject('context-keyset');
+ try{contextPolicy.ParseContext(Object.fromEntries(contextPolicy.CONTEXT_FIELDS.map(k=>[k,e.context[k]])));}catch(_){reject('wire-context');}
+ if(!['EXPECTED','OBSERVE','SUSPICIOUS','FORBIDDEN'].includes(e.context.capabilityDecision)||typeof e.context.serverBound!=='boolean'||typeof e.context.firstPartyAttested!=='boolean'||![true,false,null].includes(e.context.sameSession)||!['SERVER_BOUND_CLIENT_OBSERVATION','UNVERIFIED_CLIENT_OBSERVATION'].includes(e.context.bindingScope))reject('resolved-context');
+ if(e.disposition==='EXPECTED_FIRST_PARTY'&&(!e.context.serverBound||!e.context.firstPartyAttested||e.context.sameSession!==true||e.context.contextMixed||e.context.capabilityDecision!=='EXPECTED'||e.context.bindingScope!=='SERVER_BOUND_CLIENT_OBSERVATION'))reject('expected-scope');
+ if(e.coverageEpisode!==undefined){const c=e.coverageEpisode;if(!plain(c)||Object.keys(c).sort().join(',')!=='lastAt,observations,startedAt'||!Number.isSafeInteger(c.startedAt)||c.startedAt<1||!Number.isSafeInteger(c.lastAt)||c.lastAt<c.startedAt||!Number.isInteger(c.observations)||c.observations<1||c.observations>65535)reject('episode');}
 }
 function ValidateOrder(value){
  if(value===undefined)return;const invalid=()=>Fail('SECURITY_DETECTION_STORAGE_INVALID',503);
