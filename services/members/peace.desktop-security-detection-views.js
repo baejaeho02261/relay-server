@@ -2,7 +2,7 @@
 // Read-only attribution. A shared PC, client display name or raw process
 // identity never joins security evidence to an administrator's member record.
 const store=require('../bootstrap/peace.desktop-bootstrap-store');
-const PUBLIC_FIELDS=['id','recordId','flowId','detectionId','displayName','origin','conditionLabel','signalClass','observationClass','sessionStopPolicy','decisionReason','category','sensor','sourceUnit','responsePath','firstAt','lastAt','firstTick','lastTick','count','confirmationCount','sessionId','epoch','role','stage','confidence','correlation','localOnly','attestationSequence','attestationStatus','sessionInvalidated','invalidated','evidenceLevel','provenance','handoffStatus','disposition','coverageState'];
+const PUBLIC_FIELDS=['id','recordId','flowId','detectionId','displayName','origin','conditionLabel','signalClass','observationClass','sessionStopPolicy','decisionReason','category','sensor','sourceUnit','responsePath','firstAt','lastAt','firstTick','lastTick','count','confirmationCount','sessionId','epoch','role','stage','confidence','correlation','localOnly','attestationSequence','attestationStatus','sessionInvalidated','invalidated','evidenceLevel','provenance','handoffStatus','disposition','coverageState','kind','authorityAction','securityFinding','verificationIncomplete','causedAuthorityChange'];
 // Context is a deliberately small public projection. Raw PID, image path,
 // token/logon identity and signed enrollment material are never UI fields.
 const CONTEXT_TEXT_FIELDS=['actorClass','actorRole','targetRole','phase','capability','coverage','capabilityDecision','bindingScope'];

@@ -194,7 +194,7 @@ function RecordServer({row,stage,id,source,confidence=100,correlation=true,evide
   const r={id,source,firstTick:prior?.firstTick||tick,lastTick:tick,count:Math.min(65535,(prior?.producerCount||0)+1),families:0,confidence,correlation,localOnly:!correlation,attestationSequence};
   const unavailable=entry.signalClass==='UNKNOWN'||id==='CRC_ROLE_MISMATCH'&&confidence===0&&!correlation;
   const requestRejected=entry.signalClass==='POLICY_REJECTION'&&confidence===0&&!correlation;
-  const policy={disposition:unavailable||requestRejected?'OBSERVATION_UNRESOLVED':entry.signalClass==='MISMATCH'?'DETECTION':'CORROBORATED_ANOMALY',decisionReason:unavailable?'SERVER_MEASUREMENT_UNAVAILABLE':requestRejected?'SERVER_PROTOCOL_REJECTION':invalidated?'SERVER_SESSION_REJECTION':'SERVER_COMPARISON_RECORDED',sessionStopPolicy:requestRejected?'REJECT_REQUEST_ONLY':'SERVER_DECISION',coverageState:unavailable?'UNKNOWN':'NOT_APPLICABLE',context:contextPolicy.UnknownContext(stage)};
+  const policy={disposition:unavailable||requestRejected?'OBSERVATION_UNRESOLVED':entry.signalClass==='MISMATCH'?'DETECTION':'CORROBORATED_ANOMALY',decisionReason:unavailable?'SERVER_MEASUREMENT_UNAVAILABLE':requestRejected?'SERVER_PROTOCOL_REJECTION':invalidated?'SERVER_SESSION_REJECTION':'SERVER_COMPARISON_RECORDED',sessionStopPolicy:requestRejected?'REJECT_REQUEST_ONLY':unavailable?(invalidated?'DENY_INCOMPLETE_MEASUREMENT':'REQUIRE_COMPLETE_MEASUREMENT'):'SERVER_DECISION',coverageState:unavailable?'UNKNOWN':'NOT_APPLICABLE',context:contextPolicy.UnknownContext(stage)};
   const result=Append(db,b,stage,'server',r,'SERVER_COMPARISON',invalidated&&b.live.status==='REVOKED',policy);
   if(crcFindings!==undefined){const event=db.securityDetections.flows[b.flowId].events.find(e=>e.id===result),findings=new Map((event.crcFindings||[]).map(r=>[r.role,r]));for(const r of crcFindings)if(findings.get(r.role)?.status!=='MISMATCH')findings.set(r.role,r);event.crcFindings=[...findings.values()];}
   Trim(db.securityDetections);return result;
@@ -231,13 +231,27 @@ function Public(db,e,index){
  const names=['HANDLE_SNAPSHOT','THREAD_SNAPSHOT','ETW','SELF_MEMORY','MODULE_FILE','OBJECT_STATE','OBSERVER','KERNEL_AGGREGATE'];
  const entry=Entry(e.detectionId),availability=AvailabilityOnly({id:e.detectionId,source:e.sensor});
  const algorithms=(e.crcFindings||[]).filter(r=>r.status==='MISMATCH').map(r=>require('../cryptography/peace.crc-layers').registry[r.role].name);
- const displayName=algorithms.length===1?algorithms[0]+' Detect':entry.displayName;
+ const displayName=algorithms.length===1?algorithms[0]+' Detect':
+  entry.origin==='COZY'&&entry.signalClass==='UNKNOWN'?
+    entry.displayName.replace(/ Detect$/,'')+' · 측정/상태 확인 불가':entry.displayName;
  const crcUnavailable=e.detectionId==='CRC_ROLE_MISMATCH'&&e.confidence===0&&!e.correlation;
  const metadata={displayName,origin:entry.origin,algorithms,signalClass:crcUnavailable?'UNKNOWN':entry.signalClass,
   conditionLabel:availability?(e.sensor==='Cozy.NHW.Handles'?'Native handle inventory unavailable':'Security worker unavailable'):entry.conditionLabel,
   observationClass:availability?'SENSOR_AVAILABILITY':crcUnavailable?'UNAVAILABLE_OR_INCOMPLETE':entry.observationClass,sessionStopPolicy:availability?'OBSERVE_ONLY':entry.sessionStopPolicy,
   decisionReason:invalidated?(e.detectionId.startsWith('dk')?entry.signalClass==='UNKNOWN'?'COVERAGE_POLICY_STOP':'DETECTION_POLICY_STOP':'SERVER_SESSION_REJECTION'):'RECORDED_WITHOUT_INVALIDATION'};
- return {...e,...metadata,...PublicPolicy(e,entry,metadata),recordId:e.id,stage:e.role,evidenceFamilyMask:e.evidenceFamilies,evidenceFamilies:names.filter((name,index)=>e.evidenceFamilies&(1<<index)),semanticFamilies:ContextFamilies(e,entry),semanticEvidenceFamilies:ContextFamilies(e,entry),invalidated,sessionInvalidated,sessionCurrentlyInvalidated:sessionInvalidated,evidenceLevel:e.provenance==='SERVER_COMPARISON'?'SERVER_COMPARISON':e.correlation?'CLIENT_CORROBORATED':'CLIENT_LOCAL_OBSERVATION',attestation:{sequence:e.attestationSequence,status:attestation?.status||e.attestationStatus||(e.attestationSequence===ZERO?'NOT_BOUND':'CLIENT_SEQUENCE_REPORTED'),hardwareAttested:attestation?.hardwareAttested===true||e.hardwareAttested===true,bootHealthVerified:false},handoffStatus,handoff:{A:flow?.claimedAt?'HANDED_OFF':flow?.status||'UNKNOWN',B:flow?.claimedAt?flow.status:'NOT_STARTED',O:overlay?.status||index.byFlow.get(flow?.id)?.status||'NOT_STARTED'}};
+ const adjudicated=PublicPolicy(e,entry,metadata);
+ // Older snapshot failures wrote an invalidation flag on every secondary
+ // diagnostic. The signed store must remain unchanged. Only the reason that
+ // actually appears on the revoked authority row is the causal rejection;
+ // the other diagnostics stay visible but are not mislabeled as separate stops.
+ const secondaryIncomplete=invalidated&&e.provenance==='SERVER_COMPARISON'&&
+  entry.origin==='COZY'&&entry.signalClass==='UNKNOWN'&&
+  typeof active?.reason==='string'&&active.reason.startsWith('INTEGRITY_')&&
+  active.reason!=='INTEGRITY_'+e.detectionId;
+ const semantics=require('./peace.security-event-semantics').Semantics(
+  {...entry,signalClass:metadata.signalClass},{...e,...metadata,...adjudicated,sessionInvalidated,
+   causalInvalidation:invalidated&&!secondaryIncomplete});
+ return {...e,...metadata,...adjudicated,...semantics,recordId:e.id,stage:e.role,evidenceFamilyMask:e.evidenceFamilies,evidenceFamilies:names.filter((name,index)=>e.evidenceFamilies&(1<<index)),semanticFamilies:ContextFamilies(e,entry),semanticEvidenceFamilies:ContextFamilies(e,entry),invalidated,sessionInvalidated,sessionCurrentlyInvalidated:sessionInvalidated,evidenceLevel:e.provenance==='SERVER_COMPARISON'?'SERVER_COMPARISON':e.correlation?'CLIENT_CORROBORATED':'CLIENT_LOCAL_OBSERVATION',attestation:{sequence:e.attestationSequence,status:attestation?.status||e.attestationStatus||(e.attestationSequence===ZERO?'NOT_BOUND':'CLIENT_SEQUENCE_REPORTED'),hardwareAttested:attestation?.hardwareAttested===true||e.hardwareAttested===true,bootHealthVerified:false},handoffStatus,handoff:{A:flow?.claimedAt?'HANDED_OFF':flow?.status||'UNKNOWN',B:flow?.claimedAt?flow.status:'NOT_STARTED',O:overlay?.status||index.byFlow.get(flow?.id)?.status||'NOT_STARTED'}};
 }
 function MemberIndex(){const db=store.Load(),index={bySession:new Map(),byFlow:new Map()};for(const row of Object.values(db.overlays||{})){index.bySession.set(row.sessionId,row);const old=index.byFlow.get(row.parentFlowId);if(!old||row.createdAt>old.createdAt)index.byFlow.set(row.parentFlowId,row);}return Object.values(db.securityDetections?.flows||{}).flatMap(f=>f.events.map(e=>Public(db,e,index))).sort((a,b)=>b.lastAt-a.lastAt);}
 function MemberRecords(ids){if(!Array.isArray(ids)||ids.length>MAX_RECORDS||ids.some(id=>typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id)))Fail();const selected=new Set(ids);return MemberIndex().filter(e=>selected.has(e.id));}
