@@ -122,3 +122,22 @@ test('Delphi v5 publishes only post-filter detected output and keeps separate ob
  assert.match(finalize,/OnDetection\(VisibleDetected, CurrentTick/);
  assert.doesNotMatch(finalize,/OnDetection\(Detected, CurrentTick/);
 });
+
+test('stored V5 token decision remains valid after restart; malformed tags still fail closed',()=>{
+ const flowId='A'.repeat(24),epoch=1700000000000,at=1700000000020;
+ const detectionId='dkTokenRights',source='Cozy.NHW.Engine',responsePath='integrity';
+ const id=crypto.createHash('sha256').update([flowId,'A',flowId,String(epoch),responsePath,detectionId,source].join('\n')).digest('hex');
+ const event={id,flowId,sessionId:flowId,role:'A',epoch:String(epoch),detectionId,
+  category:catalog.Get(detectionId).category,sensor:source,responsePath,firstAt:at,lastAt:at,
+  count:1,confirmationCount:0,firstTick:'0000000000000400',lastTick:'0000000000000400',
+  producerCount:1,evidenceFamilies:0,confidence:0,correlation:false,localOnly:true,
+  attestationSequence:'0000000000000000',invalidated:true,provenance:'AUTHENTICATED_CLIENT_REPORT',
+  disposition:'DETECTION',decisionReason:'V5_NATIVE_SENSOR_OUTPUT',
+  sessionStopPolicy:'STOP_ON_NATIVE_DETECTED_OUTPUT',coverageState:'UNKNOWN',
+  context:policy.UnknownContext('A')};
+ const storage={version:1,flows:{[flowId]:{flowId,updatedAt:at,events:[event]}}};
+ const db={flows:{[flowId]:{createdAt:epoch}},overlays:{}};
+ assert.doesNotThrow(()=>reports.Validate(storage,db));
+ const tampered={...event,decisionReason:'V5-NATIVE-OUTPUT'};
+ assert.throws(()=>reports.Validate({version:1,flows:{[flowId]:{flowId,updatedAt:at,events:[tampered]}}},db),/SECURITY_DETECTION_STORAGE_INVALID/);
+});

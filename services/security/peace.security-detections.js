@@ -253,7 +253,7 @@ function ValidatePolicyStorage(e,invalid){
  const reject=rule=>{console.error('[NHW_POLICY_VALIDATION] rule='+rule);invalid();};
  if(e.contextKey!==undefined&&!/^[a-f0-9]{64}$/.test(e.contextKey))reject('context-key');
  if(e.disposition===undefined){if(['context','contextKey','decisionReason','sessionStopPolicy','coverageState','coverageEpisode'].some(k=>e[k]!==undefined))reject('legacy-fields');return;}
- if(!contextPolicy.DISPOSITIONS.includes(e.disposition)||typeof e.decisionReason!=='string'||!/^[A-Z_]{1,100}$/.test(e.decisionReason)||typeof e.sessionStopPolicy!=='string'||!/^[A-Z_]{1,100}$/.test(e.sessionStopPolicy)||!['UNKNOWN','RECOVERY_PENDING','SESSION_DEGRADED','NOT_APPLICABLE'].includes(e.coverageState)||!plain(e.context))reject('decision-fields');
+ if(!contextPolicy.DISPOSITIONS.includes(e.disposition)||typeof e.decisionReason!=='string'||!/^[A-Z0-9_]{1,100}$/.test(e.decisionReason)||typeof e.sessionStopPolicy!=='string'||!/^[A-Z0-9_]{1,100}$/.test(e.sessionStopPolicy)||!['UNKNOWN','RECOVERY_PENDING','SESSION_DEGRADED','NOT_APPLICABLE'].includes(e.coverageState)||!plain(e.context))reject('decision-fields');
  const allowed=[...contextPolicy.CONTEXT_FIELDS,'capabilityDecision','serverBound','firstPartyAttested','sameSession','bindingScope'];
  if(Object.keys(e.context).some(k=>!allowed.includes(k)))reject('context-keyset');
  try{contextPolicy.ParseContext(Object.fromEntries(contextPolicy.CONTEXT_FIELDS.map(k=>[k,e.context[k]])));}catch(_){reject('wire-context');}
