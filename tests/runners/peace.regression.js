@@ -9,6 +9,7 @@ const checks = [
   ["security/peace.test-nhw-native-context.js"],
   ["security/peace.test-nhw-v5-typed-output.js"],
   ["security/peace.test-nhw-v5-role-semantic-policy.js"],
+  ["security/peace.test-nhw-cozy-unified-event-semantics.js"],
   ["security/peace.test-crc-detection-confidence.js"],
   ["security/peace.test-security-outcome-routing.js"],
   ["security/peace.test-security-detection-catalog.js"],
