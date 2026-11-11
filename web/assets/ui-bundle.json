@@ -42,7 +42,7 @@
     "manifest.json": "69eb076e2f36dbdffee5581f6c225aaf2f96d861742b35ac10098a8181136677",
     "scripts/interface/peace.admin-palette.js": "a3d76c47d56466c01334f1cd7fd7b1aa683ca2b2f5111fcd76aaf3ff6efc8c30",
     "scripts/desktop/peace.admin-desktop-licenses.js": "301e1be749a0d45e5fd71b2c2e5faa1b2f99958fb939e9419514d57c69fcd438",
-    "scripts/desktop/peace.admin-desktop-members.js": "acf18f387a3e035920614d9ba982aeeefe5a894b859a5248e41cfb99e2dae61f",
+    "scripts/desktop/peace.admin-desktop-members.js": "d6b7f35fbb3db7e2fa63cc93302c8207145b9665f2ae39ec18778e96e1b5c35e",
     "scripts/desktop/peace.admin-desktop-security-center.js": "8a64b8827530ff1a115e22d9f71825d7f4cb117cf5bee70401c6d03b22337208",
     "scripts/desktop/peace.admin-desktop-security.js": "e5797ace99e1feb51c9b0a445d1deb0de704d1160d782e99cf8901ea03bb1a9c",
     "scripts/desktop/peace.admin-desktop-server-state.js": "4aa86a8a2387da0aa35c4b5661d279f4f4a8d0e7c6957580b99329206aa01a6d",
