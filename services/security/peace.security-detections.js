@@ -73,7 +73,7 @@ function PolicyResults(row,stage,value){
   const prior=b?old.find(e=>e.id===Key(b,stage,value._channel||'integrity',r.id,r.source,contextPolicy.ContextKey(r.context))):null;
   const independent=r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2;
   const corroborated=r.signal!=='OBSERVED'&&(independent||kernel&&(r.families&128)!==0&&KERNEL_ALLOWED.has(r.id));
-  return {record:r,key:RecordKey(r),...contextPolicy.Evaluate(Entry(r.id),r,{tick:value.tick,context,corroborated,prior})};
+  return {record:r,key:RecordKey(r),...contextPolicy.Evaluate(Entry(r.id),r,{tick:value.tick,context,corroborated,prior,version:value.version})};
  });
 }
 function StopRecords(rows,tick){return PolicyResults(null,'?',{detections:rows,tick}).filter(x=>x.stop).map(x=>x.record);}
