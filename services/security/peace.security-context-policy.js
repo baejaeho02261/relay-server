@@ -15,6 +15,44 @@ const structuralInvariant=new Set(['dkIAT','dkFunctionPointer','dkCallback','dkF
 const sensorCorrelated=new Set(['dkETWImageFusion','dkInjectionEvidence','dkSectionBacking','dkThreadStackOrigin','dkLoaderCrossView','dkSnapshotETW','dkObserverMismatch','dkRiskConfidence','dkCausalSequence','dkCodeProvenance','dkSectionCorrelation','dkIndirectTarget','dkThreadTimeline','dkIncidentReconstruction','dkAPCStyleEvidence','dkExecutableLifecycle']);
 const confirmedKernel=new Set(['dkVulnerableDriver','dkKernelMappingEvidence','dkDriverSignerAttestation']);
 const TOKEN_KINDS=new Set(['dkTokenObject','dkTokenRights','dkTokenChange','dkThreadToken']);
+
+// A sensor output is an event, not proof that normal B/O activity was hostile.
+// The semantic policy is exhaustive through PolicyClass (all 204 registered
+// kinds); never suppress independently verified structural/code mutations.
+const V5_WEAK_CONTEXT_CLASSES=new Set([
+ 'PROCESS_THREAD_CAPABILITY','TOKEN_TRANSITION_OR_CAPABILITY',
+ 'CONTEXT_AND_INDEPENDENT_CORROBORATION'
+]);
+const V5_DIRECT_RISK_KINDS=new Set([
+ 'dkRemoteThread','dkPrivateThread','dkThreadRegion','dkInjectionEvidence',
+ 'dkRWX','dkExecuteProtect','dkProtectTransition','dkExecutableMapping',
+ 'dkReadAccess','dkCanaryAccess','dkWriteBurst','dkRepeatedWrite',
+ 'dkDacl','dkFileSecurity','dkRegistrySecurity','dkObjectSecurity',
+ 'dkNetworkIntegrity','dkNetworkFilter','dkWFPCallout','dkWFPProvider'
+]);
+function RootCount(mask){let n=mask&127,count=0;for(;n;n&=n-1)count++;return count;}
+function WeakUnattributedRuntimeOutput(stage,entry,r,context,corroborated,cls){
+ if(!['B','O'].includes(stage)||!entry.standaloneOutput||
+    !V5_WEAK_CONTEXT_CLASSES.has(cls)||V5_DIRECT_RISK_KINDS.has(entry.id))return false;
+ // Stage comes from the authenticated A/B/O server row, not from the client
+ // phase string. B/O regularly create/exit threads, change affinity and use
+ // token handles, including after startup. No role-wide allowlist is granted.
+ if(!context.phase.startsWith(stage+'_')||
+    !['?',stage].includes(context.targetRole)||
+    !['UNKNOWN','EXTERNAL'].includes(context.actorClass)||
+    context.actorRole!=='?'||context.actorIdentity!==''||
+    context.peerId!==''||context.grantId!==''||context.contextMixed||
+    context.serverBound===true||context.firstPartyAttested===true||
+    context.sameSession===true)return false;
+ // A single local acquisition root and a low sensor confidence do not
+ // establish an attacker, even if the observed handle mask is broad.
+ // Any identified actor, second independent root, verified policy violation,
+ // strong signal or kernel evidence follows the existing terminal path.
+ return r.signal==='DETECTED'&&r.localOnly===true&&
+   r.correlation===false&&!corroborated&&r.confidence<=20&&
+   (r.families&128)===0&&RootCount(r.families)<=1;
+}
+
 const ACCESS_KINDS=new Set(['dkProcess','dkThread','dkOwnership','dkEscalation','dkReappearance','dkCrossAccess','dkAccessBurst','dkHandleChurn','dkHandleInherit','dkHandleSharingEvidence','dkTemporalHandleGraph',...TOKEN_KINDS]);
 const categoryCapabilities=Object.freeze({
  PROCESS_HANDLE:['PROCESS_ACCESS','THREAD_ACCESS'],PROCESS_LIFECYCLE:['PROCESS_ACCESS','THREAD_ACCESS'],TOKEN_SECURITY:['TOKEN_ACCESS','TOKEN_STATE'],IPC_JOB:['IPC'],FILE_IDENTITY:['MODULE_STATE'],REGISTRY:[],SCHEDULING_MITIGATION:['THREAD_ACCESS','PROCESS_ACCESS'],NAMESPACE:['IPC'],ETW_LIFECYCLE:['ETW_STATE'],THREAD_ORIGIN:['THREAD_ACCESS'],STACK:['THREAD_ACCESS','SELF_MEMORY'],MEMORY_ALLOCATION:['SELF_MEMORY'],MEMORY_MAPPING:['SELF_MEMORY','MODULE_STATE'],MEMORY_PROTECTION:['SELF_MEMORY'],MEMORY_READ:['PROCESS_ACCESS','SELF_MEMORY'],MEMORY_WRITE:['PROCESS_ACCESS','SELF_MEMORY'],WAIT_CHAIN:['THREAD_ACCESS','IPC'],CAPTURE:[],NETWORK_FILTER:[],NETWORK_PATH:[],SELF_POINTER:['MODULE_STATE'],HEAP_TLS:['SELF_MEMORY'],EXCEPTION_UNWIND:['MODULE_STATE'],ASYNC:['IPC'],PE_IMAGE:['MODULE_STATE'],PE_EXPORT:['MODULE_STATE'],EXECUTION_CORRELATION:['PROCESS_ACCESS','MODULE_STATE'],EVIDENCE_CORRELATION:['ETW_STATE','MODULE_STATE'],KERNEL_TRUST:['KERNEL_STATE']
@@ -78,7 +116,7 @@ function ExpectedCompatible(entry,r,context){
  if(ACCESS_KINDS.has(entry.id)&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability))return true;
  return TOKEN_KINDS.has(entry.id)&&context.capability==='TOKEN_STATE'&&context.baseline&&context.tokenDelta===0;
 }
-function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prior=null,now=Date.now(),version=4}={}){
+function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prior=null,now=Date.now(),version=4,stage='?'}={}){
  const base={context,disposition:'OBSERVATION_UNRESOLVED',decisionReason:'ADDITIONAL_CONTEXT_OR_CORROBORATION_REQUIRED',sessionStopPolicy:'CONTEXT_AND_CORROBORATION',coverageState:'UNKNOWN',stop:false};
  if(!Fresh(r,tick))return {...base,decisionReason:'STALE_OBSERVATION_RECORDED'};
  const cls=PolicyClass(entry);
@@ -170,6 +208,15 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
    disposition:'OBSERVATION_UNRESOLVED',
    decisionReason:'UNATTRIBUTED_BOOTSTRAP_TOKEN_HANDLE',
    sessionStopPolicy:'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION'};
+ // B/O have role-owned activity. Their unverified, single-root low-confidence
+ // output is recorded with its real sensor kind and context, not promoted to
+ // an irreversible cohort revoke merely because the native printer said DETECTED.
+ // A later strong or independently corroborated finding still revokes exactly
+ // the peer-bound cohort through the existing StopDecision -> Revoke path.
+ if(version>=5&&WeakUnattributedRuntimeOutput(stage,entry,r,context,corroborated,cls))
+  return {...base,disposition:'OBSERVATION_UNRESOLVED',
+    decisionReason:'V5_RUNTIME_EVIDENCE_UNATTRIBUTED',
+    sessionStopPolicy:'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION'};
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
  // V1-V4 preserve their existing correlation/typed-evidence rules. Beginning
  // with V5, DETECTED means the v109 native sensor emitted this standalone

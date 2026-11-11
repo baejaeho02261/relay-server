@@ -15,6 +15,7 @@ RUN node tests/web/peace.check-web-ui.js \
  && node tests/web/peace.test-desktop-member-ui.js \
  && node --test tests/security/peace.test-nhw-signal-origin.js \
  && node --test tests/security/peace.test-nhw-v5-typed-output.js \
+ && node --test tests/security/peace.test-nhw-v5-role-semantic-policy.js \
  && node tests/security/peace.test-nhw-context-policy.js \
  && node tests/security/peace.test-nhw-peer-context.js
 RUN npm prune --omit=dev --ignore-scripts
