@@ -125,3 +125,57 @@ test('authenticated reporting stage, not caller-claimed phase alone, selects B/O
  assert.equal(evalRecord('dkThreadSpawn','B','O_BOOTSTRAP',g).stop,true);
  assert.equal(evalRecord('dkThreadSpawn','O','O_BOOTSTRAP',g).stop,false);
 });
+
+
+test('single unverified B/O thread-handle snapshot at confidence 30 is evidence, not a verified thread modification',()=>{
+ for(const stage of ['B','O'])for(const phase of [stage+'_BOOTSTRAP',stage+'_ATTESTED',stage+'_RUNTIME']){
+  // Recorded B incident: THREAD_ALL_ACCESS is a held capability; the report
+  // did not identify the actor or corroborate an actual SetThreadContext.
+  const ctx={...unverified(stage,phase,'THREAD_ACCESS',0x001fffff),
+   actorClass:'UNKNOWN',targetRole:'?',actorIdentity:'',actorRole:'?',
+   peerId:'',grantId:'',firstPartyAttested:false,serverBound:false,sameSession:false};
+  const event=record('dkThread',{families:1,confidence:30,localOnly:true,correlation:false});
+  const result=policy.Evaluate(catalog.Get('dkThread'),event,
+   {tick,version:5,stage,context:ctx,corroborated:false});
+  assert.equal(result.stop,false,stage+' '+phase+' should not revoke');
+  assert.equal(result.disposition,'OBSERVATION_UNRESOLVED');
+  assert.equal(result.decisionReason,'V5_UNATTRIBUTED_HANDLE_SNAPSHOT');
+  // Retain exact, well-scoped sensitivity. No role-wide exemption is allowed.
+  for(const change of [
+    {record:{confidence:31}},
+    {record:{families:3}},
+    {context:{actorIdentity:'b'.repeat(64)}},
+    {context:{contextMixed:true}},
+    {context:{serverBound:true}},
+    {context:{firstPartyAttested:true}},
+    {context:{phase:stage==='B'?'O_ATTESTED':'B_ATTESTED'}}
+  ]){
+   const changedRecord={...event,...change.record};
+   const changedContext={...ctx,...change.context};
+   const decision=policy.Evaluate(catalog.Get('dkThread'),changedRecord,
+    {tick,version:5,stage,context:changedContext,corroborated:false});
+   assert.equal(decision.stop,true,stage+' '+phase+' '+JSON.stringify(change));
+  }
+  const confirmed=policy.Evaluate(catalog.Get('dkThread'),
+   {...event,confidence:85,families:3,correlation:true,localOnly:false},
+   {tick,version:5,stage,context:ctx,corroborated:true});
+  assert.equal(confirmed.stop,true,'corroborated independent evidence remains actionable');
+  for(const id of ['dkRemoteThread','dkPrivateThread','dkInjectionEvidence','dkWriteIntegrity'])
+   assert.equal(policy.Evaluate(catalog.Get(id),event,{tick,version:5,stage,context:ctx}).stop,true,id+' direct high-risk evidence');
+  assert.equal(policy.Evaluate(catalog.Get('dkThread'),event,{tick,version:4,stage,context:ctx}).stop,
+   policy.Evaluate(catalog.Get('dkThread'),event,{tick,version:4,context:ctx}).stop,'legacy unchanged');
+ }
+});
+
+test('native dkThread reports a handle-rights snapshot, not proof of a context write',t=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const file=path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Security.NHW/Cozy.NHW.Engine.pas');
+ if(!fs.existsSync(file)){t.skip('Native Win64 sources are distributed in full ZIP, not relay-only Docker context');return;}
+ const source=fs.readFileSync(file,'utf8');
+ for(const contract of [
+  'NHWNoteAccessContext(dkThread, H.PID, H.CreateTime, LivePID,',
+  'if (not InBaseline) and (H.Level >= Threshold) then',
+  'if H.IsThread then Include(Detected, dkThread)',
+  'High-rights capability newly observed; not an actual memory write'
+ ])assert.ok(source.includes(contract),contract);
+});
