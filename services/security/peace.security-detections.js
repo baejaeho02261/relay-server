@@ -287,22 +287,26 @@ function ObserveTransitions(before,db){
  for(const [id,f]of Object.entries(db.securityDetections.flows)){if(!db.flows[id]){delete db.securityDetections.flows[id];continue;}f.events=f.events.filter(e=>e.role!=='O'||Object.values(db.overlays||{}).some(o=>o.parentFlowId===id&&o.sessionId===e.sessionId));}
 }
 function Validate(s,db){
- const invalid=()=>Fail('SECURITY_DETECTION_STORAGE_INVALID',503);
+ let section='root';
+ const invalid=()=>{console.error('[NHW_STORAGE_VALIDATION] section='+section);Fail('SECURITY_DETECTION_STORAGE_INVALID',503);};
  if(!plain(s)||Object.keys(s).sort().join(',')!=='flows,version'||s.version!==1||!plain(s.flows)||Object.keys(s.flows).length>MAX_FLOWS)invalid();let total=0;
  for(const [id,f]of Object.entries(s.flows)){
+  section='flow';
   if(!id24(id)||!db.flows[id]||!plain(f)||Object.keys(f).sort().join(',')!=='events,flowId,updatedAt'||f.flowId!==id||!Number.isSafeInteger(f.updatedAt)||f.updatedAt<1||!Array.isArray(f.events)||f.events.length>MAX_EVENTS)invalid();total+=f.events.length;
   const seen=new Set();for(const e of f.events){
+   section='event-shape';
    const required=['id','flowId','sessionId','role','epoch','detectionId','category','sensor','responsePath','firstAt','lastAt','count','confirmationCount','firstTick','lastTick','producerCount','evidenceFamilies','confidence','correlation','localOnly','attestationSequence','invalidated','provenance'];
    if(!plain(e)||required.some(k=>!Object.hasOwn(e,k))||Object.keys(e).some(k=>!required.includes(k)&&!['attestationStatus','hardwareAttested','crcFindings','contextKey','context','disposition','decisionReason','sessionStopPolicy','coverageState','coverageEpisode'].includes(k))||(e.attestationStatus===undefined)!==(e.hardwareAttested===undefined))invalid();
+   section='event-binding';
    const entry=Entry(e.detectionId),live=e.role==='O'?Object.values(db.overlays||{}).find(o=>o.sessionId===e.sessionId&&o.parentFlowId===id):db.flows[id];
    if(!plain(e)||!entry||e.category!==(entry.category||'SECURITY')||!SourceAllowed(entry,e.sensor)||!live||!['A','B','O'].includes(e.role)||!['trust','driver','integrity','server'].includes(e.responsePath)||e.flowId!==id||!id24(e.sessionId)||e.sessionId!==(e.role==='A'?id:live.sessionId)||e.epoch!==String(live.createdAt)||e.id!==Key({flowId:id,sessionId:e.sessionId,epoch:e.epoch},e.role,e.responsePath,e.detectionId,e.sensor,e.contextKey||'')||seen.has(e.id))invalid();seen.add(e.id);
-   ValidatePolicyStorage(e,invalid);
-   if(e.crcFindings!==undefined){if(e.detectionId!=='CRC_ROLE_MISMATCH'||!Array.isArray(e.crcFindings)||e.crcFindings.length>9)invalid();try{if(JSON.stringify(CrcFindings({signals:e.crcFindings}))!==JSON.stringify(e.crcFindings))invalid();}catch(_){invalid();}}
-   if(AvailabilityOnly({id:e.detectionId,source:e.sensor})&&(e.responsePath!=='integrity'||e.evidenceFamilies!==0||e.confidence!==0||e.correlation||!e.localOnly||e.invalidated))invalid();
-   if(e.attestationStatus!==undefined&&(!['VERIFIED_BINDING','REJECTED','TPM_QUOTE_ONLY','UNKNOWN'].includes(e.attestationStatus)||typeof e.hardwareAttested!=='boolean'||e.hardwareAttested&&e.attestationStatus!=='TPM_QUOTE_ONLY'))invalid();
-   if(!Number.isSafeInteger(e.firstAt)||e.firstAt<1||!Number.isSafeInteger(e.lastAt)||e.lastAt<e.firstAt||!hex64(e.firstTick)||!hex64(e.lastTick)||!hex64(e.attestationSequence)||!Number.isInteger(e.count)||e.count<0||e.count>0x7fffffff||!Number.isInteger(e.confirmationCount)||e.confirmationCount<0||e.confirmationCount>e.count||!Number.isInteger(e.producerCount)||e.producerCount<1||e.producerCount>65535||!Number.isInteger(e.evidenceFamilies)||e.evidenceFamilies<0||e.evidenceFamilies>255||!Number.isInteger(e.confidence)||e.confidence<0||e.confidence>100||typeof e.correlation!=='boolean'||typeof e.localOnly!=='boolean'||e.localOnly===e.correlation||typeof e.invalidated!=='boolean'||!['AUTHENTICATED_CLIENT_REPORT','SERVER_COMPARISON'].includes(e.provenance))invalid();
+   section='event-policy';ValidatePolicyStorage(e,invalid);
+   section='event-crc';if(e.crcFindings!==undefined){if(e.detectionId!=='CRC_ROLE_MISMATCH'||!Array.isArray(e.crcFindings)||e.crcFindings.length>9)invalid();try{if(JSON.stringify(CrcFindings({signals:e.crcFindings}))!==JSON.stringify(e.crcFindings))invalid();}catch(_){invalid();}}
+   section='event-availability';if(AvailabilityOnly({id:e.detectionId,source:e.sensor})&&(e.responsePath!=='integrity'||e.evidenceFamilies!==0||e.confidence!==0||e.correlation||!e.localOnly||e.invalidated))invalid();
+   section='event-attestation';if(e.attestationStatus!==undefined&&(!['VERIFIED_BINDING','REJECTED','TPM_QUOTE_ONLY','UNKNOWN'].includes(e.attestationStatus)||typeof e.hardwareAttested!=='boolean'||e.hardwareAttested&&e.attestationStatus!=='TPM_QUOTE_ONLY'))invalid();
+   section='event-counters';if(!Number.isSafeInteger(e.firstAt)||e.firstAt<1||!Number.isSafeInteger(e.lastAt)||e.lastAt<e.firstAt||!hex64(e.firstTick)||!hex64(e.lastTick)||!hex64(e.attestationSequence)||!Number.isInteger(e.count)||e.count<0||e.count>0x7fffffff||!Number.isInteger(e.confirmationCount)||e.confirmationCount<0||e.confirmationCount>e.count||!Number.isInteger(e.producerCount)||e.producerCount<1||e.producerCount>65535||!Number.isInteger(e.evidenceFamilies)||e.evidenceFamilies<0||e.evidenceFamilies>255||!Number.isInteger(e.confidence)||e.confidence<0||e.confidence>100||typeof e.correlation!=='boolean'||typeof e.localOnly!=='boolean'||e.localOnly===e.correlation||typeof e.invalidated!=='boolean'||!['AUTHENTICATED_CLIENT_REPORT','SERVER_COMPARISON'].includes(e.provenance))invalid();
   }
  }
- if(total>MAX_RECORDS)invalid();return s;
+ section='total';if(total>MAX_RECORDS)invalid();return s;
 }
 module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPath,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};

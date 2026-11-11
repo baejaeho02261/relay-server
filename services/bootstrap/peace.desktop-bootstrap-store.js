@@ -64,8 +64,21 @@ function Load(){
   if(value.adminCredentialRevocations!==undefined)require("../authentication/peace.admin-credential-revocations").Validate(value.adminCredentialRevocations);
   if(value.releaseSafety!==undefined)require("../artifacts/peace.desktop-release-safety").ValidateState(value.releaseSafety);
   try{require("../artifacts/peace.desktop-packing-evidence").ValidateStore(value);}catch(_){Invalid();}
-  if(value.securityDetections!==undefined)require('../security/peace.security-detections').Validate(value.securityDetections,value);
-  for(const row of [...Object.values(value.flows||{}),...Object.values(value.overlays||{})]){require('../security/peace.security-detections').ValidateOrder(row.nhwResponseOrders);require('../security/peace.security-detections').ValidateAttestations(row.nhwAttestations);require('../security/peace.security-detections').ValidateTerminal(row.nhwTerminalReport);require('../security/peace.nhw-peer-context').Validate(row,value);}
+  // Read-only startup diagnostics: never weaken validation or expose stored evidence.
+  // A malformed security record must remain fail-closed, but its category is
+  // needed to repair it without deleting the durable, signed authority store.
+  const validateNHW=(stage,check)=>{try{return check();}catch(error){
+    if(error?.message==='SECURITY_DETECTION_STORAGE_INVALID')
+      console.error('[NHW_STORAGE_VALIDATION] stage='+stage);
+    throw error;
+  }};
+  if(value.securityDetections!==undefined)validateNHW('history',()=>require('../security/peace.security-detections').Validate(value.securityDetections,value));
+  for(const row of [...Object.values(value.flows||{}),...Object.values(value.overlays||{})]){
+    validateNHW('response-order',()=>require('../security/peace.security-detections').ValidateOrder(row.nhwResponseOrders));
+    validateNHW('attestation',()=>require('../security/peace.security-detections').ValidateAttestations(row.nhwAttestations));
+    validateNHW('terminal',()=>require('../security/peace.security-detections').ValidateTerminal(row.nhwTerminalReport));
+    validateNHW('peer',()=>require('../security/peace.nhw-peer-context').Validate(row,value));
+  }
   if(value.lifecycleTrace!==undefined)require("../observability/peace.desktop-lifecycle-trace").Validate(value.lifecycleTrace,value);
 
   if(value.schema<5){
