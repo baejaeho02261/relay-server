@@ -7,7 +7,8 @@ RUN npm ci --include=dev --ignore-scripts && node -e "const D=require('better-sq
 COPY . ./
 # Validate the shipped web bundle, browser cache contract and modal controllers
 # before accepting an NHW/server change as a production-ready deployment.
-RUN node tests/web/peace.check-web-ui.js \
+RUN node --test tests/network/peace.test-bootstrap-tls-reuse-contract.js tests/bootstrap/peace.test-bootstrap-client-timing-contract.js tests/runtime/peace.test-bootstrap-reissue-native-v10.js \
+ && node tests/web/peace.check-web-ui.js \
  && node tests/web/peace.test-web-ui-cache.js \
  && node tests/web/peace.test-admin-modal-isolation.js \
  && node tests/web/peace.test-server-state-ui.js \
