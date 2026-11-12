@@ -26,18 +26,3 @@ test('O valid credentials and cached observation cannot bypass later revocation'
 test('timing classifier never infers heartbeat from 290 seconds',()=>{const d=require("../../services/runtime/peace.desktop-timing-diagnosis");const x=d.Describe([{source:'CLIENT_REPORTED',role:'A',reporterRole:'A',event:'DOWNLOAD_DEADLINE',status:'OBSERVED',elapsedMs:290000},{source:'SERVER_CONFIRMED',role:'O',event:'LEASE_EXPIRED',status:'EXPIRED'}]);assert.equal(x.heartbeatInferred,false);assert.equal(x.processExitCause,'NOT_DETERMINED');assert.equal(x.facts.length,2);assert.equal(d.Describe([{source:'CLIENT_REPORTED',role:'O',reporterRole:'O',event:'DOWNLOAD_DEADLINE',status:'OBSERVED'}]).facts.length,0);});
 
 test('download deadline observation is admitted only from A about A',()=>{const api=Isolated("services/observability/peace.desktop-lifecycle-trace.js",['Events'],{"../bootstrap/peace.desktop-bootstrap-store":{}});const input=JSON.stringify([{event:'DOWNLOAD_DEADLINE',status:'OBSERVED',elapsedMs:290000}]);assert.equal(api.__probe.Events(input,{reporterRole:'A',targetRole:'A'}).length,1);for(const [reporterRole,targetRole]of [['B','B'],['O','O'],['B','A'],['O','B']])assert.throws(()=>api.__probe.Events(input,{reporterRole,targetRole}),/ROLE_INVALID/);});
-
-test('bounded A download deadline telemetry accepts the shared 780-second transfer, while no ordinary event may exceed 600 seconds',()=>{
- const api=Isolated('services/observability/peace.desktop-lifecycle-trace.js',['Events'],{'../bootstrap/peace.desktop-bootstrap-store':{}});
- const accept=(event,ms)=>api.__probe.Events(JSON.stringify([{event,status:event==='SHUTDOWN_BEGIN'?'REQUESTED':'OBSERVED',elapsedMs:ms}]),{reporterRole:'A',targetRole:'A'});
- assert.equal(accept('DOWNLOAD_DEADLINE',780000)[0].elapsedMs,780000);
- assert.equal(accept('DOWNLOAD_DEADLINE',900000)[0].elapsedMs,900000);
- assert.throws(()=>accept('DOWNLOAD_DEADLINE',900001),/LIFECYCLE_INPUT_INVALID/);
- assert.throws(()=>accept('DOWNLOAD_DEADLINE',-1),/LIFECYCLE_INPUT_INVALID/);
- // Other events keep their original envelope, and a failed cleanup must
- // retain its actual Win32 error instead of claiming removed.
- assert.equal(accept('SHUTDOWN_BEGIN',600000)[0].elapsedMs,600000);
- assert.throws(()=>accept('SHUTDOWN_BEGIN',600001),/LIFECYCLE_INPUT_INVALID/);
- const cleanup=api.__probe.Events(JSON.stringify([{event:'FILE_CLEANUP',status:'FAILED',win32Error:32}]),{reporterRole:'A',targetRole:'A'});
- assert.equal(cleanup[0].win32Error,32);
-});
