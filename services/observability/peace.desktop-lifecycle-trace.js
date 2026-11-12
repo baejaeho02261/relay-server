@@ -49,7 +49,7 @@ function Events(text,p,ordered=true){
  if(!Array.isArray(events)||!events.length||events.length>8)Fail('LIFECYCLE_INPUT_INVALID');
  for(const e of events){if(!Plain(e)||Object.keys(e).some(k=>!['event','status','pid','exitCode','win32Error','elapsedMs'].includes(k))||typeof e.event!=='string'||!Object.hasOwn(PAIRS,e.event)||!PAIRS[e.event].includes(e.status))Fail('LIFECYCLE_INPUT_INVALID');
   if(e.event==='DOWNLOAD_DEADLINE'&&(p.reporterRole!=='A'||p.targetRole!=='A'))Fail('LIFECYCLE_ROLE_INVALID',403);
-  for(const k of ['pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,k)&&(!Number.isSafeInteger(e[k])||e[k]<0||e[k]>(k==='elapsedMs'?600000:0xffffffff)))Fail('LIFECYCLE_INPUT_INVALID');
+  for(const k of ['pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,k)&&(!Number.isSafeInteger(e[k])||e[k]<0||e[k]>(k==='elapsedMs'?(e.event==='DOWNLOAD_DEADLINE'?900000:600000):0xffffffff)))Fail('LIFECYCLE_INPUT_INVALID');
   if(p.reporterRole!==p.targetRole&&!['PROCESS_EXIT','FILE_CLEANUP'].includes(e.event)||p.reporterRole===p.targetRole&&e.event==='PROCESS_EXIT'&&e.status==='OBSERVED')Fail('LIFECYCLE_ROLE_INVALID',403);
  }
  if(!lifecycleContract.validate(events,p.reporterRole,p.targetRole,{ordered}))Fail('LIFECYCLE_INPUT_INVALID');
