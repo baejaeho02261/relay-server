@@ -57,31 +57,32 @@ test('B and O normal startup/runtime threads, tokens and scheduling: low-assuran
  }
 });
 
-test('suppress only weak uncertainty; stronger evidence, identity and real code violations remain terminal',()=>{
+test('unverified identity, confidence and one sensor root never manufacture proof; causal evidence remains terminal',()=>{
  for(const stage of ['B','O']){
   const phase=stage+'_RUNTIME',weak=unverified(stage,phase,'TOKEN_ACCESS',0xf01ff);
   for(const id of ['dkTokenObject','dkTokenRights','dkThreadSpawn','dkAffinity',
     'dkThreadCreation','dkThreadExit','dkMultiSignal']){
    assert.equal(evalRecord(id,stage,phase,{...weak,capability:id.startsWith('dkToken')?'TOKEN_ACCESS':'UNKNOWN',accessMask:id.startsWith('dkToken')?0xf01ff:0}).stop,false,id+' weak');
    const ctx={...weak,capability:'UNKNOWN',accessMask:0};
-   assert.equal(evalRecord(id,stage,phase,{...ctx,actorIdentity:'b'.repeat(64)}).stop,true,id+' attributed actor');
-   assert.equal(evalRecord(id,stage,phase,ctx,{confidence:WEAK_MAX+1}).stop,true,id+' stronger confidence');
-   assert.equal(evalRecord(id,stage,phase,ctx,{families:3}).stop,true,id+' independent roots');
+   assert.equal(evalRecord(id,stage,phase,{...ctx,actorIdentity:'b'.repeat(64)}).stop,false,id+' client actor identifier is not verified');
+   assert.equal(evalRecord(id,stage,phase,ctx,{confidence:WEAK_MAX+1}).stop,false,id+' confidence alone is not causal proof');
+   assert.equal(evalRecord(id,stage,phase,ctx,{families:3}).stop,false,id+' bitmask without correlation is not proof');
    assert.equal(policy.Evaluate(catalog.Get(id),record(id,{confidence:80,families:3,localOnly:false,correlation:true}),
      {tick,version:5,stage,context:ctx,corroborated:true}).stop,true,id+' corroborated');
    assert.equal(evalRecord(id,stage,phase,ctx,{signal:'OBSERVED'}).stop,false,id+' observation');
    assert.equal(policy.Evaluate(catalog.Get(id),record(id),{tick,version:4,stage,context:ctx}).stop,
      policy.Evaluate(catalog.Get(id),record(id),{tick,version:4,context:ctx}).stop,id+' legacy unchanged');
   }
-  for(const id of ['dkInjectionEvidence','dkPECodeIntegrity','dkWriteIntegrity',
-   'dkRemoteThread','dkPrivateThread','dkRWX','dkDacl','dkIAT'])
-   assert.equal(evalRecord(id,stage,phase,unverified(stage,phase)).stop,true,id+' direct security evidence');
+  for(const id of ['dkInjectionEvidence','dkPECodeIntegrity','dkWriteIntegrity','dkIAT'])
+   assert.equal(evalRecord(id,stage,phase,unverified(stage,phase)).stop,true,id+' internally verified invariant');
+  for(const id of ['dkRemoteThread','dkPrivateThread','dkRWX','dkDacl'])
+   assert.equal(evalRecord(id,stage,phase,unverified(stage,phase)).stop,false,id+' still needs causal proof');
  }
  // Client cannot choose a different role phase to gain a benign classification.
- assert.equal(evalRecord('dkThreadSpawn','B','O_BOOTSTRAP',unverified('B','O_BOOTSTRAP')).stop,true);
- assert.equal(evalRecord('dkThreadSpawn','O','B_BOOTSTRAP',unverified('O','B_BOOTSTRAP')).stop,true);
- assert.equal(evalRecord('dkThreadSpawn','A','A_BOOTSTRAP',unverified('A','A_BOOTSTRAP')).stop,true);
- assert.equal(evalRecord('dkThreadSpawn','B','B_BOOTSTRAP',{...unverified('B','B_BOOTSTRAP'),contextMixed:true}).stop,true);
+ assert.equal(evalRecord('dkThreadSpawn','B','O_BOOTSTRAP',unverified('B','O_BOOTSTRAP')).stop,false);
+ assert.equal(evalRecord('dkThreadSpawn','O','B_BOOTSTRAP',unverified('O','B_BOOTSTRAP')).stop,false);
+ assert.equal(evalRecord('dkThreadSpawn','A','A_BOOTSTRAP',unverified('A','A_BOOTSTRAP')).stop,false);
+ assert.equal(evalRecord('dkThreadSpawn','B','B_BOOTSTRAP',{...unverified('B','B_BOOTSTRAP'),contextMixed:true}).stop,false);
 });
 
 test('194 output names, 197 independent output kinds, 204 complete typed kinds: exhaustive B/O risk adjudication',()=>{
@@ -96,8 +97,9 @@ test('194 output names, 197 independent output kinds, 204 complete typed kinds: 
   for(const stage of ['B','O']){
    const phase=stage+'_RUNTIME',context=unverified(stage,phase);
    const weakVerdict=evalRecord(entry.id,stage,phase,context);
-   const weakEligible=entry.standaloneOutput&&entry.signalClass!=='UNKNOWN'&&
-     CONTEXT_SENSITIVE.has(cls)&&!STRONG_NATIVE.has(entry.id);
+   const direct=policy.NativeEvidenceTier(entry)==='STABLE_INTEGRITY_INVARIANT'||
+     policy.NativeEvidenceTier(entry)==='NATIVE_MULTI_SIGNAL_PROOF';
+   const weakEligible=entry.standaloneOutput&&entry.signalClass!=='UNKNOWN'&&!direct;
    if(!entry.standaloneOutput||entry.signalClass==='UNKNOWN'){
     assert.equal(weakVerdict.stop,false,entry.id+' coverage/internal');internal++;
    }else if(weakEligible){
@@ -114,7 +116,7 @@ test('194 output names, 197 independent output kinds, 204 complete typed kinds: 
   }
  }
  assert.equal(seen.size,204);
- assert.ok(weak>100 && strong>35 && internal>0,{weak,strong,internal});
+ assert.ok(weak>140 && strong>=30 && internal>0,{weak,strong,internal});
 });
 
 test('authenticated reporting stage, not caller-claimed phase alone, selects B/O adjudication',()=>{
@@ -122,7 +124,7 @@ test('authenticated reporting stage, not caller-claimed phase alone, selects B/O
  const source=fs.readFileSync(path.join(__dirname,'../../services/security/peace.security-detections.js'),'utf8');
  assert.match(source,/contextPolicy\.Evaluate\(Entry\(r\.id\),r,\{tick:value\.tick,context,corroborated,prior,version:value\.version,stage\}\)/);
  const g={...unverified('O','O_BOOTSTRAP'),actorClass:'EXTERNAL'};
- assert.equal(evalRecord('dkThreadSpawn','B','O_BOOTSTRAP',g).stop,true);
+ assert.equal(evalRecord('dkThreadSpawn','B','O_BOOTSTRAP',g).stop,false);
  assert.equal(evalRecord('dkThreadSpawn','O','O_BOOTSTRAP',g).stop,false);
 });
 
@@ -154,14 +156,16 @@ test('single unverified B/O thread-handle snapshot at confidence 30 is evidence,
    const changedContext={...ctx,...change.context};
    const decision=policy.Evaluate(catalog.Get('dkThread'),changedRecord,
     {tick,version:5,stage,context:changedContext,corroborated:false});
-   assert.equal(decision.stop,true,stage+' '+phase+' '+JSON.stringify(change));
+   assert.equal(decision.stop,false,stage+' '+phase+' '+JSON.stringify(change));
   }
   const confirmed=policy.Evaluate(catalog.Get('dkThread'),
    {...event,confidence:85,families:3,correlation:true,localOnly:false},
    {tick,version:5,stage,context:ctx,corroborated:true});
   assert.equal(confirmed.stop,true,'corroborated independent evidence remains actionable');
-  for(const id of ['dkRemoteThread','dkPrivateThread','dkInjectionEvidence','dkWriteIntegrity'])
-   assert.equal(policy.Evaluate(catalog.Get(id),event,{tick,version:5,stage,context:ctx}).stop,true,id+' direct high-risk evidence');
+  for(const id of ['dkInjectionEvidence','dkWriteIntegrity'])
+   assert.equal(policy.Evaluate(catalog.Get(id),event,{tick,version:5,stage,context:ctx}).stop,true,id+' internal corroboration or integrity');
+  for(const id of ['dkRemoteThread','dkPrivateThread'])
+   assert.equal(policy.Evaluate(catalog.Get(id),event,{tick,version:5,stage,context:ctx}).stop,false,id+' needs independent corroboration');
   assert.equal(policy.Evaluate(catalog.Get('dkThread'),event,{tick,version:4,stage,context:ctx}).stop,
    policy.Evaluate(catalog.Get('dkThread'),event,{tick,version:4,context:ctx}).stop,'legacy unchanged');
  }

@@ -15,6 +15,21 @@ const structuralInvariant=new Set(['dkIAT','dkFunctionPointer','dkCallback','dkF
 const sensorCorrelated=new Set(['dkETWImageFusion','dkInjectionEvidence','dkSectionBacking','dkThreadStackOrigin','dkLoaderCrossView','dkSnapshotETW','dkObserverMismatch','dkRiskConfidence','dkCausalSequence','dkCodeProvenance','dkSectionCorrelation','dkIndirectTarget','dkThreadTimeline','dkIncidentReconstruction','dkAPCStyleEvidence','dkExecutableLifecycle']);
 const confirmedKernel=new Set(['dkVulnerableDriver','dkKernelMappingEvidence','dkDriverSignerAttestation']);
 const TOKEN_KINDS=new Set(['dkTokenObject','dkTokenRights','dkTokenChange','dkThreadToken']);
+// A DETECTED flag is an emitted sensor finding, not proof of attacker origin.
+// Keep the 204-kind catalog intact; distinguish internally verified invariants
+// from state/capability/behavior indicators that need causal corroboration.
+// InjectionEvidence's native source requires external access + anomalous thread
+// origin + executable-code impact, each in a bounded window.
+const NATIVE_MULTI_SIGNAL_PROOFS=new Set(['dkInjectionEvidence']);
+function NativeEvidenceTier(entry){
+ const cls=PolicyClass(entry);
+ if(cls==='INTERNAL_TELEMETRY')return 'INTERNAL_ONLY';
+ if(cls==='COVERAGE_HEALTH')return 'COVERAGE_ONLY';
+ if(cls==='EXACT_INTEGRITY_MUTATION'||cls==='CONFIRMED_STRUCTURAL_INVARIANT')
+  return 'STABLE_INTEGRITY_INVARIANT';
+ if(NATIVE_MULTI_SIGNAL_PROOFS.has(entry.id))return 'NATIVE_MULTI_SIGNAL_PROOF';
+ return 'REQUIRE_INDEPENDENT_CORROBORATION';
+}
 
 // A sensor output is an event, not proof that normal B/O activity was hostile.
 // The semantic policy is exhaustive through PolicyClass (all 204 registered
@@ -233,15 +248,39 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
     sessionStopPolicy:'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION'};
  }
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
- // V1-V4 preserve their existing correlation/typed-evidence rules. Beginning
- // with V5, DETECTED means the v109 native sensor emitted this standalone
- // output AFTER baseline/cooldown suppression. Only this explicit finding is
- // eligible here; context-only observations and coverage health never revoke.
- // The authenticated report is not a hardware attestation. A compromised
- // client can still lie; server-side ownership and exact-cohort checks remain.
- if(version>=5&&r.signal==='DETECTED'&&entry.standaloneOutput===true&&
-    cls!=='COVERAGE_HEALTH'&&cls!=='INTERNAL_TELEMETRY')
-  return {...base,disposition:'DETECTION',decisionReason:'V5_NATIVE_SENSOR_OUTPUT',sessionStopPolicy:'STOP_ON_NATIVE_DETECTED_OUTPUT',stop:true};
+ // V1-V4 keep the pre-existing contract. V5 native output means the
+ // sensor emitted a finding, NOT that every state change, rights snapshot or
+ // activity burst was adversarial. Requiring explicit causality here prevents
+ // 204 typed kinds from inheriting a blanket STOP_ON_NATIVE_DETECTED_OUTPUT.
+ // Exact stable invariants and the native three-signal injection proof remain
+ // terminal; other kinds need a verified forbidden peer or independent roots.
+ // A client-supplied actor identity, phase, access mask or confidence alone
+ // cannot manufacture a stop decision. Server-side binding is checked above.
+ if(version>=5&&r.signal==='DETECTED'){
+  // The server's policy caller checks the independent-root vote. Validate
+  // the record shape again here so a test or alternate caller cannot pass a
+  // boolean 'corroborated' without the corresponding signed acquisition data.
+  const independentRoots=r.correlation===true&&r.localOnly===false&&
+    r.confidence>=50&&RootCount(r.families&127)>=2;
+  const qualifiedKernelVote=entry.category==='KERNEL_TRUST'&&
+    r.correlation===true&&r.localOnly===false&&r.confidence>=50&&
+    (r.families&128)!==0;
+  const independentlySupported=corroborated&&(independentRoots||qualifiedKernelVote);
+  const tier=NativeEvidenceTier(entry);
+  if(tier==='STABLE_INTEGRITY_INVARIANT'||tier==='NATIVE_MULTI_SIGNAL_PROOF')
+   return {...base,disposition:'DETECTION',decisionReason:'V5_'+tier,
+    sessionStopPolicy:'STOP_ON_VERIFIED_NATIVE_INVARIANT',stop:true};
+  if(independentlySupported)
+   return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'V5_INDEPENDENT_EVIDENCE',
+    sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
+  const reason=entry.id==='dkThreadSpawn'?'THREAD_BURST_ORIGIN_NOT_VERIFIED':
+   entry.id==='dkNoAccess'?'MEMORY_PROTECTION_CAUSE_UNVERIFIED':
+   cls==='PROCESS_THREAD_CAPABILITY'||cls==='TOKEN_TRANSITION_OR_CAPABILITY'?
+    'NATIVE_CAPABILITY_NOT_VERIFIED_AS_ABUSE':
+    'NATIVE_BEHAVIOR_REQUIRES_CORROBORATION';
+  return {...base,decisionReason:reason,
+   sessionStopPolicy:'REQUIRE_CAUSAL_OR_INDEPENDENT_EVIDENCE'};
+ }
  // These specific sensor families contain internal baseline/confirmation.
  // For legacy clients without the new source discriminator, require an
  // independent correlation rather than assuming every record was a finding.
@@ -252,4 +291,4 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
  if(corroborated)return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'INDEPENDENT_EVIDENCE_CORROBORATION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
  return base;
 }
-module.exports={ParseContext,ContextKey,UnknownContext,PolicyClass,Resolve,Evaluate,Fresh,ForbiddenCapability,TokenMutation,PHASES,CAPABILITIES,COVERAGE,DISPOSITIONS,CONTEXT_FIELDS};
+module.exports={ParseContext,ContextKey,UnknownContext,PolicyClass,NativeEvidenceTier,Resolve,Evaluate,Fresh,ForbiddenCapability,TokenMutation,PHASES,CAPABILITIES,COVERAGE,DISPOSITIONS,CONTEXT_FIELDS};
