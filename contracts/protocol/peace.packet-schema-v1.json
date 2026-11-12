@@ -3323,6 +3323,74 @@
         "pcrs"
       ],
       "additionalProperties": false
+    },
+    "bootstrapClientTiming": {
+      "type": "object",
+      "properties": {
+        "chunks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "reused": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "chunkMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 900000
+        },
+        "tlsMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 900000
+        },
+        "wireMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 900000
+        },
+        "cryptoMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 900000
+        },
+        "fileMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 900000
+        },
+        "verifyMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 900000
+        },
+        "nhwMs": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 900000
+        },
+        "nhwChecks": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        }
+      },
+      "required": [
+        "chunks",
+        "reused",
+        "chunkMs",
+        "tlsMs",
+        "wireMs",
+        "cryptoMs",
+        "fileMs",
+        "verifyMs",
+        "nhwMs",
+        "nhwChecks"
+      ],
+      "additionalProperties": false
     }
   },
   "commands": [
@@ -3667,6 +3735,9 @@
           },
           "offset": {
             "$ref": "integer"
+          },
+          "clientTiming": {
+            "$ref": "bootstrapClientTiming"
           }
         },
         "required": [
@@ -3709,6 +3780,9 @@
           },
           "signature": {
             "$ref": "signature"
+          },
+          "clientTiming": {
+            "$ref": "bootstrapClientTiming"
           }
         },
         "required": [
@@ -3860,6 +3934,9 @@
           },
           "downloadTicket": {
             "$ref": "token"
+          },
+          "clientTiming": {
+            "$ref": "bootstrapClientTiming"
           }
         },
         "required": [
