@@ -2,19 +2,41 @@
 const tls=require('node:tls'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require("../licensing/peace.desktop-licenses"),identity=require('./peace.connect-transport-key');
 const PROTOCOL='GAME-CONNECT-4',MAX_FRAME=65536,MAX_CLEAR=32768,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
+// Opt-in, authenticated-bootstrap-only TLS reuse. A single socket never becomes
+// an authorization, replay, or device-session capability. Bound both idle time
+// and total ownership lifetime; legacy clients remain one-frame connections.
+const MAX_REUSE_FRAMES=256,MAX_REUSE_LIFETIME_MS=360000;
 const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),pendingReplays=new Set();
 const work=require("../runtime/peace.desktop-work-queue"),{performance}=require('node:perf_hooks');
 const admission=new(require('./peace.desktop-connection-admission').Admission)();
 const deviceRate=new(require("../runtime/peace.desktop-request-rate").DeviceRate)();
 let lastPrune=0,listener=null;
-const rawDeadlines=new Map(),rawSockets=new Set();
+const rawDeadlines=new Map(),rawSockets=new Set(),rawSlots=new Map();
 function ConnectionKey(socket){return [socket.localAddress,socket.localPort,socket.remoteAddress,socket.remotePort].join('|');}
 function Aad(direction,requestId,keyId){return Buffer.from(PROTOCOL+'\n'+direction+'\n'+requestId+'\n'+keyId,'utf8');}
 function Plain(value){return !!value&&typeof value==='object'&&!Array.isArray(value)&&Object.getPrototypeOf(value)===Object.prototype;}
+// Pure protocol gates share the exact predicates used by the TLS listener.
+// A reused connection is never a business authorization. Every frame still
+// performs a new RSA/AES-GCM open, replay check and bootstrap ticket check.
+function FrameShape(frame){
+ if(!Plain(frame))return false;
+ const keys=Object.keys(frame).sort().join(',');
+ return (keys==='ciphertext,keyId,nonce,requestId,tag,v,wrappedKey'||
+   keys==='ciphertext,keepAlive,keyId,nonce,requestId,tag,v,wrappedKey')&&
+   (!Object.hasOwn(frame,'keepAlive')||frame.keepAlive===1);
+}
+function SameBootstrapFlow(ownedFlow,payload){return !ownedFlow||payload?.operation==='bootstrap'&&
+ payload?.body?.action==='chunk'&&payload?.body?.flowId===ownedFlow;}
+function CanReuseBootstrap(frame,payload,result,frameCount,hardDeadline){
+ return frame.keepAlive===1&&result?.ok===true&&payload?.operation==='bootstrap'&&
+   payload?.body?.action==='chunk'&&typeof payload?.body?.flowId==='string'&&
+   payload.body.flowId.length>0&&frameCount<MAX_REUSE_FRAMES&&
+   performance.now()+DEADLINE_MS<hardDeadline;
+}
 function Prune(){const at=Date.now();if(at-lastPrune<1000)return;lastPrune=at;for(const [id,until]of seen)if(until<=at)seen.delete(id);}
 function Base64(value,min,max=min){if(typeof value!=='string'||value.length>Math.ceil(max/3)*4||!/^[A-Za-z0-9+/]*={0,2}$/.test(value))throw Error('CONNECT_FRAME_INVALID');const bytes=Buffer.from(value,'base64');if(bytes.length<min||bytes.length>max||bytes.toString('base64')!==value)throw Error('CONNECT_FRAME_INVALID');return bytes;}
 async function Open(frame,budgetMs,peerKey=''){
- if(!Plain(frame)||Object.keys(frame).sort().join(',')!=='ciphertext,keyId,nonce,requestId,tag,v,wrappedKey'||frame.v!==1||!/^([a-f0-9]{64})$/.test(frame.keyId||'')||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(frame.requestId||''))throw Error('CONNECT_FRAME_INVALID');
+ if(!FrameShape(frame)||frame.v!==1||!/^([a-f0-9]{64})$/.test(frame.keyId||'')||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(frame.requestId||''))throw Error('CONNECT_FRAME_INVALID');
  const server=identity.Resolve(frame.keyId);
  Prune();const transportId=frame.requestId.toLowerCase();
  if(seen.has(transportId)||pendingReplays.has(transportId))throw Error('CONNECT_REPLAY');
@@ -59,22 +81,58 @@ async function Dispatch(opened,absoluteDeadline){
  }catch(error){const code=error.desktopError?error.message:['CONNECT_RATE_LIMIT','WORK_QUEUE_BUSY'].includes(error.message)?'DESKTOP_RATE_LIMIT':['CONNECT_DEADLINE','WORK_DEADLINE'].includes(error.message)?'CONNECT_DEADLINE':'INPUT_INVALID';require("../runtime/peace.desktop-runtime-diagnostics").Record(payload?.operation,payload?.body,code);return {ok:false,error:code,reason:code,message:desktop.messages[code]||'인증 요청을 처리하지 못했습니다.'};}finally{devicePrepared?.secret?.fill(0);keylessPrepared?.secret?.fill(0);}
 }
 function Accept(socket){
- let buffer=Buffer.alloc(0),complete=false;
- const absoluteDeadline=rawDeadlines.get(ConnectionKey(socket));
- if(!absoluteDeadline||performance.now()>=absoluteDeadline){socket.destroy();return;}
+ let buffer=Buffer.alloc(0),busy=false,count=0,flowId='';
+ const key=ConnectionKey(socket),slot=rawSlots.get(key);
+ if(!slot||performance.now()>=slot.deadline){socket.destroy();return;}
  socket.setNoDelay(true);socket.disableRenegotiation();
  socket.on('error',()=>{});socket.once('close',()=>buffer.fill(0));
  socket.on('data',async chunk=>{
-  if(complete)return socket.destroy();if(buffer.length+chunk.length>MAX_FRAME)return socket.destroy();buffer=Buffer.concat([buffer,chunk]);const end=buffer.indexOf(10);if(end<0)return;
-  complete=true;socket.pause();
-  // One LF-delimited JSON request is accepted. CRLF from ReadLn clients is
-  // supported; a second frame or trailing bytes are never pipelined.
+  if(busy)return socket.destroy();
+  if(buffer.length+chunk.length>MAX_FRAME)return socket.destroy();
+  buffer=Buffer.concat([buffer,chunk]);const end=buffer.indexOf(10);if(end<0)return;
+  // Reject pipelining. The next frame is admitted only after the authenticated
+  // reply has been written and the prior request's bounded state is gone.
   if(end!==buffer.length-1)return socket.destroy();
-  // Monotonic server processing time: a complete frame through response enqueue
-  // (or failure). It is neither network round-trip nor client lease latency.
+  busy=true;socket.pause();count++;
   const requestStarted=performance.now();
-  let opened,renewalRecorded=false;try{const raw=buffer.subarray(0,end);opened=await Open(require("../protocol/peace.strict-json").Parse(raw,{maxBytes:MAX_FRAME}),absoluteDeadline-performance.now(),String(socket.remoteAddress||'UNKNOWN'));if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const result=await Dispatch(opened,absoluteDeadline);if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');if(opened.payload.tlsPinVersion===1){const plan=require('./peace.desktop-tls-pin-transition').Offer();if(plan)result.tlsPinPlan=plan;}const response=Seal(opened,result),wire=JSON.stringify(response)+'\n';if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');socket.end(wire);work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,result.ok,performance.now()-requestStarted);renewalRecorded=true;}
-  catch(_){if(opened&&!renewalRecorded)work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,false,performance.now()-requestStarted);opened?.key.fill(0);socket.destroy();}
+  let opened,renewalRecorded=false;
+  try{
+   if(requestStarted>=slot.deadline||count>MAX_REUSE_FRAMES)throw Error('CONNECT_DEADLINE');
+   // A rotated/retired server certificate cannot silently extend a live
+   // connection. The peer TLS identity was pinned at handshake by the client.
+   require('./peace.connect-tls').Load();
+   const raw=buffer.subarray(0,end);
+   const frame=require('../protocol/peace.strict-json').Parse(raw,{maxBytes:MAX_FRAME});
+   const reuseRequested=frame.keepAlive===1;
+   opened=await Open(frame,slot.deadline-performance.now(),String(socket.remoteAddress||'UNKNOWN'));
+   if(socket.destroyed||performance.now()>=slot.deadline)throw Error('CONNECT_DEADLINE');
+   // The authenticated flow identity is sticky across the opt-in connection;
+   // cross-flow/cross-role operations require a fresh pinned TLS session.
+   const payload=opened.payload;
+   if(!SameBootstrapFlow(flowId,payload))throw Error('CONNECT_FLOW_CHANGED');
+   const result=await Dispatch(opened,slot.deadline);
+   if(socket.destroyed||performance.now()>=slot.deadline)throw Error('CONNECT_DEADLINE');
+   if(payload.tlsPinVersion===1){const plan=require('./peace.desktop-tls-pin-transition').Offer();if(plan)result.tlsPinPlan=plan;}
+   const response=Seal(opened,result),wire=JSON.stringify(response)+'\n';
+   if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');
+   if(socket.destroyed||performance.now()>=slot.deadline)throw Error('CONNECT_DEADLINE');
+   const keep=reuseRequested&&CanReuseBootstrap(frame,payload,result,count,slot.hardDeadline);
+   work.RecordRenewal(payload.operation,payload.body?.action,result.ok,performance.now()-requestStarted);
+   renewalRecorded=true;
+   buffer.fill(0);buffer=Buffer.alloc(0);
+   if(!keep){socket.end(wire);return;}
+   flowId=payload.body.flowId;
+   // The next per-request deadline is armed only after the entire encrypted
+   // response has left Node's write queue; idle and lifetime caps still apply.
+   socket.write(wire,error=>{
+    if(error||socket.destroyed)return socket.destroy();
+    if(!slot.rearm())return socket.destroy();
+    busy=false;socket.resume();
+   });
+  }catch(_){
+   if(opened&&!renewalRecorded)work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,false,performance.now()-requestStarted);
+   opened?.key.fill(0);socket.destroy();
+  }
  });
 }
 function CreateServer(){
@@ -91,10 +149,18 @@ function CreateServer(){
   rawSockets.add(socket);socket.once('close',()=>rawSockets.delete(socket));
   Prune();socket.on('error',()=>{});
   let ticket;try{ticket=admission.Acquire(String(socket.remoteAddress||''));}catch(_){socket.destroy();return;}
-  const connectionKey=ConnectionKey(socket),expires=performance.now()+DEADLINE_MS;
-  rawDeadlines.set(connectionKey,expires);work.connections.active=admission.active;
-  const deadline=setTimeout(()=>socket.destroy(),DEADLINE_MS);deadline.unref();
-  socket.once('close',()=>{clearTimeout(deadline);if(rawDeadlines.get(connectionKey)===expires)rawDeadlines.delete(connectionKey);ticket.release();work.connections.active=admission.active;});
+  const connectionKey=ConnectionKey(socket),started=performance.now();
+  let deadlineTimer;
+  const slot={deadline:0,hardDeadline:started+MAX_REUSE_LIFETIME_MS,rearm(){
+   const until=Math.min(performance.now()+DEADLINE_MS,this.hardDeadline);
+   if(until<=performance.now())return false;
+   clearTimeout(deadlineTimer);this.deadline=until;
+   rawDeadlines.set(connectionKey,until);
+   deadlineTimer=setTimeout(()=>socket.destroy(),Math.max(1,Math.ceil(until-performance.now())));
+   deadlineTimer.unref();return true;
+  }};
+  rawSlots.set(connectionKey,slot);slot.rearm();work.connections.active=admission.active;
+  socket.once('close',()=>{clearTimeout(deadlineTimer);rawDeadlines.delete(connectionKey);rawSlots.delete(connectionKey);ticket.release();work.connections.active=admission.active;});
  });
  server.on('tlsClientError',(_error,socket)=>socket.destroy());
  return server;
@@ -105,6 +171,6 @@ function Start(){
  const server=CreateServer();server.on('error',error=>{console.error('CONNECT_TCP_START_FAILED', ['EADDRINUSE','EACCES','EADDRNOTAVAIL'].includes(error.code)?error.code:'CONNECT_LISTENER_FAILED');throw error;});
  listener=server;server.listen(port,config.HOST,()=>console.log('CONNECT_TLS_LISTENER_READY'));return server;
 }
-async function Stop(){const server=listener;listener=null;for(const socket of rawSockets)socket.destroy();rawSockets.clear();rawDeadlines.clear();pendingReplays.clear();seen.clear();if(server?.listening)await new Promise(resolve=>server.close(resolve));}
+async function Stop(){const server=listener;listener=null;for(const socket of rawSockets)socket.destroy();rawSockets.clear();rawDeadlines.clear();rawSlots.clear();pendingReplays.clear();seen.clear();if(server?.listening)await new Promise(resolve=>server.close(resolve));}
 function IsListening(){if(!listener||!listener.listening)return false;try{require('./peace.connect-tls').Load();return true;}catch(_){return false;}}
-module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,MAX_RESPONSE_CLEAR,MAX_RESPONSE_FRAME,DEADLINE_MS,Aad,CreateServer,Start,IsListening,Stop};
+module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,MAX_RESPONSE_CLEAR,MAX_RESPONSE_FRAME,DEADLINE_MS,Aad,CreateServer,Start,IsListening,Stop,FrameShape,SameBootstrapFlow,CanReuseBootstrap};
