@@ -124,8 +124,13 @@ test('coverage revalidation stays bounded and is consumed by each role owner',()
  assert.match(record,/TInterlocked\.Exchange\(FRevalidationRequested,1\)/);
  assert.doesNotMatch(record,/PostJSON|CheckIntegrity|CollectModule|MaintainLease|\bRefresh\b|Renew|StopAndJoin/);
  assert.match(get('TCozyNHWGuard.ConsumeRevalidationRequest',guard),/TInterlocked\.Exchange\(FRevalidationRequested,0\)/);
- const a=read('Cozy.Application/Cozy.Launcher.pas');
- assert.match(a,/CozyTick - Started >= DownloadDeadlineMS[\s\S]*?Watch\.ConsumeRevalidationRequest[\s\S]*?Assigned\(Revalidate\) then Revalidate\(\);\s*RequireLauncherWatch\(Watch\);\s*Bytes := Client\.Chunk/);
+ const download=get('DownloadVerifiedBinary',methods(read('Cozy.Application/Cozy.Launcher.pas')));
+ const afterChunks=download.indexOf('if CozyTick - Started >= DownloadDeadlineMS then Fail;');
+ assert.ok(afterChunks>0);
+ const transfer=download.slice(0,afterChunks),verified=download.slice(afterChunks);
+ assert.match(transfer,/while Offset < Flow.Release.Size do[\s\S]*?RequireLauncherWatch\(Watch\);[\s\S]*?CozyTick - Started >= DownloadDeadlineMS[\s\S]*?Bytes := Client\.Chunk/);
+ assert.doesNotMatch(transfer,/ConsumeRevalidationRequest|Revalidate\(\)/);
+ assert.match(verified,/Digest := IntegrityHashHandle\(Result\);[\s\S]*?Watch\.ConsumeRevalidationRequest[\s\S]*?Assigned\(Revalidate\) then Revalidate\(\);\s*RequireLauncherWatch\(Watch\);\s*Succeeded := True/);
  const b=methods(read('Cozy.Platform/Cozy.Api.pas')),modules=get('TGameApi.ReportModulesIfDue',b);
  assert.match(modules,/\(FModuleSnapshot = nil\) and \(FNHWGuard <> nil\) and\s*FNHWGuard\.ConsumeRevalidationRequest then\s*begin\s*CheckIntegrityCore;\s*FNextModules := 0;\s*end/);
  assert.ok(modules.indexOf('RequireModuleSnapshotLease;')>modules.indexOf('ConsumeRevalidationRequest'));

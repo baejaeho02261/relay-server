@@ -14,10 +14,14 @@ function NHWMetadata(row) {
  const internal=INTERNAL_EVIDENCE.has(row.id),warning=row.signalClass==='UNKNOWN';
  const displayName=internal?row.label.replace(/ Detect$/,' Evidence'):WARING_OUTPUT.has(row.id)?'Waring Detect':row.label;
  if(row.id==='dkObservationUncertain')row.sourceUnits.push('Cozy.NHW.Handles','Cozy.NHW.Guard');
+ const policy=require('./peace.security-context-policy');
+ const entry={...row,standaloneOutput:!internal};
+ const tier=policy.NativeEvidenceTier(entry);
+ const direct=tier==='STABLE_INTEGRITY_INVARIANT'||tier==='NATIVE_MULTI_SIGNAL_PROOF';
  return Freeze({...row,label:displayName,displayName,origin:'NHW',conditionLabel:WARING_OUTPUT.has(row.id)?row.label:'',standaloneOutput:!internal,
   observationClass:internal?'INTERNAL_EVIDENCE':warning?'COVERAGE_WARNING':'DETECTION',
-  sessionStopPolicy:internal?'OBSERVE_ONLY':warning?'RECOVER_AND_REVALIDATE':'STOP_ON_NATIVE_DETECTED_OUTPUT',
-  contextPolicy:require('./peace.security-context-policy').PolicyClass({...row,standaloneOutput:!internal})});
+  sessionStopPolicy:internal?'OBSERVE_ONLY':warning?'RECOVER_AND_REVALIDATE':direct?'STOP_ON_TYPED_SECURITY_EVIDENCE':'CONTEXT_AND_CORROBORATION',
+  contextPolicy:policy.PolicyClass(entry)});
 }
 const COZY_NAMES={
  IMAGE_DIGEST_MISMATCH:'Image Digest Detect',CODE_HASH_MISMATCH:'Code Hash Detect',FILE_HASH_MISMATCH:'File Hash Detect',

@@ -112,7 +112,14 @@ check('Server reason capture survives retirement and retains explicit source wit
 });
 check('All Cozy catalog outcomes persist named per-session records with their exact classified sources',()=>{
  const s=subject();for(const entry of catalog.COZY)reports.RecordServer({row:row(s),stage:'A',id:entry.id,source:entry.sourceUnits[0],confidence:0,correlation:false});
- const events=reports.ForFlow(row(s).id);assert.equal(events.length,122);assert.ok(events.every(e=>e.origin==='COZY'&&e.displayName.endsWith(' Detect')&&!e.invalidated));reports.Validate(store.Load().securityDetections,store.Load());
+ const events=reports.ForFlow(row(s).id);assert.equal(events.length,122);
+ for(const event of events){
+  const entry=catalog.Get(event.detectionId);
+  const name=entry.signalClass==='UNKNOWN'?entry.displayName.replace(/ Detect$/,'')+' · 측정/상태 확인 불가':entry.displayName;
+  assert.equal(event.origin,'COZY');assert.equal(event.displayName,name);
+  assert.equal(event.sensor,entry.sourceUnits[0]);assert.equal(event.invalidated,false);
+ }
+ reports.Validate(store.Load().securityDetections,store.Load());
 });
 check('CRC algorithm labels come only from actual failing comparisons; unavailable reads remain UNKNOWN',()=>{
  const crc=require('../../services/runtime/peace.desktop-crc-policy'),registry=require('../../services/cryptography/peace.crc-layers').registry;

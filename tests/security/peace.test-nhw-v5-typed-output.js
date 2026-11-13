@@ -17,70 +17,81 @@ function record(id,signal='DETECTED'){
   families:0,confidence:0,correlation:false,attestationSequence:'0000000000000000',
   localOnly:true,context:Object.fromEntries(policy.CONTEXT_FIELDS.map(k=>[k,context[k]])),signal};
 }
-function verdict(entry,r,version=5,context=policy.UnknownContext('A')){
- return policy.Evaluate(entry,r,{tick,version,context,corroborated:false});
+function verdict(entry,r,version=5,context=policy.UnknownContext('A'),corroborated=false){
+ return policy.Evaluate(entry,r,{tick,version,context,corroborated});
 }
 const expectsStop=e=>e.standaloneOutput&&e.signalClass!=='UNKNOWN';
+const direct=e=>['STABLE_INTEGRITY_INVARIANT','NATIVE_MULTI_SIGNAL_PROOF'].includes(policy.NativeEvidenceTier(e));
+const independent={confidence:75,families:3,correlation:true,localOnly:false};
 
-test('V5 explicit DETECTED: all genuine standalone output stops, while 13 internal/coverage kinds remain nonterminal',()=>{
+test('V5 DETECTED candidates remain admitted across the complete output catalog',()=>{
  assert.equal(catalog.NHW.length,204);
  assert.equal(catalog.NHW.filter(e=>e.standaloneOutput).length,197);
  assert.equal(catalog.Counts.nhwOutputNames,194);
  let actionable=0;
  for(const e of catalog.NHW){
-  const actual=verdict(e,record(e.id));
-  assert.equal(actual.stop,expectsStop(e),e.id+' V5 post-filter native output');
-  if(actual.stop){actionable++;assert.equal(actual.disposition,'DETECTION');assert.equal(actual.decisionReason,'V5_NATIVE_SENSOR_OUTPUT');}
+  const report=record(e.id);
+  assert.doesNotThrow(()=>reports.ParseRecords([report],tick,5),e.id);
+  const isolated=verdict(e,report);
+  assert.equal(isolated.stop,direct(e),e.id+' isolated output');
+  const supported=verdict(e,{...report,...independent},5,policy.UnknownContext('A'),true);
+  assert.equal(supported.stop,expectsStop(e),e.id+' supported finding');
+  if(supported.stop)actionable++;
   assert.equal(verdict(e,record(e.id,'OBSERVED')).stop,false,e.id+' context-only observation');
  }
- assert.equal(actionable,191,'all actual native post-filter security outputs are terminal');
+ assert.equal(actionable,191);
 });
 
-test('legacy V4 policy does not silently inherit V5 stop rules',()=>{
- const ids=['dkAffinity','dkProcess','dkTokenRights','dkThreadBurst','dkPECodeIntegrity','dkImageCOWIntegrity'];
- for(const id of ids){const e=catalog.Get(id),r=record(id);
-  const v4=verdict(e,r,4).stop;
+test('legacy V4 policy preserves its established direct evidence rules',()=>{
+ for(const id of ['dkAffinity','dkProcess','dkTokenRights','dkThreadBurst','dkPECodeIntegrity','dkImageCOWIntegrity']){
+  const e=catalog.Get(id),r=record(id);
   const expected=['dkPECodeIntegrity','dkImageCOWIntegrity'].includes(id);
-  assert.equal(v4,expected,'legacy policy: '+id);
-  assert.equal(verdict(e,r,5).stop,expectsStop(e),'restored native output: '+id);
+  assert.equal(verdict(e,r,4).stop,expected,'legacy policy: '+id);
+  assert.equal(verdict(e,r,5).stop,expected,'isolated native output: '+id);
  }
 });
 
-test('server-bound expected A/B/O own scheduling stays observation; client-asserted SELF is not an exemption',()=>{
+test('expected first-party scheduling requires authoritative binding and does not exempt corroborated changes',()=>{
  for(const id of ['dkAffinity','dkProcessPriority','dkThreadPriority']){
   const entry=catalog.Get(id),r=record(id),own={...policy.UnknownContext('B'),
    actorClass:'SELF',capability:'THREAD_ACCESS',capabilityDecision:'EXPECTED',
    serverBound:true,firstPartyAttested:true,sameSession:true,contextMixed:false};
-  assert.equal(verdict(entry,r,5,own).stop,false,id+' verified first-party');
-  assert.equal(verdict(entry,r,5,{...own,serverBound:false}).stop,true,id+' unverified SELF cannot bypass an emitted finding');
-  assert.equal(verdict(entry,r,5,{...own,contextMixed:true}).stop,true,id+' mixed context cannot bypass native finding');
-  assert.equal(verdict(entry,{...r,correlation:true,localOnly:false},5,own).stop,true,id+' reported unexpected correlated native finding');
+  assert.equal(verdict(entry,r,5,own).disposition,'EXPECTED_FIRST_PARTY',id+' verified first-party');
+  for(const context of [{...own,serverBound:false},{...own,contextMixed:true}]){
+   const weak=verdict(entry,r,5,context);
+   assert.equal(weak.stop,false,id+' isolated change');
+   assert.equal(weak.disposition,'OBSERVATION_UNRESOLVED',id+' context must not grant authority');
+  }
+  assert.equal(verdict(entry,{...r,...independent},5,own,true).stop,true,id+' corroborated change');
  }
 });
 
-test('V5 exact server-bound startup token baseline does not terminate; unbound/post-baseline does',()=>{
+test('V5 startup token context remains recorded while corroborated later changes are actionable',()=>{
  for(const id of ['dkTokenObject','dkTokenRights','dkTokenChange','dkThreadToken']){
   const entry=catalog.Get(id),r=record(id),own={...policy.UnknownContext('A'),
    actorClass:'SELF',capability:'TOKEN_STATE',tokenDelta:2,baseline:true,
    capabilityDecision:'FORBIDDEN',serverBound:true,firstPartyAttested:true,
    sameSession:true,contextMixed:false};
   assert.equal(verdict(entry,r,5,own).stop,false,id+' verified startup');
-  assert.equal(verdict(entry,r,5,own).disposition,'OBSERVATION_UNRESOLVED',id+' does not claim a capability grant');
-  assert.equal(verdict(entry,r,5,{...own,serverBound:false}).stop,true,id+' unbound claim');
-  assert.equal(verdict(entry,r,5,{...own,baseline:false}).stop,true,id+' post-baseline output');
-  assert.equal(verdict(entry,r,5,{...own,sameSession:false}).stop,true,id+' unverified foreign session output');
-  assert.equal(policy.Evaluate(entry,{...r,correlation:true,localOnly:false,confidence:80,families:3},{tick,version:5,context:own,corroborated:true}).stop,true,id+' corroborated');
+  assert.equal(verdict(entry,r,5,own).disposition,'OBSERVATION_UNRESOLVED');
+  for(const context of [{...own,serverBound:false},{...own,baseline:false},{...own,sameSession:false}]){
+   assert.equal(verdict(entry,r,5,context).stop,false,id+' isolated token transition');
+   assert.equal(verdict(entry,{...r,...independent},5,context,true).stop,true,id+' supported token transition');
+  }
+  assert.equal(verdict(entry,{...r,...independent},5,own,true).stop,true,id+' corroborated');
  }
 });
 
-test('V5 A approval: a real post-filter DETECTED cannot be silently downgraded by weak/unattributed client context',()=>{
+test('A approval retains unattributed token state and handle output without attributing an attack',()=>{
  for(const id of ['dkTokenObject','dkTokenRights','dkTokenChange','dkThreadToken']){
   const entry=catalog.Get(id),r=record(id),unattributed={...policy.UnknownContext('A'),
    phase:'A_ISSUANCE',capability:'TOKEN_STATE',tokenDelta:2};
-  assert.equal(verdict(entry,r,5,unattributed).stop,true,id+' native output stops');
-  assert.equal(verdict(entry,r,5,{...unattributed,capability:'TOKEN_ACCESS',tokenDelta:0,accessMask:0x20}).stop,true);
-  assert.equal(verdict(entry,{...r,signal:'OBSERVED'},5,unattributed).stop,false,id+' context-only observation does not stop');
-  assert.equal(verdict(entry,r,4,unattributed).stop,false,id+' V4 legacy is unchanged');
+  for(const context of [unattributed,{...unattributed,capability:'TOKEN_ACCESS',tokenDelta:0,accessMask:0x20}]){
+   assert.equal(verdict(entry,r,5,context).disposition,'OBSERVATION_UNRESOLVED',id);
+   assert.equal(verdict(entry,{...r,...independent},5,context,true).stop,true,id+' supported output');
+  }
+  assert.equal(verdict(entry,{...r,signal:'OBSERVED'},5,unattributed).stop,false,id+' context only');
+  assert.equal(verdict(entry,r,4,unattributed).stop,false,id+' V4');
  }
 });
 
@@ -119,15 +130,16 @@ test('Delphi v5 publishes only post-filter detected output and keeps separate ob
  assert.doesNotMatch(finalize,/OnDetection\(Detected, CurrentTick/);
 });
 
-test('unattributed low-confidence post-filter Process/Token detections stop, but raw OBSERVED evidence is nonterminal',()=>{
+test('repetition of one unattributed handle observation does not produce independent evidence',()=>{
  const ctx={...policy.UnknownContext('A'),phase:'A_BOOTSTRAP',capability:'TOKEN_ACCESS',
-   accessMask:0x000f01ff,actorClass:'EXTERNAL',actorRole:'?',actorIdentity:'',
-   targetRole:'?',targetIdentity:'a'.repeat(64),capabilityDecision:'FORBIDDEN',sameSession:false};
+  accessMask:0x000f01ff,actorClass:'EXTERNAL',actorRole:'?',actorIdentity:'',
+  targetRole:'?',targetIdentity:'a'.repeat(64),capabilityDecision:'FORBIDDEN',sameSession:false};
  for(const id of ['dkTokenObject','dkTokenRights','dkProcess']){
   const entry=catalog.Get(id),r={...record(id),confidence:10,families:32,count:27};
-  assert.equal(verdict(entry,r,5,ctx).stop,true,id+' native DETECTED');
+  assert.equal(verdict(entry,r,5,ctx).stop,false,id+' repeated native output');
   assert.equal(verdict(entry,{...r,signal:'OBSERVED'},5,ctx).stop,false,id+' raw snapshot');
   assert.equal(verdict(entry,r,4,ctx).stop,false,id+' old V4 policy');
+  assert.equal(verdict(entry,{...r,...independent},5,ctx,true).stop,true,id+' supported finding');
  }
 });
 

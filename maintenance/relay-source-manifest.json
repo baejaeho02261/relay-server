@@ -6,11 +6,12 @@
     ".dockerignore": "245b8235797306fd8422405c4c9733a66b3159b7683bd1b1e98bbd315812905ad07dbdb36097939ff463c94e28453d68aea41dbab7eeb82f668e8f533b18888b",
     ".gitignore": "e9ecbcefa51ffca72626f963f5e89292f4ba8ed42fd874a6bc1a6a36fdd802cbc935480d625b4aa13a1f3651da7f0013d5f458ff32c592327bc8d9a75b17464b",
     ".node-version": "81085aec546805e50b78384a30026a5a0d587f913a45a22e2b78517d2bb698a57ed4e0075ef6a3c458169a7f106f0413261051581953e4ae267528b9b9eb8dc0",
-    "Dockerfile": "144071df105114e528f379201f665cd2816894878c7c21dfba2ad85ae448d533e7a9e199a6c04c167f90c8afdb89089e6257fbeeb401d91318a9d092c96ba2fa",
+    "Dockerfile": "cd0f7e18cf22ad1211eea9a3d869d50ffe905a66ad292e1115fac8c6d74708491cc3707c9a2e0cc2ef15ea181b1539092d9dcb931222d96b39b41e4063df2342",
     "Dockerfile.dockerignore": "245b8235797306fd8422405c4c9733a66b3159b7683bd1b1e98bbd315812905ad07dbdb36097939ff463c94e28453d68aea41dbab7eeb82f668e8f533b18888b",
+    "Dockerfile.railway": "aeb5a48c4b06ec92c9364cb3f7acdc29cd6a3adbaf04bf084e655b4d74c256c2be4836241b6b4353dbf5c5e9448ce297dfb30b5ef61e619c52cb1d3606c3840a",
     "admin/peace.admin-request-handler.js": "28725e4e16e1da51d3010393d7c17a3d2cb5bb1c9d1e3efdca2731a2bf9974829f5438789fbdcb02af9c4364c1159c666567bc9bde738a1764d7cf74bac153e4",
     "admin/peace.auth.js": "2d0f7501546fcb2004791c06bef3472be2f47070a7ba093494061d315652e28e442fb88f17e2e57518edb65adcec986391da4388b7159c4aee454ad25abff504",
-    "config/peace.runtime-configuration.js": "3767f1bf6869b93ca1acc9e2d12a22faa68565bf0df874bec587a3bf6e3908c4ebbc8762a5fc9cb125605122f9ca0aff10711a5b02e98670f2a7fb87dfc09bda",
+    "config/peace.runtime-configuration.js": "5779b1306371ff4546649cead4a015932fef7f1b476c10ca7c969b9bf90824f72e7ff763c4e0ae17dbd7863d2dd2970fe67ee626ac531f64df8d1abdf0ea74ef",
     "config/peace.runtime-environment.js": "7c44735ab298b0a0375930c230d3cb53b917925c07cc9820ca884fbdfa4a4343d57d8ad4c45c82220bd0df7d024aaad09ed053f4c89c8174ed5c5df391ef3f54",
     "contracts/artifacts/pe-corpus-v1.json": "9afb07ad0e69ac6b88fbc16b2162e46f1c72a9d8c1f6560a72229c6fadf9bc72aa8adf9786904f92bcf2e4557219aed12fee2aa19906bf56681d50f69466b647",
     "contracts/devices/device-identity-v2.json": "b022e8c57e82122171a05f077037e81545f9c222fd9c778eb849d97c942651a295e5efbe82352a33fdeba1c749b5423320afd0daa0c584241518f33924b3443e",
@@ -18,9 +19,9 @@
     "contracts/protocol/completion-4-6-v2.json": "88bcaffbb4f10694879532060aacc9ed5f29e0092eec458d4984a6f83e6ad84eb38277308b922894acc91a6225ef14789821ebe914d31f8ad707d93a83678fef",
     "contracts/protocol/completion-6-10.json": "750245ef26f5108501e099e57be0d7eeb34b97f7fa2fca698176386726d1bfec728eadcfe3a75f2432315264ee6acaabc094b024d9dca8c20135d899496ded40",
     "contracts/protocol/generated/Cozy.ProtocolDocumentCases.inc": "f627b245ea9ed49f182d0a9c638d9af15f47171796f39bb2de390dda67ad0c435ca313671d155c75208cb9dd6619c46e28b95dd3b92d1310ca221786af57effe",
-    "contracts/protocol/generated/Cozy.ProtocolSchema.inc": "d2951e40426da6157a3b1e61876872fea6949ad93b0a225438e2d6ad4269dd8f2f79cecc654796ca03b63a35dee8421bb50be92d6aaac6288f4ecc5edc6b7298",
+    "contracts/protocol/generated/Cozy.ProtocolSchema.inc": "19ae976cceaf51fdcd93f40c114dc0aaec320519d10d6eb7a787af86cf457df95f53f1d30c6ea30b400cee4be4cf7cfe9ab8e9da1d0a9046585f2e58d3adb724",
     "contracts/protocol/generated/Cozy.ProtocolSchemaCases.inc": "d52efbcd42de435fb84fab8415e80edb9b0554652dde8cc3bddbe1f6a1f76b58ac86e48f1b9d58e8a64bd5b0153792795fb2b644f8155905d0f5506c35e209de",
-    "contracts/protocol/peace.packet-schema-v1.json": "ee3619fd76c709044c071393dcc748a37ba9fa2f9b2a4bb0de1fadcd13fd2ca69187fca7010c7d76741714c79cad3d7ed899095d3d9305c67e3648b3f43b2020",
+    "contracts/protocol/peace.packet-schema-v1.json": "861336e5fec69d549c8e52944907331be78c3a04ed011762a0856992808383ffebc142c2abb1cf0ff0cf85222e4a97f796153588679dd8e4ecbc7865e3bcd8c0",
     "contracts/runtime/capabilities-status-v1.json": "8c92633e496f9730426da9be190f2e4e09349882f893b7f2710c5e431b4d4f6a5564a11439b0978ee643c30369888ed88ced173ddafdbdc99e65d4bee36bb8a6",
     "contracts/runtime/compatibility-matrix-v1.json": "b2ddd1811c9649620009b3ef91623c186ab76e73df5196d8c94b88ff5dccb5d7a226b98ec484061bc371d3f4dec27ad3e71eb00f0a9c110bef853cae0f366a4e",
     "contracts/runtime/crypto-purpose-v1.json": "bb01e6292adc933d587b020fb9ee0db05e841831a6582cc88e67e1b7d7bc9058e8feb04f81c088d77a66aa2d5febdb77a005e2f50a1de6f709af5a722fbfa41b",
@@ -36,6 +37,7 @@
     "identity/peace.identity-manager.js": "a9909f23ac1a093163029609f90a13fe6270e7eff7a2b4fd423c4e6b72373ce91c3079b55a5e8fb7ab382ae5905482fa6fad61f700e5c62ed884483fff9524a3",
     "license/peace.license-manager.js": "5b7a27d981bc4e28a184d96baccb74b5a4b3e34f31ec249c39642dd5feab95293934b8087ccba9301f6358256faa4d6b0bd89833b8b4b44ab0c96fac9028013f",
     "maintenance/Cozy.product-license-ui.ko.md": "a827eca1887a44942fafdedb3752f613686ee6523dd55296b76d4f461bd8300d5cd22d5f3555b6c553d279523518eb579fdb2c77974ce04f83ee1665255d511c",
+    "maintenance/abo-v10-nhw-reissue-tls-diagnostics.ko.md": "89d54b39bd2c7869802281c6e614a89235a1377fa1ebf77bf6d6502f1aa41b6111c58bc3d067d36482c8bcddde7ca45fcd1f74bda55ae791b04be0a6d9367edd",
     "maintenance/code-page-integrity.ko.md": "89a4179f5ca1210ca9bccbf4cbdc4857af08c1e35a974808701e85953f0f8b393495e00207a4347258bede6b1e98fcbedcaaa870fb0542911fa83c7d10b3ec27",
     "maintenance/handoff-restricted-profile.ko.md": "54ae61ecf27ac4e5074aa0b6f551fd534c7c73c33a117304752fbae960649451516c12caf5b133851b863a352bd0b16c58bcd68a1bd9dd55115dec6df6850710",
     "maintenance/immediate-security-checks.ko.md": "cee1aca6ca2b62574ac789c317fbcf6b3281ccb1c221d397aba707a0778955cc0fdd1a1d247ed33ffc0ae129ddacdfc377540ad16c0acae276f89973964d0715",
@@ -43,6 +45,9 @@
     "maintenance/issued-a-signing.ko.md": "db422c694601bfbeecc5b9d663b790acc498e7090804e2c8f0a8fb402396749ed8ab2f694d207cdd43a584636cc3e4c1addc1c791b3df7f9342a111af438ffc2",
     "maintenance/native-gallery.ko.md": "afb440345461c4b13017b9d61d9470c06a167e88876d9e73964881fa2c1b49ba4736b6ad35754d1d719976cc68ea1ce3c1093493a52b9f33a4f1cc9ca3e568ec",
     "maintenance/native-relay-socket.ko.md": "b712ad3685cd4c6d9072e1bf33b1aeb6e63daee6416bb01b39f149bd5a5aa9fca57378185dda2307d7868379272bc6b9e841e2eef59a2eae163748da2287b412",
+    "maintenance/nhw-v105-all-native-stops.ko.md": "5a170ef7b36d5fa54bc7c457fa332e3525ff17c016bc823a1a261cd8ac6468249a4ed70ade10da0105b2fc37f08552c60beee2fd5b548b6a186b6639ca83ae65",
+    "maintenance/nhw-v8-fp-204-review.ko.md": "b421d1fb6c43cbe33e2b924726c115436dc55cbae9a04ee4d70a95e905391090054be979f04189908f4cd27ebb0dab06fe312028678e66067155c60606302865",
+    "maintenance/nhw-v8-fp-audit-204.json": "84add7b499ddea592d1ccaca84e0b9087b8b9a726cd01841c2c053c6b722734e4813e97be525521a8cfc41feb5a00adbb41f2c8ffbd14966ce3771f511e0b90f",
     "maintenance/offline-release-signing.ko.md": "43c8ea55f50d073a6e4c489c3865bcc76df6999b721d90881020541168b97e5c4286e1a3e614b08742dcf9f688279e954323d802a686d4c12bdbe9eb519ebd28",
     "maintenance/overlay-com-abi-fix.ko.md": "0522f0f6eca1f54951815b501ba07551cc4b8fe0ffc934431131115668436c2fb8b31e75b0a6e9ad26bc979c39c88ed20c4a787d2dfe774c474c573500d844ed",
     "maintenance/overlay-download-fix.ko.md": "f59a5ea3e0ac444289158690299a7e403d36ce7748228929dc06c7b6c337bf87f5b695156c53cc9a487dac7fd54778ea7fe4d3385417900b9423fc9b1fc953c2",
@@ -59,11 +64,11 @@
     "maintenance/security123/changed-files.json": "352cf719bb562e275deec71b92eabe50060bea566799c78db956faa8131660b26f13bf8419885c62dfe6081ae6f1e6216ccb1e88d5a001a73b5215f0027038e5",
     "maintenance/security123/test-results.json": "1d9843c6ae932827db2eb3ab37a45520f0c8f50eda83827c1d5b4a56284c7517055fbb494e2b9105d8a82e914610fe71d6d100b77361aab94503cf303a0ea14f",
     "maintenance/server-operations.ko.md": "c4f1bf9c751336cbbc00004c18d2d1ebf8f960649964002f8638724fbebcb03c6f920615763d58dc301e2cce825986673f07b19289bbbb0d36e6b824b5f60217",
-    "maintenance/source-manifest.json": "fffb36dc0c1a7a05a5149f4badd068def67d3594ebd99e10448fcac6c80b70b393899baef21808e5bf068d6412cad727e22d250ccd4476556d0e6fe76c746766",
+    "maintenance/source-manifest.json": "e990da776236feea5f745f8dd9230f1e2b182992c1657ac0c170124532d81cef7183cad4f3805618e92898553f137b0f1ecc2ed0705bd7adbdec742453c6dba8",
     "maintenance/tpm-device-recovery.ko.md": "18e21ede3b13b4424b3e4b9f75495c4090416ac1d116874b7a336ed759f0b09c938b2cd281e0df44810fbfa2edb6aa89aedbdb91e6302cdae8e8a8171acca279",
     "maintenance/windows-signing.ko.md": "2a8692701693419b861d339643afc02a58e7f5b145de3b9d2dc9153790917d757ab653235bd4b3546b18e89681d6800b5a5ce5aa3c446be9a2c4d83cd4cd6c66",
     "package-lock.json": "fa65cf6208ee274d9f7bbc7fd53821d3e1407daf49851fc98490f3861af2d63e70d22838dbcfd95b75da1c53d7cfeb48c61fde41aa67467d80aa5edb4674a87f",
-    "package.json": "e90f30b9c3f3193cb971fbc05317adb260785ee449602aac6783ad519e03445baafb6fea7dcc2a7d5a54873812b8143203d8e4a96c77948603e4a1ae24726de1",
+    "package.json": "cc02061e2487b80413f09bebc6fa3dc4bcd0d895d500532c54ebd40bcac3a28bb5da1949b9be21e7bfb35a0e69124293e905a71038113746eecfefaa19142969",
     "peace.relay-server.js": "ed4de95ea6fd5d44c1a3062083001989d6e1913bc39fdcccea504736c4dfab215a55dc30147fd8a26bd7c05fa846e99c6bc0c4e59a126b6fb7c3b97e4a73e7f4",
     "public/icons/favicon.ico": "64147969647646c40481b46cb760ea4d07f06f917f9c04b8316cec5861880728ca9f99c45b701b98eed6b0bd9486c91d23999dc951f29abe166170fa2077ff56",
     "public/icons/favicon.svg": "a85a5cf976f397c53d1c5bef0658ef111c44c8d5eefbc784f02fba30257bb625e91faf46aa5971a8b3225f7cca3b82b743a7379d4f21303a162ff2f0edc17dee",
@@ -71,9 +76,9 @@
     "public/icons/icon-192.png": "1636b12f06ff0970f69c61442b56930331ce87f8829c035728037f83f53eaacaccdb8d376c860db19462b560a98b767422ed49bf96415652a555bb53ea3dd519",
     "public/icons/icon-512.png": "9d3a242d3923dd05ff5f59944a13e9f3050d9807a9052334c1c7accae9ce28166c75f299f4ad36ae9640a06e5bea546e7687098caf29e5ea3290dd6419ef9dd0",
     "public/icons/icon.svg": "a85a5cf976f397c53d1c5bef0658ef111c44c8d5eefbc784f02fba30257bb625e91faf46aa5971a8b3225f7cca3b82b743a7379d4f21303a162ff2f0edc17dee",
-    "public/index.html": "443e5dbd0071b8406861b9aedd4d4dcad9423d6eac86119017de40fc58efb19063550338e33d929efde947c6b5a3dc84a0298910e6d3243611b0af45688a48c2",
+    "public/index.html": "c140bb9aa59fcf0a455d7167e3cd173a429fb5018a5cd4bbdfcb6dff95a562ab77698f5584f1aaa29fc7dd9c87235797e96e8a9636e5f02e22549cb1836d10dd",
     "public/manifest.json": "8fabcfe49d1794d4428c9c82c82edb716b202113bfb42f001eeb2d2b754a2f3c3cb93c7152d08cc9beb46cb12571ef1690661f8eca68452ed01d88973263652e",
-    "public/peace.service-worker.js": "dcff8e698dd17f4b09fee0eb13f98d209b9439d599f6ee69bf24582491ddb55749468bea4f71cb3017d73c9599ac9a626ad5a589ffaf7e6e49d9074917af3587",
+    "public/peace.service-worker.js": "2b1f5bbdc61f4cbbe20bf4ab8613730d6c68262f347b96d57cdb1fcb894a9ef0a2064acd43486c3680c6ca108bef091b1cb0a3615e6e87e47efcf0c89583c580",
     "public/scripts/actions/peace.admin-actions-access.js": "ebd3fc9dc79c155994e6efef6e18bbb3d324a23a14207f9333984b5f894db5b1db7f4d88298a17a23ec94048de63d8d27782b9f7cc6ab5915e4e241d289d31d3",
     "public/scripts/actions/peace.admin-actions-devices.js": "14f276ca9d57e0ff020c3ace2164907b87cc3ea6e5b0eddcecaa62ff46a173832cf8d02b1ee7fd3e80e36c73ade2084a2f63958e3073997ce7844772061c5662",
     "public/scripts/actions/peace.admin-actions-operations.js": "325ec50a5b1cb22d73dfb75c695dd194006dc23e130f1f4f3457571c67519875c13aff3c0d438235b9a4433325db2c69bc281234ba3fd4f1124e9d97152f65e4",
@@ -84,19 +89,19 @@
     "public/scripts/actions/peace.admin-device-actions.js": "bd8f960ea7016849dc842c346826b9c55eceb4dc17898b118e399a2a4360f23d77664fd7873844fa6a3bf3210ee390f0df06d0e72034e3d5396d96768d0fbece",
     "public/scripts/actions/peace.admin-pages-devices.js": "97a3752c43f830ca8a2f8167e46c42366da8a80d18a6ab13eaccc7ce45d10c54da144cbfe79562866ce140329f21e1db42be1def305c8e8bbe6f9007cebd681c",
     "public/scripts/application/peace.admin-terminal.js": "a776daf51b52c17726154e89cae4726239cb2052125f90e05c137839fffbc702dd529be8009377077ed03a606757cf6c65a3132ba1e0b3be100ccc4ac78b18e1",
-    "public/scripts/application/peace.admin.js": "ba3114c05f441737aefdd568d3c72a960d5bf94332f2d8a278ceb3bfdfea8d3905e2c909ba568c8cbf403d164262044da2a91f411cf46affc0083e937098722a",
+    "public/scripts/application/peace.admin.js": "376d890e96d087f3912ead36edc728d42651f2b5c3fc401bdc61b05da42949d4d1cf6808c6fa2f0e9c33055d5ddf2e5f705328db728f03f5f525327f772182d5",
     "public/scripts/application/peace.ui-refresh.js": "18b834a1f900f068ec63d02eaad4d1fe942ca1efddfd3cb90bca8a7d2004177d93b40a1b67adf47bc7b908f1df495287733308fbd1d62a785a3c6fc29d08be67",
     "public/scripts/desktop/peace.admin-desktop-licenses.js": "04e8aca31d43af3b01a783f60fd735b3b342c750896fed8dbfab1ad540884e810d8764b02ae199dc639e2efb34930890e7a35e92a2d3cd098540de6f7c1481c3",
     "public/scripts/desktop/peace.admin-desktop-members.js": "c71e28829d959d35e0ee9be5477f6f769b9893a3cf5a4f9389071967586529612dc3364e2d924cc2521695c1490020e0f99c2fd99bf8861cfa7397d9980bceab",
     "public/scripts/desktop/peace.admin-desktop-packed-release.js": "fd3b496b4cdf2b2dd195978b71041ddd71dc1086f19423d31f256650fa3da2169b01a72b611696f8853945c75ce104d53f81c21be1c40b149035974312a3a86e",
-    "public/scripts/desktop/peace.admin-desktop-security-center.js": "af4eb8ef0549fd46691986f52e28a58d3fc466b018960ee653cea286d8b2ea83ddb77e51c07566357fed015378357433eec6c89392e369e977486792bbc780c2",
-    "public/scripts/desktop/peace.admin-desktop-security.js": "2ed84597591ea637f398df0daa52baf2f57d00da0c654018d1827f8e6a90a60ffe52d243627f6a4e13f34d11e2610624ab9e5402f91c0468422d1331eaf45c8e",
-    "public/scripts/desktop/peace.admin-desktop-server-state.js": "5e2953b85b85a601b4e7956ee04af4a5fc03d46b1ad4de65ad04d99033856df488623f1035febd443358f8ab3e0fffeaa259dec1527cb0a7d5f00c2e7e2c12a9",
-    "public/scripts/desktop/peace.admin-desktop-workflow.js": "6242a249f794caffa99038cef659959a3664611dd6210bbc911aacedda86e858428521f38c22380574fd978a2933382a6fc8054e81ac3600e6c035de7f929ea1",
+    "public/scripts/desktop/peace.admin-desktop-security-center.js": "ae96517f39b76889d44b954c2fa033b30a94bb60a84859734d0cce941d18de495aac370046442fdb8ce9eb8f999f27d0181159a0981e3a7a70b89afd60c67370",
+    "public/scripts/desktop/peace.admin-desktop-security.js": "dfdcad889c01a410e223fa2007ddc26af77204b5bec76e09c08ff60aa15b123a857053e1ae466fe3ae540f0e8c9149b394d040a3b4749946b964f76a24714607",
+    "public/scripts/desktop/peace.admin-desktop-server-state.js": "048e8f4021d0f1177aa7b89138015441a02ebbe976d2bf9d142687c9faa83016703b8873f12e0f58f327a24116451b3b243fa088a050b53babcf626877d280fb",
+    "public/scripts/desktop/peace.admin-desktop-workflow.js": "7b56c6a84bf4eeae56dcf6b252d5a535a27786918ca4a0abd8e6577238909aa5de0c2ea21ad5d74b8616b2817986ed77c7067ed23300e3c17d89efe404bc9290",
     "public/scripts/interface/peace.admin-appearance.js": "91fe9b1dad732fd9a75b97fc3b52c497e9debc264d59fe091e0f83b0c183c1bcd3c25d0d18e953b19c2c1dda2e7fda1ac34bc0a6086de7fb8d39a6ec6721cfe7",
     "public/scripts/interface/peace.admin-controls.js": "00af8d1a315864d4e2cd21d432e153b435768ebd165364fb56b360eecc5e1f7bad8618d7717de6b5d14cff1b88e3f6b63ee384a0ba812c058fa6800e87b854a3",
     "public/scripts/interface/peace.admin-i18n.js": "8c0968c4c541a7577ef0ae56c1caa1a634c5265827a6a88c19c8d0f5caea5afb3a4af53cd5d8052f9aad04ecab483d0836fdfcaa20023624bab99855340a8f1d",
-    "public/scripts/interface/peace.admin-modal.js": "1f2a4c46b5e973680e9d5d154292271ad9e95707085ce23ce5f946e4efff97b9ef6526ce98e87d1a0500083104fc4a149fe25278df3fca369dd66690db9cbf2c",
+    "public/scripts/interface/peace.admin-modal.js": "50dcee9e80e479986af05f4c3aecf2184c633bad5278d77206e54832fb743992cffd4fe33648f3ed39a9d4103e5f70ac6ab714fc68ddd23e941b4baa9201fd2a",
     "public/scripts/interface/peace.admin-navigation.js": "f1db0c4752f4cb775289e4159180a287e28d01cc5fe98a9e04c3bf34416e8c6a947d00a097728a7e819407b39da949abe1e71ed81c6ab1e202aa2006694ab7c1",
     "public/scripts/interface/peace.admin-palette.js": "f87d088058ce9bb4198d969df9d59c7b6c4bb3017ea15577735b094417186b911d5fc2d113cd870a04567e26e188e974df7ddc6a021e1bc885cb2f35ba6dc3f3",
     "public/scripts/pages/peace.admin-pages-access.js": "87f0c6b1419b6dfa7bcc96e63c635f628c09b6ca90c75c1c03317a680f10db306f29a2ea68dd6a52c4f6691f86881e63a90df162559846eb7266ca3307128375",
@@ -114,7 +119,7 @@
     "public/styles/admin-members.css": "5d8f050c0ee2902dff04b58e11490d9547b103ec4ccd3f03357e7cabb35855182cbb05bc0c2eda79c36c6c037cf574531595b1fda569a36c29deffa5dacb91e1",
     "public/styles/admin-navigation.css": "ed9d5cca7c93d124afd6555309f9dee4a38362f412e06c779e94723eef4a463e53d5846f6018f45420585606f4fcb0dae26eecf9d001b6fb697aef77e137904b",
     "public/styles/admin-theme.css": "5ec85e054fbd1db303f5fd3e883fd47fa8ac2febc5a1d58cfc005df8b2dbbc2b247c1760144a780ae4a932b8e74394b28b9b03f421ff1d2476a239cfc699eddc",
-    "public/styles/admin-workspace.css": "6009b5292bcef54dea1fdd33d2f689eba1cdc35363b08fad6d58c3399ed287fb323995fae255340e13229741501592438fdc3ec2455715f8ce1a05aaa0826f83",
+    "public/styles/admin-workspace.css": "a49718a67a561fa414cd33afacc4c8acbcb7330ce692389b5b83171d28ea40cf6a6633d974ddc93fe98843c6ceb0e733314cb6267b0424364be205c4ef4352c4",
     "public/styles/admin.css": "6ac38256e76e9d2d826fa08fb1deeba14339632e1c007155cf416e0078d7587a3d1bc289f602a22da40bba3c8b45b303e96d2bfbe67681f395a885c00abd5b76",
     "public/ui-refresh.html": "8b6a1523de5b40bfc98f7cb62560cacd852bb43d3ea281627dd0a69c0ad38c356788212bef14c0a5e958f7e24d4a24f607ea2914b3b77482fc1e6e50469b738c",
     "relay/peace.ack-manager.js": "e530746e8660e838ac0d7e66823160bac27c269f1ed9ec69b4bca80b5612d14b062c54c3ab8ed947cde111e264fb71ab4b6754d849fb892a1fd37c6a4c5bdc53",
@@ -154,7 +159,7 @@
     "services/authentication/peace.passkey-context.js": "baeb99b993b6b2e0a723e9c799f559781640def16a5fbedf95af8efa95fa76565328a405746db979d8287ed1aee3b3bcb244505346380c8bd13538a5b75a5c0f",
     "services/authentication/peace.privileged-approval.js": "3623f96220fd28985a5f3c6cdc287a3d7579199950c9ba3c0e978a597e9cc5fc104ae1cbaba16a63ae9df989daeca2223d9bf91bb1430dbe0fe298be8c1fe29b",
     "services/bootstrap/peace.desktop-bootstrap-store.js": "f469d201c66ddf3d3aaf460b2cd8c9b477eec71dc172c5f37c078c0992412b0b955a29e99d4572e896eeee8b3c5d766aa6653e137198a419eb0c4954e8ffaca8",
-    "services/bootstrap/peace.desktop-bootstrap.js": "007a7870886d06a12558ebabc85e85f2f946553fed53551a36bf2325f894c202e10bb6fca4ed0e9175b298e68c8333f2843579f60df177a65add0c9a171c590a",
+    "services/bootstrap/peace.desktop-bootstrap.js": "735801f9cf7f0d13fdd4ce84f340f1c7628ed24d9ccf51fb53d5dba610eb12d461cf10d0671ebe27e0d09fbe3e376e1903f5ff3261312c7a0db56c84ccc69dfe",
     "services/bootstrap/peace.desktop-handoff-delegation.js": "f132f7870c37ef7e9fc6fd7c6b08e815e990ac97e9f95e2f6770e94178494615cabf1f19f79f9fcdac63bd19ebb8de841647b86cdcbd4eb6372d58878d62c64a",
     "services/bootstrap/peace.desktop-registration-reset.js": "c107cf6a91e8b85edc290df8bee7804f4a9a319b3cc3ea94afe2a703e9448b4b797d62d4b3351ef183962d0027f08ffa8e6591f8b32b0f94fb3229ae08ced41a",
     "services/bootstrap/peace.issued-a-keyring.js": "6ac6f5dfdcc47d815ce8db69ee9429ae1300fdcf8b356a5a380c20f62ebeaf87d3ece5ec7b6643b77bb54aa4c0cd0b8dba952e72ecfefb9c5bc02f47ff58ccd5",
@@ -217,7 +222,7 @@
     "services/network/peace.connect-endpoint.js": "b35258d0fdf0741ad54a28adb19b9c8f0cab7f9bc2d8898f6668b365d781f3503e0bcb936a46fc9d473ae08cdc1dac49a467175861fde8e60a413c9a8f11e70b",
     "services/network/peace.connect-tls.js": "85add3af5f0694970280302a57361b71b6505bd1d1f033f13d34309ac4d6fadf9c5d2785c2dc58eaedd1f218d7d2129dacc641fd0519479431c4d1a23ed2b80a",
     "services/network/peace.connect-transport-key.js": "91eedae5dbab92fd6100f7c7a1ffcd453079213dd7d4075771c46c5df09ab0f37e22124036fd3651155d556b2c6b06ccdb48a33d5b6a2ae8b49fe108a926b18a",
-    "services/network/peace.desktop-connect.js": "cc21cdb8d82160de63087285419d03ec6c6bfbcf51662b701a624f69bf127c9bc46afc5055e4fcdd839c60b318b06e5f41449348287cdbcb2c7542b2ad365514",
+    "services/network/peace.desktop-connect.js": "31dc73c8529b99463cd13a8e7a68f805c11ef74c2be545ccd1a3c7508b5fcb59d6caeffd69763f682ddf7a91041fb0f1d7ca495ebe71d1fe7e1ba3aed07be958",
     "services/network/peace.desktop-connection-admission.js": "de7ecadca7c0349d94b7308464ab185a82dade7418a32911610023e76d5b8b4c7fb0987cc869ae2bb6bc570b8c50e97fc249643eb847fa8c6b20ab55a6daa7d5",
     "services/network/peace.desktop-tls-pin-transition.js": "b5ad19a5e10ddd91c94ef40faa2fadba31566b668cbb9d2115036b16dc5f8f58a452a14b818105d15c6739da69b46eff8a884936689b3f0c97cd5abccdcace65",
     "services/network/peace.desktop-transport-rotation.js": "285d93a1ef02d715453cfa07f58aeffebe77706132c781984ff856ade188b9c0e0cb40de9168c9374589be7f645222e0e05afd36823946f10d46fae31b706efc",
@@ -250,7 +255,7 @@
     "services/overlay/peace.desktop-overlay-startup.js": "7ec0161677626f498757080eb3e807b431e701c6e9fce86b359f976cd8b250fdd6ad1f72730729a2a908cd2610f8ec9ec5a1523b3254494d94079b8ffb868010",
     "services/overlay/peace.desktop-overlay.js": "d7a9b89507d0430da2d2df6360e6f12b981fc418a314951fe13bba3d5b74b3189f6246b667f290362bc9b2b94301dca8bd4268237ca64f9e8d45caec3cdb344f",
     "services/protocol/peace.desktop-request-protocol.js": "8bf833edcbcb16337961838153d198f92bc09d7651b24385196d3181879151b27b94a4b0faf429b3afcfb796db5dc388ea67705f07357340a0e3bf84e67ad0aa",
-    "services/protocol/peace.packet-schema.generated.js": "9375c21facc5b9564bb743104bfe659055bc6d84f37f88d24f7ed0fd98638e5e14af171cdf18fc8dc6fe09fdef7c18d6b2b6f59e6d986cfd31afcb48a79f28c0",
+    "services/protocol/peace.packet-schema.generated.js": "a2081cbe064781d5d196f9395bd6ab9e71aafa6fb474db32f5f0137dca2f337928deee9454a6e060a7936e56530b84e7fe368443f7422e70ac745d95aae46a30",
     "services/protocol/peace.packet-schema.js": "d8c9ae94cd0418c79b574fe8d73f5e82d264a495b2c17ea0446875799931396703cf901163db6e00ca7b0c8493833a1f909ac543100578e7feccb84a6481a8f8",
     "services/protocol/peace.strict-json.js": "86df0cccf25567f542532e02ea0c603b507fe94ec1437ab274494b4f9b5dcd80ae144addd0a9793971874219f9f25a3f5b9aa8d065894a54493f52f8e53c15a6",
     "services/recovery/peace.desktop-recovery-witness.js": "737c7d75a99c0ae61ae1db489af4d817321e5836c2eccae760b7d43e218f033f13884fbf3c9cdfa24c9277a12b2cdaf7d76037b621449fa85d0eeeb4b6619887",
@@ -292,7 +297,7 @@
     "services/security/peace.desktop-security-operations.js": "f9c3894254e1928a5956b58bda98de3ec82652f6a693511b641c456b3b8303a2797cbde9d31a5d0d659aa08507343063119843eae3e8bb29b7d6da56882809a0",
     "services/security/peace.mitigation-contract.js": "eb9d7ebf131690a7f1e50a7c559d61186319c3a6372e478990ad9f450b84abd8873c633f05527f26136d11018969a33dc7618afb6b1cc341ff4c02d4556d6207",
     "services/security/peace.nhw-attestation.js": "83eb214458727e193a0fd4fe8ec53f4fa22267db9bc2ee879ea014d490d020d87ed26e29739eee095696f59f5c3fff550176a99b20f613aefc8a4320a502cd84",
-    "services/security/peace.nhw-peer-context.js": "a17a9fc5eda2dac22f70d350ca02fed17ff14903d4f90e20df05359a43334b114bce7ccd9b156876eef6b549630691b5f54053c350ceeba51716dcc8a0caa0ee",
+    "services/security/peace.nhw-peer-context.js": "683820f49d9c5f637d1e49cf8fd75cc53781322720fae349f1d56151396cf801366a35c004db4aa1824aca0b8a78df73df8c2e71349385a3843fa57144658598",
     "services/security/peace.nhw-response-paths.js": "9390f7007e4e80a1b2e127fab375929e850a4f3be68330eadbab36ba831c5435f42dc94fa54aa78a00d9d0e3e8d3e203c9e6be0d9a637570c2690ad321df65a7",
     "services/security/peace.nhw-tpm-quote.js": "11c00b924a876b70d2978f2a5f86fb1dafcea349dbb002ec5d9976ed164d5593c618bdde028140f4c18e55b45869653932fa57a4ce1b10f9509943a7d068f876",
     "services/security/peace.parser-fuzz-cases.js": "4d1186372bb5bca8d5c830684ed763a8cae12232c2199a30716d1648074d00d5950908d6887a4c46b146c37d1d06a5cf7fa9f70e39e8240dde0ba09ebbec17ad",
@@ -301,9 +306,9 @@
     "services/security/peace.release-audit-runner.js": "0b53bb71e9ff8fdd2205b41f892ed803e34d5a573d0115ac50c7100412cc9af0662a11a0994cad6a7555743792c75133c2731e487e66784f6b4ee5ea86fbbde3",
     "services/security/peace.release-readiness-worker.js": "f765a2ace214613ba83b6c88cdb830f18250c93574d4b167d016e1af5ff58b1df4251f2cf474bec39f9a61c1e390509b49a3d23d338a3f16225899fe715d823b",
     "services/security/peace.release-readiness.js": "1870a4e85402b0143224f6dad96aac564a2d7e02299653abcf625774043cba5bc147a9c48050618d376985ec8f79641fd3d70662c43cb6bdd6b0e93ceb91d9c7",
-    "services/security/peace.security-context-policy.js": "9ad191df0dc8a4ad65262ca20dda6171f4ef2189796f5cb7bc00d6b079e4432bb28acc904746576562f28e0eb76b255206ce9b35d37b4dfefc0c7842f3636321",
+    "services/security/peace.security-context-policy.js": "590883a1119dfc657afcb95de69ee60c1daee06167bd5aa4c0d6a387de1a93162d9d1683e2a5fa2986cd31449ae094754e647ea3d7e4427704fa3e067afa4502",
     "services/security/peace.security-dashboard.js": "6b89d98bd2e5c5ed0746c86dd23a416e79d91d5c6b7f233bfa93ba52d217f902d0b269cdadb48af511bfd025172de4bae146ec008a4582933d8f3c04eb2fa7af",
-    "services/security/peace.security-detection-catalog.js": "bcd96174214243f53f724ed9c06ace2f706da0802ff0194e467fad244316772ea515c48b7d1762b30081388a924bf77533038630e961dd98970ae29da61af335",
+    "services/security/peace.security-detection-catalog.js": "37fa4d739b628b96daf12035e97feb365d0afb0ea3b16184a1320074f8f178d5cd3af5aca5e5d4332d458996dd66a3399e28fd2da72c0905fbd7d350cb416b3b",
     "services/security/peace.security-detection.js": "349262a0bdffbcad726960d40c01efb5907a444a177cfb963ebd85c755cc1d9c08052847a30d8392364ec93e6136afb6f732ce1e2f8a931ca86ab5f2e14d5721",
     "services/security/peace.security-detections.js": "f436d0218911d8d3420b50a83e70c98015c0db4ceef83f8ee60a4e706d566a1331c925a2b5376de72fab26f2fb9b55c78eb2d8c2cc558acfd9b78737aa114c9d",
     "services/security/peace.security-event-semantics.js": "3dce18b59c983aad730b52777234945018dcf72d2a9b999fb19ddc4b18d17e3fee4dc2aab2fd29f3e31dd66016bbf22b20efe8cc644e2893b00b9651115e916a",
@@ -390,6 +395,7 @@
     "tests/authentication/peace.test-protected-dispatch-binding.js": "3e0404144b663caf7818157aa46c7afba8316aad243cf3a1e606b9af8258293629bb6ab792d870546ab03fd132284d5c5198326c97a1160a86a79dfb8bc7cc70",
     "tests/authentication/peace.test-protected-operation-security.js": "4a867f3ef8159be089194fb446927094c64109b7ea76bcd4edd7bfc02304880de721cb18f3849db9e44d7d1ecd49bbf2456d540e873cc4ef68b284dd738b0fa3",
     "tests/authentication/peace.test-web-auth-hardening.js": "82b303282f4744053035917c64f7880b1315906d8a69b0f7b47b1205a5fb89a1fca58a2813d68320ec743ee863c2f416b354662b50d27935979332674fd8600e",
+    "tests/bootstrap/peace.test-bootstrap-client-timing-contract.js": "591458baa88c471d30785a10e02ed6bb01a09b9b3704b205f6c4dad6ecc5422d8547bbb18e0302906e786d7e94edb4d265f12ac905e3ba4c17f9a84115a3edb0",
     "tests/bootstrap/peace.test-desktop-bootstrap.js": "40dd7b9cfa7d185e11bd9b5dfd2adf11d399ec9ffef9ba6601016da74e0d3c5d5ee23a715b4ab8aa44d9460765258fa1c5ccdd8fb5632d56bb1779792587f92e",
     "tests/bootstrap/peace.test-handoff-completion-contract.js": "7c0d71b37268e4d842828d34f5f0e1e3c5031d8b5e5e7472fc777e68121d22ea563924c9db67ce071d8bfef62d4944a7204ac1ad33cfaccbbfe2fb6948a9473d",
     "tests/bootstrap/peace.test-handoff-delegation.js": "aa3d361825084529b52747f1cd5cb3e3a4a7fc5f543c34022c564efbfc10ecccc89417275acf6372ad5f842fedc267fef064e76671a5da2886bfbc4a3b79ca0a",
@@ -464,9 +470,9 @@
     "tests/fixtures/network/peace.server-profile-v4.json": "bde6af588ecf8a8662d9c033eeeb006787ed9148becaf4442aef3afc26e7c14b50eb8f7c7ef5878a1511811ddb51b0bac14ddaf3c1baf46d4003c36190209753",
     "tests/fixtures/network/peace.tls-request-fixture.js": "1726445ffa10e98fa8ed666907a6af02ee183ba0b5d5e44a7b31446cc9c26d449b0d8cb8f007228d733ebfe929e93a39e8fa36c2017c7824a92c5c56c8751f0f",
     "tests/fixtures/protocol/peace.completion-6-10-fixture.js": "98b609c3f3cff2a92b1003a3b6c59a18810030a9060ac3425a6a37e13a5ec4831b50c1828a0b192963321bcbe52137d1fc2eadd0401b3c94b1fb563029573b20",
-    "tests/fixtures/protocol/peace.document-schema-cases.json": "e76eb1661f6bd357a9e7641e1f22631ad95b6235b6d0f169a37719d9b505b59dd35c3b4c19362267008d61fb03c5076385d042acf1b3d41b9de37d4cb64f7cc0",
+    "tests/fixtures/protocol/peace.document-schema-cases.json": "28c874e38fc8fe1624119dbfa0f4d7608d7f3167c37130304b67ddcfc7e88323838a12024cd6dac6f4387412e60bf59a86bf81be55f463d90a9778b7edcc75d0",
     "tests/fixtures/protocol/peace.native-policy-contract-vectors.json": "253e6c4496a00e2e7da3fc8849c967b2f5fd15b8a8a2924de44900295b9f2c2d2bdf2a1ca02505c5cdf3514fc742630c7b97bf0cd13b96c545986b49a6c09ccd",
-    "tests/fixtures/protocol/peace.packet-schema-cases.json": "a3c2692cd2ecb12254dc639fd9fcefdc9999589201ed95ac51f86ed0c74e05c1be6af19e994b5cf702eb9eab3e55db28d1242563c957c607748160df7ddcd3fa",
+    "tests/fixtures/protocol/peace.packet-schema-cases.json": "ec99ad2bf889d5f7ef56bea683bfc31e4cbe16db1255f4749d7f020697e523698ff0bd86063f42b2c0d94ed176605297633128520ea50ab122e5913a954b6cb9",
     "tests/fixtures/runtime/peace.crc-test-fixture.js": "71fe540701fa10f0976fb2e094bf128d4e180013cc1f9910b07d84019a11394ff2b29bc3168925086dcccf7915e678427b3b983fe41e6451393d2d46621d2759",
     "tests/fixtures/runtime/peace.lifecycle-test-fixture.js": "c17c524af883600e899795dc7cca746d5aa443273f1c8b49dba31d63f02ecf764bc0c4743cde047731e40a7d12ea47d9e85b0a438a6cfde1ca1952d062472433",
     "tests/fixtures/runtime/peace.modern-http-fixture.js": "3cd957cf1d8c8b19dbf036341e5c3b9d1903176f2e041e0e1c812adf3df4950a185b671ae780f201a610492402967ab21bea058e29b1ebfab7be3e4a6dd6972f",
@@ -499,6 +505,7 @@
     "tests/licensing/peace.test-license-products.js": "1ef88cb227a1680e9a8a0c86bf338ede0ac094a4888d8d0930a4b12c11f19999dfab2c408cacd83f2bb241b4e832a809bd1d1b370b7de809346e1a3bce68784e",
     "tests/licensing/test-license-success-contract.py": "7012fec33259cfced8b74b2f917d0bf8616f1be450c18edba7ef8bb13a81728db1fa045a2257a9e16febf910b9ba858cae893f8930de62539082e9fbbeb4ae6d",
     "tests/network/peace.check-connect-project.js": "5c252ff8eb262122b1aa91680951e6a5a5d09fe1805fef19495da818249d7b9b2e9100971b3bac95ee465d76795622e3d3db056ec3d3147b55bc085a00fde0b1",
+    "tests/network/peace.test-bootstrap-tls-reuse-contract.js": "6b1d42c589a31b0bd32bd9e7f449a815ea7fedf7209e5e72c653beaadb8dba84b0f218a2c85d1636cf1185b668403e91d4a8c497ddde323f47301fd31d2ae23a",
     "tests/network/peace.test-connect-deployment.js": "c3746e3ad5b6667144944d71c479471a293325f895341a47c28dbe0a2e9b7c677eb2ea884db9d17f3db50bf193bb689cca40ede5b66e132998e5b5baaaa6639e",
     "tests/network/peace.test-connect-tls-flush.js": "e426dff2fa8323fae711369461939b8f03f5798d1f4aeb34142facb940dd1608f699d66e374fdb9b37646d4c56d2edf1b915b74a4ec52b324aca9e0bd7723e7e",
     "tests/network/peace.test-connect-tls.js": "c351e2cd7afb3d5d5108b6a13b905238877feffdac1bfe1c4deae35609ad2faad71655b9bfc3e4f6610dbc7717fb367f479926e3ca3ec14f01b69006b775eed1",
@@ -510,7 +517,7 @@
     "tests/network/peace.test-push-transport-tls.js": "ae2bb355197735f015cc804ce83ef850dbcdd915ee46b1221fdf61824a0196fc416f47b16cd9e3b011c73e261b4576f8eb6b00edd8a518390888a10374acaab8",
     "tests/network/peace.test-server-profile-contract.js": "485bdb5069ece204a19ca21c998bfb874d4bab24e868a1d10c45eb074019564980cbe15271866a97bb8e0f3bff884bec734432ebc65962e57adbc6e8fbb35d2d",
     "tests/network/peace.test-tcp-admission-security.js": "f1a3fac89d751e6694f33aa76e0846dd58ad52e8cf0f2da3c6f471da74d44b7500653351fb735ab21815d59413ea346a0fcb9198936cc9567e291abe51d648d8",
-    "tests/network/peace.test-tls-transport-boundaries.js": "414bd6d0568da832b4d4a089a5ca220bc728870ce17a20480ab9c3620ab6f17dc443413005c71e50f2fb60befe6df72d143188c9a0bafac2193778d3d6a76478",
+    "tests/network/peace.test-tls-transport-boundaries.js": "68ab3fcad4e95407dbdf0b785ba7872bca957ef6bd91058f63d0e6dcf6c2c596bb14799acb7eb2acb9c47774453c09f70a07bb7acdbac120af2e4f2f02057523",
     "tests/network/peace.test-transport-key-rotation.js": "88ffefb16a412716918df7850a5fe37fc591b38e78f2dc109b13e6de7fb3c1fa5edb58e5ef852ca9d3a823e5537bcdfce7c281dcd6650dc9d6800f07c5f9175b",
     "tests/network/peace.test-transport-owned-contract.js": "9cf58bc75a5de1401da241400922d4774b44cdc11ace31f1ac4ffad3815d6b27c9015ed9a33858f98f05459b2ccf4de1b333ed976463afd208b831bb16e7506c",
     "tests/observability/peace.test-lifecycle-event-contract.js": "baac1281d25270eca259d2f41ebd5c7ee44edbec7fa358f76490190d7f191c6927c09380222b6af0ed6ef0e8793fc165b5b6776131979392d9bb7ffd963e7dc9",
@@ -564,6 +571,7 @@
     "tests/runners/peace.regression.js": "b1c56560bd91b3134b3d4ae258c68c5384cdb97e961049108fad30ccc6309e495f7f656ee2f151afe45581880594e55167fc2a55f20643ddf918e3005da06a69",
     "tests/runners/review-regression.py": "efa84d9115744c737ce54468684ceb2eb6d324b09ca938ddf219312d065ef0da3e7d47c48054216efb309f5cc65de88c588981bd11a20bd92dbfd4ce9d071ee5",
     "tests/runners/test-review-runner.py": "2458ca2e498d238051488b4bafcf8d9ef27f6b0ce97c0c37b8b41ed9aa9388a98ebf22d63e13aa09705a65b3558c7389f2f4549fa21a97e9ef5847b9c194909a",
+    "tests/runtime/peace.test-bootstrap-reissue-native-v10.js": "ccb654cbcc35a1a15d8271fc04f9aaaa04894ed0fd180047bf53b71b086b4c7abd6a056ab5124f8b7741ecd8d14829e518b8d30a167d4e09bb1cb7c12db03743",
     "tests/runtime/peace.test-desktop-deadlines.js": "44f16603cde5bb44a421609baa169b9263c683804592eba7155785a557cdaf87620acb39d443314d9c28c226a3d111d91da754bb4a3a78a4f5f23a893f68caea",
     "tests/runtime/peace.test-desktop-http.js": "774a07d82791bef1a5bc8d0e363f0e57908b751716c097d732b7123ab5f1b7ac43cfc7d903861035580fbd8438aee1253617f698efddc8240c46c5a026ee94dc",
     "tests/runtime/peace.test-desktop-request-receipts.js": "7d3d4407e9374e34bdf3c01c877de3285697c4c1a550a530fd1f43e0414cc3fd1ee125d0469467b89131aab7b47df3557b7879d3d734ecf083822b05d5c1dc40",
@@ -609,13 +617,17 @@
     "tests/security/peace.test-native-keyless-contract.js": "5a81c1eb25790b2e4e1df6cba89108da3e1a89d5333651e859e477f93696a5c1223705c94c34a66e0a4af6aa49617cc98a5ac6bb326a8e7e9a3ce00c98fdedf3",
     "tests/security/peace.test-native-quiet-boundary.js": "a287d43cda4e1cd4f870b81ca745e82173585e01dec3bd2586fd054131c0352767ce36492d0c9c66e4a6a56b7c69c46824bd897f679cbb58ab374dcd9eea1607",
     "tests/security/peace.test-native-server-operations.js": "3521e16500a59ecbe93019e05506b43d5514a7963a5058f42de8db9a9e269731d17cf2bef5945456d06da2621cce2e0c9821cc4f90e066eaa290a5d2cb650600",
-    "tests/security/peace.test-nhw-context-policy.js": "1801d9d047672a8a57c5ceb9bf94f2842312fc5a5ad51167f44e5bcd5b168025f044191afb67f366be3d9f71b11f4f617e28a3298e90689716928d2782f89ca6",
+    "tests/security/peace.test-nhw-context-policy.js": "610468010d5e1b360030211c1d425c0947091ee395c5bec81930fd053e1e83df940884b8a2d85486691b2a78513d1f732d5e1c7abbcee3de4191265f8a8517c1",
     "tests/security/peace.test-nhw-cozy-unified-event-semantics.js": "dbcc5013777a677cff1f6289be5debdae3ebcd4fc9bc4dffde3bde0c05bc96e30edd794b9f882ba5037c4cf6767c102966191f14936e2ce973d89e60f4f44c02",
     "tests/security/peace.test-nhw-native-context.js": "a8df16da03710b57a3c69a41d231ecf54dadea01160c29a4cb017ee0c1106ca89fac6a97a50d57fc1ad50444f7c631a3d71f7baca70746432c1bb842b02f9579",
-    "tests/security/peace.test-nhw-native-path-isolation.js": "344d8e0c633af8e4c9981daf529f0239c178bbb4ce57ec2e7ed8a3b6e099b63bfedad822587362c0c5c922748f7e35abfc14e7b544d2db8d2e385fc6b68c8ec5",
-    "tests/security/peace.test-nhw-peer-context.js": "7dea4fd69d74658c713d44c5ef5959abf380867aeae4a5007a85cf1b8809962ef64527d890db9caa0ef8b29ad94b89c0a4f29a1491235d39a7c0aea646ee0510",
-    "tests/security/peace.test-nhw-response-paths.js": "6877da025c794d79f8685d5448c6f599a992543e55adc0f4127d7d87242a3bc1f3dbd911d495778135fd53e6f3b94921e1b13ca4ccf60bb6b2d3e1fdf59b08ae",
+    "tests/security/peace.test-nhw-native-path-isolation.js": "abb6d5412776352b82947cb80825528876d4774bbd83d9b13cb93482f5bf4422f66cdc86df5d31bbc56ce21667ff3fc15644302eeb2d9eae6f315405b16ad58d",
+    "tests/security/peace.test-nhw-peer-context.js": "e7eb283419effecf91940c4e1191df833679756a413a06076ce56417f36d6ed406b7922a508871f5ca7fcc17808b48085748e77ce227519b487c76d31c6fb6a3",
+    "tests/security/peace.test-nhw-response-paths.js": "e4369fce4995ad50d0d82450366a83dbedbacecd8d24b8a58ff19822d89ab5381f28582e4b8e17ffc5f0bbe5b9de5b880d3ae1ae5ccb342c06f44d4d5ed252f6",
+    "tests/security/peace.test-nhw-signal-origin.js": "36a569a9d98bb2b6d68d86f9de1c47c7f9d3ada12b4c544ae2e7406eb3f89c097c7df419c542782edeadf63a7764e47c9aa7715b9718c4915b2f881f53507385",
     "tests/security/peace.test-nhw-tpm-quote.js": "9c66bd410361f573273afac237ee5162ba25c93f8a3270a042e8db176ef16e49b97b723cd362f8ba707c4a1b70c5636fe12af61a43d7e05c6bc7a483308b82e5",
+    "tests/security/peace.test-nhw-v5-role-semantic-policy.js": "44a4871adff9c9afe8ce31ab13e12b8ec536a570893fd5be16f26e4dafd89870ef0eab17170984c52fc6484c068269973c8baeb3bf4d0e86a93c523b20df9d56",
+    "tests/security/peace.test-nhw-v5-typed-output.js": "9ea52341b3094114fa349d2647fdc75951e5ced897aea057b445def29a4b53033fe016cbfab94b72787a6d07b407eeaf443070356fd5eee347d24bd5e7168ce2",
+    "tests/security/peace.test-nhw-v8-204-fp-causal-gates.js": "07b0a604ef6c8f39b178bebdb6832572a2ba4a4be9a0e227360a0942ee8505830cc448c875a316e1fa0c0575446014aa5576dfaf2550688af609f0b292aee957",
     "tests/security/peace.test-packed-release-pair.js": "6289bf618e34488c6c1977af449b639a4fccf2c8260244d510b1577efe149cb666e39b4f18167434e3e302d0f742f07f815b99b5188f970976389472316f1b8c",
     "tests/security/peace.test-parser-fuzz-automation.js": "038fed774d610bfeb1f21f3d50d3aacad8e2556af5b38a75c598474ae33651aedd80f99667534fc356a8a7796b707827328e04b60a01996bd526c0cdc1998782",
     "tests/security/peace.test-railway-web-security.js": "cb61be5aecd007427f0b7dc36ea0f6bc8d2d05524825d1731f8c732f3b11c78d95939f50021dffb716ebe224b836f01264c3f1a84af27fc65820209b991f479d",
@@ -633,7 +645,7 @@
     "tests/security/peace.test-security-center-ui.js": "d2eb0e9adc371be9f7be9241fa2f086d5f8e7c8d6e8149b1af752ba44125de636b64e9be04ee08335c2276d4b34eb87808c47019cc09ccb99696e975d5f85ada",
     "tests/security/peace.test-security-detection-catalog.js": "ef0dfa6fe79a5c0630628dabb34493054d1555f43a9fab8e6af855ee2cad16d1e45a3275483111aece38f120b5ab4e2838807ba6e35a791da2dc810bc70c9382",
     "tests/security/peace.test-security-detection.js": "73c23ca6e5e81134e9a66d1ae78727e0245e28679adc32f68ed5d22c3210babf827f10222ef3f41baa612790500dc944aa9bc9e072360504fedc99dc97393602",
-    "tests/security/peace.test-security-detections.js": "727ad6a7031a0b132005c7819dbc5bc19a3e77e5c4dbcc73185e01c55a3774c764c569db5da1f6f2d401182764ac7bb430d36aa3e3b7ffddbf2c1db2dd957151",
+    "tests/security/peace.test-security-detections.js": "1d78814faca03c7442141fc2022de96be78fee0310d2039f10206fe52f270fd5f1d6e5b4bb0c1e991dbf870146ced587d3ac3bb3b94c8535ee53d0e2d2a789d7",
     "tests/security/peace.test-security-evidence.js": "c5210c1a354e7922862bc4506649f3a30966e5bbab0d7834fb537c42aea691c92fbecaf95b2e53b94369208e9e43812b9fb2362f55998b0f72f1a13ed13e391c",
     "tests/security/peace.test-security-native-contract.js": "9a254d5571ec091c0ca20446bb0163795995d1c1ac7f7633cd85c23ef7d5f17c80ca67373c4c01141385a2acd7047e3cad17edb306dbf2e20fb49dcd050e1074",
     "tests/security/peace.test-security-operations.js": "017116feaced21979e28e370119487c50a07446ebb73f668bcc97374770fa612c40f7ac0ce205b8df0c9718330143ed7fa2657071bfa65dec5d253a748e64363",
@@ -673,7 +685,7 @@
     "tests/storage/peace.test-sqlite-driver.js": "68d5d3aa108cf329e192f0b5522738920087efc6d9f665116207a1654cf6f05ea9bddf177ef6bc6c731fff58f7db94305fbcbab5572640366f2d113ba33dbc9e",
     "tests/storage/peace.test-storage-retention-remaining.js": "8c5e20dec7d0dd2c9b17b16fb73e9b769f627cf0a39d6692993fa31977c6ca7fdb052e95b7360efe847178df9fa730b0d25c50580a1500bc184f91447254117c",
     "tests/web/peace.check-web-ui.js": "b6def98a16803d4a7d6903120efba0e22f86bcfa5ad84e9b3b2969cdd820eea1572dd6d73d443cbada1ca6b27c4fc9421686164ff64b141eebe05aecf02be668",
-    "tests/web/peace.test-admin-modal-isolation.js": "0a216164f61ecb8da22b1e442f53b7bdb36bd699c0b0d6dea5497efb09ba3384991b65eb09d1ea2f25d3c515b1ee7563a211d78a6fc32b8d74608c8ccffdfbc2",
+    "tests/web/peace.test-admin-modal-isolation.js": "e60545f3ac1fc7dec663c099934ba6e5d5d46bff122ace84d99fe4c9fd7ece555d3c7186c713177fcc3c256b70b8242a8cae848bd918b64210f2ef2c65213c39",
     "tests/web/peace.test-cfg-policy-readiness-ui.js": "53e1da7103672178ffbd0eb23469fc12380481fdacdce42748972786de51b5f4052cbede80d49acb9944463a055cdb22d55752fd98ef2b2a85b69ef01d577c94",
     "tests/web/peace.test-desktop-admin-ui.js": "e266ab8c0c2a332ed0101724fe4a654a92b26a1f2f3e27861b0c7f949347391a06eff2e43febfaa7b0cda45e1bfb3e60f38ab76d406819061ffe433fc02ade54",
     "tests/web/peace.test-desktop-member-ui.js": "917d436ea35a233010a0fb9fa78bf0299ef4a988cb4201d06b0e103fafee894f3d6cdc0f25aef6a65b083fa36064fdfa56b2696d9bedd701a053ffbc58ba4f1e",
@@ -691,8 +703,8 @@
     "tests/web/peace.test-server-state-read-routes.js": "f81f61da92f6b6fe8cf20015f9a272326e404345266c0a31d0011f274ba481c8f8ac3e56c7c7ba11227cb89cd1e62caf3c7c2d210acb1f65a675f2711ea71189",
     "tests/web/peace.test-server-state-service-ui.js": "2a2a802c585d8b45cf27cbd5afef5529682da64807c1b4572810710013894dfec356163597e3ef5e3614ed89b9b5bd73589f6252d1f86ded05377a73cc86dc71",
     "tests/web/peace.test-server-state-ui.js": "e543397596e196d2d268aa51d8a9d82a489c8635242cfbfd5546145a26928b44ba89f00c90abe379d3c5797771f4ffe6677a2fbd97b8a2c1a32bfc61aca3beb0",
-    "tests/web/peace.test-web-ui-cache.js": "22a9e03920269b9a2f06d1689aeed784cbb4a98de64b02ab0c7ea4e094ffd44c50f54c5ead25cd1b5748e30e0912b410585a7ddb238caa2fbd66e50080342100",
-    "tests/web/peace.test-workspace-http.js": "a5dd0de7b866a730bd90f88b3213802caa51407f8a7feaf94d122e7e2abcd67023a865775bfb787fc95d2e725a156ddf45daface6435a3752e69b0648fc1b9e8",
+    "tests/web/peace.test-web-ui-cache.js": "9f6a1d409c1eb9fb854b2bc3e62a1277853ff32bc6786f387e9b9dafe2ab9595db98e29abb0edb8920b987783c91d486e7f6289e2f9397ee66f44b827aced0d1",
+    "tests/web/peace.test-workspace-http.js": "8ef2a9a7a8f4c23dec6db391c0c65814782a5380ae0a44438b690adfa3186270a0e49d63ca48df4103aea436a8ce556bbb69b936a4801ef68e4518354806841d",
     "tests/web/peace.test-workspace-shell.js": "0241fb588d401df5afa3d7d8aa623a0109e30d949f29e72068ab40906d34ce55764a1deb965e417c5d6e6ac3dca7657576f7a6fb009f1cc1ebc5720efc02a0d3",
     "tests/web/test-workspace-browser.py": "398cd9d1624d3ed852ba6853b9d78a06d0a4075f9e386aa84ef998db460273e825346e3e5581740c280e434eadc20afa4d1c091049628dbb2a7d1a23ffeb6c2c",
     "tools/artifacts/Audit_Final_Artifacts.bat": "fb2977ce710eeec76f587962192fa4c90f07a6674fcedd70a36f09ea76791255952d71bb50f0633b225da0306e66f9b179baf6c6e29374209f5d9b1e4aeee0d4",
@@ -844,7 +856,7 @@
     "tools/windows/peace.final-windows-inputs.js": "984b038afe338327cc71c3d36fdb67dec6c163f491e5dac9c222b6a1d7c2cc0155ac9f1d4e341504c4cd558e8ccd2b0b5da8a95801a3b86e1cbddbfcfa2f2cb7",
     "tools/windows/peace.plan-abo-validation.js": "5499eb15590ef7b3d1b870ba0a46aff9e68932a29aa75fe891f11af47d8bdee6eec1f5db9fcf13cc19bbab9f8cc1d33c54d73282e4749b7b9fd5e187c64b8a69",
     "web/assets/peace.ui-bundle.js": "5d7aa3397bb8e3bb088798926beaaba8a9b0136d4aad39cf8165e564521a8fdd03f8fdc843fa213b6a4fbcf2db8eb93325b29631e869902b8a8ae6cb07c1fae8",
-    "web/assets/ui-bundle.json": "f8f90631e210457f5c3a8d95201e2ece5e81dfa687dab413427e50d4b21c9c981b3644b1cc273343775ee95a97cc0b10665e2b58c6dcfda94a4d5628d95e79c2",
+    "web/assets/ui-bundle.json": "fae4f8201da3e0e6d630dfcc6af1bc020d41194f9face261e069e82a5271054b709c1e86c6eeda900b5f9800c05b4a68311e50d708a57749b6472e46151fe00a",
     "web/authentication/peace.web-auth-policy.js": "7342fd773399e8cdd3ee802417e91627ee9a6a9a53eeec245095cf589fc362af9a589066287bc789f7c11bfcfd09e1c42c1b5549f393daf7d8f851b6479072fb",
     "web/authentication/peace.web-auth.js": "9aca1f20e8fb59b24f4a39b9e2892819f8bb82a920caa16fbaa85a0214a8e0ee043502a0d9a6c2694ef0944211c851ade1e8b7b85cec0b944f727dc436dc8870",
     "web/events/peace.web-events.js": "b05230c28f938c5e980c760e7dafd32f2a1c7150cb89b96cc6430e2b1cb5b37071fe8f73a09236d29b6f1b36214ab0b5d3cc73fb820c6880835f6d932a9d5455",
@@ -2916,142 +2928,152 @@
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 67,
+      "line": 75,
       "request": "../security/peace.security-detections"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 68,
+      "line": 77,
+      "request": "../security/peace.security-detections"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
+      "line": 78,
+      "request": "../security/peace.security-detections"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
+      "line": 79,
+      "request": "../security/peace.security-detections"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
+      "line": 80,
       "request": "../security/peace.nhw-peer-context"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 68,
-      "request": "../security/peace.security-detections"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 69,
+      "line": 82,
       "request": "../observability/peace.desktop-lifecycle-trace"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 83,
+      "line": 96,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 84,
+      "line": 97,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 85,
+      "line": 98,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 92,
+      "line": 105,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 93,
+      "line": 106,
       "request": "../security/peace.desktop-security-activation"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 94,
+      "line": 107,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 97,
+      "line": 110,
       "request": "../runtime/peace.desktop-crc-policy"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 97,
+      "line": 110,
       "request": "./peace.desktop-handoff-delegation"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 101,
-      "request": "./peace.desktop-handoff-delegation"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 113,
-      "request": "./peace.issued-a-signing"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
       "line": 114,
+      "request": "./peace.desktop-handoff-delegation"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
+      "line": 126,
+      "request": "./peace.issued-a-signing"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
+      "line": 127,
       "request": "../artifacts/peace.desktop-release-safety"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 128,
+      "line": 141,
       "request": "./peace.keyless-approval-receipt"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 131,
+      "line": 144,
       "request": "./peace.desktop-handoff-delegation"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 132,
+      "line": 145,
       "request": "./peace.desktop-handoff-delegation"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 150,
+      "line": 163,
       "request": "../overlay/peace.desktop-overlay"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 152,
+      "line": 165,
       "request": "../overlay/peace.desktop-overlay"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 154,
+      "line": 167,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 155,
+      "line": 168,
       "request": "../storage/peace.desktop-single-writer"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 167,
+      "line": 180,
       "request": "../protocol/peace.strict-json"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 167,
+      "line": 180,
       "request": "../storage/peace.durable-file"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 168,
+      "line": 181,
       "request": "../storage/peace.durable-file"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 187,
+      "line": 200,
       "request": "../observability/peace.desktop-lifecycle-trace"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 187,
+      "line": 200,
       "request": "../security/peace.nhw-peer-context"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap-store.js",
-      "line": 187,
+      "line": 200,
       "request": "../security/peace.security-detections"
     },
     {
@@ -3096,337 +3118,307 @@
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 23,
+      "line": 43,
       "request": "../security/peace.nhw-peer-context"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 23,
+      "line": 43,
       "request": "../storage/peace.desktop-operation-audit"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 24,
+      "line": 44,
       "request": "../network/peace.ha-coordinator"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 30,
+      "line": 50,
       "request": "../devices/peace.desktop-machine-policy"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 32,
+      "line": 52,
       "request": "../../storage/audit/peace.audit.js"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 33,
+      "line": 53,
       "request": "../artifacts/peace.desktop-packing-evidence"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 33,
+      "line": 53,
       "request": "../runtime/peace.desktop-crc-policy"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 62,
+      "line": 82,
       "request": "./peace.keyless-bootstrap"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 76,
+      "line": 96,
       "request": "../artifacts/peace.release-exposure"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 76,
+      "line": 96,
       "request": "../integrity/peace.measurement-plan-contract"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 76,
+      "line": 96,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 78,
+      "line": 98,
       "request": "../artifacts/peace.desktop-packing-evidence"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 79,
+      "line": 99,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 82,
+      "line": 102,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 88,
+      "line": 108,
       "request": "../storage/peace.desktop-operation-audit"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 97,
+      "line": 117,
       "request": "../security/peace.desktop-security-authority"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 138,
-      "request": "../runtime/peace.desktop-deadline"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 140,
-      "request": "../artifacts/peace.desktop-release-safety"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 140,
-      "request": "../security/peace.desktop-security-authority"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 141,
-      "request": "./peace.issued-a-keyring"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 144,
-      "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
       "line": 158,
-      "request": "../security/peace.desktop-security-authority"
+      "request": "../runtime/peace.desktop-deadline"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
       "line": 160,
-      "request": "../security/peace.desktop-security-operations"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 162,
-      "request": "../security/peace.desktop-security-operations"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 166,
-      "request": "../licensing/peace.desktop-licenses"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 170,
-      "request": "../network/peace.connect-transport-key"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 171,
-      "request": "../recovery/peace.desktop-recovery"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 173,
       "request": "../artifacts/peace.desktop-release-safety"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 179,
-      "request": "../storage/peace.desktop-operation-audit"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 184,
-      "request": "../recovery/peace.desktop-recovery"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 195,
-      "request": "../integrity/peace.desktop-proof-work"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 198,
-      "request": "../runtime/peace.desktop-deadline"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 204,
-      "request": "../devices/peace.desktop-device-registry"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 204,
-      "request": "../recovery/peace.desktop-recovery"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 204,
-      "request": "./peace.issued-a-keyring"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 206,
-      "request": "./peace.issued-a-keyring"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 207,
+      "line": 160,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 211,
+      "line": 161,
+      "request": "./peace.issued-a-keyring"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 164,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 212,
+      "line": 178,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 219,
-      "request": "../devices/peace.desktop-device-registry"
+      "line": 180,
+      "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 220,
+      "line": 182,
+      "request": "../security/peace.desktop-security-operations"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 186,
       "request": "../licensing/peace.desktop-licenses"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 221,
+      "line": 190,
+      "request": "../network/peace.connect-transport-key"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 191,
       "request": "../recovery/peace.desktop-recovery"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 221,
-      "request": "./peace.keyless-bootstrap"
+      "line": 193,
+      "request": "../artifacts/peace.desktop-release-safety"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 223,
+      "line": 199,
+      "request": "../storage/peace.desktop-operation-audit"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 204,
+      "request": "../recovery/peace.desktop-recovery"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 215,
+      "request": "../integrity/peace.desktop-proof-work"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 218,
+      "request": "../runtime/peace.desktop-deadline"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 224,
+      "request": "../devices/peace.desktop-device-registry"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 224,
+      "request": "../recovery/peace.desktop-recovery"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 224,
+      "request": "./peace.issued-a-keyring"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 226,
+      "request": "./peace.issued-a-keyring"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 227,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 232,
+      "line": 231,
       "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 233,
+      "line": 232,
+      "request": "../security/peace.desktop-security-authority"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 239,
+      "request": "../devices/peace.desktop-device-registry"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 240,
+      "request": "../licensing/peace.desktop-licenses"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 241,
       "request": "../recovery/peace.desktop-recovery"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 234,
+      "line": 241,
       "request": "./peace.keyless-bootstrap"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 258,
-      "request": "../devices/peace.desktop-device-identity"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 259,
-      "request": "../integrity/peace.desktop-integrity-reports"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 260,
+      "line": 243,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 262,
-      "request": "../runtime/peace.desktop-deadline"
+      "line": 252,
+      "request": "../security/peace.desktop-security-operations"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 264,
+      "line": 253,
+      "request": "../recovery/peace.desktop-recovery"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 254,
+      "request": "./peace.keyless-bootstrap"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 279,
       "request": "../devices/peace.desktop-device-identity"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 264,
+      "line": 280,
+      "request": "../integrity/peace.desktop-integrity-reports"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 281,
+      "request": "../security/peace.desktop-security-authority"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 283,
+      "request": "../runtime/peace.desktop-deadline"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 285,
+      "request": "../devices/peace.desktop-device-identity"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 285,
       "request": "../devices/peace.desktop-device-registry"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 264,
+      "line": 285,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 264,
+      "line": 285,
       "request": "../security/peace.nhw-peer-context"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 274,
+      "line": 295,
       "request": "../runtime/peace.desktop-deadline"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 275,
+      "line": 296,
       "request": "../runtime/peace.desktop-deadline"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 276,
-      "request": "../devices/peace.desktop-device-identity"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 276,
-      "request": "../devices/peace.desktop-device-registry"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 276,
-      "request": "../security/peace.nhw-peer-context"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 286,
-      "request": "../security/peace.security-detections"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 287,
-      "request": "../integrity/peace.desktop-integrity-reports"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 288,
-      "request": "../devices/peace.desktop-device-identity"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 288,
-      "request": "../security/peace.desktop-security-authority"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 292,
-      "request": "../integrity/peace.desktop-integrity-reports"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
       "line": 297,
-      "request": "../integrity/peace.desktop-integrity-reports"
+      "request": "../devices/peace.desktop-device-identity"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 298,
+      "line": 297,
+      "request": "../devices/peace.desktop-device-registry"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 297,
+      "request": "../security/peace.nhw-peer-context"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 307,
       "request": "../security/peace.security-detections"
     },
     {
@@ -3436,182 +3428,212 @@
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 310,
-      "request": "../security/peace.security-detections"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 316,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 318,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 323,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 334,
-      "request": "../security/peace.desktop-security-operations"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 338,
-      "request": "../licensing/peace.desktop-licenses"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 339,
-      "request": "../licensing/peace.desktop-licenses"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 352,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 353,
-      "request": "../observability/peace.desktop-lifecycle-trace"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 360,
-      "request": "../observability/peace.desktop-lifecycle-trace"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 367,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 395,
-      "request": "../licensing/peace.desktop-licenses"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 432,
-      "request": "../runtime/peace.desktop-deadline"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 433,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 433,
-      "request": "../runtime/peace.desktop-deadline"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 434,
+      "line": 309,
       "request": "../devices/peace.desktop-device-identity"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 434,
-      "request": "../integrity/peace.desktop-integrity-reports"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 434,
-      "request": "../licensing/peace.desktop-licenses"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 434,
+      "line": 309,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 436,
-      "request": "./peace.keyless-bootstrap"
+      "line": 313,
+      "request": "../integrity/peace.desktop-integrity-reports"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 437,
-      "request": "../security/peace.server-policy-operations"
+      "line": 318,
+      "request": "../integrity/peace.desktop-integrity-reports"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 445,
-      "request": "../devices/peace.desktop-device-identity"
+      "line": 319,
+      "request": "../security/peace.security-detections"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 445,
+      "line": 329,
+      "request": "../integrity/peace.desktop-integrity-reports"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 331,
+      "request": "../security/peace.security-detections"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 337,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 339,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 344,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 355,
+      "request": "../security/peace.desktop-security-operations"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 359,
+      "request": "../licensing/peace.desktop-licenses"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 360,
+      "request": "../licensing/peace.desktop-licenses"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 373,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 374,
       "request": "../observability/peace.desktop-lifecycle-trace"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 445,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 445,
-      "request": "../storage/peace.retire-support-captures"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 447,
-      "request": "../security/peace.server-policy-operations"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 447,
-      "request": "./peace.keyless-bootstrap"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 449,
-      "request": "../overlay/peace.desktop-overlay"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 451,
+      "line": 381,
       "request": "../observability/peace.desktop-lifecycle-trace"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 451,
+      "line": 388,
       "request": "../overlay/peace.desktop-overlay"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 451,
-      "request": "../protocol/peace.desktop-request-protocol"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 451,
-      "request": "./peace.keyless-bootstrap"
+      "line": 416,
+      "request": "../licensing/peace.desktop-licenses"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
       "line": 453,
-      "request": "./peace.keyless-bootstrap"
+      "request": "../runtime/peace.desktop-deadline"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
       "line": 454,
-      "request": "../observability/peace.desktop-lifecycle-trace"
-    },
-    {
-      "file": "services/bootstrap/peace.desktop-bootstrap.js",
-      "line": 455,
       "request": "../overlay/peace.desktop-overlay"
     },
     {
       "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 454,
+      "request": "../runtime/peace.desktop-deadline"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 455,
+      "request": "../devices/peace.desktop-device-identity"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 455,
+      "request": "../integrity/peace.desktop-integrity-reports"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 455,
+      "request": "../licensing/peace.desktop-licenses"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 455,
+      "request": "../security/peace.desktop-security-authority"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
       "line": 457,
+      "request": "./peace.keyless-bootstrap"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 458,
+      "request": "../security/peace.server-policy-operations"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 466,
+      "request": "../devices/peace.desktop-device-identity"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 466,
+      "request": "../observability/peace.desktop-lifecycle-trace"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 466,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 466,
+      "request": "../storage/peace.retire-support-captures"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 468,
+      "request": "../security/peace.server-policy-operations"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 468,
+      "request": "./peace.keyless-bootstrap"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 470,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 472,
+      "request": "../observability/peace.desktop-lifecycle-trace"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 472,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 472,
+      "request": "../protocol/peace.desktop-request-protocol"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 472,
+      "request": "./peace.keyless-bootstrap"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 474,
+      "request": "./peace.keyless-bootstrap"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 475,
+      "request": "../observability/peace.desktop-lifecycle-trace"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 476,
+      "request": "../overlay/peace.desktop-overlay"
+    },
+    {
+      "file": "services/bootstrap/peace.desktop-bootstrap.js",
+      "line": 478,
       "request": "../integrity/peace.desktop-proof-work"
     },
     {
@@ -4676,22 +4698,22 @@
     },
     {
       "file": "services/integrity/peace.desktop-integrity-reports.js",
-      "line": 373,
+      "line": 376,
       "request": "../runtime/peace.desktop-snapshot-diagnostics"
     },
     {
       "file": "services/integrity/peace.desktop-integrity-reports.js",
-      "line": 379,
+      "line": 382,
       "request": "../bootstrap/peace.desktop-bootstrap-store"
     },
     {
       "file": "services/integrity/peace.desktop-integrity-reports.js",
-      "line": 390,
+      "line": 393,
       "request": "../operations/peace.registration-reset-stores"
     },
     {
       "file": "services/integrity/peace.desktop-integrity-reports.js",
-      "line": 401,
+      "line": 404,
       "request": "./peace.desktop-proof-work"
     },
     {
@@ -5206,132 +5228,137 @@
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 6,
+      "line": 10,
       "request": "../runtime/peace.desktop-work-queue"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 7,
+      "line": 11,
       "request": "./peace.desktop-connection-admission"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 8,
+      "line": 12,
       "request": "../runtime/peace.desktop-request-rate"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 44,
+      "line": 66,
       "request": "../operations/peace.registration-reset"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 45,
+      "line": 67,
       "request": "../protocol/peace.packet-schema"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 47,
+      "line": 69,
       "request": "../protocol/peace.desktop-request-protocol"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 48,
+      "line": 70,
       "request": "../authentication/peace.desktop-protected-dispatch"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 53,
+      "line": 75,
       "request": "./peace.desktop-tls-pin-transition"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 54,
+      "line": 76,
       "request": "../devices/peace.desktop-device-identity"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 55,
+      "line": 77,
       "request": "../bootstrap/peace.keyless-bootstrap"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 56,
+      "line": 78,
       "request": "../bootstrap/peace.desktop-bootstrap"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 56,
+      "line": 78,
       "request": "../devices/peace.desktop-device-identity"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 56,
+      "line": 78,
       "request": "../integrity/peace.desktop-integrity-reports"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 56,
+      "line": 78,
       "request": "../operations/peace.registration-reset"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 56,
+      "line": 78,
       "request": "../security/peace.desktop-security-authority"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 56,
+      "line": 78,
       "request": "../security/peace.server-policy-operations"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 56,
+      "line": 78,
       "request": "./peace.desktop-transport-rotation"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 57,
+      "line": 79,
       "request": "../integrity/peace.desktop-proof-work"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 59,
+      "line": 81,
       "request": "../runtime/peace.desktop-runtime-diagnostics"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 76,
+      "line": 103,
+      "request": "./peace.connect-tls"
+    },
+    {
+      "file": "services/network/peace.desktop-connect.js",
+      "line": 105,
       "request": "../protocol/peace.strict-json"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 76,
+      "line": 115,
       "request": "./peace.desktop-tls-pin-transition"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 81,
+      "line": 139,
       "request": "../bootstrap/peace.desktop-bootstrap"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 82,
+      "line": 140,
       "request": "./peace.connect-tls"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 85,
+      "line": 143,
       "request": "./peace.connect-tls"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 103,
+      "line": 169,
       "request": "../../config/peace.runtime-configuration"
     },
     {
       "file": "services/network/peace.desktop-connect.js",
-      "line": 109,
+      "line": 175,
       "request": "./peace.connect-tls"
     },
     {
@@ -8171,7 +8198,7 @@
     },
     {
       "file": "services/security/peace.nhw-peer-context.js",
-      "line": 177,
+      "line": 183,
       "request": "./peace.security-detections"
     },
     {
@@ -8366,7 +8393,7 @@
     },
     {
       "file": "services/security/peace.security-context-policy.js",
-      "line": 54,
+      "line": 71,
       "request": "./peace.nhw-peer-context"
     },
     {
@@ -8401,7 +8428,7 @@
     },
     {
       "file": "services/security/peace.security-detection-catalog.js",
-      "line": 20,
+      "line": 17,
       "request": "./peace.security-context-policy"
     },
     {
@@ -8446,28 +8473,33 @@
     },
     {
       "file": "services/security/peace.security-detections.js",
-      "line": 139,
+      "line": 142,
       "request": "../recovery/peace.desktop-recovery"
     },
     {
       "file": "services/security/peace.security-detections.js",
-      "line": 139,
+      "line": 142,
       "request": "../runtime/peace.desktop-deadline"
     },
     {
       "file": "services/security/peace.security-detections.js",
-      "line": 150,
+      "line": 153,
       "request": "../recovery/peace.desktop-recovery"
     },
     {
       "file": "services/security/peace.security-detections.js",
-      "line": 173,
+      "line": 176,
       "request": "../cryptography/peace.crc-layers"
     },
     {
       "file": "services/security/peace.security-detections.js",
-      "line": 230,
+      "line": 233,
       "request": "../cryptography/peace.crc-layers"
+    },
+    {
+      "file": "services/security/peace.security-detections.js",
+      "line": 251,
+      "request": "./peace.security-event-semantics"
     },
     {
       "file": "services/security/peace.server-policy-operations.js",
@@ -10268,6 +10300,21 @@
       "file": "tests/authentication/peace.test-web-auth-hardening.js",
       "line": 193,
       "request": "../fixtures/authentication/peace.action-approval-test-client"
+    },
+    {
+      "file": "tests/bootstrap/peace.test-bootstrap-client-timing-contract.js",
+      "line": 3,
+      "request": "../../services/bootstrap/peace.desktop-bootstrap"
+    },
+    {
+      "file": "tests/bootstrap/peace.test-bootstrap-client-timing-contract.js",
+      "line": 20,
+      "request": "../../services/protocol/peace.packet-schema"
+    },
+    {
+      "file": "tests/bootstrap/peace.test-bootstrap-client-timing-contract.js",
+      "line": 32,
+      "request": "../fixtures/protocol/peace.packet-schema-cases.json"
     },
     {
       "file": "tests/bootstrap/peace.test-desktop-bootstrap.js",
@@ -12618,6 +12665,11 @@
       "file": "tests/network/peace.check-connect-project.js",
       "line": 3,
       "request": "../fixtures/source/peace.native-string-contract"
+    },
+    {
+      "file": "tests/network/peace.test-bootstrap-tls-reuse-contract.js",
+      "line": 5,
+      "request": "../../services/network/peace.desktop-connect"
     },
     {
       "file": "tests/network/peace.test-connect-deployment.js",
@@ -15000,6 +15052,16 @@
       "request": "../fixtures/bootstrap/peace.desktop-bootstrap-fixture"
     },
     {
+      "file": "tests/security/peace.test-nhw-cozy-unified-event-semantics.js",
+      "line": 5,
+      "request": "../../services/security/peace.security-detection-catalog"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-cozy-unified-event-semantics.js",
+      "line": 6,
+      "request": "../../services/security/peace.security-event-semantics"
+    },
+    {
       "file": "tests/security/peace.test-nhw-peer-context.js",
       "line": 7,
       "request": "../../core/peace.utilities"
@@ -15091,18 +15153,43 @@
     },
     {
       "file": "tests/security/peace.test-nhw-response-paths.js",
-      "line": 97,
-      "request": "../../services/licensing/peace.desktop-licenses"
+      "line": 92,
+      "request": "../../services/security/peace.security-context-policy"
     },
     {
       "file": "tests/security/peace.test-nhw-response-paths.js",
-      "line": 115,
+      "line": 120,
       "request": "../../services/security/peace.security-detections"
     },
     {
       "file": "tests/security/peace.test-nhw-response-paths.js",
-      "line": 127,
+      "line": 131,
+      "request": "../../services/licensing/peace.desktop-licenses"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-response-paths.js",
+      "line": 151,
+      "request": "../../services/security/peace.security-detections"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-response-paths.js",
+      "line": 163,
       "request": "../../services/network/peace.connect-transport-key"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-signal-origin.js",
+      "line": 8,
+      "request": "../../services/security/peace.security-detection-catalog"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-signal-origin.js",
+      "line": 9,
+      "request": "../../services/security/peace.security-context-policy"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-signal-origin.js",
+      "line": 10,
+      "request": "../../services/security/peace.security-detections"
     },
     {
       "file": "tests/security/peace.test-nhw-tpm-quote.js",
@@ -15113,6 +15200,51 @@
       "file": "tests/security/peace.test-nhw-tpm-quote.js",
       "line": 15,
       "request": "../fixtures/devices/peace.synthetic-tpm"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v5-role-semantic-policy.js",
+      "line": 9,
+      "request": "../../services/security/peace.security-detection-catalog"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v5-role-semantic-policy.js",
+      "line": 10,
+      "request": "../../services/security/peace.security-context-policy"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v5-role-semantic-policy.js",
+      "line": 11,
+      "request": "../../services/security/peace.security-detections"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v5-typed-output.js",
+      "line": 8,
+      "request": "../../services/security/peace.security-detection-catalog"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v5-typed-output.js",
+      "line": 9,
+      "request": "../../services/security/peace.security-context-policy"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v5-typed-output.js",
+      "line": 10,
+      "request": "../../services/security/peace.security-detections"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v5-typed-output.js",
+      "line": 11,
+      "request": "../../services/security/peace.nhw-response-paths"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v8-204-fp-causal-gates.js",
+      "line": 7,
+      "request": "../../services/security/peace.security-detection-catalog"
+    },
+    {
+      "file": "tests/security/peace.test-nhw-v8-204-fp-causal-gates.js",
+      "line": 8,
+      "request": "../../services/security/peace.security-context-policy"
     },
     {
       "file": "tests/security/peace.test-packed-release-pair.js",
@@ -15656,22 +15788,22 @@
     },
     {
       "file": "tests/security/peace.test-security-detections.js",
-      "line": 118,
+      "line": 125,
       "request": "../../services/cryptography/peace.crc-layers"
     },
     {
       "file": "tests/security/peace.test-security-detections.js",
-      "line": 118,
+      "line": 125,
       "request": "../../services/runtime/peace.desktop-crc-policy"
     },
     {
       "file": "tests/security/peace.test-security-detections.js",
-      "line": 165,
+      "line": 172,
       "request": "../../services/bootstrap/peace.desktop-bootstrap-store"
     },
     {
       "file": "tests/security/peace.test-security-detections.js",
-      "line": 165,
+      "line": 172,
       "request": "../../services/security/peace.security-detections"
     },
     {
@@ -17011,17 +17143,17 @@
     },
     {
       "file": "tests/web/peace.test-web-ui-cache.js",
-      "line": 23,
+      "line": 30,
       "request": "../../config/peace.runtime-configuration"
     },
     {
       "file": "tests/web/peace.test-web-ui-cache.js",
-      "line": 28,
+      "line": 35,
       "request": "../../config/peace.runtime-configuration"
     },
     {
       "file": "tests/web/peace.test-web-ui-cache.js",
-      "line": 94,
+      "line": 101,
       "request": "../../config/peace.runtime-configuration"
     },
     {

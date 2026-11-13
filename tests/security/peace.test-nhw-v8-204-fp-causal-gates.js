@@ -16,46 +16,63 @@ function report(id,options={}){
     context:Object.fromEntries(policy.CONTEXT_FIELDS.map(k=>[k,c[k]])),
     signal:'DETECTED',...options};
 }
-function decide(id,stage,phase,options={},overrides={}){
+function decide(id,stage,phase,options={},overrides={},corroborated=false){
   const context={...policy.UnknownContext(stage),phase,...overrides};
   return policy.Evaluate(catalog.Get(id),report(id,options),
-    {tick:TICK,version:5,stage,context,corroborated:false});
+    {tick:TICK,version:5,stage,context,corroborated});
 }
-test('A reissue: native post-filter ThreadSpawn is terminal; raw OBSERVED origin snapshot is not',()=>{
- const actual=decide('dkThreadSpawn','A','A_BOOTSTRAP',{families:2,confidence:10});
- assert.equal(actual.stop,true);
- assert.equal(actual.decisionReason,'V5_NATIVE_SENSOR_OUTPUT');
- assert.equal(decide('dkThreadSpawn','A','A_BOOTSTRAP',{signal:'OBSERVED',families:2,confidence:10}).stop,false);
+const independent={correlation:true,localOnly:false,confidence:75,families:3};
+
+test('isolated A startup thread activity stays recorded until a supported finding',()=>{
+ const weak={families:2,confidence:10};
+ const actual=decide('dkThreadSpawn','A','A_BOOTSTRAP',weak);
+ assert.equal(actual.stop,false);
+ assert.equal(actual.disposition,'OBSERVATION_UNRESOLVED');
+ assert.equal(decide('dkThreadSpawn','A','A_BOOTSTRAP',{...weak,signal:'OBSERVED'}).stop,false);
+ assert.equal(decide('dkThreadSpawn','A','A_BOOTSTRAP',independent,{},true).stop,true);
 });
-test('B runtime: native post-filter PAGE_NOACCESS finding is terminal; raw state observation stays nonterminal',()=>{
- assert.equal(decide('dkNoAccess','B','B_ATTESTED',{families:32,confidence:30}).stop,true);
- assert.equal(decide('dkNoAccess','B','B_ATTESTED',{signal:'OBSERVED',families:32,confidence:30}).stop,false);
+
+test('isolated B memory protection and O scheduling reports cannot revoke a session',()=>{
+ for(const [id,role,phase,families] of [
+  ['dkNoAccess','B','B_ATTESTED',8],['dkAffinity','O','O_RUNTIME',2]]){
+  const actual=decide(id,role,phase,{families,confidence:30});
+  assert.equal(actual.stop,false,id);
+  assert.equal(actual.disposition,'OBSERVATION_UNRESOLVED',id);
+  assert.equal(decide(id,role,phase,independent,{},true).stop,true,id);
+ }
 });
-test('exhaustive 204-kind sensor taxonomy stays preserved, 191 active detection states stop for all A/B/O',()=>{
+
+test('a server-side corroboration flag requires signed acquisition data for a terminal decision',()=>{
+ const role='B',phase='B_RUNTIME',id='dkThread';
+ const rows=[
+  [{confidence:100,count:65535,families:1},true],
+  [{...independent,families:1},true],
+  [{...independent,confidence:49},true],
+  [independent,false]
+ ];
+ for(const [row,corroborated] of rows)
+  assert.equal(decide(id,role,phase,row,{},corroborated).stop,false);
+ assert.equal(decide(id,role,phase,independent,{},true).disposition,'CORROBORATED_ANOMALY');
+});
+
+test('all evidence tiers remain populated across the 204-kind sensor taxonomy',()=>{
  assert.equal(catalog.NHW.length,204);
  assert.equal(catalog.NHW.filter(x=>x.standaloneOutput).length,197);
  assert.equal(new Set(catalog.NHW.filter(x=>x.standaloneOutput).map(x=>x.displayName)).size,194);
- const counters={};let terminal=0;
+ const counters={};
  for(const entry of catalog.NHW){
   const tier=policy.NativeEvidenceTier(entry);
   counters[tier]=(counters[tier]||0)+1;
-  for(const stage of ['A','B','O']){
-   const out=decide(entry.id,stage,stage+'_ATTESTED');
-   const shouldStop=entry.standaloneOutput&&entry.signalClass!=='UNKNOWN';
-   assert.equal(out.stop,shouldStop,stage+'/'+entry.id+'/'+tier);
-   if(shouldStop){terminal++;assert.equal(out.decisionReason,'V5_NATIVE_SENSOR_OUTPUT');}
-   assert.equal(decide(entry.id,stage,stage+'_ATTESTED',{signal:'OBSERVED'}).stop,false,stage+'/'+entry.id);
-  }
+  const observed=decide(entry.id,'A','A_ATTESTED',{signal:'OBSERVED'});
+  assert.equal(observed.stop,false,entry.id);
  }
- assert.equal(terminal,573);
- assert.deepEqual(counters,{
-  REQUIRE_INDEPENDENT_CORROBORATION:159,
-  STABLE_INTEGRITY_INVARIANT:31,
-  NATIVE_MULTI_SIGNAL_PROOF:1,
-  INTERNAL_ONLY:7,
-  COVERAGE_ONLY:6
- });
+ assert.equal(counters.INTERNAL_ONLY,7);
+ assert.equal(counters.COVERAGE_ONLY,6);
+ assert.equal(counters.STABLE_INTEGRITY_INVARIANT,31);
+ assert.equal(counters.NATIVE_MULTI_SIGNAL_PROOF,2);
+ assert.equal(counters.REQUIRE_INDEPENDENT_CORROBORATION,158);
 });
+
 test('a claimed risk score, count or correlation does not terminate a raw OBSERVED output',()=>{
  for(const id of ['dkThreadSpawn','dkNoAccess','dkRemoteThread','dkTokenRights']){
   for(const change of [{confidence:99},{count:25},{families:3},
@@ -70,8 +87,10 @@ test('server-bound first-party activity is trusted only with authoritative bindi
   actorRole:'B',capability:'THREAD_ACCESS',capabilityDecision:'EXPECTED',
   firstPartyAttested:true,serverBound:true,sameSession:true,contextMixed:false};
  assert.equal(decide('dkThread','B','B_RUNTIME',{},own).stop,false);
- assert.equal(decide('dkThread','B','B_RUNTIME',{}, {...own,serverBound:false}).stop,true);
- for(const id of ['dkWriteIntegrity','dkPECodeIntegrity','dkIAT','dkInjectionEvidence'])
+ const unbound={...own,serverBound:false};
+ assert.equal(decide('dkThread','B','B_RUNTIME',{},unbound).disposition,'OBSERVATION_UNRESOLVED');
+ assert.equal(decide('dkThread','B','B_RUNTIME',independent,unbound,true).stop,true);
+ for(const id of ['dkWriteIntegrity','dkPECodeIntegrity','dkIAT','dkInjectionEvidence','dkRemoteThread'])
   assert.equal(decide(id,'B','B_ATTESTED').stop,true,id+' security finding remains terminal');
 });
 test('the two native source and fixture gates exist without deleting either detector',t=>{
