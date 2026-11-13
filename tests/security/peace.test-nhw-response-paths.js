@@ -87,6 +87,35 @@ check('Rate limiting and supersession on one path do not consume another path no
  reject(()=>request(s,'trust'),'SECURITY_RATE_LIMIT');
  assert.equal(authority.Execute(driver.submit).stopped,false);assert.equal(send(s,'integrity').stopped,true);
 });
+// V10.5: exercise actual authenticated client, key, signed channel and durable
+// server-side revocation; a fake policy-only stop result cannot satisfy this.
+function nativeV5(id,stage){
+ const c=require('../../services/security/peace.security-context-policy').UnknownContext(stage);
+ c.phase=stage+'_ATTESTED';
+ const fields=require('../../services/security/peace.security-context-policy').CONTEXT_FIELDS;
+ const detected=[{id,source:'Cozy.NHW.Engine',firstTick:'0000000000001000',
+  lastTick:'0000000000001000',count:1,families:0,confidence:0,
+  correlation:false,attestationSequence:'0000000000000000',localOnly:true,
+  context:Object.fromEntries(fields.map(k=>[k,c[k]])),signal:'DETECTED'}];
+ return JSON.stringify({version:5,sequence:'0000000000000001',
+  tick:'0000000000001001',digest:hash(JSON.stringify(detected)).slice(0,16),
+  confirmed:false,trust:0,detections:detected,peer:null});
+}
+check('V10.5 signed V5 A and B native detections revoke exact same-cohort authority with stopped=true',()=>{
+ const a=newA(),b=newB(),foreign=newB();
+ const aRequest=request(a,'integrity',nativeV5('dkProcess','A'));
+ const aStopped=authority.Execute(aRequest.submit);
+ assert.equal(aStopped.accepted,true);assert.equal(aStopped.stopped,true);
+ assert.deepEqual(authority.Execute(aRequest.submit),aStopped,'idempotent signed stop receipt');
+ assert.equal(row(a).status,'REVOKED');
+ const bStopped=send(b,'trust',nativeV5('dkAffinity','B'));
+ assert.equal(bStopped.accepted,true);assert.equal(bStopped.stopped,true);
+ assert.equal(row(b).status,'REVOKED');
+ assert.equal(row(foreign).status,'CLAIMED','foreign A/B cohort untouched');
+ const event=require('../../services/security/peace.security-detections').ForFlow(row(b).id);
+ assert.ok(event.some(x=>x.detectionId==='dkAffinity'&&x.disposition==='DETECTION'&&x.invalidated),
+  'server saves terminal NHW output and exact invalidation');
+});
 check('Stage A independently reports and revokes only its exact not-yet-claimed flow',()=>{
  const a=newA(),other=newA();
  assert.equal(send(a,'driver').stopped,false);assert.equal(send(a,'integrity').stopped,true);

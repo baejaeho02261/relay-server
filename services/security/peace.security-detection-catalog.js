@@ -16,7 +16,7 @@ function NHWMetadata(row) {
  if(row.id==='dkObservationUncertain')row.sourceUnits.push('Cozy.NHW.Handles','Cozy.NHW.Guard');
  return Freeze({...row,label:displayName,displayName,origin:'NHW',conditionLabel:WARING_OUTPUT.has(row.id)?row.label:'',standaloneOutput:!internal,
   observationClass:internal?'INTERNAL_EVIDENCE':warning?'COVERAGE_WARNING':'DETECTION',
-  sessionStopPolicy:internal?'OBSERVE_ONLY':warning?'RECOVER_AND_REVALIDATE':'CONTEXT_AND_CORROBORATION',
+  sessionStopPolicy:internal?'OBSERVE_ONLY':warning?'RECOVER_AND_REVALIDATE':'STOP_ON_NATIVE_DETECTED_OUTPUT',
   contextPolicy:require('./peace.security-context-policy').PolicyClass({...row,standaloneOutput:!internal})});
 }
 const COZY_NAMES={
