@@ -19,21 +19,24 @@ function Entry(id){const c=catalog();return c.Get(id);}
 function SourceAllowed(entry,source){return entry&&typeof source==='string'&&((entry.sourceUnits||[]).includes(source)||entry.id.startsWith('dk')&&source==='Cozy.NHW.Engine');}
 const AVAILABILITY_SOURCES=new Set(['Cozy.NHW.Handles','Cozy.NHW.Guard']);
 function AvailabilityOnly(r){return r.id==='dkObservationUncertain'&&AVAILABILITY_SOURCES.has(r.source);}
+const SIGNALS=['OBSERVED','DETECTED'];
 function ParseRecords(rows,tick,version=2){
  if(!Array.isArray(rows)||rows.length>32||!hex64(tick)||tick===ZERO)Fail();
  const seen=new Set();
  for(const r of rows){
-  Fields(r,['id','source','firstTick','lastTick','count','families','confidence','correlation','attestationSequence','localOnly',...(version===3?['context']:[])]);
-  if(version===3)contextPolicy.ParseContext(r.context);
+  Fields(r,['id','source','firstTick','lastTick','count','families','confidence','correlation','attestationSequence','localOnly',...(version>=3?['context']:[]),...(version===5?['signal']:[])]);
+  if(version>=3)contextPolicy.ParseContext(r.context,version);
   const e=Entry(r.id);if(!e||!e.id.startsWith('dk')||!SourceAllowed(e,r.source))Fail();
   if(!hex64(r.firstTick)||r.firstTick===ZERO||!hex64(r.lastTick)||!hex64(r.attestationSequence)||BigInt('0x'+r.firstTick)>BigInt('0x'+r.lastTick)||BigInt('0x'+r.lastTick)>BigInt('0x'+tick))Fail();
   if(!Number.isInteger(r.count)||r.count<1||r.count>65535||!Number.isInteger(r.families)||r.families<0||r.families>255||!Number.isInteger(r.confidence)||r.confidence<0||r.confidence>100||typeof r.correlation!=='boolean'||typeof r.localOnly!=='boolean'||r.localOnly===r.correlation)Fail();
   if(AvailabilityOnly(r)&&(r.families!==0||r.confidence!==0||r.correlation||!r.localOnly))Fail();
+  if(version===5&&(!SIGNALS.includes(r.signal)||r.signal==='OBSERVED'&&(r.correlation||!r.localOnly)||AvailabilityOnly(r)&&r.signal!=='OBSERVED'))Fail();
+  if(r.context?.capability===contextPolicy.PRIMARY_TOKEN_POSTURE&&(r.id!=='dkTokenChange'||r.source!=='Cozy.NHW.Engine'||r.correlation||!r.localOnly))Fail();
   const key=RecordKey(r);if(seen.has(key))Fail();seen.add(key);
  }
  return rows;
 }
-const KernelCandidate=r=>(r.families&128)!==0&&r.correlation===true&&r.localOnly===false&&r.confidence>=50&&KERNEL_ALLOWED.has(r.id);
+const KernelCandidate=r=>r.signal!=='OBSERVED'&&(r.families&128)!==0&&r.correlation===true&&r.localOnly===false&&r.confidence>=50&&KERNEL_ALLOWED.has(r.id);
 function KernelPolicy(rows){
  // Same conservative semantic policy as the native CorrelationPolicy after
  // AuthorityKinds excludes unverified CI provenance/telemetry-only signals.
@@ -59,19 +62,33 @@ function QualifiedIds(rows,tick){
  const kernel=KernelPolicy(fresh).eligible;
  return fresh.filter(r=>r.correlation&&!r.localOnly&&r.confidence>=50&&(STRONG.has(r.id)&&bitCount(r.families&127)>=2||kernel&&KernelCandidate(r))).map(r=>r.id);
 }
-function RecordKey(r){return r.id+':'+r.source+(r.context?':'+contextPolicy.ContextKey(r.context):'');}
+function RecordContextKey(r){
+ const key=contextPolicy.ContextKey(r.context);
+ return r.signal===undefined?key:sha(JSON.stringify([key,r.signal]));
+}
+function RecordKey(r){const key=RecordContextKey(r);return r.id+':'+r.source+(key?':'+key:'');}
+function CapturePrimaryTokenContexts(row,stage,value){
+ if(value.version!==5)return;
+ // A report may refresh peer enrollment, but that refresh cannot authorize
+ // its own posture evidence. Bind the proof before any enrollment update.
+ value._primaryTokenContexts=new Map(value.detections
+  .filter(r=>r.context?.capability===contextPolicy.PRIMARY_TOKEN_POSTURE)
+  .map(r=>[r,contextPolicy.Resolve(row,stage,r)]));
+}
 function PolicyResults(row,stage,value){
  const db=row?store.Load():null,b=row?Binding(db,row,stage):null;
  const old=b?db.securityDetections?.flows[b.flowId]?.events||[]:[];
  const fresh=value.detections.filter(r=>contextPolicy.Fresh(r,value.tick));
  const kernel=KernelPolicy(fresh).eligible;
  return value.detections.map(r=>{
-  const context=row?contextPolicy.Resolve(row,stage,r):contextPolicy.UnknownContext(stage);
-  const prior=b?old.find(e=>e.id===Key(b,stage,value._channel||'integrity',r.id,r.source,contextPolicy.ContextKey(r.context))):null;
+  const context=r.context?.capability===contextPolicy.PRIMARY_TOKEN_POSTURE
+   ?value._primaryTokenContexts?.get(r)||{...contextPolicy.UnknownContext(stage),...r.context}
+   :row?contextPolicy.Resolve(row,stage,r):contextPolicy.UnknownContext(stage);
+  const prior=b?old.find(e=>e.id===Key(b,stage,value._channel||'integrity',r.id,r.source,RecordContextKey(r))):null;
   const independent=r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2;
   const entry=Entry(r.id);
   const corroborated=entry.category==='KERNEL_TRUST'?kernel&&KernelCandidate(r):independent;
-  return {record:r,key:RecordKey(r),...contextPolicy.Evaluate(entry,r,{tick:value.tick,context,corroborated,prior})};
+  return {record:r,key:RecordKey(r),...contextPolicy.Evaluate(entry,r,{tick:value.tick,context,corroborated,prior,version:value.version,channel:value._channel})};
  });
 }
 function StopRecords(rows,tick){return PolicyResults(null,'?',{detections:rows,tick}).filter(x=>x.stop).map(x=>x.record);}
@@ -80,7 +97,7 @@ function StopDecision(stage,channel,value,row=null){
  const selected=value._policy.filter(x=>x.stop);if(!selected.length)return null;
  return {reason:('NHW_DETECTED:'+stage+':'+channel+':'+value.sequence+':'+[...new Set(selected.map(x=>x.record.id))].join(',')).slice(0,300),keys:selected.map(x=>x.key)};
 }
-function BatchDigest(value){return sha(JSON.stringify({version:value.version,sequence:value.sequence,digest:value.digest,confirmed:value.confirmed,trust:value.trust,detections:value.detections,...(value.version===3?{peer:value.peer}:{})}));}
+function BatchDigest(value){return sha(JSON.stringify({version:value.version,sequence:value.sequence,digest:value.digest,confirmed:value.confirmed,trust:value.trust,detections:value.detections,...(value.version>=3?{peer:value.peer}:{})}));}
 function RecoverBatch(row,stage,channel,value){
  const previous=row.nhwResponseOrders?.[stage+':'+channel];
  // A renewed nonce must still carry a freshly verified signature for the same
@@ -105,7 +122,7 @@ function Trim(state){
 }
 function Append(db,binding,stage,path,r,provenance,invalidated=false,policy=null){
  const entry=Entry(r.id);if(!entry)Fail();
- const s=State(db),at=Date.now(),key=Key(binding,stage,path,r.id,r.source,contextPolicy.ContextKey(r.context));
+ const s=State(db),at=Date.now(),contextKey=RecordContextKey(r),key=Key(binding,stage,path,r.id,r.source,contextKey);
  const flow=s.flows[binding.flowId]||(s.flows[binding.flowId]={flowId:binding.flowId,updatedAt:at,events:[]});
  let e=flow.events.find(x=>x.id===key);
  if(e&&(BigInt('0x'+r.lastTick)<BigInt('0x'+e.lastTick)||e.firstTick===r.firstTick&&r.count<e.producerCount||e.firstTick!==r.firstTick&&BigInt('0x'+r.firstTick)<=BigInt('0x'+e.lastTick)))Fail('SECURITY_DETECTION_COUNTER_REPLAY',409);
@@ -119,7 +136,8 @@ function Append(db,binding,stage,path,r,provenance,invalidated=false,policy=null
  if(policy&&(!e.invalidated||e.disposition===undefined)){
   e.disposition=policy.disposition;e.decisionReason=policy.decisionReason;e.sessionStopPolicy=policy.sessionStopPolicy;e.coverageState=policy.coverageState;
   e.context=policy.context;
-  if(r.context)e.contextKey=contextPolicy.ContextKey(r.context);
+  if(r.context)e.contextKey=contextKey;
+  if(r.signal!==undefined)e.signal=r.signal;
   if(policy.coverageEpisode)e.coverageEpisode=policy.coverageEpisode;
  }
  return e.id;
@@ -133,7 +151,7 @@ function CheckOrder(row,stage,channel,value){
 function CheckCounters(row,stage,channel,records){
  if(channel!=='integrity'&&(records||[]).some(AvailabilityOnly))Fail();
  const db=store.Load(),b=Binding(db,row,stage),events=db.securityDetections?.flows[b.flowId]?.events||[];
- for(const r of records||[]){const e=events.find(e=>e.id===Key(b,stage,channel,r.id,r.source,contextPolicy.ContextKey(r.context)));if(e&&(BigInt('0x'+r.lastTick)<BigInt('0x'+e.lastTick)||e.firstTick===r.firstTick&&r.count<e.producerCount||e.firstTick!==r.firstTick&&BigInt('0x'+r.firstTick)<=BigInt('0x'+e.lastTick)))Fail('SECURITY_DETECTION_COUNTER_REPLAY',409);}
+ for(const r of records||[]){const e=events.find(e=>e.id===Key(b,stage,channel,r.id,r.source,RecordContextKey(r)));if(e&&(BigInt('0x'+r.lastTick)<BigInt('0x'+e.lastTick)||e.firstTick===r.firstTick&&r.count<e.producerCount||e.firstTick!==r.firstTick&&BigInt('0x'+r.firstTick)<=BigInt('0x'+e.lastTick)))Fail('SECURITY_DETECTION_COUNTER_REPLAY',409);}
 }
 function TerminalAllowed(row,stage){
  const db=store.Load(),b=Binding(db,row,stage),g=b.flow.nhwTerminalReport;
@@ -222,6 +240,7 @@ function ContextFamilies(e,entry){
  const result=[...(entry.evidenceFamilies||[])],c=e.context;
  if(c?.firstPartyAttested&&c.sameSession){
   if(c.actorIdentity===c.targetIdentity&&(c.capability==='TOKEN_STATE'||c.capability==='TOKEN_ACCESS'))result.push('SELF_TOKEN');
+  if(c.capability===contextPolicy.PRIMARY_TOKEN_POSTURE)result.push('SELF_TOKEN');
   if(c.capability==='SELF_MEMORY')result.push('SELF_MEMORY');
   if(c.grantId)result.push('FIRST_PARTY_HANDOFF');
   result.push('FIRST_PARTY_PROCESS');
@@ -298,10 +317,11 @@ function Validate(s,db){
   if(!id24(id)||!db.flows[id]||!plain(f)||Object.keys(f).sort().join(',')!=='events,flowId,updatedAt'||f.flowId!==id||!Number.isSafeInteger(f.updatedAt)||f.updatedAt<1||!Array.isArray(f.events)||f.events.length>MAX_EVENTS)invalid();total+=f.events.length;
   const seen=new Set();for(const e of f.events){
    const required=['id','flowId','sessionId','role','epoch','detectionId','category','sensor','responsePath','firstAt','lastAt','count','confirmationCount','firstTick','lastTick','producerCount','evidenceFamilies','confidence','correlation','localOnly','attestationSequence','invalidated','provenance'];
-   if(!plain(e)||required.some(k=>!Object.hasOwn(e,k))||Object.keys(e).some(k=>!required.includes(k)&&!['attestationStatus','hardwareAttested','crcFindings','contextKey','context','disposition','decisionReason','sessionStopPolicy','coverageState','coverageEpisode'].includes(k))||(e.attestationStatus===undefined)!==(e.hardwareAttested===undefined))invalid();
+   if(!plain(e)||required.some(k=>!Object.hasOwn(e,k))||Object.keys(e).some(k=>!required.includes(k)&&!['attestationStatus','hardwareAttested','crcFindings','contextKey','context','disposition','decisionReason','sessionStopPolicy','coverageState','coverageEpisode','signal'].includes(k))||(e.attestationStatus===undefined)!==(e.hardwareAttested===undefined))invalid();
    const entry=Entry(e.detectionId),live=e.role==='O'?Object.values(db.overlays||{}).find(o=>o.sessionId===e.sessionId&&o.parentFlowId===id):db.flows[id];
    if(!plain(e)||!entry||e.category!==(entry.category||'SECURITY')||!SourceAllowed(entry,e.sensor)||!live||!['A','B','O'].includes(e.role)||!['trust','driver','integrity','server'].includes(e.responsePath)||e.flowId!==id||!id24(e.sessionId)||e.sessionId!==(e.role==='A'?id:live.sessionId)||e.epoch!==String(live.createdAt)||e.id!==Key({flowId:id,sessionId:e.sessionId,epoch:e.epoch},e.role,e.responsePath,e.detectionId,e.sensor,e.contextKey||'')||seen.has(e.id))invalid();seen.add(e.id);
    ValidatePolicyStorage(e,invalid);
+   if(e.signal!==undefined&&(!SIGNALS.includes(e.signal)||entry.origin!=='NHW'||e.provenance!=='AUTHENTICATED_CLIENT_REPORT'||!e.contextKey||!e.context||e.signal==='OBSERVED'&&(e.correlation||e.invalidated||!e.localOnly)||AvailabilityOnly({id:e.detectionId,source:e.sensor})&&e.signal!=='OBSERVED'))invalid();
    if(e.crcFindings!==undefined){if(e.detectionId!=='CRC_ROLE_MISMATCH'||!Array.isArray(e.crcFindings)||e.crcFindings.length>9)invalid();try{if(JSON.stringify(CrcFindings({signals:e.crcFindings}))!==JSON.stringify(e.crcFindings))invalid();}catch(_){invalid();}}
    if(AvailabilityOnly({id:e.detectionId,source:e.sensor})&&(e.responsePath!=='integrity'||e.evidenceFamilies!==0||e.confidence!==0||e.correlation||!e.localOnly||e.invalidated))invalid();
    if(e.attestationStatus!==undefined&&(!['VERIFIED_BINDING','REJECTED','TPM_QUOTE_ONLY','UNKNOWN'].includes(e.attestationStatus)||typeof e.hardwareAttested!=='boolean'||e.hardwareAttested&&e.attestationStatus!=='TPM_QUOTE_ONLY'))invalid();
@@ -310,4 +330,4 @@ function Validate(s,db){
  }
  if(total>MAX_RECORDS)invalid();return s;
 }
-module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPathIn,RecordPath,RecordServerIn,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};
+module.exports={ParseRecords,CapturePrimaryTokenContexts,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPathIn,RecordPath,RecordServerIn,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};

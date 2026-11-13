@@ -30,7 +30,20 @@ function kernelV2(){
 function quiet(sequence,version=2){
  const hex=value=>BigInt(value).toString(16).padStart(16,'0');
  const detections=[];
- return JSON.stringify({version,sequence:hex(sequence),tick:hex(0x1000+sequence),digest:hash(JSON.stringify(detections)).slice(0,16),confirmed:false,trust:2,detections,...(version===3?{peer:null}:{})});
+ return JSON.stringify({version,sequence:hex(sequence),tick:hex(0x1000+sequence),digest:hash(JSON.stringify(detections)).slice(0,16),confirmed:false,trust:2,detections,...(version>=3?{peer:null}:{})});
+}
+function typed(id,signal,stage,options={}){
+ const policy=require('../../services/security/peace.security-context-policy');
+ const context=policy.UnknownContext(stage);
+ return {id,source:'Cozy.NHW.Engine',firstTick:'0000000000001000',lastTick:'0000000000001000',count:1,
+  families:8,confidence:30,correlation:false,attestationSequence:'0000000000000000',localOnly:true,signal,
+  context:Object.fromEntries(policy.CONTEXT_FIELDS.map(k=>[k,context[k]])),...options};
+}
+function typedBatch(detections,sequence=1,peer=null){
+ const value=JSON.parse(quiet(sequence,5));
+ value.detections=detections;
+ value.digest=hash(JSON.stringify(detections)).slice(0,16);
+ return JSON.stringify({...value,peer});
 }
 function request(s,channel,text=payload()){ 
  const cap=channel[0].toUpperCase()+channel.slice(1),body={...s.ctx,binding:hash(text),action:'nhw'+cap+'Challenge'};
@@ -114,6 +127,54 @@ check('Stage A independently reports and revokes only its exact not-yet-claimed 
  assert.equal(send(a,'driver').stopped,false);assert.equal(send(a,'integrity').stopped,true);
  assert.equal(row(a).status,'REVOKED');assert.equal(row(other).status,'STARTED');
 });
+check('V8 regression cases leave ordinary A thread bursts and B protection changes running',()=>{
+ const a=newA(),b=newB(),detections=require('../../services/security/peace.security-detections');
+ for(const [subject,stage,id,phase,families,confidence,expected] of [
+  [a,'A','dkThreadSpawn','A_BOOTSTRAP',2,10,'STARTED'],
+  [b,'B','dkNoAccess','B_ATTESTED',32,30,'CLAIMED']
+ ]){
+  const finding=typed(id,'DETECTED',stage,{families,confidence});
+  finding.context.phase=phase;
+  const reply=send(subject,'integrity',typedBatch([finding]));
+  const flow=row(subject),event=detections.ForFlow(flow.id).find(e=>e.detectionId===id);
+  assert.equal(reply.stopped,false);assert.equal(flow.status,expected);
+  assert.equal(event.disposition,'OBSERVATION_UNRESOLVED');assert.equal(event.invalidated,false);
+ }
+});
+check('V5 observed and detected evidence coexist while only the confirmed row causes revocation',()=>{
+ const s=newB(),foreign=newB(),reports=require('../../services/security/peace.security-detections');
+ const observed=typed('dkPECodeIntegrity','OBSERVED','B'),detected={...observed,signal:'DETECTED'};
+ const contradictory={...observed,correlation:true,localOnly:false};
+ reject(()=>paths.Payload(typedBatch([contradictory])),'SECURITY_DETECTION_INVALID');
+ reject(()=>paths.Payload(typedBatch([observed,observed])),'SECURITY_DETECTION_INVALID');
+ reject(()=>paths.Payload(JSON.stringify({...JSON.parse(quiet(1,5)),version:4})),'SECURITY_NHW_RESPONSE_INVALID');
+ assert.equal(send(s,'integrity',typedBatch([observed])).stopped,false);
+ assert.equal(row(s).status,'CLAIMED');
+ const batch=typedBatch([observed,detected],2),req=request(s,'integrity',batch);
+ const result=authority.Execute(req.submit);
+ assert.equal(result.stopped,true);assert.deepEqual(authority.Execute(req.submit),result);
+ const events=reports.ForFlow(row(s).id);
+ assert.deepEqual(events.map(e=>[e.signal,e.invalidated,e.count]).sort(),[['DETECTED',true,1],['OBSERVED',false,1]]);
+ assert.equal(row(foreign).status,'CLAIMED');
+ const db=boot.Initialize();
+ reports.Validate(db.securityDetections,db);
+});
+check('A can report a verified finding after B claims, inside the existing exact handoff window',()=>{
+ const s=newB(),foreign=newB(),typedObservation=typed('dkThreadSpawn','OBSERVED','A');
+ const legacy=request(s.a,'integrity',quiet(1,3));
+ reject(()=>authority.Execute(legacy.submit),'BOOTSTRAP_SESSION_CLOSED');
+ assert.equal(send(s.a,'integrity',typedBatch([typedObservation])).peerContext,null);
+ assert.equal(row(s).status,'CLAIMED');
+ const invalid={...s.a,ctx:{...s.a.ctx,sessionToken:foreign.a.ctx.sessionToken}};
+ reject(()=>request(invalid,'integrity',quiet(2,5)));
+ const expired=newB(),expiry=row(expired).delegatedClaimRecoveryUntil,now=Date.now;
+ Date.now=()=>expiry;
+ try{reject(()=>request(expired.a,'integrity',quiet(1,5)));}finally{Date.now=now;}
+ const flow=row(s);
+ assert.equal(send(s.a,'integrity',typedBatch([typed('dkPECodeIntegrity','DETECTED','A')],2)).stopped,true);
+ assert.equal(row(s).status,'REVOKED');assert.equal(row(foreign).status,'CLAIMED');
+ assert.equal(boot.Initialize().launchers[flow.launcherId].status,'REVOKED');
+});
 function newO(parent){
  const device=fixture.Child(parent.device);
  const licenses=require('../../services/licensing/peace.desktop-licenses');
@@ -139,8 +200,7 @@ check('O uses its own activated key and ends only its authenticated A/B/O cohort
  assert.equal(boot.Initialize().overlays[current.prepared.overlayId].status,'REVOKED');assert.equal(row(parent).status,'REVOKED');assert.equal(row(foreign).status,'CLAIMED');
  assert.equal(boot.Initialize().launchers[row(parent).launcherId].status,'REVOKED');
 });
-check('Signed O detection after durable B-to-O transfer revokes the original cohort and denies further authority',()=>{
- const parent=newB(),current=newO(parent),foreign=newB();
+function transferred(parent,current){
  const reports=require('../../services/integrity/peace.desktop-integrity-reports');
  const artifact=boot.AuthenticateIntegrityReport(current.ctx).integrityArtifact;
  const challenge=reports.Execute({...current.ctx,action:'challenge'});
@@ -152,6 +212,28 @@ check('Signed O detection after durable B-to-O transfer revokes the original coh
  const overlayId=current.prepared.overlayId,commit={action:'overlayCommit',handoffVersion:1,sessionId:parent.b.sessionId,sessionToken:parent.b.sessionToken,overlayId,signature:fixture.Sign(parent.device,['GAME-OVERLAY-TRANSFER-V1',parent.b.sessionId,overlayId].join('\n'))};
  assert.equal(boot.Execute(commit).status,'TRANSFERRED');
  assert.equal(row(parent).status,'CLOSED');
+ return commit;
+}
+check('Transferred B can report a verified finding and revoke O through the exact cleanup credential',()=>{
+ const parent=newB(),current=newO(parent),foreign=newB();
+ const commit=transferred(parent,current);
+ assert.equal(boot.Execute(commit).status,'TRANSFERRED');
+ const obs=send(parent,'integrity',typedBatch([typed('dkNoAccess','DETECTED','B')]));
+ assert.equal(obs.stopped,false);assert.equal(obs.peerContext,null);
+ assert.equal(row(parent).status,'CLOSED');
+ assert.equal(boot.Initialize().overlays[current.prepared.overlayId].status,'CLAIMED');
+ reject(()=>request({...parent,ctx:{...parent.ctx,sessionToken:foreign.ctx.sessionToken}},'integrity',quiet(2,5)));
+ const report=send(parent,'integrity',typedBatch([typed('dkPECodeIntegrity','DETECTED','B')],2));
+ assert.equal(report.stopped,true);assert.equal(report.peerContext,null);
+ assert.equal(row(parent).status,'REVOKED');
+ assert.equal(boot.Initialize().overlays[current.prepared.overlayId].status,'REVOKED');
+ assert.equal(send(current,'driver',quiet(1,5)).stopped,true);
+ reject(()=>boot.Execute(commit),'BOOTSTRAP_SESSION_INVALID');
+ assert.equal(row(foreign).status,'CLAIMED');
+});
+check('Signed O detection after durable B-to-O transfer revokes the original cohort and denies further authority',()=>{
+ const parent=newB(),current=newO(parent),foreign=newB();
+ const commit=transferred(parent,current),overlayId=current.prepared.overlayId;
  const start={action:'overlayStart',sessionId:current.o.sessionId,sessionToken:current.o.sessionToken,productId:'cleaner.pubg',requestId:crypto.randomUUID(),sequence:1};
  start.signature=fixture.Sign(current.device,['COZY-OVERLAY-START-V1',start.sessionId,start.productId,start.requestId,String(start.sequence)].join('\n'));
  assert.equal(boot.Execute(start).status,'AUTHORIZED');
@@ -162,8 +244,10 @@ check('Signed O detection after durable B-to-O transfer revokes the original coh
   throw Error('TEST_ROLLED_BACK_REVOKE');
  }),'TEST_ROLLED_BACK_REVOKE');
  assert.equal(authority.Execute(stillPending.submit).stopped,false);
- const queued=request(current,'driver',kernelV2());
- assert.equal(send(current,'trust',kernelV2()).stopped,true);
+ const kernel=typedBatch(JSON.parse(kernelV2()).detections.map(record=>
+  typed(record.id,'DETECTED','O',{families:record.families,confidence:record.confidence,correlation:true,localOnly:false})));
+ const queued=request(current,'driver',kernel);
+ assert.equal(send(current,'trust',kernel).stopped,true);
  const db=boot.Initialize(),flow=db.flows[row(parent).id],overlay=db.overlays[overlayId];
  assert.equal(flow.status,'REVOKED');assert.equal(flow.reason,'OVERLAY_REVOKED');
  assert.equal(db.launchers[flow.launcherId].status,'REVOKED');
@@ -213,6 +297,15 @@ check('A signed channel payload cannot substitute a different epoch or hash',()=
    const result=await round(submit);assert.equal(result.stopped,channel==='Driver');
   }
   assert.equal(row(s).status,'REVOKED');checks++;console.log('PASS independent Trust/Driver nonce and RSA proof through actual TLS, AEAD, queue and protected dispatch');
+  const v5=newB();
+  for(const [signal,sequence,stopped] of [['OBSERVED',1,false],['DETECTED',2,true]]){
+   const text=typedBatch([typed('dkPECodeIntegrity',signal,'B')],sequence);
+   const body={...v5.ctx,binding:hash(text),action:'nhwIntegrityChallenge'};
+   const c=await round(body),submit={...body,action:'nhwIntegritySubmit',challengeId:c.challengeId,payload:text};
+   submit.signature=fixture.Sign(v5.device,paths.Canonical(submit,c,'integrity'));
+   assert.equal((await round(submit)).stopped,stopped);
+  }
+  assert.equal(row(v5).status,'REVOKED');checks++;console.log('PASS V5 native signal distinction and exact cohort revocation through encrypted TLS dispatch');
   console.log('NHW response paths: '+checks+' groups passed; Windows runtime not executed');
  }finally{if(server)await new Promise(resolve=>server.close(resolve));}
 })().catch(error=>{console.error(error);process.exitCode=1;});

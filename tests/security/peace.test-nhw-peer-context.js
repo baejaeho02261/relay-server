@@ -16,10 +16,10 @@ function metadata(s,role,parentIdentity=''){
  const row=role==='O'?store.Load().overlays[s.prepared.overlayId]:flow(s),artifact=store.Load().artifacts[role==='A'?store.Load().launchers[row.launcherId].artifactId:row.releaseId];
  return {pid:++pid,creationTime:hex(100000+pid),imageSha256:role==='A'?store.Load().launchers[row.launcherId].peerImageSha256:artifact.legacyRevocationSha256,imageSha512:role==='A'?row.launcherSha512:artifact.sha512,parentIdentity,phase:role+'_BOOTSTRAP'};
 }
-function send(s,stage,peer,records=[],sequence=1,channel='integrity'){
+function send(s,stage,peer,records=[],sequence=1,channel='integrity',version=3){
  const device=stage==='A'?s.parent:stage==='B'?s.device:s.overlayDevice;
  const ctx=stage==='A'?{sessionId:s.start.begin.flowId,sessionToken:s.start.begin.downloadTicket}:stage==='B'?{sessionId:s.b.sessionId,sessionToken:s.b.sessionToken}:{sessionId:s.o.sessionId,sessionToken:s.o.sessionToken};
- const payload=JSON.stringify({version:3,sequence:hex(sequence),tick:hex(200000+sequence),digest:sha(JSON.stringify(records)).slice(0,16),confirmed:false,trust:0,detections:records,peer});
+ const payload=JSON.stringify({version,sequence:hex(sequence),tick:hex(200000+sequence),digest:sha(JSON.stringify(records)).slice(0,16),confirmed:false,trust:0,detections:records,peer});
  const prefix='nhw'+channel[0].toUpperCase()+channel.slice(1),body={...ctx,stage,machineId:device.machineId,binding:sha(payload),action:prefix+'Challenge'},challenge=authority.Execute(body),submit={...body,action:prefix+'Submit',challengeId:challenge.challengeId,payload};
  submit.signature=fixture.Sign(device,paths.Canonical(submit,challenge,channel));return authority.Execute(submit);
 }
@@ -45,6 +45,44 @@ check('Normal A signed startup binds exact issued bytes without revocation or ra
  const c=context(s.aIdentity,'A');assert.equal(peers.ResolveContext(flow(s),'A',c).expected,true);
  assert.equal(send(s,'A',s.aPeer,[record('dkTokenObject',c)],2).stopped,false);
 });
+check('Signed V5 primary-token proof requires previously enrolled exact role phase and measured target',()=>{
+ const s=A(),other=A(),phase='A_ISSUANCE',peer={...s.aPeer,phase};
+ const posture=context(s.aIdentity,'A',{actorClass:'UNKNOWN',actorRole:'?',actorIdentity:'',phase,
+  capability:'PRIMARY_TOKEN_POSTURE',tokenDelta:0x24,peerId:s.aReceipt.peerContext.selfPeerId,baseline:false});
+ const result=(patch={},signal='DETECTED',tick=200000)=>({...record('dkTokenChange',{...posture,...patch},tick),families:32,signal});
+ const submit=(finding,sequence,channel='integrity',version=5)=>send(s,'A',peer,[finding],sequence,channel,version);
+ const reason='VERIFIED_PRIMARY_TOKEN_CONTAINMENT_LOSS';
+ assert.throws(()=>submit({...result(),signal:undefined},2,'integrity',3),e=>e.message==='SECURITY_DETECTION_CONTEXT_INVALID');
+ assert.throws(()=>submit(result({actorClass:'SELF',actorRole:'A',actorIdentity:s.aIdentity}),2),e=>e.message==='SECURITY_DETECTION_CONTEXT_INVALID');
+ assert.throws(()=>submit(result({phase:'A_BOOTSTRAP'}),2),e=>e.message==='SECURITY_DETECTION_CONTEXT_INVALID');
+ assert.throws(()=>submit(result({tokenDelta:2}),2),e=>e.message==='SECURITY_DETECTION_CONTEXT_INVALID');
+ assert.equal(submit(result(),2).stopped,false,'a report cannot attest its own new phase');
+ assert.equal(submit(result({phase:'A_ATTESTED'}),3).stopped,false,'other eligible phase is not the enrolled phase');
+ assert.equal(submit(result({targetIdentity:other.aIdentity,peerId:other.aReceipt.peerContext.selfPeerId}),4).stopped,false,'foreign cohort cannot authorize proof');
+ assert.equal(submit({...result({},'DETECTED',200004),families:8},5).stopped,false,'unrelated observation root cannot authorize proof');
+ assert.equal(submit(result({},'OBSERVED',200005),6).stopped,false,'observation does not create terminal proof');
+ assert.equal(submit(result({},'DETECTED',200006),8,'driver').stopped,false,'other response paths cannot assert this proof');
+ assert.equal(flow(s).status,'STARTED');
+ assert.equal(submit(result({},'DETECTED',200007),7).stopped,true);
+ assert.equal(flow(s).status,'REVOKED');assert.equal(flow(other).status,'STARTED');
+ const event=reports.ForFlow(flow(s).id).find(e=>e.invalidated);
+ assert.equal(event.detectionId,'dkTokenChange');assert.equal(event.decisionReason,reason);
+ assert.equal(event.context.actorClass,'UNKNOWN');assert.equal(event.context.targetIdentity,s.aIdentity);
+ assert.equal(event.context.serverBound,true);assert.equal(event.attestation.hardwareAttested,false);
+ reports.Validate(store.Load().securityDetections,store.Load());
+});
+check('Signed V5 posture proof cannot create an enrollment',()=>{
+ const parent=fixture.Device(),s={parent,start:fixture.Begin(parent)};
+ s.aPeer={...metadata(s,'A'),phase:'A_ISSUANCE'};
+ const identity=peers.StableIdentity(s.aPeer),c=context(identity,'A',{actorClass:'UNKNOWN',actorRole:'?',actorIdentity:'',
+  phase:s.aPeer.phase,capability:'PRIMARY_TOKEN_POSTURE',tokenDelta:4,peerId:'a'.repeat(48),baseline:false});
+ const finding={...record('dkTokenChange',c),families:32,signal:'DETECTED'};
+ assert.equal(flow(s).nhwPeerBindings?.A,undefined);
+ assert.equal(send(s,'A',s.aPeer,[finding],1,'integrity',5).stopped,false);
+ const logged=reports.ForFlow(flow(s).id).find(e=>e.detectionId==='dkTokenChange');
+ assert.equal(logged.context.serverBound,false);assert.equal(logged.invalidated,false);
+ assert.equal(flow(s).status,'STARTED');
+});
 check('A to B uses actual one-use handoff grant and same-cohort parent identity',()=>{
  const s=B(),g=flow(s).nhwHandoffGrant;assert.equal(g.sourceIdentity,s.aIdentity);assert.equal(g.targetRole,'B');assert(g.consumedAt>0);assert.equal(g.childKeyId,s.device.deviceId);assert.equal(s.bReceipt.stopped,false);assert.equal(s.bReceipt.peerContext.selfIdentity,s.bIdentity);assert.equal(s.bReceipt.peerContext.peers.find(p=>p.role==='A').grantId,g.id);
  const c=context(s.aIdentity,'A',{actorClass:'TRUSTED_A',targetRole:'B',targetIdentity:s.bIdentity,phase:'A_HANDOFF_TO_B',capability:'PROCESS_ACCESS',accessMask:0x101000,peerId:s.aReceipt.peerContext.selfPeerId,grantId:g.id,baseline:false});
@@ -57,6 +95,28 @@ check('A to B uses actual one-use handoff grant and same-cohort parent identity'
  // Exercise the transaction-rollback diagnostic hook directly: ordinary wire
  // replay is already blocked by Claim's earlier idempotent/nonce checks.
  peers.RecordGrantRejection(rejected);const finding=reports.ForFlow(s.start.begin.flowId).find(e=>e.detectionId==='SECURITY_HANDOFF_GRANT_REUSED');assert(finding);assert.equal(finding.invalidated,false);assert.equal(finding.correlation,false);assert.equal(flow(s).status,'CLAIMED');
+});
+check('Signed primary-token proofs use independently enrolled B and O roles and revoke only that flow',()=>{
+ for(const stage of ['B','O']){
+  const s=stage==='B'?B():O(),other=A();
+  const rolePeer=stage==='B'?s.bPeer:s.oPeer,identity=stage==='B'?s.bIdentity:s.oIdentity;
+  if(stage==='B'){
+   const key=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID()},'PEER_TEST');
+   const common={...fixture.Evidence(s.device,s.b),bootstrapSessionId:s.b.sessionId,bootstrapSessionToken:s.b.sessionToken,appVersion:'93.0.0'};
+   proof(s.device,'redeem',{...common,licenseKey:key.licenseKey});
+  }
+  const peer={...rolePeer,phase:stage+'_RUNTIME'},enrollment=send(s,stage,peer,[],2,'integrity',5);
+  assert.equal(enrollment.stopped,false);assert.equal(enrollment.peerContext.selfIdentity,identity);
+  const c=context(identity,stage,{actorClass:'UNKNOWN',actorRole:'?',actorIdentity:'',phase:peer.phase,
+   capability:'PRIMARY_TOKEN_POSTURE',tokenDelta:0x40,peerId:enrollment.peerContext.selfPeerId,baseline:false});
+  const finding={...record('dkTokenChange',c),families:32,signal:'DETECTED'};
+  assert.equal(send(s,stage,peer,[finding],3,'integrity',5).stopped,true);
+  assert.equal(flow(s).status,'REVOKED');assert.equal(flow(other).status,'STARTED');
+  if(stage==='O')assert.equal(store.Load().overlays[s.prepared.overlayId].status,'REVOKED');
+  const event=reports.ForFlow(flow(s).id).find(e=>e.invalidated&&e.detectionId==='dkTokenChange');
+  assert.equal(event.role,stage);assert.equal(event.context.targetIdentity,identity);
+  assert.equal(event.decisionReason,'VERIFIED_PRIMARY_TOKEN_CONTAINMENT_LOSS');
+ }
 });
 check('B to O binds separate O epoch to the same root cohort and only exact approved image',()=>{
  const s=O(),row=store.Load().overlays[s.prepared.overlayId],g=row.nhwHandoffGrant;assert.equal(s.oReceipt.stopped,false);assert.equal(g.sourceIdentity,s.bIdentity);assert.equal(g.epoch,String(row.createdAt));assert.equal(g.cohort,flow(s).nhwPeerBindings.B.cohort);assert.equal(s.oReceipt.peerContext.selfIdentity,s.oIdentity);assert.equal(s.oReceipt.peerContext.peers.find(p=>p.role==='B').grantId,g.id);
@@ -88,6 +148,20 @@ check('Cross-session claims, mismatched PID creation, spoofed role and phase do 
  assert.equal(peers.ResolveContext(flow(s),'B',{...foreign,accessMask:0x20}).forbidden,true);
  const aliasOnly=context(s.bIdentity,'B',{actorClass:'EXTERNAL',peerId:'',capability:'PROCESS_ACCESS',accessMask:0x101000});assert.equal(peers.ResolveContext(flow(s),'B',aliasOnly).firstPartyAttested,false);assert.equal(peers.ResolveContext(flow(s),'B',{...aliasOnly,actorClass:'TRUSTED_B'}).firstPartyAttested,false);
 });
+check('V5 trusts only the verified role capability and revokes the same cohort for a confirmed violation',()=>{
+ const s=O(),other=B(),o=store.Load().overlays[s.prepared.overlayId],grant=o.nhwHandoffGrant;
+ const bound=context(s.bIdentity,'B',{actorClass:'TRUSTED_B',targetRole:'O',targetIdentity:s.oIdentity,phase:'B_HANDOFF_TO_O',capability:'PROCESS_ACCESS',accessMask:0x101001,peerId:s.bReceipt.peerContext.selfPeerId,grantId:grant.id,baseline:false});
+ const allowed={...record('dkProcess',bound),signal:'DETECTED'};
+ const foreign={...record('dkProcess',{...bound,actorIdentity:other.bIdentity,peerId:other.bReceipt.peerContext.selfPeerId,grantId:''}),signal:'OBSERVED'};
+ assert.equal(send(s,'O',s.oPeer,[allowed,foreign],2,'integrity',5).stopped,false);
+ const before=reports.ForFlow(flow(s).id);
+ assert.equal(before.find(e=>e.signal==='DETECTED').disposition,'EXPECTED_FIRST_PARTY');
+ assert.equal(before.find(e=>e.signal==='OBSERVED').context.sameSession,false);
+ const violation={...record('dkProcess',{...bound,accessMask:0x20},200002),signal:'DETECTED',count:2};
+ assert.equal(send(s,'O',s.oPeer,[violation],3,'integrity',5).stopped,true);
+ assert.equal(flow(s).status,'REVOKED');assert.equal(flow(other).status,'CLAIMED');
+ assert.equal(reports.ForFlow(flow(s).id).find(e=>e.invalidated).decisionReason,'FIRST_PARTY_CAPABILITY_MATRIX_VIOLATION');
+});
 check('Client role labels cannot fabricate SELF or registered target context',()=>{
  const s=B();for(const actorClass of ['SELF','TRUSTED_A','TRUSTED_B','TRUSTED_O']){const c=context('a'.repeat(64),'B',{actorClass,targetIdentity:s.bIdentity});assert.equal(peers.ResolveContext(flow(s),'B',c).firstPartyAttested,false);}
  const c=context(s.aIdentity,'A',{targetRole:'A',targetIdentity:s.aIdentity,phase:'A_HANDOFF_TO_B',capability:'TOKEN_ACCESS',accessMask:8});assert.equal(peers.ResolveContext(flow(s),'B',c).expected,false);
@@ -104,7 +178,12 @@ check('Token baseline remains expected, and peer attribution cannot exempt measu
 });
 check('Independent response paths share a monotonic server peer sequence without reusing report counters',()=>{
  const s=A(),first=s.aReceipt.peerContext;const next=send(s,'A',s.aPeer,[],1,'trust').peerContext;assert(BigInt('0x'+next.serverSequence)>BigInt('0x'+first.serverSequence));
- const before=flow(s).nhwPeerBindings.A;assert.deepEqual(peers.Enroll(flow(s),'A',s.aPeer,hex(1),{channel:'trust'}),peers.Receipt(flow(s),'A'));assert.equal(flow(s).nhwPeerBindings.A.updatedAt,before.updatedAt);assert.equal(flow(s).nhwPeerBindings.A.serverSequence,before.serverSequence);
+ const before=flow(s).nhwPeerBindings.A;
+ const replay=peers.Enroll(flow(s),'A',s.aPeer,hex(1),{channel:'trust'}),later=peers.Receipt(flow(s),'A');
+ const stable=({ttlMs,peers,...rest})=>({...rest,peers:peers.map(({ttlMs,...peer})=>peer)});
+ assert.deepEqual(stable(replay),stable(later));
+ assert.ok(later.ttlMs<=replay.ttlMs&&replay.ttlMs<=next.ttlMs);
+ assert.equal(flow(s).nhwPeerBindings.A.updatedAt,before.updatedAt);assert.equal(flow(s).nhwPeerBindings.A.serverSequence,before.serverSequence);
 });
 check('RAM retirement and restart remove trust immediately; signed new enrollment does not resurrect a reused PID',()=>{
  const s=A(),c=context(s.aIdentity,'A');peers.Retire(flow(s),'A');assert.equal(peers.ResolveContext(flow(s),'A',c).expected,false);assert.equal(peers.Receipt(flow(s),'A'),null);

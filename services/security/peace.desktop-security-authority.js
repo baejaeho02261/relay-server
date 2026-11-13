@@ -70,20 +70,23 @@ function Audit(kind, reason, row, extra = {}) {
   try { require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_SECURITY_AUTHORITY', JSON.stringify(event)); }
   catch (_) { console.error('DESKTOP_SECURITY_AUDIT_FAILED'); }
 }
-function RecordFinding(row, stage, reason, { invalidated = false, confirmed = false, crcComparison, sequence = 0, source = 'peace.desktop-security-authority' } = {}) {
-  // This record is independent of Audit and of enforcement. Losing the
-  // diagnostic writer must never revive a rejected capability or session.
+function RecordFinding(row, stage, reason, { invalidated = false, confirmed = false, crcComparison, sequence = 0, source = 'peace.desktop-security-authority', db } = {}) {
+  // Observations use the diagnostic writer. Confirmed revocations use
+  // the same transaction for the finding and authority retirement.
   try {
     // A denied operation is not itself corroborated tampering. CRC_ROLE_MISMATCH
     // also carries failed reads; only an actual mismatched role can confirm it.
     confirmed = confirmed && require('./peace.security-detection-catalog').Get(reason)?.signalClass === 'MISMATCH' &&
       (reason !== 'CRC_ROLE_MISMATCH' || crcComparison?.signals?.some(signal => signal.status === 'MISMATCH') === true);
-    require('./peace.security-detections').RecordServer({ row, stage, id: reason,
+    const finding={ row, stage, id: reason,
       source, confidence: confirmed ? 100 : 0,
       correlation: confirmed, evidenceFamilies: ['COZY_INTEGRITY'], invalidated,
       ...(reason === 'CRC_ROLE_MISMATCH' && crcComparison ? {crcComparison} : {}),
-      attestationSequence: BigInt(sequence).toString(16).padStart(16, '0') });
-  } catch (_) { console.error('SECURITY_DETECTION_RECORD_FAILED'); }
+      attestationSequence: BigInt(sequence).toString(16).padStart(16, '0') };
+    const detections=require('./peace.security-detections');
+    if(db)detections.RecordServerIn(db,finding);
+    else detections.RecordServer(finding);
+  } catch (error) { if(db)throw error; console.error('SECURITY_DETECTION_RECORD_FAILED'); }
 }
 function RecordAttestation(row,stage,challenge,status,hardwareAttested=false){
  if(!challenge.nhwChallenge)return;
@@ -309,6 +312,18 @@ function MeasurementComplete(value,artifact) {
   if(artifact?.ownMeasurementVersion>=1&&value.ownMeasurement===undefined)return false;
   return value.ownMeasurement===undefined||require("../integrity/peace.measurement-plan-contract").ValidateOwnMetadata(value.ownMeasurement,value.measurement,value.crcLayers);
 }
+function ConfirmedMismatch(result,value,baseline) {
+  if(result.status!=='MISMATCH')return false;
+  if(result.reason==='IMAGE_DIGEST_MISMATCH')return true;
+  if(result.reason!=='CRC_ROLE_MISMATCH')return false;
+  return result.crcComparison.signals.some(({role,status})=>{
+    if(status!=='MISMATCH')return false;
+    const observed=value.crcLayers[role],expected=baseline.crcLayers[role];
+    return observed.status==='measured'&&expected.status==='measured'&&
+      observed.bytes===expected.bytes&&observed.pages===expected.pages&&
+      observed.role===expected.role&&observed.digest.toLowerCase()!==expected.digest.toLowerCase();
+  });
+}
 function Submit(body) {
   Fields(body, [...AUTH_FIELDS, 'challengeId', 'payload', 'signature']);
   const row = Authenticate(body), artifact=RowArtifact(row,body.stage), policy = require('./peace.desktop-security-operations').EffectivePolicy(Policy(),artifact); Prune();
@@ -362,17 +377,22 @@ function Submit(body) {
   }
   const result = Evaluate(value, row.integrityArtifact, challenge.mitigationProfile?{...policy,dynamicCode:challenge.mitigationProfile.dynamicCode,requireCfg:policy.requireCfg||challenge.mitigationProfile.requireCfg}:policy, artifact);
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
-  if (nhw && (nhw.invalidated || policy.mode === 'enforce' && result.status === 'MISMATCH')) {
-    const reason = nhw.invalidated ? 'SECURITY_SESSION_STOP' : result.reason;
+  const confirmedMismatch=ConfirmedMismatch(result,value,row.integrityArtifact);
+  const enforceMismatch=policy.mode==='enforce'&&confirmedMismatch;
+  if (nhw?.invalidated || enforceMismatch) {
+    const reason = nhw?.invalidated ? 'SECURITY_SESSION_STOP' : result.reason;
     const response = { version: 1, accepted: true, status: 'MISMATCH', reason, proceed: false,
       sequence: challenge.sequence, expiresAt: challenge.expiresAt, attested: false,
-      nhwVerdict: nhwAttestation.Verdict(nhw, false) };
+      ...(nhw?{nhwVerdict:nhwAttestation.Verdict(nhw,false)}:{}) };
     require('../protocol/peace.packet-schema').ValidateDocument('authorityReply',response);
     Invalidate(row,body.stage,reason);
-    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
-    // The independent NHW reports retain their own causes. Do not replace
-    // them with a fabricated Cozy detection for the generic stop sentinel.
-    if (!nhw.invalidated) RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:result.status==='MISMATCH',crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
+    // A measured mismatch with an authenticated baseline does not depend on
+    // optional NHW attestation availability. Record its cause in the revoke.
+    const recordRevocation=enforceMismatch?(db,origin)=>RecordFinding(origin,body.stage,result.reason,{
+      db,invalidated:true,confirmed:confirmedMismatch,crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0
+    }):undefined;
+    const revoked=require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY',recordRevocation);
+    if(revoked?.status!=='REVOKED')Fail('SECURITY_SESSION_STOP',403);
     RecordAttestation(row,body.stage,challenge,'REJECTED');
     return response;
   }
@@ -382,7 +402,7 @@ function Submit(body) {
     RecordAttestation(row,body.stage,challenge,attestationStatus,attestationStatus==='TPM_QUOTE_ONLY');
     if(quoteResult?.reason==='TPM_CLOCK_UNSAFE')RecordFinding(row,body.stage,'TPM_CLOCK_UNSAFE',{source:'peace.nhw-tpm-quote',sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
   }
-  if(result.status!=='PASS')RecordFinding(row,body.stage,result.reason,{confirmed:result.status==='MISMATCH',crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
+  if(result.status!=='PASS')RecordFinding(row,body.stage,result.reason,{confirmed:confirmedMismatch,crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
   if(observations.size>=4096&&!observations.has(context)) observations.delete(observations.keys().next().value);
   const {nhwEvidence,nhwResponses,nhwInvalidated,nhwQuote,...observedValue}=value;
   observations.set(context,{at:Date.now(),stage:body.stage,sessionId:body.sessionId,artifactId:artifact.id,value:observedValue,baseline:Object.fromEntries(['hashVersion','sha512','crc64','codeSha512','codeCrc64','codeXxh3_128','codeBlake3','crcLayers'].map(k=>[k,row.integrityArtifact[k]]))});

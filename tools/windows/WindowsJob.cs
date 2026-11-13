@@ -17,6 +17,14 @@ public sealed class WindowsJob : IDisposable {
     [StructLayout(LayoutKind.Sequential)] struct BASIC {public long processTime,jobTime; public uint flags; public UIntPtr minWorking,maxWorking; public uint activeLimit; public UIntPtr affinity; public uint priority,scheduling;}
     [StructLayout(LayoutKind.Sequential)] struct IO {public ulong rOps,wOps,oOps,rBytes,wBytes,oBytes;}
     [StructLayout(LayoutKind.Sequential)] struct LIMIT {public BASIC basic;public IO io;public UIntPtr processMemory,jobMemory,peakProcessMemory,peakJobMemory;}
+    [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] struct ProcessEntry {
+        public uint Size, Usage, Id;
+        public UIntPtr HeapId;
+        public uint ModuleId, Threads, ParentId;
+        public int BasePriority;
+        public uint Flags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst=260)] public string ImageName;
+    }
     [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)] static extern IntPtr CreateJobObjectW(IntPtr a,string n);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool SetInformationJobObject(IntPtr j,int c,ref LIMIT l,int n);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool QueryInformationJobObject(IntPtr j,int c,IntPtr b,int n,IntPtr ret);
@@ -28,6 +36,9 @@ public sealed class WindowsJob : IDisposable {
     [DllImport("kernel32.dll",SetLastError=true)] static extern uint ResumeThread(IntPtr t);
     [DllImport("kernel32.dll",SetLastError=true)] static extern uint WaitForSingleObject(IntPtr h,uint ms);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool GetExitCodeProcess(IntPtr p,out uint code);
+    [DllImport("kernel32.dll",SetLastError=true)] static extern IntPtr CreateToolhelp32Snapshot(uint flags, uint pid);
+    [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode,ExactSpelling=true)] static extern bool Process32FirstW(IntPtr snapshot, ref ProcessEntry entry);
+    [DllImport("kernel32.dll",SetLastError=true,CharSet=CharSet.Unicode,ExactSpelling=true)] static extern bool Process32NextW(IntPtr snapshot, ref ProcessEntry entry);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool InitializeProcThreadAttributeList(IntPtr p,int count,int flags,ref IntPtr size);
     [DllImport("kernel32.dll",SetLastError=true)] static extern bool UpdateProcThreadAttribute(IntPtr p,uint flags,IntPtr attr,IntPtr value,IntPtr size,IntPtr old,IntPtr ret);
     [DllImport("kernel32.dll")] static extern void DeleteProcThreadAttributeList(IntPtr p);
@@ -77,6 +88,25 @@ public sealed class WindowsJob : IDisposable {
     public bool HasExited {get {return WaitForSingleObject(process,0)==0;}}
     public uint ExitCode {get {uint code;if(!HasExited||!GetExitCodeProcess(process,out code))throw Error("WINDOWS_TEST_PROCESS_STATUS");return code;}}
     public uint[] ProcessIds() {IntPtr b=Marshal.AllocHGlobal(8192);try{if(!QueryInformationJobObject(job,3,b,8192,IntPtr.Zero))throw Error("WINDOWS_TEST_JOB_QUERY");int n=Marshal.ReadInt32(b,4);if(n<0||n>1023)throw new InvalidOperationException("WINDOWS_TEST_JOB_COUNT");var result=new uint[n];for(int i=0;i<n;i++)result[i]=(uint)Marshal.ReadIntPtr(b,8+i*8).ToInt64();return result;}finally{Marshal.FreeHGlobal(b);}}
+    public uint[] RootChildren() {
+        const uint SnapProcess=2;
+        const int NoMoreFiles=18;
+        var owned=new HashSet<uint>(ProcessIds());
+        var children=new List<uint>();
+        if(!owned.Contains(RootId))return children.ToArray();
+        var snapshot=CreateToolhelp32Snapshot(SnapProcess,0);
+        if(snapshot==new IntPtr(-1))throw Error("WINDOWS_TEST_PROCESS_SNAPSHOT");
+        try {
+            var entry=new ProcessEntry {Size=(uint)Marshal.SizeOf(typeof(ProcessEntry))};
+            if(Process32FirstW(snapshot,ref entry)) {
+                do {
+                    if(entry.ParentId==RootId&&owned.Contains(entry.Id))children.Add(entry.Id);
+                } while(Process32NextW(snapshot,ref entry));
+            }
+            if(Marshal.GetLastWin32Error()!=NoMoreFiles)throw Error("WINDOWS_TEST_PROCESS_SNAPSHOT_READ");
+        } finally {CloseHandle(snapshot);}
+        return children.ToArray();
+    }
     public bool OwnsProcess(IntPtr handle){bool member;return job!=IntPtr.Zero&&IsProcessInJob(handle,job,out member)&&member;}
     public void Dispose(){bool timeout=false;try{if(job!=IntPtr.Zero){TerminateJobObject(job,1);var clock=Stopwatch.StartNew();while(ProcessIds().Length!=0&&clock.ElapsedMilliseconds<5000)Thread.Sleep(20);timeout=ProcessIds().Length!=0;}}finally{if(job!=IntPtr.Zero){CloseHandle(job);job=IntPtr.Zero;}if(process!=IntPtr.Zero){CloseHandle(process);process=IntPtr.Zero;}}if(timeout)throw new InvalidOperationException("WINDOWS_TEST_JOB_CLEANUP_TIMEOUT");}
 }

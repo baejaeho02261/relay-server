@@ -10,11 +10,16 @@ process.once('exit',()=>{boot.Stop();fs.rmSync(temp,{recursive:true,force:true})
 fixture.CurrentCohort({version:'90.0.2'});
 function subject(){const a=fixture.Device(),start=fixture.Begin(a),b=fixture.Child(a);fixture.Download(start.begin);const session=fixture.Claim(a,start.begin,fixture.Finish(a,start.begin),b);const auth={stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:b.machineId};return {b,session,flow:start.begin.flowId,auth,artifact:boot.AuthenticateIntegrityReport(auth).integrityArtifact};}
 function value(s){const a=s.artifact;return {version:1,hashVersion:3,measurement:'MEASURED',fileSha512:a.sha512,fileCrc64:a.crc64,codeSha512:a.codeSha512,codeCrc64:a.codeCrc64,codeXxh3_128:a.codeXxh3_128,codeBlake3:a.codeBlake3,crcLayers:structuredClone(a.crcLayers),apiSealed:true,apiSlots:60,dynamicCode:'ALLOWED',cfg:'DISABLED'};}
-function changeCrc(v,kind){const role=Object.keys(v.crcLayers).find(k=>v.crcLayers[k]?.status==='measured'),old=v.crcLayers[role];assert.ok(role);if(kind==='MISMATCH')old.digest=(old.digest[0]==='0'?'1':'0')+old.digest.slice(1);else v.crcLayers[role]={algorithm:old.algorithm,role:old.role,status:'failed',reason:kind};}
+function changeCrc(v,kind){const role=Object.keys(v.crcLayers).find(k=>v.crcLayers[k]?.status==='measured'),old=v.crcLayers[role];assert.ok(role);if(kind==='MISMATCH')old.digest=(old.digest[0]==='0'?'1':'0')+old.digest.slice(1);else if(kind==='UNAVAILABLE')v.crcLayers[role]={algorithm:old.algorithm,role:old.role,status:'unavailable',reason:'CHECKER_RANGES_REQUIRED'};else v.crcLayers[role]={algorithm:old.algorithm,role:old.role,status:'failed',reason:kind};}
 function signedAuthority(s,v){const body={...s.auth,intent:'verify',binding:authority.Binding('crc-test',crypto.randomUUID())},challenge=authority.Execute({...body,action:'challenge'}),payload=JSON.stringify(v);return {...body,action:'submit',challengeId:challenge.challengeId,payload,signature:fixture.Sign(s.b,authority.Canonical(body,challenge,payload))};}
 function finding(s,id,confirmed,sensor,invalidated){const found=detections.ForFlow(s.flow).filter(x=>x.detectionId===id);assert.equal(found.length,1);assert.equal(found[0].confidence,confirmed?100:0);assert.equal(found[0].correlation,confirmed);assert.equal(found[0].localOnly,!confirmed);assert.equal(found[0].sensor,sensor);assert.equal(found[0].invalidated,invalidated);detections.Validate(store.Load().securityDetections,store.Load());}
-for(const kind of ['READ_ERROR','CANCELLED','MISMATCH']){
- const s=subject(),v=value(s);changeCrc(v,kind);const response=authority.Execute(signedAuthority(s,v));assert.equal(response.reason,'CRC_ROLE_MISMATCH');assert.equal(response.status,'MISMATCH');assert.equal(response.proceed,false);assert.equal(store.Load().flows[s.flow].status,'CLAIMED','report classification does not alter existing enforcement');finding(s,'CRC_ROLE_MISMATCH',kind==='MISMATCH','peace.desktop-security-authority',false);
+for(const kind of ['READ_ERROR','CANCELLED','UNAVAILABLE','MISMATCH']){
+ const s=subject(),v=value(s),mismatch=kind==='MISMATCH';
+ changeCrc(v,kind);
+ const response=authority.Execute(signedAuthority(s,v));
+ assert.equal(response.reason,'CRC_ROLE_MISMATCH');assert.equal(response.status,'MISMATCH');assert.equal(response.proceed,false);
+ assert.equal(store.Load().flows[s.flow].status,mismatch?'REVOKED':'CLAIMED');
+ finding(s,'CRC_ROLE_MISMATCH',mismatch,'peace.desktop-security-authority',mismatch);
 }
 // Isolate only missing legacy baseline metadata after real authentication.
 // The signed payload, parser, comparison, decision and store are production.
@@ -30,4 +35,4 @@ for(const kind of ['READ_ERROR','MISMATCH']){
 {
  const s=subject(),v=value(s);changeCrc(v,'MISMATCH');const request=signedAuthority(s,v);request.signature=Buffer.alloc(256).toString('base64');assert.throws(()=>authority.Execute(request),/SECURITY_SIGNATURE_INVALID/);assert.equal(detections.ForFlow(s.flow).length,0,'unsigned measurement cannot attach detection');
 }
-console.log('CRC detection confidence PASS: failed-only/absent baseline stay unconfirmed, real mismatch confirmed, unsigned excluded, authority/integrity enforcement unchanged.');
+console.log('CRC detection confidence PASS: failed-only/absent baseline stay unconfirmed, verified mismatch revokes, unsigned evidence excluded.');

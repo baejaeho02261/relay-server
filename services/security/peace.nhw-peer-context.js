@@ -4,6 +4,7 @@
 // server observation of the OS or a hardware attestation. Raw PID/creation
 // pairs live only in this bounded RAM cache; durable records retain aliases.
 const crypto=require('node:crypto'),store=require('../bootstrap/peace.desktop-bootstrap-store'),clock=require('../runtime/peace.desktop-deadline');
+const {PRIMARY_TOKEN_POSTURE,PrimaryTokenPhase}=require('./peace.security-context-policy');
 const TTL=30000,HANDOFF_TTL={B:45000,O:110000},MAX_LIVE=4096,live=new Map(),terminal=new Set(['CLOSED','REVOKED','EXPIRED']);
 const ROLES=['A','B','O'],CHANNELS=['trust','driver','integrity'];
 const PHASES=Object.freeze(['A_BOOTSTRAP','A_ATTESTED','A_ISSUANCE','A_HANDOFF_TO_B','A_SHUTDOWN','B_BOOTSTRAP','B_ATTESTED','B_RUNTIME','B_HANDOFF_TO_O','B_SHUTDOWN','O_BOOTSTRAP','O_ATTESTED','O_RUNTIME','O_SHUTDOWN']);
@@ -126,6 +127,15 @@ function ResolveContext(row,stage,context){
  const db=store.Load(),b=Binding(db,row,stage),out={...context,actorClass:context.actorClass==='EXTERNAL'||context.actorIdentity?'EXTERNAL':'UNKNOWN',actorRole:'?',targetRole:'?',peerId:'',grantId:'',capabilityDecision:'OBSERVE',firstPartyAttested:false,serverBound:false,sameSession:false,bindingScope:'UNVERIFIED_CLIENT_OBSERVATION',expected:false,forbidden:false};
  const processDanger=0x0000002a,threadDanger=0x00000010,tokenDanger=0x000001e7;
  if(context.capability==='PROCESS_ACCESS'&&(context.accessMask&processDanger)||context.capability==='THREAD_ACCESS'&&(context.accessMask&threadDanger)||context.capability==='TOKEN_ACCESS'&&(context.accessMask&tokenDanger)||(context.tokenDelta&255)){out.capabilityDecision='FORBIDDEN';out.forbidden=true;}
+ if(context.capability===PRIMARY_TOKEN_POSTURE){
+  const observation={...out,targetRole:context.targetRole,peerId:context.peerId,capabilityDecision:'OBSERVE',forbidden:false};
+  if(!Active(b)||context.contextMixed)return observation;
+  const self=b.owner.nhwPeerBindings?.[stage],target=FindPeer(db,b,context.targetIdentity,context.peerId);
+  if(!self||!target||target.peerId!==self.peerId||target.role!==stage||context.targetRole!==stage||
+     context.phase!==target.phase||!PrimaryTokenPhase(stage,context.phase)||!CurrentPhase(b,context.phase))return observation;
+  return {...observation,capabilityDecision:'FORBIDDEN',forbidden:true,serverBound:true,firstPartyAttested:true,sameSession:true,
+   bindingScope:'SERVER_BOUND_CLIENT_OBSERVATION'};
+ }
  if(!Active(b)||context.contextMixed)return out;
  const self=b.owner.nhwPeerBindings?.[stage],actor=FindPeer(db,b,context.actorIdentity,context.peerId||''),target=FindPeer(db,b,context.targetIdentity);
  if(!actor||!target||!self||target.identity!==self.identity)return out;

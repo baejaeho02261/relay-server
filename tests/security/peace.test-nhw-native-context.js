@@ -48,6 +48,13 @@ test('all typed kinds are covered before logging, with separately retained benig
  const engine=clean(read('Engine'));
  assert.match(engine,/ReportKinds := Detected \+ NHWContextObservations/);
  assert.match(engine,/for Kind := Low\(TDetectionKind\) to High\(TDetectionKind\) do\s*if Kind in ReportKinds then/);
+ assert.match(engine,/ObservedOnly := not \(Kind in VisibleDetected\)/);
+ assert.match(engine,/OnDetection\(\[Kind\], WinTick64, Families,\s*SensorConsensus.Last.Confidence, KindCorrelated, ObservedOnly\)/);
+ assert.match(engine,/OnDetection\(Detected, CurrentTick, 0, 0, False, True\)/);
+ assert.doesNotMatch(engine,/if InBaseline and[\s\S]{0,135}?Include\(Detected, dk(?:Process|Thread)\)/);
+ const security=clean(read('Security'));
+ assert.match(security,/if not Baseline then Include\(Detected, dkTokenObject\)/);
+ assert.match(security,/if not Baseline and \(NewHolder or NewRights\) then\s*Include\(Detected, dkTokenRights\)/);
  assert.ok(engine.indexOf('NHWBeginContextCycle(')<engine.indexOf('KernelTrace.WakeHandle'));
  const guard=methods(read('Guard'));
  for(const channel of ['Trust','Driver','Integrity']){
@@ -69,7 +76,8 @@ test('each response path freezes the peer envelope and processes only an authent
   assert.ok(submit.includes("ApplyServerReceipt(Reply.GetValue('peerContext'),Epoch,ReceiptStarted)"));
  }
  const encoder=method(transport,'EncodeDetectionPayload');
- assert.ok(encoder.includes("Payload.AddPair('version', TJSONNumber.Create(3))"));
+ assert.ok(encoder.includes("Payload.AddPair('version', TJSONNumber.Create(5))"));
+ assert.match(encoder,/if Batch.Records\[I\].ObservedOnly then\s*Detection.AddPair\('signal', 'OBSERVED'\)\s*else\s*Detection.AddPair\('signal', 'DETECTED'\)/);
  assert.ok(encoder.includes("Detection.AddPair('context', NHWContextJSON"));
  assert.ok(encoder.includes('>16384'));
  assert.doesNotMatch(encoder,/\.PostJSON\(|\.Sign\(|ApplyServerReceipt/);
@@ -80,13 +88,15 @@ test('journal keeps independent bounded actor lanes and preserves original attac
  assert.match(source,/NHWDetectionContextLanes = 4/);
  const append=method(journal,'TNHWDetectionJournal.AppendContext');
  assert.ok(append.includes('NHWSameObservationContext'));
- assert.ok(append.includes('FDeferred[Origin,Kind,Lane]:=Deferred'));
+ assert.ok(append.includes('FDeferred[Origin,Kind,ObservedOnly,Lane]:=Deferred'));
  assert.ok(append.includes('NHWContextRisk(Item.Context) > NHWContextRisk(Context)'));
- const defer=append.indexOf('FDeferred[Origin,Kind,Lane]:=Deferred');
+ assert.match(append,/if ObservedOnly then Correlated := False/);
+ const defer=append.indexOf('FDeferred[Origin,Kind,ObservedOnly,Lane]:=Deferred');
  assert.ok(append.indexOf('Continue;',defer)<append.indexOf('Item.LastTick := Tick',defer));
+ assert.match(method(journal,'TNHWDetectionJournal.Read'),/for ObservedOnly := False to True do[\s\S]*FItems\[Origin, Kind, ObservedOnly, Lane\]/);
  const ack=method(journal,'TNHWDetectionJournal.Acknowledge');
- assert.ok(ack.includes('Item.ContextLane >= NHWDetectionContextLanes'));
- assert.ok(ack.includes('FDeferred[Item.Origin,Item.Kind,Item.ContextLane].Revision>Item.Revision'));
+ assert.match(ack,/Lane := Item.ContextLane;\s*if Lane >= NHWDetectionContextLanes then Continue;\s*ObservedOnly := Item.ObservedOnly/);
+ assert.ok(ack.includes('FDeferred[Item.Origin,Item.Kind,ObservedOnly,Lane].Revision>Item.Revision'));
 });
 test('context has no application-unit dependencies or local disk writer and clears RAM on shutdown',()=>{
  const source=clean(read('Context'));
@@ -133,6 +143,7 @@ test('native report provenance belongs to the current kind and kernel receipt sa
  assert.match(cycle,/if not Unified\.Recent\(0, Frame\) or \(Frame\.Tick <> TickStart\) then\s*Frame := Default\(TUnifiedFrame\)/);
  assert.match(cycle,/if Kind in Frame\.RootKinds\[Root\] then[\s\S]*?Inc\(RootCount\)/);
  assert.match(cycle,/KindCorrelated := \(RootCount >= 2\) and not Frame\.Incomplete/);
+ assert.match(cycle,/if KindCorrelated and \(Kind <> dkPrivateThread\) then Confirmed := True/);
  assert.doesNotMatch(cycle,/Root in Frame\.Roots/);
  assert.match(engine,/ReadGuard\.ObserveHolder\([\s\S]*?CompleteProbe\(4, ProbeStarted, orHandleSnapshot,/);
  const transport=methods(read('ResponseTransport'));
@@ -140,6 +151,7 @@ test('native report provenance belongs to the current kind and kernel receipt sa
   const step=method(transport,'TCozyNHWResponseChannel.'+channel+'Step');
   const sample='Batch.Records[I].LastTick = State.'+channel+'Response.Tick';
   assert.ok(step.includes(sample),channel);
+  assert.match(step,/not Batch\.Records\[I\]\.ObservedOnly and/);
   assert.ok(step.indexOf(sample)<step.indexOf('Batch.Records[I].Correlated := True'),channel);
  }
 });

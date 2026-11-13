@@ -214,13 +214,14 @@ Check('READ_ERROR and unsealed storage hold work without revoking the session', 
   Observe(ctx,dev); Fresh(session,'verify',ctx.binding);
 });
 Check('Measured mismatch is distinct, does not permanently ban an account', () => {
-  const ctx = Context(dev,'B',session,'verify',sha512('mismatch'));
+  const affected=NewSession(dev),ctx=Context(dev,'B',affected,'verify',sha512('mismatch'));
   const out = Observe(ctx,dev,{codeSha512:'0'.repeat(128)}); assert.equal(out.status,'MISMATCH');
-  const finding=require('../../services/security/peace.security-detections').ForFlow(Row(session).id).find(item=>item.detectionId==='IMAGE_DIGEST_MISMATCH');
+  const finding=require('../../services/security/peace.security-detections').ForFlow(Row(affected).id).find(item=>item.detectionId==='IMAGE_DIGEST_MISMATCH');
   assert.equal(finding.sensor,'peace.desktop-security-authority');
-  assert.equal(finding.sessionId,session.sessionId);
-  assert.equal(finding.invalidated,false);
-  Reject(() => Fresh(session,'verify',ctx.binding), 'SECURITY_OBSERVATION_MISMATCH');
+  assert.equal(finding.sessionId,affected.sessionId);
+  assert.equal(finding.invalidated,true);
+  assert.equal(Row(affected).status,'REVOKED');
+  Reject(()=>auth.Execute(ctx),'BOOTSTRAP_REVOKED');
   assert.equal(Row(session).status,'CLAIMED');
 });
 Check('Expired challenges and decisions require new measurements', () => {
@@ -298,7 +299,7 @@ Check('Pruning a newer decision never revives an older in-flight observation', (
     auth.SetPolicy({expectedRevision:policy.revision,freshnessMs:5000,challengeMs:30000},'TEST');
     const device = Device(), s = NewSession(device), ctx = Context(device,'B',s,'verify',sha512('expired-ordering'));
     const older = auth.Execute(ctx), captured = Signed(ctx,older,device), newer = auth.Execute(ctx);
-    assert.equal(auth.Execute(Signed(ctx,newer,device,{codeSha512:'0'.repeat(128)})).status,'MISMATCH');
+    assert.equal(auth.Execute(Signed(ctx,newer,device,{apiSealed:false})).status,'INDETERMINATE');
     const future = realNow()+6000; Date.now = () => future;
     Reject(() => Fresh(s,'verify',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
     Reject(() => auth.Execute(captured), 'SECURITY_OBSERVATION_REPLAY');

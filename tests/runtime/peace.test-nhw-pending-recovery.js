@@ -262,29 +262,38 @@ function runPhase(phase) {
     if (phase === 'full-drain') {
       const subject = subjectB(), other = restore(saved.other);
       const catalog = require('../../services/security/peace.security-detection-catalog');
+      const policy = require('../../services/security/peace.security-context-policy');
+      const context = Object.fromEntries(policy.CONTEXT_FIELDS.map(k => [k, policy.UnknownContext('B')[k]]));
+      const batchSize = 12;
       assert.equal(catalog.NHW.length, 204);
       let grace;
       for (const channel of channels) {
         let sequence = 0;
-        for (let offset = 0; offset < catalog.NHW.length; offset += 32) {
-          const records = catalog.NHW.slice(offset, offset + 32).map(entry => detection(entry.id, entry.id === 'dkProcess' ? {families:3, confidence:75, correlation:true, localOnly:false} : {}));
-          assert.equal(send(subject, channel, records, ++sequence, 2000 + sequence).stopped, true);
+        for (let offset = 0; offset < catalog.NHW.length; offset += batchSize) {
+          const records = catalog.NHW.slice(offset, offset + batchSize).map(entry => detection(entry.id, {
+            context, ...(entry.id === 'dkProcess'
+              ? {signal:'DETECTED', families:3, confidence:75, correlation:true, localOnly:false}
+              : {signal:'OBSERVED'})
+          }));
+          assert.equal(send(subject, channel, records, ++sequence, 2000 + sequence, {version:5, peer:null}).stopped, true);
           assert.equal(row(subject).status, 'REVOKED');
           grace ||= structuredClone(row(subject).nhwTerminalReport);
           assert.deepEqual(row(subject).nhwTerminalReport, grace);
         }
-        assert.equal(sequence, 7);
+        assert.equal(sequence, Math.ceil(catalog.NHW.length / batchSize));
         const delivered = events(subject).filter(event => event.responsePath === channel);
         assert.equal(delivered.length, 204);
         assert.equal(new Set(delivered.map(event => event.detectionId)).size, 204);
         assert.ok(delivered.every(event => event.count === 1 && event.producerCount === 1 && event.sessionInvalidated));
-        assert.equal(row(subject).nhwResponseOrders[`B:${channel}`].sequence, hex(7));
+        assert.equal(delivered.filter(event => event.signal === 'OBSERVED').length, 203);
+        assert.ok(delivered.every(event => event.signal !== 'OBSERVED' || !event.invalidated));
+        assert.equal(row(subject).nhwResponseOrders[`B:${channel}`].sequence, hex(sequence));
       }
       assert.equal(events(subject).length, 612);
       assert.equal(row(other).status, 'CLAIMED'); assert.equal(events(other).length, 0);
       reject(() => boot.AuthenticateIntegrityReport(subject.ctx));
       validateStorage();
-      console.log('PASS all 204 NHW states drained in seven signed batches per channel after cohort termination, without extending authority or its terminal grant');
+      console.log('PASS all 204 NHW states drained as typed v5 reports on each channel without extending authority or the terminal grant');
     }
   } finally {
     boot.Stop();

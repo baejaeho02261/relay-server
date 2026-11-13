@@ -99,5 +99,51 @@ function ClaimObservationBarrier(run,updateStatus){
  bootstrap.Execute=wrapped;
  return {Used:()=>observed,Restore:()=>{if(bootstrap.Execute===wrapped)bootstrap.Execute=original;}};
 }
+function ObserveOverlayRevocation({bootstrap,authority,reports,store,launcherId}){
+ // The caller is the isolated fixture. Observe production denials and call
+ // the same administrator operation once, against its one transferred child.
+ const reason='WINDOWS_TEST_ADMIN_REVOKE';
+ let target,terminalDenialIssued=false;
+ const observe=(service,matches)=>{
+  const original=service.Execute;
+  const wrapped=function(body,...args){
+   try{return original.call(this,body,...args);}
+   catch(error){
+    if(target&&body?.sessionId===target.sessionId&&error.desktopError===true&&matches(body,error.message))terminalDenialIssued=true;
+    throw error;
+   }
+  };
+  service.Execute=wrapped;
+  return ()=>{if(service.Execute===wrapped)service.Execute=original;};
+ };
+ const deniedStageOperation=(body,code)=>body.stage==='O'&&code==='BOOTSTRAP_REVOKED'&&['challenge','submit'].includes(body.action);
+ const restoreAuthority=observe(authority,(body,code)=>deniedStageOperation(body,code)||body.stage==='O'&&
+  code==='SECURITY_NHW_SESSION_REVOKED'&&/^nhw(Trust|Driver|Integrity)(Challenge|Submit)$/.test(body.action));
+ const restoreBootstrap=observe(bootstrap,(body,code)=>body.action==='overlayVerify'&&code==='BOOTSTRAP_REVOKED');
+ const restoreReports=observe(reports,deniedStageOperation);
+ function Request(){
+  if(target)throw Error('WINDOWS_TEST_REVOCATION_ALREADY_REQUESTED');
+  const db=store.Load(),flows=Object.values(db.flows),overlays=Object.values(db.overlays),flow=flows[0],o=overlays[0];
+  if(Object.keys(db.launchers).length!==1||flows.length!==1||overlays.length!==1||!db.launchers[launcherId]||
+    flow.launcherId!==launcherId||flow.status!=='CLOSED'||flow.closedByOverlay!==true||flow.transferredOverlayId!==o.id||
+    o.status!=='CLAIMED'||o.transferVersion!==1||o.parentFlowId!==flow.id||o.parentSessionId!==flow.sessionId||
+    !Number.isSafeInteger(o.transferredAt)||o.transferredAt!==flow.transferredAt)
+   throw Error('WINDOWS_TEST_REVOCATION_COHORT_MISMATCH');
+  // Leave a full observation window before the live lease would expire.
+  if(o.sessionExpiresAt-Date.now()<=20000)throw Error('WINDOWS_TEST_REVOCATION_LEASE_TOO_SHORT');
+  const revoked=bootstrap.Revoke(o.sessionId,{reason},'ISOLATED_WINDOWS_TEST');
+  if(revoked?.id!==o.sessionId||revoked.status!=='REVOKED'||revoked.reason!==reason)throw Error('WINDOWS_TEST_REVOCATION_FAILED');
+  target={flowId:flow.id,overlayId:o.id,sessionId:o.sessionId};
+ }
+ function Status(){
+  if(!target)return {cohortRevoked:false,terminalDenialIssued:false};
+  const db=store.Load(),flow=db.flows[target.flowId],o=db.overlays[target.overlayId],launcher=db.launchers[launcherId];
+  const cohortRevoked=launcher?.status==='REVOKED'&&launcher.ticketNonce===undefined&&launcher.configNonce===undefined&&
+   flow?.status==='REVOKED'&&flow.licenseLeaseExpiresAt===0&&flow.sessionNonce===undefined&&
+   o?.sessionId===target.sessionId&&o.status==='REVOKED'&&o.reason===reason&&o.sessionNonce===undefined&&o.verifyReceipt===undefined;
+  return {cohortRevoked,terminalDenialIssued};
+ }
+ return {Request,Status,Restore:()=>{restoreAuthority();restoreBootstrap();restoreReports();}};
+}
 function Status(){const store=require("../../services/bootstrap/peace.desktop-bootstrap-store").Load(),flows=Object.values(store.flows),overlays=Object.values(store.overlays||{});return{version:1,ready:true,flowCount:flows.length,overlayCount:overlays.length,flowStatus:flows[0]?.status||'',overlayStatus:overlays[0]?.status||'',overlayAuthorized:!!overlays[0]?.authorizedAt,transferCommitted:flows[0]?.closedByOverlay===true&&overlays[0]?.transferVersion===1,licenseUsed:require("../../services/licensing/peace.desktop-licenses").List().counts.USED===1,retiredParent:!!flows[0]?.retiredAt,retiredOverlay:!!overlays[0]?.retiredAt};}
-module.exports={Provision,Status,KeylessApproval,ClaimObservationBarrier};
+module.exports={Provision,Status,KeylessApproval,ClaimObservationBarrier,ObserveOverlayRevocation};

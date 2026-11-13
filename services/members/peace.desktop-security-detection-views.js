@@ -18,6 +18,7 @@ function PublicContext(context){
 }
 function Public(row){
  const value=Object.fromEntries(PUBLIC_FIELDS.filter(key=>Object.hasOwn(row,key)&&(typeof row[key]==='string'||typeof row[key]==='boolean'||Number.isFinite(row[key]))).map(key=>[key,row[key]]));
+ if(['OBSERVED','DETECTED'].includes(row.signal))value.signal=row.signal;
  value.algorithms=Array.isArray(row.algorithms)?row.algorithms.filter(v=>typeof v==='string'&&v.length<=80).slice(0,16):[];
  value.evidenceFamilies=Array.isArray(row.evidenceFamilies)?row.evidenceFamilies.filter(v=>typeof v==='string'||Number.isSafeInteger(v)).slice(0,32):[];
  const context=PublicContext(row.context);if(context)value.context=context;
@@ -38,7 +39,8 @@ function Index(db=store.Load()){
   // Contradictory or retired/missing identity stays unassigned, not silently
   // attached by the remaining identifier. Preserve the evidence itself.
   const rootFlowId=byFlow&&session?.flowId===byFlow&&session.epoch===row.epoch?byFlow:'';
-  return {...Public(row),rootFlowId,at:row.lastAt};
+  const cohort=rootFlowId?{cohortRevoked:db.flows[rootFlowId].status==='REVOKED'}:{};
+  return {...Public(row),...cohort,rootFlowId,at:row.lastAt};
  });
 }
 function ForFlows(flowIds,{db=store.Load(),rows,limit=100}={}){

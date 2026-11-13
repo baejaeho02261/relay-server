@@ -4,7 +4,7 @@ param(
  [Parameter(Mandatory)][string]$PackingReceiptsFile,[Parameter(Mandatory)][string]$PolicyFile,
  [string]$ServerPoliciesFile,
  [Parameter(Mandatory)][ValidatePattern('^\d+(?:\.\d+){0,3}$')][string]$Version,
- [Parameter(Mandatory)][string]$ResultFile
+ [Parameter(Mandatory)][string]$ResultFile,[switch]$RevokeOverlay
 )
 # Run final files as supplied. Never claim this run compiled them; never publish,
 # generate production approvals, use production DATA_DIR or retain test keys.
@@ -70,13 +70,20 @@ try {
  # Execution observation is separate from key-free release eligibility. A V1
  # file may run successfully while its embedded key keeps the result BLOCKED.
  $result.integrationAttempted=$true
- $null=Run-Observed 'integration' (Join-Path $PSHOME 'pwsh.exe') @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $web 'tools\windows\Integration-Control.ps1'),'-WorkRoot',$work,'-Output',$bundle,'-PrivateRoot',$private,'-Version',$Version) $work 300
+ $integrationArguments=@('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $web 'tools\windows\Integration-Control.ps1'),'-WorkRoot',$work,'-Output',$bundle,'-PrivateRoot',$private,'-Version',$Version)
+ $null=Run-Observed 'integration' (Join-Path $PSHOME 'pwsh.exe') $integrationArguments $work 300
  $integration=Read-TestJson (Join-Path $bundle 'integration-result.json')
  if($integration.outcome -ne 'PASS' -or @('ready','licenseConsumed','overlayFirstFrame','parentTransferred','parentExited','parentFilesDeleted','overlayClosed','serverSessionClosed','fixtureClaimObservationBarrierUsed').Where({$integration[$_] -ne $true}).Count -ne 0){throw 'WINDOWS_TEST_FINAL_INTEGRATION_INCOMPLETE'}
  $result.fixtureClaimObservationBarrierUsed=$true
  if($input.ContainsKey('protectionEngine') -and $input.protectionEngine -eq 'COZY_SERVER_POLICY_V2'){
   if($integration.fixtureEnrollmentApprovalUsed -ne $true){throw 'WINDOWS_TEST_FINAL_FIXTURE_APPROVAL_INCOMPLETE'}
   $result.fixtureEnrollmentApprovalUsed=$true
+ }
+ if($RevokeOverlay){
+  $null=Run-Observed 'integration-revocation' (Join-Path $PSHOME 'pwsh.exe') ($integrationArguments+@('-RevokeOverlay')) $work 300
+  $revocation=Read-TestJson (Join-Path $bundle 'integration-revocation-result.json')
+  if($revocation.outcome -ne 'PASS' -or @('ready','licenseConsumed','overlayFirstFrame','parentTransferred','parentExited','parentFilesDeleted','fixtureClaimObservationBarrierUsed').Where({$revocation[$_] -ne $true}).Count -ne 0 -or @('cohortRevoked','terminalDenialIssued','overlayExited','overlayFileDeleted','noOwnedProcessesRemain').Where({$revocation.adminRevocation[$_] -ne $true}).Count -ne 0){throw 'WINDOWS_TEST_FINAL_REVOCATION_INCOMPLETE'}
+  $result.adminRevocation=$revocation.adminRevocation
  }
  $null=Run-Observed 'verify' $node @($helper,'verify',$bundle) $web 120
  $result.finalExecutionVerified=$true;$result.integration='PASS';$result.outcome=if($result.secretBoundary -eq 'PASS'){'PASS'}else{'BLOCKED'};$exit=if($result.outcome -eq 'PASS'){0}else{2}

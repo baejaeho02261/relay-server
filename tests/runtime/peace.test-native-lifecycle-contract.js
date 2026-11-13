@@ -146,7 +146,8 @@ test('Bounded security-cause flush precedes session closure and stays outside UI
   const a = launcher.split('function RunLauncher: Integer;')[2];
   const b = licenseSource.split('function RunLicenseClient: Integer;')[2];
   const o = overlay.split('function RunOverlay: Integer;')[2];
-  order(a, ['Watch.RequestStop;', 'Client.FlushNHWReports;', 'Client.AbortFlow(Flow)']);
+  order(a, ['Watch.RequestStop;', 'Client.FlushNHWReports;', 'Client.JoinNHWReports;',
+    'and Watch.Confirmed then', 'Client.AbortFlow(Flow)']);
   order(b, ['Worker.Free;', 'Api.FlushNHWReports;', 'Api.FinishNHWStop;', 'Bootstrap.Close;']);
   order(o, ['Worker.WaitFor;', 'Client.FlushNHWReports(Cardinal(ReportBudget))', 'Client.ShutdownClose(']);
   assert(o.includes('ReportBudget := (Budget.Deadline - ReportNow) div 2'));
@@ -215,13 +216,22 @@ test('ETW consumer initializes execution fields before RTL-owned start and keeps
   const destroy = monitor.split('destructor TETWMonitor.Destroy;')[1];
   order(destroy, ['RequestStop;', 'EtwCloseTrace(FConsumer);', 'FWorker.WaitFor;', 'FWorker.Free;', 'FFastRing.Free;']);
 });
-test('Authenticated B and O stop callbacks latch, arm shutdown and cancel owned ordinary connections', () => {
+test('Authenticated A/B/O stop callbacks latch and arm shutdown', () => {
+  const bootstrap = read('Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas');
+  const a = bootstrap.split('procedure TBootstrapClient.AttachNHW(')[1]
+    .split('constructor TBootstrapClient.Create')[0];
   const b = api.split('procedure TGameApi.AttachNHW(')[1].split('procedure TGameApi.JoinNHWReports')[0];
   const o = client.split('procedure TOverlayClient.AttachNHW(')[1].split('constructor TOverlayClient.Create')[0];
+  order(a, ['Guard.ApplyAuthenticatedServerStop;', 'OwnedStop();']);
+  assert.doesNotMatch(a, /CancelPending/); // Exact launcher abort still uses this transport.
   order(b, ['Guard.ApplyAuthenticatedServerStop;', 'RequestStopCore;', 'OwnedStop();',
     'FTransport.CancelPending;', 'FOverlayStartupClient.CancelPending;']);
   order(o, ['Guard.ApplyAuthenticatedServerStop;', 'OwnedStop();', 'CancelPending;']);
-  for (const callback of [b, o]) assert.doesNotMatch(callback, /TMonitor\.(Enter|TryEnter)|FGate\.Enter/);
+  for (const callback of [a, b, o]) assert.doesNotMatch(callback, /TMonitor\.(Enter|TryEnter)|FGate\.Enter/);
+  const runA = launcher.split('function RunLauncher: Integer;')[2];
+  order(runA, ['Client.AttachNHW(Watch,', 'ShutdownGuard.ArmAfter(15000);',
+    'Client.FlushNHWReports;', 'Client.JoinNHWReports;', 'Client.Free;', 'Watch.Free;',
+    'ShutdownGuard.Cancel;']);
   const runB = licenseSource.split('function RunLicenseClient: Integer;')[2];
   const runO = overlay.split('function RunOverlay: Integer;')[2];
   order(runB, ['Api.AttachNHW(Watch, Bootstrap.NHWQuoter,', 'ShutdownGuard.ArmAfter(15000);',

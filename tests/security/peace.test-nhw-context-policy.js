@@ -159,4 +159,52 @@ check('All 204 contexts traverse each independent signed endpoint and survive bo
   const events=reports.ForFlow(row(s).id).filter(e=>e.responsePath===channel);assert.equal(events.length,204);assert.ok(events.every(e=>e.context&&policy.DISPOSITIONS.includes(e.disposition)));}
  assert.equal(reports.ForFlow(row(s).id).length,612);reports.Validate(store.Load().securityDetections,store.Load());
 });
+check('V5 preserves all 204 kinds and stops on a native invariant or a qualified corroboration only',()=>{
+ for(const e of catalog.NHW){
+  const cls=policy.PolicyClass(e);
+  const proof=['EXACT_INTEGRITY_MUTATION','CONFIRMED_STRUCTURAL_INVARIANT'].includes(cls)||e.id==='dkInjectionEvidence';
+  const actionable=e.standaloneOutput&&e.signalClass!=='UNKNOWN';
+  const kernel=e.category==='KERNEL_TRUST';
+  for(const stage of ['A','B','O']){
+   const detected=record(e.id,{signal:'DETECTED'});
+   const observed={...detected,signal:'OBSERVED'};
+   const corroborated={...detected,families:kernel?128:3,confidence:75,correlation:true,localOnly:false};
+   const options={tick:hex(2000),version:5,context:policy.UnknownContext(stage)};
+   assert.equal(policy.Evaluate(e,observed,{...options,corroborated:true}).stop,false,stage+'/'+e.id+' observation');
+   assert.equal(policy.Evaluate(e,detected,options).stop,proof,stage+'/'+e.id+' isolated finding');
+   assert.equal(policy.Evaluate(e,detected,{...options,corroborated:true}).stop,proof,stage+'/'+e.id+' corroboration without acquisition evidence');
+   assert.equal(policy.Evaluate(e,corroborated,{...options,corroborated:true}).stop,actionable,stage+'/'+e.id+' qualified finding');
+   assert.equal(policy.Evaluate(e,corroborated,{...options,tick:hex(100000),corroborated:true}).stop,false,stage+'/'+e.id+' stale finding');
+  }
+ }
+});
+check('V5 preserves exact allowed A/B/O behavior and distinguishes token or thread observations from terminal findings',()=>{
+ for(const stage of ['A','B','O']){
+  const base={...policy.UnknownContext(stage),phase:stage+'_ATTESTED'};
+  const decide=(id,ctx={},fields={},corroborated=false)=>policy.Evaluate(catalog.Get(id),record(id,{signal:'DETECTED',...fields}),{
+   tick:hex(2000),version:5,context:{...base,...ctx},corroborated});
+  const bound={serverBound:true,firstPartyAttested:true,sameSession:true};
+  const self={...bound,actorClass:'SELF',capabilityDecision:'EXPECTED'};
+  assert.equal(decide('dkTokenObject',{...self,baseline:true,capability:'TOKEN_STATE'},{signal:'OBSERVED'}).disposition,'EXPECTED_FIRST_PARTY');
+  assert.equal(decide('dkAffinity',{...self,capability:'THREAD_ACCESS'}).disposition,'EXPECTED_FIRST_PARTY');
+  assert.equal(decide('dkPECodeIntegrity',{...self,capability:'SELF_MEMORY'}).stop,true);
+  for(const id of ['dkTokenRights','dkThreadSpawn','dkNoAccess']){
+   const ctx=id==='dkTokenRights'?{capability:'TOKEN_STATE',tokenDelta:4}:{};
+   const unproven=decide(id,ctx,{count:12,confidence:75});
+   assert.equal(unproven.stop,false);
+   assert.equal(unproven.disposition,'OBSERVATION_UNRESOLVED');
+   const proven=decide(id,ctx,{correlation:true,localOnly:false,confidence:75,families:3},true);
+   assert.equal(proven.stop,true);
+   if(id==='dkTokenRights')assert.equal(proven.decisionReason,'CORROBORATED_TOKEN_SECURITY_TRANSITION');
+  }
+  const forbidden={...bound,actorClass:stage==='A'?'TRUSTED_B':'TRUSTED_A',capability:'THREAD_ACCESS',capabilityDecision:'FORBIDDEN'};
+  assert.equal(decide('dkThread',forbidden).stop,true);
+  assert.equal(decide('dkThread',forbidden,{signal:'OBSERVED'}).stop,false);
+  assert.equal(decide('dkThread',{...forbidden,baseline:true}).stop,false);
+  assert.equal(decide('dkThread',{...forbidden,sameSession:false}).stop,false);
+  assert.equal(decide('dkThread',{...forbidden,actorClass:'EXTERNAL'}).stop,false);
+  const assertedExternal={capability:'PROCESS_ACCESS',accessMask:32,actorClass:'EXTERNAL',actorIdentity:'e'.repeat(64)};
+  assert.equal(decide('dkProcess',assertedExternal,{families:1,confidence:80}).stop,false);
+ }
+});
 console.log('NHW context policy: '+checks+' groups passed; signed synthetic evidence only, Windows execution not performed');

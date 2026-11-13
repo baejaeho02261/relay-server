@@ -39,6 +39,7 @@ function assertPath(name,map=bodies){
  const replyCheck=submit.indexOf('Reply.Count <> 10');
  assert.ok(replyCheck>=0,'v3 receipt must validate every response field');
  assert.ok(submit.indexOf("ReadBoolean(Reply,'stopped')")>replyCheck);
+ assert.match(submit,/ReadBoolean\(Reply,'stopped'\) then\s*begin\s*if FDetectionGuard<>nil then FDetectionGuard\.ApplyAuthenticatedServerStop;\s*try\s*if Assigned\(FServerStop\) then FServerStop\(\);\s*finally\s*if FDetectionGuard<>nil then FDetectionGuard\.SecurityContext\.Clear;/);
  assert.ok(submit.indexOf("ApplyServerReceipt(Reply.GetValue('peerContext'),Epoch,ReceiptStarted)")>replyCheck,'peer cache must only consume a checked server receipt');
  assert.ok(submit.includes('if FPendingBody = nil then'));
  assert.ok(submit.includes("Answer := FTransport.PostJSON('security', FPendingBody, 3000)"));
@@ -50,7 +51,7 @@ for(const name of channels)test(name+' has its own complete challenge/sign/send/
 test('a verified terminal denial wakes the session owner and stops the retired report channel',()=>{
  const check=get('TCozyNHWResponseChannel.CheckTerminalDenial');
  assert.match(check,/Status is TJSONBool[\s\S]*TJSONBool\(Status\)\.AsBoolean[\s\S]*ErrorCode is TJSONString[\s\S]*ErrorCode\.Value <> 'SECURITY_NHW_SESSION_REVOKED'\) then Exit/);
- assert.match(check,/FDetectionGuard\.SecurityContext\.Clear;[\s\S]*FServerStop\(\);\s*RequestStop;/);
+ assert.match(check,/FDetectionGuard\.ApplyAuthenticatedServerStop;\s*try\s*if Assigned\(FServerStop\) then FServerStop\(\);\s*finally\s*RequestStop;\s*if FDetectionGuard <> nil then FDetectionGuard\.SecurityContext\.Clear;/);
 });
 test('there is no generic response Submit dispatcher and shared encoder cannot perform responses',()=>{
  assert.ok(!bodies.has('TCozyNHWResponseChannel.Submit'));
@@ -67,6 +68,10 @@ test('removing one submission control body leaves the other two complete source 
  }
 });
 const authorityBodies=methods(fs.readFileSync(path.join(path.dirname(file),'Cozy.NHW.Authority.pas'),'utf8'));
+test('the matching negative attestation verdict latches stop before the ordinary proof returns',()=>{
+ const apply=get('TCozyNHWAuthority.ApplyVerdict',authorityBodies);
+ assert.match(apply,/not FPending\.ApplyVerdictEx\([\s\S]*?then Exit;\s*FInvalidation\.ApplyServerVerdict\([\s\S]*?if not Verdict\.Accepted then\s*begin\s*if FDetectionGuard <> nil then FDetectionGuard\.ApplyAuthenticatedServerStop;\s*if Assigned\(FServerStop\) then FServerStop\(\);/);
+});
 function assertBoundedDrain(map=bodies,authority=authorityBodies){
  const own=name=>get('TCozyNHWResponseChannel.'+name,map);
  assert.match(own('WakeForFlush'),/TInterlocked\.Exchange\(FDraining, 1\)/);

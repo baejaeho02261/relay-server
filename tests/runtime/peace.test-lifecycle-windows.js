@@ -28,6 +28,55 @@ test('read-only fixture binds real accepted receipt events and same admin projec
  const trace={Flow:()=>flow,Overview:()=>({items:[structuredClone(flow)]})},workspace={Detail:()=>({lifecycle:{items:[structuredClone(flow)]}})},observer=require("../../tools/fixtures/peace.lifecycle-fixture").Install({service,store:{Load:()=>db},trace,workspace});
  try{assert.equal(observer.Status().reports.length,0);assert.throws(()=>service.Execute({action:'rejected'}),/DENIED/);assert.equal(observer.Status().reports.length,0);service.Execute({action:'lifecycleReport',permitId:'permit'});const status=observer.Status();assert.equal(status.overviewMatches,true);assert.equal(status.workspaceMatches,true);assert.equal(status.reports[0].afterLeaseExpired,true);assert.deepEqual(status.reports[0].eventIds,self.map(e=>e.id));status.reports[0].eventIds=[];assert.equal(observer.Status().reports[0].eventIds.length,self.length);workspace.Detail=()=>({lifecycle:{items:[]}});assert.equal(observer.Status().workspaceMatches,false);}finally{observer.Dispose();assert.equal(service.Execute,original);}
 });
+test('Windows revocation fixture requires one live transferred cohort and observes an exact terminal denial',()=>{
+ const launcher={id:'issued-a',status:'USED',ticketNonce:'private'},flow={id:'flow',launcherId:launcher.id,sessionId:'b-session',status:'CLOSED',closedByOverlay:true,transferredOverlayId:'o',transferredAt:1,licenseLeaseExpiresAt:1};
+ const overlay={id:'o',sessionId:'o-session',parentFlowId:flow.id,parentSessionId:flow.sessionId,status:'CLAIMED',transferVersion:1,transferredAt:1,sessionExpiresAt:Date.now()+120000,sessionNonce:'private',verifyReceipt:{}};
+ const db={flows:{flow},overlays:{o:overlay},launchers:{[launcher.id]:launcher}},store={Load:()=>db};
+ const execute=({code,authenticated=true})=>{throw Object.assign(Error(code),{desktopError:authenticated});};
+ const authority={Execute:execute},reports={Execute:execute};let calls=0;
+ const bootstrap={Execute:execute,Revoke(id,{reason},actor){
+  assert.equal(id,overlay.sessionId);assert.equal(reason,'WINDOWS_TEST_ADMIN_REVOKE');assert.equal(actor,'ISOLATED_WINDOWS_TEST');calls++;
+  launcher.status=flow.status=overlay.status='REVOKED';flow.licenseLeaseExpiresAt=0;overlay.reason=reason;
+  delete launcher.ticketNonce;delete overlay.sessionNonce;delete overlay.verifyReceipt;
+  return {id,status:overlay.status,reason};
+ }};
+ const observation=require('../../tools/fixtures/peace.fixture-services').ObserveOverlayRevocation({bootstrap,authority,reports,store,launcherId:launcher.id});
+ const scope={sessionId:overlay.sessionId,stage:'O',action:'nhwTrustChallenge',code:'SECURITY_NHW_SESSION_REVOKED'};
+ try{
+  assert.throws(()=>authority.Execute(scope),/SECURITY_NHW_SESSION_REVOKED/);
+  assert.deepEqual(observation.Status(),{cohortRevoked:false,terminalDenialIssued:false});
+  db.flows.other={id:'other'};assert.throws(()=>observation.Request(),/REVOCATION_COHORT_MISMATCH/);delete db.flows.other;
+  overlay.parentSessionId='unrelated';assert.throws(()=>observation.Request(),/REVOCATION_COHORT_MISMATCH/);overlay.parentSessionId=flow.sessionId;
+  const expiry=overlay.sessionExpiresAt;overlay.sessionExpiresAt=Date.now()+10000;
+  assert.throws(()=>observation.Request(),/REVOCATION_LEASE_TOO_SHORT/);overlay.sessionExpiresAt=expiry;
+  assert.equal(calls,0);observation.Request();assert.equal(calls,1);assert.throws(()=>observation.Request(),/REVOCATION_ALREADY_REQUESTED/);
+  assert.deepEqual(observation.Status(),{cohortRevoked:true,terminalDenialIssued:false});
+  overlay.verifyReceipt={};assert.equal(observation.Status().cohortRevoked,false);delete overlay.verifyReceipt;
+  for(const candidate of [{...scope,sessionId:'other'},{...scope,stage:'B'},{...scope,authenticated:false},{...scope,action:'unrelated'}]){
+   assert.throws(()=>authority.Execute(candidate),/SECURITY_NHW_SESSION_REVOKED/);assert.equal(observation.Status().terminalDenialIssued,false);
+  }
+  assert.throws(()=>authority.Execute(scope),/SECURITY_NHW_SESSION_REVOKED/);
+  assert.deepEqual(observation.Status(),{cohortRevoked:true,terminalDenialIssued:true});
+ }finally{observation.Restore();assert.equal(bootstrap.Execute,execute);assert.equal(authority.Execute,execute);assert.equal(reports.Execute,execute);}
+});
+test('opt-in Windows revocation does not use UI close or job teardown as exit evidence',()=>{
+ const root=path.resolve(MODULE_RESOURCE_ROOT,'..'),control=ReadContractFile(path.join(root,'tools/windows/Integration-Control.ps1'),'utf8'),final=ReadContractFile(path.join(root,'tools/windows/Invoke-FinalWindowsTests.ps1'),'utf8');
+ const fixture=ReadContractFile(path.join(root,'tools/fixtures/peace.windows-fixture.js'),'utf8');
+ assert(control.includes("'admin-revoke.request'"));assert(control.includes('else{$closed=[GameWindowsTests.DesktopControl]::Window($oId,$true)}'));
+ assert(control.includes('$oProcess.ExitCode -ne 1'));assert(control.includes('$result.adminRevocation.overlayFileDeleted=Test-FileNotFound $oPath'));
+ assert(control.includes('$result.adminRevocation.noOwnedProcessesRemain=$ids.Count -eq 0'));
+ assert(control.indexOf('$result.adminRevocation.noOwnedProcessesRemain=$ids.Count -eq 0')<control.indexOf('$job.Dispose()'));
+ assert(final.indexOf("Run-Observed 'integration'")<final.indexOf("Run-Observed 'integration-revocation'"));
+ assert(final.includes("@('cohortRevoked','terminalDenialIssued','overlayExited','overlayFileDeleted','noOwnedProcessesRemain').Where"));
+ assert(fixture.includes("process.platform!=='win32'"));assert(fixture.includes("'test-owned-marker'"));assert(fixture.includes("if(executionMode==='revoke-overlay'){"));
+ assert(fixture.includes("listener.address().address!=='127.0.0.1'||process.env.WEB_ADMIN_PORT!=='0'||process.env.HA_ENABLED!=='0'"));
+});
+test('Windows integration selects the real applications while retaining NHW observers in the job check',()=>{
+ const root=path.resolve(MODULE_RESOURCE_ROOT,'..'),control=ReadContractFile(path.join(root,'tools/windows/Integration-Control.ps1'),'utf8'),job=ReadContractFile(path.join(root,'tools/windows/WindowsJob.cs'),'utf8');
+ assert(job.includes('var owned=new HashSet<uint>(ProcessIds());'));assert(job.includes('entry.ParentId==RootId&&owned.Contains(entry.Id)'));
+ assert(control.includes('$apps.RootChildren()|Where-Object'));assert(control.includes('[string]::Equals($childImage,$launcher,[StringComparison]::OrdinalIgnoreCase)'));
+ assert(control.includes('[GameWindowsTests.DesktopControl]::Window([uint32]$_,$false)'));assert(control.includes('$apps.OwnsProcess($oProcess.Handle)'));
+});
 test('V3 lifecycle export binds final and dedicated subjects and never upgrades missing execution',()=>{
  const hashes={A:'a'.repeat(128),B:'b'.repeat(128),O:'c'.repeat(128)},faults={A:'d'.repeat(128),B:'e'.repeat(128),O:'f'.repeat(128)};
  const plan={startedAt:'2026-01-01T00:00:00.000Z',sourceManifestSha512:'1'.repeat(128),verificationBinding:{manifestId:'2'.repeat(128),artifacts:hashes,policy:{authorityRevision:1,authoritySha512:'3'.repeat(128),operationsRevision:1,deviceIdentityRevision:0,tlsPinGeneration:0,deploymentConfigurationSha512:'4'.repeat(128)}}};

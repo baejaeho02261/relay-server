@@ -17,10 +17,11 @@ function Fixture(mode='enforce'){
  const db={artifacts:{[artifact.id]:artifact},launchers:{}},findings=[];let operationsRevision=1,enabled=true,revoked=0;
  const fail=code=>{const e=Error(code);e.desktopError=true;throw e;};
  const ops={PointerGraphSlots:()=>10,EffectivePolicy:p=>p,Revision:()=>operationsRevision,ArtifactReason:()=>'',EvaluateContract:()=>null};
+ function RecordServer(event){assert.equal(event.row,row);assert.equal(event.stage,'B');findings.push(event);}
  const auth=Isolated("services/security/peace.desktop-security-authority.js",['pending','decisions','receipts'],{
   "../bootstrap/peace.desktop-bootstrap-store":{Load:()=>db},"../../storage/audit/peace.audit.js":{LogEvent(){}},'./peace.desktop-security-operations':ops,
-  './peace.security-detections':{RecordServer(event){assert.equal(event.row,row);assert.equal(event.stage,'B');findings.push(event);}},
-  "../bootstrap/peace.desktop-bootstrap":{Revoke(id){assert.equal(id,row.sessionId);revoked++;},EnsureSecurityAvailable(){if(!enabled)fail('SERVICE_DISABLED');},AuthenticateIntegrityReport(body){if(body.sessionId!==row.sessionId||body.sessionToken!=='SESSION_SECRET'||body.machineId!==row.machineId)fail('SESSION_INVALID');return row;}},
+  './peace.security-detections':{RecordServer,RecordServerIn(transaction,event){assert.equal(transaction,db);RecordServer(event);}},
+  "../bootstrap/peace.desktop-bootstrap":{Revoke(id,_body,_actor,record){assert.equal(id,row.sessionId);record?.(db,row);revoked++;return {status:'REVOKED'};},EnsureSecurityAvailable(){if(!enabled)fail('SERVICE_DISABLED');},AuthenticateIntegrityReport(body){if(body.sessionId!==row.sessionId||body.sessionToken!=='SESSION_SECRET'||body.machineId!==row.machineId)fail('SESSION_INVALID');if(revoked)fail('BOOTSTRAP_REVOKED');return row;}},
   "../devices/peace.desktop-device-identity":{AssertSession(){}},'./peace.desktop-mitigation-profiles':{Select:()=>undefined,RequireCurrent(){},Check:()=>''},
   "../licensing/peace.desktop-licenses":{ParseKey:()=>({key:keys.publicKey})},"../integrity/peace.desktop-proof-work":{Verify:(_pub,text,signature)=>crypto.verify('sha256',Buffer.from(text),keys.publicKey,Buffer.from(signature,'base64'))}
  });
@@ -56,7 +57,13 @@ for(const [name,patch]of [
 test('legacy approved capability permits omitted metadata, never malformed supplied metadata',()=>{const f=Fixture();f.artifact.ownMeasurementVersion=0;const v=f.Value();delete v.ownMeasurement;assert.equal(f.Observe(v).response.proceed,true);const bad=f.Value();bad.ownMeasurement.coverage='PARTIAL';assert.throws(()=>f.Observe(bad),/SECURITY_INPUT_INVALID/);});
 test('failed CRC role cannot produce a complete observation even in observe mode',()=>{const f=Fixture('observe'),v=f.Value();f.artifact.ownMeasurementVersion=0;delete v.ownMeasurement;const old=v.crcLayers.nvme;v.crcLayers.nvme={algorithm:old.algorithm,role:old.role,status:'failed',reason:'READ_ERROR'};assert.equal(f.Observe(v).response.proceed,false);assert.throws(()=>f.Fresh(),/MEASUREMENT_INCOMPLETE/);});
 test('observe retains explicit completed-mismatch semantics, not absent measurements',()=>{const f=Fixture('observe'),v=f.Value();v.fileSha512='f'.repeat(128);const out=f.Observe(v).response;assert.equal(out.status,'MISMATCH');assert.equal(out.proceed,true);f.Fresh();});
-test('enforce never authorizes digest mismatch',()=>{const f=Fixture(),v=f.Value();v.fileSha512='f'.repeat(128);assert.equal(f.Observe(v).response.proceed,false);assert.throws(()=>f.Fresh(),/OBSERVATION_MISMATCH/);});
+test('enforce revokes and records a signed measured digest mismatch',()=>{
+ const f=Fixture(),v=f.Value();v.fileSha512='f'.repeat(128);
+ const {response}=f.Observe(v);assert.equal(response.proceed,false);assert.equal(response.reason,'IMAGE_DIGEST_MISMATCH');
+ assert.equal(f.revoked(),1);assert.equal(f.findings.at(-1).invalidated,true);
+ assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);
+ assert.throws(()=>f.auth.Execute(f.body),/BOOTSTRAP_REVOKED/);
+});
 // Public CRC32C collisions exercise the actual SHA/signature authorization path.
 // Keep every reported CRC field unchanged to isolate the cryptographic gates;
 // this does not assert that these inputs collide under every CRC variant.
@@ -70,7 +77,9 @@ for(const vector of require('../fixtures/integrity/peace.crc32c-collision-vector
   assert.deepEqual(original.crcLayers,changed.crcLayers);
   const result=f.Observe(changed).response;
   assert.equal(result.status,'MISMATCH');assert.equal(result.proceed,false);
-  assert.throws(()=>f.Fresh(),/OBSERVATION_MISMATCH/);
+  assert.equal(f.revoked(),1);
+  assert.throws(()=>f.Fresh(),/FRESH_OBSERVATION_REQUIRED/);
+  assert.throws(()=>f.auth.Execute(f.body),/BOOTSTRAP_REVOKED/);
  });
  test('CRC32C collision '+vector.byteCount+': replacing signed content invalidates the real RSA proof',()=>{
   const f=Fixture();f.artifact.sha512=vector.leftSha512;
