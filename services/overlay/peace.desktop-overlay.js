@@ -36,7 +36,15 @@ function RequireArtifact(row){const db=store.Load(),parent=db.flows[row.parentFl
 function Expired(row){return require("../runtime/peace.desktop-deadline").persistent.expired('O.'+(row.status==='CLAIMED'?'session:':'handoff:')+row.id,row.status==='CLAIMED'?Math.max(row.claimedAt||0,row.lastVerifiedAt||0,row.transferredAt||0):row.createdAt,row.status==='CLAIMED'?row.sessionExpiresAt:row.expiresAt);}
 function AssertLifetime(row){if(!row||Expired(row))Fail('BOOTSTRAP_EXPIRED');}
 function Live(row){if(row){require("../recovery/peace.desktop-recovery").Assert(row,store.Load());require("../devices/peace.desktop-device-registry").AssertMachineAllowed(row.machineId,store.Load());}if(!row)Fail('BOOTSTRAP_SESSION_INVALID',401);if(TERMINAL.includes(row.status))Fail(row.status==='EXPIRED'?'BOOTSTRAP_EXPIRED':row.status==='REVOKED'?'BOOTSTRAP_REVOKED':'BOOTSTRAP_SESSION_CLOSED');AssertLifetime(row);License(row);return RequireArtifact(row);}
-function Retire(row){store.AfterCommit(()=>{for(const kind of ['O.session:','O.handoff:','O.claim-recovery:','O.verify-recovery:','O.start-recovery:'])require("../runtime/peace.desktop-deadline").persistent.forget(kind+row.id);});row.retiredAt||=now();delete row.verifyReceipt;delete row.ticketNonce;delete row.sessionNonce;delete row.claimRecoveryUntil;delete row.claimFingerprint;row.chunkOffsets=[];require("../devices/peace.desktop-device-identity").RetireContext(row,'O');require("../security/peace.desktop-security-authority").RetireContext(row,'O');require("../integrity/peace.desktop-integrity-reports").RetireContext(row);}
+function Retire(row){
+ row.retiredAt||=now();delete row.verifyReceipt;delete row.ticketNonce;delete row.sessionNonce;delete row.claimRecoveryUntil;delete row.claimFingerprint;row.chunkOffsets=[];
+ require("../devices/peace.desktop-device-identity").RetireContext(row,'O');
+ store.AfterCommit(()=>{
+  for(const kind of ['O.session:','O.handoff:','O.claim-recovery:','O.verify-recovery:','O.start-recovery:'])require("../runtime/peace.desktop-deadline").persistent.forget(kind+row.id);
+  require("../security/peace.desktop-security-authority").RetireContext(row,'O');
+  require("../integrity/peace.desktop-integrity-reports").RetireContext(row);
+ });
+}
 function Prepare(parent,license,requestId,fingerprint){
  Prune();if(parent.overlayPrepareCancellation)Fail('BOOTSTRAP_SESSION_CLOSED');const db=store.Load(),artifact=db.artifacts[parent.overlayReleaseId];if(!artifact||artifact.component!=='O')Fail('BOOTSTRAP_OVERLAY_NOT_READY',409);
  if(delegation.Version(parent)!==delegation.Version(artifact))Fail('BOOTSTRAP_HANDOFF_VERSION_MISMATCH',409);
@@ -180,10 +188,16 @@ function Verify(body){
 }
 function TransferCanonical(parentId,overlayId){return ['GAME-OVERLAY-TRANSFER-V1',parentId,overlayId].join('\n');}
 function EqualStrong(value,expected){return typeof value==='string'&&typeof expected==='string'&&/^[a-f0-9]{128}$/.test(expected)&&crypto.timingSafeEqual(Buffer.from(sha512(value),'hex'),Buffer.from(expected,'hex'));}
-// A receipt verifier is never a bootstrap session credential. B's ordinary
-// session hash/nonces are retired atomically, and only exact commit recovery or
-// best-effort close can use this short-lived, non-reconstructible digest.
-function AuthenticateRetiredParent(parent,token){if(!parent?.closedByOverlay||parent.status!=='CLOSED'||!Number.isSafeInteger(parent.transferRecoveryUntil)||parent.transferRecoveryUntil<=now()||require("../runtime/peace.desktop-deadline").persistent.expired('O.transfer-recovery:'+parent.id,parent.transferredAt,parent.transferRecoveryUntil)||!EqualStrong(token,parent.transferReceiptHash))Fail('BOOTSTRAP_SESSION_INVALID',401);return parent;}
+// Transfer recovery and terminal cleanup share the exact 30-second receipt.
+// Ordinary B endpoints still require the destroyed session capability.
+function AuthenticateTransferCleanup(parent,token){
+ if(!parent?.closedByOverlay||!['CLOSED','REVOKED'].includes(parent.status)||!Number.isSafeInteger(parent.transferRecoveryUntil)||parent.transferRecoveryUntil<=now()||require("../runtime/peace.desktop-deadline").persistent.expired('O.transfer-recovery:'+parent.id,parent.transferredAt,parent.transferRecoveryUntil)||!EqualStrong(token,parent.transferReceiptHash))Fail('BOOTSTRAP_SESSION_INVALID',401);
+ return parent;
+}
+function AuthenticateRetiredParent(parent,token){
+ if(parent?.status!=='CLOSED')Fail('BOOTSTRAP_SESSION_INVALID',401);
+ return AuthenticateTransferCleanup(parent,token);
+}
 function CommitResult(row){return {handoffVersion:1,status:'TRANSFERRED',parentSessionId:row.parentSessionId,overlayId:row.id,overlaySessionId:row.sessionId};}
 function Commit(body){
  Fields(body,['handoffVersion','sessionId','sessionToken','overlayId','signature']);if(body.handoffVersion!==1||!/^[A-F0-9]{24}$/.test(body.overlayId||'')||!/^[A-F0-9]{24}$/.test(body.sessionId||'')||typeof body.sessionToken!=='string'||body.sessionToken.length>200||typeof body.signature!=='string'||body.signature.length>1000)Fail('BOOTSTRAP_INPUT_INVALID',400);
@@ -255,15 +269,12 @@ function RetireForParent(db,parent){
   item.reason='PARENT_'+item.status;Retire(item);
  }
 }
-// A failed child lease/revocation invalidates the still-running parent in the
-// same durable transaction. Normal optional-overlay close/abort does not. A
-// completed B->O transfer already retired B and remains a one-way transition.
-// This is server lease retirement, not client suspension/debugger detection.
-function RetireParentForFailure(db,row,status){
+// An expired child lease retires the still-running parent in the same
+// transaction. A completed transfer has already retired B's lease.
+function RetireParentForExpiry(db,row){
  const parent=db.flows[row.parentFlowId];
  if(!parent||parent.sessionId!==row.parentSessionId||parent.status!=='CLAIMED')return;
- parent.status=status;parent.reason='OVERLAY_'+status;
- if(status==='REVOKED')parent.revokedAt=now();else parent.closedAt=now();
+ parent.status='EXPIRED';parent.reason='OVERLAY_EXPIRED';parent.closedAt=now();
  Boot().RetireFlow(parent,db);
 }
 function AbortCanonical(parentId,scope,identifier){return ['GAME-OVERLAY-ABORT-V3',parentId,scope,identifier].join('\n');}
@@ -277,7 +288,10 @@ function Abort(body){
  if(!parent||delegation.Version(parent)!==3)Fail('BOOTSTRAP_SESSION_INVALID',401);
  const row=byOverlay?Rows()[body.overlayId]:Object.values(Rows()).find(r=>r.parentFlowId===parent.id),scope=securityStop?'COHORT':byOverlay?'OVERLAY':'PREPARE',identifier=byOverlay?body.overlayId:body.prepareRequestId;
  if(byOverlay&&!row||row&&(row.parentFlowId!==parent.id||byRequest&&row.requestId!==body.prepareRequestId||delegation.Version(row)!==3))Fail('BOOTSTRAP_FLOW_INVALID',401);
- if(parent.closedByOverlay)AuthenticateRetiredParent(parent,body.parentSessionToken);else Boot().SessionAuthenticated(body.parentSessionId,body.parentSessionToken);
+ if(parent.closedByOverlay){
+  if(securityStop)AuthenticateTransferCleanup(parent,body.parentSessionToken);
+  else AuthenticateRetiredParent(parent,body.parentSessionToken);
+ }else Boot().SessionAuthenticated(body.parentSessionId,body.parentSessionToken);
  Boot().Verify(parent,AbortCanonical(parent.sessionId,scope,identifier),body.signature);
  if(securityStop){
   // Exact signed termination can race a durable transfer. The retired B
@@ -304,8 +318,22 @@ function ValidateParentCancellation(db,parent){
  if(value.overlayId){const row=db.overlays?.[value.overlayId];if(!row||row.parentFlowId!==parent.id||row.requestId!==value.requestId||!TERMINAL.includes(row.status)||row.transferVersion!==undefined)throw Error('OVERLAY_STORE_INVALID');}
  else if(Object.values(db.overlays||{}).some(row=>row.parentFlowId===parent.id))throw Error('OVERLAY_STORE_INVALID');
 }
-function Revoke(sessionId,body,actor){const row=Object.values(Rows()).find(r=>r.sessionId===sessionId);if(!row)Fail('BOOTSTRAP_SESSION_INVALID',404);Atomic('OVERLAY_REVOKE',actor,next=>{const item=next.overlays[row.id];item.status='REVOKED';item.revokedAt=now();item.reason=String(body.reason||'REVOKED').slice(0,300);Retire(item);RetireParentForFailure(next,item,'REVOKED');});Audit('REVOKED',row);return View(Rows()[row.id]);}
-function Prune(){const expired=Object.values(Rows()).filter(r=>!TERMINAL.includes(r.status)&&Expired(r)),receipts=Object.values(store.Load().flows).filter(r=>r.transferRecoveryUntil!==undefined&&require("../runtime/peace.desktop-deadline").persistent.expired('O.transfer-recovery:'+r.id,r.transferredAt,r.transferRecoveryUntil));if(expired.length||receipts.length)Atomic('OVERLAY_PRUNE','SERVER',next=>{for(const row of expired){const item=next.overlays[row.id];item.status='EXPIRED';item.reason='LEASE_EXPIRED';Retire(item);RetireParentForFailure(next,item,'EXPIRED');}for(const row of receipts){const item=next.flows[row.id];delete item.transferReceiptHash;delete item.transferFingerprint;delete item.transferRecoveryUntil;store.AfterCommit(()=>require("../runtime/peace.desktop-deadline").persistent.forget('O.transfer-recovery:'+row.id));}});}
+function Revoke(sessionId,body,actor,recordRevocation){
+ const row=Object.values(Rows()).find(r=>r.sessionId===sessionId);
+ if(!row)Fail('BOOTSTRAP_SESSION_INVALID',404);
+ if(row.status==='REVOKED')return View(row);
+ Atomic('OVERLAY_REVOKE',actor,next=>{
+  const item=next.overlays[row.id],parent=next.flows[item.parentFlowId];
+  item.status='REVOKED';item.revokedAt=now();item.reason=String(body.reason||'REVOKED').trim().slice(0,300);Retire(item);
+  if(parent?.sessionId===item.parentSessionId&&(parent.status==='CLAIMED'||Transferred(item,parent))){
+   // The O record carries the original reason and its detection causality.
+   Boot().RevokeFlow(next,parent,'OVERLAY_REVOKED',actor);
+  }
+  recordRevocation?.(next,item);
+ });
+ Audit('REVOKED',row);return View(Rows()[row.id]);
+}
+function Prune(){const expired=Object.values(Rows()).filter(r=>!TERMINAL.includes(r.status)&&Expired(r)),receipts=Object.values(store.Load().flows).filter(r=>r.transferRecoveryUntil!==undefined&&require("../runtime/peace.desktop-deadline").persistent.expired('O.transfer-recovery:'+r.id,r.transferredAt,r.transferRecoveryUntil));if(expired.length||receipts.length)Atomic('OVERLAY_PRUNE','SERVER',next=>{for(const row of expired){const item=next.overlays[row.id];item.status='EXPIRED';item.reason='LEASE_EXPIRED';Retire(item);RetireParentForExpiry(next,item);}for(const row of receipts){const item=next.flows[row.id];delete item.transferReceiptHash;delete item.transferFingerprint;delete item.transferRecoveryUntil;store.AfterCommit(()=>require("../runtime/peace.desktop-deadline").persistent.forget('O.transfer-recovery:'+row.id));}});}
 function View(row){return {id:row.sessionId,flowId:row.id,parentSessionId:row.parentSessionId,component:'O',status:row.status,online:row.status==='CLAIMED'&&row.sessionExpiresAt>now(),deviceId:row.deviceId,machineId:row.machineId,releaseId:row.releaseId,licenseId:row.licenseId,createdAt:row.createdAt,claimedAt:row.claimedAt||0,expiresAt:row.sessionExpiresAt||row.expiresAt,lastVerifiedAt:row.lastVerifiedAt,reason:row.reason||'',startup:require('./peace.desktop-overlay-startup').View(row.sessionId)};}
 function List(){Prune();return Object.values(Rows()).map(View);}
 function Audit(kind,row){try{require("../../storage/audit/peace.audit.js").LogEvent('DESKTOP_OVERLAY_'+kind,JSON.stringify({overlayId:row.id,sessionId:row.sessionId,parentSessionId:row.parentSessionId,licenseId:row.licenseId,releaseId:row.releaseId}));}catch(_){console.error('OVERLAY_AUDIT_FAILED');}}
@@ -341,4 +369,4 @@ function ProofTasks(body){
  }
  return [];
 }
-module.exports={RetireForDevice:Retire,ProofTasks,AuthenticateIntegrityReceipt,RetireForParent,ValidateParentCancellation,Prepare,Execute,AuthenticateIntegrityReport,AuthenticateRetiredParent,Revoke,Prune,List,ValidateStore,ValidateParentTransfer,ValidateTransferRows};
+module.exports={RetireForDevice:Retire,ProofTasks,AuthenticateIntegrityReceipt,RetireForParent,ValidateParentCancellation,Prepare,Execute,AuthenticateIntegrityReport,AuthenticateTransferCleanup,Revoke,Prune,List,ValidateStore,ValidateParentTransfer,ValidateTransferRows};

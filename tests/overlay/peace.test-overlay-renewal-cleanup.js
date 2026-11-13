@@ -13,7 +13,7 @@ const overlay=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),client=read("Coz
 function part(s,a,b){const i=s.indexOf(a);assert.ok(i>=0,a);const j=s.indexOf(b,i+a.length);assert.ok(j>i,b);return s.slice(i,j);}
 function order(s,...markers){let n=-1;for(const m of markers){n=s.indexOf(m,n+1);assert.ok(n>=0,'missing/order: '+m);}}
 const refresh=part(overlay,'procedure TOverlayWorker.Refresh;','procedure TOverlayWorker.StartAuthorized;');
-const core=part(client,'procedure TOverlayClient.ReportIntegrityCore(','procedure TOverlayClient.CloseCore;');
+const core=part(client,'procedure TOverlayClient.ReportIntegrityCore(','procedure TOverlayClient.CloseCore(');
 const execute=part(overlay,'procedure TOverlayWorker.Execute;','{$IFDEF GAME_OVERLAY_CONTRACT_TESTS}\nprocedure OverlayTestTerminalWorker');
 
 test('source: full-snapshot due time is completion-based and transfer-aware',()=>{

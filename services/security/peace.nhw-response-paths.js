@@ -28,20 +28,35 @@ function ParseAction(action) {
 }
 function Domain(channel) { return 'COZY-NHW-' + channel.toUpperCase() + '-RESPONSE-V1'; }
 function Context(row, stage) { return stage + ':' + (stage === 'A' ? row.id : row.sessionId) + ':' + row.createdAt; }
+function AssertTerminalWindow(row,stage) {
+  if(detections.TerminalAllowed(row,stage))return;
+  if(row.status==='REVOKED')Fail('SECURITY_NHW_SESSION_REVOKED',403);
+  Fail('BOOTSTRAP_SESSION_CLOSED',403);
+}
 function Authenticate(body) {
   if (!['A','B','O'].includes(body.stage) || typeof body.machineId !== 'string' || !/^[A-F0-9]{64}$/.test(body.machineId) ||
       typeof body.binding !== 'string' || !/^[a-f0-9]{128}$/.test(body.binding)) Fail();
   const boot=require('../bootstrap/peace.desktop-bootstrap');
-  let row;
+  let row,terminal=false;
   try { row=boot.AuthenticateIntegrityReport(body); } catch(error) {
-    // The only terminal exception is a fresh, signed diagnostic batch for an
-    // exact NHW-revoked cohort. No normal authority endpoint uses this path.
-    try { row=boot.AuthenticateIntegrityReceipt(body);if(!detections.TerminalAllowed(row,body.stage))throw error; } catch(_) { throw error; }
+    try { row=boot.AuthenticateIntegrityReceipt(body); } catch(_) { throw error; }
+    terminal=detections.TerminalAllowed(row,body.stage);
+    if(!terminal){
+      if(row.status==='REVOKED')Fail('SECURITY_NHW_SESSION_REVOKED',403);
+      throw error;
+    }
   }
-  require('../devices/peace.desktop-device-identity').AssertSession(row, body.stage);
-  const db = require('../bootstrap/peace.desktop-bootstrap-store').Load();
-  const artifact = db.artifacts[body.stage === 'A' ? db.launchers[row.launcherId]?.artifactId : row.releaseId];
-  require('./peace.desktop-security-authority').RequireArtifact(artifact,{row,stage:body.stage});
+  try {
+    require('../devices/peace.desktop-device-identity').AssertSession(row, body.stage);
+    const db = require('../bootstrap/peace.desktop-bootstrap-store').Load();
+    const artifact = db.artifacts[body.stage === 'A' ? db.launchers[row.launcherId]?.artifactId : row.releaseId];
+    require('./peace.desktop-security-authority').RequireArtifact(artifact,{row,stage:body.stage});
+  } catch(error) {
+    // The exact retired credential can receive a denial even when current
+    // policy prevents admitting its signed diagnostic report.
+    if(terminal&&row.status==='REVOKED')Fail('SECURITY_NHW_SESSION_REVOKED',403);
+    throw error;
+  }
   if(!Number.isSafeInteger(row.createdAt)||row.createdAt<1)Fail();
   return row;
 }
@@ -59,6 +74,7 @@ function Challenge(body, channel) {
   Fields(body, AUTH);
   const row = Authenticate(body), state = states.get(channel), context = Context(row, body.stage);
   Prune();
+  if(['REVOKED','CLOSED'].includes(row.status))AssertTerminalWindow(row,body.stage);
   let rate = state.rates.get(context);
   if (!rate) { if (state.rates.size >= 4096) Fail('SECURITY_CAPACITY',503); rate = {count:0,...deadline.After(60000)}; state.rates.set(context,rate); }
   if (++rate.count > 60 || state.pending.size >= 1024) Fail('SECURITY_RATE_LIMIT',429);
@@ -87,12 +103,18 @@ function Payload(text) {
 function Submit(body, channel) {
   Fields(body,[...AUTH,'challengeId','payload','signature']);
   const state=states.get(channel), row=Authenticate(body), context=Context(row,body.stage);
+  const terminal=['REVOKED','CLOSED'].includes(row.status);
   Prune();
+  if(terminal)AssertTerminalWindow(row,body.stage);
   const purpose='nhw.'+channel+'.submit', receipt=state.receipts.get(body.challengeId,purpose,body);
-  if (receipt) { if (receipt.meta.context !== context) Fail(); return receipt.response; }
+  if (receipt) {
+    if (receipt.meta.context !== context) Fail();
+    if (!terminal || receipt.response.stopped) return receipt.response;
+  }
   const challenge=state.pending.get(body.challengeId);
   if (!challenge || challenge.context!==context || challenge.binding!==body.binding || deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID',401);
   const value=Payload(body.payload);
+  if(terminal&&value.version<2)Fail('SECURITY_NHW_RESPONSE_INVALID');
   if (sha(body.payload)!==body.binding) Fail();
   if (typeof body.signature!=='string' || !/^[A-Za-z0-9+/]{342}==$/.test(body.signature) ||
       Buffer.from(body.signature,'base64').toString('base64')!==body.signature ||
@@ -105,47 +127,46 @@ function Submit(body, channel) {
     if(value.version>=2) detections.CheckCounters(row,body.stage,channel,value.detections);
   }
   const previous=state.order.get(context),previousVote=state.votes.get(context);
-  if (!recovered && previous && (BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
-  if (!previous && state.order.size>=4096) Fail('SECURITY_CAPACITY',503);
+  if (!terminal&&!recovered&&previous&&(BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
+  if (!terminal&&!previous&&state.order.size>=4096) Fail('SECURITY_CAPACITY',503);
   let peerContext=null;
   try{if(value.version===3)peerContext=peers.Enroll(row,body.stage,value.peer,value.sequence,{channel,recover:!!recovered});}
   catch(error){
     if(['SECURITY_PEER_IMAGE_MISMATCH','SECURITY_PEER_IDENTITY_CHANGED'].includes(error.message)){
-      require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:error.message},'SECURITY_AUTHORITY');
-      detections.RecordServer({row,stage:body.stage,id:error.message,source:'peace.nhw-peer-context',invalidated:true});
+      require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:error.message},'SECURITY_AUTHORITY',
+        (db,origin)=>detections.RecordServerIn(db,{row:origin,stage:body.stage,id:error.message,source:'peace.nhw-peer-context',invalidated:true}));
     }
     else if(error.message==='SECURITY_PEER_ENROLLMENT_REPLAY')detections.RecordServer({row,stage:body.stage,id:error.message,source:'peace.nhw-peer-context',confidence:0,correlation:false,invalidated:false});
     throw error;
   }
-  state.order.set(context,{sequence:BigInt('0x'+value.sequence),tick:BigInt('0x'+(recovered?.tick||value.tick))});
+  if(!terminal)state.order.set(context,{sequence:BigInt('0x'+value.sequence),tick:BigInt('0x'+(recovered?.tick||value.tick))});
   // v1 is retained only for deployed pre-catalog clients. v2 final policy is
   // computed here from actual named evidence, not the client confirmed bit.
   const confirmed=value.version===1&&value.confirmed;
   if (confirmed) state.votes.set(context,{digest:value.digest,ids:value.version>=2?detections.QualifiedIds(value.detections,value.tick):[],...deadline.After(90000)});
   else state.votes.delete(context);
   const voteMask=channels.reduce((mask,name,i)=>mask|(states.get(name).votes.has(context)?1<<i:0),0);
-  const terminal=detections.TerminalAllowed(row,body.stage);
-  if(terminal&&value.version<2)Fail('SECURITY_NHW_RESPONSE_INVALID');
-  const decision=value.version>=2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value,row)):null;
+  const decision=!terminal&&value.version>=2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value,row)):null;
   const stopped=terminal||!!decision||(value.version===1&&(voteMask===3||voteMask===5||voteMask===6||voteMask===7));
   const response={version:1,channel,sequence:value.sequence,digest:value.digest,epoch:challenge.epoch,
     accepted:true,stopped,scope:'OWNED_A_B_O',attested:false,...(value.version===3?{peerContext:stopped?null:peerContext}: {})};
   const contributors=decision?[{channel,keys:decision.keys}]:[];
-  // Persist every accepted observation, including local-only/unsupported
-  // evidence. Persistence also keeps producer high-watermarks across restart.
-  // A telemetry failure cannot bypass an already-made exact-cohort decision.
-  let recordError;
-  try { if(!recovered)detections.RecordPath(row,body.stage,channel,value,terminal?null:decision); } catch(error) { recordError=error; }
-  if (stopped&&!terminal) {
-    // Existing revoke follows exact stored parent/child links, never a caller
-    // supplied target ID, and retires the whole authorized cohort.
-    const reason=decision?.reason||'SECURITY_SESSION_STOP';
-    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
-    if(value.version>=2) detections.CommitInvalidation(row,body.stage,contributors,reason);
-  }
-  if(recordError) {
-    if(!stopped){if(previous)state.order.set(context,previous);else state.order.delete(context);if(previousVote)state.votes.set(context,previousVote);else state.votes.delete(context);}
-    throw recordError;
+  try {
+    if(stopped&&!terminal){
+      // The named event, producer order and cohort revoke share the same
+      // durable commit. An exact legacy recovery already has its event.
+      const reason=decision?.reason||'SECURITY_SESSION_STOP';
+      const recordRevocation=recovered?undefined:(db,origin)=>detections.RecordPathIn(db,origin,body.stage,channel,value,decision);
+      require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY',recordRevocation);
+      if(value.version>=2) detections.CommitInvalidation(row,body.stage,contributors,reason);
+    }else{
+      if(terminal)AssertTerminalWindow(row,body.stage);
+      if(!recovered)detections.RecordPath(row,body.stage,channel,value);
+    }
+  }catch(error){
+    if(previous)state.order.set(context,previous);else state.order.delete(context);
+    if(previousVote)state.votes.set(context,previousVote);else state.votes.delete(context);
+    throw error;
   }
   if(!stopped||value.version>=2) state.receipts.put(body.challengeId,purpose,body,response,{context});
   return response;

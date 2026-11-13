@@ -96,7 +96,7 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   assert.match(entry, /begin\s+ShutdownGuard\.ArmAfter\(15000\);\s+Worker\.RequestStop;\s+end,/);
   assert.match(entry, /begin Worker\.StopAndJoin; end\)/);
   assert.match(run, /if FState\(\) = WorkerTransferred then Result := 0/);
-  assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if Api <> nil then Api\.FlushNHWReports;\s+if Watch <> nil then SecurityStopped := SecurityStopped or Watch\.Confirmed;\s+if \(Api <> nil\) and SecurityStopped then Api\.FinishNHWStop;\s+if SecurityStopped then Result := 1\s+else if Transferred then Result := 0;/);
+  assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if Api <> nil then\s+begin\s+Api\.FlushNHWReports;\s+Api\.JoinNHWReports;\s+end;\s+if Watch <> nil then SecurityStopped := SecurityStopped or Watch\.Confirmed;\s+if \(Api <> nil\) and SecurityStopped then Api\.FinishNHWStop;\s+if SecurityStopped then Result := 1\s+else if Transferred then Result := 0;/);
   assert.match(entry, /Watch\.RequestStop;\s+Watch\.StopChildObservers;\s+SecurityStopped := Watch\.Confirmed;/);
   assert(entry.indexOf('Worker.Free;') < entry.indexOf('Watch.RequestStop;'));
   assert(entry.indexOf('Watch.RequestStop;') < entry.indexOf('Api.FinishNHWStop;'));

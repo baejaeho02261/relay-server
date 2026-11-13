@@ -150,6 +150,7 @@ function ApplyInvalidation(db,row,stage,contributors,reason){
  const b=Binding(db,row,stage);if(b.live.status!=='REVOKED'||b.live.reason!==reason)Fail('SECURITY_DETECTION_CONTEXT_INVALID',409);
   if(!b.flow.nhwTerminalReport){const at=b.live.revokedAt;if(!Number.isSafeInteger(at)||at<1)Fail();b.flow.nhwTerminalReport={version:1,startedAt:at,expiresAt:at+30000,serverEpoch:require('../recovery/peace.desktop-recovery').Epoch(db),originRole:stage,originSessionId:b.sessionId,originEpoch:b.epoch,reasonDigest:sha(reason)};}
   for(const e of db.securityDetections?.flows[b.flowId]?.events||[])if(e.role===stage&&e.sessionId===b.sessionId&&contributors.some(v=>v.channel===e.responsePath&&(v.keys?v.keys.includes(e.detectionId+':'+e.sensor+(e.contextKey?':'+e.contextKey:'')):e.correlation&&!e.localOnly&&v.ids.includes(e.detectionId))))e.invalidated=true;
+  if(db.securityDetections)Trim(db.securityDetections);
 }
 function CommitInvalidation(row,stage,contributors,reason){
  if(!InvalidationReason(reason))Fail();
@@ -159,14 +160,19 @@ function CommitInvalidation(row,stage,contributors,reason){
  if(b.live.status==='REVOKED'&&b.live.reason===reason&&b.flow.nhwTerminalReport)return;
  return store.Atomic(db=>ApplyInvalidation(db,row,stage,contributors,reason));
 }
-function RecordPath(row,stage,channel,value,decision=null){
- return store.Atomic(db=>{const b=Binding(db,row,stage);CheckOrder(b.live,stage,channel,value);
+function RecordPathIn(db,row,stage,channel,value,decision=null){
+  const b=Binding(db,row,stage);CheckOrder(b.live,stage,channel,value);
   (b.live.nhwResponseOrders||(b.live.nhwResponseOrders={}))[stage+':'+channel]={sequence:value.sequence,tick:value.tick,...(value.version>=2?{batchDigest:BatchDigest(value)}:{}),...(value.version>=2&&value.detections.length?{evidenceDigest:sha(JSON.stringify(value.detections))}:{}),...(decision?{stopDecision:decision}:{})};
-  // Observation persistence cannot assert that a later authority write succeeded.
-  // Revoke's durable transition commits causality in the same transaction.
+  // ObserveTransitions annotates causality only when this draft actually
+  // revokes the authenticated origin. Trim after marking those events.
   const policies=value._policy||(value.version>=2?PolicyResults(row,stage,{...value,_channel:channel}):[]);
-  const ids=(value.detections||[]).map((r,i)=>Append(db,b,stage,channel,r,'AUTHENTICATED_CLIENT_REPORT',false,policies[i]));
-  if(db.securityDetections)Trim(db.securityDetections);return ids;
+  return (value.detections||[]).map((r,i)=>Append(db,b,stage,channel,r,'AUTHENTICATED_CLIENT_REPORT',false,policies[i]));
+}
+function RecordPath(row,stage,channel,value,decision=null){
+ return store.Atomic(db=>{
+  const ids=RecordPathIn(db,row,stage,channel,value,decision);
+  if(db.securityDetections)Trim(db.securityDetections);
+  return ids;
  });
 }
 function CrcFindings(comparison){
@@ -183,12 +189,12 @@ function CrcFindings(comparison){
  }
  return findings;
 }
-function RecordServer({row,stage,id,source,confidence=100,correlation=true,evidenceFamilies,invalidated=false,attestationSequence=ZERO,crcComparison}){
+function RecordServerIn(db,{row,stage,id,source,confidence=100,correlation=true,invalidated=false,attestationSequence=ZERO,crcComparison}){
  const entry=Entry(id);if(!entry||entry.id.startsWith('dk')||!SourceAllowed(entry,source))Fail();
  if(!Number.isInteger(confidence)||confidence<0||confidence>100||typeof correlation!=='boolean'||typeof invalidated!=='boolean'||!hex64(attestationSequence))Fail();
  if(crcComparison!==undefined&&id!=='CRC_ROLE_MISMATCH')Fail();
  const crcFindings=CrcFindings(crcComparison);
- return store.Atomic(db=>{const b=Binding(db,row,stage),tick=BigInt(Date.now()).toString(16).padStart(16,'0'),key=Key(b,stage,'server',id,source),prior=db.securityDetections?.flows[b.flowId]?.events.find(e=>e.id===key);
+  const b=Binding(db,row,stage),tick=BigInt(Date.now()).toString(16).padStart(16,'0'),key=Key(b,stage,'server',id,source),prior=db.securityDetections?.flows[b.flowId]?.events.find(e=>e.id===key);
   const r={id,source,firstTick:prior?.firstTick||tick,lastTick:tick,count:Math.min(65535,(prior?.producerCount||0)+1),families:0,confidence,correlation,localOnly:!correlation,attestationSequence};
   const unavailable=entry.signalClass==='UNKNOWN'||id==='CRC_ROLE_MISMATCH'&&confidence===0&&!correlation;
   const requestRejected=entry.signalClass==='POLICY_REJECTION'&&confidence===0&&!correlation;
@@ -196,7 +202,9 @@ function RecordServer({row,stage,id,source,confidence=100,correlation=true,evide
   const result=Append(db,b,stage,'server',r,'SERVER_COMPARISON',invalidated&&b.live.status==='REVOKED',policy);
   if(crcFindings!==undefined){const event=db.securityDetections.flows[b.flowId].events.find(e=>e.id===result),findings=new Map((event.crcFindings||[]).map(r=>[r.role,r]));for(const r of crcFindings)if(findings.get(r.role)?.status!=='MISMATCH')findings.set(r.role,r);event.crcFindings=[...findings.values()];}
   Trim(db.securityDetections);return result;
- });
+}
+function RecordServer(finding){
+ return store.Atomic(db=>RecordServerIn(db,finding));
 }
 function RecordAttestation({row,stage,sequence,status,hardwareAttested=false}){
  if(!hex64(sequence)||sequence===ZERO||!['VERIFIED_BINDING','REJECTED','TPM_QUOTE_ONLY','UNKNOWN'].includes(status)||typeof hardwareAttested!=='boolean'||hardwareAttested&&status!=='TPM_QUOTE_ONLY')Fail();
@@ -272,9 +280,8 @@ function ValidateOrder(value){
 }
 function ObserveTransitions(before,db){
  if(!db.securityDetections)return;
- // The accepted decision is durable before enforcement; causality and the
- // bounded terminal diagnostic grant commit atomically with the actual revoke.
- // A failed Revoke write leaves both unasserted and can be retried safely.
+ // The new decision and observation share this revoke transaction. An older
+ // exact durable decision is also recoverable without appending it again.
  for(const table of ['flows','overlays'])for(const [id,row]of Object.entries(db[table]||{})){
   if(row.status!=='REVOKED'||before[table]?.[id]?.status==='REVOKED'||!InvalidationReason(row.reason))continue;
   for(const [key,order]of Object.entries(row.nhwResponseOrders||{}))if(order.stopDecision?.reason===row.reason){
@@ -303,4 +310,4 @@ function Validate(s,db){
  }
  if(total>MAX_RECORDS)invalid();return s;
 }
-module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPath,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};
+module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPathIn,RecordPath,RecordServerIn,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};

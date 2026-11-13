@@ -97,7 +97,8 @@ check('Confirmed security stop after transfer uses only the exact retired-parent
  reject(()=>bootstrap.Execute({...body,parentSessionToken:unrelated.b.sessionToken}),'BOOTSTRAP_SESSION_INVALID');
  reject(()=>bootstrap.Execute(securityStop(stopped,unrelated.prepared.overlayId)),'BOOTSTRAP_FLOW_INVALID');
  assert.equal(bootstrap.Execute(body).status,'REVOKED');
- assert.equal(parent(stopped).status,'CLOSED');assert.equal(child(stopped).status,'REVOKED');
+ assert.equal(parent(stopped).status,'REVOKED');assert.equal(child(stopped).status,'REVOKED');
+ assert.equal(bootstrap.Initialize().launchers[parent(stopped).launcherId].status,'REVOKED');
  assert.equal(child(stopped).sessionNonce,undefined);assert.equal(child(unrelated).status,'CLAIMED');
  const revision=bootstrap.Initialize().revision;
  assert.equal(bootstrap.Execute(body).status,'REVOKED');assert.equal(bootstrap.Initialize().revision,revision);

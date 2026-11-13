@@ -80,7 +80,7 @@ check('token readback rejects elevation, service accounts, operator groups and r
 check('public opt-in reaches the real O launch path and keeps the compatibility default', () => {
   assert.match(api, /function StartOverlay\(RestrictedPrivileges: Boolean = False;\s+const Progress: TProc<Integer> = nil\): Boolean/);
   assert.match(api, /Result := StartOverlayCore\(RestrictedPrivileges, Progress\)/);
-  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, RestrictedPrivileges,\s+MaintainParent, Progress\)/);
+  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, RestrictedPrivileges,\s+MaintainParent, Progress, FOverlayStartupClient\)/);
   assert.match(overlay, /if RestrictedPrivileges then LaunchProfile := hlpOverlayRestricted/);
   assert.match(overlay, /Flow.Release.SHA512, True,\s+LaunchProfile, WaitMaintenance\)/);
   assert.match(api, /RestrictedPrivileges <> FOverlayRestrictedPrivileges/);

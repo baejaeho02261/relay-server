@@ -31,6 +31,7 @@ function assertPath(name,map=bodies){
  assert.ok(submit.includes("Canonical := 'COZY-NHW-"+name.toUpperCase()+"-RESPONSE-V1'"));
  assert.ok(submit.includes('FSecurity.Sign(Canonical)'));
  assert.equal((submit.match(/FTransport\.PostJSON\(/g)||[]).length,2,'channel lacks its own challenge and submission');
+ assert.equal((submit.match(/Answer := FTransport\.PostJSON\([^\n]+\);\s*CheckTerminalDenial\(Answer\);/g)||[]).length,2);
  assert.ok(submit.includes("ReadText(Challenge,'channel',16) <> '"+name.toLowerCase()+"'"));
  assert.ok(submit.includes("ReadText(Reply,'channel',16) <> '"+name.toLowerCase()+"'"));
  for(const field of ['sequence','digest','epoch','scope'])assert.ok(submit.includes("ReadText(Reply,'"+field+"'"));
@@ -46,6 +47,11 @@ function assertPath(name,map=bodies){
  assert.doesNotMatch(submit,/FPendingBatch\s*:=|Records\[[^\]]+\]\.(?:FirstTick|LastTick)\s*:=/);
 }
 for(const name of channels)test(name+' has its own complete challenge/sign/send/ACK control path',()=>assertPath(name));
+test('a verified terminal denial wakes the session owner and stops the retired report channel',()=>{
+ const check=get('TCozyNHWResponseChannel.CheckTerminalDenial');
+ assert.match(check,/Status is TJSONBool[\s\S]*TJSONBool\(Status\)\.AsBoolean[\s\S]*ErrorCode is TJSONString[\s\S]*ErrorCode\.Value <> 'SECURITY_NHW_SESSION_REVOKED'\) then Exit/);
+ assert.match(check,/FDetectionGuard\.SecurityContext\.Clear;[\s\S]*FServerStop\(\);\s*RequestStop;/);
+});
 test('there is no generic response Submit dispatcher and shared encoder cannot perform responses',()=>{
  assert.ok(!bodies.has('TCozyNHWResponseChannel.Submit'));
  assert.doesNotMatch(code(raw),/\bSubmit\s*\(/);

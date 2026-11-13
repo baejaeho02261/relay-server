@@ -82,7 +82,7 @@ stop=overlay.split('procedure TOverlayWorker.Stop;',1)[1].split('function TOverl
 close=overlay.split('function TOverlayWorker.ShouldClose: Boolean;',1)[1].split('procedure TOverlayWorker.Execute;',1)[0]
 run=overlay.split('function RunOverlay: Integer;')[-1].split('\ninitialization')[0]
 check('Ready event rechecks active authorization while holding its publication lock',
-      ready.index('TMonitor.Enter(FLock)') < ready.index('if Terminated or FFailed or (FDeadline = 0)') < ready.index('FContext.ConfirmOverlayReady;')
+      ready.index('TMonitor.Enter(FLock)') < ready.index('if Terminated or FFailed or ConfirmedWatch or (FDeadline = 0)') < ready.index('FContext.ConfirmOverlayReady;')
       and '(CozyTick >= FDeadline)' in ready
       and '(not FReadyForTransfer and not FContext.ParentIsAlive)' in ready)
 check('Repeated successful frame callbacks cannot signal or close the ready event twice',
@@ -151,7 +151,7 @@ check('O download drains due snapshots and child wait yields between batches to 
       and 'RequireParentPending();' in maintenance)
 check('B progress cannot signal completion until the actual O transfer is acknowledged',
       start.index('TransferClient.CommitTransfer(') < start.index('FOverlayStarted := True;') < start.index('Progress(100)')
-      and 'MaintainParent, Progress);' in start)
+      and 'MaintainParent, Progress, FOverlayStartupClient);' in start)
 readiness=api.split('function TGameApi.GetModuleInventoryReadyCore: Boolean;',1)[1].split('function TGameApi.GetOverlayTransferredCore:',1)[0]
 check('A fresh completed snapshot allows queued redemption even when the next scan is already due',
       'FModuleSnapshotCompleted and (FModuleSnapshot = nil)' in readiness

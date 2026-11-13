@@ -9,7 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const serverRoot = path.resolve(__dirname, '../..');
-const phases = ['seed', 'recover', 'pending-stop', 'terminal', 'full-drain'];
+const phases = ['seed', 'recover', 'atomic-stop', 'pending-stop', 'terminal', 'full-drain'];
 
 if (!process.argv[2]) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cozy-nhw-pending-recovery-'));
@@ -165,12 +165,43 @@ function runPhase(phase) {
       validateStorage();
       console.log('PASS actual process restart recovered exact signed batches without recount and unblocked all three newer revisions');
     }
+    if (phase === 'atomic-stop') {
+      const subject = subjectB(), other = restore(saved.other), record = detection('dkPECodeIntegrity');
+      const req = request(subject, 'integrity', payload([record])), originalAtomic = store.Atomic;
+      let injected = false;
+      store.Atomic = mutate => originalAtomic(db => {
+        const result = mutate(db);
+        if (db.flows[subject.flowId].status === 'REVOKED') {
+          assert.ok(db.flows[subject.flowId].nhwResponseOrders['B:integrity'].stopDecision);
+          assert.equal(db.securityDetections.flows[subject.flowId].events[0].detectionId, record.id);
+          injected = true;
+          throw Error('INJECTED_REVOKE_WRITE_FAILURE');
+        }
+        return result;
+      });
+      try { reject(() => authority.Execute(req.submit), 'STORAGE_SAVE_FAILED'); }
+      finally { store.Atomic = originalAtomic; }
+      assert.equal(injected, true);
+      assert.equal(row(subject).status, 'CLAIMED');
+      assert.equal(row(subject).nhwResponseOrders, undefined);
+      assert.equal(row(subject).nhwTerminalReport, undefined);
+      assert.equal(events(subject).length, 0);
+      assert.equal(send(subject, 'integrity', [record]).stopped, true);
+      assert.equal(row(subject).status, 'REVOKED');
+      assert.equal(events(subject).length, 1);
+      assert.equal(events(subject)[0].invalidated, true);
+      assert.equal(row(other).status, 'CLAIMED');
+      assert.equal(events(other).length, 0);
+      validateStorage();
+      console.log('PASS named detection and cohort revoke roll back together and commit on an authenticated retry');
+    }
     if (phase === 'pending-stop') {
       const subject = subjectB(), other = restore(saved.other), record = detection('dkPECodeIntegrity');
-      const originalRevoke = boot.Revoke, text = payload([record]), req = request(subject, 'integrity', text);
-      boot.Revoke = () => { throw Error('INJECTED_REVOKE_WRITE_FAILURE'); };
-      try { reject(() => authority.Execute(req.submit), 'INJECTED_REVOKE_WRITE_FAILURE'); }
-      finally { boot.Revoke = originalRevoke; }
+      // Simulate a pre-upgrade store with an exact, already authenticated
+      // decision whose older two-transaction enforcement write was interrupted.
+      const value = paths.Payload(payload([record]));
+      const decision = reports.StopDecision('B', 'integrity', value, row(subject));
+      reports.RecordPath(row(subject), 'B', 'integrity', value, decision);
       const before = structuredClone(events(subject)[0]);
       assert.equal(before.invalidated, false); assert.equal(row(subject).status, 'CLAIMED');
       assert.equal(row(subject).nhwTerminalReport, undefined);
@@ -214,13 +245,17 @@ function runPhase(phase) {
       const now = Date.now;
       Date.now = () => grace.expiresAt;
       try {
-        reject(() => authority.Execute(recovery.submit));
-        reject(() => request(subject, 'driver', payload([detection()], 1, 6000)));
+        reject(() => authority.Execute(recovery.submit), 'SECURITY_NHW_SESSION_REVOKED');
+        reject(() => request(subject, 'driver', payload([detection()], 1, 6000)), 'SECURITY_NHW_SESSION_REVOKED');
         reject(() => boot.AuthenticateIntegrityReport(subject.ctx));
       } finally { Date.now = now; }
       const admin = subjectB();
       boot.Revoke(row(admin).sessionId, {reason: 'ADMIN_REQUEST'}, 'ADMIN');
-      reject(() => request(admin, 'integrity', payload([detection()])));
+      reject(() => request(admin, 'integrity', payload([detection()])), 'SECURITY_NHW_SESSION_REVOKED');
+      for (const binding of [{sessionToken: other.ctx.sessionToken}, {machineId: other.ctx.machineId}]) {
+        assert.throws(() => request({...admin, ctx: {...admin.ctx, ...binding}}, 'integrity', payload([detection()])),
+          error => error.message !== 'SECURITY_NHW_SESSION_REVOKED');
+      }
       validateStorage();
       console.log('PASS terminal acknowledgment recovery and queued next kind drained only within the original 30-second grant; normal authority remained revoked');
     }

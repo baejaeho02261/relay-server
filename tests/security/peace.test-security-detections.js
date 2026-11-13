@@ -175,13 +175,16 @@ check('Optional persisted observation and attestation state reloads through actu
  const result=require('node:child_process').spawnSync(process.execPath,['-e',"const s=require("+JSON.stringify(require.resolve('../../services/bootstrap/peace.desktop-bootstrap-store'))+").Load(); const d=require("+JSON.stringify(require.resolve('../../services/security/peace.security-detections'))+"); d.Validate(s.securityDetections,s); for(const r of Object.values(s.flows)){d.ValidateOrder(r.nhwResponseOrders);d.ValidateAttestations(r.nhwAttestations);} process.stdout.write('PERSISTED_VALID');"],{cwd:path.resolve(__dirname,'../..'),env:process.env,encoding:'utf8',timeout:15000});
  assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/PERSISTED_VALID/);
 });
-check('A Revoke exception never marks a prior observation as causing invalidation',()=>{
+check('A failed revoke leaves prior observations intact and publishes no new detection',()=>{
  const s=subject(),originalRevoke=boot.Revoke,strong=detection('dkRemoteThread',{families:3,confidence:75,correlation:true,localOnly:false});
+ send(s,'integrity',[detection('dkNamespace')],1);
+ const before=structuredClone(reports.ForFlow(row(s).id));
  boot.Revoke=()=>{throw Error('INJECTED_REVOKE_WRITE_FAILURE');};
- try{reject(()=>send(s,'integrity',[strong],1),'INJECTED_REVOKE_WRITE_FAILURE');}finally{boot.Revoke=originalRevoke;}
- let e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,false);assert.equal(e.sessionInvalidated,false);assert.equal(row(s).status,'STARTED');assert.equal(row(s).nhwTerminalReport,undefined);reloadedCause(row(s).id,false);
- assert.equal(send(s,'integrity',[{...strong,count:2,lastTick:hex(1500)}],2).stopped,true);
- e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,true);assert.equal(e.sessionInvalidated,true);assert.equal(row(s).status,'REVOKED');reloadedCause(row(s).id,true);
+ try{reject(()=>send(s,'integrity',[strong],2),'INJECTED_REVOKE_WRITE_FAILURE');}finally{boot.Revoke=originalRevoke;}
+ assert.deepEqual(reports.ForFlow(row(s).id),before);assert.equal(row(s).status,'STARTED');assert.equal(row(s).nhwTerminalReport,undefined);reloadedCause(row(s).id,false);
+ assert.equal(send(s,'integrity',[strong],2).stopped,true);
+ const e=reports.ForFlow(row(s).id).find(event=>event.detectionId===strong.id);
+ assert.equal(e.invalidated,true);assert.equal(e.sessionInvalidated,true);assert.equal(row(s).status,'REVOKED');reloadedCause(row(s).id,true);
  reports.Validate(store.Load().securityDetections,store.Load());
 });
 check('Thirty-second terminal diagnostic grace drains remaining kinds without restoring authority',()=>{

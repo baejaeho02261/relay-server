@@ -275,7 +275,13 @@ function Execute(body){
   throw error;
  }
 }
-function RetireRuntime(row){for(const [id,value]of challenges)if(value.deviceId===row.deviceId)challenges.delete(id);for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);if(row.licenseId)seen.delete(row.licenseId);}
+function RetireRuntime(row){
+ // Challenges bind the app key and payload digest. Gate checks the exact
+ // session in the signed payload, so leave challenges to their bounded expiry.
+ if(!row.licenseId)return;
+ for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);
+ seen.delete(row.licenseId);
+}
 module.exports={DrainAudit,ReconcileOperations,RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
 
 module.exports.InvalidateVolatile=function(){challenges.clear();seen.clear();verifyReceipts.clear();};

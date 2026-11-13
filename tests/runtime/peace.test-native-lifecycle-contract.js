@@ -215,4 +215,46 @@ test('ETW consumer initializes execution fields before RTL-owned start and keeps
   const destroy = monitor.split('destructor TETWMonitor.Destroy;')[1];
   order(destroy, ['RequestStop;', 'EtwCloseTrace(FConsumer);', 'FWorker.WaitFor;', 'FWorker.Free;', 'FFastRing.Free;']);
 });
+test('Authenticated B and O stop callbacks latch, arm shutdown and cancel owned ordinary connections', () => {
+  const b = api.split('procedure TGameApi.AttachNHW(')[1].split('procedure TGameApi.JoinNHWReports')[0];
+  const o = client.split('procedure TOverlayClient.AttachNHW(')[1].split('constructor TOverlayClient.Create')[0];
+  order(b, ['Guard.ApplyAuthenticatedServerStop;', 'RequestStopCore;', 'OwnedStop();',
+    'FTransport.CancelPending;', 'FOverlayStartupClient.CancelPending;']);
+  order(o, ['Guard.ApplyAuthenticatedServerStop;', 'OwnedStop();', 'CancelPending;']);
+  for (const callback of [b, o]) assert.doesNotMatch(callback, /TMonitor\.(Enter|TryEnter)|FGate\.Enter/);
+  const runB = licenseSource.split('function RunLicenseClient: Integer;')[2];
+  const runO = overlay.split('function RunOverlay: Integer;')[2];
+  order(runB, ['Api.AttachNHW(Watch, Bootstrap.NHWQuoter,', 'ShutdownGuard.ArmAfter(15000);',
+    'Worker.Free;', 'Api.FlushNHWReports;', 'Api.JoinNHWReports;',
+    'SecurityStopped := SecurityStopped or Watch.Confirmed;', 'Api.Free;', 'Watch.Free;', 'ShutdownGuard.Cancel;']);
+  order(runO, ['Client.AttachNHW(Watch,', 'Guard.ArmAfter(OverlayShutdownTotalMs);', 'Worker.WaitFor;',
+    'Client.FlushNHWReports(Cardinal(ReportBudget));', 'Client.JoinNHWReports;', 'Watch.Confirmed',
+    'Client.Free;', 'Watch.Free;', 'Guard.Cancel;']);
+  const startB = api.split('function TGameApi.StartOverlayCore(')[1].split('function TGameApi.RedeemCore')[0];
+  order(startB, ['MaintainParent, Progress, FOverlayStartupClient);',
+    'TransferClient := FOverlayStartupClient;', 'TransferClient.CommitTransfer(']);
+  const destroyB = api.split('destructor TGameApi.Destroy;')[1].split('end;\n\nfunction')[0];
+  order(destroyB, ['FGate.CloseAndWait;', 'FNHWAuthority := nil;', 'FOverlayStartupClient.Free;', 'FTransport.Free;']);
+});
+
+test('Late replies cannot publish new authority while cleanup uses a separate connection', () => {
+  const postB = api.split('function TGameApi.PostJSON(')[1].split('function TGameApi.ExecuteProof(')[0];
+  order(postB, ['Response := FTransport.PostJSON(', 'RequireRunning;',
+    'DataValue := Response.GetValue', 'RequireRunning;', 'Result := TJSONObject(DataValue.Clone);']);
+  const postO = client.split('function TOverlayClient.Post(')[1].split('function OverlayCanonical(')[0];
+  order(postO, ['IsClose := Action', 'if not IsClose then RequireSessionRunning;',
+    'Reply := RequestTransport.PostJSON(', 'if not IsClose then RequireSessionRunning;',
+    'Result := TJSONObject(Value.Clone);']);
+  const ready = overlay.split('procedure TOverlayWorker.FirstFrameReady;')[1].split('procedure TOverlayWorker.Refresh;')[0];
+  order(ready, ['if Terminated or FFailed or ConfirmedWatch', 'FContext.ConfirmOverlayReady;',
+    'if ConfirmedWatch then', 'FReadyForTransfer := True;']);
+  const close = client.split('procedure TOverlayClient.ShutdownClose(')[1].split('procedure TOverlayClient.Close;')[0];
+  order(close, ['FGate.CloseAndWait;', 'ClosingTransport := FTransport.Fork;',
+    'CloseCore(ClosingTransport);', 'ClosingTransport.Free;']);
+  assert.doesNotMatch(close, /ResetCancellationAfterJoin/);
+  const redeem = licenseSource.split('procedure TLicenseWorker.RedeemPending(')[1].split('procedure TLicenseWorker.Execute;')[0];
+  order(redeem, ['if FWatch.Confirmed then Exit;', 'FCommands.Complete(WorkerTransferred);',
+    "'DESKTOP_REVOKED'", 'if FWatch.Confirmed then FCommands.Complete(WorkerFailed)',
+    'FCommands.Complete(WorkerIdle);']);
+});
 console.log(`NATIVE_LIFECYCLE_SOURCE_CONTRACTS_PASS ${count}; Windows execution NOT_RUN`);
