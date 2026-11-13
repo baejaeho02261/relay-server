@@ -13,7 +13,6 @@ const contextPolicy=require('./peace.security-context-policy');
 const bitCount=n=>{let c=0;for(;n;n&=n-1)c++;return c;};
 const STRONG=new Set(['dkInjectionEvidence','dkRemoteThread','dkPrivateThread','dkWriteIntegrity','dkImportRedirect','dkTLSCallbackIntegrity','dkImageCOWIntegrity','dkPECodeIntegrity']);
 const KERNEL_ALLOWED=new Set(['dkBootTrust','dkVBSHVCI','dkBootAttestationContinuity','dkHypervisorVBSCrossView','dkKernelDMAIOMMUTrust','dkDriverIdentity','dkDriverCrossView','dkSystemViewDisagreement','dkKernelTrustDowngrade','dkCodeIntegrityEventCorrelation']);
-const KERNEL_EXCLUDED=new Set(['dkKernelTelemetryGap','dkVulnerableDriver','dkKernelMappingEvidence','dkDriverTimelineKernel','dkDriverSignerAttestation','dkDriverLoadProvenance','dkDriverServiceTimeline','dkCodeIntegrityPolicy']);
 function Fail(code='SECURITY_DETECTION_INVALID',status=400){throw Object.assign(Error(code),{desktopError:true,status});}
 function Fields(x,names){if(!plain(x)||Object.keys(x).length!==names.length||names.some(k=>!Object.hasOwn(x,k)))Fail();}
 function Entry(id){const c=catalog();return c.Get(id);}
@@ -34,11 +33,12 @@ function ParseRecords(rows,tick,version=2){
  }
  return rows;
 }
+const KernelCandidate=r=>(r.families&128)!==0&&r.correlation===true&&r.localOnly===false&&r.confidence>=50&&KERNEL_ALLOWED.has(r.id);
 function KernelPolicy(rows){
  // Same conservative semantic policy as the native CorrelationPolicy after
  // AuthorityKinds excludes unverified CI provenance/telemetry-only signals.
  // These semantic families are NOT independent acquisition roots.
- const kinds=new Set(rows.filter(r=>(r.families&128)&&r.correlation&&!r.localOnly&&r.confidence>=50&&!KERNEL_EXCLUDED.has(r.id)).map(r=>r.id));
+ const kinds=new Set(rows.filter(KernelCandidate).map(r=>r.id));
  const any=names=>names.some(k=>kinds.has(k));let familyMask=0,score=0,strong=0;
  if(any(['dkBootTrust','dkVBSHVCI','dkBootAttestationContinuity','dkHypervisorVBSCrossView','dkKernelDMAIOMMUTrust'])){familyMask|=1;score+=2;}
  if(any(['dkDriverIdentity','dkDriverCrossView','dkSystemViewDisagreement'])){familyMask|=4;score+=2;}
@@ -57,7 +57,7 @@ function CorrelatedVote(rows,tick){
 function QualifiedIds(rows,tick){
  const fresh=rows.filter(r=>BigInt('0x'+tick)-BigInt('0x'+r.lastTick)<=90000n);
  const kernel=KernelPolicy(fresh).eligible;
- return fresh.filter(r=>r.correlation&&!r.localOnly&&r.confidence>=50&&(STRONG.has(r.id)&&bitCount(r.families&127)>=2||kernel&&(r.families&128)&&KERNEL_ALLOWED.has(r.id))).map(r=>r.id);
+ return fresh.filter(r=>r.correlation&&!r.localOnly&&r.confidence>=50&&(STRONG.has(r.id)&&bitCount(r.families&127)>=2||kernel&&KernelCandidate(r))).map(r=>r.id);
 }
 function RecordKey(r){return r.id+':'+r.source+(r.context?':'+contextPolicy.ContextKey(r.context):'');}
 function PolicyResults(row,stage,value){
@@ -69,8 +69,9 @@ function PolicyResults(row,stage,value){
   const context=row?contextPolicy.Resolve(row,stage,r):contextPolicy.UnknownContext(stage);
   const prior=b?old.find(e=>e.id===Key(b,stage,value._channel||'integrity',r.id,r.source,contextPolicy.ContextKey(r.context))):null;
   const independent=r.correlation&&!r.localOnly&&r.confidence>=50&&bitCount(r.families&127)>=2;
-  const corroborated=independent||kernel&&(r.families&128)!==0&&KERNEL_ALLOWED.has(r.id);
-  return {record:r,key:RecordKey(r),...contextPolicy.Evaluate(Entry(r.id),r,{tick:value.tick,context,corroborated,prior})};
+  const entry=Entry(r.id);
+  const corroborated=entry.category==='KERNEL_TRUST'?kernel&&KernelCandidate(r):independent;
+  return {record:r,key:RecordKey(r),...contextPolicy.Evaluate(entry,r,{tick:value.tick,context,corroborated,prior})};
  });
 }
 function StopRecords(rows,tick){return PolicyResults(null,'?',{detections:rows,tick}).filter(x=>x.stop).map(x=>x.record);}

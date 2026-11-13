@@ -125,3 +125,21 @@ test('lost ACK retries keep the original receipt TTL clock until the immutable b
  checkFirstReceiptClock(source);
  assert.throws(()=>checkFirstReceiptClock(source.replace('if FPendingReceiptStarted = 0 then','if True then')));
 });
+
+
+test('native report provenance belongs to the current kind and kernel receipt sample',()=>{
+ const engine=clean(read('Engine'));
+ const cycle=engine.split('procedure RecordCycleEvidence;')[1].split('procedure FinalizeSamplingAndReport;')[0];
+ assert.match(cycle,/if not Unified\.Recent\(0, Frame\) or \(Frame\.Tick <> TickStart\) then\s*Frame := Default\(TUnifiedFrame\)/);
+ assert.match(cycle,/if Kind in Frame\.RootKinds\[Root\] then[\s\S]*?Inc\(RootCount\)/);
+ assert.match(cycle,/KindCorrelated := \(RootCount >= 2\) and not Frame\.Incomplete/);
+ assert.doesNotMatch(cycle,/Root in Frame\.Roots/);
+ assert.match(engine,/ReadGuard\.ObserveHolder\([\s\S]*?CompleteProbe\(4, ProbeStarted, orHandleSnapshot,/);
+ const transport=methods(read('ResponseTransport'));
+ for(const channel of ['Trust','Driver','Integrity']){
+  const step=method(transport,'TCozyNHWResponseChannel.'+channel+'Step');
+  const sample='Batch.Records[I].LastTick = State.'+channel+'Response.Tick';
+  assert.ok(step.includes(sample),channel);
+  assert.ok(step.indexOf(sample)<step.indexOf('Batch.Records[I].Correlated := True'),channel);
+ }
+});

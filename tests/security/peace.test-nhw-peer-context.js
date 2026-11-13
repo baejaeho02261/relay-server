@@ -49,6 +49,9 @@ check('A to B uses actual one-use handoff grant and same-cohort parent identity'
  const s=B(),g=flow(s).nhwHandoffGrant;assert.equal(g.sourceIdentity,s.aIdentity);assert.equal(g.targetRole,'B');assert(g.consumedAt>0);assert.equal(g.childKeyId,s.device.deviceId);assert.equal(s.bReceipt.stopped,false);assert.equal(s.bReceipt.peerContext.selfIdentity,s.bIdentity);assert.equal(s.bReceipt.peerContext.peers.find(p=>p.role==='A').grantId,g.id);
  const c=context(s.aIdentity,'A',{actorClass:'TRUSTED_A',targetRole:'B',targetIdentity:s.bIdentity,phase:'A_HANDOFF_TO_B',capability:'PROCESS_ACCESS',accessMask:0x101000,peerId:s.aReceipt.peerContext.selfPeerId,grantId:g.id,baseline:false});
  const resolved=peers.ResolveContext(flow(s),'B',c);assert.equal(resolved.expected,true);assert.equal(resolved.actorClass,'TRUSTED_A');assert.equal(resolved.sameSession,true);
+ const own=context(s.bIdentity,'B',{capability:'THREAD_ACCESS',accessMask:0x10,baseline:false});
+ assert.equal(send(s,'B',s.bPeer,[record('dkThread',own)],2).stopped,false);
+ assert.equal(reports.ForFlow(s.start.begin.flowId).find(e=>e.detectionId==='dkThread').disposition,'EXPECTED_FIRST_PARTY');
  const before=reports.ForFlow(s.start.begin.flowId).length;assert.deepEqual(boot.Execute(fixture.ClaimBody(s.parent,s.start.begin,s.finish,s.device)),s.b);assert.equal(reports.ForFlow(s.start.begin.flowId).length,before);
  let rejected;try{store.Atomic(db=>peers.ConsumeGrant(db,db.flows[s.start.begin.flowId],'B',{deviceId:s.device.deviceId},g.claimDigest));}catch(error){rejected=error;}assert.equal(rejected?.message,'SECURITY_HANDOFF_GRANT_REUSED');
  // Exercise the transaction-rollback diagnostic hook directly: ordinary wire
@@ -61,7 +64,18 @@ check('B to O binds separate O epoch to the same root cohort and only exact appr
  assert.equal(peers.ResolveContext(row,'O',c).expected,true);
  assert.equal(peers.ResolveContext(row,'O',{...c,accessMask:0x101001}).expected,true);
  for(const mask of [0x20,0x8,0x2,0x1fffff]){const result=peers.ResolveContext(row,'O',{...c,accessMask:mask});assert.equal(result.forbidden,true);assert.equal(result.expected,false);}
- assert.equal(send(s,'O',s.oPeer,[record('dkProcess',{...c,accessMask:0x20})],2).stopped,true);assert.equal(store.Load().overlays[s.prepared.overlayId].status,'REVOKED');assert.equal(flow(s).status,'REVOKED');
+ const allowed=record('dkProcess',{...c,accessMask:0x101001});
+ const own=context(s.oIdentity,'O',{capability:'TOKEN_ACCESS',accessMask:0x20,baseline:false});
+ assert.equal(send(s,'O',s.oPeer,[allowed,record('dkTokenRights',own)],2).stopped,false);
+ assert.equal(reports.ForFlow(s.start.begin.flowId).find(e=>e.detectionId==='dkTokenRights').disposition,'EXPECTED_FIRST_PARTY');
+ assert.equal(store.Load().overlays[s.prepared.overlayId].status,'CLAIMED');
+ const unrelated=B();
+ const forbidden={...record('dkProcess',{...c,accessMask:0x20}),count:2,lastTick:hex(200002)};
+ assert.equal(send(s,'O',s.oPeer,[forbidden],3).stopped,true);
+ assert.equal(store.Load().overlays[s.prepared.overlayId].status,'REVOKED');assert.equal(flow(s).status,'REVOKED');
+ assert.equal(flow(unrelated).status,'CLAIMED');
+ const e=reports.ForFlow(s.start.begin.flowId).find(item=>item.detectionId==='dkProcess');
+ assert.equal(e.invalidated,true);assert.equal(e.context.actorClass,'TRUSTED_B');
 });
 check('Cross-session claims, mismatched PID creation, spoofed role and phase do not inherit trust',()=>{
  const s=B(),other=B(),foreign=context(other.bIdentity,'B',{actorClass:'TRUSTED_B',targetRole:'B',targetIdentity:s.bIdentity,capability:'PROCESS_ACCESS',accessMask:0x101000,peerId:other.bReceipt.peerContext.selfPeerId,baseline:false});
@@ -79,11 +93,14 @@ check('Client role labels cannot fabricate SELF or registered target context',()
  const c=context(s.aIdentity,'A',{targetRole:'A',targetIdentity:s.aIdentity,phase:'A_HANDOFF_TO_B',capability:'TOKEN_ACCESS',accessMask:8});assert.equal(peers.ResolveContext(flow(s),'B',c).expected,false);
  assert.equal(peers.ResolveContext(flow(s),'B',context(s.bIdentity,'B',{contextMixed:true})).expected,false);
 });
-check('Token baseline is expected, privilege escalation remains forbidden, ordinary impersonation observation alone is not',()=>{
+check('Token baseline remains expected, and peer attribution cannot exempt measured token integrity elevation',()=>{
  const s=B(),c=context(s.bIdentity,'B');assert.equal(peers.ResolveContext(flow(s),'B',c).expected,true);
  for(const delta of [1,2,4,8,16,32,64,128])assert.equal(peers.ResolveContext(flow(s),'B',{...c,baseline:false,tokenDelta:delta}).forbidden,true);
  assert.equal(peers.ResolveContext(flow(s),'B',{...c,baseline:false,tokenDelta:256}).forbidden,false);
- assert.equal(send(s,'B',s.bPeer,[record('dkTokenRights',{...c,baseline:false,tokenDelta:2})],2).stopped,true);
+ assert.equal(send(s,'B',s.bPeer,[record('dkTokenRights',{...c,baseline:false,tokenDelta:2})],2).stopped,false);
+ assert.equal(flow(s).status,'CLAIMED');
+ const raised={...record('dkTokenRights',{...c,baseline:false,tokenDelta:4}),count:2,lastTick:hex(200002)};
+ assert.equal(send(s,'B',s.bPeer,[raised],3).stopped,true);
 });
 check('Independent response paths share a monotonic server peer sequence without reusing report counters',()=>{
  const s=A(),first=s.aReceipt.peerContext;const next=send(s,'A',s.aPeer,[],1,'trust').peerContext;assert(BigInt('0x'+next.serverSequence)>BigInt('0x'+first.serverSequence));

@@ -136,6 +136,11 @@ function ResolveContext(row,stage,context){
  const phaseAllowed=context.phase===actor.phase||!!grant&&[actor.role+'_HANDOFF_TO_'+target.role,actor.role+'_SHUTDOWN'].includes(context.phase);
  const m=MATRIX[context.phase];
  if(grant)out.grantId=grant.id;
+ // An exact same-process handle has no cross-process authority. Apply this
+ // only after both identities and the server's current role phase resolve.
+ if(same&&phaseAllowed&&m&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability)){
+  out.capabilityDecision='EXPECTED';out.expected=true;out.forbidden=false;return out;
+ }
  if(out.forbidden||!m)return out;
  if(!phaseAllowed){out.capabilityDecision='SUSPICIOUS';return out;}
  let allowed=false;

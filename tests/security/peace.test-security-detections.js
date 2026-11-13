@@ -55,23 +55,26 @@ check('Exact accepted batch recovers after volatile state is cleared; changed se
  assert.equal(send(s,'driver',[detection('dkNamespace',{count:2,lastTick:hex(1200)})],2).stopped,false);
 });
 check('All 204 semantic states have explicit context policy; warnings/internal evidence never stop alone',()=>{
- let warning=0,internal=0,actionable=0;
+ let warning=0,internal=0,actionable=0,kernel=0;
  for(const kind of catalog.NHW){
   assert.ok(kind.contextPolicy,kind.id);
   const strong=detection(kind.id,{families:3,confidence:75,correlation:true,localOnly:false});
   const result=reports.StopRecords([strong],hex(2000));
   if(!kind.standaloneOutput){assert.equal(result.length,0,kind.id);internal++;}
   else if(kind.signalClass==='UNKNOWN'){assert.equal(result.length,0,kind.id);warning++;}
+  else if(kind.category==='KERNEL_TRUST'){assert.equal(result.length,0,kind.id);kernel++;}
   else {assert.equal(result.length,1,kind.id);actionable++;}
   assert.equal(reports.StopRecords([strong],hex(100000)).length,0,kind.id+' stale');
  }
- assert.deepEqual({actionable,warning,internal},{actionable:191,warning:6,internal:7});
+ assert.equal(actionable+kernel,191);
+ assert.equal(kernel,catalog.NHW.filter(k=>k.category==='KERNEL_TRUST'&&k.standaloneOutput&&k.signalClass!=='UNKNOWN').length);
+ assert.deepEqual({warning,internal},{warning:6,internal:7});
  const s=subject();assert.equal(send(s,'integrity',catalog.NHW.filter(k=>!k.standaloneOutput).map(e=>detection(e.id)),1,{confirmed:true,trust:3}).stopped,false);assert.equal(row(s).status,'STARTED');
 });
 check('Each response channel independently stops an actual typed finding without inventing correlation or hardware trust',()=>{
- for(const [channel,id]of [['trust','dkPECodeIntegrity'],['driver','dkVulnerableDriver'],['integrity','dkWriteIntegrity']]){
+ for(const [channel,id]of [['trust','dkPECodeIntegrity'],['driver','dkIAT'],['integrity','dkWriteIntegrity']]){
   const s=subject(),other=subject();assert.equal(send(s,channel,[detection(id)]).stopped,true);
-  assert.equal(row(s).status,'REVOKED');assert.equal(row(other).status,'STARTED');const e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,true);assert.equal(e.localOnly,true);assert.equal(e.confidence,0);assert.equal(e.attestation.hardwareAttested,false);assert.ok(['EXACT_INTEGRITY_MUTATION','CONFIRMED_KERNEL_EVIDENCE','CONFIRMED_KERNEL_CONDITION'].includes(e.decisionReason));
+  assert.equal(row(s).status,'REVOKED');assert.equal(row(other).status,'STARTED');const e=reports.ForFlow(row(s).id)[0];assert.equal(e.invalidated,true);assert.equal(e.localOnly,true);assert.equal(e.confidence,0);assert.equal(e.attestation.hardwareAttested,false);assert.ok(['EXACT_INTEGRITY_MUTATION','CONFIRMED_STRUCTURAL_INVARIANT'].includes(e.decisionReason));
  }
 });
 check('Every coverage warning requests recovery without revoking; worker availability remains diagnostic',()=>{
@@ -92,10 +95,17 @@ check('Unknown low-confidence local state stays unresolved; typed code corruptio
  const e=reports.ForFlow(row(s).id)[0];assert.equal(e.correlation,false);assert.equal(e.confirmationCount,0);assert.equal(e.evidenceLevel,'CLIENT_LOCAL_OBSERVATION');assert.equal(e.invalidated,false);assert.equal(e.disposition,'OBSERVATION_UNRESOLVED');assert.equal(row(other).status,'STARTED');
  assert.equal(send(s,'integrity',[detection('dkPECodeIntegrity')],2).stopped,true);
 });
-check('Kernel semantic confidence and final stop policy remain distinct',()=>{
- const s=subject(),kernel=[detection('dkKernelTrustDowngrade',{families:128}),detection('dkBootTrust',{families:128})];
- assert.equal(send(s,'trust',kernel).stopped,true);assert.equal(row(s).status,'REVOKED');
- assert.ok(reports.ForFlow(row(s).id).every(e=>e.evidenceFamilies.join(',')==='KERNEL_AGGREGATE'&&e.localOnly&&!e.attestation.hardwareAttested));
+check('Kernel findings need qualifying evidence on each contributing record',()=>{
+ const s=subject();
+ const raw=['dkKernelTrustDowngrade','dkBootTrust'].map(id=>detection(id,{families:128}));
+ assert.equal(send(s,'trust',raw).stopped,false);assert.equal(row(s).status,'STARTED');
+ const qualified=raw.map(r=>({...r,count:2,lastTick:hex(1200),confidence:75,correlation:true,localOnly:false}));
+ const bystander=detection('dkDriverCrossView',{families:128});
+ assert.equal(send(s,'trust',[...qualified,bystander],2).stopped,true);assert.equal(row(s).status,'REVOKED');
+ const events=reports.ForFlow(row(s).id);
+ assert.deepEqual(events.filter(e=>e.invalidated).map(e=>e.detectionId).sort(),['dkBootTrust','dkKernelTrustDowngrade']);
+ assert.equal(events.find(e=>e.detectionId===bystander.id).localOnly,true);
+ assert.ok(events.every(e=>e.evidenceFamilies.join(',')==='KERNEL_AGGREGATE'&&!e.attestation.hardwareAttested));
  assert.equal(reports.UserModeVote([detection('dkRemoteThread',{families:128,confidence:100,correlation:true,localOnly:false})],hex(2000)),false);
 });
 check('Unrelated local observations are not relabeled causative when another event revokes session',()=>{

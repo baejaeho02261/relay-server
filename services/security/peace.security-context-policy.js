@@ -66,7 +66,13 @@ function ForbiddenCapability(record){
  if(c.capability==='TOKEN_ACCESS')return (c.accessMask&0x1e7)!==0; // mutation, not QUERY / QUERY_SOURCE
  return false;
 }
-function TokenMutation(record){return TOKEN_KINDS.has(record.id)&&record.context?.capability==='TOKEN_STATE'&&(record.context.tokenDelta&255)!==0;}
+function TokenMutation(record){
+ const c=record.context;
+ // v3 cannot distinguish enabling an existing privilege from obtaining one.
+ // Only a measured integrity raise or containment removal is conclusive here.
+ return TOKEN_KINDS.has(record.id)&&c?.capability==='TOKEN_STATE'&&
+  !c.baseline&&!c.contextMixed&&(c.tokenDelta&0x64)!==0;
+}
 function ExpectedCompatible(entry,r,context){
  if(context.capabilityDecision!=='EXPECTED'||context.firstPartyAttested!==true||context.serverBound!==true||context.sameSession!==true||context.contextMixed||r.correlation||r.localOnly!==true)return false;
  if(!categoryCapabilities[entry.category]?.includes(context.capability))return false;
@@ -74,7 +80,7 @@ function ExpectedCompatible(entry,r,context){
  // byte, injected execution, signer regression, or another semantic finding.
  // Expected classification is limited to explicitly attributed benign access
  // and initial state, never a role-wide or startup-wide exemption.
- if(ACCESS_KINDS.has(entry.id)&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability))return !ForbiddenCapability(r);
+ if(ACCESS_KINDS.has(entry.id)&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability))return true;
  return TOKEN_KINDS.has(entry.id)&&context.capability==='TOKEN_STATE'&&context.baseline&&context.tokenDelta===0;
 }
 function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prior=null,now=Date.now()}={}){
@@ -91,16 +97,28 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
   const degraded=episode.observations>=3&&now-episode.startedAt>=30000;
   return {...base,disposition:degraded?'COVERAGE_DEGRADED':'COVERAGE_WARNING',decisionReason:degraded?'PERSISTENT_COVERAGE_GAP_REVALIDATION_REQUIRED':'TRANSIENT_COVERAGE_GAP_RECOVERY_REQUIRED',sessionStopPolicy:'RECOVER_AND_REVALIDATE',coverageState:degraded?'SESSION_DEGRADED':'RECOVERY_PENDING',coverageEpisode:episode};
  }
- if(ForbiddenCapability(r))return {...base,context:{...context,capabilityDecision:'FORBIDDEN'},disposition:'DETECTION',decisionReason:'FORBIDDEN_CAPABILITY_OBSERVED',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
- if(context.serverBound===true&&context.firstPartyAttested===true&&context.sameSession===true&&context.capabilityDecision==='FORBIDDEN'&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability)&&categoryCapabilities[entry.category]?.includes(context.capability))return {...base,disposition:'DETECTION',decisionReason:'FIRST_PARTY_CAPABILITY_MATRIX_VIOLATION',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
- if(TokenMutation(r))return {...base,context:{...context,capabilityDecision:'FORBIDDEN'},disposition:'DETECTION',decisionReason:'TOKEN_SECURITY_TRANSITION',sessionStopPolicy:'STOP_ON_TOKEN_SECURITY_TRANSITION',stop:true};
- // These states are emitted only after byte/canary mutation or a confirmed
- // exact driver identity / kernel correlation in the existing FP1 sensors.
- // Actor attribution may legitimately be unknown. Neither SELF nor baseline
- // claims can exempt them. They remain client evidence, not server OS proof.
- if(cls==='EXACT_INTEGRITY_MUTATION'||cls==='CONFIRMED_STRUCTURAL_INVARIANT'||cls==='SENSOR_VALIDATED_CORRELATION'||cls==='CONFIRMED_KERNEL_EVIDENCE'||cls==='CONFIRMED_KERNEL_CONDITION')return {...base,disposition:'DETECTION',decisionReason:cls,sessionStopPolicy:'STOP_ON_TYPED_SECURITY_EVIDENCE',stop:true};
- if(corroborated)return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'INDEPENDENT_EVIDENCE_CORROBORATION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
+ // The kernel path reports both raw samples and receipt-qualified findings.
+ // A kernel kind only contributes when the server's kernel quorum selected it.
+ if(entry.category==='KERNEL_TRUST'){
+  if(corroborated)return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'INDEPENDENT_EVIDENCE_CORROBORATION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
+  return base;
+ }
  if(ExpectedCompatible(entry,r,context))return {...base,disposition:'EXPECTED_FIRST_PARTY',decisionReason:'SERVER_BOUND_ROLE_CAPABILITY_ALLOWED',sessionStopPolicy:'OBSERVE_ONLY'};
+ const knownPeer=context.serverBound===true&&context.firstPartyAttested===true&&
+  context.sameSession===true&&!context.contextMixed;
+ if(knownPeer&&context.actorClass!=='SELF'&&context.capabilityDecision==='FORBIDDEN'&&
+    ['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability)&&
+    categoryCapabilities[entry.category]?.includes(context.capability))
+  return {...base,disposition:'DETECTION',decisionReason:'FIRST_PARTY_CAPABILITY_MATRIX_VIOLATION',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
+ // The native collector supplies an alias only for a measured holder identity.
+ // Startup inventory and ambiguous identity do not prove an external violation.
+ if(!knownPeer&&r.context?.actorClass==='EXTERNAL'&&context.actorClass==='EXTERNAL'&&
+    context.actorIdentity&&!context.baseline&&!context.contextMixed&&ForbiddenCapability(r))
+  return {...base,context:{...context,capabilityDecision:'FORBIDDEN'},disposition:'DETECTION',decisionReason:'FORBIDDEN_CAPABILITY_OBSERVED',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
+ if(TokenMutation(r))return {...base,context:{...context,capabilityDecision:'FORBIDDEN'},disposition:'DETECTION',decisionReason:'TOKEN_SECURITY_TRANSITION',sessionStopPolicy:'STOP_ON_TOKEN_SECURITY_TRANSITION',stop:true};
+ // The existing native integrity and compound detectors retain their own checks.
+ if(cls==='EXACT_INTEGRITY_MUTATION'||cls==='CONFIRMED_STRUCTURAL_INVARIANT'||cls==='SENSOR_VALIDATED_CORRELATION')return {...base,disposition:'DETECTION',decisionReason:cls,sessionStopPolicy:'STOP_ON_TYPED_SECURITY_EVIDENCE',stop:true};
+ if(corroborated)return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'INDEPENDENT_EVIDENCE_CORROBORATION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
  return base;
 }
 module.exports={ParseContext,ContextKey,UnknownContext,PolicyClass,Resolve,Evaluate,Fresh,ForbiddenCapability,TokenMutation,PHASES,CAPABILITIES,COVERAGE,DISPOSITIONS,CONTEXT_FIELDS};
