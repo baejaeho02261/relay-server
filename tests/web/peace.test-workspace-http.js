@@ -130,7 +130,7 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
 (async()=>{try{
  await start();let auth=await login(),viewer=await login('viewer');
  await test('Production HTTP shell serves the current detection UI and matching script bundle',async()=>{
-  const expectedRevision='cozy-peace-v23-motion-visibility';
+  const expectedRevision='cozy-peace-v24-merged-detections';
   const headers={'X-Forwarded-Proto':'https',Cookie:auth.cookie};
   async function asset(url,type){const r=await fetch(base+url,{headers,signal:AbortSignal.timeout(5000)});assert.equal(r.status,200,url);assert.match(r.headers.get('content-type')||'',type,url);assert.match(r.headers.get('cache-control')||'',/no-store/,url);return r.text();}
   const html=await asset('/',/text\/html/);
@@ -139,7 +139,10 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
   assert.ok(scripts.every(url=>url.endsWith('?v=5.0.2-'+expectedRevision)),'Mixed old/new script query versions');
   const memberUrl=scripts.find(url=>url.startsWith('/scripts/desktop/peace.admin-desktop-members.js?'));
   const workflowUrl=scripts.find(url=>url.startsWith('/scripts/desktop/peace.admin-desktop-workflow.js?'));
+  const detectionsUrl=scripts.find(url=>url.startsWith('/scripts/pages/peace.admin-pages-detections.js?'));
   assert.ok(memberUrl&&workflowUrl);assert.ok(scripts.indexOf(memberUrl)<scripts.indexOf(workflowUrl));
+  assert.ok(detectionsUrl);
+  assert.match(html,/data-view="security-detections" data-admin-only/);
   const sources=await Promise.all(scripts.map(url=>asset(url,/(?:application|text)\/javascript/)));
   for(let i=0;i<sources.length;i++)assert.equal(sources[i],fs.readFileSync(path.join(root,'public',scripts[i].split('?')[0]),'utf8'),scripts[i]);
   const members=sources[scripts.indexOf(memberUrl)];
@@ -149,11 +152,23 @@ async function until(fn){for(let i=0;i<100;i++){const r=await fn();if(r)return r
   assert.ok(!members.includes('보안 사건 · 서버 기록'));
   const sw=await asset('/peace.service-worker.js',/(?:application|text)\/javascript/);
   assert.ok(sw.includes('relay-admin-shell-v5.0.2-'+expectedRevision));
+  assert.ok(sw.includes(detectionsUrl));
   const version=await call('/ui-version.json');
   assert.equal(version.status,200);assert.equal(version.json.ready,true,JSON.stringify(version.json.issues));assert.equal(version.json.uiRevision,expectedRevision);
  });
  const w='/api/desktop/workspace';let job,licenseIds=[];
  await test('New workspace routes require administrator authentication',async()=>{for(const p of ['/licenses','/summary','/jobs','/storage']){assert.equal((await call(w+p)).status,401);assert.equal((await call(w+p,undefined,viewer)).status,403);assert.equal((await call(w+p,undefined,auth)).status,200);}});
+ await test('Merged detection collection is administrator-only and validates the page query',async()=>{
+  const route='/api/desktop/bootstrap/security-center/detections';
+  assert.equal((await call(route)).status,401);
+  assert.equal((await call(route,undefined,viewer)).status,403);
+  const page=await call(route+'?limit=100&offset=0',undefined,auth);
+  assert.equal(page.status,200);
+  assert.deepEqual(page.json,{ok:true,items:[],limit:100,offset:0,totalCount:0});
+  for(const query of ['?limit=0','?limit=201','?offset=-1','?limit=1&limit=2','?unexpected=1']){
+   assert.equal((await call(route+query,undefined,auth)).status,400,query);
+  }
+ });
  await test('Product catalog is admin-only, read-only and has six explicit products per category',async()=>{const path='/api/desktop/products';assert.equal((await call(path)).status,401);assert.equal((await call(path,undefined,viewer)).status,403);const r=await call(path,undefined,auth);assert.equal(r.status,200);assert.equal(r.json.version,1);assert.equal(r.json.products.length,18);assert.equal(new Set(r.json.products.map(x=>x.id)).size,18);for(const category of ['cleaner','mobile','spoofer'])assert.equal(r.json.products.filter(x=>x.category===category).length,6);assert.equal((await call(path,{},auth)).status,405);});
  await test('Missing, wildcard and multiple product grants are rejected over HTTP',async()=>{for(const productId of [undefined,'','all','cleaner.*',['mobile.roblox','cleaner.pubg']]){const r=await call(w+'/jobs/preview',{kind:'CREATE',count:1,prefix:'Denied',...(productId===undefined?{}:{productId})},auth);assert.equal(r.status,400);assert.match(r.json.error,/DESKTOP_PRODUCT_(REQUIRED|INVALID)/);}assert.equal((await call(w+'/licenses',undefined,auth)).json.filteredCount,0);});
  await test('Workspace mutation rejects missing CSRF and unknown fields',async()=>{assert.equal((await call(w+'/jobs/preview',{kind:'CREATE',productId:'mobile.brawl-stars',count:1,prefix:'HTTP'},auth,{csrf:false})).status,403);const bad=await call(w+'/jobs/preview',{kind:'CREATE',productId:'mobile.brawl-stars',count:1,permit:true},auth);assert.equal(bad.status,400);assert.ok(bad.json.problem?.next);});

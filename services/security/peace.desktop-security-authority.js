@@ -362,17 +362,18 @@ function Submit(body) {
   }
   const result = Evaluate(value, row.integrityArtifact, challenge.mitigationProfile?{...policy,dynamicCode:challenge.mitigationProfile.dynamicCode,requireCfg:policy.requireCfg||challenge.mitigationProfile.requireCfg}:policy, artifact);
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
-  if (nhw && (nhw.invalidated || policy.mode === 'enforce' && result.status === 'MISMATCH')) {
-    const reason = nhw.invalidated ? 'SECURITY_SESSION_STOP' : result.reason;
+  // The frame's client invalidation flag describes local state. The signed
+  // typed response path owns NHW decisions, and this path enforces Cozy's
+  // separate comparison with the server's registered baseline.
+  if (nhw && policy.mode === 'enforce' && result.status === 'MISMATCH') {
+    const reason = result.reason;
     const response = { version: 1, accepted: true, status: 'MISMATCH', reason, proceed: false,
       sequence: challenge.sequence, expiresAt: challenge.expiresAt, attested: false,
       nhwVerdict: nhwAttestation.Verdict(nhw, false) };
     require('../protocol/peace.packet-schema').ValidateDocument('authorityReply',response);
     Invalidate(row,body.stage,reason);
     require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
-    // The independent NHW reports retain their own causes. Do not replace
-    // them with a fabricated Cozy detection for the generic stop sentinel.
-    if (!nhw.invalidated) RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:result.status==='MISMATCH',crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
+    RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:true,crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
     RecordAttestation(row,body.stage,challenge,'REJECTED');
     return response;
   }

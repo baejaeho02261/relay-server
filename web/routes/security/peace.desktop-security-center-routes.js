@@ -1,9 +1,25 @@
 'use strict';
 const PREFIX='/api/desktop/bootstrap/security-center';
+function DetectionQuery(requestUrl) {
+ const query=new URL(requestUrl,'http://localhost').searchParams;
+ const options={};
+ for(const [key,value] of query){
+  if(!['limit','offset'].includes(key)||Object.hasOwn(options,key)||!/^\d{1,5}$/.test(value)){
+   throw Object.assign(Error('SECURITY_DETECTION_INVALID'),{desktopError:true,status:400});
+  }
+  options[key]=Number(value);
+ }
+ return options;
+}
 async function Handle({method,pathname,body,req,res,session,desktopAuthorization}){
  if(pathname!==PREFIX&&!pathname.startsWith(PREFIX+'/'))return false;const {Json,ApiError}=require("../../http/peace.api-context"),auth=require("../../authentication/peace.web-auth"),guard=require("../../../services/authentication/peace.desktop-admin-guard"),center=require("../../../services/security/peace.server-security-center");
  if(!session||session.role!=='admin'||!auth.IsSessionActive(session)){ApiError(res,403,'ADMIN_REQUIRED');return true;}
  try{
+  if(pathname===PREFIX+'/detections'){
+   if(method!=='GET'){ApiError(res,405,'METHOD_NOT_ALLOWED');return true;}
+   const detections=require('../../../services/security/peace.security-detections');
+   Json(res,200,{ok:true,...detections.ListRecent(DetectionQuery(req.url))});return true;
+  }
   if(method==='GET'){if(pathname===PREFIX)Json(res,200,{ok:true,...center.Status()});else{const m=/^\/(parser-tests|artifact-scan)\/([a-f0-9]{32})$/.exec(pathname.slice(PREFIX.length));if(!m){ApiError(res,404,'NOT_FOUND');return true;}Json(res,200,{ok:true,job:center.Get(m[1],m[2])});}return true;}
   if(method!=='POST'){ApiError(res,405,'METHOD_NOT_ALLOWED');return true;}
   if(!auth.ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}

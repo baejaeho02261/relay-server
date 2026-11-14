@@ -31,7 +31,7 @@ Add('overlay.shutdown', 'OVERLAY_SESSION_CAPABILITY', 'O', 'exact transferred ca
 Add('overlay.close', 'OVERLAY_SESSION_CAPABILITY', 'O', 'sessionId', 'terminal acknowledgement only; V3 30 seconds');
 Add('overlay.abort', 'GAME-OVERLAY-ABORT-V3', 'B', 'parentSessionId + scope + identifier', 'terminal cancellation only; 30 seconds');
 Add('authority.challenge authority.submit', 'GAME-AUTHORITY-V2', 'A/B/O', 'challengeId', 'submit exact receipt <=30 seconds and original decision lifetime; current authority');
-for(const path of ['trust','driver','integrity'])Add('nhw.'+path+'.challenge nhw.'+path+'.submit','COZY-NHW-'+path.toUpperCase()+'-RESPONSE-V1','A/B/O','per-path signed nonce + producer sequence + exact stage/session epoch','confirmed 2-of-3 exact-cohort stop only; no grant or renewal');
+for(const path of ['trust','driver','integrity'])Add('nhw.'+path+'.challenge nhw.'+path+'.submit','COZY-NHW-'+path.toUpperCase()+'-RESPONSE-V1','A/B/O','per-path signed nonce + producer sequence + exact stage/session epoch','qualified typed evidence may stop the exact cohort; no grant or renewal');
 Add('report.challenge report.submit', 'GAME-INTEGRITY-REPORT-V2', 'A/B/O', 'reportId', 'submit exact receipt 30 seconds; current authority, terminal denial only');
 Add('device.policy device.challenge device.complete device.tpmActivate','GAME-DEVICE-IDENTITY-V2 / GAME-DEVICE-ACTIVATION-V2','A/B/O','challengeId + current session','dual-clock one-use challenge; durable exact receipt; live identity policy');
 Add('policy.challenge policy.invoke policy.result','COZY-SERVER-OPERATION-V1','A/B/O','exact function + args + policy + requestId + one-use signed nonce','one invoke; exact signed result retrieval <=30 seconds; no execution replay or lease renewal');

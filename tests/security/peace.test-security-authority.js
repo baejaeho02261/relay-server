@@ -149,7 +149,7 @@ Check('NHW challenge, compact evidence and verdict are bound to exact signed aut
   assert.equal(auth.Execute(Signed(ctx,unavailable,dev)).nhwVerdict,undefined);
   assert.equal(Row(session).status,'CLAIMED');
 });
-Check('NHW requires corresponding independent sinks before corroborated revocation', () => {
+Check('NHW validates compact claims without treating a signed client verdict as a session stop', () => {
   const device = Device(), isolated = NewSession(device);
   const ctx = Context(device,'B',isolated,'verify',sha512('NHW revoke'));
   let c = auth.Execute({...ctx,nhwVersion:1});
@@ -161,13 +161,23 @@ Check('NHW requires corresponding independent sinks before corroborated revocati
   assert.equal(Row(isolated).status,'CLAIMED');
   c = auth.Execute({...ctx,nhwVersion:1});
   const signed = Signed(ctx,c,device,NhwEvidence(c,{trust:3,mask:3,invalidated:true}));
-  const denied = auth.Execute(signed);
-  assert.equal(denied.proceed,false);
-  assert.equal(denied.reason,'SECURITY_SESSION_STOP');
-  assert.equal(Buffer.from(denied.nhwVerdict,'base64')[92],0);
+  const result = auth.Execute(signed);
+  assert.equal(result.proceed,true);
+  assert.equal(result.status,'PASS');
+  assert.equal(Buffer.from(result.nhwVerdict,'base64')[92],1);
+  assert.equal(Row(isolated).status,'CLAIMED');
+  assert.equal(Row(session).status,'CLAIMED');
+  assert.deepEqual(auth.Execute(signed),result);
+  c = auth.Execute({...ctx,nhwVersion:1});
+  const mismatch = auth.Execute(Signed(ctx,c,device,{
+    ...NhwEvidence(c,{trust:3,mask:3,invalidated:true}), codeSha512:'0'.repeat(128)
+  }));
+  assert.equal(mismatch.proceed,false);
+  assert.equal(mismatch.status,'MISMATCH');
+  assert.equal(mismatch.reason,'IMAGE_DIGEST_MISMATCH');
+  assert.equal(Buffer.from(mismatch.nhwVerdict,'base64')[92],0);
   assert.equal(Row(isolated).status,'REVOKED');
   assert.equal(Row(session).status,'CLAIMED');
-  Reject(() => auth.Execute(signed),'BOOTSTRAP_REVOKED');
 });
 Check('NHW sequence advances across a later server restart without resetting the session epoch', () => {
   const codecPath = require.resolve('../../services/security/peace.nhw-attestation');

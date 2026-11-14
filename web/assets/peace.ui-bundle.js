@@ -28,6 +28,7 @@ const FILES = [
   "scripts/actions/peace.admin-pages-devices.js",
   "scripts/pages/peace.admin-pages-deployment.js",
   "scripts/pages/peace.admin-pages-security.js",
+  "scripts/pages/peace.admin-pages-detections.js",
   "scripts/pages/peace.admin-pages-operations.js",
   "scripts/actions/peace.admin-actions-access.js",
   "scripts/actions/peace.admin-actions-operations.js",

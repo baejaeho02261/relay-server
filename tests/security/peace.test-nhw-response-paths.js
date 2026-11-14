@@ -66,13 +66,13 @@ check('Lost replies recover exact receipt, changes and producer replays are refu
  assert.equal(send(s,'driver',payload(2)).stopped,false);
  assert.equal(row(s).status,'CLAIMED');
 });
-check('One channel cannot produce quorum by repeating; another valid channel ends exact B cohort',()=>{
+check('Authenticated legacy claims on multiple channels do not end a B cohort',()=>{
  const s=newB(),foreign=newB();
  assert.equal(send(s,'trust',payload(1)).stopped,false);
  assert.equal(send(s,'trust',payload(2)).stopped,false);
- assert.equal(send(s,'integrity',payload(1)).stopped,true);
- assert.equal(row(s).status,'REVOKED');assert.equal(row(foreign).status,'CLAIMED');
- reject(()=>send(s,'driver'));
+ assert.equal(send(s,'integrity',payload(1)).stopped,false);
+ assert.equal(send(s,'driver',payload(1)).stopped,false);
+ assert.equal(row(s).status,'CLAIMED');assert.equal(row(foreign).status,'CLAIMED');
 });
 check('Two unconfirmed signals and an abandoned/expired challenge never terminate a session',()=>{
  const s=newB();assert.equal(send(s,'trust',payload(1,false)).stopped,false);assert.equal(send(s,'driver',payload(1,false)).stopped,false);
@@ -85,7 +85,8 @@ check('Rate limiting and supersession on one path do not consume another path no
  request(s,'trust');reject(()=>authority.Execute(first.submit),'SECURITY_CHALLENGE_INVALID');
  for(let i=0;i<58;i++)request(s,'trust');
  reject(()=>request(s,'trust'),'SECURITY_RATE_LIMIT');
- assert.equal(authority.Execute(driver.submit).stopped,false);assert.equal(send(s,'integrity').stopped,true);
+ assert.equal(authority.Execute(driver.submit).stopped,false);
+ assert.equal(send(s,'integrity',nativeV5('dkPECodeIntegrity','B')).stopped,true);
 });
 // Exercise the same signed response path with ordinary and qualifying evidence.
 function nativeV5(id,stage,sequence=1,fields={}){
@@ -123,7 +124,8 @@ check('V5 signed A/B findings keep isolated observations and revoke only on qual
 });
 check('Stage A independently reports and revokes only its exact not-yet-claimed flow',()=>{
  const a=newA(),other=newA();
- assert.equal(send(a,'driver').stopped,false);assert.equal(send(a,'integrity').stopped,true);
+ assert.equal(send(a,'driver').stopped,false);
+ assert.equal(send(a,'integrity',nativeV5('dkPECodeIntegrity','A')).stopped,true);
  assert.equal(row(a).status,'REVOKED');assert.equal(row(other).status,'STARTED');
 });
 check('O uses its own activated key and ends only its authenticated A/B/O cohort',()=>{
@@ -163,7 +165,8 @@ check('A signed channel payload cannot substitute a different epoch or hash',()=
   const profile=require('../../services/network/peace.connect-transport-key').Profile(),s=newB();
   const round=body=>fixture.TcpOperation(profile,'security',body);
   for(const channel of ['Trust','Driver']){
-   const text=payload(),body={...s.ctx,binding:hash(text),action:'nhw'+channel+'Challenge'};
+   const text=channel==='Trust'?payload():nativeV5('dkPECodeIntegrity','B');
+   const body={...s.ctx,binding:hash(text),action:'nhw'+channel+'Challenge'};
    const c=await round(body),submit={...body,action:'nhw'+channel+'Submit',challengeId:c.challengeId,payload:text};
    submit.signature=fixture.Sign(s.device,paths.Canonical(submit,c,channel.toLowerCase()));
    const result=await round(submit);assert.equal(result.stopped,channel==='Driver');

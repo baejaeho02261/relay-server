@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'cozy-peace-v23-motion-visibility';
+const WEB_UI_REVISION = 'cozy-peace-v24-merged-detections';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -90,6 +90,7 @@ const titles = {
   enrollment: ['서버 등록', "새 서버의 최초 등록 승인 정책을 관리합니다."],
   protocol: ['프로토콜', "프로토콜 v3 준비도, 기기 HMAC, 이벤트 이벤트 순서 상태를 확인합니다."],
   security: ['보안 상태', "HMAC 검증, 기기 등록, 기기 인증키 수명과 인증 이상을 한 화면에서 확인합니다."],
+  'security-detections': ['Cozy + NHW 감지', '감지 시각, 출처, A/B/O 단계와 공격 판정을 확인합니다.'],
   audit: ['감사 기록', '최근 서버 이벤트와 관리 작업 기록입니다.'],
   activity: ['관리자 활동', "웹 관리자에서 수행된 관리 작업과 결과를 추적합니다."],
   sessions: ['로그인 세션', "현재 웹 관리자 로그인 세션을 확인하고 종료합니다."],
@@ -332,7 +333,7 @@ function startEvents() {
   if (eventPollTimer) { clearInterval(eventPollTimer); eventPollTimer = null; }
   const poll = () => {
     if (!session || document.hidden || rendering) return;
-    if (currentView === 'desktop-licenses') renderCurrent(true);
+    if (currentView === 'desktop-licenses' || currentView === 'security-detections') renderCurrent(true);
   };
   const disconnected = () => {
     liveState.textContent = '재연결 중 · 15초마다 갱신';
@@ -368,7 +369,7 @@ function startEvents() {
   });
   eventSource.addEventListener('tick', () => {
     if (document.hidden || rendering) return;
-    const liveViews = ['desktop-licenses', 'dashboard', 'monitor', 'recovery', 'servers', 'notifications', 'processors', 'reports', 'sessions', 'health', 'system', 'features', 'confighistory', 'enrollment', 'releases', 'security', 'protocol', 'storage', 'danger'];
+    const liveViews = ['desktop-licenses', 'dashboard', 'monitor', 'recovery', 'servers', 'notifications', 'processors', 'reports', 'sessions', 'health', 'system', 'features', 'confighistory', 'enrollment', 'releases', 'security', 'security-detections', 'protocol', 'storage', 'danger'];
     if (liveViews.includes(currentView)) renderCurrent(true);
     updateNotificationBadge();
   
@@ -553,6 +554,7 @@ async function renderCurrent(silent = false) {
     else if (currentView === 'enrollment') await renderEnrollment();
     else if (currentView === 'protocol') await renderProtocolSecurity();
     else if (currentView === 'security') await renderSecurityCenter();
+    else if (currentView === 'security-detections') await renderMergedDetections(silent);
     else if (currentView === 'audit') await renderAudit();
     else if (currentView === 'activity') await renderActivity();
     else if (currentView === 'sessions') await renderSessions();

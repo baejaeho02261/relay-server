@@ -10,7 +10,7 @@ const detections = require('./peace.security-detections');
 const peers = require('./peace.nhw-peer-context');
 const channels = ['trust', 'driver', 'integrity'];
 const states = new Map(channels.map(channel => [channel, {
-  pending: new Map(), order: new Map(), votes: new Map(), rates: new Map(),
+  pending: new Map(), order: new Map(), rates: new Map(),
   receipts: protocol.CreateReceipts({conflict: 'SECURITY_NHW_RESPONSE_REUSED'})
 }]));
 const AUTH = ['action', 'stage', 'sessionId', 'sessionToken', 'machineId', 'binding'];
@@ -48,7 +48,7 @@ function Authenticate(body) {
 function Prune() {
   const clock = deadline.Now();
   for (const state of states.values()) {
-    for (const map of [state.pending, state.votes, state.rates])
+    for (const map of [state.pending, state.rates])
       for (const [key, value] of map) if (deadline.Expired(value, clock)) map.delete(key);
     // RetireContext removes replay order when the role is retired. Never expire
     // ordering while its session remains live and allow a producer replay.
@@ -104,7 +104,7 @@ function Submit(body, channel) {
     detections.CheckOrder(row,body.stage,channel,value);
     if(value.version>=2) detections.CheckCounters(row,body.stage,channel,value.detections);
   }
-  const previous=state.order.get(context),previousVote=state.votes.get(context);
+  const previous=state.order.get(context);
   if (!recovered && previous && (BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
   if (!previous && state.order.size>=4096) Fail('SECURITY_CAPACITY',503);
   let peerContext=null;
@@ -118,16 +118,12 @@ function Submit(body, channel) {
     throw error;
   }
   state.order.set(context,{sequence:BigInt('0x'+value.sequence),tick:BigInt('0x'+(recovered?.tick||value.tick))});
-  // v1 is retained only for deployed pre-catalog clients. v2 final policy is
-  // computed here from actual named evidence, not the client confirmed bit.
-  const confirmed=value.version===1&&value.confirmed;
-  if (confirmed) state.votes.set(context,{digest:value.digest,ids:value.version>=2?detections.QualifiedIds(value.detections,value.tick):[],...deadline.After(90000)});
-  else state.votes.delete(context);
-  const voteMask=channels.reduce((mask,name,i)=>mask|(states.get(name).votes.has(context)?1<<i:0),0);
+  // Legacy envelopes remain authenticated and replay-checked. Only typed
+  // evidence can receive a new stop decision.
   const terminal=detections.TerminalAllowed(row,body.stage);
   if(terminal&&value.version<2)Fail('SECURITY_NHW_RESPONSE_INVALID');
   const decision=value.version>=2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value,row)):null;
-  const stopped=terminal||!!decision||(value.version===1&&(voteMask===3||voteMask===5||voteMask===6||voteMask===7));
+  const stopped=terminal||!!decision;
   const response={version:1,channel,sequence:value.sequence,digest:value.digest,epoch:challenge.epoch,
     accepted:true,stopped,scope:'OWNED_A_B_O',attested:false,...(value.version>=3?{peerContext:stopped?null:peerContext}: {})};
   const contributors=decision?[{channel,keys:decision.keys}]:[];
@@ -139,15 +135,15 @@ function Submit(body, channel) {
   if (stopped&&!terminal) {
     // Existing revoke follows exact stored parent/child links, never a caller
     // supplied target ID, and retires the whole authorized cohort.
-    const reason=decision?.reason||'SECURITY_SESSION_STOP';
+    const reason=decision.reason;
     require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
     if(value.version>=2) detections.CommitInvalidation(row,body.stage,contributors,reason);
   }
   if(recordError) {
-    if(!stopped){if(previous)state.order.set(context,previous);else state.order.delete(context);if(previousVote)state.votes.set(context,previousVote);else state.votes.delete(context);}
+    if(!stopped){if(previous)state.order.set(context,previous);else state.order.delete(context);}
     throw recordError;
   }
-  if(!stopped||value.version>=2) state.receipts.put(body.challengeId,purpose,body,response,{context});
+  state.receipts.put(body.challengeId,purpose,body,response,{context});
   return response;
 }
 function Execute(body) {
@@ -166,9 +162,9 @@ function RetireContext(row,stage) {
   const context=Context(row,stage);
   for (const state of states.values()) {
     for(const [id,value] of state.pending)if(value.context===context)state.pending.delete(id);
-    state.order.delete(context);state.votes.delete(context);state.rates.delete(context);
+    state.order.delete(context);state.rates.delete(context);
     state.receipts.deleteWhere(meta=>meta.context===context);
   }
 }
-function Clear() { for(const state of states.values()){for(const key of ['pending','order','votes','rates'])state[key].clear();state.receipts.clear();} peers.Clear(); }
+function Clear() { for(const state of states.values()){for(const key of ['pending','order','rates'])state[key].clear();state.receipts.clear();} peers.Clear(); }
 module.exports={ParseAction,Domain,Canonical,Payload,Execute,ProofTasks,RetireContext,Clear};

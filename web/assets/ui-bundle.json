@@ -1,8 +1,8 @@
 {
   "webAdminVersion": "5.0.2",
-  "uiRevision": "cozy-peace-v23-motion-visibility",
+  "uiRevision": "cozy-peace-v24-merged-detections",
   "files": {
-    "index.html": "920b7cf6de58caaf3d79880388517a6ec115dd0cca95f6891796d0a2a43e4176",
+    "index.html": "4827a17005ae553ed12b1a19c61238fb1d81496c69251192dc4d0fb2fd5a38c8",
     "styles/admin.css": "27dc1283e35b2d3549c7d4067c1ea09e7efaf3412ff4c521e80a21c90f52bc6b",
     "styles/admin-theme.css": "e7e9de4a5b62b257211c445bc2a3a22ec3857709b1cab4f66913ac210534cd78",
     "styles/admin-appearance.css": "8bfb3a7f427c1f528861d08049c567442bb7453658d7d50fb8ad484c041693fa",
@@ -12,7 +12,7 @@
     "scripts/interface/peace.admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "styles/admin-navigation.css": "f98fb7c62ac5db673ddf8b446a62e1d6ce25e438a13f6e4e8975c123241cc843",
     "scripts/interface/peace.admin-i18n.js": "f1c8e482ab6449d39a751aa3ac049d2d1d0d414e5c40476fabd757155c3fa99c",
-    "scripts/application/peace.admin.js": "c189ec29891c194389a57930b455cf1f483faf4b6fa31fa516d3aac24a5aca1b",
+    "scripts/application/peace.admin.js": "cb1913cf38721d06e4ceb5f6746e698f5785e982c045e3385decc15f42163165",
     "scripts/interface/peace.admin-navigation.js": "4960153c677673882b7e4597da0b1f3e2180cdbe0dc2252e589a8d725ef9afac",
     "scripts/pages/peace.admin-pages-monitoring.js": "2c9d83a8fa7a8d277228f815de6b0320ff1f4e539b99b61a45101f9c130197c1",
     "scripts/application/peace.admin-terminal.js": "796f769653da32d79adad017a7a9f9f36a01daa6b5e1816e1da73669b2acd1aa",
@@ -23,6 +23,7 @@
     "scripts/actions/peace.admin-pages-devices.js": "eb45dc627d359c1b9ede41d97f6625f084e50683ff866fc882dce2564efa5bc3",
     "scripts/pages/peace.admin-pages-deployment.js": "09a95fd522bf1113fb80b1c23dcc8087a8adb9878c8d2ae8d23cb5f5a9150cb7",
     "scripts/pages/peace.admin-pages-security.js": "302917f0e8945e09449cdf869efe25d5d1165d9c8a13d27f97248603556a2398",
+    "scripts/pages/peace.admin-pages-detections.js": "33fb460d1e2d3799da4da865e583558d6d6081c7b1d2925e60d42c55fc16ee45",
     "scripts/pages/peace.admin-pages-operations.js": "3bb5c5ad980ccb08107ddfd9a6b373093cb8e0afa4fb5b750a92eed17f45df3f",
     "scripts/actions/peace.admin-actions-access.js": "8be8b55adace0075250798d75ede5e02b956c428adddf45ad684f4293d45266d",
     "scripts/actions/peace.admin-actions-operations.js": "c85a5bc59e8be632dce7ad07eeb97b2b4773167f133a5e1c995461596492147b",
@@ -51,7 +52,7 @@
     "styles/admin-desktop.css": "fd4e34fd6c503ed391768a2e6b0027e7b30e473de4f3610ea7edd7a81148905c",
     "styles/admin-members.css": "32dfcab0c9c33a31a8eddd273e3ffd5056729208394ad35c6f68eae44b1eb80c",
     "scripts/pages/peace.admin-pages-production.js": "c216f656ca01b0c8c5fb177fe686e659c7b961d13133546b20f07f1bad45df93",
-    "peace.service-worker.js": "3b2d4dc0a87c979d5565220a4f2869917d61998e2b0027878b8e5470e01020ca",
+    "peace.service-worker.js": "db82e290313e499239e9b949a862b64064f0b48929684355fe2194d25cc42343",
     "ui-refresh.html": "232e91da112e196ed2d25c223a6f5edee42a3926fdf0d72fa13828b8566b003f",
     "scripts/application/peace.ui-refresh.js": "5785d4b8b5797212506f84146f3d76a24ec7f6e41e7eaf5610168dccfd8dacfa"
   }

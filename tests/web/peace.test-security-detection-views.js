@@ -13,7 +13,7 @@ const h=n=>BigInt(n).toString(16).padStart(16,'0');
 const sample=(id,count=1,correlation=false)=>({id,source:'Cozy.NHW.Engine',firstTick:h(1),lastTick:h(50),count,families:correlation?24:1,confidence:correlation?80:0,correlation,attestationSequence:correlation?h(9):h(0),localOnly:!correlation});
 let checks=0;
 function check(label,fn){fn();checks++;console.log('PASS '+label);}
-try{
+async function Main(){try{
  const deviceA=fixture.Device(),deviceB=fixture.Device();deviceB.machineId=deviceA.machineId;
  const sa=fixture.Session(deviceA),sb=fixture.Session(deviceB);
  const a=Object.values(store.Load().flows).find(f=>f.sessionId===sa.sessionId),b=Object.values(store.Load().flows).find(f=>f.sessionId===sb.sessionId);
@@ -106,18 +106,21 @@ try{
   const device=fixture.Device(),start=fixture.Begin(device),flow=store.Load().flows[start.begin.flowId],db=store.Load();
   const peer={pid:12345,creationTime:h(100000),imageSha256:db.launchers[flow.launcherId].peerImageSha256,imageSha512:flow.launcherSha512,parentIdentity:'',phase:'A_BOOTSTRAP'};
   const identity=peers.StableIdentity(peer),unknown=policy.UnknownContext('A'),context={...Object.fromEntries(policy.CONTEXT_FIELDS.map(key=>[key,unknown[key]])),actorClass:'SELF',actorRole:'A',actorIdentity:identity,targetRole:'A',targetIdentity:identity,phase:'A_BOOTSTRAP',capability:'TOKEN_STATE',baseline:true,coverage:'COMPLETE'};
-  const record={...sample('dkTokenObject'),context};
+  const record={...sample('dkTokenObject'),signal:'OBSERVED',context};
   const send=(records,sequence)=>{
-   const payload=JSON.stringify({version:3,sequence:h(sequence),tick:h(100+sequence),digest:crypto.createHash('sha512').update(JSON.stringify(records)).digest('hex').slice(0,16),confirmed:false,trust:0,detections:records,peer});
+   const payload=JSON.stringify({version:5,sequence:h(sequence),tick:h(100+sequence),digest:crypto.createHash('sha512').update(JSON.stringify(records)).digest('hex').slice(0,16),confirmed:false,trust:0,detections:records,peer});
    const request={stage:'A',sessionId:flow.id,sessionToken:start.begin.downloadTicket,machineId:device.machineId,binding:crypto.createHash('sha512').update(payload).digest('hex'),action:'nhwIntegrityChallenge'},challenge=authority.Execute(request),submit={...request,action:'nhwIntegritySubmit',challengeId:challenge.challengeId,payload};
    submit.signature=fixture.Sign(device,paths.Canonical(submit,challenge,'integrity'));return authority.Execute(submit);
   };
   assert.equal(send([record],1).stopped,false);
   members.Assign(body({kind:'FLOW',targetId:flow.id,memberId:alice.id,expectedMemberId:''}),'TEST');
   const before=views.ForFlows([flow.id]).items[0];assert.equal(before.disposition,'EXPECTED_FIRST_PARTY');assert.equal(before.context.actorIdentity,identity);assert.equal(before.context.accessMask,0);assert.equal(before.context.tokenDelta,0);assert.equal(before.context.sameSession,true);assert.equal(before.context.firstPartyAttested,true);assert.equal(before.invalidated,false);
-  assert.equal(send([{...sample('dkPECodeIntegrity'),context:{...context,capability:'MODULE_STATE',baseline:false}}],2).stopped,true);
+  assert.equal(send([{...sample('dkPECodeIntegrity',1,true),signal:'DETECTED',context:{...context,capability:'MODULE_STATE',baseline:false}}],2).stopped,true);
   const rows=members.Detail(alice.id,{category:'detections',pageSize:'100'}).categories.detections.items.filter(row=>row.flowId===flow.id),expected=rows.find(row=>row.detectionId==='dkTokenObject'),cause=rows.find(row=>row.detectionId==='dkPECodeIntegrity');
   assert.equal(expected.invalidated,false);assert.equal(expected.sessionInvalidated,true);assert.equal(cause.invalidated,true);assert.equal(cause.disposition,'DETECTION');
+  const merged=detections.ListRecent().items;
+  assert.equal(merged.find(row=>row.id===expected.id).verdict,'observed');
+  assert.equal(merged.find(row=>row.id===cause.id).verdict,'confirmed');
   const {JSDOM}=require('jsdom'),dom=new JSDOM('<main id="content"></main>',{runScripts:'outside-only'}),window=dom.window;
   window.desktopDate=String;window.esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   require('node:vm').runInContext(fs.readFileSync(path.resolve(__dirname,'../../public/scripts/desktop/peace.admin-desktop-members.js'),'utf8'),dom.getInternalVMContext());
@@ -142,5 +145,32 @@ try{
    assert.ok(!text.includes('동일 세션 바인딩 확인'));assert.ok(!text.includes('서버 세션 무효화'));
   }finally{window.close();}
  });
+ const route=require('../../web/routes/security/peace.desktop-security-center-routes');
+ const auth=require('../../web/authentication/peace.web-auth');
+ const pathname=route.PREFIX+'/detections', socket={encrypted:true,remoteAddress:'127.0.0.1'};
+ const admin=auth.CreateSession({socket,headers:{host:'localhost'}},'admin');
+ async function Read(query,session,method='GET') {
+  const req={url:pathname+query,socket};
+  let status,headers,body;
+  const res={writeHead(code,values){status=code;headers=values;},end(text){body=JSON.parse(text);}};
+  assert.equal(await route.Handle({method,pathname,req,res,session}),true);
+  return {status,headers,body};
+ }
+ assert.ok(admin);
+ assert.equal((await Read('',null)).status,403);
+ assert.equal((await Read('',{role:'operator'})).status,403);
+ assert.equal((await Read('',admin,'POST')).status,405);
+ assert.equal((await Read('?limit=201',admin)).status,400);
+ assert.equal((await Read('?limit=2&limit=3',admin)).status,400);
+ const {status,headers,body:page}=await Read('?limit=2&offset=1',admin);
+ assert.equal(status,200);assert.equal(headers['Cache-Control'],'no-store');
+ assert.equal(page.items.length,2);assert.equal(page.offset,1);assert.ok(page.totalCount>page.items.length);
+ const {body:all}=await Read('',admin);
+ assert.deepEqual(page.items,all.items.slice(1,3));
+ assert.ok(all.items.some(row=>row.source==='COZY')&&all.items.some(row=>row.source==='NHW'));
+ assert.ok(all.items.every(row=>Object.keys(row).sort().join(',')==='authorityAction,code,count,id,kind,label,observedAt,source,stage,verdict'));
+ assert.doesNotMatch(JSON.stringify(all),/sessionId|sessionToken|machineId|flowId/);
+ checks++;console.log('PASS Dedicated merged detection route is private, paginated and minimized');
  console.log('SECURITY_DETECTION_VIEWS_PASS '+checks+' groups');
-}finally{bootstrap.Stop();require('../../services/observability/peace.desktop-performance-metrics').Close();require('../../storage/sqlite/peace.sqlite-database').Close();fs.rmSync(dir,{recursive:true,force:true});}
+}finally{bootstrap.Stop();require('../../services/observability/peace.desktop-performance-metrics').Close();require('../../storage/sqlite/peace.sqlite-database').Close();fs.rmSync(dir,{recursive:true,force:true});}}
+Main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -253,7 +253,32 @@ function Public(db,e,index){
    causalInvalidation:invalidated&&!secondaryIncomplete});
  return {...e,...metadata,...adjudicated,...semantics,recordId:e.id,stage:e.role,evidenceFamilyMask:e.evidenceFamilies,evidenceFamilies:names.filter((name,index)=>e.evidenceFamilies&(1<<index)),semanticFamilies:ContextFamilies(e,entry),semanticEvidenceFamilies:ContextFamilies(e,entry),invalidated,sessionInvalidated,sessionCurrentlyInvalidated:sessionInvalidated,evidenceLevel:e.provenance==='SERVER_COMPARISON'?'SERVER_COMPARISON':e.correlation?'CLIENT_CORROBORATED':'CLIENT_LOCAL_OBSERVATION',attestation:{sequence:e.attestationSequence,status:attestation?.status||e.attestationStatus||(e.attestationSequence===ZERO?'NOT_BOUND':'CLIENT_SEQUENCE_REPORTED'),hardwareAttested:attestation?.hardwareAttested===true||e.hardwareAttested===true,bootHealthVerified:false},handoffStatus,handoff:{A:flow?.claimedAt?'HANDED_OFF':flow?.status||'UNKNOWN',B:flow?.claimedAt?flow.status:'NOT_STARTED',O:overlay?.status||index.byFlow.get(flow?.id)?.status||'NOT_STARTED'}};
 }
-function MemberIndex(){const db=store.Load(),index={bySession:new Map(),byFlow:new Map()};for(const row of Object.values(db.overlays||{})){index.bySession.set(row.sessionId,row);const old=index.byFlow.get(row.parentFlowId);if(!old||row.createdAt>old.createdAt)index.byFlow.set(row.parentFlowId,row);}return Object.values(db.securityDetections?.flows||{}).flatMap(f=>f.events.map(e=>Public(db,e,index))).sort((a,b)=>b.lastAt-a.lastAt);}
+function DetectionRows(db) {
+ const rows=Object.values(db.securityDetections?.flows||{}).flatMap(flow=>flow.events);
+ return rows.sort((a,b)=>b.lastAt-a.lastAt||a.id.localeCompare(b.id));
+}
+function OverlayIndex(db) {
+ const index={bySession:new Map(),byFlow:new Map()};
+ for(const row of Object.values(db.overlays||{})){
+  index.bySession.set(row.sessionId,row);
+  const old=index.byFlow.get(row.parentFlowId);
+  if(!old||row.createdAt>old.createdAt)index.byFlow.set(row.parentFlowId,row);
+ }
+ return index;
+}
+function MemberIndex(){const db=store.Load(),index=OverlayIndex(db);return DetectionRows(db).map(e=>Public(db,e,index));}
+function ListRecent({limit=100,offset=0}={}) {
+ if(!Number.isSafeInteger(limit)||limit<1||limit>200||!Number.isSafeInteger(offset)||offset<0||offset>MAX_RECORDS)Fail();
+ const db=store.Load(),index=OverlayIndex(db);
+ const rows=DetectionRows(db);
+ const items=rows.slice(offset,offset+limit).map(event=>{
+  const row=Public(db,event,index);
+  return {id:row.id,observedAt:new Date(row.lastAt).toISOString(),source:row.origin,code:row.detectionId,
+   label:row.displayName,stage:row.stage,count:row.count,kind:row.kind,authorityAction:row.authorityAction,
+   verdict:row.authorityAction==='DETECTION_REVOKE'?'confirmed':'observed'};
+ });
+ return {items,limit,offset,totalCount:rows.length};
+}
 function MemberRecords(ids){if(!Array.isArray(ids)||ids.length>MAX_RECORDS||ids.some(id=>typeof id!=='string'||!/^[a-f0-9]{64}$/.test(id)))Fail();const selected=new Set(ids);return MemberIndex().filter(e=>selected.has(e.id));}
 function ForFlow(flowId){if(!id24(flowId))Fail();return MemberIndex().filter(e=>e.flowId===flowId);}
 function PublicPolicy(e,entry,legacy){
@@ -324,4 +349,4 @@ function Validate(s,db){
  }
  section='total';if(total>MAX_RECORDS)invalid();return s;
 }
-module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPath,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};
+module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPath,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,ListRecent,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};
