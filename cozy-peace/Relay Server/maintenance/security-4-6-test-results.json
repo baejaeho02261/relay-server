@@ -1,0 +1,162 @@
+{
+  "date": "2026-10-17",
+  "baseline_zip": "cozy.Client_Relay Server_Security_1-3_Server.zip",
+  "node": "v22.16.0",
+  "declared_engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
+  "supported_runtime_tested": false,
+  "results": [
+    {
+      "name": "security456",
+      "command": "npm run test:security:456",
+      "status": "PASS",
+      "exit_code": 0,
+      "scope": "93 server behavior cases + 9 native source checks + existing own-bundle script",
+      "duration_seconds": 3.239,
+      "log": "security456_logs/security456.log"
+    },
+    {
+      "name": "push_tls",
+      "command": "npm run test:security:456:tls",
+      "status": "PASS",
+      "exit_code": 0,
+      "scope": "3 real loopback TLS cases; ciphertext/route test fixtures",
+      "duration_seconds": 0.381,
+      "log": "security456_logs/push_tls.log"
+    },
+    {
+      "name": "regression123",
+      "command": "npm run test:security:123",
+      "status": "PASS",
+      "exit_code": 0,
+      "scope": "85 previous behavioral cases",
+      "duration_seconds": 1.319,
+      "log": "security456_logs/regression123.log"
+    },
+    {
+      "name": "protocol",
+      "command": "node tests/protocol/peace.test-hardening-protocol.js",
+      "status": "PASS",
+      "exit_code": 0,
+      "scope": "3 existing protocol groups",
+      "duration_seconds": 0.033,
+      "log": "security456_logs/protocol.log"
+    },
+    {
+      "name": "native_lifecycle",
+      "command": "node tests/runtime/peace.test-native-lifecycle-contract.js",
+      "status": "PASS",
+      "exit_code": 0,
+      "scope": "8 existing source contracts, NOT Windows execution",
+      "duration_seconds": 0.05,
+      "log": "security456_logs/native_lifecycle.log"
+    },
+    {
+      "name": "deadlines_integration",
+      "command": "node tests/runtime/peace.test-desktop-deadlines.js",
+      "status": "BLOCKED_DEPENDENCY",
+      "exit_code": 1,
+      "scope": "requires actual better-sqlite3",
+      "duration_seconds": 0.442,
+      "log": "security456_logs/deadlines_integration.log"
+    },
+    {
+      "name": "authority_integration",
+      "command": "node tests/security/peace.test-security-authority.js",
+      "status": "BLOCKED_DEPENDENCY",
+      "exit_code": 1,
+      "scope": "requires actual better-sqlite3",
+      "duration_seconds": 0.358,
+      "log": "security456_logs/authority_integration.log"
+    }
+  ],
+  "js_syntax_checks": [
+    {
+      "file": "Relay Server/services/overlay/peace.desktop-overlay.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/network/peace.push-manager.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/security/peace.desktop-security-authority.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/bootstrap/peace.desktop-bootstrap.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/integrity/peace.measurement-plan-contract.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/devices/peace.desktop-device-identity.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/network/peace.desktop-connect.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/integrity/peace.measurement-status.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/artifacts/peace.release-manager.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/web/http/peace.web-server.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/runtime/peace.desktop-request-rate.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/network/peace.push-transport.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/services/network/peace.push-destination.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/cozy.tests/network/peace.test-push-destination-security.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/cozy.tests/authentication/peace.test-protected-operation-security.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/cozy.tests/integrity/peace.test-authority-measurement-security.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/cozy.tests/network/peace.test-push-transport-tls.js",
+      "exit_code": 0
+    },
+    {
+      "file": "Relay Server/cozy.tests/integrity/peace.test-native-measurement-security.js",
+      "exit_code": 0
+    }
+  ],
+  "new_server_behavior_cases_passed": 96,
+  "previous_behavior_cases_passed": 85,
+  "new_native_source_checks_passed": 9,
+  "native_execution": "NOT_RUN: no Delphi/Windows environment",
+  "physical_passkey": "NOT_RUN",
+  "real_push_provider_and_web_push_encryption": "NOT_RUN: dependency and live provider not available; existing encryption generator used by production, fixture in transport tests",
+  "live_deployment_and_firewall": "NOT_CHANGED",
+  "dependencies_added": [],
+  "limitations": [
+    "Store, authenticated identity and surrounding services isolated in new server tests; actual database integration blocked by better-sqlite3.",
+    "Runtime v22.16.0 is outside declared engine range.",
+    "Real TLS tests use a temporary local CA and synthetic encrypted-body fixture; they are not provider delivery tests.",
+    "Native source checks are not compiler or EXE runtime results."
+  ]
+}

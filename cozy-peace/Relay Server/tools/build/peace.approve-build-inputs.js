@@ -1,0 +1,5 @@
+'use strict';
+// Deliberate offline operator pin: the expected digest comes from independent
+// review. Never copy the observed digest into an automatic approval operation.
+const fs=require('node:fs'),lock=require('./peace.build-input-lock'),strict=require("../../services/protocol/peace.strict-json");
+try{const [input,expected,out]=process.argv.slice(2);if(!input||!out||!/^[a-f0-9]{128}$/.test(expected||''))throw Error('WINDOWS_TEST_BUILD_REVIEW_DIGEST_REQUIRED');const st=fs.lstatSync(input);if(!st.isFile()||st.isSymbolicLink()||st.size>32*1024*1024)throw Error('WINDOWS_TEST_BUILD_LOCK_INVALID');const value=lock.validate(strict.Parse(fs.readFileSync(input),{maxBytes:32*1024*1024,maxNodes:1000000}));if(value.inputSha512!==expected)throw Error('WINDOWS_TEST_BUILD_REVIEW_DIGEST_MISMATCH');fs.writeFileSync(out,JSON.stringify(value,null,2)+'\n',{flag:'wx',mode:0o600});console.log('REVIEWED_INPUT_PIN_SAVED_NOT_WINDOWS_TEST_EVIDENCE');}catch(e){console.error(/^WINDOWS_TEST_[A-Z_]+$/.test(e.message)?e.message:'WINDOWS_TEST_BUILD_REVIEW_FAILED');process.exitCode=1;}

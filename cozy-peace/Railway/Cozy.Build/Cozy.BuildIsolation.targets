@@ -1,0 +1,125 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003"
+         TreatAsLocalProperty="CozyNativeRoot;DCC_DcuOutput;DCC_ExeOutput;DCC_UnitSearchPath;DCC_IncludePath;DCC_ObjPath;_GameBuildTasks;_GameBuildRoslynTasks;_GameBuildTaskId;_GameBuildTaskDirectory;_GameBuildTaskAssembly;_GameBuildTaskSource;_GameBuildFrameworkAssembly;_GameBuildUtilitiesAssembly">
+  <!-- Resolve the native root from the main project before output defaults.
+       Do not depend on an IDE host preserving imported-file path properties. -->
+  <PropertyGroup>
+    <CozyNativeRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..'))</CozyNativeRoot>
+  </PropertyGroup>
+  <!-- Empty IDE/global output properties mean use this project's isolated
+       defaults. These two properties are local so an
+       explicitly empty global value can be filled. Nonempty values are never
+       replaced here and must still pass ValidateProductionIsolation. Seed
+       defaults during evaluation, before build targets consume the paths. -->
+  <PropertyGroup Condition="('$(Config)'=='Debug' or '$(Config)'=='Release') and '$(Platform)'=='Win64' and '$(MSBuildProjectName)'=='Cozy.Launcher'">
+    <DCC_DcuOutput Condition="'$(DCC_DcuOutput)'==''">$(MSBuildProjectDirectory)\dcu</DCC_DcuOutput>
+    <DCC_ExeOutput Condition="'$(DCC_ExeOutput)'==''">$(MSBuildProjectDirectory)</DCC_ExeOutput>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Config)'=='Debug' or '$(Config)'=='Release') and '$(Platform)'=='Win64' and '$(MSBuildProjectName)'=='Cozy.Client'">
+    <DCC_DcuOutput Condition="'$(DCC_DcuOutput)'==''">$(MSBuildProjectDirectory)\dcu</DCC_DcuOutput>
+    <DCC_ExeOutput Condition="'$(DCC_ExeOutput)'==''">$(MSBuildProjectDirectory)</DCC_ExeOutput>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Config)'=='Debug' or '$(Config)'=='Release') and '$(Platform)'=='Win64' and '$(MSBuildProjectName)'=='Cozy.Overlay'">
+    <DCC_DcuOutput Condition="'$(DCC_DcuOutput)'==''">$(MSBuildProjectDirectory)\dcu</DCC_DcuOutput>
+    <DCC_ExeOutput Condition="'$(DCC_ExeOutput)'==''">$(MSBuildProjectDirectory)</DCC_ExeOutput>
+  </PropertyGroup>
+  <PropertyGroup>
+    <_GameBuildTasks>$(MSBuildToolsPath)\Microsoft.Build.Tasks.v4.0.dll</_GameBuildTasks>
+    <_GameBuildTasks Condition="!Exists('$(_GameBuildTasks)') and Exists('$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll')">$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll</_GameBuildTasks>
+    <_GameBuildRoslynTasks>$(MSBuildToolsPath)\Roslyn\Microsoft.Build.Tasks.CodeAnalysis.dll</_GameBuildRoslynTasks>
+    <_GameBuildFrameworkAssembly>$(MSBuildToolsPath)\Microsoft.Build.Framework.dll</_GameBuildFrameworkAssembly>
+    <_GameBuildUtilitiesAssembly>$(MSBuildToolsPath)\Microsoft.Build.Utilities.v4.0.dll</_GameBuildUtilitiesAssembly>
+    <_GameBuildUtilitiesAssembly Condition="!Exists('$(_GameBuildUtilitiesAssembly)') and Exists('$(MSBuildToolsPath)\Microsoft.Build.Utilities.Core.dll')">$(MSBuildToolsPath)\Microsoft.Build.Utilities.Core.dll</_GameBuildUtilitiesAssembly>
+    <_GameBuildTaskSource>$(CozyNativeRoot)\Cozy.Build\Cozy.Tasks\Cozy.BuildSearchPaths.cs</_GameBuildTaskSource>
+    <!-- Ordinary compiled tasks also work in IDE hosts that fail to register
+         CodeTaskFactory tasks. A unique assembly NAME as well as path avoids
+         stale CLR identity reuse and overwriting an IDE-loaded, locked DLL. -->
+    <_GameBuildTaskId>$([System.Guid]::NewGuid().ToString('N'))</_GameBuildTaskId>
+    <_GameBuildTaskDirectory>$([System.IO.Path]::GetTempPath())GameConnectBuildTasks\$(_GameBuildTaskId)\</_GameBuildTaskDirectory>
+    <_GameBuildTaskAssembly>$(_GameBuildTaskDirectory)Game.BuildTasks.$(_GameBuildTaskId).dll</_GameBuildTaskAssembly>
+  </PropertyGroup>
+  <UsingTask TaskName="Microsoft.Build.Tasks.Csc" AssemblyFile="$(_GameBuildTasks)" Condition="!Exists('$(_GameBuildRoslynTasks)')" />
+  <UsingTask TaskName="Microsoft.CodeAnalysis.BuildTasks.Csc" AssemblyFile="$(_GameBuildRoslynTasks)" Condition="Exists('$(_GameBuildRoslynTasks)')" />
+  <UsingTask TaskName="GameValidateSearchPaths" AssemblyFile="$(_GameBuildTaskAssembly)" />
+  <PropertyGroup>
+    <BuildDependsOn>ValidateProductionIsolation;$(BuildDependsOn)</BuildDependsOn>
+    <RebuildDependsOn>ValidateProductionIsolation;$(RebuildDependsOn)</RebuildDependsOn>
+  </PropertyGroup>
+  <!-- Reusing an unchanged evaluated project must not overwrite its loaded DLL. -->
+  <Target Name="GameCompileSearchPathValidator" Condition="'$(Config)'=='Debug' or '$(Config)'=='Release'"
+          Inputs="$(_GameBuildTaskSource);$(CozyNativeRoot)\Cozy.Build\Cozy.BuildIsolation.targets" Outputs="$(_GameBuildTaskAssembly)">
+    <Error Condition="!Exists('$(_GameBuildTaskSource)')" Text="GAME_BUILD_TASK_SOURCE_MISSING: $(_GameBuildTaskSource)" />
+    <Error Condition="!Exists('$(_GameBuildTasks)') or !Exists('$(_GameBuildFrameworkAssembly)') or !Exists('$(_GameBuildUtilitiesAssembly)')" Text="GAME_BUILD_TASK_REFERENCES_MISSING: active MSBuild tools path=[$(MSBuildToolsPath)]" />
+    <MakeDir Directories="$(_GameBuildTaskDirectory)" />
+    <Microsoft.Build.Tasks.Csc Condition="!Exists('$(_GameBuildRoslynTasks)')" Sources="$(_GameBuildTaskSource)" TargetType="Library"
+         OutputAssembly="$(_GameBuildTaskAssembly)" LangVersion="4" Optimize="true" NoConfig="true"
+         EmitDebugInformation="false" WarningLevel="4"
+         References="System.dll;System.Core.dll;$(_GameBuildFrameworkAssembly);$(_GameBuildUtilitiesAssembly)" />
+    <Microsoft.CodeAnalysis.BuildTasks.Csc Condition="Exists('$(_GameBuildRoslynTasks)')" Sources="$(_GameBuildTaskSource)" TargetType="Library"
+         OutputAssembly="$(_GameBuildTaskAssembly)" LangVersion="4" Optimize="true" NoConfig="true"
+         EmitDebugInformation="false" WarningLevel="4"
+         References="System.dll;System.Core.dll;$(_GameBuildFrameworkAssembly);$(_GameBuildUtilitiesAssembly)" />
+    <Error Condition="!Exists('$(_GameBuildTaskAssembly)')" Text="GAME_BUILD_TASK_ASSEMBLY_MISSING" />
+  </Target>
+  <Target Name="ValidateProductionIsolation" DependsOnTargets="GameCompileSearchPathValidator" BeforeTargets="BeforeBuild;PreBuildEvent;Build;Rebuild;_PasCoreCompile">
+    <Error Condition="'$(Config)'!='Debug' and '$(Config)'!='Release'" Text="GAME_BUILD_CONFIGURATION_INVALID" />
+    <PropertyGroup>
+      <_GameRole Condition="'$(MSBuildProjectName)'=='Cozy.Launcher'">A</_GameRole>
+      <_GameRole Condition="'$(MSBuildProjectName)'=='Cozy.Client'">B</_GameRole>
+      <_GameRole Condition="'$(MSBuildProjectName)'=='Cozy.Overlay'">O</_GameRole>
+      <_GameProjectName Condition="'$(_GameRole)'=='A'">Cozy.Launcher</_GameProjectName>
+      <_GameProjectName Condition="'$(_GameRole)'=='B'">Cozy.Client</_GameProjectName>
+      <_GameProjectName Condition="'$(_GameRole)'=='O'">Cozy.Overlay</_GameProjectName>
+      <_GameExpectedProject>$([System.IO.Path]::GetFullPath('$(CozyNativeRoot)\Cozy.Projects\$(_GameProjectName)'))</_GameExpectedProject>
+      <_GameExpectedDcu>$([System.IO.Path]::GetFullPath('$(_GameExpectedProject)\dcu'))</_GameExpectedDcu>
+      <_GameExpectedExe>$(_GameExpectedProject)</_GameExpectedExe>
+      <!-- Recheck at execution too, in case an earlier target cleared a value.
+           Assign the actual compiler properties, not just comparison helpers. -->
+      <DCC_DcuOutput Condition="'$(DCC_DcuOutput)'=='' and '$(_GameRole)'!='' and '$(Platform)'=='Win64'">$(_GameExpectedDcu)</DCC_DcuOutput>
+      <DCC_ExeOutput Condition="'$(DCC_ExeOutput)'=='' and '$(_GameRole)'!='' and '$(Platform)'=='Win64'">$(_GameExpectedExe)</DCC_ExeOutput>
+      <!-- Resolve both relative and absolute output paths; do not concatenate an
+           absolute IDE/MSBuild path with the project directory a second time.
+           These .NET Framework property functions also work with MSBuild 4.x. -->
+      <_GameActualDcu>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(DCC_DcuOutput)'))</_GameActualDcu>
+      <_GameActualDcu>$([System.IO.Path]::GetFullPath('$(_GameActualDcu)'))</_GameActualDcu>
+      <!-- Directory identity is unchanged by a trailing slash or backslash. -->
+      <_GameActualDcu>$([System.Text.RegularExpressions.Regex]::Replace('$(_GameActualDcu)', '[\\/]+$', ''))</_GameActualDcu>
+      <_GameActualExe>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(DCC_ExeOutput)'))</_GameActualExe>
+      <_GameActualExe>$([System.IO.Path]::GetFullPath('$(_GameActualExe)'))</_GameActualExe>
+      <_GameActualExe>$([System.Text.RegularExpressions.Regex]::Replace('$(_GameActualExe)', '[\\/]+$', ''))</_GameActualExe>
+    </PropertyGroup>
+    <Error Condition="'$(_GameRole)'=='' or '$(Platform)'!='Win64'" Text="GAME_BUILD_ROLE_INVALID" />
+    <Error Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('$(DCC_Define)', '(?i)(GAME|COZY)_[A-Z0-9_]*(TEST|PROBE)'))" Text="GAME_BUILD_TEST_DEFINE_FORBIDDEN" />
+    <Error Condition="!$([System.Text.RegularExpressions.Regex]::IsMatch('$(DCC_Define)', '(?i)(^|;)GAME_APPLICATION_BUILD(;|$)'))" Text="GAME_BUILD_APPLICATION_DEFINE_REQUIRED" />
+    <Error Condition="'$(Config)'=='Release' and (!$([System.Text.RegularExpressions.Regex]::IsMatch('$(DCC_Define)', '(?i)(^|;)RELEASE(;|$)')) or $([System.Text.RegularExpressions.Regex]::IsMatch('$(DCC_Define)', '(?i)(^|;)DEBUG(;|$)')))" Text="GAME_BUILD_RELEASE_DEFINE_MISMATCH" />
+    <Error Condition="'$(Config)'=='Debug' and (!$([System.Text.RegularExpressions.Regex]::IsMatch('$(DCC_Define)', '(?i)(^|;)DEBUG(;|$)')) or $([System.Text.RegularExpressions.Regex]::IsMatch('$(DCC_Define)', '(?i)(^|;)RELEASE(;|$)')))" Text="GAME_BUILD_DEBUG_DEFINE_MISMATCH" />
+    <Error Condition="'$(DCC_AdditionalOptions)'!='' or '$(DCC_AdditionalArgs)'!='' or '$(DCC_AdditionalParameters)'!=''" Text="GAME_BUILD_EXTERNAL_ARGUMENTS_FORBIDDEN" />
+    <!-- Check the effective compiler properties at execution time. A global
+         override must fail closed instead of silently emitting debug metadata
+         from a build labelled Release. Explicit Debug remains supported. -->
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_DebugInformation)'!='0'" Text="COZY_BUILD_RELEASE_DEBUG_INFORMATION_INVALID: DCC_DebugInformation must be 0." />
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_LocalDebugSymbols)'!='false'" Text="COZY_BUILD_RELEASE_LOCAL_SYMBOLS_INVALID: DCC_LocalDebugSymbols must be false." />
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_DebugInfoInExe)'!='false'" Text="COZY_BUILD_RELEASE_EMBEDDED_DEBUG_INVALID: DCC_DebugInfoInExe must be false." />
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_MapFile)'!='0'" Text="COZY_BUILD_RELEASE_MAP_FILE_INVALID: DCC_MapFile must be 0." />
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_Optimize)'!='true'" Text="COZY_BUILD_RELEASE_OPTIMIZATION_INVALID: DCC_Optimize must be true." />
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_RemoteDebug)'!='false'" Text="COZY_BUILD_RELEASE_REMOTE_DEBUG_INVALID: DCC_RemoteDebug must be false." />
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_DebugDCUs)'!='false'" Text="COZY_BUILD_RELEASE_DEBUG_DCUS_INVALID: DCC_DebugDCUs must be false." />
+    <Error Condition="'$(Config)'=='Release' and '$(DCC_SymbolReferenceInfo)'!='0'" Text="COZY_BUILD_RELEASE_SYMBOL_REFERENCES_INVALID: DCC_SymbolReferenceInfo must be 0." />
+    <GameValidateSearchPaths Root="$(CozyNativeRoot)" ProjectDirectory="$(MSBuildProjectDirectory)" Role="$(_GameRole)" Dcu="$(_GameActualDcu)" Exe="$(_GameActualExe)" Final="$(_GameExpectedProject)" Units="$(DCC_UnitSearchPath)" Includes="$(DCC_IncludePath)" Objects="$(DCC_ObjPath)">
+      <Output TaskParameter="ResolvedUnits" PropertyName="DCC_UnitSearchPath" />
+      <Output TaskParameter="ResolvedIncludes" PropertyName="DCC_IncludePath" />
+      <Output TaskParameter="ResolvedObjects" PropertyName="DCC_ObjPath" />
+    </GameValidateSearchPaths>
+    <Error Condition="'$(_GameActualDcu)'!='$(_GameExpectedDcu)' or '$(_GameActualExe)'!='$(_GameExpectedExe)'" Text="GAME_BUILD_OUTPUT_OVERRIDE_FORBIDDEN: DCU expected=[$(_GameExpectedDcu)] actual=[$(_GameActualDcu)] raw=[$(DCC_DcuOutput)]; EXE expected=[$(_GameExpectedExe)] actual=[$(_GameActualExe)] raw=[$(DCC_ExeOutput)]" />
+    <ItemGroup><_GameForeignCompiled Include="$(MSBuildProjectDirectory)\*.dcu;$(MSBuildProjectDirectory)\*.cfg;$(MSBuildProjectDirectory)\*.o;$(CozyNativeRoot)\*.dcu;$(CozyNativeRoot)\*.cfg;$(CozyNativeRoot)\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Application\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Application\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Application\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.License\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.License\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.License\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Security\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Security\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Security\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Network\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Network\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Network\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Protection\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Protection\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Protection\*.o;$(CozyNativeRoot)\Cozy.Source\Cozy.Security.NHW\**\*.dcu;$(CozyNativeRoot)\Cozy.Source\Cozy.Security.NHW\**\*.cfg;$(CozyNativeRoot)\Cozy.Source\Cozy.Security.NHW\**\*.o" /></ItemGroup>
+    <Error Condition="'@(_GameForeignCompiled)'!=''" Text="GAME_BUILD_ROOT_DCU_OR_CONFIG_FORBIDDEN" />
+    <!-- Product units live only in the reviewed functional source tree. -->
+    <ItemGroup><_GameProjectShadowSources Include="$(MSBuildProjectDirectory)\*.pas;$(MSBuildProjectDirectory)\*.inc;$(CozyNativeRoot)\*.pas;$(CozyNativeRoot)\*.inc" /></ItemGroup>
+    <Error Condition="'@(_GameProjectShadowSources)'!=''" Text="GAME_BUILD_SHADOW_SOURCE_FORBIDDEN" />
+    <!-- A failed compiler must not leave an older executable looking current. -->
+    <Delete Files="$(_GameExpectedExe)\$(_GameProjectName).exe" />
+    <!-- Remove only this validated project's DCU cache; never the project directory. -->
+    <RemoveDir Directories="$(_GameExpectedDcu)" />
+    <MakeDir Directories="$(_GameExpectedDcu);$(_GameExpectedExe)" />
+    <Message Importance="high" Text="GAME_BUILD_ISOLATION_OK role=$(_GameRole) config=$(Config) freshDCU=true" />
+  </Target>
+</Project>

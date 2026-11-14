@@ -1,0 +1,211 @@
+{
+  "baseFile": "cozy.Client_Relay Server_Server_Cleanup(1).zip",
+  "nativeFilesUnchanged": 226,
+  "dependencyLockUnchanged": true,
+  "files": [
+    {
+      "path": "Relay Server/config/peace.runtime-configuration.js",
+      "action": "modified",
+      "oldSha256": "880c90168b14720313fd2041d6499318b52717fa7e1a871d2dd88d01e32f3c27",
+      "newSha256": "f80129943a50c096917a79ba7b6ce3fab2cab557b9c45c6bbe34c986d8751041"
+    },
+    {
+      "path": "Relay Server/package.json",
+      "action": "modified",
+      "oldSha256": "d4dcadf2b8e73bad005565efaa4e993a79960f0b96dd589c6542a626da4c3ded",
+      "newSha256": "e2f542f640e7cb9d1bee8f764b18f48e5a2deebd28c26d803049cad9a1dab5fd"
+    },
+    {
+      "path": "Relay Server/public/scripts/pages/peace.admin-pages-production.js",
+      "action": "modified",
+      "oldSha256": "07870931fabd71f162603cb3b7cb9efb1c6caeb02c81384584d952c4a6e160e8",
+      "newSha256": "46c7f9d4da96158a07f95cb3674b5c8d1fd0e125330c8d435fe05eb34515fc56"
+    },
+    {
+      "path": "Relay Server/cozy.tests/fixtures/authentication/peace.passkey-wire-fixture.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "4dcf217a004dee5bf6f013a7485b0d3c51980b573cdf7efbf7ed29880aef0c24"
+    },
+    {
+      "path": "Relay Server/cozy.tests/runners/peace.regression.js",
+      "action": "modified",
+      "oldSha256": "e29b0c5f0235024a5ec687c205b15e8e2310e26716dca29198ab829aec4d7449",
+      "newSha256": "64a895e2f75f2291a3078ee71bd0d84229718a44d4c8c0fe529519255eb57f0b"
+    },
+    {
+      "path": "Relay Server/cozy.tests/authentication/peace.test-admin-https-security.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "c94e514fe8f70f171d9654fbc1e4a1b515518dcb822eb94a66a1bebd5b45472c"
+    },
+    {
+      "path": "Relay Server/cozy.tests/protocol/peace.test-completion-protocol-6-10.js",
+      "action": "modified",
+      "oldSha256": "c4da10620e0a2aaf4a3707ce721c866e15e42504dfc12b0041bcc0825e601259",
+      "newSha256": "f5eef9fda6790a824493d0a6b184da41926a92889ce49cb254da6c06c5fd10b4"
+    },
+    {
+      "path": "Relay Server/cozy.tests/network/peace.test-connect-deployment.js",
+      "action": "modified",
+      "oldSha256": "1250b3c6622445f2c12bb1c3f385c485ac229553b1ba1a2839b0c5ef78a56a30",
+      "newSha256": "337d90142fdbe1e6393a02542756c5d9daa91a9840315f7e657a95b54fa3b6a5"
+    },
+    {
+      "path": "Relay Server/cozy.tests/runtime/peace.test-desktop-http.js",
+      "action": "modified",
+      "oldSha256": "fc71dcea299a24fa0636bebc605888e4f5f31135edc2774045e092599ddc4f85",
+      "newSha256": "8f9f82fcaae0567f97a63a2bebbc0792a9e38eb7957fef41bd08297128fb2b82"
+    },
+    {
+      "path": "Relay Server/cozy.tests/licensing/peace.test-desktop-retirement.js",
+      "action": "modified",
+      "oldSha256": "26bf04825e40d707e8f21d0db43f4ac2b5d53daa91a74548f302bd5ce53668b1",
+      "newSha256": "41e29a7442598fa2a7dfa25135925c9f303aed5d455b0c7b972da275515ce9e3"
+    },
+    {
+      "path": "Relay Server/cozy.tests/runtime/peace.test-manual-verification.js",
+      "action": "modified",
+      "oldSha256": "e2779e2365f301a7024ef4120d8a7e010741e49adaa41e6a9e14851c2a43780c",
+      "newSha256": "b1cc552d1f4ace2e681cd7a3f3fa0cbd614a362b4c742913871a7ca929e16783"
+    },
+    {
+      "path": "Relay Server/cozy.tests/security/peace.test-mitigation-compatibility.js",
+      "action": "modified",
+      "oldSha256": "e8b680591b997f5687a03ce42f6dd68f20661577e392ffd88650fa6093f24f55",
+      "newSha256": "92355d216b7375e7eab6e9175561b9dc71e7ce4c9a1680a7198503011dec95b0"
+    },
+    {
+      "path": "Relay Server/cozy.tests/authentication/peace.test-passkey-lifetime.js",
+      "action": "modified",
+      "oldSha256": "eded076fe0bbedcbbf8c1dd0bb136a7a058f8e1494403ad10fe83dda120c37d1",
+      "newSha256": "4cb6d483e947f31a3e531bacd3da9431cc93f27d586c1ed86a773e40ccc4870a"
+    },
+    {
+      "path": "Relay Server/cozy.tests/authentication/peace.test-passkey-validation-security.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "540d676e5f9a558dbd521a45f4c30ab062e8b2d9d927628921ef139dd949c3aa"
+    },
+    {
+      "path": "Relay Server/cozy.tests/runtime/peace.test-production-boundaries-1-5.js",
+      "action": "modified",
+      "oldSha256": "06a4b7b4f2fd95e2090ace19065fb967c83b9cc45ed5665f03895b83fd8bb71d",
+      "newSha256": "317f28c90852de7a0f9ac5485ad3fb6acf24c136236145e93be149c55155a793"
+    },
+    {
+      "path": "Relay Server/cozy.tests/security/peace.test-security-activation.js",
+      "action": "modified",
+      "oldSha256": "643b656a10c0dc89929e7b40a3216761afd5b2596b478d50ec1f35ebc4292af9",
+      "newSha256": "decfb3817db4c7ec57917c8847f571a342d399be9960d784002861aaff8e4501"
+    },
+    {
+      "path": "Relay Server/cozy.tests/artifacts/peace.test-server-capabilities.js",
+      "action": "modified",
+      "oldSha256": "77e53bfc48da260c4f2ec6ada2981be7369b57b10f8d7ff0b38de5efe866e7b5",
+      "newSha256": "74249e31b8696a1742d919747a7b99df580643b7c6b15b98cb27b64a214f6872"
+    },
+    {
+      "path": "Relay Server/cozy.tests/web/peace.test-server-state-read-routes.js",
+      "action": "modified",
+      "oldSha256": "e0d45f5cf3a171fc0f632516af4742d2f13e18767c192aa41c2691b6e3c4c9e1",
+      "newSha256": "eb8509983fe2155d4186c13926c3be3c4c29cd2dd592e6615d69da9bd7ffa92a"
+    },
+    {
+      "path": "Relay Server/cozy.tests/network/peace.test-tcp-admission-security.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "9218ebf0703a7531698a2215513fcfb36be55dce37c1808234d4ee4398feac60"
+    },
+    {
+      "path": "Relay Server/cozy.tests/authentication/peace.test-web-auth-hardening.js",
+      "action": "modified",
+      "oldSha256": "ff39a4737e3886706d80bf99e83d9cff03014a119c7dd26c3a7210e5000f4684",
+      "newSha256": "79df10856f2717f31329bd65b2a9160068fc549c68cb39adbc02065547cfbeab"
+    },
+    {
+      "path": "Relay Server/cozy.tests/web/peace.test-workspace-http.js",
+      "action": "modified",
+      "oldSha256": "69d7cd58d31e4986c6cd6cfdf6ba7b1d723895ce67698a6995c9ea83130a2e0b",
+      "newSha256": "f30c3afd9b6c83fbd49a7b0989282e2a2c4e112e300d3e05783e6dd3ac4f07a3"
+    },
+    {
+      "path": "Relay Server/peace.relay-server.js",
+      "action": "modified",
+      "oldSha256": "702643f538506d3661e56edcf026adfc9e120bf7e14587306b66f867c76b5d93",
+      "newSha256": "b15f939a4d45092030610ae60ae6380f89a1c91452d00c2dd3773d3b102dd9e2"
+    },
+    {
+      "path": "Relay Server/services/network/peace.desktop-connect.js",
+      "action": "modified",
+      "oldSha256": "7aa34439b1187e2c44dcdc33d44e02a83d15b9a43442ae2b8e53a91076523bc5",
+      "newSha256": "c8d5d06851ed3b9803cbfd7256d84dad405dff3a1d69d43ac257b38841082410"
+    },
+    {
+      "path": "Relay Server/services/network/peace.desktop-connection-admission.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "1323b605232c4429b49be27b18e194df7c4bfcc58b9de0608cd9010b4b0bda99"
+    },
+    {
+      "path": "Relay Server/services/authentication/peace.passkey-auth.js",
+      "action": "modified",
+      "oldSha256": "92461ca871311d1559899f05cad22dde58fe2d78118a623fc3e060fc70de5ce8",
+      "newSha256": "c06e409acc0ff7337b39d1d4a7fe9b22305c9b6e5e95d71b6d4499871cfc5936"
+    },
+    {
+      "path": "Relay Server/services/authentication/peace.passkey-auth-data.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "ca7dc2d073188f00ddd3957c15ec7bd44581e4e1e32ca198a5344727c138c7c1"
+    },
+    {
+      "path": "Relay Server/services/authentication/peace.passkey-context.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "7e583c3d4611f776cb94de642459317bd8f5612fae8cb5220ea94ca1db1d0b92"
+    },
+    {
+      "path": "Relay Server/setup/environments/windows.env.example",
+      "action": "modified",
+      "oldSha256": "8eb4627e77c6d17b213de1203ca7aca3093635b92c7c253799997980fb9b0e41",
+      "newSha256": "83e2f1330ebb9a09ffe628d6d7a583055e387dff23e566a2819428a726bf5f8b"
+    },
+    {
+      "path": "Relay Server/tools/security/peace.check-admin-security.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "3314abcd48f21ef5732bd7a25d3a32309f69450a549f71c403347515ebde8f03"
+    },
+    {
+      "path": "Relay Server/web/assets/ui-bundle.json",
+      "action": "modified",
+      "oldSha256": "2b64576c747a2ba091ff158ae14dd75cafd0c12ca0460d57ecd0c426464d84b8",
+      "newSha256": "bf4a89cf9fbf7dc0afa455f8eeb857db0f94bf72f90ed9c11070bf2127020864"
+    },
+    {
+      "path": "Relay Server/web/authentication/peace.web-auth.js",
+      "action": "modified",
+      "oldSha256": "c13d503b3bed88eb7a99f28104082dabd07dcafaf05ed9d4499cade728bb1466",
+      "newSha256": "ee5ef4c539557dfb60a689dcbf984d531707255da80d035f2f293220b15b1917"
+    },
+    {
+      "path": "Relay Server/web/authentication/peace.web-auth-policy.js",
+      "action": "modified",
+      "oldSha256": "ea2b9a801b2b0a381e3be81a67a1129a740d86870b4728e4c3e8934602e52d60",
+      "newSha256": "7d186f0162513f4b460d04538fe364aac6104655bca98c47c710e22bf6ed498f"
+    },
+    {
+      "path": "Relay Server/web/http/peace.web-server.js",
+      "action": "modified",
+      "oldSha256": "299fb279811dbbf7ffa5d440f75303cf21250f3ce9136eda086022eb802d889d",
+      "newSha256": "59ad7f165e015acd81dd911c8649e304bf0413751c10fb64c1f78b8cc7d88051"
+    },
+    {
+      "path": "Relay Server/web/transport/peace.web-transport.js",
+      "action": "added",
+      "oldSha256": null,
+      "newSha256": "56064dbeec79c2686be2c0901192f58ed90bc3418f4384ad94d43b16f908a32e"
+    }
+  ]
+}

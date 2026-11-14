@@ -1,0 +1,39 @@
+/* Cozy Peace — material, typography and semantic color tokens. */
+:root {
+ color-scheme:light;
+ --bg:#f5f6f3; --bg-2:#edf1ec; --panel:#fff; --panel-2:#f8faf7; --panel-3:#edf2ed;
+ --text:#172522; --text-soft:#485a53; --muted:#607167;
+ --line:#e2e8e1; --line-strong:#cbd7ce; --border:var(--line);
+ --accent:#08765e; --accent-hover:#05604b; --accent-tint:#e6f4ec; --accent-2:#536fc0;
+ --good:#187650; --good-bg:#eaf6ed; --good-line:#cde8d4;
+ --warn:#966016; --warn-bg:#fbf3e2; --warn-line:#ecddb8;
+ --bad:#b64949; --bad-bg:#fff1ee; --bad-line:#f0d2cb;
+ --sidebar:#edf2ec; --sidebar-glass:rgba(237,242,236,.86); --glass:rgba(255,255,255,.82);
+ --login-ink:#173c31; --login-copy:#42685a; --login-mint:#b6e8ce; --login-lilac:#d4daf6;
+ --on-accent:#fff; --focus-ring:rgba(8,127,104,.17);
+ --shadow:0 1px 2px rgba(25,49,34,.025),0 6px 20px rgba(25,49,34,.018);
+ --shadow-float:0 25px 90px rgba(24,54,37,.13),0 5px 18px rgba(24,54,37,.04);
+ --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;
+ --mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace;
+ --radius:16px; --radius-sm:10px; --radius-lg:24px;
+ --ease:cubic-bezier(.2,.7,.2,1); --duration:180ms;
+ --workspace-bg:var(--bg); --workspace-panel:var(--panel); --workspace-border:var(--line);
+ --workspace-ink:var(--text); --workspace-muted:var(--muted); --workspace-active:var(--accent); --workspace-tint:var(--accent-tint);
+}
+:root[data-theme="dark"] {
+ color-scheme:dark;
+ --bg:#121b18; --bg-2:#0e1714; --panel:#1b2822; --panel-2:#202f28; --panel-3:#293a31;
+ --text:#ecf3ed; --text-soft:#b9c9bd; --muted:#8fa597;
+ --line:#2f4237; --line-strong:#496254;
+ --accent:#83d8b2; --accent-hover:#a1e5c5; --accent-tint:#264839; --accent-2:#a8b6ed;
+ --good:#8ed9ab; --good-bg:#213c2d; --good-line:#365b43;
+ --warn:#e6c480; --warn-bg:#3d3525; --warn-line:#655433;
+ --bad:#eeaaa0; --bad-bg:#422c28; --bad-line:#674039;
+ --sidebar:#17231c; --sidebar-glass:rgba(23,35,28,.9); --glass:rgba(27,40,34,.86);
+ --login-ink:#e3f1e7; --login-copy:#b2ccb9; --login-mint:#275840; --login-lilac:#3c4265;
+ --on-accent:#103324; --focus-ring:rgba(131,216,178,.19);
+ --shadow:0 1px 3px rgba(0,0,0,.09),0 8px 24px rgba(0,0,0,.04);
+ --shadow-float:0 25px 95px rgba(0,0,0,.36),0 6px 22px rgba(0,0,0,.13);
+}
+#qr-auth-preview,.license-qr { background:#fff; object-fit:contain; }
+#theme-toggle { white-space:nowrap; }

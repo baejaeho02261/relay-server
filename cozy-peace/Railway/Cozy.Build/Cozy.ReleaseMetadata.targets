@@ -1,0 +1,15 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Runs in ordinary IDE/MSBuild compilation. Build-All is not required. -->
+  <Target Name="PrepareCozyReleaseMetadata"
+          BeforeTargets="BeforeBuild;PreBuildEvent;_PasCoreCompile;PrepareOverlayNative"
+          DependsOnTargets="ValidateProductionIsolation"
+          Condition="'$(Platform)'=='Win64' and '$(DesignTimeBuild)'!='true'">
+    <Error Condition="!Exists('$(BDS)\bin\brcc32.exe')" Text="COZY_RELEASE_RESOURCE_COMPILER_REQUIRED" />
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.Build\Cozy.Prepare-ReleaseMetadata.ps1&quot; -SourceRoot &quot;$(CozyNativeRoot)&quot; -Role &quot;$(_GameRole)&quot;" />
+    <Exec Condition="'$(_GameRole)'=='A'" Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.Build\Cozy.Prepare-IssuedATrust.ps1&quot; -SourceRoot &quot;$(CozyNativeRoot)&quot;" />
+    <!-- O compiles its resource after the existing native prerequisite checks. -->
+    <Exec Condition="'$(_GameRole)'=='A' or '$(_GameRole)'=='B'"
+          WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="&quot;$(BDS)\bin\brcc32.exe&quot; -fo&quot;$(_GameProjectName)Resources.res&quot; &quot;$(_GameProjectName).rc&quot;" />
+  </Target>
+</Project>

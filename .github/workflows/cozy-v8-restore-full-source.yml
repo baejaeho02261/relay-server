@@ -1,0 +1,60 @@
+name: Restore complete NHW V8 FP204 source tree
+on:
+  push:
+    branches: [restore/v8-fp204-full-20261114]
+    paths:
+      - '.v8-source-archive/**'
+      - '.github/workflows/cozy-v8-restore-full-source.yml'
+permissions:
+  contents: write
+jobs:
+  restore-v8:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - name: Verify original source archive and expand in place
+        shell: bash
+        run: |
+          python3 - <<'PYRESTORE'
+          from pathlib import Path, PurePosixPath
+          import base64, hashlib, zipfile
+          parts=sorted(Path('.v8-source-archive').glob('part-*.b64'))
+          expected_parts=78
+          if len(parts)!=expected_parts:
+              raise SystemExit('Incomplete V8 source upload: '+str(len(parts))+'/'+str(expected_parts))
+          out=Path('.v8-original-source.zip')
+          with out.open('wb') as fp:
+              for part in parts:
+                  fp.write(base64.b64decode(part.read_text('ascii'),validate=True))
+          actual=hashlib.sha256(out.read_bytes()).hexdigest()
+          expected='900d2ab7ada96aa058c1d051e5187230ee01d88a5b7855fc7a209ebd73b47e51'
+          if actual!=expected:
+              raise SystemExit('V8 SHA-256 mismatch: '+actual)
+          with zipfile.ZipFile(out) as z:
+              assert z.testzip() is None, 'V8 ZIP CRC failed'
+              members=z.infolist()
+              if len(members)!=1846:
+                  raise SystemExit('V8 member count mismatch: '+str(len(members)))
+              for member in members:
+                  p=PurePosixPath(member.filename)
+                  if p.is_absolute() or '..' in p.parts or p.parts[0] not in ('cozy-peace','tools'):
+                      raise SystemExit('Unsafe V8 ZIP path: '+member.filename)
+                  z.extract(member,'.')
+          out.unlink()
+          print('Complete V8 source verified and extracted: '+str(len(members))+' files')
+          PYRESTORE
+      - name: Commit source tree (retain original V8 relay-root and full source folder)
+        shell: bash
+        run: |
+          rm -rf .v8-source-archive
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A -- cozy-peace tools .v8-source-archive
+          git diff --cached --stat | tail -n 6
+          git diff --cached --quiet && exit 1
+          git commit -m 'Expand complete verified NHW V8 FP204 source (1846 original files)'
+          git push origin HEAD:${GITHUB_REF_NAME}

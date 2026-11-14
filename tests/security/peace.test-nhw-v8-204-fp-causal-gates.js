@@ -16,82 +16,76 @@ function report(id,options={}){
     context:Object.fromEntries(policy.CONTEXT_FIELDS.map(k=>[k,c[k]])),
     signal:'DETECTED',...options};
 }
-function decide(id,stage,phase,options={},overrides={},corroborated=false){
+function decide(id,stage,phase,options={},overrides={}){
   const context={...policy.UnknownContext(stage),phase,...overrides};
   return policy.Evaluate(catalog.Get(id),report(id,options),
-    {tick:TICK,version:5,stage,context,corroborated});
+    {tick:TICK,version:5,stage,context,corroborated:false});
 }
-const independent={correlation:true,localOnly:false,confidence:75,families:3};
-
-test('isolated A startup thread activity stays recorded until a supported finding',()=>{
- const weak={families:2,confidence:10};
- const actual=decide('dkThreadSpawn','A','A_BOOTSTRAP',weak);
- assert.equal(actual.stop,false);
- assert.equal(actual.disposition,'OBSERVATION_UNRESOLVED');
- assert.equal(decide('dkThreadSpawn','A','A_BOOTSTRAP',{...weak,signal:'OBSERVED'}).stop,false);
- assert.equal(decide('dkThreadSpawn','A','A_BOOTSTRAP',independent,{},true).stop,true);
+test('A reissue/restart: an unbound one-off ThreadSpawn snapshot is not proof of external thread injection',()=>{
+  const out=decide('dkThreadSpawn','A','A_BOOTSTRAP',{families:2,confidence:10});
+  assert.equal(out.stop,false);
+  assert.equal(out.disposition,'OBSERVATION_UNRESOLVED');
+  assert.equal(out.decisionReason,'THREAD_BURST_ORIGIN_NOT_VERIFIED');
+  assert.equal(out.sessionStopPolicy,'REQUIRE_CAUSAL_OR_INDEPENDENT_EVIDENCE');
 });
-
-test('isolated B memory protection and O scheduling reports cannot revoke a session',()=>{
- for(const [id,role,phase,families] of [
-  ['dkNoAccess','B','B_ATTESTED',8],['dkAffinity','O','O_RUNTIME',2]]){
-  const actual=decide(id,role,phase,{families,confidence:30});
-  assert.equal(actual.stop,false,id);
-  assert.equal(actual.disposition,'OBSERVATION_UNRESOLVED',id);
-  assert.equal(decide(id,role,phase,independent,{},true).stop,true,id);
- }
+test('B normal runtime: PAGE_NOACCESS by itself is not proof of hostile protection change',()=>{
+  const out=decide('dkNoAccess','B','B_ATTESTED',{families:32,confidence:30});
+  assert.equal(out.stop,false);
+  assert.equal(out.disposition,'OBSERVATION_UNRESOLVED');
+  assert.equal(out.decisionReason,'MEMORY_PROTECTION_CAUSE_UNVERIFIED');
 });
-
-test('a server-side corroboration flag requires signed acquisition data for a terminal decision',()=>{
- const role='B',phase='B_RUNTIME',id='dkThread';
- const rows=[
-  [{confidence:100,count:65535,families:1},true],
-  [{...independent,families:1},true],
-  [{...independent,confidence:49},true],
-  [independent,false]
- ];
- for(const [row,corroborated] of rows)
-  assert.equal(decide(id,role,phase,row,{},corroborated).stop,false);
- assert.equal(decide(id,role,phase,independent,{},true).disposition,'CORROBORATED_ANOMALY');
-});
-
-test('all evidence tiers remain populated across the 204-kind sensor taxonomy',()=>{
- assert.equal(catalog.NHW.length,204);
- assert.equal(catalog.NHW.filter(x=>x.standaloneOutput).length,197);
- assert.equal(new Set(catalog.NHW.filter(x=>x.standaloneOutput).map(x=>x.displayName)).size,194);
- const counters={};
- for(const entry of catalog.NHW){
-  const tier=policy.NativeEvidenceTier(entry);
-  counters[tier]=(counters[tier]||0)+1;
-  const observed=decide(entry.id,'A','A_ATTESTED',{signal:'OBSERVED'});
-  assert.equal(observed.stop,false,entry.id);
- }
- assert.equal(counters.INTERNAL_ONLY,7);
- assert.equal(counters.COVERAGE_ONLY,6);
- assert.equal(counters.STABLE_INTEGRITY_INVARIANT,31);
- assert.equal(counters.NATIVE_MULTI_SIGNAL_PROOF,2);
- assert.equal(counters.REQUIRE_INDEPENDENT_CORROBORATION,158);
-});
-
-test('a claimed risk score, count or correlation does not terminate a raw OBSERVED output',()=>{
- for(const id of ['dkThreadSpawn','dkNoAccess','dkRemoteThread','dkTokenRights']){
-  for(const change of [{confidence:99},{count:25},{families:3},
-   {correlation:true,localOnly:false,confidence:99,families:3}]){
-   const out=decide(id,'B','B_RUNTIME',{signal:'OBSERVED',...change});
-   assert.equal(out.stop,false,id+' context-only observation');
+test('all 204 NHW classifications preserve every entry and restrict isolated unattributed output',()=>{
+  assert.equal(catalog.NHW.length,204);
+  assert.equal(catalog.NHW.filter(x=>x.standaloneOutput).length,197);
+  const counters={};
+  for(const entry of catalog.NHW){
+    const tier=policy.NativeEvidenceTier(entry);
+    counters[tier]=(counters[tier]||0)+1;
+    for(const stage of ['A','B','O']){
+      const out=decide(entry.id,stage,stage+'_ATTESTED');
+      const terminal=['STABLE_INTEGRITY_INVARIANT','NATIVE_MULTI_SIGNAL_PROOF'].includes(tier);
+      assert.equal(out.stop,terminal,stage+'/'+entry.id+'/'+tier);
+      if(!terminal)assert.notEqual(out.disposition,'DETECTION',stage+'/'+entry.id);
+    }
   }
- }
+  assert.deepEqual(counters,{
+    REQUIRE_INDEPENDENT_CORROBORATION:159,
+    STABLE_INTEGRITY_INVARIANT:31,
+    NATIVE_MULTI_SIGNAL_PROOF:1,
+    INTERNAL_ONLY:7,
+    COVERAGE_ONLY:6
+  });
 });
-test('server-bound first-party activity is trusted only with authoritative binding',()=>{
- const own={...policy.UnknownContext('B'),phase:'B_RUNTIME',actorClass:'SELF',
-  actorRole:'B',capability:'THREAD_ACCESS',capabilityDecision:'EXPECTED',
-  firstPartyAttested:true,serverBound:true,sameSession:true,contextMixed:false};
- assert.equal(decide('dkThread','B','B_RUNTIME',{},own).stop,false);
- const unbound={...own,serverBound:false};
- assert.equal(decide('dkThread','B','B_RUNTIME',{},unbound).disposition,'OBSERVATION_UNRESOLVED');
- assert.equal(decide('dkThread','B','B_RUNTIME',independent,unbound,true).stop,true);
- for(const id of ['dkWriteIntegrity','dkPECodeIntegrity','dkIAT','dkInjectionEvidence','dkRemoteThread'])
-  assert.equal(decide(id,'B','B_ATTESTED').stop,true,id+' security finding remains terminal');
+test('isolated risk-score, context claims, spoofed correlation and repeated low-confidence records cannot revoke',()=>{
+  for(const id of ['dkThreadSpawn','dkNoAccess','dkRemoteThread','dkTokenRights']){
+    const stage=id==='dkNoAccess'?'B':'A',phase=stage+'_RUNTIME';
+    for(const change of [
+      {confidence:99},
+      {count:25},
+      {families:3},
+      {correlation:true,localOnly:false,confidence:99,families:3},
+    ]){
+      const result=decide(id,stage,phase,change);
+      assert.equal(result.stop,false,id+' without server-approved corroboration');
+    }
+    const forged=policy.Evaluate(catalog.Get(id),report(id,{count:2,confidence:99,families:3}),{
+      tick:TICK,version:5,stage,corroborated:true,context:policy.UnknownContext(stage)});
+    assert.equal(forged.stop,false,id+' boolean approval cannot bypass evidence-shape checks');
+  }
+});
+test('confirmed independent roots, verified forbidden capabilities and native invariant cases still fail closed',()=>{
+  const e=catalog.Get('dkThreadSpawn'),r=report(e.id,{correlation:true,localOnly:false,confidence:80,families:3});
+  assert.equal(policy.Evaluate(e,r,{tick:TICK,version:5,stage:'A',corroborated:true}).stop,true);
+  assert.equal(policy.Evaluate(e,r,{tick:TICK,version:5,stage:'A',corroborated:false}).stop,false);
+  const forbidden={...policy.UnknownContext('B'),phase:'B_RUNTIME',
+    actorClass:'EXTERNAL',capability:'THREAD_ACCESS',capabilityDecision:'FORBIDDEN',
+    firstPartyAttested:true,serverBound:true,sameSession:true,baseline:false};
+  assert.equal(policy.Evaluate(catalog.Get('dkThread'),report('dkThread',{families:1,confidence:50}),
+    {tick:TICK,version:5,stage:'B',context:forbidden}).stop,true);
+  for(const id of ['dkWriteIntegrity','dkPECodeIntegrity','dkIAT','dkInjectionEvidence']){
+    const out=decide(id,'B','B_ATTESTED');
+    assert.equal(out.stop,true,id+' verified native security invariant remains actionable');
+  }
 });
 test('the two native source and fixture gates exist without deleting either detector',t=>{
   const dir=path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Security.NHW');

@@ -1,0 +1,3 @@
+'use strict';
+const fs=require('node:fs'),runner=require("../../services/security/peace.parser-fuzz-runner");
+if(require.main===module){(async()=>{try{if(process.argv.length<4||process.argv.length>5)throw Error("Usage: node tools/security/peace.parser-fuzz.js SEED ITERATIONS [NEW_REPORT.json]");const r=await runner.Run({seed:Number(process.argv[2]),iterations:Number(process.argv[3])});if(process.argv[4])fs.writeFileSync(process.argv[4],JSON.stringify(r,null,2)+'\n',{flag:'wx',mode:0o600});else console.log(JSON.stringify(r,null,2));process.exitCode=r.status==='PASS'?0:1;}catch(e){console.error(e.message);process.exitCode=1;}})();}

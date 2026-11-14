@@ -18,10 +18,9 @@ const TOKEN_KINDS=new Set(['dkTokenObject','dkTokenRights','dkTokenChange','dkTh
 // A DETECTED flag is an emitted sensor finding, not proof of attacker origin.
 // Keep the 204-kind catalog intact; distinguish internally verified invariants
 // from state/capability/behavior indicators that need causal corroboration.
-// InjectionEvidence combines target access, anomalous thread origin and
-// executable impact. ThreadOrigin emits RemoteThread only for a new non-image
-// executable start with a recent external CREATE_THREAD capability.
-const NATIVE_MULTI_SIGNAL_PROOFS=new Set(['dkInjectionEvidence','dkRemoteThread']);
+// InjectionEvidence's native source requires external access + anomalous thread
+// origin + executable-code impact, each in a bounded window.
+const NATIVE_MULTI_SIGNAL_PROOFS=new Set(['dkInjectionEvidence']);
 function NativeEvidenceTier(entry){
  const cls=PolicyClass(entry);
  if(cls==='INTERNAL_TELEMETRY')return 'INTERNAL_ONLY';
@@ -30,6 +29,51 @@ function NativeEvidenceTier(entry){
   return 'STABLE_INTEGRITY_INVARIANT';
  if(NATIVE_MULTI_SIGNAL_PROOFS.has(entry.id))return 'NATIVE_MULTI_SIGNAL_PROOF';
  return 'REQUIRE_INDEPENDENT_CORROBORATION';
+}
+
+// A sensor output is an event, not proof that normal B/O activity was hostile.
+// The semantic policy is exhaustive through PolicyClass (all 204 registered
+// kinds); never suppress independently verified structural/code mutations.
+const V5_WEAK_CONTEXT_CLASSES=new Set([
+ 'PROCESS_THREAD_CAPABILITY','TOKEN_TRANSITION_OR_CAPABILITY',
+ 'CONTEXT_AND_INDEPENDENT_CORROBORATION'
+]);
+const V5_DIRECT_RISK_KINDS=new Set([
+ 'dkRemoteThread','dkPrivateThread','dkThreadRegion','dkInjectionEvidence',
+ 'dkRWX','dkExecuteProtect','dkProtectTransition','dkExecutableMapping',
+ 'dkReadAccess','dkCanaryAccess','dkWriteBurst','dkRepeatedWrite',
+ 'dkDacl','dkFileSecurity','dkRegistrySecurity','dkObjectSecurity',
+ 'dkNetworkIntegrity','dkNetworkFilter','dkWFPCallout','dkWFPProvider'
+]);
+function RootCount(mask){let n=mask&127,count=0;for(;n;n&=n-1)count++;return count;}
+function WeakUnattributedRuntimeOutput(stage,entry,r,context,corroborated,cls){
+ if(!['B','O'].includes(stage)||!entry.standaloneOutput||
+    !V5_WEAK_CONTEXT_CLASSES.has(cls)||V5_DIRECT_RISK_KINDS.has(entry.id))return false;
+ // Stage comes from the authenticated A/B/O server row, not from the client
+ // phase string. B/O regularly create/exit threads, change affinity and use
+ // token handles, including after startup. No role-wide allowlist is granted.
+ if(!context.phase.startsWith(stage+'_')||
+    !['?',stage].includes(context.targetRole)||
+    !['UNKNOWN','EXTERNAL'].includes(context.actorClass)||
+    context.actorRole!=='?'||context.actorIdentity!==''||
+    context.peerId!==''||context.grantId!==''||context.contextMixed||
+    context.serverBound===true||context.firstPartyAttested===true||
+    context.sameSession===true)return false;
+ // HANDLE_SNAPSHOT is an acquisition root, not proof that a holder used
+ // THREAD_SET_CONTEXT/PROCESS_VM_WRITE. A full-rights mask describes an
+ // available capability; an unknown actor cannot be promoted to a verified
+ // attacker based on that mask alone. The NHW handle-level sensor reports
+ // the sole-root dkThread event with confidence 30 during ordinary startup.
+ // This bounded exception applies to B/O process/thread capability semantics
+ // only; different acquisition roots, verified ownership, native mutation
+ // evidence and elevated confidence still take the terminal route.
+ const soleUnattributedHandleSnapshot=cls==='PROCESS_THREAD_CAPABILITY'&&
+   ['PROCESS_ACCESS','THREAD_ACCESS'].includes(context.capability)&&
+   r.families===1&&r.confidence<=30;
+ return r.signal==='DETECTED'&&r.localOnly===true&&
+   r.correlation===false&&!corroborated&&
+   (r.confidence<=20||soleUnattributedHandleSnapshot)&&
+   (r.families&128)===0&&RootCount(r.families)<=1;
 }
 
 const ACCESS_KINDS=new Set(['dkProcess','dkThread','dkOwnership','dkEscalation','dkReappearance','dkCrossAccess','dkAccessBurst','dkHandleChurn','dkHandleInherit','dkHandleSharingEvidence','dkTemporalHandleGraph',...TOKEN_KINDS]);
@@ -95,13 +139,6 @@ function ExpectedCompatible(entry,r,context){
  if(ACCESS_KINDS.has(entry.id)&&['PROCESS_ACCESS','THREAD_ACCESS','TOKEN_ACCESS'].includes(context.capability))return true;
  return TOKEN_KINDS.has(entry.id)&&context.capability==='TOKEN_STATE'&&context.baseline&&context.tokenDelta===0;
 }
-function QualifiedCorroboration(entry, record, corroborated){
- if(!corroborated||record.signal!=='DETECTED'||record.correlation!==true||
-    record.localOnly!==false||record.confidence<50)return false;
- const roots=record.families&127;
- return (roots&(roots-1))!==0||
-  (entry.category==='KERNEL_TRUST'&&(record.families&128)!==0);
-}
 function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prior=null,now=Date.now(),version=4,stage='?'}={}){
  const base={context,disposition:'OBSERVATION_UNRESOLVED',decisionReason:'ADDITIONAL_CONTEXT_OR_CORROBORATION_REQUIRED',sessionStopPolicy:'CONTEXT_AND_CORROBORATION',coverageState:'UNKNOWN',stop:false};
  if(!Fresh(r,tick))return {...base,decisionReason:'STALE_OBSERVATION_RECORDED'};
@@ -121,7 +158,6 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
  // Version 3 carried no distinction between sensor findings and context-only
  // observations, so a single legacy access report must not revoke a session.
  const nativeFinding=r.signal==='DETECTED'||(r.signal===undefined&&r.context===undefined); // v2 only reported sensor flags
- const qualified=version>=5?QualifiedCorroboration(entry,r,corroborated):corroborated;
  const expected=ExpectedCompatible(entry,r,context);
  if(expected)return {...base,disposition:'EXPECTED_FIRST_PARTY',decisionReason:'SERVER_BOUND_ROLE_CAPABILITY_ALLOWED',sessionStopPolicy:'OBSERVE_ONLY'};
  // V5 exclusively applies the native *post-filter* output contract. A
@@ -144,12 +180,12 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
   return {...base,disposition:'DETECTION',decisionReason:'FIRST_PARTY_CAPABILITY_MATRIX_VIOLATION',sessionStopPolicy:'STOP_ON_CAPABILITY_VIOLATION',stop:true};
  // A single token delta may be a legitimate startup privilege adjustment.
  // Preserve it as evidence, and act only when independent corroboration exists.
- if(TokenMutation(r,context)&&nativeFinding&&qualified)
+ if(TokenMutation(r,context)&&nativeFinding&&corroborated)
   return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'CORROBORATED_TOKEN_SECURITY_TRANSITION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
  // A server-identified SELF token initialization during the actual measured
  // baseline can produce a delta without proving hostile intervention. Keep
  // that specific isolated observation, never an unbound SELF claim, as
- // evidence; an independently corroborated delta remains actionable.
+ // evidence; independent correlation or a post-baseline delta is actionable.
  // Baseline, binding and session are all mandatory; no role-wide bypass.
  const isolatedStartupToken=version>=5&&TOKEN_KINDS.has(entry.id)&&
    context.capability==='TOKEN_STATE'&&context.tokenDelta>0&&
@@ -157,19 +193,94 @@ function Evaluate(entry,r,{tick,context=UnknownContext(),corroborated=false,prio
    context.actorClass==='SELF'&&context.firstPartyAttested===true&&
    context.serverBound===true&&context.sameSession===true&&
    !context.contextMixed&&r.localOnly===true&&r.correlation===false&&
-   !qualified;
+   !corroborated;
  if(isolatedStartupToken)return {...base,disposition:'OBSERVATION_UNRESOLVED',
    decisionReason:'SERVER_BOUND_STARTUP_TOKEN_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
+ // The NHW primary-token sampler cannot attribute who made a local token
+ // change (the native report intentionally sets ActorPID=0). A standalone
+ // delta from that sampler is not proof of external intervention. Keep the
+ // actual finding and pursue independent evidence, but never revoke on a
+ // lone UNKNOWN-actor TOKEN_STATE delta. Verified external token-handle
+ // access (TOKEN_ACCESS) and corroborated token mutation remain actionable.
+ const unattributedTokenDelta=version>=5&&TOKEN_KINDS.has(entry.id)&&
+   context.capability==='TOKEN_STATE'&&context.actorClass==='UNKNOWN'&&
+   context.actorIdentity===''&&context.serverBound!==true&&
+   r.localOnly===true&&r.correlation===false&&!corroborated;
+ if(unattributedTokenDelta)return {...base,disposition:'OBSERVATION_UNRESOLVED',
+   decisionReason:'TOKEN_STATE_ACTOR_UNATTRIBUTED',
+   sessionStopPolicy:'REQUIRE_INDEPENDENT_TOKEN_EVIDENCE'};
+ // During the first A bootstrap, a snapshot of an unbound foreign token
+ // handle is not evidence that the token was mutated. In particular, a
+ // TOKEN_ALL_ACCESS mask is a rights grant, not a successful TOKEN_ADJUST call.
+ // The native sampler may see this after its local baseline while the remote
+ // owner has no server-verifiable identity. Preserve the real NHW finding,
+ // but never call a single low-confidence OBJECT_STATE observation an attack.
+ // This does NOT exempt an identified actor, independent acquisition evidence,
+ // a later phase, stronger-confidence findings, or other sensor kinds.
+ const weakUnattributedBootstrapTokenHandle=version>=5&&r.signal==='DETECTED'&&
+   ['dkTokenObject','dkTokenRights'].includes(entry.id)&&
+   context.phase==='A_BOOTSTRAP'&&context.capability==='TOKEN_ACCESS'&&
+   context.actorClass==='EXTERNAL'&&context.actorRole==='?'&&
+   context.actorIdentity===''&&context.peerId===''&&context.grantId===''&&
+   context.serverBound!==true&&context.firstPartyAttested!==true&&
+   context.sameSession!==true&&!context.contextMixed&&!context.baseline&&
+   context.accessMask===0x000f01ff&&
+   r.localOnly===true&&r.correlation===false&&!corroborated&&
+   r.confidence<=10&&r.families===32; // OBJECT_STATE only
+ if(weakUnattributedBootstrapTokenHandle)return {...base,
+   disposition:'OBSERVATION_UNRESOLVED',
+   decisionReason:'UNATTRIBUTED_BOOTSTRAP_TOKEN_HANDLE',
+   sessionStopPolicy:'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION'};
+ // B/O have role-owned activity. Their unverified, single-root low-confidence
+ // output is recorded with its real sensor kind and context, not promoted to
+ // an irreversible cohort revoke merely because the native printer said DETECTED.
+ // A later strong or independently corroborated finding still revokes exactly
+ // the peer-bound cohort through the existing StopDecision -> Revoke path.
+ if(version>=5&&WeakUnattributedRuntimeOutput(stage,entry,r,context,corroborated,cls)){
+  // Distinguish the captured 30-point single HANDLE_SNAPSHOT incident from
+  // the original <=20 weak signal without changing historical decisions.
+  const handleSnapshotOnly=cls==='PROCESS_THREAD_CAPABILITY'&&
+    ['THREAD_ACCESS','PROCESS_ACCESS'].includes(context.capability)&&
+    r.families===1&&r.confidence>20;
+  return {...base,disposition:'OBSERVATION_UNRESOLVED',
+    decisionReason:handleSnapshotOnly?'V5_UNATTRIBUTED_HANDLE_SNAPSHOT':
+      'V5_RUNTIME_EVIDENCE_UNATTRIBUTED',
+    sessionStopPolicy:'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION'};
+ }
  if(r.signal==='OBSERVED')return {...base,disposition:'INTERNAL_EVIDENCE',decisionReason:'CONTEXT_ONLY_OBSERVATION',sessionStopPolicy:'OBSERVE_ONLY'};
- if(version>=5){
-  if(r.signal!=='DETECTED'||entry.standaloneOutput!==true)return base;
+ // V1-V4 keep the pre-existing contract. V5 native output means the
+ // sensor emitted a finding, NOT that every state change, rights snapshot or
+ // activity burst was adversarial. Requiring explicit causality here prevents
+ // 204 typed kinds from inheriting a blanket STOP_ON_NATIVE_DETECTED_OUTPUT.
+ // Exact stable invariants and the native three-signal injection proof remain
+ // terminal; other kinds need a verified forbidden peer or independent roots.
+ // A client-supplied actor identity, phase, access mask or confidence alone
+ // cannot manufacture a stop decision. Server-side binding is checked above.
+ if(version>=5&&r.signal==='DETECTED'){
+  // The server's policy caller checks the independent-root vote. Validate
+  // the record shape again here so a test or alternate caller cannot pass a
+  // boolean 'corroborated' without the corresponding signed acquisition data.
+  const independentRoots=r.correlation===true&&r.localOnly===false&&
+    r.confidence>=50&&RootCount(r.families&127)>=2;
+  const qualifiedKernelVote=entry.category==='KERNEL_TRUST'&&
+    r.correlation===true&&r.localOnly===false&&r.confidence>=50&&
+    (r.families&128)!==0;
+  const independentlySupported=corroborated&&(independentRoots||qualifiedKernelVote);
   const tier=NativeEvidenceTier(entry);
   if(tier==='STABLE_INTEGRITY_INVARIANT'||tier==='NATIVE_MULTI_SIGNAL_PROOF')
-   return {...base,disposition:'DETECTION',decisionReason:tier,sessionStopPolicy:'STOP_ON_TYPED_SECURITY_EVIDENCE',stop:true};
-  if(qualified)return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'INDEPENDENT_EVIDENCE_CORROBORATION',sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
-  return base;
+   return {...base,disposition:'DETECTION',decisionReason:'V5_'+tier,
+    sessionStopPolicy:'STOP_ON_VERIFIED_NATIVE_INVARIANT',stop:true};
+  if(independentlySupported)
+   return {...base,disposition:'CORROBORATED_ANOMALY',decisionReason:'V5_INDEPENDENT_EVIDENCE',
+    sessionStopPolicy:'STOP_ON_CORROBORATED_ANOMALY',stop:true};
+  const reason=entry.id==='dkThreadSpawn'?'THREAD_BURST_ORIGIN_NOT_VERIFIED':
+   entry.id==='dkNoAccess'?'MEMORY_PROTECTION_CAUSE_UNVERIFIED':
+   cls==='PROCESS_THREAD_CAPABILITY'||cls==='TOKEN_TRANSITION_OR_CAPABILITY'?
+    'NATIVE_CAPABILITY_NOT_VERIFIED_AS_ABUSE':
+    'NATIVE_BEHAVIOR_REQUIRES_CORROBORATION';
+  return {...base,decisionReason:reason,
+   sessionStopPolicy:'REQUIRE_CAUSAL_OR_INDEPENDENT_EVIDENCE'};
  }
- // V1-V4 retain their original correlation and typed-evidence rules.
  // These specific sensor families contain internal baseline/confirmation.
  // For legacy clients without the new source discriminator, require an
  // independent correlation rather than assuming every record was a finding.

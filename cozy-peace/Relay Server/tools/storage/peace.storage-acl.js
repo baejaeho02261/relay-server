@@ -1,0 +1,13 @@
+'use strict';
+const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
+
+const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+function Validate(input){if(!input||Object.getPrototypeOf(input)!==Object.prototype||Object.keys(input).some(k=>!['version','dataDirectory','witnessDirectory','serviceSid'].includes(k))||input.version!==1||typeof input.dataDirectory!=='string'||!path.isAbsolute(input.dataDirectory)||input.witnessDirectory!==undefined&&(typeof input.witnessDirectory!=='string'||!path.isAbsolute(input.witnessDirectory))||!/^S-1-\d+(?:-\d+){1,14}$/.test(input.serviceSid||''))throw Error('ACL_INPUT_INVALID');return input;}
+function Verify(input,mode='check'){
+ Validate(input);if(!['check','apply'].includes(mode))throw Error('ACL_MODE_INVALID');if(process.platform!=='win32')throw Error('ACL_WINDOWS_REQUIRED');
+ const executable=path.join(process.env.SystemRoot||'C:\\Windows','System32','WindowsPowerShell','v1.0','powershell.exe');
+ const args=['-NoProfile','-NonInteractive','-File',path.join(MODULE_RESOURCE_ROOT,"storage/storage-acl.ps1"),'-Mode',mode,'-DataDirectory',input.dataDirectory,'-ServiceSid',input.serviceSid];if(input.witnessDirectory)args.push('-WitnessDirectory',input.witnessDirectory);
+ const run=cp.spawnSync(executable,args,{encoding:'utf8',windowsHide:true,timeout:60000,maxBuffer:1024*1024,shell:false});let result;try{result=JSON.parse(run.stdout.trim());}catch(_){throw Error('ACL_VERIFICATION_FAILED');}if(run.status!==0||!result.ok)throw Error(/^ACL_[A-Z_]+$/.test(result.error||'')?result.error:'ACL_VERIFICATION_FAILED');return result;
+}
+if(require.main===module){let result,code=0;const mode=process.argv[2];try{if(process.argv.length!==4)throw Error('ACL_INPUT_INVALID');const input=Validate(require("../../services/protocol/peace.strict-json").Parse(require("../../services/storage/peace.durable-file").ReadRegular(path.resolve(process.argv[3]),8192),{maxBytes:8192}));if(process.platform!=='win32')throw Error('ACL_WINDOWS_REQUIRED');const lock=require("../../services/storage/peace.desktop-single-writer");lock.Acquire(input.dataDirectory);if(input.witnessDirectory)lock.AcquireWitness(input.witnessDirectory);result=Verify(input,mode);}catch(e){code=1;result={version:1,ok:false,mode,error:/^[A-Z0-9_]+$/.test(e.message)?e.message:'ACL_OPERATION_FAILED',checkedAt:new Date().toISOString()};}try{const name=path.join(MODULE_RESOURCE_ROOT,'storage-acl-'+(mode==='apply'?'apply':'check')+'-result.json');require("../../services/storage/peace.durable-file").Atomic(name,Buffer.from(JSON.stringify(result,null,2)+'\n'));console.log(name);}catch(_){code=1;}process.exitCode=code;}
+module.exports={Validate,Verify};

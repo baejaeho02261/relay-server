@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>선택형 IDE 빌드 관측</title>
+<style>body{font:16px/1.65 system-ui,sans-serif;color:#172033;background:#f3f5f8;margin:0}main{max-width:980px;margin:32px auto;padding:32px;background:white;border-radius:12px}h1,h2{line-height:1.3}h1{font-size:28px}h2{font-size:21px;margin-top:30px}pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:18px;background:#111827;color:#e5edff;border-radius:8px;font-size:13px}code{overflow-wrap:anywhere}table{width:100%;border-collapse:collapse}th,td{padding:12px;border:1px solid #d3dae6;text-align:left;vertical-align:top}.note{padding:16px;border-left:4px solid #bc7500;background:#fff5da}a{color:#1655ad}@media(max-width:650px){main{margin:0;padding:20px}table{font-size:14px}}</style>
+<main>
+<h1>선택형 IDE 빌드 관측</h1>
+<p>RAD Studio의 기존 <strong>IDE 내부 컴파일</strong>을 그대로 사용합니다. 이 기능은 dcc64로 전환하지 않으며, 일반 빌드에는 적용되지 않습니다. 새 서명 키나 관측 드라이버 설치가 필요하지 않습니다. 관측은 Win64 Release만 지원합니다.</p>
+<div class="note"><strong>현재 검증 상태: 부분 구현 / 실제 Windows 실행 NOT_RUN.</strong> Linux에서 합성 계약 테스트만 실행했습니다. RAD 13 Trial의 실제 타깃 순서, C# MSBuild 작업, Process Monitor 실제 내보내기 형식은 Windows에서 확인해야 합니다. 이 기록은 독립적인 완전한 빌드 출처 증명이 아닙니다. 오류가 나면 관측 설정을 끄고 기존 IDE 빌드를 계속할 수 있습니다.</div>
+<h2>1. 새 관측 폴더 준비</h2>
+<p>실제 설치 경로로 바꾸고, RAD 환경이 설정된 명령 창에서 실행합니다. 새 폴더는 소스와 BDS 설치 폴더 밖에 두세요. 기존 관측 폴더는 재사용하지 않습니다. 준비 이후 소스·설치 파일을 바꾸지 마세요.</p>
+<pre>mkdir D:\BuildEvidence
+"C:\Program Files\nodejs\node.exe" "D:\cozy-peace\Relay Server\tools\build\peace.ide-build-observation.js" prepare "D:\cozy-peace\Railway" "%BDS%" "D:\BuildEvidence\run-001"</pre>
+<p>이 명령은 소스, BDS bin/bin64(있을 때), include, lib/win64/release의 후보 입력 파일을 해시로 기록합니다. 파일 내용은 복사하지 않습니다. 이것은 후보 목록이며, 컴파일러가 사용했다는 증거는 아닙니다. 파일당 512 MiB, 전체 32 GiB, 100,000개 한도가 적용됩니다.</p>
+<h2>2. 새 IDE 프로세스에서 선택형 관측 켜기</h2>
+<pre>set "GameObserveBuild=true"
+set "GameObservationNode=C:\Program Files\nodejs\node.exe"
+set "GameObservationDirectory=D:\BuildEvidence\run-001"
+start "" "%BDS%\bin\bds.exe"</pre>
+<p>이미 실행 중인 IDE는 새 환경을 상속하지 않습니다. 실제 IDE 실행 파일이 bin64에 있으면 해당 경로를 사용하세요. 준비할 때 사용한 것과 같은 Node 실행 파일을 지정합니다. IDE에서 Win64 / Release를 선택하고 A·B·O를 한 번씩 순서대로 <strong>Build</strong>합니다. 같은 역할의 재시도는 새 관측 폴더로 시작합니다.</p>
+<table><thead><tr><th>시점</th><th>기록 및 검사</th></tr></thead><tbody>
+<tr><td>빌드 전</td><td>평가된 설정·참조 목록과 제한된 빌드 관련 상속 환경을 기록합니다. 해당 역할의 격리된 staging EXE만 삭제하여 이전 EXE가 성공으로 오인되지 않게 합니다. bin의 기존 최종 EXE는 삭제하지 않습니다.</td></tr>
+<tr><td>컴파일 타깃 직전</td><td>B의 PrepareLicenseNative, O의 PrepareOverlayNative 및 PreBuildEvent 이후 생성된 참조를 별도로 기록합니다. 각 프로젝트의 Cozy.*Resources.res 세 개와 Cozy.BuildOutputs/Cozy.ImGui/Cozy.game_imgui_bridge.o가 허용된 생성 참조입니다. B/O는 이 ImGui 오브젝트가 있어야 다음 단계로 진행합니다. 새 생성 파일 때문에 소스 기준을 임의 갱신하지 않습니다.</td></tr>
+<tr><td>후처리/게시 훅</td><td>실제 staging PE64가 있어야 합니다. 종료 코드 0만으로 성공하지 않습니다. 원본 소스와 직전 생성 참조가 유지되는지 확인하고 staging EXE를 관측 폴더에 보관합니다. 첫 번째 적용 가능한 PostBuildEvent/PublishRandomExecutable 직전의 바이트이며, 항상 컴파일러가 반환한 즉시의 원본이라고 주장하지 않습니다.</td></tr>
+</tbody></table>
+<p>관측을 끄려면 새 명령 창/IDE에서 <code>GameObserveBuild</code>, <code>GameObservationNode</code>, <code>GameObservationDirectory</code>를 설정하지 않거나 값을 지우세요. 빌드 경로와 내부 컴파일은 변경되지 않습니다.</p>
+<h2>3. 실제 외부 추적이 있을 때만 읽기/쓰기 대조</h2>
+<p>선택 사항입니다. 이미 승인된 <a href="https://learn.microsoft.com/en-us/sysinternals/downloads/procmon">Microsoft Process Monitor</a>로 파일 시스템과 프로세스 이벤트를 수집할 수 있습니다. 이 패키지는 Process Monitor를 다운로드·실행하거나 드라이버를 설치하지 않습니다. Process Monitor 자체는 관리자 권한/드라이버 사용이 필요할 수 있으므로 해당 PC의 운영 절차를 따르세요.</p>
+<ol>
+<li>IDE 시작 전부터 기록하고, 관측 훅을 실행하는 node.exe 이벤트도 보존합니다. Drop Filtered Events로 원본을 버리지 마세요. 원본 PML과 수집 설정을 따로 보관합니다.</li>
+<li>실제 빌드를 완료한 뒤 전체 관련 구간을 CSV로 내보냅니다. 필수 열은 <code>Process Name, PID, Operation, Path, Result, Detail, Image Path, Command Line</code>입니다. UTF-8 또는 UTF-16LE, 최대 64 MiB/300,000행을 지원합니다. 열이나 이벤트가 없으면 검사 실패이며 임의 이벤트를 만들어 채우지 않습니다.</li>
+<li>실제 IDE/컴파일러 PID를 사용합니다. 지정 PID의 image path는 해당 BDS의 bin/bin64 안의 bds.exe, bds64.exe 또는 dcc64.exe여야 합니다. 내부 컴파일은 bds.exe의 실행 명령만 기록되며 별도 DCC 명령행은 존재하지 않을 수 있습니다.</li>
+</ol>
+<p>검사기는 고유 ready/after marker ReadFile 사이에서 같은 PID의 주 DPR ReadFile과 staging EXE WriteFile을 요구합니다. 실제 읽기/이미지 로드가 관측된 후보만 별도로 보고합니다. 새 DCU는 같은 PID의 선행 WriteFile과 빌드 후 해시가 있어야 분류됩니다. 준비되지 않은 소스·참조 읽기는 거절합니다.</p>
+<p>메모리 캐시로만 읽힌 소스, 이벤트 누락, 메모리 매핑, OS DLL, bcc64/리소스 컴파일러와 자식 프로세스, bare powershell.exe 및 GAME_IMGUI_BCC64 override는 이 한 PID의 기록으로 완전히 입증되지 않습니다. 정확한 읽기 시점의 바이트와 내부 컴파일러 환경/옵션 역시 입증하지 못합니다. 따라서 실제 trace가 있어도 <code>independentProvenance: NOT_PROVEN</code>입니다.</p>
+<h2>4. 최종 EXE·기존 승인과 연결</h2>
+<p>평소대로 Create_Approval / Check_Approval을 마치고 현재 서버 정책을 내보냅니다. 이 도구는 개인 키를 읽지 않습니다. A는 보관된 staging 바이트와 최종 바이트가 같아야 합니다. ImGui를 포함하는 B/O는 동일 바이트 또는 정확한 예외 테이블 정렬과 원래 0이 아니던 PE 체크섬 재계산만 허용합니다. 코드·리소스·다른 바이트 변경은 새 승인 서명이 유효하더라도 거절합니다.</p>
+<pre>node "D:\cozy-peace\Relay Server\tools\build\peace.ide-build-observation.js" seal "D:\BuildEvidence\run-001" A "D:\cozy-peace\Railway\bin\A_Release_actual.exe" "D:\cozy-peace\Relay Server\tools\A.approval.json" "D:\cozy-peace\Relay Server\tools\deployment-policy.json" "D:\BuildEvidence\actual.csv" 1234</pre>
+<p><code>1234</code>를 실제 기록의 PID로 바꾸세요. B/O도 각각 실행합니다. trace가 없으면 마지막 CSV/PID 두 인수를 생략할 수 있지만, 외부 관측 상태는 <strong>NOT_RUN</strong>입니다. 성공 시 <code>A-sealed.json</code>과 그 SHA-512를 출력합니다. 전체 PE 유효성/프로토콜/릴리스 기준은 기존 <code>Check_Manual_Release.bat</code>로 별도 확인해야 합니다.</p>
+<h2>5. 외부에 보관한 다이제스트로 변경 검출</h2>
+<p>sealed JSON의 SHA-512를 <strong>빌드 계정이 변경할 수 없는 별도 검토 기록</strong>에 보관한 뒤 검증합니다. 같은 폴더의 JSON과 체크섬을 함께 바꿀 수 있는 사람은 기록을 위조할 수 있습니다. 도구가 출력한 체크섬 자체를 독립 증거로 취급하지 마세요. 공개 EXE 승인은 최종 EXE를 서명하며, 이 관측 JSON을 서명하지 않습니다.</p>
+<pre>node "D:\cozy-peace\Relay Server\tools\build\peace.ide-build-observation.js" verify "D:\BuildEvidence\run-001\A-sealed.json" EXTERNALLY_RETAINED_128_HEX_SHA512 "D:\cozy-peace\Railway\bin\A_Release_actual.exe" "D:\cozy-peace\Relay Server\tools\A.approval.json" "D:\cozy-peace\Relay Server\tools\deployment-policy.json"</pre>
+<p>이 단계는 별도로 보관한 기록과 최종 EXE/승인/정책이 일치하는지 확인하고, 보관된 훅·staging EXE·trace의 해시를 다시 대조합니다. 원래 기록된 경로에 자료를 유지하세요. 과거 trace 자체의 진실성이나 완전성, 기준 기록의 독립 검토, PC/컴파일러 무결성을 새로 증명하지 않습니다. 원본 자료와 기록은 재검토를 위해 함께 보관하세요.</p>
+<h2>실패하면</h2>
+<ul><li><code>INPUTS_CHANGED</code>: 소스·설치 후보가 바뀌었습니다. 변경을 검토하고 새 관측 폴더로 시작하세요.</li><li><code>GENERATED_REFERENCE_MISSING/CHANGED</code>: 실제 준비 타깃 순서 또는 생성 참조를 확인하세요. whitelist를 넓혀 우회하지 마세요.</li><li>PE가 없거나 <code>MANUAL_INPUT_MISSING</code>: 실제 IDE Build가 EXE를 만들지 못했습니다. Trial CLI의 종료 코드 0은 성공 증거가 아닙니다.</li><li><code>TRACE_*</code>: 실제 수집 범위·PID·필수 열을 확인하세요. 추적이 없으면 파일 연결만 기록하고 외부 실행은 NOT_RUN으로 유지합니다.</li><li><code>FINAL_BYTES_UNLINKED</code>: 다른 빌드이거나 허용하지 않은 변경입니다. 해당 EXE의 원래 빌드부터 다시 관측하세요.</li></ul>
+</main></html>

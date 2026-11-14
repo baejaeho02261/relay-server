@@ -45,7 +45,7 @@
     "scripts/desktop/peace.admin-desktop-members.js": "d6b7f35fbb3db7e2fa63cc93302c8207145b9665f2ae39ec18778e96e1b5c35e",
     "scripts/desktop/peace.admin-desktop-security-center.js": "8a64b8827530ff1a115e22d9f71825d7f4cb117cf5bee70401c6d03b22337208",
     "scripts/desktop/peace.admin-desktop-security.js": "e5797ace99e1feb51c9b0a445d1deb0de704d1160d782e99cf8901ea03bb1a9c",
-    "scripts/desktop/peace.admin-desktop-server-state.js": "abf7872c3278ac5981b8c02befeb0d6ff490a913d2a629dd7f122fc07c872280",
+    "scripts/desktop/peace.admin-desktop-server-state.js": "4aa86a8a2387da0aa35c4b5661d279f4f4a8d0e7c6957580b99329206aa01a6d",
     "scripts/desktop/peace.admin-desktop-workflow.js": "b6fda7a68436fc79c4e7a3c850c6ce9ebfbf4a8b385f2ce19ffa3ea98a98c5fb",
     "scripts/desktop/peace.admin-desktop-packed-release.js": "2245b28b5383982e18f4109a14120023316e9e34e8e344d8b6602a489f5bb2a3",
     "styles/admin-desktop.css": "fd4e34fd6c503ed391768a2e6b0027e7b30e473de4f3610ea7edd7a81148905c",

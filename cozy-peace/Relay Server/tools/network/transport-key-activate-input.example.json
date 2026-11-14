@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "dataDirectory": "C:\\GameServer\\data",
+  "actor": "REPLACE_WITH_OPERATOR_ID",
+  "request": {
+    "requestId": "REPLACE_WITH_UNIQUE_REQUEST_ID",
+    "expectedRevision": 1,
+    "keyId": "REPLACE_WITH_PREPARED_KEY_ID",
+    "fromKeyId": "REPLACE_WITH_CURRENT_KEY_ID",
+    "retireAt": 0,
+    "confirmNewLauncherRequired": true
+  }
+}

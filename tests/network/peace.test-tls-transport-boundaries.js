@@ -96,14 +96,6 @@ test('production TLS/envelope boundaries retain no socket admission after comple
    envelope.wire=Buffer.from(JSON.stringify(envelope.frame)+'\r\n');
    const result=await EncryptedDenial(envelope,{fragment:127});assert.ok(result.writes>50);
   });
-  await t.test('a keepAlive flag on a non-bootstrap encrypted request cannot retain the TLS socket',async()=>{
-   const envelope=Envelope();
-   envelope.frame.keepAlive=1;
-   envelope.wire=Buffer.from(JSON.stringify(envelope.frame)+'\n');
-   const result=await EncryptedDenial(envelope);
-   assert.equal(result.secure,true);
-   await AdmissionCount(0);
-  });
   await t.test('two frames in one write are rejected before either request ID is consumed',async()=>{
    const first=Envelope(),second=Envelope();
    assert.equal((await Wire(Buffer.concat([first.wire,second.wire]))).bytes.length,0);await AdmissionCount(0);

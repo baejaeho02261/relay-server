@@ -17,26 +17,6 @@ const now=()=>Date.now();
 function Fail(code,status=400){const error=Error(code);error.desktopError=true;error.bootstrapError=true;error.status=status;throw error;}
 function Plain(x){return !!x&&typeof x==='object'&&!Array.isArray(x)&&Object.getPrototypeOf(x)===Object.prototype;}
 function Fields(value,names){if(!Plain(value)||Object.keys(value).some(key=>!['action',...names].includes(key)))Fail('BOOTSTRAP_INPUT_INVALID');}
-// Optional cumulative measurements originate inside the A client's pinned,
-// authenticated envelope. They are untrusted diagnostics, NEVER evidence to
-// admit/renew a flow. Reject raw IDs/paths/tickets/extra fields outright.
-const CLIENT_TIMING_FIELDS=['chunks','reused','chunkMs','tlsMs','wireMs','cryptoMs','fileMs','verifyMs','nhwMs','nhwChecks'];
-function ValidClientTiming(value,action,offset){
- return Plain(value)&&Object.keys(value).length===CLIENT_TIMING_FIELDS.length&&
-   CLIENT_TIMING_FIELDS.every(key=>Object.hasOwn(value,key)&&Number.isSafeInteger(value[key])&&
-     value[key]>=0&&value[key]<=(key==='chunks'||key==='reused'||key==='nhwChecks'?256:900000))&&
-   value.reused<=value.chunks&&
-   (action!=='chunk'||Number.isSafeInteger(offset)&&offset>=0&&offset%CHUNK_SIZE===0&&
-     (offset/CHUNK_SIZE)%16===0);
-}
-function ClientTiming(body,row,action){
- if(!Object.hasOwn(body,'clientTiming'))return;
- const value=body.clientTiming;
- if(!ValidClientTiming(value,action,body.offset))Fail('BOOTSTRAP_INPUT_INVALID');
- Audit('DESKTOP_BOOTSTRAP_CLIENT_TIMING',{
-  flowId:row.id,action,...(action==='chunk'?{offset:body.offset}:{}),...value
- });
-}
 function Id(){return crypto.randomBytes(12).toString('hex').toUpperCase();}
 function Nonce(){return crypto.randomBytes(24).toString('hex');}
 function DB(){try{return store.Load();}catch(error){Fail(messages[error.message]?error.message:'BOOTSTRAP_STORAGE_INVALID',503);}}
@@ -256,9 +236,8 @@ function Begin(body,keylessAuthorization){
 }
 function BeginResult(row){return {flowId:row.id,downloadTicket:DownloadTicket(row),release:Release(DB().artifacts[row.releaseId]),chunkSize:CHUNK_SIZE,expiresAt:row.expiresAt,finishCanonical:FinishCanonical(row)};}
 function Chunk(body){
- Fields(body,['flowId','downloadTicket','offset','clientTiming']);const row=DownloadFlow(body),artifact=DB().artifacts[row.releaseId];
+ Fields(body,['flowId','downloadTicket','offset']);const row=DownloadFlow(body),artifact=DB().artifacts[row.releaseId];
  if(!Number.isSafeInteger(body.offset)||body.offset<0||body.offset>=artifact.size||body.offset%CHUNK_SIZE!==0)Fail('BOOTSTRAP_INPUT_INVALID');
- ClientTiming(body,row,'chunk');
  const size=Math.min(CHUNK_SIZE,artifact.size-body.offset),bytes=Buffer.alloc(size);let fd;
  try{
   try{const file=store.ArtifactPath(artifact.id);fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==artifact.size)throw Error();let read=0;while(read<size){const count=fs.readSync(fd,bytes,read,size-read,body.offset+read);if(!count)throw Error();read+=count;}}
@@ -275,7 +254,7 @@ function Chunk(body){
  }finally{bytes.fill(0);}
 }
 function Finish(body){
- Fields(body,['flowId','downloadTicket','sha512','crc64','aCodeSha512','aCodeCrc64','signature','clientTiming']);const row=DownloadFlow(body,true),artifact=DB().artifacts[row.releaseId];ClientTiming(body,row,'finish');CheckFile(artifact,Sha(body.sha512),Crc(body.crc64),{stage:'B',row});Verify(delegation.Parent(row),FinishCanonical(row),body.signature);AssertFlowLifetime(row);CheckCode(DB().artifacts[DB().launchers[row.launcherId].artifactId],Sha(body.aCodeSha512),Crc(body.aCodeCrc64),{stage:'A',row});Bytes(artifact);
+ Fields(body,['flowId','downloadTicket','sha512','crc64','aCodeSha512','aCodeCrc64','signature']);const row=DownloadFlow(body,true),artifact=DB().artifacts[row.releaseId];CheckFile(artifact,Sha(body.sha512),Crc(body.crc64),{stage:'B',row});Verify(delegation.Parent(row),FinishCanonical(row),body.signature);AssertFlowLifetime(row);CheckCode(DB().artifacts[DB().launchers[row.launcherId].artifactId],Sha(body.aCodeSha512),Crc(body.aCodeCrc64),{stage:'A',row});Bytes(artifact);
  require("../devices/peace.desktop-device-identity").AssertSession({...row,...delegation.Parent(row)},'A');
  require("../integrity/peace.desktop-integrity-reports").RequireSnapshot(row,'A');
  require("../security/peace.desktop-security-authority").RequireFresh(row,'A','finish',require("../security/peace.desktop-security-authority").Binding(row.id,artifact.sha512));
@@ -375,8 +354,8 @@ function Close(body){
  return Status(body);
 }
 function Abort(body){
- Fields(body,['flowId','downloadTicket','clientTiming']);const row=DB().flows[body.flowId];
- if(!row||!EqualHash(body.downloadTicket,row.downloadHash))Fail('BOOTSTRAP_FLOW_INVALID',401);ClientTiming(body,row,'abort');RequireCleanupReceipt(row);
+ Fields(body,['flowId','downloadTicket']);const row=DB().flows[body.flowId];
+ if(!row||!EqualHash(body.downloadTicket,row.downloadHash))Fail('BOOTSTRAP_FLOW_INVALID',401);RequireCleanupReceipt(row);
  if(!['CLOSED','REVOKED','EXPIRED'].includes(row.status)){
   Atomic('BOOTSTRAP_ABORT','SERVER',db=>{require("../observability/peace.desktop-lifecycle-trace").ServerEvent(db,row.id,'A','CLOSE_REQUEST_ACCEPTED','ABORTED');require("../observability/peace.desktop-lifecycle-trace").ServerEvent(db,row.id,'A','CLOSE_RESPONSE_PREPARED','CLOSED');const item=db.flows[row.id];item.status='CLOSED';item.closedAt=now();RetireFlow(item,db);});
   Audit('DESKTOP_BOOTSTRAP_ABORTED',{flowId:row.id,sessionId:row.sessionId,licenseId:row.licenseId||''});
@@ -479,6 +458,6 @@ function ProofTasks(body){
  if(body.action==='claim')return delegation.ProofTasks(row,body,'B',ClaimCanonical(row));
  return [];
 }
-module.exports={ValidClientTiming,LauncherExpired,RetireLauncher,RequireLauncherSelection,AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,AssertSecurityAvailable:Availability,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,CONFIG_FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
+module.exports={LauncherExpired,RetireLauncher,RequireLauncherSelection,AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,AssertSecurityAvailable:Availability,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,CONFIG_FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
 
 module.exports.Stop=Stop;

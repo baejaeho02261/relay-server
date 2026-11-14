@@ -17,81 +17,74 @@ function record(id,signal='DETECTED'){
   families:0,confidence:0,correlation:false,attestationSequence:'0000000000000000',
   localOnly:true,context:Object.fromEntries(policy.CONTEXT_FIELDS.map(k=>[k,context[k]])),signal};
 }
-function verdict(entry,r,version=5,context=policy.UnknownContext('A'),corroborated=false){
- return policy.Evaluate(entry,r,{tick,version,context,corroborated});
+function verdict(entry,r,version=5,context=policy.UnknownContext('A')){
+ return policy.Evaluate(entry,r,{tick,version,context,corroborated:false});
 }
-const expectsStop=e=>e.standaloneOutput&&e.signalClass!=='UNKNOWN';
-const direct=e=>['STABLE_INTEGRITY_INVARIANT','NATIVE_MULTI_SIGNAL_PROOF'].includes(policy.NativeEvidenceTier(e));
-const independent={confidence:75,families:3,correlation:true,localOnly:false};
+const expectsStop=e=>['STABLE_INTEGRITY_INVARIANT','NATIVE_MULTI_SIGNAL_PROOF'].includes(policy.NativeEvidenceTier(e));
 
-test('V5 DETECTED candidates remain admitted across the complete output catalog',()=>{
+test('V5 explicit DETECTED: verified invariants stop; all 204 other signals retain evidence without false revokes',()=>{
  assert.equal(catalog.NHW.length,204);
  assert.equal(catalog.NHW.filter(e=>e.standaloneOutput).length,197);
  assert.equal(catalog.Counts.nhwOutputNames,194);
  let actionable=0;
  for(const e of catalog.NHW){
-  const report=record(e.id);
-  assert.doesNotThrow(()=>reports.ParseRecords([report],tick,5),e.id);
-  const isolated=verdict(e,report);
-  assert.equal(isolated.stop,direct(e),e.id+' isolated output');
-  const supported=verdict(e,{...report,...independent},5,policy.UnknownContext('A'),true);
-  assert.equal(supported.stop,expectsStop(e),e.id+' supported finding');
-  if(supported.stop)actionable++;
+  const actual=verdict(e,record(e.id));
+  assert.equal(actual.stop,expectsStop(e),e.id+' V5 post-filter native output');
+  if(actual.stop){actionable++;assert.equal(actual.disposition,'DETECTION');assert.ok(['V5_STABLE_INTEGRITY_INVARIANT','V5_NATIVE_MULTI_SIGNAL_PROOF'].includes(actual.decisionReason));}
   assert.equal(verdict(e,record(e.id,'OBSERVED')).stop,false,e.id+' context-only observation');
  }
- assert.equal(actionable,191);
+ assert.equal(actionable,32,'13 exact integrity + 18 structural + 1 native multi-signal proof remain terminal');
 });
 
-test('legacy V4 policy preserves its established direct evidence rules',()=>{
- for(const id of ['dkAffinity','dkProcess','dkTokenRights','dkThreadBurst','dkPECodeIntegrity','dkImageCOWIntegrity']){
-  const e=catalog.Get(id),r=record(id);
+test('legacy V4 policy does not silently inherit V5 stop rules',()=>{
+ const ids=['dkAffinity','dkProcess','dkTokenRights','dkThreadBurst','dkPECodeIntegrity','dkImageCOWIntegrity'];
+ for(const id of ids){const e=catalog.Get(id),r=record(id);
+  const v4=verdict(e,r,4).stop;
   const expected=['dkPECodeIntegrity','dkImageCOWIntegrity'].includes(id);
-  assert.equal(verdict(e,r,4).stop,expected,'legacy policy: '+id);
-  assert.equal(verdict(e,r,5).stop,expected,'isolated native output: '+id);
+  assert.equal(v4,expected,'legacy policy: '+id);
+  assert.equal(verdict(e,r,5).stop,expectsStop(e),'new causal gate: '+id);
  }
 });
 
-test('expected first-party scheduling requires authoritative binding and does not exempt corroborated changes',()=>{
+test('server-bound expected A/B/O own scheduling stays observation; client-asserted SELF is not an exemption',()=>{
  for(const id of ['dkAffinity','dkProcessPriority','dkThreadPriority']){
   const entry=catalog.Get(id),r=record(id),own={...policy.UnknownContext('B'),
    actorClass:'SELF',capability:'THREAD_ACCESS',capabilityDecision:'EXPECTED',
    serverBound:true,firstPartyAttested:true,sameSession:true,contextMixed:false};
-  assert.equal(verdict(entry,r,5,own).disposition,'EXPECTED_FIRST_PARTY',id+' verified first-party');
-  for(const context of [{...own,serverBound:false},{...own,contextMixed:true}]){
-   const weak=verdict(entry,r,5,context);
-   assert.equal(weak.stop,false,id+' isolated change');
-   assert.equal(weak.disposition,'OBSERVATION_UNRESOLVED',id+' context must not grant authority');
-  }
-  assert.equal(verdict(entry,{...r,...independent},5,own,true).stop,true,id+' corroborated change');
+  assert.equal(verdict(entry,r,5,own).stop,false,id+' verified first-party');
+  assert.equal(verdict(entry,r,5,{...own,serverBound:false}).stop,false,id+' unverified SELF claim is not hostile proof');
+  assert.equal(verdict(entry,r,5,{...own,contextMixed:true}).stop,false,id+' mixed attribution is not proof');
+  assert.equal(verdict(entry,{...r,correlation:true,localOnly:false},5,own).stop,false,id+' correlation bit without independent roots');
  }
 });
 
-test('V5 startup token context remains recorded while corroborated later changes are actionable',()=>{
+test('V5 self baseline token delta never escalates alone but unbound or corroborated deltas do',()=>{
  for(const id of ['dkTokenObject','dkTokenRights','dkTokenChange','dkThreadToken']){
   const entry=catalog.Get(id),r=record(id),own={...policy.UnknownContext('A'),
    actorClass:'SELF',capability:'TOKEN_STATE',tokenDelta:2,baseline:true,
    capabilityDecision:'FORBIDDEN',serverBound:true,firstPartyAttested:true,
    sameSession:true,contextMixed:false};
   assert.equal(verdict(entry,r,5,own).stop,false,id+' verified startup');
-  assert.equal(verdict(entry,r,5,own).disposition,'OBSERVATION_UNRESOLVED');
-  for(const context of [{...own,serverBound:false},{...own,baseline:false},{...own,sameSession:false}]){
-   assert.equal(verdict(entry,r,5,context).stop,false,id+' isolated token transition');
-   assert.equal(verdict(entry,{...r,...independent},5,context,true).stop,true,id+' supported token transition');
-  }
-  assert.equal(verdict(entry,{...r,...independent},5,own,true).stop,true,id+' corroborated');
+  assert.equal(verdict(entry,r,5,own).disposition,'OBSERVATION_UNRESOLVED',id+' does not claim a capability grant');
+  assert.equal(verdict(entry,r,5,{...own,serverBound:false}).stop,false,id+' unbound claim');
+  assert.equal(verdict(entry,r,5,{...own,baseline:false}).stop,false,id+' post-baseline alone');
+  assert.equal(verdict(entry,r,5,{...own,sameSession:false}).stop,false,id+' unverified foreign session');
+  assert.equal(policy.Evaluate(entry,{...r,correlation:true,localOnly:false,confidence:80,families:3},{tick,version:5,context:own,corroborated:true}).stop,true,id+' corroborated');
  }
 });
 
-test('A approval retains unattributed token state and handle output without attributing an attack',()=>{
+test('V5 initial A approval: unattributed native token deltas are retained, not false-revoked',()=>{
  for(const id of ['dkTokenObject','dkTokenRights','dkTokenChange','dkThreadToken']){
   const entry=catalog.Get(id),r=record(id),unattributed={...policy.UnknownContext('A'),
    phase:'A_ISSUANCE',capability:'TOKEN_STATE',tokenDelta:2};
-  for(const context of [unattributed,{...unattributed,capability:'TOKEN_ACCESS',tokenDelta:0,accessMask:0x20}]){
-   assert.equal(verdict(entry,r,5,context).disposition,'OBSERVATION_UNRESOLVED',id);
-   assert.equal(verdict(entry,{...r,...independent},5,context,true).stop,true,id+' supported output');
-  }
-  assert.equal(verdict(entry,{...r,signal:'OBSERVED'},5,unattributed).stop,false,id+' context only');
-  assert.equal(verdict(entry,r,4,unattributed).stop,false,id+' V4');
+  const outcome=verdict(entry,r,5,unattributed);
+  assert.equal(outcome.stop,false,id+' isolated A-approval token snapshot');
+  assert.equal(outcome.disposition,'OBSERVATION_UNRESOLVED');
+  assert.equal(outcome.decisionReason,'TOKEN_STATE_ACTOR_UNATTRIBUTED');
+  assert.equal(verdict(entry,r,4,unattributed).stop,false,id+' legacy V4 remains safe');
+  assert.equal(verdict(entry,r,5,{...unattributed,capability:'TOKEN_ACCESS',accessMask:0x20,tokenDelta:0}).stop,false,id+' rights grant alone is not an actual token change');
+  const correlated={...r,correlation:true,localOnly:false,confidence:90,families:3};
+  assert.equal(policy.Evaluate(entry,correlated,{tick,version:5,context:unattributed,corroborated:true}).stop,true,id+' independently corroborated delta');
  }
 });
 
@@ -130,17 +123,33 @@ test('Delphi v5 publishes only post-filter detected output and keeps separate ob
  assert.doesNotMatch(finalize,/OnDetection\(Detected, CurrentTick/);
 });
 
-test('repetition of one unattributed handle observation does not produce independent evidence',()=>{
- const ctx={...policy.UnknownContext('A'),phase:'A_BOOTSTRAP',capability:'TOKEN_ACCESS',
-  accessMask:0x000f01ff,actorClass:'EXTERNAL',actorRole:'?',actorIdentity:'',
-  targetRole:'?',targetIdentity:'a'.repeat(64),capabilityDecision:'FORBIDDEN',sameSession:false};
- for(const id of ['dkTokenObject','dkTokenRights','dkProcess']){
+test('unattributed low-confidence A bootstrap token handles are retained without terminating an innocent A',()=>{
+ // Real administrator record: TOKEN_ALL_ACCESS 0x000f01ff, OBJECT_STATE only,
+ // confidence 10, unbound EXTERNAL with no stable actor identity or attestation.
+ const ctx={...policy.UnknownContext('A'),
+  phase:'A_BOOTSTRAP',capability:'TOKEN_ACCESS',accessMask:0x000f01ff,
+  actorClass:'EXTERNAL',actorRole:'?',actorIdentity:'',targetRole:'?',
+  targetIdentity:'a'.repeat(64),capabilityDecision:'FORBIDDEN',sameSession:false};
+ for(const id of ['dkTokenObject','dkTokenRights']){
   const entry=catalog.Get(id),r={...record(id),confidence:10,families:32,count:27};
-  assert.equal(verdict(entry,r,5,ctx).stop,false,id+' repeated native output');
-  assert.equal(verdict(entry,{...r,signal:'OBSERVED'},5,ctx).stop,false,id+' raw snapshot');
-  assert.equal(verdict(entry,r,4,ctx).stop,false,id+' old V4 policy');
-  assert.equal(verdict(entry,{...r,...independent},5,ctx,true).stop,true,id+' supported finding');
+  const observation=verdict(entry,r,5,ctx);
+  assert.equal(observation.stop,false,id+' low-assurance self-startup incident');
+  assert.equal(observation.disposition,'OBSERVATION_UNRESOLVED');
+  assert.equal(observation.decisionReason,'UNATTRIBUTED_BOOTSTRAP_TOKEN_HANDLE');
+  assert.equal(observation.sessionStopPolicy,'REQUIRE_VERIFIED_ACTOR_OR_CORROBORATION');
+  // Only the precise uncertainty pattern is exempted; do not white-list a
+  // name, entire bootstrap role, access rights, or the whole TOKEN_SECURITY family.
+  assert.equal(verdict(entry,r,5,{...ctx,phase:'A_ATTESTED'}).stop,false,'phase not proof');
+  assert.equal(verdict(entry,r,5,{...ctx,actorIdentity:'b'.repeat(64)}).stop,false,'unverified external identity not proof');
+  assert.equal(verdict(entry,r,5,{...ctx,contextMixed:true}).stop,false,'mixed context is not proof');
+  assert.equal(verdict(entry,r,5,{...ctx,serverBound:true}).stop,false,'serverBound bit without peer attestation not proof');
+  assert.equal(verdict(entry,{...r,confidence:11},5,ctx).stop,false,'confidence score alone not proof');
+  assert.equal(verdict(entry,{...r,families:33},5,ctx).stop,false,'two bits without correlation not proof');
+  assert.equal(policy.Evaluate(entry,{...r,correlation:true,localOnly:false,confidence:90,families:33},{tick,version:5,stage:'A',context:ctx,corroborated:true}).stop,true,'independently correlated');
+  assert.equal(verdict(entry,{...r,signal:'OBSERVED'},5,ctx).stop,false,'mere observation');
+  assert.equal(verdict(entry,r,4,ctx).stop,false,'legacy V4 remains unchanged');
  }
+ assert.equal(verdict(catalog.Get('dkProcess'),{...record('dkProcess'),confidence:10,families:32},5,ctx).stop,false,'other unverified handle sensors share the causal gate');
 });
 
 test('stored V5 token decision remains valid after restart; malformed tags still fail closed',()=>{

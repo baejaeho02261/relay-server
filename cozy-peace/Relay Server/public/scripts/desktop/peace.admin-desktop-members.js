@@ -1,0 +1,256 @@
+'use strict';
+// Membership is explicit administrative attribution, never a claim that a PC
+// fingerprint identifies a person. No license keys or client memory are stored.
+let desktopMemberQuery='',desktopMemberStatus='ACTIVE',desktopMemberPage=1;
+let desktopMemberRenderedQuery=null,desktopMemberRenderedStatus=null;
+let desktopMemberOwner='',desktopMemberPending=null;
+let desktopMemberSelectedId='',desktopMemberCategory='detections',desktopMemberListDraft=null,desktopMemberListScroll=0;
+const desktopMemberPages=new Map();
+const desktopMemberCategories=[['detections','보안 감지 · 대응 경로'],['licenses','라이선스'],['launchers','일회용 A 발급'],['flows','실행 · 종료 관측'],['devices','기기 · PC 차단'],['integrity','모듈 · CRC · 무결성']];
+function desktopMemberResetOwner(owner){
+ if(desktopMemberOwner===owner)return;
+ desktopMemberOwner=owner;desktopMemberPending=null;desktopMemberPages.clear();desktopMemberQuery='';desktopMemberStatus='ACTIVE';desktopMemberPage=1;desktopMemberRenderedQuery=null;desktopMemberRenderedStatus=null;desktopMemberSelectedId='';desktopMemberCategory='detections';desktopMemberListDraft=null;desktopMemberListScroll=0;
+}
+function desktopMemberCount(value){return Number.isSafeInteger(value)&&value>=0?value.toLocaleString():'—';}
+function desktopMemberKey(id,category='all',page=1){return 'member:'+id+':'+category+':'+page;}
+function desktopMemberRequest(id,category='all',page=1){
+ if(!roleIsAdmin()||!session||!id)return;
+ desktopRequestPanel(desktopMemberKey(id,category,page),'/api/desktop/members/'+encodeURIComponent(id)+'?'+new URLSearchParams({category,page:String(page),pageSize:'20'}),session.csrf);
+}
+function desktopMemberRequestPanels(owner){
+ const current=desktopPanels.get('members')?.data;
+ if(current&&desktopMemberPage>1&&Number.isSafeInteger(current.totalCount)&&Number.isSafeInteger(current.pageSize)){
+  const last=Math.max(1,Math.ceil(current.totalCount/current.pageSize));if(desktopMemberPage>last){desktopMemberPage=last;desktopPanels.delete('members');}
+ }
+ const id=desktopMemberSelectedId,keep=new Set();
+ if(id){keep.add(desktopMemberKey(id));keep.add(desktopMemberKey(id,desktopMemberCategory,desktopMemberPages.get(id+':'+desktopMemberCategory)||1));}
+ for(const key of [...desktopPanels.keys()])if(key.startsWith('member:')&&desktopPanels.size>96&&!keep.has(key))desktopPanels.delete(key);
+ if(desktopMemberPages.size>120)for(const key of desktopMemberPages.keys())if(!id||!key.startsWith(id+':'))desktopMemberPages.delete(key);
+ desktopRequestPanel('members','/api/desktop/members?'+new URLSearchParams({q:desktopMemberQuery,status:desktopMemberStatus,page:String(desktopMemberPage),pageSize:'20'}),owner);
+ if(id){desktopMemberRequest(id);const page=desktopMemberPages.get(id+':'+desktopMemberCategory)||1;if(page>1)desktopMemberRequest(id,desktopMemberCategory,page);}
+}
+function desktopMemberInvalidate(dropDetails=false){
+ for(const key of [...desktopPanels.keys()])if(key==='members'||key.startsWith('member:')){if(dropDetails&&key.startsWith('member:'))desktopPanels.delete(key);else desktopInvalidatePanels(key);}
+ desktopInvalidatePanels('bootstrap','integrity','machines');
+}
+function desktopMemberNotice(entry,label){
+ const text=entry?.error?`<p class="desktop-panel-pending" role="status">${esc(label)} 조회에 실패했습니다. 이전 내용은 최신 상태가 아닙니다. <button type="button" data-member-action="refresh">다시 조회</button></p>`:!entry?.data?'<p class="small-note" role="status">서버에서 기록을 불러오는 중입니다.</p>':entry.pending?'<p class="small-note" role="status">최신 기록 확인 중</p>':'';
+ return `<div data-desktop-key="member-notice-${esc(label)}">${text}</div>`;
+}
+function desktopMemberCountsMarkup(counts){return desktopMemberCategories.map(([key,label])=>`<span>${label} <b>${desktopMemberCount(counts?.[key])}</b></span>`).join('');}
+function desktopMembersMarkup(){
+ if(desktopMemberSelectedId)return desktopMemberWorkspaceMarkup();
+ const entry=desktopPanels.get('members'),data=entry?.data;
+ const valid=!!data&&Array.isArray(data.items)&&Number.isSafeInteger(data.revision),rows=valid?data.items:[];
+ const page=valid&&Number.isSafeInteger(data.page)?data.page:desktopMemberPage,pages=valid?Math.max(1,Math.ceil(data.totalCount/data.pageSize)):1;
+ const row=(member,id,unassigned=false)=>`<tr class="desktop-member-list-row" data-desktop-key="member-row-${esc(id)}" data-member-record="${esc(id)}"><td><div class="desktop-member-name"><strong>${esc(unassigned?'미배정 기록':member.displayName)}</strong><small>${esc(unassigned?'확인한 회원에 직접 연결하세요':member.note||member.id)}</small></div></td><td><span class="desktop-member-state ${unassigned?'unassigned':member.status==='ARCHIVED'?'archived':'active'}">${unassigned?'배정 대기':member.status==='ARCHIVED'?'보관':'운영 중'}</span></td><td>${desktopMemberCount(member.counts?.licenses)}</td><td>${desktopMemberCount(member.counts?.flows)}</td><td>${desktopMemberCount(member.counts?.integrity)}</td><td><button type="button" class="ghost" data-member-action="open-detail" data-member-id="${esc(id)}" aria-label="${esc(unassigned?'미배정 기록':member.displayName)} 보안 감지 보기">${desktopMemberCount(member.counts?.detections)}건</button></td><td>${unassigned?'—':desktopDate(member.updatedAt)}</td><td><button type="button" class="desktop-member-open" data-member-action="open-detail" data-member-id="${esc(id)}">상세 관리 <span aria-hidden="true">↗</span></button></td></tr>`;
+ return `<section id="desktop-members-panel" class="section-card"><div class="section-head"><div><span class="desktop-eyebrow">MEMBERS</span><h3>회원 관리</h3><p class="small-note">회원별 NHW·Cozy 감지, 라이선스와 실행 기록을 확인하세요. 회원에 연결되지 않은 A/B/O 기록은 미배정 기록에 표시됩니다.</p></div><div class="actions"><button type="button" data-member-action="create" class="primary" ${valid?'':'disabled'}>+ 회원 등록</button><button type="button" data-member-action="approval">기기 연결 승인</button><button type="button" data-member-action="refresh">새로고침</button></div></div><form id="desktop-member-search-form" class="desktop-license-toolbar"><label class="desktop-search"><span class="sr-only">회원 이름 · 메모 검색</span><input id="desktop-member-search" type="search" maxlength="80" autocomplete="off" placeholder="회원 이름, ID 또는 메모 검색" value="${esc(desktopMemberListDraft??desktopMemberQuery)}"></label><label><span class="sr-only">회원 상태</span><select id="desktop-member-filter">${[['ACTIVE','운영 중'],['ARCHIVED','보관된 회원'],['ALL','모든 회원']].map(([value,label])=>`<option value="${value}" ${value===desktopMemberStatus?'selected':''}>${label}</option>`).join('')}</select></label><button type="submit">검색</button><button type="button" data-member-action="clear">초기화</button></form><div class="desktop-member-list-summary"><span>회원 ${desktopMemberCount(data?.totalCount)}명</span><span class="small-note">회원 연결은 관리자가 확인한 배정 기준입니다.</span></div><div data-desktop-key="member-pending-operation">${desktopMemberPending?'<div class="desktop-panel-pending" role="status">완료를 확인하지 못한 회원 관리 요청이 있습니다. <button type="button" data-member-action="retry">같은 요청의 결과 확인</button></div>':''}</div>${desktopMemberNotice(entry,'회원 목록')}${valid?`<div class="table-wrap desktop-members-list"><table class="desktop-members-table"><thead><tr><th>회원</th><th>상태</th><th>라이선스</th><th>실행</th><th>무결성</th><th>보안 감지</th><th>최근 변경</th><th class="desktop-member-action-heading">관리</th></tr></thead><tbody>${row({counts:data.unassigned?.counts||{}},'unassigned',true)}${rows.map(member=>row(member,member.id)).join('')||'<tr><td colspan="8"><div class="desktop-empty">검색 조건에 맞는 회원이 없습니다.</div></td></tr>'}</tbody></table></div><div class="desktop-pagination"><span>${page} / ${pages}</span><div class="actions"><button type="button" data-member-action="page" data-member-page="${page-1}" ${page<=1?'disabled':''}>이전</button><button type="button" data-member-action="page" data-member-page="${page+1}" ${page>=pages?'disabled':''}>다음</button></div></div>`:''}</section>`;
+}
+function desktopMemberWorkspaceMarkup(){
+ if(!desktopMemberCategories.some(([name])=>name===desktopMemberCategory))desktopMemberCategory='detections';
+ const id=desktopMemberSelectedId,unassigned=id==='unassigned',entry=desktopPanels.get(desktopMemberKey(id)),base=entry?.data;
+ const matches=!!base&&(unassigned?base.member===null:base.member?.id===id);
+ const member=matches?base.member:desktopMemberRow(id),counts=matches?base.counts:member?.counts;
+ const title=unassigned?'미배정 기록':member?.displayName||'회원 상세';
+ return `<section id="desktop-member-workspace" class="desktop-member-workspace" data-member-workspace-id="${esc(id)}"><header class="desktop-member-workspace-head"><div><button type="button" class="ghost" data-member-action="back">← 회원 목록</button><span class="desktop-eyebrow">MEMBER WORKSPACE</span><h3 id="desktop-member-workspace-title" tabindex="-1">${esc(title)}</h3><p class="code desktop-wrap">${unassigned?'담당 회원 확인 후 직접 연결':esc(id)}</p></div><div class="actions"><button type="button" data-member-action="refresh">새로고침</button>${!unassigned&&member?`<button type="button" data-member-action="edit" data-member-id="${esc(id)}">회원 정보 수정</button><button type="button" data-member-action="archive" data-member-id="${esc(id)}">${member.status==='ARCHIVED'?'보관 해제':'회원 보관'}</button>`:''}</div></header><div class="desktop-member-profile"><p>${esc(unassigned?'회원이 확인되지 않은 기록입니다. 기기가 같아도 사람을 자동으로 연결하지 않습니다.':member?.note||'등록된 운영 메모가 없습니다.')}</p>${!unassigned&&member?`<span>${member.status==='ARCHIVED'?'보관된 회원':'운영 중인 회원'} · 등록 ${desktopDate(member.createdAt)} · 변경 ${desktopDate(member.updatedAt)}</span>`:''}</div>${desktopMemberPending?'<div class="desktop-panel-pending" role="status">이전 회원 관리 요청의 완료 확인이 필요합니다. <button type="button" data-member-action="retry">같은 요청 결과 확인</button></div>':''}<div class="desktop-member-workspace-layout"><nav class="desktop-member-workspace-nav" aria-label="회원 상세 메뉴">${desktopMemberCategories.map(([category,label])=>`<button type="button" data-member-action="category" data-member-id="${esc(id)}" data-member-category="${category}" aria-current="${desktopMemberCategory===category?'page':'false'}"><span>${label}</span><b>${desktopMemberCount(counts?.[category])}</b></button>`).join('')}</nav><div class="desktop-member-workspace-content" data-desktop-key="member-workspace-content-${esc(id)}-${desktopMemberCategory}">${desktopMemberDetailMarkup(id)}</div></div></section>`;
+}
+function desktopMemberAssignmentButton(row){
+ if(!['LICENSE','LAUNCHER','FLOW','DEVICE'].includes(row.assignmentKind)||!row.assignmentTargetId)return '';
+ return `<button type="button" data-member-action="assign" data-member-kind="${esc(row.assignmentKind)}" data-member-target="${esc(row.assignmentTargetId)}" data-member-direct="${esc(row.assignedMemberId||'')}">회원 연결 변경</button>`;
+}
+function desktopMemberOrigin(row){return `<small class="desktop-block">${row.assignmentOrigin==='DIRECT'?'직접 연결':row.assignmentOrigin==='LINKED'?'라이선스·발급·실행 연결을 따른 기록':'미배정'}${row.memberDisplayName?' · '+esc(row.memberDisplayName):''}</small>`;}
+function desktopMemberLifecycleNumbers(event){
+ const details=[];
+ for(const [key,label,max,suffix]of [['pid','PID',0xffffffff,''],['exitCode','종료 코드',0xffffffff,''],['win32Error','Windows 오류',0xffffffff,''],['elapsedMs','경과',600000,' ms']]){
+  const value=event[key];if(Object.hasOwn(event,key)&&Number.isSafeInteger(value)&&value>=0&&value<=max)details.push(label+' '+value+suffix);
+ }
+ return details.length?' · '+details.join(' · '):'';
+}
+function desktopMemberLifecycleMarkup(lifecycle){
+ if(!lifecycle||!lifecycle.roles||typeof lifecycle.roles!=='object')return '';
+ const roles=Array.isArray(lifecycle.roles)?lifecycle.roles:Object.values(lifecycle.roles);
+ const status=value=>esc(({CLIENT_REPORTED:'클라이언트 관측 보고',NOT_REPORTED:'보고 없음',REMOVED:'파일 제거 관측 보고',FAILED:'정리 실패 보고',HANDED_OFF:'인수인계 완료',EXPIRED:'만료',CLOSED:'종료',REVOKED:'폐기',CLAIMED:'활성',NOT_STARTED:'시작 전'})[value]||value||'확인 안 됨');
+ return `<details class="desktop-member-evidence"><summary>서버 권한 · 종료 관측 구분</summary><p class="small-note">서버 권한 만료와 실제 프로세스 종료는 다릅니다. 보고 없음은 정상 정리나 실제 잔류의 증거가 아닙니다.</p>${lifecycle.bResidual?`<p class="small-note"><strong>${esc(lifecycle.bResidual.code)}</strong> · ${esc(lifecycle.bResidual.summary)}</p>`:''}<div class="table-wrap"><table><thead><tr><th>역할</th><th>서버 권한</th><th>프로세스 종료</th><th>파일 정리</th></tr></thead><tbody>${roles.map(row=>`<tr><td>${esc(row.role||'—')}</td><td>${status(row.status)}<small class="desktop-block">${row.authorityEnded?'서버 권한 종료':'서버 권한 상태 확인'}</small></td><td>${status(row.processExit)}</td><td>${status(row.fileCleanup)}</td></tr>`).join('')}</tbody></table></div>${Array.isArray(lifecycle.events)?`<ol class="desktop-member-lifecycle-events">${lifecycle.events.map(event=>`<li>${desktopDate(event.at)} · ${esc(event.role)} · ${esc(event.event)} · ${status(event.status)}${desktopMemberLifecycleNumbers(event)} <small>${event.source==='SERVER_CONFIRMED'?'서버 확인':'클라이언트 보고'}</small></li>`).join('')}</ol>`:''}</details>`;
+}
+function desktopDetectionDisposition(row){
+ // Shared classification for all 204 NHW and 122 Cozy outcomes.
+ const labels={SECURITY_FINDING:['보안 감지','danger'],MEASUREMENT_UNAVAILABLE:['측정 불완전','warning'],
+  SENSOR_HEALTH:['센서 상태 경고','warning'],EXPECTED_OPERATION:['정상 역할 동작','expected'],
+  INTERNAL_EVIDENCE:['내부 참고 증거','neutral'],UNRESOLVED_EVIDENCE:['미확정 관측','neutral'],
+  POLICY_REJECTION:['서버 정책 거부','warning'],LEGACY_EVIDENCE:['이전 기록 · 확인 필요','neutral']};
+ const code=typeof row.disposition==='string'?row.disposition:'';
+ const unknown=row.origin==='COZY'&&row.signalClass==='UNKNOWN'||row.observationClass==='UNAVAILABLE_OR_INCOMPLETE';
+ const key=typeof row.kind==='string'?row.kind:unknown?'MEASUREMENT_UNAVAILABLE':
+  row.origin==='COZY'&&row.signalClass==='POLICY_REJECTION'?'POLICY_REJECTION':
+  ['DETECTION','CORROBORATED_ANOMALY'].includes(code)?'SECURITY_FINDING':
+  ['COVERAGE_WARNING','COVERAGE_DEGRADED'].includes(code)?'SENSOR_HEALTH':
+  code==='EXPECTED_FIRST_PARTY'?'EXPECTED_OPERATION':
+  code==='INTERNAL_EVIDENCE'?'INTERNAL_EVIDENCE':
+  code==='OBSERVATION_UNRESOLVED'?'UNRESOLVED_EVIDENCE':'LEGACY_EVIDENCE';
+ const [label,tone]=labels[key]||labels.LEGACY_EVIDENCE;
+ return {code,label,tone};
+}
+function desktopDetectionAction(row){
+ const action=typeof row.authorityAction==='string'?row.authorityAction:
+  row.invalidated===true?(row.origin==='COZY'&&row.signalClass==='UNKNOWN'?'MEASUREMENT_DENIAL':
+   ['DETECTION','CORROBORATED_ANOMALY'].includes(row.disposition)?'DETECTION_REVOKE':'POLICY_REVOKE'):'EVIDENCE_ONLY';
+ if(action==='DETECTION_REVOKE')return '보안 감지 · 서버 세션 무효화';
+ if(action==='MEASUREMENT_DENIAL')return '필수 측정 미완료 · 서버 실행 승인 거부';
+ if(action==='POLICY_DENIAL')return '서버 정책에 따른 실행 거부 · 공격 확정과 구분';
+ if(action==='COVERAGE_POLICY_REVOKE')return '관측 범위 부족 · 서버 정책에 따른 권한 종료';
+ if(action==='POLICY_REVOKE')return '서버 정책에 따른 권한 종료 · 공격 확정과 구분';
+ return '이 기록으로 인한 무효화 기록 없음';
+}
+function desktopDetectionContextMarkup(row){
+ const context=row.context&&typeof row.context==='object'&&!Array.isArray(row.context)?row.context:{};
+ const value=v=>esc(typeof v==='string'&&v? v : Number.isSafeInteger(v)&&v>=0?String(v):'확인 안 됨');
+ const accessMask=Number.isInteger(context.accessMask)&&context.accessMask>=0&&context.accessMask<=0xffffffff?'0x'+context.accessMask.toString(16).padStart(8,'0'):'확인 안 됨';
+ const boolean=v=>v===true?'예':v===false?'아니요':'확인 안 됨';
+ const bound=context.firstPartyAttested===true&&context.sameSession===true&&context.contextMixed!==true&&context.bindingScope==='SERVER_BOUND_CLIENT_OBSERVATION';
+ const mixed=context.contextMixed===true?'<small class="desktop-block">여러 관측이 합쳐져 단일 행위자로 확정하지 않습니다.</small>':'';
+ return `<div>행위자 분류 · 역할</div><div>${value(context.actorClass)} · ${value(context.actorRole)}${mixed}</div><div>행위자 안정 식별 해시</div><div class="code desktop-wrap">${value(context.actorIdentity)}</div><div>대상 역할 · 안정 식별 해시</div><div>${value(context.targetRole)}<small class="code desktop-wrap desktop-block">${value(context.targetIdentity)}</small></div><div>실행 단계</div><div class="code desktop-wrap">${value(context.phase)}</div><div>요청 권한 · 접근 마스크</div><div>${value(context.capability)}<small class="code desktop-wrap desktop-block">${esc(accessMask)}</small></div><div>권한 판정</div><div>${value(context.capabilityDecision)}</div><div>토큰 변화 · 기준 관측</div><div>${value(context.tokenDelta)} · ${boolean(context.baseline)}</div><div>First-party 서버 바인딩</div><div>${bound?'동일 세션 바인딩 확인':'확인 안 됨'}<small class="desktop-block">${value(context.bindingScope)} · 프로세스 관측은 클라이언트 보고이며 하드웨어 인증을 뜻하지 않습니다.</small></div><div>동일 세션</div><div>${boolean(context.sameSession)}</div><div>Peer · 인수인계 grant</div><div class="code desktop-wrap">${value(context.peerId)}<br>${value(context.grantId)}</div><div>관측 범위 상태</div><div>${value(row.coverageState||context.coverage)}</div>`;
+}
+function desktopSecurityDetectionsMarkup(items,{assignments=false}={}){
+ if(!Array.isArray(items)||!items.length)return '<p class="small-note">이 범위에 보관된 감지 보고가 없습니다. 센서 정상이나 공격 없음 판정을 뜻하지 않습니다.</p>';
+ const evidenceLabel={CLIENT_LOCAL_OBSERVATION:'로컬 관측 보고',CLIENT_CORROBORATED:'클라이언트 교차 확인 보고',SERVER_COMPARISON:'서버 기준 비교'};
+ const value=v=>esc(typeof v==='string'||Number.isFinite(v)?String(v):'확인 안 됨');
+ return `<p class="small-note">서버에 접수된 감지 원인과 대응 상태입니다. 클라이언트 보고·서버 판정·실제 프로세스 종료는 서로 구분합니다.</p><div class="desktop-member-events desktop-security-detections">${items.map(row=>{
+  const invalidated=row.invalidated===true,disposition=desktopDetectionDisposition(row),actionLabel=desktopDetectionAction(row);
+  const displayName=typeof row.displayName==='string'&&row.displayName?row.displayName:row.detectionId||'감지 이름 미확인';
+  const origin=row.origin==='NHW'?'NHW':row.origin==='COZY'?'Cozy':String(row.detectionId||'').startsWith('dk')?'NHW':'Cozy';
+  const condition=typeof row.conditionLabel==='string'&&row.conditionLabel&&row.conditionLabel!==displayName?row.conditionLabel:'';
+  const policyRows=[['observationClass','판정 구분'],['sessionStopPolicy','세션 대응 정책'],['decisionReason','서버 판정 근거']].filter(([key])=>typeof row[key]==='string'&&row[key]).map(([key,label])=>`<div>${label}</div><div class="desktop-wrap">${esc(row[key])}</div>`).join('');
+  const algorithms=Array.isArray(row.algorithms)?row.algorithms.filter(name=>typeof name==='string'&&name.length<=80).slice(0,16):[];
+  const attestation=row.attestation||{},families=Array.isArray(row.evidenceFamilies)?row.evidenceFamilies:[];
+  const handoff=row.handoff&&typeof row.handoff==='object'?['A','B','O'].filter(role=>typeof row.handoff[role]==='string').map(role=>role+' '+row.handoff[role]).join(' · '):'';
+  return `<details data-desktop-key="security-detection-${esc(row.id)}"><summary><strong><span class="desktop-detection-disposition ${disposition.tone}">${esc(disposition.label)}</span>${esc(displayName)}${condition?`<small class="desktop-block">${esc(condition)}</small>`:''}<small class="desktop-block">${origin} · ${esc(row.role||row.stage||'—')} · ${esc(row.responsePath||'—')} · ${esc(actionLabel)}</small></strong><span>${desktopDate(row.lastAt)}</span></summary><div class="kv desktop-detection-details"><div>감지 ID</div><div class="code desktop-wrap">${esc(row.detectionId||'—')}</div><div>최종 판정 구분</div><div>${esc(disposition.label)}<small class="code desktop-block">${esc(disposition.code||'UNRECORDED')}</small></div>${policyRows}${desktopDetectionContextMarkup(row)}${algorithms.length?`<div>관련 알고리즘</div><div>${algorithms.map(value).join(' · ')}</div>`:''}<div>감지 분류</div><div>${esc(row.category||'—')}</div><div>센서 · 소스</div><div class="code desktop-wrap">${esc(row.sensor||row.sourceUnit||'—')}</div><div>최초 · 최종 접수</div><div>${desktopDate(row.firstAt)}<br>${desktopDate(row.lastAt)}</div><div>센서 단조 시각</div><div class="code desktop-wrap">${value(row.firstTick)} → ${value(row.lastTick)}<small class="desktop-block">클라이언트 tick이며 서버 접수 시각과 다릅니다.</small></div><div>보고 · 확인 횟수</div><div>${desktopMemberCount(row.count)}회 · ${desktopMemberCount(row.confirmationCount)}회</div><div>Evidence families</div><div class="desktop-wrap">${families.length?families.map(value).join(' · '):'보고 없음'}</div><div>근거 구분</div><div>${esc(evidenceLabel[row.evidenceLevel]||row.evidenceLevel||'확인 안 됨')}<small class="desktop-block">신뢰 수준 ${value(row.confidence)} · 상관 확인 ${row.correlation===true?'있음':row.correlation===false?'없음':value(row.correlation)}</small></div><div>실행 · 세션</div><div class="code desktop-wrap">${esc(row.flowId||'—')}<br>${esc(row.sessionId||'—')}</div><div>세션 epoch</div><div class="code desktop-wrap">${value(row.epoch)}</div><div>Attestation</div><div>${value(attestation.status||row.attestationStatus)} · sequence ${value(attestation.sequence??row.attestationSequence)}<small class="desktop-block">이 보고만으로 하드웨어 인증을 확인하지 않습니다.</small></div><div>서버 무효화</div><div>${esc(actionLabel)}</div><div>현재 서버 권한</div><div>${row.sessionInvalidated===true?'세션 폐기됨':row.sessionInvalidated===false?'폐기 상태 아님':'확인 안 됨'}</div><div>B → O 인수인계</div><div>${value(row.handoffStatus)}${handoff?`<small class="desktop-block">${esc(handoff)}</small>`:''}</div></div>${assignments?desktopMemberOrigin(row)+desktopMemberAssignmentButton(row):''}</details>`;
+ }).join('')}</div>`;
+}
+function desktopSecurityDetectionSummaryMarkup(view){
+ if(!view||!Array.isArray(view.items)||!Number.isSafeInteger(view.totalCount))return '';
+ return `<details class="desktop-member-evidence"><summary>보안 감지 · ${desktopMemberCount(view.totalCount)}건</summary>${desktopSecurityDetectionsMarkup(view.items)}${view.truncated?`<p class="small-note">최근 ${desktopMemberCount(view.items.length)}건을 표시합니다. 회원의 보안 감지 메뉴에서 전체 보관 기록을 확인하세요.</p>`:''}</details>`;
+}
+function desktopMemberCategoryRows(category,items){
+ if(category==='detections')return desktopSecurityDetectionsMarkup(items,{assignments:true});
+ if(!items.length)return '<p class="small-note">이 범위의 기록이 없습니다. 보안 검사 성공이나 실행 종료를 의미하지 않습니다.</p>';
+ if(category==='integrity')return `<p class="small-note">서버 기준 비교와 클라이언트 보고를 구분합니다. 원격 하드웨어 인증이 아닙니다.</p><div class="desktop-integrity-list">${items.map(row=>`<div data-desktop-key="member-integrity-${esc(row.id)}">${desktopMemberOrigin(row)}${desktopMemberAssignmentButton(row)}${desktopIntegrityRecordsMarkup([row],desktopIntegrityPolicy,'member-report-')}</div>`).join('')}</div>`;
+ return `<div class="table-wrap"><table class="desktop-member-table"><thead><tr><th>${category==='devices'?'기기':category==='flows'?'실행':category==='launchers'?'A 발급':'라이선스'}</th><th>상태 · 최근 시각</th><th>회원 연결</th></tr></thead><tbody>${items.map(row=>{
+  let status=esc(row.status||'—'),detail='';
+  if(category==='licenses'){status=desktopStatus(row.status);detail=`<small class="desktop-block">${desktopProductMarkup(row)}</small><small class="desktop-block">${row.consumed?'최초 사용 완료 · 재사용 불가':'최초 사용 대기'}</small><button type="button" data-member-action="license-detail" data-member-target="${esc(row.id)}">라이선스 상세</button>`;}
+  if(category==='devices')detail=`<small class="desktop-block">${row.blocked===true?'PC 새 실행 차단':row.blocked===false?'PC 차단 없음':'PC 차단 상태 확인 안 됨'} · ${esc(row.blockSource||'—')}</small><small class="desktop-block">증명 범위: ${esc(row.assurance||'확인 안 됨')}</small>`;
+  if(category==='flows')detail=`<small class="desktop-block">A ${esc(row.launcherId||'—')} · 라이선스 ${esc(row.licenseId||'—')}</small>${row.machineBindingId?`<small class="code desktop-wrap desktop-block">실행 기기 연결 ID ${esc(row.machineBindingId)}</small>`:''}${desktopMemberLifecycleMarkup(row.lifecycle)}${desktopSecurityDetectionSummaryMarkup(row.securityDetections)}`;
+  return `<tr data-desktop-key="member-${category}-${esc(row.id||row.flowId)}"><td><strong>${esc(row.label||row.id||row.flowId||'—')}</strong><span class="code desktop-wrap desktop-block">${esc(row.id||row.flowId||'')}</span>${detail}</td><td>${status}<small class="desktop-block">${desktopDate(row.lastVerifiedAt||row.lastSeenAt||row.issuedAt||row.createdAt||row.firstSeenAt)}</small></td><td>${desktopMemberOrigin(row)}${desktopMemberAssignmentButton(row)}</td></tr>`;
+ }).join('')}</tbody></table></div>`;
+}
+function desktopMemberDetailMarkup(id){
+ const entry=desktopPanels.get(desktopMemberKey(id)),base=entry?.data;
+ if(!base)return desktopMemberNotice(entry,'회원 상세');
+ const owner=id==='unassigned'?'':id,baseMatches=id==='unassigned'?base.member===null:base.member?.id===id;
+ if(!base.categories||!baseMatches)return '<p class="desktop-member-scope-warning" role="alert">선택한 회원의 상세 응답을 확인하지 못했습니다. 다시 조회하세요.</p>';
+ const category=desktopMemberCategory,title=desktopMemberCategories.find(([key])=>key===category)?.[1]||'회원 기록';
+ const wanted=desktopMemberPages.get(id+':'+category)||1,extra=wanted>1?desktopPanels.get(desktopMemberKey(id,category,wanted)):null;
+ const extraMatches=extra?.data&&(id==='unassigned'?extra.data.member===null:extra.data.member?.id===id);
+ const part=wanted>1?(extraMatches?extra.data.categories?.[category]:null):base.categories[category];
+ const valid=!!part&&Array.isArray(part.items)&&Number.isSafeInteger(part.page)&&part.page===wanted&&Number.isSafeInteger(part.pageSize)&&part.pageSize>=1&&part.pageSize<=100&&Number.isSafeInteger(part.totalCount)&&part.totalCount>=0&&part.items.length<=part.pageSize;
+ const scoped=valid&&part.items.every(row=>row&&row.memberId===owner);
+ const page=valid?part.page:wanted,pages=valid?Math.max(1,Math.ceil(part.totalCount/part.pageSize)):1;
+ return desktopMemberNotice(entry,'회원 상세')+`<div class="section-head"><div><h3>${title}</h3><p class="small-note">${id==='unassigned'?'담당 회원이 확인되지 않은 기록':esc(base.member.displayName)+' 회원에게 연결된 기록'} · ${desktopMemberCount(part?.totalCount)}건</p></div></div>${wanted>1?desktopMemberNotice(extra,title):''}${!part?'<p class="small-note" role="status">해당 페이지를 불러오는 중입니다.</p>':!scoped?'<p class="desktop-member-scope-warning" role="alert">선택한 회원과 기록의 연결 범위를 확인하지 못했습니다. 자료를 표시하지 않았습니다. 다시 조회하세요.</p>':desktopMemberCategoryRows(category,part.items)}<div class="desktop-pagination"><span>${page} / ${pages}</span><div class="actions"><button type="button" data-member-action="detail-page" data-member-id="${esc(id)}" data-member-category="${category}" data-member-page="${page-1}" ${!scoped||page<=1?'disabled':''}>이전 기록</button><button type="button" data-member-action="detail-page" data-member-id="${esc(id)}" data-member-category="${category}" data-member-page="${page+1}" ${!scoped||page>=pages?'disabled':''}>다음 기록</button></div></div>`;
+}
+function desktopMemberError(error){
+ const messages={MEMBER_REVISION_CONFLICT:'다른 관리 작업으로 회원 정보가 변경되었습니다. 목록을 새로고침하고 다시 확인하세요.',MEMBER_ASSIGNMENT_CONFLICT:'선택한 기록의 직접 연결 회원이 바뀌었습니다. 새로고침 후 다시 선택하세요.',MEMBER_ASSIGNMENT_NOT_DIRECT:'이 기록은 라이선스·A 발급에 연결된 회원을 따릅니다. 직접 연결된 원래 라이선스 또는 A 발급의 회원 연결을 변경하세요.',MEMBER_ASSOCIATION_CONFLICT:'연결된 라이선스·A 발급·실행의 회원이 서로 다릅니다. 기존 연결을 확인하고 해제한 뒤 같은 회원으로 배정하세요.',MEMBER_ARCHIVED:'보관된 회원은 새 기록에 연결할 수 없습니다. 보관을 해제하거나 다른 회원을 선택하세요.',MEMBER_TARGET_NOT_FOUND:'연결할 기록이 더 이상 없습니다. 목록을 새로고침하세요.',MEMBER_NOT_FOUND:'회원을 확인하지 못했습니다. 목록을 새로고침하세요.',MEMBER_INPUT_INVALID:'회원 이름·메모·연결 대상의 입력 범위를 확인하세요.',MEMBER_QUERY_INVALID:'검색 조건을 확인하세요.',MEMBER_CAPACITY:'회원 관리 저장 한도에 도달했습니다. 서버 운영 상태를 확인하세요.',MEMBER_REQUEST_REUSED:'다른 내용에 사용된 요청입니다. 목록을 새로고침한 뒤 다시 확인하세요.'};
+ if(messages[error.code])error.message=messages[error.code];return error;
+}
+function desktopMemberCurrentRevision(){const revision=desktopPanels.get('members')?.data?.revision;if(!Number.isSafeInteger(revision)||revision<0)throw Error('회원 목록을 새로고침한 뒤 다시 시도하세요.');return revision;}
+function desktopMemberRow(id){const row=desktopPanels.get('members')?.data?.items?.find(value=>value.id===id),detail=desktopPanels.get(desktopMemberKey(id))?.data?.member;return row||(detail?.id===id?detail:undefined);}
+async function desktopMemberSave(url,body,owner,expectedRevision){
+ if(!roleIsAdmin()||session?.csrf!==owner)return;
+ if(desktopMemberPending)throw Error('이전 회원 관리 요청의 결과를 먼저 확인하세요.');
+ if(!Number.isSafeInteger(expectedRevision)||expectedRevision<0)throw Error('회원 목록을 새로고침한 뒤 다시 시도하세요.');
+ desktopMemberPending={url,body:{...body,expectedRevision,requestId:crypto.randomUUID()},owner};
+ return desktopMemberSendPending();
+}
+async function desktopMemberSendPending(){
+ const pending=desktopMemberPending;if(!pending||!roleIsAdmin()||session?.csrf!==pending.owner)return;
+ try{await api(pending.url,{method:'POST',body:pending.body});}
+ catch(error){if(error.status>=400&&error.status<500&&desktopMemberPending===pending){desktopMemberPending=null;desktopMemberInvalidate(true);}throw error;}
+ if(desktopMemberPending===pending)desktopMemberPending=null;
+ if(!roleIsAdmin()||session?.csrf!==pending.owner)return;
+ desktopMemberInvalidate(true);toast('회원 관리 변경을 서버에 반영했습니다.');await renderCurrent();
+}
+async function desktopMemberAssign(target,owner){
+ const kind=target.dataset.memberKind,targetId=target.dataset.memberTarget,expectedMemberId=target.dataset.memberDirect||'';
+ if(!['LICENSE','LAUNCHER','FLOW','DEVICE'].includes(kind)||!targetId)throw Error('연결 대상이 올바르지 않습니다.');
+ const expectedRevision=desktopMemberCurrentRevision();
+ const first=await api('/api/desktop/members?'+new URLSearchParams({status:'ACTIVE',page:'1',pageSize:'100'}));
+ if(!roleIsAdmin()||session?.csrf!==owner)return;
+ const blankLabel=expectedMemberId?'직접 연결 해제 · 상위 연결은 유지':'연결할 회원을 선택하세요';
+ const options=[{value:'',label:blankLabel},...(first.items||[]).map(row=>({value:row.id,label:row.displayName+' · '+row.id}))];
+ const promise=openModal({title:'회원 연결 변경',message:'확인한 회원만 직접 선택하세요. 기기가 같다는 이유로 다른 실행 기록이 자동 배정되지 않습니다. 직접 연결을 해제해도 라이선스·A 발급에 연결된 회원 정보는 남을 수 있습니다.',html:`<p class="code desktop-wrap">${esc(kind)} · ${esc(targetId)}</p><label>회원 검색<input id="desktop-member-picker-search" maxlength="80" type="search" autocomplete="off"></label><button type="button" id="desktop-member-picker-refresh">회원 검색</button><p id="desktop-member-picker-status" role="status">최대 100명 표시 · 찾는 회원이 없으면 이름 또는 ID로 검색하세요.</p>`,fields:[{name:'memberId',label:'확인한 회원',type:'select',value:options.some(row=>row.value===expectedMemberId)?expectedMemberId:'',options}],confirmLabel:'회원 연결 저장'});
+ const select=modalBody.querySelector('[data-modal-field="memberId"]'),search=document.getElementById('desktop-member-picker-search'),button=document.getElementById('desktop-member-picker-refresh'),status=document.getElementById('desktop-member-picker-status');
+ let serial=0,closed=false;
+ button.onclick=async()=>{const generation=++serial;if(closed||!roleIsAdmin()||session?.csrf!==owner)return;button.disabled=true;modalConfirm.disabled=true;try{const result=await api('/api/desktop/members?'+new URLSearchParams({q:search.value.trim(),status:'ACTIVE',page:'1',pageSize:'100'}));if(closed||generation!==serial||session?.csrf!==owner||!select.isConnected)return;select.replaceChildren();for(const row of [{id:'',displayName:blankLabel},...(result.items||[])]){const option=document.createElement('option');option.value=row.id;option.textContent=row.displayName+(row.id?' · '+row.id:'');select.append(option);}status.textContent='검색 결과 '+desktopMemberCount(result.totalCount)+'명 · 최대 100명 표시';}catch(error){if(!closed&&status.isConnected)status.textContent=error.message||'회원 검색 결과를 확인하지 못했습니다.';}finally{if(!closed&&button.isConnected){button.disabled=false;modalConfirm.disabled=false;}}};
+ let values;try{values=await promise;}finally{closed=true;serial++;}
+ if(!values||!roleIsAdmin()||session?.csrf!==owner)return;
+ if(!expectedMemberId&&!values.memberId)throw Error('직접 연결을 해제할 회원이 없습니다. 연결할 회원을 선택하거나 원래 라이선스·A 발급의 연결을 변경하세요.');
+ await desktopMemberSave('/api/desktop/members/assignment',{kind,targetId,memberId:String(values.memberId||''),expectedMemberId},owner,expectedRevision);
+}
+async function handleDesktopMemberAction(target){
+ const action=target.dataset.memberAction;if(!action)return false;
+ if(!roleIsAdmin()||!session)throw Error('관리자만 회원을 관리할 수 있습니다.');
+ desktopMemberResetOwner(session.csrf);
+ if(desktopLicenseActionPending)return true;
+ const owner=session.csrf;desktopLicenseActionPending=true;target.disabled=true;
+ try{
+  if(action==='open-detail'){
+   const id=target.dataset.memberId;if(id!=='unassigned'&&!/^[A-F0-9]{24}$/.test(id||''))throw Error('회원 목록을 새로고침하세요.');
+   desktopMemberListDraft=document.getElementById('desktop-member-search')?.value??desktopMemberListDraft;
+   desktopMemberListScroll=Number.isFinite(content.scrollTop)?Math.max(0,content.scrollTop):0;
+   desktopMemberSelectedId=id;desktopMemberCategory='detections';content.scrollTop=0;desktopMemberRequest(id);await renderCurrent();
+   if(session?.csrf===owner&&roleIsAdmin()&&currentView==='desktop-licenses'&&desktopLicenseTab==='members'&&desktopMemberSelectedId===id){content.scrollTop=0;document.getElementById('desktop-member-workspace-title')?.focus({preventScroll:true});}
+   return true;
+  }
+  if(action==='back'){
+   const id=desktopMemberSelectedId,scroll=desktopMemberListScroll;desktopMemberSelectedId='';await renderCurrent();
+   if(session?.csrf===owner&&roleIsAdmin()&&currentView==='desktop-licenses'&&desktopLicenseTab==='members'&&!desktopMemberSelectedId){content.scrollTop=scroll;(document.querySelector('[data-member-action="open-detail"][data-member-id="'+id+'"]')||document.getElementById('desktop-member-search'))?.focus({preventScroll:true});}
+   return true;
+  }
+  if(action==='category'){
+   const id=target.dataset.memberId,category=target.dataset.memberCategory;if(id!==desktopMemberSelectedId||!desktopMemberCategories.some(([name])=>name===category))return true;
+   desktopMemberCategory=category;const page=desktopMemberPages.get(id+':'+category)||1;desktopMemberRequest(id);if(page>1)desktopMemberRequest(id,category,page);await renderCurrent();return true;
+  }
+  if(action==='refresh'){desktopMemberInvalidate();await renderCurrent();return true;}
+  if(action==='clear'){desktopMemberQuery='';desktopMemberListDraft=null;desktopMemberStatus='ACTIVE';desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();return true;}
+  if(action==='page'){const page=Number(target.dataset.memberPage);if(Number.isSafeInteger(page)&&page>0){desktopMemberPage=page;desktopPanels.delete('members');await renderCurrent();}return true;}
+  if(action==='detail-page'){const page=Number(target.dataset.memberPage),id=target.dataset.memberId,category=target.dataset.memberCategory;if(id===desktopMemberSelectedId&&category===desktopMemberCategory&&Number.isSafeInteger(page)&&page>0&&desktopMemberCategories.some(([name])=>name===category)){desktopMemberPages.set(id+':'+category,page);desktopMemberRequest(id,category,page);await renderCurrent();}return true;}
+  if(action==='approval'){await showDesktopFirstDeviceApproval();desktopMemberInvalidate();await renderCurrent();return true;}
+  if(action==='license-detail'){
+   const selected=desktopMemberSelectedId;if(!selected||desktopMemberCategory!=='licenses')throw Error('회원의 라이선스 목록에서 다시 선택하세요.');
+   await showDesktopUnifiedDetail(target.dataset.memberTarget,{memberId:selected==='unassigned'?'':selected});return true;
+  }
+  if(action==='retry'){const yes=await openModal({title:'이전 회원 관리 결과 확인',message:'완료를 확인하지 못한 요청을 같은 요청 ID와 내용으로 다시 확인합니다.',confirmLabel:'같은 요청 확인'});if(yes&&session?.csrf===owner)await desktopMemberSendPending();return true;}
+  if(desktopMemberPending)throw Error('이전 회원 관리 요청의 결과를 먼저 확인하세요.');
+  if(action==='assign'){await desktopMemberAssign(target,owner);return true;}
+  const row=desktopMemberRow(target.dataset.memberId);
+  if(action==='create'||action==='edit'){
+   if(action==='edit'&&!row)throw Error('회원 목록을 새로고침하세요.');
+   const expectedRevision=desktopMemberCurrentRevision();
+   const values=await openModal({title:action==='create'?'회원 등록':'회원 정보 수정',message:'고객을 구분할 표시 이름과 운영 메모만 입력하세요. 비밀번호·라이선스 키·주민번호 등 민감한 정보는 넣지 마세요.',fields:[{name:'displayName',label:'회원 표시 이름 (1~80자)',value:row?.displayName||''},{name:'note',label:'운영 메모 (선택, 최대 1000자)',type:'textarea',value:row?.note||''}],confirmLabel:'회원 정보 저장'});
+   if(!values||session?.csrf!==owner)return true;
+   const displayName=String(values.displayName||'').trim(),note=String(values.note||'').trim();if(!displayName||displayName.length>80||note.length>1000)throw Error('회원 이름은 1~80자, 메모는 1000자 이하로 입력하세요.');
+   await desktopMemberSave('/api/desktop/members'+(row?'/'+encodeURIComponent(row.id):''),{displayName,note},owner,expectedRevision);return true;
+  }
+  if(action==='archive'){
+   if(!row)throw Error('회원 목록을 새로고침하세요.');const archived=row.status!=='ARCHIVED',expectedRevision=desktopMemberCurrentRevision();
+   const yes=await openModal({title:archived?'회원 보관':'회원 보관 해제',message:row.displayName+'\n목록 분류만 바뀝니다. 라이선스·실행·보안 기록은 유지되며 서버 실행 권한은 변경하지 않습니다.',confirmLabel:archived?'회원 보관':'보관 해제'});
+   if(yes&&session?.csrf===owner)await desktopMemberSave('/api/desktop/members/'+encodeURIComponent(row.id)+'/archive',{archived},owner,expectedRevision);return true;
+  }
+  return false;
+ }catch(error){throw desktopMemberError(error);}finally{desktopLicenseActionPending=false;if(target.isConnected)target.disabled=false;}
+}
+content.addEventListener('submit',async event=>{
+ if(event.target.id!=='desktop-member-search-form')return;event.preventDefault();
+ desktopMemberQuery=document.getElementById('desktop-member-search').value.trim();desktopMemberListDraft=null;desktopMemberStatus=document.getElementById('desktop-member-filter').value;desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();
+});
+content.addEventListener('change',async event=>{
+ if(event.target.id!=='desktop-member-filter')return;desktopMemberStatus=event.target.value;desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();
+});

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f6f3">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="description" content="Cozy Peace 회원, 라이선스, 프로그램 배포와 서버 운영을 위한 워크스페이스">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
+  <link rel="alternate icon" type="image/x-icon" href="/icons/favicon.ico">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <title>Cozy Peace · 운영 워크스페이스</title>
+  <link rel="stylesheet" href="/styles/admin.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <link rel="stylesheet" href="/styles/admin-theme.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <link rel="stylesheet" href="/styles/admin-navigation.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <link rel="stylesheet" href="/styles/admin-appearance.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <link rel="stylesheet" href="/styles/admin-controls.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <link rel="stylesheet" href="/styles/admin-workspace.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <link rel="stylesheet" href="/styles/admin-desktop.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <link rel="stylesheet" href="/styles/admin-members.css?v=5.0.2-cozy-peace-v23-motion-visibility">
+  <script src="/scripts/interface/peace.admin-controls.js?v=5.0.2-cozy-peace-v23-motion-visibility"></script>
+  <script src="/scripts/interface/peace.admin-appearance.js?v=5.0.2-cozy-peace-v23-motion-visibility"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">본문으로 이동</a>
+  <section id="login-screen" class="login-screen" aria-label="Cozy Peace 로그인">
+    <div class="login-atmosphere" aria-hidden="true"><span class="login-orb orb-one"></span><span class="login-orb orb-two"></span><span class="login-orb orb-three"></span><span class="login-grid"></span><span class="login-orbit"></span></div>
+    <div class="login-layout">
+      <div class="login-story">
+        <div class="login-brand"><img src="/icons/game.svg" alt="" class="brand-symbol"><span class="login-wordmark">Cozy<span>Peace</span></span></div>
+        <div class="login-story-body"><span class="login-eyebrow">YOUR SPACE, IN SYNC.</span><h1 class="login-story-title">복잡한 운영을,<br>명료한 흐름으로.</h1><p class="login-story-copy">회원부터 프로그램 배포, 서버 상태까지.<br>필요한 모든 작업을 하나의 워크스페이스에서.</p><div class="login-proof"><span><i aria-hidden="true"></i>회원 중심 관리</span><span><i aria-hidden="true"></i>실시간 운영 현황</span></div></div>
+        <div class="login-footer"><span>Cozy Peace Operations</span><button type="button" class="motion-toggle" data-motion-toggle aria-pressed="false">애니메이션 끄기</button></div>
+      </div>
+      <div class="login-card">
+        <span class="login-eyebrow">WELCOME BACK</span>
+        <h2>워크스페이스 로그인</h2>
+        <p class="muted">역할을 선택하고 안전하게 시작하세요.</p>
+        <form id="login-form" autocomplete="off">
+          <label for="login-role">접근 역할<select id="login-role"><option value="admin">관리자</option><option value="operator">운영자</option><option value="viewer">조회 전용</option></select></label>
+          <label for="login-password">비밀번호<input id="login-password" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요" required></label>
+          <button class="primary wide" type="submit">워크스페이스 열기 <span aria-hidden="true">↗</span></button>
+          <div class="login-divider"><span>또는</span></div>
+          <button id="passkey-login-btn" class="ghost wide" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><circle cx="8" cy="10" r="4"/><path d="m11 13 8 0m-3 0v3m3-3v2"/></svg>패스키로 로그인</button>
+          <p class="small-note">등록된 패스키가 있다면 비밀번호 없이 로그인할 수 있습니다.</p>
+        </form>
+        <div id="login-error" class="form-error" role="alert" aria-live="polite"></div>
+        <div class="login-security-note"><svg viewBox="0 0 24 24" aria-hidden="true" width="15" height="15"><path d="m12 3 7 3v5c0 5-7 9-7 9s-7-4-7-9V6z"/></svg>권한이 부여된 운영자만 접근할 수 있습니다.</div>
+      </div>
+    </div>
+  </section>
+  <div id="app" class="app hidden">
+    <aside class="sidebar" id="main-menu">
+      <div class="sidebar-brand"><img class="brand-symbol" src="/icons/game.svg" alt=""><div><strong class="brand-name">Cozy Peace</strong><span class="brand-caption">운영 워크스페이스</span></div></div>
+      <div class="nav-search"><svg class="nav-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="nav-filter" type="search" placeholder="메뉴 찾기" aria-label="관리 기능 검색" autocomplete="off"></div>
+      <nav id="nav" aria-label="관리 메뉴"><details class="nav-group" open><summary>워크스페이스</summary><div class="nav-items"><button type="button" data-view="desktop-licenses" data-admin-only class="active"><span class="nav-label">회원 · 프로그램</span></button><button type="button" data-view="dashboard"><span class="nav-label">운영 개요</span></button><button type="button" data-view="servers"><span class="nav-label">서버 기기</span></button><button type="button" data-view="monitor"><span class="nav-label">연결 상태</span></button></div></details><details class="nav-group" open><summary>모니터링</summary><div class="nav-items"><button type="button" data-view="console"><span class="nav-label">실시간 이벤트</span></button><button type="button" data-view="notifications"><span class="nav-label">알림</span><span id="notification-badge" class="nav-count hidden">0</span></button><button type="button" data-view="trace"><span class="nav-label">요청 추적</span></button><button type="button" data-view="recovery"><span class="nav-label">요청 복구</span></button><button type="button" data-view="reports"><span class="nav-label">푸시 · 보고서</span></button></div></details><details class="nav-group" open><summary>보안 · 배포</summary><div class="nav-items"><button type="button" data-view="production" data-admin-only><span class="nav-label">운영 보안</span></button><button type="button" data-view="security"><span class="nav-label">보안 상태</span></button><button type="button" data-view="enrollment" data-admin-only><span class="nav-label">서버 등록</span></button><button type="button" data-view="protocol"><span class="nav-label">프로토콜</span></button><button type="button" data-view="processors"><span class="nav-label">처리 정책</span></button></div></details><details class="nav-group" open><summary>관리 기록</summary><div class="nav-items"><button type="button" data-view="features" data-admin-only><span class="nav-label">기능 설정</span></button><button type="button" data-view="confighistory" data-admin-only><span class="nav-label">설정 이력</span></button><button type="button" data-view="audit"><span class="nav-label">감사 기록</span></button><button type="button" data-view="activity" data-admin-only><span class="nav-label">관리자 활동</span></button><button type="button" data-view="sessions" data-admin-only><span class="nav-label">로그인 세션</span></button></div></details><details class="nav-group" open><summary>시스템</summary><div class="nav-items"><button type="button" data-view="health"><span class="nav-label">시스템 상태</span></button><button type="button" data-view="storage" data-admin-only><span class="nav-label">저장소</span></button><button type="button" data-view="backups"><span class="nav-label">백업 · 복원</span></button><button type="button" data-view="ha"><span class="nav-label">이중화 관리</span></button><button type="button" data-view="system"><span class="nav-label">시스템 관리</span></button><button type="button" data-view="terminal"><span class="nav-label">관리 명령</span></button><button type="button" data-view="danger" data-admin-only><span class="nav-label">주의 작업</span></button></div></details></nav>
+      <p id="nav-empty" class="nav-empty hidden" role="status">일치하는 메뉴가 없습니다.</p>
+      <div class="sidebar-footer"><div class="sidebar-account"><span class="account-avatar" aria-hidden="true">CP</span><div><strong id="role-label">-</strong><span>현재 로그인 역할</span></div><button id="logout-btn" class="icon-btn" type="button" aria-label="로그아웃" title="로그아웃"><svg viewBox="0 0 24 24" aria-hidden="true" width="19" height="19"><path d="M10 5H5v14h5m4-14h5v14h-5m-4-7h9m-3-3 3 3-3 3"/></svg></button></div><div class="sidebar-meta"><strong id="web-version-label">Cozy Peace · 웹 v5.0.2</strong><a class="ui-refresh-link" href="/ui-refresh">화면 업데이트</a></div></div>
+    </aside>
+    <main class="main" id="main-content" tabindex="-1">
+      <header class="topbar">
+        <button id="menu-toggle" class="icon-btn" type="button" aria-controls="main-menu" aria-expanded="false" aria-label="메뉴 열기"><svg viewBox="0 0 24 24" aria-hidden="true" width="21" height="21"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div class="page-heading"><span id="page-category" class="page-category">워크스페이스</span><h2 id="page-title">회원 · 프로그램</h2><p id="page-subtitle" class="muted">회원별 운영과 프로그램 배포를 관리합니다.</p></div>
+        <div class="topbar-actions"><span id="live-state" class="live-pill">실시간 연결</span><button id="global-search-btn" class="icon-btn" type="button" aria-label="전체 검색 열기" title="전체 검색 · Ctrl+K"><svg viewBox="0 0 24 24" aria-hidden="true" width="19" height="19"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button><button id="theme-toggle" class="ghost" type="button" aria-label="화면 모드 전환" aria-pressed="false"><span data-theme-label>다크 모드</span></button><button type="button" class="icon-btn motion-toggle" data-motion-toggle aria-pressed="false" aria-label="애니메이션 끄기" title="애니메이션 끄기"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="M8 5v14M16 5v14"/></svg><span class="sr-only" data-motion-label>애니메이션 끄기</span></button><button id="install-pwa-btn" class="ghost hidden" type="button">앱 설치</button><button id="refresh-btn" class="ghost" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M19 8a8 8 0 1 0 1 6M19 3v5h-5"/></svg><span>새로고침</span></button></div>
+      </header>
+      <nav id="workspace-tabs" class="workspace-tabs" aria-label="현재 카테고리의 기능"></nav>
+      <section id="content" class="content" aria-live="off"></section>
+    </main>
+  </div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <div id="modal" class="modal hidden" aria-hidden="true"><div class="modal-backdrop" data-modal-close></div><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><h3 id="modal-title">확인</h3><button class="icon-btn" aria-label="닫기" type="button" data-modal-close>×</button></div><div id="modal-body" class="modal-body"></div><div class="modal-actions"><button id="modal-cancel" class="ghost" type="button">취소</button><button id="modal-confirm" class="primary" type="button">확인</button></div></div></div>
+  <script src="/scripts/interface/peace.admin-i18n.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/application/peace.admin.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/interface/peace.admin-navigation.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-monitoring.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/application/peace.admin-terminal.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-traffic.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-danger.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-access.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-reports.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-pages-devices.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-deployment.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-security.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-operations.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-access.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-operations.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-traffic.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-devices.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-policy.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-actions-system.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/interface/peace.admin-modal.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-device-actions.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-licenses.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-members.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-security.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-security-center.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-server-state.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-workflow.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/desktop/peace.admin-desktop-packed-release.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/actions/peace.admin-actions.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/interface/peace.admin-palette.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+  <script src="/scripts/pages/peace.admin-pages-production.js?v=5.0.2-cozy-peace-v23-motion-visibility" defer></script>
+</body>
+</html>

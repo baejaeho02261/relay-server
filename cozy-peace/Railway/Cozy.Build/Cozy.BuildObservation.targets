@@ -1,0 +1,43 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Imported ONLY for GameObserveBuild=true. No compiler, ToolPath, licensing,
+       output isolation or normal IDE build behavior is replaced here. -->
+  <PropertyGroup>
+    <_GameObservationTaskSource>$(CozyNativeRoot)\Cozy.Build\Cozy.Tasks\Cozy.BuildObservation.cs</_GameObservationTaskSource>
+    <_GameObservationTaskAssembly>$(_GameBuildTaskDirectory)Game.Observation.$(_GameBuildTaskId).dll</_GameObservationTaskAssembly>
+    <_GameObservationScript>$(CozyNativeRoot)\..\Relay Server\tools\build\peace.ide-build-observation.js</_GameObservationScript>
+    <_GameObservationPrepareDepends Condition="'$(MSBuildProjectName)'=='Cozy.Overlay'">PrepareOverlayNative</_GameObservationPrepareDepends>
+    <_GameObservationPrepareDepends Condition="'$(MSBuildProjectName)'=='Cozy.Client'">PrepareLicenseNative</_GameObservationPrepareDepends>
+  </PropertyGroup>
+  <UsingTask TaskName="GameBuildObservation" AssemblyFile="$(_GameObservationTaskAssembly)" />
+  <Target Name="GameCompileObservationTask" DependsOnTargets="GameCompileSearchPathValidator"
+          Inputs="$(_GameObservationTaskSource);$(CozyNativeRoot)\Cozy.Build\Cozy.BuildObservation.targets" Outputs="$(_GameObservationTaskAssembly)">
+    <Error Condition="'$(GameObservationNode)'=='' or '$(GameObservationDirectory)'==''" Text="GAME_IDE_OBSERVATION_SETUP_REQUIRED: prepare a NEW run, set absolute GameObservationNode and GameObservationDirectory before launching the IDE. See Cozy.IDE_Build_Observation.html." />
+    <Microsoft.Build.Tasks.Csc Condition="!Exists('$(_GameBuildRoslynTasks)')" Sources="$(_GameObservationTaskSource)" TargetType="Library"
+         OutputAssembly="$(_GameObservationTaskAssembly)" LangVersion="4" Optimize="true" NoConfig="true" EmitDebugInformation="false" WarningLevel="4"
+         References="System.dll;System.Core.dll;$(_GameBuildFrameworkAssembly);$(_GameBuildUtilitiesAssembly)" />
+    <Microsoft.CodeAnalysis.BuildTasks.Csc Condition="Exists('$(_GameBuildRoslynTasks)')" Sources="$(_GameObservationTaskSource)" TargetType="Library"
+         OutputAssembly="$(_GameObservationTaskAssembly)" LangVersion="4" Optimize="true" NoConfig="true" EmitDebugInformation="false" WarningLevel="4"
+         References="System.dll;System.Core.dll;$(_GameBuildFrameworkAssembly);$(_GameBuildUtilitiesAssembly)" />
+  </Target>
+  <Target Name="GameObserveCompilerReady" DependsOnTargets="GameObserveBeforeBuild;$(_GameObservationPrepareDepends);PreBuildEvent"
+          BeforeTargets="_PasCoreCompile">
+    <GameBuildObservation Mode="ready" Node="$(GameObservationNode)" Script="$(_GameObservationScript)" RunDirectory="$(GameObservationDirectory)"
+          Role="$(_GameRole)" Configuration="$(Config)" Project="$(MSBuildProjectFullPath)" Platform="$(Platform)"
+          Defines="$(DCC_Define)" Units="$(DCC_UnitSearchPath)" Includes="$(DCC_IncludePath)" Objects="$(DCC_ObjPath)"
+          Dcu="$(DCC_DcuOutput)" Exe="$(DCC_ExeOutput)" Optimize="$(DCC_Optimize)" DebugInformation="$(DCC_DebugInformation)"
+          References="@(DCCReference)" MainSources="@(DelphiCompile)" />
+  </Target>
+  <Target Name="GameObserveBeforeBuild" DependsOnTargets="ValidateProductionIsolation;GameCompileObservationTask"
+          BeforeTargets="BeforeBuild;PreBuildEvent;_PasCoreCompile">
+    <GameBuildObservation Mode="before" Node="$(GameObservationNode)" Script="$(_GameObservationScript)" RunDirectory="$(GameObservationDirectory)"
+          Role="$(_GameRole)" Configuration="$(Config)" Project="$(MSBuildProjectFullPath)" Platform="$(Platform)"
+          Defines="$(DCC_Define)" Units="$(DCC_UnitSearchPath)" Includes="$(DCC_IncludePath)" Objects="$(DCC_ObjPath)"
+          Dcu="$(DCC_DcuOutput)" Exe="$(DCC_ExeOutput)" Optimize="$(DCC_Optimize)" DebugInformation="$(DCC_DebugInformation)"
+          References="@(DCCReference)" MainSources="@(DelphiCompile)" />
+  </Target>
+  <!-- Capture the real project-local PE before executable finalization.
+       Exit code zero, a missing file, or stale last-build bytes cannot pass. -->
+  <Target Name="GameObserveAfterBuild" BeforeTargets="PostBuildEvent;FinalizeProjectExecutable" DependsOnTargets="GameCompileObservationTask">
+    <GameBuildObservation Mode="after" Node="$(GameObservationNode)" Script="$(_GameObservationScript)" RunDirectory="$(GameObservationDirectory)" Role="$(_GameRole)" />
+  </Target>
+</Project>

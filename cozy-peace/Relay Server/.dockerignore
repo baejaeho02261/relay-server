@@ -1,0 +1,48 @@
+**/node_modules
+**/__pycache__
+**/.git
+**/.env
+**/.env.*
+!**/*.env.example
+**/*.pem
+**/*.key
+**/*.log
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm
+**/*.sqlite-journal
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.db-journal
+cozy-peace/Railway/build
+cozy-peace/Railway/bin
+cozy-peace/Railway/Cozy.BuildOutputs
+
+# Runtime directories only; nested storage/audit is application source.
+/audit/
+/cozy-peace/Relay Server/audit/
+/backups/
+/cozy-peace/Relay Server/backups/
+/data/
+/cozy-peace/Relay Server/data/
+/releases/
+/cozy-peace/Relay Server/releases/
+/connect-tls/
+/cozy-peace/Relay Server/connect-tls/
+/desktop-bootstrap/
+/cozy-peace/Relay Server/desktop-bootstrap/
+/desktop-integrity-reports/
+/cozy-peace/Relay Server/desktop-integrity-reports/
+/desktop-machine-policy/
+/cozy-peace/Relay Server/desktop-machine-policy/
+/desktop-performance/
+/cozy-peace/Relay Server/desktop-performance/
+**/connect-transport-key.pem
+**/connect-transport-key.id
+**/desktop-license-journal.key
+**/desktop-license-journal.head
+**/desktop-license-journal.jsonl
+**/relay-identities*.json
+**/relay-licenses*.json
+**/.desktop-single-writer.sqlite*

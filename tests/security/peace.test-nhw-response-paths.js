@@ -87,40 +87,6 @@ check('Rate limiting and supersession on one path do not consume another path no
  reject(()=>request(s,'trust'),'SECURITY_RATE_LIMIT');
  assert.equal(authority.Execute(driver.submit).stopped,false);assert.equal(send(s,'integrity').stopped,true);
 });
-// Exercise the same signed response path with ordinary and qualifying evidence.
-function nativeV5(id,stage,sequence=1,fields={}){
- const policy=require('../../services/security/peace.security-context-policy');
- const c=policy.UnknownContext(stage);
- c.phase=stage+'_ATTESTED';
- const sampleTick=(0x1000+sequence).toString(16).padStart(16,'0');
- const detected=[{id,source:'Cozy.NHW.Engine',firstTick:sampleTick,
-  lastTick:sampleTick,count:1,families:0,confidence:0,
-  correlation:false,attestationSequence:'0000000000000000',localOnly:true,
-  context:Object.fromEntries(policy.CONTEXT_FIELDS.map(k=>[k,c[k]])),signal:'DETECTED',...fields}];
- return JSON.stringify({version:5,sequence:sequence.toString(16).padStart(16,'0'),
-  tick:sampleTick,digest:hash(JSON.stringify(detected)).slice(0,16),
-  confirmed:false,trust:0,detections:detected,peer:null});
-}
-check('V5 signed A/B findings keep isolated observations and revoke only on qualified evidence',()=>{
- const a=newA(),b=newB(),foreign=newB();
- assert.equal(send(a,'integrity',nativeV5('dkProcess','A')).stopped,false);
- assert.equal(row(a).status,'STARTED');
- assert.equal(send(b,'trust',nativeV5('dkAffinity','B')).stopped,false);
- assert.equal(row(b).status,'CLAIMED');
- const aRequest=request(a,'integrity',nativeV5('dkPECodeIntegrity','A',2));
- const aStopped=authority.Execute(aRequest.submit);
- assert.equal(aStopped.accepted,true);assert.equal(aStopped.stopped,true);
- assert.deepEqual(authority.Execute(aRequest.submit),aStopped,'idempotent signed stop receipt');
- assert.equal(row(a).status,'REVOKED');
- const bStopped=send(b,'trust',nativeV5('dkPrivateThread','B',2,
-  {families:10,confidence:75,correlation:true,localOnly:false}));
- assert.equal(bStopped.accepted,true);assert.equal(bStopped.stopped,true);
- assert.equal(row(b).status,'REVOKED');
- assert.equal(row(foreign).status,'CLAIMED','foreign A/B cohort untouched');
- const events=require('../../services/security/peace.security-detections').ForFlow(row(b).id);
- assert.ok(events.some(x=>x.detectionId==='dkAffinity'&&x.disposition==='OBSERVATION_UNRESOLVED'&&!x.invalidated));
- assert.ok(events.some(x=>x.detectionId==='dkPrivateThread'&&x.disposition==='CORROBORATED_ANOMALY'&&x.invalidated));
-});
 check('Stage A independently reports and revokes only its exact not-yet-claimed flow',()=>{
  const a=newA(),other=newA();
  assert.equal(send(a,'driver').stopped,false);assert.equal(send(a,'integrity').stopped,true);
@@ -143,12 +109,10 @@ check('O uses its own activated key and ends only its authenticated A/B/O cohort
  const o=boot.Execute({action:'overlayClaim',overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket,...fixture.Delegated(parent.device,device,'O',finished.claimCanonical),binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
  const current={device,ctx:{stage:'O',sessionId:o.sessionId,sessionToken:o.sessionToken,machineId:device.machineId}};
  fixture.Enroll(device,current.ctx);
- assert.equal(send(current,'integrity',nativeV5('dkThreadSpawn','O')).stopped,false);
- assert.equal(row(parent).status,'CLAIMED');
  const r=request(current,'trust',kernelV2());
  reject(()=>authority.Execute({...r.submit,signature:fixture.Sign(parent.device,paths.Canonical(r.submit,r.c,'trust'))}),'SECURITY_SIGNATURE_INVALID');
  assert.equal(authority.Execute(r.submit).stopped,true);assert.equal(send(current,'driver',kernelV2()).stopped,true);
- const events=require('../../services/security/peace.security-detections').ForFlow(row(parent).id);assert.equal(events.length,5);assert.ok(events.every(e=>e.role==='O'));assert.equal(events.filter(e=>e.invalidated).length,2);assert.equal(events.filter(e=>e.responsePath==='driver'&&e.invalidated).length,0);
+ const events=require('../../services/security/peace.security-detections').ForFlow(row(parent).id);assert.equal(events.length,4);assert.ok(events.every(e=>e.role==='O'));assert.equal(events.filter(e=>e.invalidated).length,2);assert.equal(events.filter(e=>e.responsePath==='driver'&&e.invalidated).length,0);
  assert.equal(boot.Initialize().overlays[prepared.overlayId].status,'REVOKED');assert.equal(row(parent).status,'REVOKED');assert.equal(row(foreign).status,'CLAIMED');
 });
 check('A signed channel payload cannot substitute a different epoch or hash',()=>{

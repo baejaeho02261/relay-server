@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "backupDirectory": "D:\\OfflineBackups\\Relay Server-DATA_DIR",
+  "witnessSnapshotDirectory": "E:\\OfflineBackups\\Relay Server-witness-snapshot",
+  "storageEngine": "sqlite"
+}

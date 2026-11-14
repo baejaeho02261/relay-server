@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "dataDirectory": "C:\\GameServerData",
+  "witnessDirectory": "E:\\GameRecoveryWitness",
+  "confirmIndependentStorage": false
+}
