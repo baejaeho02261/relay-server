@@ -223,15 +223,93 @@ Check('READ_ERROR and unsealed storage hold work without revoking the session', 
   Reject(() => Fresh(session,'verify',ctx.binding), 'SECURITY_OBSERVATION_INDETERMINATE');
   Observe(ctx,dev); Fresh(session,'verify',ctx.binding);
 });
-Check('Measured mismatch is distinct, does not permanently ban an account', () => {
-  const ctx = Context(dev,'B',session,'verify',sha512('mismatch'));
-  const out = Observe(ctx,dev,{codeSha512:'0'.repeat(128)}); assert.equal(out.status,'MISMATCH');
-  const finding=require('../../services/security/peace.security-detections').ForFlow(Row(session).id).find(item=>item.detectionId==='IMAGE_DIGEST_MISMATCH');
-  assert.equal(finding.sensor,'peace.desktop-security-authority');
-  assert.equal(finding.sessionId,session.sessionId);
-  assert.equal(finding.invalidated,false);
-  Reject(() => Fresh(session,'verify',ctx.binding), 'SECURITY_OBSERVATION_MISMATCH');
+Check('Enforce mode revokes the exact measured image mismatch without compact evidence', () => {
+  const device = Device(), isolated = NewSession(device), unrelated = NewSession(device);
+  const ctx = Context(device,'B',isolated,'verify',sha512('mismatch'));
+  const challenge = auth.Execute({...ctx,nhwVersion:1});
+  assert.ok(challenge.nhwChallenge);
+  const signed = Signed(ctx,challenge,device,{codeSha512:'0'.repeat(128)});
+  const out = auth.Execute(signed);
+  assert.deepEqual(out,{version:1,accepted:true,status:'MISMATCH',reason:'IMAGE_DIGEST_MISMATCH',
+    proceed:false,sequence:challenge.sequence,expiresAt:challenge.expiresAt,attested:false});
+  const row = Row(isolated);
+  assert.equal(row.status,'REVOKED');
+  assert.equal(row.reason,out.reason);
+  assert.equal(row.sessionNonce,undefined);
+  assert.equal(Row(unrelated).status,'CLAIMED');
   assert.equal(Row(session).status,'CLAIMED');
+
+  const detections = require('../../services/security/peace.security-detections');
+  const finding = detections.ForFlow(row.id).find(item=>item.detectionId===out.reason);
+  assert.equal(finding.sensor,'peace.desktop-security-authority');
+  assert.equal(finding.sessionId,isolated.sessionId);
+  assert.equal(finding.invalidated,true);
+  assert.equal(finding.authorityAction,'DETECTION_REVOKE');
+  assert.equal(finding.attestation.status,'NOT_BOUND');
+  assert.equal(detections.ListRecent().items.find(item=>item.id===finding.recordId).verdict,'confirmed');
+  Reject(() => auth.Execute(signed),'BOOTSTRAP_REVOKED');
+  assert.equal(Row(isolated).status,'REVOKED');
+  assert.equal(detections.ForFlow(row.id).find(item=>item.recordId===finding.recordId).count,1);
+});
+Check('Image mismatch stops the authenticated A download and O cohort without compact evidence', () => {
+  const aDevice = Device(), a = Begin(aDevice).begin;
+  const aCtx = Context(aDevice,'A',a,'observe',sha512('A image mismatch'));
+  const aResult = Observe(aCtx,aDevice,{codeSha512:'0'.repeat(128)});
+  assert.equal(aResult.reason,'IMAGE_DIGEST_MISMATCH');
+  assert.equal(aResult.proceed,false);
+  assert.equal(boot.Initialize().flows[a.flowId].status,'REVOKED');
+  assert.equal(boot.Initialize().flows[a.flowId].downloadNonce,undefined);
+
+  const bDevice = Device(), b = NewSession(bDevice), oDevice = fixture.Child(bDevice);
+  const issue = licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Authority integrity'},'TEST');
+  function LicenseOperation(action, extra) {
+    const proof = LeaseProof(bDevice,b,action,crypto.randomUUID(),extra);
+    fixture.ObserveLicense(bDevice,action,proof.requestId,proof.payloadHash,JSON.parse(proof.payloadJSON));
+    return licenses.Execute(proof);
+  }
+  const activation = LicenseOperation('redeem',{licenseKey:issue.licenseKey,deviceName:'Authority test'});
+  const prepared = LicenseOperation('overlay',{activationToken:activation.activationToken});
+  const ticket = {overlayId:prepared.overlayId,overlayTicket:prepared.overlayTicket};
+  for (let offset = 0; offset < prepared.release.size; offset += prepared.chunkSize) boot.Execute({action:'overlayChunk',...ticket,offset});
+  const finished = boot.Execute({action:'overlayFinish',...ticket,signature:Sign(bDevice,prepared.finishCanonical)});
+  const o = boot.Execute({action:'overlayClaim',...ticket,...fixture.Delegated(bDevice,oDevice,'O',finished.claimCanonical),
+    binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
+  const oCtx = Context(oDevice,'O',o,'observe',sha512('O image mismatch'));
+  fixture.Enroll(oDevice,{stage:oCtx.stage,sessionId:oCtx.sessionId,sessionToken:oCtx.sessionToken,machineId:oCtx.machineId});
+  const oResult = Observe(oCtx,oDevice,{codeSha512:'0'.repeat(128)});
+  assert.equal(oResult.reason,'IMAGE_DIGEST_MISMATCH');
+  assert.equal(oResult.proceed,false);
+  const overlay = boot.Initialize().overlays[prepared.overlayId];
+  assert.equal(overlay.status,'REVOKED');
+  assert.equal(overlay.sessionNonce,undefined);
+  assert.equal(Row(b).status,'REVOKED');
+  assert.equal(Row(session).status,'CLAIMED');
+
+  const detections = require('../../services/security/peace.security-detections');
+  const aFinding = detections.ForFlow(a.flowId).find(item=>item.detectionId===aResult.reason);
+  const oFinding = detections.ForFlow(Row(b).id).find(item=>item.detectionId===oResult.reason);
+  assert.equal(aFinding.sessionId,a.flowId);
+  assert.equal(oFinding.sessionId,o.sessionId);
+  assert.equal(aFinding.authorityAction,'DETECTION_REVOKE');
+  assert.equal(oFinding.authorityAction,'DETECTION_REVOKE');
+});
+Check('Failed measurement coverage cannot cause an image-mismatch stop without compact evidence', () => {
+  const ctx = Context(dev,'B',session,'verify',sha512('incomplete-mismatch'));
+  const crcLayers = structuredClone(Evidence(ctx).crcLayers);
+  const {algorithm,role} = crcLayers.ecma182;
+  crcLayers.ecma182 = {algorithm,role,status:'failed',reason:'READ_ERROR'};
+  const out = Observe(ctx,dev,{crcLayers,codeSha512:'0'.repeat(128)});
+  assert.equal(out.status,'MISMATCH');
+  assert.equal(out.proceed,false);
+  assert.equal(Row(session).status,'CLAIMED');
+  Reject(() => Fresh(session,'verify',ctx.binding),'SECURITY_MEASUREMENT_INCOMPLETE');
+  const crcOnly = Observe(ctx,dev,{crcLayers});
+  assert.equal(crcOnly.reason,'CRC_ROLE_MISMATCH');
+  assert.equal(crcOnly.proceed,false);
+  assert.equal(Row(session).status,'CLAIMED');
+  const findings = require('../../services/security/peace.security-detections').ForFlow(Row(session).id);
+  assert.equal(findings.find(item=>item.detectionId===out.reason).causedAuthorityChange,false);
+  assert.equal(findings.find(item=>item.detectionId===crcOnly.reason).causedAuthorityChange,false);
 });
 Check('Expired challenges and decisions require new measurements', () => {
   const ctx=Context(dev,'B',session,'verify',sha512('expired')), c=auth.Execute(ctx), submit=Signed(ctx,c,dev);
@@ -308,7 +386,7 @@ Check('Pruning a newer decision never revives an older in-flight observation', (
     auth.SetPolicy({expectedRevision:policy.revision,freshnessMs:5000,challengeMs:30000},'TEST');
     const device = Device(), s = NewSession(device), ctx = Context(device,'B',s,'verify',sha512('expired-ordering'));
     const older = auth.Execute(ctx), captured = Signed(ctx,older,device), newer = auth.Execute(ctx);
-    assert.equal(auth.Execute(Signed(ctx,newer,device,{codeSha512:'0'.repeat(128)})).status,'MISMATCH');
+    assert.equal(auth.Execute(Signed(ctx,newer,device,{apiSealed:false})).status,'INDETERMINATE');
     const future = realNow()+6000; Date.now = () => future;
     Reject(() => Fresh(s,'verify',ctx.binding), 'SECURITY_FRESH_OBSERVATION_REQUIRED');
     Reject(() => auth.Execute(captured), 'SECURITY_OBSERVATION_REPLAY');
@@ -353,6 +431,9 @@ Check('Observe-only diagnostics do not authorize a bound server-policy cohort', 
   let p=auth.Policy(); auth.SetPolicy({expectedRevision:p.revision,mode:'observe',dynamicCode:'prohibit'},'TEST');
   const ctx=Context(dev,'B',session,'verify',sha512('observe')); let out=Observe(ctx,dev);
   assert.equal(out.status,'INDETERMINATE');assert.equal(out.proceed,true);Reject(()=>Fresh(session,'verify',ctx.binding),'COZY_SERVER_POLICY_AUTHORITY_REQUIRED');
+  const mismatch=Observe(ctx,dev,{codeSha512:'0'.repeat(128)});
+  assert.equal(mismatch.reason,'IMAGE_DIGEST_MISMATCH');assert.equal(mismatch.proceed,true);
+  assert.equal(Row(session).status,'CLAIMED');
   p=auth.Policy(); auth.SetPolicy({expectedRevision:p.revision,mode:'enforce'},'TEST');
   out=Observe(ctx,dev,{dynamicCode:'PROHIBITED'});assert.equal(out.status,'PASS');Fresh(session,'verify',ctx.binding);
   p=auth.Policy(); auth.SetPolicy({expectedRevision:p.revision,dynamicCode:'observe'},'TEST');

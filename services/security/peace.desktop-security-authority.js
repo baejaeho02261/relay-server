@@ -364,17 +364,19 @@ function Submit(body) {
   if (deadline.Expired(challenge)) Fail('SECURITY_CHALLENGE_INVALID', 401);
   // The frame's client invalidation flag describes local state. The signed
   // typed response path owns NHW decisions, and this path enforces Cozy's
-  // separate comparison with the server's registered baseline.
-  if (nhw && policy.mode === 'enforce' && result.status === 'MISMATCH') {
+  // separate comparison with the server's registered baseline, even when
+  // compact evidence is unavailable for a complete image measurement.
+  const confirmedImageMismatch = result.reason === 'IMAGE_DIGEST_MISMATCH' && MeasurementComplete(value, artifact);
+  if (policy.mode === 'enforce' && result.status === 'MISMATCH' && (nhw || confirmedImageMismatch)) {
     const reason = result.reason;
     const response = { version: 1, accepted: true, status: 'MISMATCH', reason, proceed: false,
       sequence: challenge.sequence, expiresAt: challenge.expiresAt, attested: false,
-      nhwVerdict: nhwAttestation.Verdict(nhw, false) };
+      ...(nhw ? { nhwVerdict: nhwAttestation.Verdict(nhw, false) } : {}) };
     require('../protocol/peace.packet-schema').ValidateDocument('authorityReply',response);
     Invalidate(row,body.stage,reason);
     require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
-    RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:true,crcComparison:result.crcComparison,sequence:challenge.nhwChallenge?.readBigUInt64LE(20)||0});
-    RecordAttestation(row,body.stage,challenge,'REJECTED');
+    RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:true,crcComparison:result.crcComparison,sequence:nhw?challenge.nhwChallenge.readBigUInt64LE(20):0});
+    if(nhw)RecordAttestation(row,body.stage,challenge,'REJECTED');
     return response;
   }
   if(nhw){

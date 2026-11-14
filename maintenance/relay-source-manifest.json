@@ -293,7 +293,7 @@
     "services/security/peace.desktop-mitigation-compatibility.js": "fce1f1eb20d7f471dab97a58ef2998bc4e8b104bcbfc78a49818fbf0efa1c73672cf6d4763f906b4bbd22918b4f73e62e22eb3269f1c114e69051385ea53d678",
     "services/security/peace.desktop-mitigation-profiles.js": "b9c85f0698f54cd699c1bbae15d968ce8807d659c1e8ef5f5ca6f06edb99b1e941fb2c9d1af77a8890ad536b13aa8e03f47b9aa87019c086ad63b05954fb92f0",
     "services/security/peace.desktop-security-activation.js": "094b901eb2d8a587cd47d3a5d3d60b99be13844f5b862e2a97d1ea08b35b895b9bea8af3c39326a17aad0e11c82042a8c85f7dc7002dd1cbebc301f703d5ec2a",
-    "services/security/peace.desktop-security-authority.js": "1d8a4acfbe6dec94d900d5f02fc3d1c2eac4b544d8ea90417f1bcbcfd897b13c46d1bc83b90e3258fd331545e32d423cd77ca8355cfb09f3206a26fe326326c2",
+    "services/security/peace.desktop-security-authority.js": "34e8abd331a15fade673d59075f180345a34b668bc019f76bde4e765e10f1c78b35e213b663537d3830dc82e9a5520ca65f7b8d2477865dd28409c9a6a3d15c3",
     "services/security/peace.desktop-security-events.js": "996b0eb8e2fcbdb174d438aca95d4a2d8a9f6aa44a402e7f86ee1a98dda3d4bc137676e2c18eccb0b72146fdd4485271e36b9b0658f70649ce2541dbb3fa7e23",
     "services/security/peace.desktop-security-operations.js": "f9c3894254e1928a5956b58bda98de3ec82652f6a693511b641c456b3b8303a2797cbde9d31a5d0d659aa08507343063119843eae3e8bb29b7d6da56882809a0",
     "services/security/peace.mitigation-contract.js": "eb9d7ebf131690a7f1e50a7c559d61186319c3a6372e478990ad9f450b84abd8873c633f05527f26136d11018969a33dc7618afb6b1cc341ff4c02d4556d6207",
@@ -641,7 +641,7 @@
     "tests/security/peace.test-retired-governance-migration.js": "6536678cbf0b327e8a373a947cacf645de3a6e0c601a81f42e69798c66f3757e6e856fccbf964562ef01046f3a8324b9784b666cd4234098bdee4505f2824fbe",
     "tests/security/peace.test-security-activation.js": "f1e110cfbed259dbd3b365d858acfb92189fd55840e415250170cfe42b12f5157e83c7245b4b2111dd9d97b5bad4cbb0eabccea2e3d3e5ccc914d352b8421907",
     "tests/security/peace.test-security-admin.js": "61079e3c2f4672502d3a1c537b0402573f1705f1991925e092ab11a23474bafb4b21c77e5eaa6f1c83e4ac9a557f9728f2c34bcaa6dcc3fa77e00dd74a63496e",
-    "tests/security/peace.test-security-authority.js": "2093a8561109d5bc266e78a9c0189ead615b4a67c70a4df002943179a185dca27338e0f00cc79ae5f8410d71a0e1c0f3a36329b773b18bb41d2705e150b2557e",
+    "tests/security/peace.test-security-authority.js": "9e8d581cf096273725fd631b8a0fd1e450f3d9d35c79d36cc63a02c59002ff974d2a98e9f4231530197d23455288f142a0c46803d0579b9cdb5408a98414c8c2",
     "tests/security/peace.test-security-center-http.js": "4be3b0f900e55d5767ca1f3c4563f16346f50f8145da0f9a03be7b2b5d3141b32a00a794c83630116bb641f23d1cc5f2d775b8eec4588ec7cda7ca84d75a2b63",
     "tests/security/peace.test-security-center-ui.js": "d2eb0e9adc371be9f7be9241fa2f086d5f8e7c8d6e8149b1af752ba44125de636b64e9be04ee08335c2276d4b34eb87808c47019cc09ccb99696e975d5f85ada",
     "tests/security/peace.test-security-detection-catalog.js": "ef0dfa6fe79a5c0630628dabb34493054d1555f43a9fab8e6af855ee2cad16d1e45a3275483111aece38f120b5ab4e2838807ba6e35a791da2dc810bc70c9382",
@@ -7919,107 +7919,107 @@
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 373,
+      "line": 375,
       "request": "../protocol/peace.packet-schema"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 375,
+      "line": 377,
       "request": "../bootstrap/peace.desktop-bootstrap"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 394,
+      "line": 396,
       "request": "./peace.desktop-mitigation-profiles"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 395,
+      "line": 397,
       "request": "./peace.desktop-security-operations"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 405,
+      "line": 407,
       "request": "../protocol/peace.packet-schema"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 410,
+      "line": 412,
       "request": "./peace.desktop-security-operations"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 414,
+      "line": 416,
       "request": "./peace.desktop-security-operations"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 418,
+      "line": 420,
       "request": "./peace.security-detection-catalog"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 419,
+      "line": 421,
       "request": "./peace.server-policy-registry"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 423,
+      "line": 425,
       "request": "./peace.desktop-security-operations"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 426,
+      "line": 428,
       "request": "./peace.desktop-security-operations"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
-      "line": 427,
+      "line": 429,
       "request": "./peace.desktop-mitigation-profiles"
-    },
-    {
-      "file": "services/security/peace.desktop-security-authority.js",
-      "line": 441,
-      "request": "./peace.nhw-response-paths"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
       "line": 443,
-      "request": "../bootstrap/peace.desktop-bootstrap"
-    },
-    {
-      "file": "services/security/peace.desktop-security-authority.js",
-      "line": 479,
-      "request": "../network/peace.desktop-tls-pin-transition"
-    },
-    {
-      "file": "services/security/peace.desktop-security-authority.js",
-      "line": 479,
-      "request": "../runtime/peace.desktop-work-queue"
-    },
-    {
-      "file": "services/security/peace.desktop-security-authority.js",
-      "line": 479,
-      "request": "./peace.desktop-mitigation-compatibility"
-    },
-    {
-      "file": "services/security/peace.desktop-security-authority.js",
-      "line": 479,
-      "request": "./peace.desktop-mitigation-profiles"
-    },
-    {
-      "file": "services/security/peace.desktop-security-authority.js",
-      "line": 479,
-      "request": "./peace.desktop-security-operations"
-    },
-    {
-      "file": "services/security/peace.desktop-security-authority.js",
-      "line": 484,
       "request": "./peace.nhw-response-paths"
     },
     {
       "file": "services/security/peace.desktop-security-authority.js",
+      "line": 445,
+      "request": "../bootstrap/peace.desktop-bootstrap"
+    },
+    {
+      "file": "services/security/peace.desktop-security-authority.js",
+      "line": 481,
+      "request": "../network/peace.desktop-tls-pin-transition"
+    },
+    {
+      "file": "services/security/peace.desktop-security-authority.js",
+      "line": 481,
+      "request": "../runtime/peace.desktop-work-queue"
+    },
+    {
+      "file": "services/security/peace.desktop-security-authority.js",
+      "line": 481,
+      "request": "./peace.desktop-mitigation-compatibility"
+    },
+    {
+      "file": "services/security/peace.desktop-security-authority.js",
+      "line": 481,
+      "request": "./peace.desktop-mitigation-profiles"
+    },
+    {
+      "file": "services/security/peace.desktop-security-authority.js",
+      "line": 481,
+      "request": "./peace.desktop-security-operations"
+    },
+    {
+      "file": "services/security/peace.desktop-security-authority.js",
       "line": 486,
+      "request": "./peace.nhw-response-paths"
+    },
+    {
+      "file": "services/security/peace.desktop-security-authority.js",
+      "line": 488,
       "request": "../integrity/peace.desktop-proof-work"
     },
     {
@@ -15614,12 +15614,22 @@
     },
     {
       "file": "tests/security/peace.test-security-authority.js",
-      "line": 229,
+      "line": 242,
       "request": "../../services/security/peace.security-detections"
     },
     {
       "file": "tests/security/peace.test-security-authority.js",
-      "line": 337,
+      "line": 288,
+      "request": "../../services/security/peace.security-detections"
+    },
+    {
+      "file": "tests/security/peace.test-security-authority.js",
+      "line": 310,
+      "request": "../../services/security/peace.security-detections"
+    },
+    {
+      "file": "tests/security/peace.test-security-authority.js",
+      "line": 415,
       "request": "../../services/integrity/peace.desktop-integrity-reports"
     },
     {
