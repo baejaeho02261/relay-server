@@ -374,8 +374,10 @@ function Submit(body) {
       ...(nhw ? { nhwVerdict: nhwAttestation.Verdict(nhw, false) } : {}) };
     require('../protocol/peace.packet-schema').ValidateDocument('authorityReply',response);
     Invalidate(row,body.stage,reason);
-    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
-    RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:true,crcComparison:result.crcComparison,sequence:nhw?challenge.nhwChallenge.readBigUInt64LE(20):0});
+    const sequence = nhw?challenge.nhwChallenge.readBigUInt64LE(20):0n;
+    const signedStop = confirmedImageMismatch?{stage:body.stage,attestationSequence:sequence.toString(16).padStart(16,'0')}:undefined;
+    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY',signedStop);
+    if(!signedStop)RecordFinding(row,body.stage,reason,{invalidated:true,confirmed:true,crcComparison:result.crcComparison,sequence});
     if(nhw)RecordAttestation(row,body.stage,challenge,'REJECTED');
     return response;
   }

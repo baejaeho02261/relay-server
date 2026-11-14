@@ -9,7 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 const serverRoot = path.resolve(__dirname, '../..');
-const phases = ['seed', 'recover', 'pending-stop', 'terminal', 'full-drain'];
+const phases = ['seed', 'recover', 'pending-stop', 'terminal', 'history-failure', 'full-drain'];
 
 if (!process.argv[2]) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'cozy-nhw-pending-recovery-'));
@@ -223,6 +223,26 @@ function runPhase(phase) {
       reject(() => request(admin, 'integrity', payload([detection()])));
       validateStorage();
       console.log('PASS terminal acknowledgment recovery and queued next kind drained only within the original 30-second grant; normal authority remained revoked');
+    }
+    if (phase === 'history-failure') {
+      const subject = subjectB(), other = restore(saved.other), record = detection('dkPECodeIntegrity');
+      const original = reports.RecordPath, text = payload([record]), signed = request(subject, 'integrity', text).submit;
+      reports.RecordPath = () => { throw Error('INJECTED_DETECTION_HISTORY_FAILURE'); };
+      try {
+        assert.equal(authority.Execute(signed).stopped, true);
+      } finally { reports.RecordPath = original; }
+      assert.equal(row(subject).status,'REVOKED');
+      assert.equal(row(other).status,'CLAIMED');
+      assert.equal(row(subject).nhwResponseOrders,undefined);
+      assert.equal(events(subject).length,0);
+      const grant = structuredClone(row(subject).nhwTerminalReport);
+      assert.equal(grant.originRole,'B');
+      paths.Clear();
+      assert.equal(send(subject,'integrity',[record],1,4000).stopped,true);
+      assert.deepEqual(row(subject).nhwTerminalReport,grant);
+      assert.equal(events(subject)[0].invalidated,false);
+      validateStorage();
+      console.log('PASS signed stop and exact-scope recovery survive history writer failure without claiming a persisted cause');
     }
     if (phase === 'full-drain') {
       const subject = subjectB(), other = restore(saved.other);

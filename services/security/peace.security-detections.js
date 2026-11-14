@@ -105,9 +105,9 @@ function Trim(state){
  let count=Object.values(state.flows).reduce((sum,f)=>sum+f.events.length,0);
  if(count>MAX_RECORDS){const all=Object.values(state.flows).flatMap(f=>f.events.map(e=>({flow:f,event:e}))).sort((a,b)=>Number(a.event.invalidated)-Number(b.event.invalidated)||a.event.lastAt-b.event.lastAt);for(const item of all){if(count--<=MAX_RECORDS)break;const at=item.flow.events.indexOf(item.event);if(at>=0)item.flow.events.splice(at,1);}}
 }
-function Append(db,binding,stage,path,r,provenance,invalidated=false,policy=null){
+function Append(db,binding,stage,path,r,provenance,invalidated=false,policy=null,at=Date.now()){
  const entry=Entry(r.id);if(!entry)Fail();
- const s=State(db),at=Date.now(),key=Key(binding,stage,path,r.id,r.source,contextPolicy.ContextKey(r.context));
+ const s=State(db),key=Key(binding,stage,path,r.id,r.source,contextPolicy.ContextKey(r.context));
  const flow=s.flows[binding.flowId]||(s.flows[binding.flowId]={flowId:binding.flowId,updatedAt:at,events:[]});
  let e=flow.events.find(x=>x.id===key);
  if(e&&(BigInt('0x'+r.lastTick)<BigInt('0x'+e.lastTick)||e.firstTick===r.firstTick&&r.count<e.producerCount||e.firstTick!==r.firstTick&&BigInt('0x'+r.firstTick)<=BigInt('0x'+e.lastTick)))Fail('SECURITY_DETECTION_COUNTER_REPLAY',409);
@@ -148,9 +148,13 @@ function ValidateTerminal(value){
  if(!plain(value)||Object.keys(value).length!==names.length||names.some(k=>!Object.hasOwn(value,k))||value.version!==1||!Number.isSafeInteger(value.startedAt)||value.startedAt<1||value.expiresAt!==value.startedAt+30000||!Number.isSafeInteger(value.serverEpoch)||value.serverEpoch<0||!['A','B','O'].includes(value.originRole)||!id24(value.originSessionId)||typeof value.originEpoch!=='string'||!/^[1-9][0-9]{0,15}$/.test(value.originEpoch)||BigInt(value.originEpoch)>BigInt(Number.MAX_SAFE_INTEGER)||!/^[a-f0-9]{64}$/.test(value.reasonDigest))Fail('SECURITY_DETECTION_STORAGE_INVALID',503);
 }
 function InvalidationReason(reason){return typeof reason==='string'&&/^(NHW_CORRELATED|NHW_DETECTED|NHW_COVERAGE_STOP):/.test(reason);}
+function GrantTerminalReport(db,b,stage,reason){
+ if(b.live.status!=='REVOKED'||b.live.reason!==reason)Fail('SECURITY_DETECTION_CONTEXT_INVALID',409);
+ if(!b.flow.nhwTerminalReport){const at=b.live.revokedAt;if(!Number.isSafeInteger(at)||at<1)Fail();b.flow.nhwTerminalReport={version:1,startedAt:at,expiresAt:at+30000,serverEpoch:require('../recovery/peace.desktop-recovery').Epoch(db),originRole:stage,originSessionId:b.sessionId,originEpoch:b.epoch,reasonDigest:sha(reason)};}
+}
 function ApplyInvalidation(db,row,stage,contributors,reason){
- const b=Binding(db,row,stage);if(b.live.status!=='REVOKED'||b.live.reason!==reason)Fail('SECURITY_DETECTION_CONTEXT_INVALID',409);
-  if(!b.flow.nhwTerminalReport){const at=b.live.revokedAt;if(!Number.isSafeInteger(at)||at<1)Fail();b.flow.nhwTerminalReport={version:1,startedAt:at,expiresAt:at+30000,serverEpoch:require('../recovery/peace.desktop-recovery').Epoch(db),originRole:stage,originSessionId:b.sessionId,originEpoch:b.epoch,reasonDigest:sha(reason)};}
+ const b=Binding(db,row,stage);
+ GrantTerminalReport(db,b,stage,reason);
   for(const e of db.securityDetections?.flows[b.flowId]?.events||[])if(e.role===stage&&e.sessionId===b.sessionId&&contributors.some(v=>v.channel===e.responsePath&&(v.keys?v.keys.includes(e.detectionId+':'+e.sensor+(e.contextKey?':'+e.contextKey:'')):e.correlation&&!e.localOnly&&v.ids.includes(e.detectionId))))e.invalidated=true;
 }
 function CommitInvalidation(row,stage,contributors,reason){
@@ -185,20 +189,40 @@ function CrcFindings(comparison){
  }
  return findings;
 }
-function RecordServer({row,stage,id,source,confidence=100,correlation=true,evidenceFamilies,invalidated=false,attestationSequence=ZERO,crcComparison}){
+function ServerFinding({row,stage,id,source,confidence=100,correlation=true,invalidated=false,attestationSequence=ZERO,crcComparison}){
  const entry=Entry(id);if(!entry||entry.id.startsWith('dk')||!SourceAllowed(entry,source))Fail();
  if(!Number.isInteger(confidence)||confidence<0||confidence>100||typeof correlation!=='boolean'||typeof invalidated!=='boolean'||!hex64(attestationSequence))Fail();
  if(crcComparison!==undefined&&id!=='CRC_ROLE_MISMATCH')Fail();
  const crcFindings=CrcFindings(crcComparison);
- return store.Atomic(db=>{const b=Binding(db,row,stage),tick=BigInt(Date.now()).toString(16).padStart(16,'0'),key=Key(b,stage,'server',id,source),prior=db.securityDetections?.flows[b.flowId]?.events.find(e=>e.id===key);
+ return db=>{const b=Binding(db,row,stage),key=Key(b,stage,'server',id,source),prior=db.securityDetections?.flows[b.flowId]?.events.find(e=>e.id===key);
+  // A server clock correction must not invalidate a confirmed transaction.
+  // NHW producers still use their original replay-checked observation ticks.
+  const at=Math.max(Date.now(),prior?.lastAt||0),tick=BigInt(at).toString(16).padStart(16,'0');
   const r={id,source,firstTick:prior?.firstTick||tick,lastTick:tick,count:Math.min(65535,(prior?.producerCount||0)+1),families:0,confidence,correlation,localOnly:!correlation,attestationSequence};
   const unavailable=entry.signalClass==='UNKNOWN'||id==='CRC_ROLE_MISMATCH'&&confidence===0&&!correlation;
   const requestRejected=entry.signalClass==='POLICY_REJECTION'&&confidence===0&&!correlation;
   const policy={disposition:unavailable||requestRejected?'OBSERVATION_UNRESOLVED':entry.signalClass==='MISMATCH'?'DETECTION':'CORROBORATED_ANOMALY',decisionReason:unavailable?'SERVER_MEASUREMENT_UNAVAILABLE':requestRejected?'SERVER_PROTOCOL_REJECTION':invalidated?'SERVER_SESSION_REJECTION':'SERVER_COMPARISON_RECORDED',sessionStopPolicy:requestRejected?'REJECT_REQUEST_ONLY':unavailable?(invalidated?'DENY_INCOMPLETE_MEASUREMENT':'REQUIRE_COMPLETE_MEASUREMENT'):'SERVER_DECISION',coverageState:unavailable?'UNKNOWN':'NOT_APPLICABLE',context:contextPolicy.UnknownContext(stage)};
-  const result=Append(db,b,stage,'server',r,'SERVER_COMPARISON',invalidated&&b.live.status==='REVOKED',policy);
+  const result=Append(db,b,stage,'server',r,'SERVER_COMPARISON',invalidated&&b.live.status==='REVOKED',policy,at);
   if(crcFindings!==undefined){const event=db.securityDetections.flows[b.flowId].events.find(e=>e.id===result),findings=new Map((event.crcFindings||[]).map(r=>[r.role,r]));for(const r of crcFindings)if(findings.get(r.role)?.status!=='MISMATCH')findings.set(r.role,r);event.crcFindings=[...findings.values()];}
   Trim(db.securityDetections);return result;
- });
+ };
+}
+function RecordServer(finding){return store.Atomic(ServerFinding(finding));}
+function RecordSignedStop(db,row,{stage,attestationSequence=ZERO,typedWithoutHistory=false},reason){
+ // Only explicit callers that verified the exact session's measurement or
+ // peer identity may use this path. An administrative reason is just text.
+ const b=Binding(db,row,stage);
+ if(typedWithoutHistory){
+  if(!reason.startsWith('NHW_DETECTED:'+stage+':'))Fail('SECURITY_DETECTION_CONTEXT_INVALID',409);
+  GrantTerminalReport(db,b,stage,reason);
+  return;
+ }
+ const reportCode=['INTEGRITY_CODE_HASH_MISMATCH','INTEGRITY_CODE_EXTENDED_HASH_MISMATCH'].includes(reason)?reason.slice('INTEGRITY_'.length):null;
+ const source=reportCode?'peace.desktop-integrity-reports':reason==='IMAGE_DIGEST_MISMATCH'?'peace.desktop-security-authority':
+  ['SECURITY_PEER_IMAGE_MISMATCH','SECURITY_PEER_IDENTITY_CHANGED'].includes(reason)?'peace.nhw-peer-context':null;
+ if(!source)Fail('SECURITY_DETECTION_CONTEXT_INVALID',409);
+ GrantTerminalReport(db,b,stage,reason);
+ return ServerFinding({row,stage,id:reportCode||reason,source,invalidated:true,attestationSequence})(db);
 }
 function RecordAttestation({row,stage,sequence,status,hardwareAttested=false}){
  if(!hex64(sequence)||sequence===ZERO||!['VERIFIED_BINDING','REJECTED','TPM_QUOTE_ONLY','UNKNOWN'].includes(status)||typeof hardwareAttested!=='boolean'||hardwareAttested&&status!=='TPM_QUOTE_ONLY')Fail();
@@ -349,4 +373,4 @@ function Validate(s,db){
  }
  section='total';if(total>MAX_RECORDS)invalid();return s;
 }
-module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPath,RecordServer,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,ListRecent,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};
+module.exports={ParseRecords,PolicyResults,CorrelatedVote,UserModeVote,QualifiedIds,KernelPolicy,StopRecords,StopDecision,RecoverBatch,CheckOrder,CheckCounters,CommitInvalidation,TerminalAllowed,ValidateTerminal,RecordPath,RecordServer,RecordSignedStop,RecordAttestation,ValidateAttestations,MemberIndex,MemberRecords,ForFlow,ListRecent,Validate,ObserveTransitions,ValidateOrder,MAX_FLOWS,MAX_EVENTS,MAX_RECORDS};

@@ -9,6 +9,15 @@ audit.LogEvent=(kind,text,...rest)=>{auditEvents.push({kind,text});return origin
 function rejected(code,fn){assert.throws(fn,error=>error.message===code,code);}
 function context(){const device=f.Device(),session=f.Session(device);return {device,session,auth:{sessionId:session.sessionId,sessionToken:session.sessionToken,...f.Evidence(device,session)}};}
 function signed(ctx,payload){const challenge=reports.Execute({action:'challenge',...ctx.auth}),text=JSON.stringify(payload);return {action:'submit',...ctx.auth,reportId:challenge.reportId,payload:text,signature:f.Sign(ctx.device,reports.Canonical(ctx.auth.sessionId,challenge,text))};}
+function signedNHW(ctx){
+ const authority=require('../../services/security/peace.desktop-security-authority'),paths=require('../../services/security/peace.nhw-response-paths');
+ const hash=text=>crypto.createHash('sha512').update(text).digest('hex');
+ const payload=JSON.stringify({version:5,sequence:'0000000000000001',tick:'0000000000001000',digest:hash('[]').slice(0,16),confirmed:false,trust:0,detections:[],peer:null});
+ const {sessionId,sessionToken,machineId}=ctx.auth;
+ const body={action:'nhwIntegrityChallenge',stage:ctx.auth.stage||'B',sessionId,sessionToken,machineId,binding:hash(payload)};
+ const challenge=authority.Execute(body),submission={...body,action:'nhwIntegritySubmit',challengeId:challenge.challengeId,payload};
+ return authority.Execute({...submission,signature:f.Sign(ctx.device,paths.Canonical(submission,challenge,'integrity'))});
+}
 function own(session){return {version:1,hashVersion:3,crcLayers:bootstrap.Initialize().artifacts[session.release.id].crcLayers,check:'OWN_IMAGE',reason:'PERIODIC',own:{status:'MEASURED',codeSha512:session.release.codeSha512,codeCrc64:session.release.codeCrc64,fileXxh3_128:session.release.xxh3_128,fileBlake3:session.release.blake3,codeXxh3_128:session.release.codeXxh3_128,codeBlake3:session.release.codeBlake3}};}
 function modulePayload(module){return {version:1,hashVersion:3,check:'MODULE_INVENTORY',reason:'PERIODIC',snapshotId:crypto.randomUUID(),batchIndex:0,batchCount:1,complete:true,truncated:false,totalModules:1,measuredModules:1,modules:[module]};}
 function restart(source){return cp.spawnSync(process.execPath,['-e',source],{cwd:MODULE_RESOURCE_ROOT,env:process.env,encoding:'utf8'});}
@@ -44,13 +53,38 @@ try{
  const dll=f.PE('B','known DLL'),pe=dll.readUInt32LE(0x3c);rejected('INTEGRITY_BASELINE_INVALID',()=>reports.RegisterBaseline('ntdll.dll','Windows fixture',dll,'ADMIN'));dll.writeUInt16LE(dll.readUInt16LE(pe+22)|0x2000,pe+22);
  rejected('INTEGRITY_BASELINE_INVALID',()=>reports.RegisterBaseline('../ntdll.dll','',dll,'ADMIN'));const baseline=reports.RegisterBaseline('ntdll.dll','Windows fixture',dll,'ADMIN');assert.equal(reports.RegisterBaseline('ntdll.dll','retry',dll,'ADMIN').id,baseline.id);
  const known={...module,fileSha512:baseline.fileSha512,fileCrc64:baseline.fileCrc64,codeSha512:baseline.codeSha512,codeCrc64:baseline.codeCrc64,fileXxh3_128:baseline.fileXxh3_128,fileBlake3:baseline.fileBlake3,codeXxh3_128:baseline.codeXxh3_128,codeBlake3:baseline.codeBlake3};assert.equal(reports.Execute(signed(current,modulePayload(known))).status,'CLIENT_DIAGNOSTIC');assert.equal(reports.List({sessionId:current.session.sessionId}).items[0].modules[0].serverComparison,'MATCH_REGISTERED_BASELINE');
- const fail=context(),mismatch=reports.Execute(signed(fail,{...own(fail.session),own:{...own(fail.session).own,status:'MEASURED',codeSha512:'0'.repeat(128),codeCrc64:'0'.repeat(16)}}));assert.equal(mismatch.status,'REJECTED');assert.equal(mismatch.terminate,true);assert.equal(bootstrap.Overview().sessions.find(x=>x.id===fail.session.sessionId).codeIntegrityStatus,'REJECTED');assert.equal(bootstrap.Overview().sessions.find(x=>x.id===fail.session.sessionId).status,'REVOKED');
+ const fail=context(),changed=structuredClone(own(fail.session));
+ changed.own.codeSha512='0'.repeat(128);changed.own.codeCrc64='0'.repeat(16);changed.crcLayers.ecma182.digest='0'.repeat(16);
+ const failFlow=Object.values(bootstrap.Initialize().flows).find(x=>x.sessionId===fail.session.sessionId);
+ const journal=require('../../services/security/peace.security-detections');
+ const wallClock=Date.now;
+ try{
+  Date.now=()=>wallClock()+5000;
+  journal.RecordServer({row:failFlow,stage:'B',id:'CODE_HASH_MISMATCH',source:'peace.desktop-integrity-reports',confidence:0,correlation:false});
+ }finally{Date.now=wallClock;}
+ const changedRequest=signed(fail,changed),mismatch=reports.Execute(changedRequest);assert.equal(mismatch.status,'REJECTED');assert.equal(mismatch.terminate,true);assert.equal(bootstrap.Overview().sessions.find(x=>x.id===fail.session.sessionId).codeIntegrityStatus,'REJECTED');assert.equal(bootstrap.Overview().sessions.find(x=>x.id===fail.session.sessionId).status,'REVOKED');
+ assert.deepEqual(reports.Execute(changedRequest),mismatch);
+ assert.equal(signedNHW(fail).stopped,true);
+ const changedRecord=reports.List({sessionId:fail.session.sessionId}).items[0];
+ assert.equal(changedRecord.reason,'CODE_HASH_MISMATCH');
+ assert.equal(changedRecord.crcComparison.signals.find(signal=>signal.role==='ecma182').status,'MISMATCH');
+ assert.equal(journal.ForFlow(failFlow.id).find(row=>row.detectionId==='CODE_HASH_MISMATCH').authorityAction,'DETECTION_REVOKE');
+ assert.equal(bootstrap.Overview().sessions.find(x=>x.id===current.session.sessionId).status,'CLAIMED');
+ const incomplete=context(),partial=structuredClone(own(incomplete.session));
+ partial.own.codeSha512='0'.repeat(128);
+ const {algorithm,role}=partial.crcLayers.ecma182;partial.crcLayers.ecma182={algorithm,role,status:'failed',reason:'READ_ERROR'};
+ assert.equal(reports.Execute(signed(incomplete,partial)).terminate,true,'existing incomplete policy denies execution');
+ rejected('BOOTSTRAP_REVOKED',()=>signedNHW(incomplete));
+ const incompleteFlow=Object.values(bootstrap.Initialize().flows).find(x=>x.sessionId===incomplete.session.sessionId);
+ assert.equal(incompleteFlow.nhwTerminalReport,undefined);
+ assert.equal(journal.ForFlow(incompleteFlow.id).find(row=>row.detectionId==='CRC_ROLE_MISMATCH').authorityAction,'MEASUREMENT_DENIAL');
  const rejectionAudit=auditEvents.filter(x=>x.kind==='DESKTOP_INTEGRITY_REJECTED').map(x=>JSON.parse(x.text)).find(x=>x.sessionId===fail.session.sessionId);assert(rejectionAudit);assert.equal(rejectionAudit.bindingId,require("../../services/devices/peace.desktop-device-registry").BindingId(fail.device.machineId));assert(!Object.hasOwn(rejectionAudit,'machineId'));assert(!JSON.stringify(rejectionAudit).includes(fail.device.machineId));
  const badModule=context(),moduleRequest=signed(badModule,modulePayload({...known,codeSha512:'0'.repeat(128)})),moduleMismatch=reports.Execute(moduleRequest);assert.equal(moduleMismatch.terminate,true);assert.deepEqual(reports.Execute(moduleRequest),moduleMismatch,'known-module terminal denial is recoverable without another report');assert.equal(bootstrap.Overview().sessions.find(x=>x.id===badModule.session.sessionId).status,'REVOKED');
  // Even failure to persist diagnostics cannot suppress authorization revocation.
  const diskFailure=context(),badProof=signed(diskFailure,{...own(diskFailure.session),own:{...own(diskFailure.session).own,codeSha512:'0'.repeat(128)}}),rename=fs.renameSync;
  fs.renameSync=(from,to)=>{if(to===reports.FILE)throw Error('TEST_REPORT_DISK_FULL');return rename(from,to);};try{assert.throws(()=>reports.Execute(badProof),/TEST_REPORT_DISK_FULL/);}finally{fs.renameSync=rename;}
  assert.equal(bootstrap.Overview().sessions.find(x=>x.id===diskFailure.session.sessionId).status,'REVOKED');
+ assert.equal(signedNHW(diskFailure).stopped,true,'the durable NHW acknowledgment survives failure of the separate integrity report store');
  // Authenticated inventory is bounded per context, with no token/paths persisted.
  const rate=context();for(let i=0;i<256;i++)reports.Execute({action:'challenge',...rate.auth});rejected('INTEGRITY_REPORT_RATE_LIMIT',()=>reports.Execute({action:'challenge',...rate.auth}));
  const storage=fs.readFileSync(reports.FILE);assert.ok(!storage.includes(Buffer.from(current.session.sessionToken)));assert.ok(!storage.includes(Buffer.from('C:\\Windows')));

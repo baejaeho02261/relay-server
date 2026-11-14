@@ -37,6 +37,17 @@ function Observe(context, device, patch) {
   const challenge = auth.Execute(context);
   return auth.Execute(Signed(context, challenge, device, patch));
 }
+function NHWRequest(context, device, channel = 'integrity') {
+  const paths = require('../../services/security/peace.nhw-response-paths');
+  const name = channel[0].toUpperCase()+channel.slice(1);
+  const payload = JSON.stringify({version:5,sequence:'0000000000000001',tick:'0000000000001000',
+    digest:sha512('[]').slice(0,16),confirmed:false,trust:0,detections:[],peer:null});
+  const body = {action:`nhw${name}Challenge`,stage:context.stage,sessionId:context.sessionId,
+    sessionToken:context.sessionToken,machineId:context.machineId,binding:sha512(payload)};
+  const challenge = auth.Execute(body);
+  const request = {...body,action:`nhw${name}Submit`,challengeId:challenge.challengeId,payload};
+  return {...request,signature:Sign(device,paths.Canonical(request,challenge,channel))};
+}
 function Row(session) { return Object.values(boot.Initialize().flows).find(x => x.sessionId === session.sessionId); }
 function Fresh(session, intent, binding) { auth.RequireFresh(Row(session), 'B', intent, binding); }
 function NewSession(device) {
@@ -229,6 +240,7 @@ Check('Enforce mode revokes the exact measured image mismatch without compact ev
   const challenge = auth.Execute({...ctx,nhwVersion:1});
   assert.ok(challenge.nhwChallenge);
   const signed = Signed(ctx,challenge,device,{codeSha512:'0'.repeat(128)});
+  const pendingNHW = NHWRequest(ctx,device);
   const out = auth.Execute(signed);
   assert.deepEqual(out,{version:1,accepted:true,status:'MISMATCH',reason:'IMAGE_DIGEST_MISMATCH',
     proceed:false,sequence:challenge.sequence,expiresAt:challenge.expiresAt,attested:false});
@@ -238,6 +250,8 @@ Check('Enforce mode revokes the exact measured image mismatch without compact ev
   assert.equal(row.sessionNonce,undefined);
   assert.equal(Row(unrelated).status,'CLAIMED');
   assert.equal(Row(session).status,'CLAIMED');
+  Reject(() => auth.Execute(pendingNHW),'SECURITY_CHALLENGE_INVALID');
+  assert.equal(auth.Execute(NHWRequest(ctx,device)).stopped,true);
 
   const detections = require('../../services/security/peace.security-detections');
   const finding = detections.ForFlow(row.id).find(item=>item.detectionId===out.reason);
@@ -251,7 +265,7 @@ Check('Enforce mode revokes the exact measured image mismatch without compact ev
   assert.equal(Row(isolated).status,'REVOKED');
   assert.equal(detections.ForFlow(row.id).find(item=>item.recordId===finding.recordId).count,1);
 });
-Check('Image mismatch stops the authenticated A download and O cohort without compact evidence', () => {
+Check('Image mismatch stops the authenticated A download and transferred O without compact evidence', () => {
   const aDevice = Device(), a = Begin(aDevice).begin;
   const aCtx = Context(aDevice,'A',a,'observe',sha512('A image mismatch'));
   const aResult = Observe(aCtx,aDevice,{codeSha512:'0'.repeat(128)});
@@ -259,6 +273,7 @@ Check('Image mismatch stops the authenticated A download and O cohort without co
   assert.equal(aResult.proceed,false);
   assert.equal(boot.Initialize().flows[a.flowId].status,'REVOKED');
   assert.equal(boot.Initialize().flows[a.flowId].downloadNonce,undefined);
+  assert.equal(auth.Execute(NHWRequest(aCtx,aDevice)).stopped,true);
 
   const bDevice = Device(), b = NewSession(bDevice), oDevice = fixture.Child(bDevice);
   const issue = licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'Authority integrity'},'TEST');
@@ -276,14 +291,25 @@ Check('Image mismatch stops the authenticated A download and O cohort without co
     binarySha512:prepared.release.sha512,crc64:prepared.release.crc64,oCodeSha512:prepared.release.codeSha512,oCodeCrc64:prepared.release.codeCrc64});
   const oCtx = Context(oDevice,'O',o,'observe',sha512('O image mismatch'));
   fixture.Enroll(oDevice,{stage:oCtx.stage,sessionId:oCtx.sessionId,sessionToken:oCtx.sessionToken,machineId:oCtx.machineId});
+  const verify = Context(oDevice,'O',o,'verify',auth.Binding(o.sessionId,o.release.sha512));
+  assert.equal(Observe(verify,oDevice).proceed,true);
+  boot.Execute({action:'overlayVerify',sessionId:o.sessionId,sessionToken:o.sessionToken,...fixture.Evidence(oDevice,o)});
+  boot.Execute({action:'overlayCommit',handoffVersion:1,sessionId:b.sessionId,sessionToken:b.sessionToken,overlayId:prepared.overlayId,
+    signature:Sign(bDevice,['GAME-OVERLAY-TRANSFER-V1',b.sessionId,prepared.overlayId].join('\n'))});
+  assert.equal(Row(b).status,'CLOSED');
+  assert.equal(Row(b).sessionHash,undefined);
   const oResult = Observe(oCtx,oDevice,{codeSha512:'0'.repeat(128)});
   assert.equal(oResult.reason,'IMAGE_DIGEST_MISMATCH');
   assert.equal(oResult.proceed,false);
   const overlay = boot.Initialize().overlays[prepared.overlayId];
   assert.equal(overlay.status,'REVOKED');
   assert.equal(overlay.sessionNonce,undefined);
-  assert.equal(Row(b).status,'REVOKED');
+  assert.equal(Row(b).status,'CLOSED');
   assert.equal(Row(session).status,'CLAIMED');
+  assert.equal(auth.Execute(NHWRequest(oCtx,oDevice,'driver')).stopped,true);
+  const bCtx = Context(bDevice,'B',b,'verify',sha512('retired B'));
+  Reject(() => auth.Execute(bCtx),'BOOTSTRAP_SESSION_INVALID');
+  assert.equal(auth.Execute(NHWRequest(bCtx,bDevice)).stopped,true);
 
   const detections = require('../../services/security/peace.security-detections');
   const aFinding = detections.ForFlow(a.flowId).find(item=>item.detectionId===aResult.reason);
@@ -453,9 +479,15 @@ Check('Audits contain outcomes but never tokens, payloads or signatures', () => 
 Check('Restart preserves policy and sessions but never reuses RAM decisions', () => {
   Observe(verifyContext,dev);
   const script=`const b=require(process.cwd()+'/services/bootstrap/peace.desktop-bootstrap.js'),a=require(process.cwd()+'/services/security/peace.desktop-security-authority.js');const s=JSON.parse(require('node:fs').readFileSync(0,'utf8'));const row=Object.values(b.Initialize().flows).find(x=>x.sessionId===s.sessionId);let error='';try{a.RequireFresh(row,'B','verify',s.binding);}catch(e){error=e.message;}console.log('RESULT:'+JSON.stringify({revision:a.Policy().revision,error,status:row.status}));`;
-  const run=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(MODULE_RESOURCE_ROOT,'..'),env:process.env,input:JSON.stringify({sessionId:session.sessionId,binding:verifyContext.binding}),encoding:'utf8',timeout:15000});
-  assert.equal(run.status,0,run.stderr); const out=JSON.parse(run.stdout.split('RESULT:').at(-1));
-  assert.equal(out.revision,auth.Policy().revision); assert.equal(out.error,'SECURITY_FRESH_OBSERVATION_REQUIRED'); assert.equal(out.status,'CLAIMED');
+  const restartData=fs.mkdtempSync(path.join(os.tmpdir(),'game-authority-restart-'));
+  try {
+    // Allow startup migrations in the child without a second writer touching
+    // the still-running fixture's persistent revision.
+    fs.cpSync(temp,restartData,{recursive:true});
+    const run=child.spawnSync(process.execPath,['-e',script],{cwd:path.resolve(MODULE_RESOURCE_ROOT,'..'),env:{...process.env,DATA_DIR:restartData},input:JSON.stringify({sessionId:session.sessionId,binding:verifyContext.binding}),encoding:'utf8',timeout:15000});
+    assert.equal(run.status,0,run.stderr); const out=JSON.parse(run.stdout.split('RESULT:').at(-1));
+    assert.equal(out.revision,auth.Policy().revision); assert.equal(out.error,'SECURITY_FRESH_OBSERVATION_REQUIRED'); assert.equal(out.status,'CLAIMED');
+  } finally { fs.rmSync(restartData,{recursive:true,force:true}); }
 });
 Check('Authorized release and cleanup remain possible without a fresh observation', () => {
   auth.Invalidate(Row(session),'B','TEST_RESET');

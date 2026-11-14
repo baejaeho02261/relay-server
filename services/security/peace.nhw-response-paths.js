@@ -84,6 +84,10 @@ function Payload(text) {
   if(value.version>=3)peers.ParseEnrollment(value.peer);
   return value;
 }
+function Reply(value,challenge,channel,stopped,peerContext=null){
+  return {version:1,channel,sequence:value.sequence,digest:value.digest,epoch:challenge.epoch,
+    accepted:true,stopped,scope:'OWNED_A_B_O',attested:false,...(value.version>=3?{peerContext:stopped?null:peerContext}: {})};
+}
 function Submit(body, channel) {
   Fields(body,[...AUTH,'challengeId','payload','signature']);
   const state=states.get(channel), row=Authenticate(body), context=Context(row,body.stage);
@@ -107,12 +111,16 @@ function Submit(body, channel) {
   const previous=state.order.get(context);
   if (!recovered && previous && (BigInt('0x'+value.sequence)<=previous.sequence || BigInt('0x'+value.tick)<previous.tick)) Fail('SECURITY_OBSERVATION_REPLAY',409);
   if (!previous && state.order.size>=4096) Fail('SECURITY_CAPACITY',503);
+  const terminal=detections.TerminalAllowed(row,body.stage);
+  if(terminal&&value.version<2)Fail('SECURITY_NHW_RESPONSE_INVALID');
   let peerContext=null;
-  try{if(value.version>=3)peerContext=peers.Enroll(row,body.stage,value.peer,value.sequence,{channel,recover:!!recovered});}
+  try{if(!terminal&&value.version>=3)peerContext=peers.Enroll(row,body.stage,value.peer,value.sequence,{channel,recover:!!recovered});}
   catch(error){
     if(['SECURITY_PEER_IMAGE_MISMATCH','SECURITY_PEER_IDENTITY_CHANGED'].includes(error.message)){
-      require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:error.message},'SECURITY_AUTHORITY');
-      detections.RecordServer({row,stage:body.stage,id:error.message,source:'peace.nhw-peer-context',invalidated:true});
+      require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason:error.message},'SECURITY_AUTHORITY',{stage:body.stage});
+      const response=Reply(value,challenge,channel,true);
+      state.receipts.put(body.challengeId,purpose,body,response,{context});
+      return response;
     }
     else if(error.message==='SECURITY_PEER_ENROLLMENT_REPLAY')detections.RecordServer({row,stage:body.stage,id:error.message,source:'peace.nhw-peer-context',confidence:0,correlation:false,invalidated:false});
     throw error;
@@ -120,12 +128,9 @@ function Submit(body, channel) {
   state.order.set(context,{sequence:BigInt('0x'+value.sequence),tick:BigInt('0x'+(recovered?.tick||value.tick))});
   // Legacy envelopes remain authenticated and replay-checked. Only typed
   // evidence can receive a new stop decision.
-  const terminal=detections.TerminalAllowed(row,body.stage);
-  if(terminal&&value.version<2)Fail('SECURITY_NHW_RESPONSE_INVALID');
-  const decision=value.version>=2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value,row)):null;
+  const decision=!terminal&&value.version>=2?(recovered?recovered.stopDecision||null:detections.StopDecision(body.stage,channel,value,row)):null;
   const stopped=terminal||!!decision;
-  const response={version:1,channel,sequence:value.sequence,digest:value.digest,epoch:challenge.epoch,
-    accepted:true,stopped,scope:'OWNED_A_B_O',attested:false,...(value.version>=3?{peerContext:stopped?null:peerContext}: {})};
+  const response=Reply(value,challenge,channel,stopped,peerContext);
   const contributors=decision?[{channel,keys:decision.keys}]:[];
   // Persist every accepted observation, including local-only/unsupported
   // evidence. Persistence also keeps producer high-watermarks across restart.
@@ -136,12 +141,15 @@ function Submit(body, channel) {
     // Existing revoke follows exact stored parent/child links, never a caller
     // supplied target ID, and retires the whole authorized cohort.
     const reason=decision.reason;
-    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY');
-    if(value.version>=2) detections.CommitInvalidation(row,body.stage,contributors,reason);
+    const signedStop=recordError?{stage:body.stage,typedWithoutHistory:true}:undefined;
+    require('../bootstrap/peace.desktop-bootstrap').Revoke(row.sessionId,{reason},'SECURITY_AUTHORITY',signedStop);
+    if(!recordError)detections.CommitInvalidation(row,body.stage,contributors,reason);
   }
   if(recordError) {
-    if(!stopped){if(previous)state.order.set(context,previous);else state.order.delete(context);}
-    throw recordError;
+    if(!stopped){if(previous)state.order.set(context,previous);else state.order.delete(context);throw recordError;}
+    // The terminal receipt confirms the durable stop, while absent history
+    // cannot claim causality. An unavailable authority store still throws.
+    console.error('NHW_DETECTION_HISTORY_UNAVAILABLE');
   }
   state.receipts.put(body.challengeId,purpose,body,response,{context});
   return response;

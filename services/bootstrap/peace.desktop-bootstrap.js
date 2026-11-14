@@ -383,10 +383,12 @@ function Abort(body){
  }
  return {flowId:row.id,status:DB().flows[row.id].status};
 }
-function Revoke(id,body={},actor='ADMIN'){
+function Revoke(id,body={},actor='ADMIN',signedStop){
  Fields(body,['reason']);if(typeof body.reason!=='string'||body.reason.trim().length<3||body.reason.length>300||/[\x00-\x1f\x7f]/.test(body.reason))Fail('BOOTSTRAP_INPUT_INVALID');
- const row=FindSession(id);if(!row)return require("../overlay/peace.desktop-overlay").Revoke(id,body,actor);
- if(row.status!=='REVOKED')Atomic('BOOTSTRAP_REVOKE',actor,db=>{const item=db.flows[row.id];item.status='REVOKED';item.revokedAt=now();item.reason=body.reason.trim();item.revokedBy=String(actor).slice(0,160);if(actor==='INTEGRITY_REPORT'){item.codeIntegrityStatus='REJECTED';item.lastCodeVerifiedAt=now();}db.launchers[item.launcherId].status='REVOKED';RetireLauncher(db.launchers[item.launcherId]);RetireFlow(item,db);});
+ const row=FindSession(id);if(!row)return require("../overlay/peace.desktop-overlay").Revoke(id,body,actor,signedStop);
+ if(row.status!=='REVOKED')Atomic('BOOTSTRAP_REVOKE',actor,db=>{const item=db.flows[row.id];item.status='REVOKED';item.revokedAt=now();item.reason=body.reason.trim();item.revokedBy=String(actor).slice(0,160);if(actor==='INTEGRITY_REPORT'){item.codeIntegrityStatus='REJECTED';item.lastCodeVerifiedAt=now();}db.launchers[item.launcherId].status='REVOKED';RetireLauncher(db.launchers[item.launcherId]);RetireFlow(item,db);
+  if(signedStop)require('../security/peace.security-detections').RecordSignedStop(db,item,signedStop,item.reason);
+ });
  Audit('DESKTOP_BOOTSTRAP_REVOKED',{sessionId:id,licenseId:row.licenseId||'',actor:String(actor).slice(0,160)});return SessionView(DB().flows[row.id]);
 }
 function TouchLicense(id,token,deviceId,license,action,verification={}){

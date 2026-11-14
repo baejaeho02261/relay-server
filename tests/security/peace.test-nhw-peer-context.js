@@ -16,13 +16,14 @@ function metadata(s,role,parentIdentity=''){
  const row=role==='O'?store.Load().overlays[s.prepared.overlayId]:flow(s),artifact=store.Load().artifacts[role==='A'?store.Load().launchers[row.launcherId].artifactId:row.releaseId];
  return {pid:++pid,creationTime:hex(100000+pid),imageSha256:role==='A'?store.Load().launchers[row.launcherId].peerImageSha256:artifact.legacyRevocationSha256,imageSha512:role==='A'?row.launcherSha512:artifact.sha512,parentIdentity,phase:role+'_BOOTSTRAP'};
 }
-function send(s,stage,peer,records=[],sequence=1,channel='integrity'){
+function request(s,stage,peer,records=[],sequence=1,channel='integrity'){
  const device=stage==='A'?s.parent:stage==='B'?s.device:s.overlayDevice;
  const ctx=stage==='A'?{sessionId:s.start.begin.flowId,sessionToken:s.start.begin.downloadTicket}:stage==='B'?{sessionId:s.b.sessionId,sessionToken:s.b.sessionToken}:{sessionId:s.o.sessionId,sessionToken:s.o.sessionToken};
  const payload=JSON.stringify({version:4,sequence:hex(sequence),tick:hex(200000+sequence),digest:sha(JSON.stringify(records)).slice(0,16),confirmed:false,trust:0,detections:records,peer});
  const prefix='nhw'+channel[0].toUpperCase()+channel.slice(1),body={...ctx,stage,machineId:device.machineId,binding:sha(payload),action:prefix+'Challenge'},challenge=authority.Execute(body),submit={...body,action:prefix+'Submit',challengeId:challenge.challengeId,payload};
- submit.signature=fixture.Sign(device,paths.Canonical(submit,challenge,channel));return authority.Execute(submit);
+ submit.signature=fixture.Sign(device,paths.Canonical(submit,challenge,channel));return {submit,challenge};
 }
+function send(...args){return authority.Execute(request(...args).submit);}
 function record(id,c,tick=200000){return {id,source:'Cozy.NHW.Engine',firstTick:hex(tick),lastTick:hex(tick),count:1,families:8,confidence:30,correlation:false,attestationSequence:hex(0),localOnly:true,context:c,signal:'DETECTED'};}
 function A(){const parent=fixture.Device(),s={parent,start:fixture.Begin(parent)};s.aPeer=metadata(s,'A');s.aIdentity=peers.StableIdentity(s.aPeer);s.aReceipt=send(s,'A',s.aPeer);return s;}
 function B(s=A()){
@@ -66,13 +67,44 @@ check('B to O binds separate O epoch to the same root cohort and only exact appr
 check('Cross-session claims, mismatched PID creation, spoofed role and phase do not inherit trust',()=>{
  const s=B(),other=B(),foreign=context(other.bIdentity,'B',{actorClass:'TRUSTED_B',targetRole:'B',targetIdentity:s.bIdentity,capability:'PROCESS_ACCESS',accessMask:0x101000,peerId:other.bReceipt.peerContext.selfPeerId,baseline:false});
  const result=peers.ResolveContext(flow(s),'B',foreign);assert.equal(result.actorClass,'EXTERNAL');assert.equal(result.firstPartyAttested,false);assert.equal(result.expected,false);
- const reused=B(),changed=B();assert.throws(()=>send(reused,'B',{...reused.bPeer,creationTime:hex(999999)},[],2),/SECURITY_PEER_IDENTITY_CHANGED/);assert.equal(flow(reused).status,'REVOKED');
- assert.throws(()=>send(changed,'B',{...changed.bPeer,imageSha256:'a'.repeat(64)},[],2),/SECURITY_PEER_IMAGE_MISMATCH/);assert.equal(flow(changed).status,'REVOKED');
- assert(reports.ForFlow(reused.start.begin.flowId).some(e=>e.detectionId==='SECURITY_PEER_IDENTITY_CHANGED'&&e.invalidated));assert(reports.ForFlow(changed.start.begin.flowId).some(e=>e.detectionId==='SECURITY_PEER_IMAGE_MISMATCH'&&e.invalidated));
  assert.equal(peers.Enroll(flow(s),'B',{...s.bPeer,phase:'B_HANDOFF_TO_O'},hex(4)),null);
  assert.equal(peers.ResolveContext(flow(s),'B',context(s.bIdentity,'B',{phase:'B_RUNTIME'})).expected,false);
  assert.equal(peers.ResolveContext(flow(s),'B',{...foreign,accessMask:0x20}).forbidden,true);
  const aliasOnly=context(s.bIdentity,'B',{actorClass:'EXTERNAL',peerId:'',capability:'PROCESS_ACCESS',accessMask:0x101000});assert.equal(peers.ResolveContext(flow(s),'B',aliasOnly).firstPartyAttested,false);assert.equal(peers.ResolveContext(flow(s),'B',{...aliasOnly,actorClass:'TRUSTED_B'}).firstPartyAttested,false);
+});
+check('Signed A/B/O peer mismatches close only the bound cohort and return a durable terminal acknowledgment',()=>{
+ const other=B();
+ for(const [stage,subject,peer,reason] of [
+  ['A',A(),'aPeer','SECURITY_PEER_IDENTITY_CHANGED'],
+  ['B',B(),'bPeer','SECURITY_PEER_IMAGE_MISMATCH'],
+  ['O',O(),'oPeer','SECURITY_PEER_IDENTITY_CHANGED']]){
+  const mismatched={...subject[peer],...(stage==='B'?{imageSha256:'a'.repeat(64)}:{creationTime:hex(999999)})};
+  const inflight=request(subject,stage,subject[peer],[],1,'driver');
+  const evidence=request(subject,stage,mismatched,[],2);
+  const unsigned={...evidence.submit,signature:fixture.Sign(other.device,'unrelated proof')};
+  assert.throws(()=>authority.Execute(unsigned),/SECURITY_SIGNATURE_INVALID/);
+  assert.equal(flow(subject).status,stage==='A'?'STARTED':'CLAIMED');
+  const receipt=authority.Execute(evidence.submit);
+  assert.deepEqual(receipt,{version:1,channel:'integrity',sequence:hex(2),digest:JSON.parse(evidence.submit.payload).digest,
+   epoch:evidence.challenge.epoch,accepted:true,stopped:true,scope:'OWNED_A_B_O',attested:false,peerContext:null});
+  const revoked=stage==='O'?store.Load().overlays[subject.prepared.overlayId]:flow(subject);
+  assert.equal(revoked.reason,reason);assert.equal(revoked.status,'REVOKED');
+  assert.equal(flow(subject).status,'REVOKED');assert.equal(flow(other).status,'CLAIMED');
+  const entry=reports.ForFlow(subject.start.begin.flowId).find(e=>e.detectionId===reason);
+  assert.equal(entry.role,stage);assert.equal(entry.invalidated,true);assert.equal(entry.count,1);
+  assert.equal(flow(subject).nhwTerminalReport.originRole,stage);
+  assert.deepEqual(authority.Execute(evidence.submit),receipt);
+  assert.throws(()=>authority.Execute(inflight.submit),/SECURITY_CHALLENGE_INVALID/);
+  paths.Clear();
+  assert.throws(()=>authority.Execute(evidence.submit),/SECURITY_CHALLENGE_INVALID/);
+  assert.deepEqual(send(subject,stage,mismatched,[],2),receipt);
+  const recovered=send(subject,stage,mismatched,[],1,'driver');
+  assert.equal(recovered.stopped,true);assert.equal(recovered.peerContext,null);
+  assert.equal(reports.ForFlow(subject.start.begin.flowId).find(e=>e.detectionId===reason).count,1);
+ }
+ const admin=B();boot.Revoke(admin.b.sessionId,{reason:'SECURITY_PEER_IMAGE_MISMATCH'},'ADMIN');
+ assert.equal(flow(admin).nhwTerminalReport,undefined);
+ assert.throws(()=>request(admin,'B',admin.bPeer,[],2),/BOOTSTRAP_REVOKED/);
 });
 check('Client role labels cannot fabricate SELF or registered target context',()=>{
  const s=B();for(const actorClass of ['SELF','TRUSTED_A','TRUSTED_B','TRUSTED_O']){const c=context('a'.repeat(64),'B',{actorClass,targetIdentity:s.bIdentity});assert.equal(peers.ResolveContext(flow(s),'B',c).firstPartyAttested,false);}
@@ -92,7 +124,8 @@ check('Independent response paths share a monotonic server peer sequence without
 check('RAM retirement and restart remove trust immediately; signed new enrollment does not resurrect a reused PID',()=>{
  const s=A(),c=context(s.aIdentity,'A');peers.Retire(flow(s),'A');assert.equal(peers.ResolveContext(flow(s),'A',c).expected,false);assert.equal(peers.Receipt(flow(s),'A'),null);
  assert.equal(send(s,'A',s.aPeer,[],2).peerContext.selfIdentity,s.aIdentity);peers.Clear();assert.equal(peers.ResolveContext(flow(s),'A',c).expected,false);assert.equal(peers.Receipt(flow(s),'A'),null);
- assert.throws(()=>send(s,'A',{...s.aPeer,creationTime:hex(999998)},[],3),/SECURITY_PEER_IDENTITY_CHANGED/);
+ assert.equal(send(s,'A',{...s.aPeer,creationTime:hex(999998)},[],3).stopped,true);
+ assert.equal(flow(s).reason,'SECURITY_PEER_IDENTITY_CHANGED');
 });
 check('Reported process exit tombstones the exact role identity and cannot be renewed by a later observation',()=>{
  const s=A();store.Atomic(db=>peers.ProcessExited(db,s.start.begin.flowId,'A',s.start.begin.flowId));assert(flow(s).nhwPeerBindings.A.retiredAt>0);assert.equal(peers.Receipt(flow(s),'A'),null);
