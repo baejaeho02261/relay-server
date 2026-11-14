@@ -1,0 +1,68 @@
+﻿function TestTemporalHandleHardening(out Failure: string; out Checks: Integer): Boolean;
+var
+  M: TTemporalHandleGraph;
+  H: TTargetHolder;
+  D: TDetectionKinds;
+  Key: string;
+  S: THandleActorState;
+  procedure Check(Value: Boolean; const Name: string);
+  begin Inc(Checks); if not Value then raise Exception.Create(Name); end;
+  procedure Prime;
+  begin
+    M.Reset; D := []; H := Default(TTargetHolder);
+    H.PID := 1234; H.CreateTime := 100;
+    Key := IntToStr(H.PID) + ':' + IntToHex(H.CreateTime, 16) + ':P';
+  end;
+  procedure Observe(Mask: Cardinal; Tick: UInt64; Baseline: Boolean = False);
+  begin D := []; H.RightsUnion := Mask; M.Observe(H, Baseline, Tick, D); end;
+begin
+  Result := False; Failure := ''; Checks := 0; M := nil;
+  try
+    try
+      M := TTemporalHandleGraph.Create;
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 2000);
+      Check((M.FActors[Key].HighObservations = 1) and not (dkTemporalHandleGraph in D), 'first high observation only candidate');
+      Observe(ACCESS_VM_WRITE, 3000); Check(dkTemporalHandleGraph in D, 'query then two high snapshots detect');
+      Observe(ACCESS_QUERY_INFORMATION, 4000);
+      Check((M.FActors[Key].HighObservations = 0) and (M.FActors[Key].HighAccessTick = 0), 'query-only return clears previous high sequence');
+      Check(M.FActors[Key].LastReport = 3000, 'sequence restart preserves report cooldown');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 2000);
+      Observe(ACCESS_QUERY_INFORMATION, 3000); Observe(ACCESS_VM_WRITE, 4000);
+      Check((M.FActors[Key].HighObservations = 1) and not (dkTemporalHandleGraph in D), 'old high count not reused after new query');
+      Observe(ACCESS_VM_WRITE, 5000); Check(dkTemporalHandleGraph in D, 'fresh sequence remains detectable');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 2000); Observe(ACCESS_VM_WRITE, 2000);
+      Check(M.FActors[Key].HighObservations = 1, 'same-time high snapshot not double counted');
+      Observe(ACCESS_VM_WRITE, 3000); Check(dkTemporalHandleGraph in D, 'distinct-time high snapshot confirms');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 1000);
+      Check(M.FActors[Key].HighObservations = 0, 'query and high same time do not establish order');
+      Observe(ACCESS_VM_WRITE, 2000); Check(not (dkTemporalHandleGraph in D), 'first ordered high not sufficient');
+      Prime; Observe(ACCESS_VM_WRITE, 2000); Observe(ACCESS_VM_WRITE, 3000);
+      Check(not (dkTemporalHandleGraph in D) and (M.FActors[Key].HighObservations = 0), 'no query predecessor means no sequence');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 2000); Observe(0, 3000);
+      Check((M.FActors[Key].QueryOnlyTick = 0) and (M.FActors[Key].HighObservations = 0), 'unrelated rights break pending sequence');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 2000); Observe(ACCESS_VM_WRITE, 16001);
+      Check((M.FActors[Key].HighObservations = 0) and not (dkTemporalHandleGraph in D), 'expired query does not confirm');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 2000);
+      Observe(ACCESS_QUERY_INFORMATION, 3000, True);
+      Check(M.FActors[Key].HighObservations = 0, 'baseline interrupts existing sequence');
+      Observe(ACCESS_VM_WRITE, 4000); Check(not (dkTemporalHandleGraph in D), 'baseline not counted as query evidence');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 5000); Observe(ACCESS_VM_WRITE, 6000); Observe(ACCESS_VM_WRITE, 4000);
+      Check((M.FActors[Key].HighObservations = 0) and not (dkTemporalHandleGraph in D), 'clock rollback invalidates chronology');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); Observe(ACCESS_VM_WRITE, 2000);
+      H.CreateTime := 200; Observe(ACCESS_VM_WRITE, 3000);
+      Check(not (dkTemporalHandleGraph in D) and (M.FActors.Count = 2), 'same PID with new creation time not same actor');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); H.IsThread := True;
+      Observe(THREAD_SET_CONTEXT_RIGHT, 2000); Check(not (dkTemporalHandleGraph in D), 'process and thread rights do not combine');
+      M.Reset; Observe(THREAD_QUERY_INFORMATION_RIGHT, 1000); Observe(THREAD_SET_CONTEXT_RIGHT, 2000);
+      Observe(THREAD_SET_CONTEXT_RIGHT, 3000); Check(dkTemporalHandleGraph in D, 'thread sequence remains supported');
+      Prime; H.CreateTime := 0; Observe(ACCESS_VM_WRITE, 1000); Check(M.FActors.Count = 0, 'unknown process generation ignored');
+      Prime; H.PID := 4; Observe(ACCESS_VM_WRITE, 1000); Check(M.FActors.Count = 0, 'system actor excluded');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); M.Expire(92000); Check(M.FActors.Count = 0, 'retention removes stale actors');
+      Prime; Observe(ACCESS_QUERY_INFORMATION, 1000); S := M.FActors[Key];
+      Check((S.LastMask = ACCESS_QUERY_INFORMATION) and (S.LastSeen = 1000), 'access metadata retained');
+      Check(HandleSequenceRisk(100, 200, 2, 300), 'existing helper positive contract');
+      Check(not HandleSequenceRisk(200, 100, 2, 300), 'helper rejects reversed timestamps');
+      Result := True;
+    except on E: Exception do Failure := E.Message; end;
+  finally M.Free; end;
+end;

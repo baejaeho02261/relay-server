@@ -1,0 +1,82 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{0727929E-0166-523C-A268-CE8EF1091CFA}</ProjectGuid>
+    <ProjectVersion>21.0</ProjectVersion>
+    <FrameworkType>None</FrameworkType>
+    <MainSource>Cozy.NHW.Native10M.Tests.dpr</MainSource>
+    <Base>True</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TargetedPlatforms>2</TargetedPlatforms>
+    <AppType>Console</AppType>
+    <DCC_DcuOutput>.\dcu\$(Platform)\$(Config)</DCC_DcuOutput>
+    <DCC_ExeOutput>.</DCC_ExeOutput>
+    <DCC_UnitSearchPath>.;..\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+    <DCC_Namespace>System;Winapi;System.Win;$(DCC_Namespace)</DCC_Namespace>
+    <DCC_Define>NHW_NATIVE10M_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_RangeChecking>true</DCC_RangeChecking>
+    <DCC_OverflowChecking>true</DCC_OverflowChecking>
+    <DCC_IncludePath>..\Cozy.NHW.Fixtures;$(DCC_IncludePath)</DCC_IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Release'">
+    <DCC_Define>RELEASE;NHW_NATIVE10M_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_DebugInformation>false</DCC_DebugInformation>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="$(MainSource)">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ThreadOrigin.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MappingGuard.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Lifecycle.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.StackGuard.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Registry.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PELoader.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.IPC.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Namespace.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PathGuard.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.RealtimeFusion.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.IPC.Hooks.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.IPC.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.Lifecycle.Hooks.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.Lifecycle.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.MappingGuard.Hooks.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.MappingGuard.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.Namespace.Hooks.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.Namespace.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.PELoader.Hooks.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.PELoader.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.PathGuard.Hooks.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.PathGuard.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.RealtimeFusion.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.Registry.Hooks.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.Registry.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.StackGuard.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10M.ThreadOrigin.inc" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source>
+          <Source Name="MainSource">Cozy.NHW.Native10M.Tests.dpr</Source>
+        </Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+</Project>

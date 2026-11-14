@@ -1,0 +1,299 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{44EF8C5F-4593-5D7A-9DA1-EDE2B81CD72B}</ProjectGuid>
+  </PropertyGroup>
+  <ItemGroup>
+    <Projects Include="..\Cozy.Startup\Cozy.StartupProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Platform\Cozy.NativeAbiProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Integrity\Cozy.PeCorpusProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Crypto\Cozy.IntegrityHashProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Integrity\Cozy.CrcProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Crypto\Cozy.HashProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Crypto\Cozy.HashContracts.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Handoff\Cozy.HandoffCryptoProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Handoff\Cozy.HandoffPipeProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Handoff\Cozy.HandoffProcessProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Protocol\Cozy.DeterministicStateProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Security\Cozy.HardeningContractsProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Integrity\Cozy.ModuleGenerationFixture.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Overlay\Cozy.OverlayPrivacyProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Lifecycle\Cozy.MeasurementLifetimeProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Platform\Cozy.NativeApiContractsProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Overlay\Cozy.OverlayFirstFrameProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Overlay\Cozy.OverlayShutdownProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Security\Cozy.ProcessMitigationProfileProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Identity\Cozy.DeviceIdentityProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Identity\Cozy.DeviceKeyContractProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Identity\Cozy.RecoveryDeviceProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Lifecycle\Cozy.ThreadInventoryProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Crypto\Cozy.Blake3ParallelProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Handoff\Cozy.HandoffKdfProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Identity\Cozy.DeviceSignalsProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Integrity\Cozy.CrcPeProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Overlay\Cozy.OverlayEnvironmentProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Overlay\Cozy.OverlayMitigationProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Protocol\Cozy.FloatJsonProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Network\Cozy.TlsReceiveProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Crypto\Cozy.HashLifecycleProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.FaultInjection\Cozy.LicenseOwnershipProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Identity\Cozy.KeylessApprovalProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Network\Cozy.ServerProfileProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Integrity\Cozy.OwnedRuntimeProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Lifecycle\Cozy.LifecycleContractsProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Integrity\Cozy.MeasurementCompletionProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Network\Cozy.TlsContractProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Network\Cozy.TransportProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Network\Cozy.TlsPinWindowProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Security\Cozy.DeviceSecurityOwnedProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Platform\Cozy.PointerGraphProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Protocol\Cozy.ProtocolSchemaProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Security\Cozy.ServerOperationsProtocolProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Startup\Cozy.LauncherStartupProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Startup\Cozy.ClientStartupProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="..\Cozy.Startup\Cozy.OverlayStartupProbe.dproj">
+      <Dependencies />
+    </Projects>
+  </ItemGroup>
+  <Target Name="Cozy.KeylessApprovalProbe">
+    <MSBuild Projects="..\Cozy.Identity\Cozy.KeylessApprovalProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.LicenseOwnershipProbe">
+    <MSBuild Projects="..\Cozy.FaultInjection\Cozy.LicenseOwnershipProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.HashLifecycleProbe">
+    <MSBuild Projects="..\Cozy.Crypto\Cozy.HashLifecycleProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.StartupProbe">
+    <MSBuild Projects="..\Cozy.Startup\Cozy.StartupProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.NativeAbiProbe">
+    <MSBuild Projects="..\Cozy.Platform\Cozy.NativeAbiProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.PeCorpusProbe">
+    <MSBuild Projects="..\Cozy.Integrity\Cozy.PeCorpusProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.IntegrityHashProbe">
+    <MSBuild Projects="..\Cozy.Crypto\Cozy.IntegrityHashProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.CrcProbe">
+    <MSBuild Projects="..\Cozy.Integrity\Cozy.CrcProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.HashProbe">
+    <MSBuild Projects="..\Cozy.Crypto\Cozy.HashProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.HashContracts">
+    <MSBuild Projects="..\Cozy.Crypto\Cozy.HashContracts.dproj" />
+  </Target>
+  <Target Name="Cozy.HandoffCryptoProbe">
+    <MSBuild Projects="..\Cozy.Handoff\Cozy.HandoffCryptoProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.HandoffPipeProbe">
+    <MSBuild Projects="..\Cozy.Handoff\Cozy.HandoffPipeProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.HandoffProcessProbe">
+    <MSBuild Projects="..\Cozy.Handoff\Cozy.HandoffProcessProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.DeterministicStateProbe">
+    <MSBuild Projects="..\Cozy.Protocol\Cozy.DeterministicStateProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.HardeningContractsProbe">
+    <MSBuild Projects="..\Cozy.Security\Cozy.HardeningContractsProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.ModuleGenerationFixture">
+    <MSBuild Projects="..\Cozy.Integrity\Cozy.ModuleGenerationFixture.dproj" />
+  </Target>
+  <Target Name="Cozy.OverlayPrivacyProbe">
+    <MSBuild Projects="..\Cozy.Overlay\Cozy.OverlayPrivacyProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.MeasurementLifetimeProbe">
+    <MSBuild Projects="..\Cozy.Lifecycle\Cozy.MeasurementLifetimeProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.NativeApiContractsProbe">
+    <MSBuild Projects="..\Cozy.Platform\Cozy.NativeApiContractsProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.OverlayFirstFrameProbe">
+    <MSBuild Projects="..\Cozy.Overlay\Cozy.OverlayFirstFrameProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.OverlayShutdownProbe">
+    <MSBuild Projects="..\Cozy.Overlay\Cozy.OverlayShutdownProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.ProcessMitigationProfileProbe">
+    <MSBuild Projects="..\Cozy.Security\Cozy.ProcessMitigationProfileProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.DeviceIdentityProbe">
+    <MSBuild Projects="..\Cozy.Identity\Cozy.DeviceIdentityProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.DeviceKeyContractProbe">
+    <MSBuild Projects="..\Cozy.Identity\Cozy.DeviceKeyContractProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.RecoveryDeviceProbe">
+    <MSBuild Projects="..\Cozy.Identity\Cozy.RecoveryDeviceProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.ThreadInventoryProbe">
+    <MSBuild Projects="..\Cozy.Lifecycle\Cozy.ThreadInventoryProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.Blake3ParallelProbe">
+    <MSBuild Projects="..\Cozy.Crypto\Cozy.Blake3ParallelProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.HandoffKdfProbe">
+    <MSBuild Projects="..\Cozy.Handoff\Cozy.HandoffKdfProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.DeviceSignalsProbe">
+    <MSBuild Projects="..\Cozy.Identity\Cozy.DeviceSignalsProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.CrcPeProbe">
+    <MSBuild Projects="..\Cozy.Integrity\Cozy.CrcPeProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.OverlayEnvironmentProbe">
+    <MSBuild Projects="..\Cozy.Overlay\Cozy.OverlayEnvironmentProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.OverlayMitigationProbe">
+    <MSBuild Projects="..\Cozy.Overlay\Cozy.OverlayMitigationProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.FloatJsonProbe">
+    <MSBuild Projects="..\Cozy.Protocol\Cozy.FloatJsonProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.TlsReceiveProbe">
+    <MSBuild Projects="..\Cozy.Network\Cozy.TlsReceiveProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.ServerProfileProbe">
+    <MSBuild Projects="..\Cozy.Network\Cozy.ServerProfileProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.OwnedRuntimeProbe">
+    <MSBuild Projects="..\Cozy.Integrity\Cozy.OwnedRuntimeProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.LifecycleContractsProbe">
+    <MSBuild Projects="..\Cozy.Lifecycle\Cozy.LifecycleContractsProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.MeasurementCompletionProbe">
+    <MSBuild Projects="..\Cozy.Integrity\Cozy.MeasurementCompletionProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.TlsContractProbe">
+    <MSBuild Projects="..\Cozy.Network\Cozy.TlsContractProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.TransportProbe">
+    <MSBuild Projects="..\Cozy.Network\Cozy.TransportProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.TlsPinWindowProbe">
+    <MSBuild Projects="..\Cozy.Network\Cozy.TlsPinWindowProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.DeviceSecurityOwnedProbe">
+    <MSBuild Projects="..\Cozy.Security\Cozy.DeviceSecurityOwnedProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.PointerGraphProbe">
+    <MSBuild Projects="..\Cozy.Platform\Cozy.PointerGraphProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.ProtocolSchemaProbe">
+    <MSBuild Projects="..\Cozy.Protocol\Cozy.ProtocolSchemaProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.ServerOperationsProtocolProbe">
+    <MSBuild Projects="..\Cozy.Security\Cozy.ServerOperationsProtocolProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.LauncherStartupProbe">
+    <MSBuild Projects="..\Cozy.Startup\Cozy.LauncherStartupProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.ClientStartupProbe">
+    <MSBuild Projects="..\Cozy.Startup\Cozy.ClientStartupProbe.dproj" />
+  </Target>
+  <Target Name="Cozy.OverlayStartupProbe">
+    <MSBuild Projects="..\Cozy.Startup\Cozy.OverlayStartupProbe.dproj" />
+  </Target>
+  <Target Name="Build">
+    <CallTarget Targets="Cozy.OverlayStartupProbe;Cozy.ClientStartupProbe;Cozy.LauncherStartupProbe;Cozy.ServerOperationsProtocolProbe;Cozy.ProtocolSchemaProbe;Cozy.PointerGraphProbe;Cozy.DeviceSecurityOwnedProbe;Cozy.TlsPinWindowProbe;Cozy.TransportProbe;Cozy.TlsContractProbe;Cozy.MeasurementCompletionProbe;Cozy.LifecycleContractsProbe;Cozy.OwnedRuntimeProbe;Cozy.ServerProfileProbe;Cozy.FloatJsonProbe;Cozy.TlsReceiveProbe;Cozy.OverlayMitigationProbe;Cozy.CrcPeProbe;Cozy.OverlayEnvironmentProbe;Cozy.StartupProbe;Cozy.NativeAbiProbe;Cozy.PeCorpusProbe;Cozy.IntegrityHashProbe;Cozy.CrcProbe;Cozy.HashProbe;Cozy.HashContracts;Cozy.HandoffCryptoProbe;Cozy.HandoffPipeProbe;Cozy.HandoffProcessProbe;Cozy.DeterministicStateProbe;Cozy.HardeningContractsProbe;Cozy.ModuleGenerationFixture;Cozy.OverlayPrivacyProbe;Cozy.MeasurementLifetimeProbe;Cozy.NativeApiContractsProbe;Cozy.OverlayFirstFrameProbe;Cozy.OverlayShutdownProbe;Cozy.ProcessMitigationProfileProbe;Cozy.DeviceIdentityProbe;Cozy.DeviceKeyContractProbe;Cozy.RecoveryDeviceProbe;Cozy.ThreadInventoryProbe;Cozy.Blake3ParallelProbe;Cozy.KeylessApprovalProbe;Cozy.LicenseOwnershipProbe;Cozy.HashLifecycleProbe;Cozy.HandoffKdfProbe;Cozy.DeviceSignalsProbe" />
+  </Target>
+  <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')" />
+</Project>

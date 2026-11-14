@@ -1,0 +1,416 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="CozyNativeRoot;CompiledArtifact;DCC_UnitSearchPath;DCC_IncludePath;DCC_ObjPath">
+  <PropertyGroup>
+    <ProjectGuid>{818BD65D-D85C-40A3-A5EA-A28F48597991}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <FrameworkType>None</FrameworkType>
+    <ProjectName>Cozy.Overlay</ProjectName>
+    <MainSource>Cozy.Overlay.dpr</MainSource>
+    <Base>True</Base>
+    <CozyNativeRoot>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..'))</CozyNativeRoot>
+    <!-- Resolve the known project output before IDE/MSBuild event expansion. -->
+    <CompiledArtifact>$(MSBuildProjectDirectory)\Cozy.Overlay.exe</CompiledArtifact>
+    <AppType>Application</AppType>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Debug' or '$(Cfg_1)'!=''">
+    <Cfg_1>true</Cfg_1><CfgParent>Base</CfgParent><Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_2)'!=''">
+    <Cfg_2>true</Cfg_2><CfgParent>Base</CfgParent><Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Base)'!=''">
+    <SanitizedProjectName>Cozy.Overlay</SanitizedProjectName>
+    <DCC_DcuOutput>$(MSBuildProjectDirectory)\dcu</DCC_DcuOutput>
+    <DCC_ExeOutput>$(MSBuildProjectDirectory)</DCC_ExeOutput>
+    <DCC_UnitSearchPath>$(CozyNativeRoot)\Cozy.Source\Cozy.Security.NHW;$(CozyNativeRoot)\Cozy.Source\Cozy.Application;$(CozyNativeRoot)\Cozy.Source\Cozy.License;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform;$(CozyNativeRoot)\Cozy.Source\Cozy.Security;$(CozyNativeRoot)\Cozy.Source\Cozy.Network;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Source\Cozy.Protection;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+    <DCC_IncludePath>$(CozyNativeRoot)\Cozy.Source\Cozy.Security.NHW;$(CozyNativeRoot)\Cozy.Source\Cozy.Application;$(CozyNativeRoot)\Cozy.Source\Cozy.License;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform;$(CozyNativeRoot)\Cozy.Source\Cozy.Security;$(CozyNativeRoot)\Cozy.Source\Cozy.Network;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Source\Cozy.Protection;$(DCC_IncludePath)</DCC_IncludePath>
+    <DCC_ObjPath>$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui;$(DCC_ObjPath)</DCC_ObjPath>
+    <DCC_Namespace>System;Winapi;System.Win;$(DCC_Namespace)</DCC_Namespace>
+    <DCC_UsePackage />
+    <DCC_AdditionalOptions></DCC_AdditionalOptions>
+    <DCC_AdditionalArgs></DCC_AdditionalArgs>
+    <DCC_AdditionalParameters></DCC_AdditionalParameters>
+    <DCC_MapFile>0</DCC_MapFile>
+    <DCC_RemoteDebug>false</DCC_RemoteDebug>
+    
+    <DCC_ConsoleTarget>false</DCC_ConsoleTarget>
+    <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
+    <DCC_RangeChecking>true</DCC_RangeChecking>
+    <Icon_MainIcon />
+    <Manifest_File>(None)</Manifest_File>
+    <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
+    <!-- Native prerequisites are explicit targets below, not optional IDE events. -->
+    <PreBuildEvent />
+    <PreBuildEventIgnoreExitCode>false</PreBuildEventIgnoreExitCode>
+    <PostBuildEvent>if not exist &quot;$(CompiledArtifact)&quot; (echo GAME_OVERLAY_COMPILED_OUTPUT_MISSING &amp; exit /b 1)&#xD;&#xA;&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Normalize-PE-Unwind.ps1&quot; -ImagePath &quot;$(CompiledArtifact)&quot;&#xD;&#xA;if errorlevel 1 exit /b 1&#xD;&#xA;&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Assert-OverlayManifest.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\Cozy.Overlay.manifest&quot; -ImagePath &quot;$(CompiledArtifact)&quot;</PostBuildEvent>
+    <PostBuildEventIgnoreExitCode>false</PostBuildEventIgnoreExitCode>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Cfg_1)'!=''">
+    <DCC_Define>GAME_APPLICATION_BUILD;DEBUG;$(DCC_Define)</DCC_Define>
+    <DCC_DebugInformation>2</DCC_DebugInformation>
+    <DCC_LocalDebugSymbols>true</DCC_LocalDebugSymbols>
+    <DCC_DebugInfoInExe>true</DCC_DebugInfoInExe>
+    <DCC_Optimize>false</DCC_Optimize>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Cfg_2)'!=''">
+    <DCC_Define>GAME_APPLICATION_BUILD;RELEASE;$(DCC_Define)</DCC_Define>
+    <DCC_DebugInformation>0</DCC_DebugInformation>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_Optimize>true</DCC_Optimize>
+    <DCC_GenerateStackFrames>false</DCC_GenerateStackFrames>
+    <DCC_SymbolReferenceInfo>0</DCC_SymbolReferenceInfo>
+    <DCC_DebugDCUs>false</DCC_DebugDCUs>
+    <DCC_DebugInfoInExe>false</DCC_DebugInfoInExe>
+    <DCC_RemoteDebug>false</DCC_RemoteDebug>
+    <DCC_MapFile>0</DCC_MapFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Identity\Cozy.DeviceIdentity.Contracts.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.OwnedRuntime.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Protection\Cozy.Protection.Engine.pas" />
+    <None Include="..\..\Cozy.Source\Cozy.Protection\Cozy.Protection.Slot.inc" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.PointerGraph.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Api.Pointer.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Clock.Math.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Clock.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.WinApi.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Api.ROR13.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Platform.ExportResolver.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.CrcLayers.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Crypto\Cozy.Hashes.SelfTest.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Lifecycle\Cozy.ShutdownBudget.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Overlay\Cozy.Overlay.ShutdownGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Api.Contracts.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security\Cozy.SensitiveText.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Crypto\Cozy.Hashes.Workers.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Network\Cozy.Tls.PinWindow.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Handoff\Cozy.JsonEnvelope.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Api.Guid.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.SelfImageHeaders.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Handoff\Cozy.Handoff.Kdf.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.OwnMeasurement.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Identity\Cozy.DeviceKey.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Identity\Cozy.DeviceIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.ThreadInventory.Core.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.ThreadInventory.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Identity\Cozy.DeviceSignals.Core.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Identity\Cozy.DeviceSignals.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.ProcessMitigations.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security\Cozy.ServerAuthority.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security\Cozy.ServerOperations.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Lifecycle\Cozy.Lifecycle.Contracts.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Lifecycle\Cozy.Lifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Overlay\Cozy.Overlay.State.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Handoff\Cozy.ProtocolJson.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.Measurement.pas" />
+    <DelphiCompile Include="Cozy.Overlay.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Overlay\Cozy.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Overlay\Cozy.Overlay.Renderer.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Overlay\Cozy.Overlay.ImGui.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Overlay\Cozy.Overlay.Client.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Api.Types.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security\Cozy.Security.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Crypto\Cozy.Hashes.XXH3.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Crypto\Cozy.Hashes.SHA512.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Crypto\Cozy.Hashes.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Application\Cozy.Startup.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Lifecycle\Cozy.Lifetime.pas" />
+    <None Include="..\..\Cozy.Source\Cozy.Application\Cozy.Startup.ApiContracts.inc" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.CodeIntegrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Integrity\Cozy.ModuleInventory.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Network\Cozy.Tls.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Application\Cozy.Bootstrap.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Application\Cozy.KeylessBootstrap.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Handoff\Cozy.Handoff.Restricted.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Handoff\Cozy.Handoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Handoff\Cozy.Handoff.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Network\Cozy.Transport.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Network\Cozy.Server.Profile.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Network\Cozy.Relay.Socket.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Network\Cozy.Relay.Config.pas" />
+    <None Include="Cozy.Overlay.rc" /><None Include="Cozy.Overlay.manifest" />
+    <BuildConfiguration Include="Base"><Key>Base</Key></BuildConfiguration>
+    <BuildConfiguration Include="Debug"><Key>Cfg_1</Key><CfgParent>Base</CfgParent></BuildConfiguration>
+    <BuildConfiguration Include="Release"><Key>Cfg_2</Key><CfgParent>Base</CfgParent></BuildConfiguration>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source><Source Name="MainSource">Cozy.Overlay.dpr</Source></Source>
+      </Delphi.Personality>
+      <Platforms><Platform value="Win64">True</Platform></Platforms>
+    </BorlandProject>
+    <ProjectFileVersion>12</ProjectFileVersion>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')" />
+  <Import Project="..\..\Cozy.Build\Cozy.BuildIsolation.targets" />
+  <Import Project="..\..\Cozy.Build\Cozy.ReleaseMetadata.targets" />
+  <Import Project="..\..\Cozy.Build\Cozy.BuildObservation.targets" Condition="'$(GameObserveBuild)'=='true'" />
+  <PropertyGroup>
+    <BuildDependsOn>PrepareOverlayNative;$(BuildDependsOn)</BuildDependsOn>
+    <RebuildDependsOn>PrepareOverlayNative;$(RebuildDependsOn)</RebuildDependsOn>
+  </PropertyGroup>
+  <Target Name="PrepareOverlayNative" BeforeTargets="PreBuildEvent;_PasCoreCompile"
+          DependsOnTargets="ValidateProductionIsolation"
+          Condition="'$(Platform)'=='Win64' and '$(DesignTimeBuild)'!='true'">
+    <Error Condition="!Exists('$(BDS)\bin\brcc32.exe')" Text="GAME_OVERLAY_RESOURCE_COMPILER_REQUIRED" />
+    <PropertyGroup>
+      <DCC_ObjPath Condition="'$(DCC_ObjPath)'==''">$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui</DCC_ObjPath>
+    </PropertyGroup>
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="call &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Build_ImGui_Win64.bat&quot; &quot;$(BDS)&quot;" />
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_bridge.o')" Text="GAME_OVERLAY_OBJECT_MISSING" />
+    <Delete Files="$(MSBuildProjectDirectory)\Cozy.OverlayResources.pending.res" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="&quot;$(BDS)\bin\brcc32.exe&quot; -fo&quot;Cozy.OverlayResources.pending.res&quot; &quot;Cozy.Overlay.rc&quot;" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Assert-OverlayManifest.ps1&quot; -ManifestPath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Overlay\Cozy.Overlay.manifest&quot; -ResourcePath &quot;$(MSBuildProjectDirectory)\Cozy.OverlayResources.pending.res&quot;" />
+    <Move SourceFiles="$(MSBuildProjectDirectory)\Cozy.OverlayResources.pending.res" DestinationFiles="$(CozyNativeRoot)\Cozy.Projects\Cozy.Overlay\Cozy.OverlayResources.res" />
+  </Target>
+  <!-- The event normalizes and checks the actual image once, including IDE builds.
+       Keep a final missing-output postcondition; compiler exit code zero is insufficient. -->
+  <Target Name="FinalizeProjectExecutable" AfterTargets="Build;Rebuild">
+    <Error Condition="!Exists('$(CompiledArtifact)')" Text="GAME_OVERLAY_COMPILED_OUTPUT_MISSING" />
+    <Message Importance="high" Text="overlay: $(CompiledArtifact)" />
+  </Target>
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Handoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Identity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Lifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Network.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Projects.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Protection.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Security.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsHandoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsNetwork.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsPlatform.pas" />
+  </ItemGroup>
+  <ItemGroup>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AllocationNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExceptionNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExceptionRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Context.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Guard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTrust.Native.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Logging.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Native.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NativeSafety.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PECodeDigest.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PECodeIntegrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PERules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PEView.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponsePath.Dispatch.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SelfRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SensorFaultIsolation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SessionTrustLadder.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Types.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WinPointers.pas" />
+  </ItemGroup>
+  <ItemGroup>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.APCStyleEvidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AdaptiveAnomaly.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AdaptiveInspector.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AllocationGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AsyncGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AsyncNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AsyncRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Attestation.Hash.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Attestation.SessionPolicy.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Attestation.Transport.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Authority.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Behavior.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.BehaviorFingerprint.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.BootAttestationContinuity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.BootTrust.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Cancellation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Capture.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CaptureNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CaptureRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CaptureSnapshot.Decoders.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CausalGraph.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ClientGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CodeIntegrityEventCorrelation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CodeIntegrityPolicy.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CodeProvenanceGraph.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ControlFlowAttestation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CoverageWindow.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DriverCrossView.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DriverIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DriverLoadProvenance.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DriverServiceTimeline.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DriverSignerAttestation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DriverTimeline.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DualObserver.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETW.Consumer.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETW.Decoder.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETW.PropertyDecoders.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETW.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETWFusion.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETWImageFusion.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETWLossHealth.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETWNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ETWTypes.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Engine.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.EphemeralIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.EventDrivenWake.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.EvidenceChain.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExceptionGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExecutableLifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExplainableEvidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Export.DelayReader.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Export.ImageReader.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExportGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExportNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ExportRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FalsePositiveControl.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FastEventRing.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FastPipeline.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FileAttestation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FileGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FileMetadata.Decoders.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FileNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ForensicHashChain.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HandleSharingEvidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HandleSnapshot.Decoder.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Handles.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HeapTLS.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HeapTLSNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HeapTLSRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HighResolutionClock.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HypervisorVBSCrossView.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.IPC.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.IPCNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.IPCSnapshot.Decoder.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ImageCOWIntegrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ImportRedirection.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.IncidentReconstruction.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.IndirectTargets.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.InjectionEvidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Job.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelDMAIOMMUTrust.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelMappingEvidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTelemetryGap.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTrust.CorrelationPolicy.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTrust.EventLog.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTrust.PlatformNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTrust.TBS.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTrust.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.KernelTrustDowngrade.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Lifecycle.Snapshot.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Lifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.LoaderCrossView.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MappingGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MappingNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MeasuredBootEvidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MemoryDelta.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MemoryEvidenceCapsule.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MicroburstAccess.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ModuleOriginVerification.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MultiEpochBaseline.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Namespace.Decoders.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Namespace.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NamespaceNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NetworkGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NetworkNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NetworkRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NetworkSnapshot.Decoders.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ObservationTrust.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Observer.ChildRuntime.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Observer.Launch.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Observer.Protocol.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ObserverAttestation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ObserverAuthenticator.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Options.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PELoader.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PENative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PathGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PathNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PathRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PathSnapshot.Decoders.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PerformanceBudget.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PrecisionTimeline.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.PrivacyForensics.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Process.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ProcessList.Decoder.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ProcessSnapshot.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ProtectionGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.RAMLifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ReadAccess.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ReadCanaryNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ReadRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.RealtimeBenchmark.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.RealtimeFusion.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.RegionClassifier.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Registry.EvidenceReader.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Registry.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.RegistryNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResourceController.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponsePath.Driver.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponsePath.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponsePath.Trust.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponsePathMesh.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponseSink.Driver.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponseSink.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponseSink.Local.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponseSink.Trust.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ResponseTransport.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.RiskConfidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Sampling.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Scheduler.Rules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Scheduler.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SchedulerNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SectionBackingIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SectionCorrelation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Security.Snapshot.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Security.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SelfGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SelfNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SensorConsensus.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SensorDisagreement.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SensorRecovery.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SensorTamperHealth.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ServerNonceAttestation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SessionEpochGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SessionInvalidation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SignalCorrelation.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SnapshotETWReconcile.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.StableIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.StackGuard.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.StackNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SystemViewDisagreement.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.TLSCallbackIntegrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.TemporalHandleGraph.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ThreadExecutionProvenance.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ThreadOrigin.Rules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ThreadOrigin.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ThreadOriginNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ThreadStackProvenance.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ThreadTimeline.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Threads.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.TpmQuote.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.TriggeredSnapshot.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.UnifiedEvidence.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.UnwindConsistency.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.VBSHVCI.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.VulnerableDriver.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WCTNative.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WaitChain.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WaitChainRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WriteRules.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WriteWatch.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WriteWatchNative.pas" />
+  </ItemGroup>
+  <ItemGroup>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.DetectionJournal.pas" />
+  </ItemGroup>
+</Project>

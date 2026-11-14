@@ -1,0 +1,45 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{97063F33-59DF-5ED6-9B6A-5A92DE09FE97}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.OverlayGpuFaultProbe</ProjectName>
+    <MainSource>Cozy.OverlayGpuFaultProbe.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Console</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TestOnlyDefine>GAME_IMGUI_FAULT_TESTS</TestOnlyDefine>
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <PropertyGroup>
+    <DCC_ObjPath>$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui</DCC_ObjPath>
+  </PropertyGroup>
+  <Target Name="AuditManualFaultObject" BeforeTargets="_PasCoreCompile">
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_fault_test.o')" Text="MANUAL_FAULT_OBJECT_REQUIRED: follow Cozy.Tests/Cozy.Build/Cozy.Manual_Windows_Tests.html; compile the test C++ translation unit in the IDE first." />
+    <Error Condition="Exists('$(MSBuildProjectDirectory)\..\..\Cozy.game_imgui_fault_test.o')" Text="MANUAL_FAULT_OBJECT_SHADOW: remove the obsolete test object beside production units; the isolated object belongs in Cozy.BuildOutputs/Cozy.ImGui." />
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoLogo -NoProfile -File &quot;$(MSBuildProjectDirectory)\Cozy.GpuFault\Cozy.Audit-FaultObject.ps1&quot; -Path &quot;$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_fault_test.o&quot;" />
+  </Target>
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.OverlayGpuFaultProbe.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsOverlay.pas" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+  </ItemGroup>
+</Project>

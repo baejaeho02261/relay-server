@@ -1,0 +1,97 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{0E9AA422-66E6-4E8D-B4FD-D8F76F6858FF}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.ClientFaultTest</ProjectName>
+    <MainSource>Cozy.ClientFaultTest.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Application</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TestOnlyDefine>GAME_PRODUCT_FAULT_TESTS</TestOnlyDefine>
+  </PropertyGroup>
+  <!-- Declare the configuration tree in this project for the RAD Studio IDE.
+       Imported compiler properties alone do not describe selectable nodes. -->
+  <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+    <Cfg_1>true</Cfg_1>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+    <Base_Win64>true</Base_Win64>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+    <Cfg_1_Win64>true</Cfg_1_Win64>
+    <CfgParent>Cfg_1</CfgParent>
+    <Cfg_1>true</Cfg_1>
+    <Base>true</Base>
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <PropertyGroup>
+    <DCC_ConsoleTarget>false</DCC_ConsoleTarget>
+    <DCC_IncludePath>$(MSBuildProjectDirectory)\..\..\Cozy.Source\Cozy.Security.NHW;$(MSBuildProjectDirectory)\..\..</DCC_IncludePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.ClientFaultTest.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Base"><Key>Base</Key></BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source><Source Name="MainSource">Cozy.ClientFaultTest.dpr</Source></Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+    <ProjectFileVersion>12</ProjectFileVersion>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <PropertyGroup>
+    <DCC_ExeOutput>$(CozyNativeRoot)\build\tests\product-faults</DCC_ExeOutput>
+    <DCC_DcuOutput>$(CozyNativeRoot)\build\tests\product-faults\units\$(ProjectName)\$(Platform)\$(Config)</DCC_DcuOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Handoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Identity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Lifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Network.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Protection.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Security.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsFaultInjection.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsHandoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsNetwork.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsPlatform.pas" />
+  </ItemGroup>
+  <Target Name="PrepareLicenseFaultNative" BeforeTargets="PreBuildEvent;_PasCoreCompile" Condition="'$(DesignTimeBuild)'!='true'">
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)" Command="call &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Build_ImGui_Win64.bat&quot; &quot;$(BDS)&quot;" />
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_bridge.o')" Text="LICENSE_FAULT_NATIVE_OBJECT_MISSING" />
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Assert-OverlayManifest.ps1&quot; -ManifestPath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Client\Cozy.Client.manifest&quot; -ResourcePath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Client\Cozy.ClientResources.res&quot;" />
+  </Target>
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.License.pas" />
+  </ItemGroup>
+  <PropertyGroup>
+    <DCC_UnitSearchPath>$(MSBuildProjectDirectory)\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+  </PropertyGroup>
+</Project>

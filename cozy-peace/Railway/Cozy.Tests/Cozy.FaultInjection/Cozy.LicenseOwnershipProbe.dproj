@@ -1,0 +1,72 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{6936E7E0-5B9B-469D-81C9-97654807C425}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.LicenseOwnershipProbe</ProjectName>
+    <MainSource>Cozy.LicenseOwnershipProbe.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Console</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TestOnlyDefine />
+  </PropertyGroup>
+  <!-- Declare the configuration tree in this project for the RAD Studio IDE.
+       Imported compiler properties alone do not describe selectable nodes. -->
+  <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+    <Cfg_1>true</Cfg_1>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+    <Base_Win64>true</Base_Win64>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+    <Cfg_1_Win64>true</Cfg_1_Win64>
+    <CfgParent>Cfg_1</CfgParent>
+    <Cfg_1>true</Cfg_1>
+    <Base>true</Base>
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.LicenseOwnershipProbe.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Platform\Cozy.Api.Contracts.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Security\Cozy.SensitiveText.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.License\Cozy.License.Commands.pas" />
+    <BuildConfiguration Include="Base"><Key>Base</Key></BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source><Source Name="MainSource">Cozy.LicenseOwnershipProbe.dpr</Source></Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+    <ProjectFileVersion>12</ProjectFileVersion>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Security.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsFaultInjection.pas" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.License.pas" />
+  </ItemGroup>
+</Project>

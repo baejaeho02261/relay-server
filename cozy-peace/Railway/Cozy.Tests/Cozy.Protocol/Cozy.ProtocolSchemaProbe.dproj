@@ -1,0 +1,41 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{70D1A9D6-878F-5688-ACD6-6E75BD66BF75}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.ProtocolSchemaProbe</ProjectName>
+    <MainSource>Cozy.ProtocolSchemaProbe.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Console</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.ProtocolSchemaProbe.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Handoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Identity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Lifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Network.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Protection.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Security.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsNetwork.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsPlatform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsProtocol.pas" />
+  </ItemGroup>
+</Project>

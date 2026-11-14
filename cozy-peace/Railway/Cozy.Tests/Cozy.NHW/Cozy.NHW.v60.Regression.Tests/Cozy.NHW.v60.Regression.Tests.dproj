@@ -1,0 +1,39 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{96C14CC1-4966-5F4A-895C-DAACCB970BE9}</ProjectGuid>
+    <ProjectVersion>21.0</ProjectVersion>
+    <FrameworkType>None</FrameworkType>
+    <MainSource>Cozy.NHW.v60.Regression.Tests.dpr</MainSource>
+    <Base>True</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TargetedPlatforms>2</TargetedPlatforms>
+    <AppType>Console</AppType>
+    <DCC_IncludePath>..\Cozy.NHW.Fixtures;$(DCC_IncludePath)</DCC_IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Base)'!=''">
+    <DCC_DcuOutput>.\dcu\$(Platform)\$(Config)</DCC_DcuOutput>
+    <DCC_ExeOutput>.</DCC_ExeOutput>
+    <DCC_UnitSearchPath>.;..\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+    <DCC_Namespace>System;Winapi;System.Win;Xml;Data;Datasnap;Web;Soap;$(DCC_Namespace)</DCC_Namespace>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Release'">
+    <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_DebugInformation>false</DCC_DebugInformation>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="$(MainSource)">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+  </ItemGroup>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Delphi.Targets')" />
+</Project>

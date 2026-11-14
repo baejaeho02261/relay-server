@@ -1,0 +1,30 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{99FBBC56-4C6D-4013-B29C-73CC3B20C2C2}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.OverlayRenewalScheduleProbe</ProjectName>
+    <MainSource>Cozy.OverlayRenewalScheduleProbe.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Console</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TestOnlyDefine />
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.OverlayRenewalScheduleProbe.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsOverlay.pas" />
+  </ItemGroup>
+</Project>

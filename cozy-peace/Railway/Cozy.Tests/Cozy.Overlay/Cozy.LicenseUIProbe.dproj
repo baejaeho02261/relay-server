@@ -1,0 +1,113 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{10AE5A48-2809-4FB5-9526-B38DBA5A9B51}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.LicenseUIProbe</ProjectName>
+    <MainSource>Cozy.LicenseUIProbe.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Application</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TestOnlyDefine />
+  </PropertyGroup>
+  <!-- Declare the configuration tree in this project for the RAD Studio IDE.
+       Imported compiler properties alone do not describe selectable nodes. -->
+  <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+    <Cfg_1>true</Cfg_1>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+    <Base_Win64>true</Base_Win64>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+    <Cfg_1_Win64>true</Cfg_1_Win64>
+    <CfgParent>Cfg_1</CfgParent>
+    <Cfg_1>true</Cfg_1>
+    <Base>true</Base>
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <PropertyGroup>
+    <!-- The DPR explicitly links the audited production resource, as O does.
+         Disable IDE-generated competing manifests. Outputs remain in the
+         existing isolated manual-ide test directory, never an A/B/O folder. -->
+    <Manifest_File>(None)</Manifest_File>
+    <DCC_ConsoleTarget>false</DCC_ConsoleTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.LicenseUIProbe.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source><Source Name="MainSource">Cozy.LicenseUIProbe.dpr</Source></Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+    <ProjectFileVersion>12</ProjectFileVersion>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <PropertyGroup>
+    <BuildDependsOn>PrepareLicensePreviewNative;$(BuildDependsOn)</BuildDependsOn>
+    <RebuildDependsOn>PrepareLicensePreviewNative;$(RebuildDependsOn)</RebuildDependsOn>
+  </PropertyGroup>
+  <Target Name="PrepareLicensePreviewNative" BeforeTargets="PreBuildEvent;_PasCoreCompile"
+          Condition="'$(DesignTimeBuild)'!='true'">
+    <Error Condition="'$(Platform)'!='Win64' or '$(Config)'!='Release'"
+           Text="LICENSE_UI_PREVIEW_WIN64_RELEASE_REQUIRED: Config=$(Config); Platform=$(Platform). Activate Release and Windows 64-bit for Cozy.LicenseUIProbe." />
+    <Error Condition="!Exists('$(BDS)\bin\bcc64.exe')"
+           Text="LICENSE_UI_PREVIEW_CLASSIC_BCC64_REQUIRED" />
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.Projects\Cozy.Client\Cozy.ClientResources.res')"
+           Text="LICENSE_UI_PREVIEW_PUBLIC_RESOURCE_MISSING" />
+    <!-- The DPR explicitly links this existing public resource. Audit it
+         against the production manifest so the preflight uses real DPI
+         awareness rather than relying only on an IDE property. -->
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Assert-OverlayManifest.ps1&quot; -ManifestPath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Client\Cozy.Client.manifest&quot; -ResourcePath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Client\Cozy.ClientResources.res&quot;" />
+    <!-- The same reviewed production preparation audits the exact 29 C
+         exports before publishing the one explicit $L object. No fault
+         translation unit, copied old object or manual compiler step. -->
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="call &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Build_ImGui_Win64.bat&quot; &quot;$(BDS)&quot;" />
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_bridge.o')"
+           Text="LICENSE_UI_PREVIEW_PRODUCTION_OBJECT_MISSING" />
+  </Target>
+  <Target Name="AuditLicensePreviewImage" AfterTargets="Build;Rebuild">
+    <Error Condition="!Exists('$(DCC_ExeOutput)\Cozy.LicenseUIProbe.exe')"
+           Text="LICENSE_UI_PREVIEW_EXECUTABLE_MISSING" />
+    <!-- Static image audits only: running this preview is a separate action. -->
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Normalize-PE-Unwind.ps1&quot; -ImagePath &quot;$(DCC_ExeOutput)\Cozy.LicenseUIProbe.exe&quot;" />
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Assert-OverlayManifest.ps1&quot; -ManifestPath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Client\Cozy.Client.manifest&quot; -ImagePath &quot;$(DCC_ExeOutput)\Cozy.LicenseUIProbe.exe&quot;" />
+  </Target>
+  <ItemGroup>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsOverlay.pas" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.License.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Security.pas" />
+  </ItemGroup>
+</Project>

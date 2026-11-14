@@ -1,0 +1,72 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{4C2A73FB-6ED2-5B8F-876D-326C0FF04D26}</ProjectGuid>
+    <ProjectVersion>21.0</ProjectVersion>
+    <FrameworkType>None</FrameworkType>
+    <MainSource>Cozy.NHW.RuntimeProbe.dpr</MainSource>
+    <Base>True</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TargetedPlatforms>2</TargetedPlatforms>
+    <AppType>Console</AppType>
+    <DCC_DcuOutput>.\dcu\$(Platform)\$(Config)</DCC_DcuOutput>
+    <DCC_ExeOutput>.</DCC_ExeOutput>
+    <DCC_UnitSearchPath>.;..\Cozy.NHW.Validation;..\..\..\Cozy.Source\Cozy.Application;..\..\..\Cozy.Source\Cozy.Configuration;..\..\..\Cozy.Source\Cozy.Crypto;..\..\..\Cozy.Source\Cozy.Handoff;..\..\..\Cozy.Source\Cozy.Identity;..\..\..\Cozy.Source\Cozy.Integrity;..\..\..\Cozy.Source\Cozy.License;..\..\..\Cozy.Source\Cozy.Lifecycle;..\..\..\Cozy.Source\Cozy.Network;..\..\..\Cozy.Source\Cozy.Overlay;..\..\..\Cozy.Source\Cozy.Platform;..\..\..\Cozy.Source\Cozy.Protection;..\..\..\Cozy.Source\Cozy.Security;..\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+    <DCC_Namespace>System;Winapi;System.Win;$(DCC_Namespace)</DCC_Namespace>
+    <DCC_Define>RELEASE;$(DCC_Define)</DCC_Define>
+    <DCC_RangeChecking>true</DCC_RangeChecking>
+    <DCC_OverflowChecking>true</DCC_OverflowChecking>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_DebugInformation>false</DCC_DebugInformation>
+    <DCC_IncludePath>..\Cozy.NHW.Fixtures;$(DCC_IncludePath)</DCC_IncludePath>
+    <ProjectName>Cozy.NHW.RuntimeProbe</ProjectName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+    <Cfg_1>true</Cfg_1>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+    <Base_Win64>true</Base_Win64>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+    <Cfg_1_Win64>true</Cfg_1_Win64>
+    <CfgParent>Cfg_1</CfgParent>
+    <Cfg_1>true</Cfg_1>
+    <Base>true</Base>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="$(MainSource)">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source>
+          <Source Name="MainSource">Cozy.NHW.RuntimeProbe.dpr</Source>
+        </Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <Target Name="RequireRuntimeProbeConfiguration" BeforeTargets="PreBuildEvent;_PasCoreCompile" Condition="'$(DesignTimeBuild)'!='true'">
+    <Error Condition="'$(Platform)'!='Win64' or '$(Config)'!='Release'" Text="NHW_RUNTIME_PROBE_WIN64_RELEASE_REQUIRED" />
+  </Target>
+</Project>

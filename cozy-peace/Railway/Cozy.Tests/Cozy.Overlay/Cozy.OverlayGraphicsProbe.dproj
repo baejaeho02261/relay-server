@@ -1,0 +1,106 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{DB4D20AD-2B53-4AA6-9651-FEE72F964BE3}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.OverlayGraphicsProbe</ProjectName>
+    <MainSource>Cozy.OverlayGraphicsProbe.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Console</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TestOnlyDefine>GAME_OVERLAY_CONTRACT_TESTS</TestOnlyDefine>
+  </PropertyGroup>
+  <!-- Declare the configuration tree in this project for the RAD Studio IDE.
+       Imported compiler properties alone do not describe selectable nodes. -->
+  <PropertyGroup Condition="'$(Config)'=='Release' or '$(Cfg_1)'!=''">
+    <Cfg_1>true</Cfg_1>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Base)'=='true') or '$(Base_Win64)'!=''">
+    <Base_Win64>true</Base_Win64>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+  </PropertyGroup>
+  <PropertyGroup Condition="('$(Platform)'=='Win64' and '$(Cfg_1)'=='true') or '$(Cfg_1_Win64)'!=''">
+    <Cfg_1_Win64>true</Cfg_1_Win64>
+    <CfgParent>Cfg_1</CfgParent>
+    <Cfg_1>true</Cfg_1>
+    <Base>true</Base>
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <PropertyGroup>
+    <!-- The DPR explicitly links the audited production resource, as O does.
+         Disable IDE-generated competing manifests. Outputs remain in the
+         existing isolated manual-ide test directory, never an A/B/O folder. -->
+    <Manifest_File>(None)</Manifest_File>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.OverlayGraphicsProbe.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source><Source Name="MainSource">Cozy.OverlayGraphicsProbe.dpr</Source></Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+    <ProjectFileVersion>12</ProjectFileVersion>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <PropertyGroup>
+    <BuildDependsOn>PrepareGraphicsProbeNative;$(BuildDependsOn)</BuildDependsOn>
+    <RebuildDependsOn>PrepareGraphicsProbeNative;$(RebuildDependsOn)</RebuildDependsOn>
+  </PropertyGroup>
+  <Target Name="PrepareGraphicsProbeNative" BeforeTargets="PreBuildEvent;_PasCoreCompile"
+          Condition="'$(DesignTimeBuild)'!='true'">
+    <Error Condition="'$(Platform)'!='Win64' or '$(Config)'!='Release'"
+           Text="OVERLAY_GRAPHICS_PROBE_WIN64_RELEASE_REQUIRED: Config=$(Config); Platform=$(Platform). Activate Release and Windows 64-bit for Cozy.OverlayGraphicsProbe." />
+    <Error Condition="!Exists('$(BDS)\bin\bcc64.exe')"
+           Text="OVERLAY_GRAPHICS_PROBE_CLASSIC_BCC64_REQUIRED" />
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.Projects\Cozy.Overlay\Cozy.OverlayResources.res')"
+           Text="OVERLAY_GRAPHICS_PROBE_PUBLIC_RESOURCE_MISSING" />
+    <!-- The DPR explicitly links this existing public resource. Audit it
+         against the production manifest so the preflight uses real DPI
+         awareness rather than relying only on an IDE property. -->
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Assert-OverlayManifest.ps1&quot; -ManifestPath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Overlay\Cozy.Overlay.manifest&quot; -ResourcePath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Overlay\Cozy.OverlayResources.res&quot;" />
+    <!-- The same reviewed production preparation audits the exact 29 C
+         exports before publishing the one explicit $L object. No fault
+         translation unit, copied old object or manual compiler step. -->
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="call &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Build_ImGui_Win64.bat&quot; &quot;$(BDS)&quot;" />
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_bridge.o')"
+           Text="OVERLAY_GRAPHICS_PROBE_PRODUCTION_OBJECT_MISSING" />
+  </Target>
+  <Target Name="AuditGraphicsProbeImage" AfterTargets="Build;Rebuild">
+    <Error Condition="!Exists('$(DCC_ExeOutput)\Cozy.OverlayGraphicsProbe.exe')"
+           Text="OVERLAY_GRAPHICS_PROBE_EXECUTABLE_MISSING" />
+    <!-- Resource-only audit: this does not execute the test program. -->
+    <Exec WorkingDirectory="$(MSBuildProjectDirectory)"
+          Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(CozyNativeRoot)\Cozy.ImGui\Cozy.Build\Cozy.Assert-OverlayManifest.ps1&quot; -ManifestPath &quot;$(CozyNativeRoot)\Cozy.Projects\Cozy.Overlay\Cozy.Overlay.manifest&quot; -ImagePath &quot;$(DCC_ExeOutput)\Cozy.OverlayGraphicsProbe.exe&quot;" />
+  </Target>
+  <ItemGroup>
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsOverlay.pas" />
+  </ItemGroup>
+</Project>

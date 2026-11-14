@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{BFAFB292-20DB-53BB-9B09-0BA8DC9C80C7}</ProjectGuid>
+    <ProjectVersion>21.0</ProjectVersion>
+    <FrameworkType>None</FrameworkType>
+    <MainSource>Cozy.NHW.Native5B.Tests.dpr</MainSource>
+    <Base>True</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TargetedPlatforms>2</TargetedPlatforms>
+    <AppType>Console</AppType>
+    <DCC_DcuOutput>.\dcu\$(Platform)\$(Config)</DCC_DcuOutput>
+    <DCC_ExeOutput>.</DCC_ExeOutput>
+    <DCC_UnitSearchPath>.;..\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+    <DCC_Namespace>System;Winapi;System.Win;$(DCC_Namespace)</DCC_Namespace>
+    <DCC_Define>NHW_NATIVE5B_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_IncludePath>..\Cozy.NHW.Fixtures;$(DCC_IncludePath)</DCC_IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Release'">
+    <DCC_Define>RELEASE;NHW_NATIVE5B_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_DebugInformation>false</DCC_DebugInformation>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="$(MainSource)">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Types.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NativeSafety.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WinPointers.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Native.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CaptureRules.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.FileNative.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CaptureNative.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AsyncNative.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HeapTLSNative.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.StackNative.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5B.File.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5B.Capture.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5B.Async.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5B.HeapTLS.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5B.Stack.inc" />
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source>
+          <Source Name="MainSource">Cozy.NHW.Native5B.Tests.dpr</Source>
+        </Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+</Project>

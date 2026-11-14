@@ -1,0 +1,1026 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" DefaultTargets="Build">
+  <PropertyGroup>
+    <ProjectGuid>{C8F4D0C6-C9E9-530C-95BE-6536DF622445}</ProjectGuid>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+  </PropertyGroup>
+  <ItemGroup>
+    <Projects Include="Cozy.NHW.Context.Tests\Cozy.NHW.Context.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.AdvancedCorrelation.Tests\Cozy.NHW.AdvancedCorrelation.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.AllocationGuard.Tests\Cozy.NHW.AllocationGuard.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.AsyncRules.Tests\Cozy.NHW.AsyncRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Behavior.Tests\Cozy.NHW.Behavior.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.CaptureRules.Test\Cozy.NHW.CaptureRules.Test.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ETWAbi.Tests\Cozy.NHW.ETWAbi.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ETWFusion.Tests\Cozy.NHW.ETWFusion.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ExceptionRules.Tests\Cozy.NHW.ExceptionRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ExportRules.Tests\Cozy.NHW.ExportRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.FileGuard.Tests\Cozy.NHW.FileGuard.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Final12.Tests\Cozy.NHW.Final12.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Hardened4.Tests\Cozy.NHW.Hardened4.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.HeapTLSRules.Tests\Cozy.NHW.HeapTLSRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.HeapTLSSmoke\Cozy.NHW.HeapTLSSmoke.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.IPC.Tests\Cozy.NHW.IPC.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Lifecycle.Tests\Cozy.NHW.Lifecycle.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.MappingGuard.Tests\Cozy.NHW.MappingGuard.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Namespace.Tests\Cozy.NHW.Namespace.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native10M.Tests\Cozy.NHW.Native10M.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native10N.Tests\Cozy.NHW.Native10N.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native10O.Tests\Cozy.NHW.Native10O.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native10P.Tests\Cozy.NHW.Native10P.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native10Q.Tests\Cozy.NHW.Native10Q.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5.Tests\Cozy.NHW.Native5.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5B.Tests\Cozy.NHW.Native5B.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5C.Tests\Cozy.NHW.Native5C.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5D.Tests\Cozy.NHW.Native5D.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5E.Tests\Cozy.NHW.Native5E.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5F.Tests\Cozy.NHW.Native5F.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5G.Tests\Cozy.NHW.Native5G.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5H.Tests\Cozy.NHW.Native5H.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5I.Tests\Cozy.NHW.Native5I.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5J.Tests\Cozy.NHW.Native5J.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5K.Tests\Cozy.NHW.Native5K.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Native5L.Tests\Cozy.NHW.Native5L.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.NetworkRules.Tests\Cozy.NHW.NetworkRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.PECodeIntegrity.Smoke\Cozy.NHW.PECodeIntegrity.Smoke.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.PERules.Tests\Cozy.NHW.PERules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.PathRules.Tests\Cozy.NHW.PathRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ProtectionGuard.Tests\Cozy.NHW.ProtectionGuard.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ReadCanarySmoke\Cozy.NHW.ReadCanarySmoke.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ReadRulesTests\Cozy.NHW.ReadRulesTests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Registry.Tests\Cozy.NHW.Registry.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Scheduler.Tests\Cozy.NHW.Scheduler.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Security.Tests\Cozy.NHW.Security.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.SelfNative.Smoke\Cozy.NHW.SelfNative.Smoke.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.SelfRules.Tests\Cozy.NHW.SelfRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Stability.Tests\Cozy.NHW.Stability.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.StackGuard.Tests\Cozy.NHW.StackGuard.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.ThreadOrigin.Tests\Cozy.NHW.ThreadOrigin.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.WaitChainRules.Tests\Cozy.NHW.WaitChainRules.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.WriteRulesTests\Cozy.NHW.WriteRulesTests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.WriteWatchSmoke\Cozy.NHW.WriteWatchSmoke.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.v100.Regression.Tests\Cozy.NHW.v100.Regression.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.v109.Selected.Tests\Cozy.NHW.v109.Selected.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.v50.Replay.Tests\Cozy.NHW.v50.Replay.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.v60.Regression.Tests\Cozy.NHW.v60.Regression.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.v70.Regression.Tests\Cozy.NHW.v70.Regression.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.v80.Regression.Tests\Cozy.NHW.v80.Regression.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.v90.Regression.Tests\Cozy.NHW.v90.Regression.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.KernelTrust5A.Tests\Cozy.NHW.KernelTrust5A.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.KernelTrust5B.Tests\Cozy.NHW.KernelTrust5B.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.KernelTrust5C.Tests\Cozy.NHW.KernelTrust5C.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.KernelTrust5D.Tests\Cozy.NHW.KernelTrust5D.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.KernelTrust5E.Tests\Cozy.NHW.KernelTrust5E.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.KernelTrust5F.Tests\Cozy.NHW.KernelTrust5F.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.KernelTrust5F.Live\Cozy.NHW.KernelTrust5F.Live.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Validation\Cozy.NHW.Validation.Runner.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10.Tests\Cozy.NHW.Refactor10.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10U.Tests\Cozy.NHW.Refactor10U.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10V.Tests\Cozy.NHW.Refactor10V.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10W.Tests\Cozy.NHW.Refactor10W.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10X.Tests\Cozy.NHW.Refactor10X.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10Y.Tests\Cozy.NHW.Refactor10Y.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10Z.Tests\Cozy.NHW.Refactor10Z.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10AA.Tests\Cozy.NHW.Refactor10AA.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10AB.Tests\Cozy.NHW.Refactor10AB.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10AC.Tests\Cozy.NHW.Refactor10AC.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10AD.Tests\Cozy.NHW.Refactor10AD.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Refactor10AE.Tests\Cozy.NHW.Refactor10AE.Tests.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.RuntimeProbe\Cozy.NHW.RuntimeProbe.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.Observer.Integration\Cozy.NHW.Observer.Integration.dproj">
+      <Dependencies />
+    </Projects>
+    <Projects Include="Cozy.NHW.DetectionJournal\Cozy.NHW.DetectionJournal.dproj">
+      <Dependencies />
+    </Projects>
+  </ItemGroup>
+  <Target Name="Cozy.NHW.AdvancedCorrelation.Tests">
+    <MSBuild Projects="Cozy.NHW.AdvancedCorrelation.Tests\Cozy.NHW.AdvancedCorrelation.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AdvancedCorrelation.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.AdvancedCorrelation.Tests\Cozy.NHW.AdvancedCorrelation.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AdvancedCorrelation.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.AdvancedCorrelation.Tests\Cozy.NHW.AdvancedCorrelation.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AllocationGuard.Tests">
+    <MSBuild Projects="Cozy.NHW.AllocationGuard.Tests\Cozy.NHW.AllocationGuard.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AllocationGuard.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.AllocationGuard.Tests\Cozy.NHW.AllocationGuard.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AllocationGuard.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.AllocationGuard.Tests\Cozy.NHW.AllocationGuard.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AsyncRules.Tests">
+    <MSBuild Projects="Cozy.NHW.AsyncRules.Tests\Cozy.NHW.AsyncRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AsyncRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.AsyncRules.Tests\Cozy.NHW.AsyncRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.AsyncRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.AsyncRules.Tests\Cozy.NHW.AsyncRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Behavior.Tests">
+    <MSBuild Projects="Cozy.NHW.Behavior.Tests\Cozy.NHW.Behavior.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Behavior.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Behavior.Tests\Cozy.NHW.Behavior.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Behavior.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Behavior.Tests\Cozy.NHW.Behavior.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.CaptureRules.Test">
+    <MSBuild Projects="Cozy.NHW.CaptureRules.Test\Cozy.NHW.CaptureRules.Test.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.CaptureRules.Test:Clean">
+    <MSBuild Projects="Cozy.NHW.CaptureRules.Test\Cozy.NHW.CaptureRules.Test.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.CaptureRules.Test:Make">
+    <MSBuild Projects="Cozy.NHW.CaptureRules.Test\Cozy.NHW.CaptureRules.Test.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ETWAbi.Tests">
+    <MSBuild Projects="Cozy.NHW.ETWAbi.Tests\Cozy.NHW.ETWAbi.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ETWAbi.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.ETWAbi.Tests\Cozy.NHW.ETWAbi.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ETWAbi.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.ETWAbi.Tests\Cozy.NHW.ETWAbi.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ETWFusion.Tests">
+    <MSBuild Projects="Cozy.NHW.ETWFusion.Tests\Cozy.NHW.ETWFusion.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ETWFusion.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.ETWFusion.Tests\Cozy.NHW.ETWFusion.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ETWFusion.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.ETWFusion.Tests\Cozy.NHW.ETWFusion.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ExceptionRules.Tests">
+    <MSBuild Projects="Cozy.NHW.ExceptionRules.Tests\Cozy.NHW.ExceptionRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ExceptionRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.ExceptionRules.Tests\Cozy.NHW.ExceptionRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ExceptionRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.ExceptionRules.Tests\Cozy.NHW.ExceptionRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ExportRules.Tests">
+    <MSBuild Projects="Cozy.NHW.ExportRules.Tests\Cozy.NHW.ExportRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ExportRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.ExportRules.Tests\Cozy.NHW.ExportRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ExportRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.ExportRules.Tests\Cozy.NHW.ExportRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.FileGuard.Tests">
+    <MSBuild Projects="Cozy.NHW.FileGuard.Tests\Cozy.NHW.FileGuard.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.FileGuard.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.FileGuard.Tests\Cozy.NHW.FileGuard.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.FileGuard.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.FileGuard.Tests\Cozy.NHW.FileGuard.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Final12.Tests">
+    <MSBuild Projects="Cozy.NHW.Final12.Tests\Cozy.NHW.Final12.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Final12.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Final12.Tests\Cozy.NHW.Final12.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Final12.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Final12.Tests\Cozy.NHW.Final12.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Hardened4.Tests">
+    <MSBuild Projects="Cozy.NHW.Hardened4.Tests\Cozy.NHW.Hardened4.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Hardened4.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Hardened4.Tests\Cozy.NHW.Hardened4.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Hardened4.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Hardened4.Tests\Cozy.NHW.Hardened4.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.HeapTLSRules.Tests">
+    <MSBuild Projects="Cozy.NHW.HeapTLSRules.Tests\Cozy.NHW.HeapTLSRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.HeapTLSRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.HeapTLSRules.Tests\Cozy.NHW.HeapTLSRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.HeapTLSRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.HeapTLSRules.Tests\Cozy.NHW.HeapTLSRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.HeapTLSSmoke">
+    <MSBuild Projects="Cozy.NHW.HeapTLSSmoke\Cozy.NHW.HeapTLSSmoke.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.HeapTLSSmoke:Clean">
+    <MSBuild Projects="Cozy.NHW.HeapTLSSmoke\Cozy.NHW.HeapTLSSmoke.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.HeapTLSSmoke:Make">
+    <MSBuild Projects="Cozy.NHW.HeapTLSSmoke\Cozy.NHW.HeapTLSSmoke.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.IPC.Tests">
+    <MSBuild Projects="Cozy.NHW.IPC.Tests\Cozy.NHW.IPC.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.IPC.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.IPC.Tests\Cozy.NHW.IPC.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.IPC.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.IPC.Tests\Cozy.NHW.IPC.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Lifecycle.Tests">
+    <MSBuild Projects="Cozy.NHW.Lifecycle.Tests\Cozy.NHW.Lifecycle.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Lifecycle.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Lifecycle.Tests\Cozy.NHW.Lifecycle.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Lifecycle.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Lifecycle.Tests\Cozy.NHW.Lifecycle.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.MappingGuard.Tests">
+    <MSBuild Projects="Cozy.NHW.MappingGuard.Tests\Cozy.NHW.MappingGuard.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.MappingGuard.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.MappingGuard.Tests\Cozy.NHW.MappingGuard.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.MappingGuard.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.MappingGuard.Tests\Cozy.NHW.MappingGuard.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Namespace.Tests">
+    <MSBuild Projects="Cozy.NHW.Namespace.Tests\Cozy.NHW.Namespace.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Namespace.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Namespace.Tests\Cozy.NHW.Namespace.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Namespace.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Namespace.Tests\Cozy.NHW.Namespace.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10M.Tests">
+    <MSBuild Projects="Cozy.NHW.Native10M.Tests\Cozy.NHW.Native10M.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10M.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native10M.Tests\Cozy.NHW.Native10M.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10M.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native10M.Tests\Cozy.NHW.Native10M.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10N.Tests">
+    <MSBuild Projects="Cozy.NHW.Native10N.Tests\Cozy.NHW.Native10N.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10N.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native10N.Tests\Cozy.NHW.Native10N.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10N.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native10N.Tests\Cozy.NHW.Native10N.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10O.Tests">
+    <MSBuild Projects="Cozy.NHW.Native10O.Tests\Cozy.NHW.Native10O.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10O.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native10O.Tests\Cozy.NHW.Native10O.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10O.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native10O.Tests\Cozy.NHW.Native10O.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10P.Tests">
+    <MSBuild Projects="Cozy.NHW.Native10P.Tests\Cozy.NHW.Native10P.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10P.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native10P.Tests\Cozy.NHW.Native10P.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10P.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native10P.Tests\Cozy.NHW.Native10P.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10Q.Tests">
+    <MSBuild Projects="Cozy.NHW.Native10Q.Tests\Cozy.NHW.Native10Q.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10Q.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native10Q.Tests\Cozy.NHW.Native10Q.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native10Q.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native10Q.Tests\Cozy.NHW.Native10Q.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5.Tests\Cozy.NHW.Native5.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5.Tests\Cozy.NHW.Native5.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5.Tests\Cozy.NHW.Native5.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5B.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5B.Tests\Cozy.NHW.Native5B.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5B.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5B.Tests\Cozy.NHW.Native5B.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5B.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5B.Tests\Cozy.NHW.Native5B.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5C.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5C.Tests\Cozy.NHW.Native5C.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5C.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5C.Tests\Cozy.NHW.Native5C.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5C.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5C.Tests\Cozy.NHW.Native5C.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5D.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5D.Tests\Cozy.NHW.Native5D.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5D.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5D.Tests\Cozy.NHW.Native5D.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5D.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5D.Tests\Cozy.NHW.Native5D.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5E.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5E.Tests\Cozy.NHW.Native5E.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5E.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5E.Tests\Cozy.NHW.Native5E.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5E.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5E.Tests\Cozy.NHW.Native5E.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5F.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5F.Tests\Cozy.NHW.Native5F.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5F.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5F.Tests\Cozy.NHW.Native5F.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5F.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5F.Tests\Cozy.NHW.Native5F.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5G.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5G.Tests\Cozy.NHW.Native5G.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5G.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5G.Tests\Cozy.NHW.Native5G.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5G.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5G.Tests\Cozy.NHW.Native5G.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5H.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5H.Tests\Cozy.NHW.Native5H.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5H.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5H.Tests\Cozy.NHW.Native5H.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5H.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5H.Tests\Cozy.NHW.Native5H.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5I.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5I.Tests\Cozy.NHW.Native5I.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5I.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5I.Tests\Cozy.NHW.Native5I.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5I.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5I.Tests\Cozy.NHW.Native5I.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5J.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5J.Tests\Cozy.NHW.Native5J.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5J.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5J.Tests\Cozy.NHW.Native5J.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5J.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5J.Tests\Cozy.NHW.Native5J.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5K.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5K.Tests\Cozy.NHW.Native5K.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5K.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5K.Tests\Cozy.NHW.Native5K.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5K.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5K.Tests\Cozy.NHW.Native5K.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5L.Tests">
+    <MSBuild Projects="Cozy.NHW.Native5L.Tests\Cozy.NHW.Native5L.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5L.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Native5L.Tests\Cozy.NHW.Native5L.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Native5L.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Native5L.Tests\Cozy.NHW.Native5L.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.NetworkRules.Tests">
+    <MSBuild Projects="Cozy.NHW.NetworkRules.Tests\Cozy.NHW.NetworkRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.NetworkRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.NetworkRules.Tests\Cozy.NHW.NetworkRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.NetworkRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.NetworkRules.Tests\Cozy.NHW.NetworkRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PECodeIntegrity.Smoke">
+    <MSBuild Projects="Cozy.NHW.PECodeIntegrity.Smoke\Cozy.NHW.PECodeIntegrity.Smoke.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PECodeIntegrity.Smoke:Clean">
+    <MSBuild Projects="Cozy.NHW.PECodeIntegrity.Smoke\Cozy.NHW.PECodeIntegrity.Smoke.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PECodeIntegrity.Smoke:Make">
+    <MSBuild Projects="Cozy.NHW.PECodeIntegrity.Smoke\Cozy.NHW.PECodeIntegrity.Smoke.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PERules.Tests">
+    <MSBuild Projects="Cozy.NHW.PERules.Tests\Cozy.NHW.PERules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PERules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.PERules.Tests\Cozy.NHW.PERules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PERules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.PERules.Tests\Cozy.NHW.PERules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PathRules.Tests">
+    <MSBuild Projects="Cozy.NHW.PathRules.Tests\Cozy.NHW.PathRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PathRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.PathRules.Tests\Cozy.NHW.PathRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.PathRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.PathRules.Tests\Cozy.NHW.PathRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ProtectionGuard.Tests">
+    <MSBuild Projects="Cozy.NHW.ProtectionGuard.Tests\Cozy.NHW.ProtectionGuard.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ProtectionGuard.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.ProtectionGuard.Tests\Cozy.NHW.ProtectionGuard.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ProtectionGuard.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.ProtectionGuard.Tests\Cozy.NHW.ProtectionGuard.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ReadCanarySmoke">
+    <MSBuild Projects="Cozy.NHW.ReadCanarySmoke\Cozy.NHW.ReadCanarySmoke.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ReadCanarySmoke:Clean">
+    <MSBuild Projects="Cozy.NHW.ReadCanarySmoke\Cozy.NHW.ReadCanarySmoke.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ReadCanarySmoke:Make">
+    <MSBuild Projects="Cozy.NHW.ReadCanarySmoke\Cozy.NHW.ReadCanarySmoke.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ReadRulesTests">
+    <MSBuild Projects="Cozy.NHW.ReadRulesTests\Cozy.NHW.ReadRulesTests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ReadRulesTests:Clean">
+    <MSBuild Projects="Cozy.NHW.ReadRulesTests\Cozy.NHW.ReadRulesTests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ReadRulesTests:Make">
+    <MSBuild Projects="Cozy.NHW.ReadRulesTests\Cozy.NHW.ReadRulesTests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Registry.Tests">
+    <MSBuild Projects="Cozy.NHW.Registry.Tests\Cozy.NHW.Registry.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Registry.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Registry.Tests\Cozy.NHW.Registry.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Registry.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Registry.Tests\Cozy.NHW.Registry.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Scheduler.Tests">
+    <MSBuild Projects="Cozy.NHW.Scheduler.Tests\Cozy.NHW.Scheduler.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Scheduler.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Scheduler.Tests\Cozy.NHW.Scheduler.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Scheduler.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Scheduler.Tests\Cozy.NHW.Scheduler.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Security.Tests">
+    <MSBuild Projects="Cozy.NHW.Security.Tests\Cozy.NHW.Security.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Security.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Security.Tests\Cozy.NHW.Security.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Security.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Security.Tests\Cozy.NHW.Security.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.SelfNative.Smoke">
+    <MSBuild Projects="Cozy.NHW.SelfNative.Smoke\Cozy.NHW.SelfNative.Smoke.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.SelfNative.Smoke:Clean">
+    <MSBuild Projects="Cozy.NHW.SelfNative.Smoke\Cozy.NHW.SelfNative.Smoke.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.SelfNative.Smoke:Make">
+    <MSBuild Projects="Cozy.NHW.SelfNative.Smoke\Cozy.NHW.SelfNative.Smoke.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.SelfRules.Tests">
+    <MSBuild Projects="Cozy.NHW.SelfRules.Tests\Cozy.NHW.SelfRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.SelfRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.SelfRules.Tests\Cozy.NHW.SelfRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.SelfRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.SelfRules.Tests\Cozy.NHW.SelfRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Stability.Tests">
+    <MSBuild Projects="Cozy.NHW.Stability.Tests\Cozy.NHW.Stability.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Stability.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Stability.Tests\Cozy.NHW.Stability.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Stability.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Stability.Tests\Cozy.NHW.Stability.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.StackGuard.Tests">
+    <MSBuild Projects="Cozy.NHW.StackGuard.Tests\Cozy.NHW.StackGuard.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.StackGuard.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.StackGuard.Tests\Cozy.NHW.StackGuard.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.StackGuard.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.StackGuard.Tests\Cozy.NHW.StackGuard.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ThreadOrigin.Tests">
+    <MSBuild Projects="Cozy.NHW.ThreadOrigin.Tests\Cozy.NHW.ThreadOrigin.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ThreadOrigin.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.ThreadOrigin.Tests\Cozy.NHW.ThreadOrigin.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.ThreadOrigin.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.ThreadOrigin.Tests\Cozy.NHW.ThreadOrigin.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WaitChainRules.Tests">
+    <MSBuild Projects="Cozy.NHW.WaitChainRules.Tests\Cozy.NHW.WaitChainRules.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WaitChainRules.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.WaitChainRules.Tests\Cozy.NHW.WaitChainRules.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WaitChainRules.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.WaitChainRules.Tests\Cozy.NHW.WaitChainRules.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WriteRulesTests">
+    <MSBuild Projects="Cozy.NHW.WriteRulesTests\Cozy.NHW.WriteRulesTests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WriteRulesTests:Clean">
+    <MSBuild Projects="Cozy.NHW.WriteRulesTests\Cozy.NHW.WriteRulesTests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WriteRulesTests:Make">
+    <MSBuild Projects="Cozy.NHW.WriteRulesTests\Cozy.NHW.WriteRulesTests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WriteWatchSmoke">
+    <MSBuild Projects="Cozy.NHW.WriteWatchSmoke\Cozy.NHW.WriteWatchSmoke.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WriteWatchSmoke:Clean">
+    <MSBuild Projects="Cozy.NHW.WriteWatchSmoke\Cozy.NHW.WriteWatchSmoke.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.WriteWatchSmoke:Make">
+    <MSBuild Projects="Cozy.NHW.WriteWatchSmoke\Cozy.NHW.WriteWatchSmoke.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v100.Regression.Tests">
+    <MSBuild Projects="Cozy.NHW.v100.Regression.Tests\Cozy.NHW.v100.Regression.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v100.Regression.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.v100.Regression.Tests\Cozy.NHW.v100.Regression.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v100.Regression.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.v100.Regression.Tests\Cozy.NHW.v100.Regression.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v109.Selected.Tests">
+    <MSBuild Projects="Cozy.NHW.v109.Selected.Tests\Cozy.NHW.v109.Selected.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v109.Selected.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.v109.Selected.Tests\Cozy.NHW.v109.Selected.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v109.Selected.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.v109.Selected.Tests\Cozy.NHW.v109.Selected.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v50.Replay.Tests">
+    <MSBuild Projects="Cozy.NHW.v50.Replay.Tests\Cozy.NHW.v50.Replay.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v50.Replay.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.v50.Replay.Tests\Cozy.NHW.v50.Replay.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v50.Replay.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.v50.Replay.Tests\Cozy.NHW.v50.Replay.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v60.Regression.Tests">
+    <MSBuild Projects="Cozy.NHW.v60.Regression.Tests\Cozy.NHW.v60.Regression.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v60.Regression.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.v60.Regression.Tests\Cozy.NHW.v60.Regression.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v60.Regression.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.v60.Regression.Tests\Cozy.NHW.v60.Regression.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v70.Regression.Tests">
+    <MSBuild Projects="Cozy.NHW.v70.Regression.Tests\Cozy.NHW.v70.Regression.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v70.Regression.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.v70.Regression.Tests\Cozy.NHW.v70.Regression.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v70.Regression.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.v70.Regression.Tests\Cozy.NHW.v70.Regression.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v80.Regression.Tests">
+    <MSBuild Projects="Cozy.NHW.v80.Regression.Tests\Cozy.NHW.v80.Regression.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v80.Regression.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.v80.Regression.Tests\Cozy.NHW.v80.Regression.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v80.Regression.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.v80.Regression.Tests\Cozy.NHW.v80.Regression.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v90.Regression.Tests">
+    <MSBuild Projects="Cozy.NHW.v90.Regression.Tests\Cozy.NHW.v90.Regression.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v90.Regression.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.v90.Regression.Tests\Cozy.NHW.v90.Regression.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.v90.Regression.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.v90.Regression.Tests\Cozy.NHW.v90.Regression.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5A.Tests">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5A.Tests\Cozy.NHW.KernelTrust5A.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5A.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5A.Tests\Cozy.NHW.KernelTrust5A.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5A.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5A.Tests\Cozy.NHW.KernelTrust5A.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5B.Tests">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5B.Tests\Cozy.NHW.KernelTrust5B.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5B.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5B.Tests\Cozy.NHW.KernelTrust5B.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5B.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5B.Tests\Cozy.NHW.KernelTrust5B.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5C.Tests">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5C.Tests\Cozy.NHW.KernelTrust5C.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5C.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5C.Tests\Cozy.NHW.KernelTrust5C.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5C.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5C.Tests\Cozy.NHW.KernelTrust5C.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5D.Tests">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5D.Tests\Cozy.NHW.KernelTrust5D.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5D.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5D.Tests\Cozy.NHW.KernelTrust5D.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5D.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5D.Tests\Cozy.NHW.KernelTrust5D.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5E.Tests">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5E.Tests\Cozy.NHW.KernelTrust5E.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5E.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5E.Tests\Cozy.NHW.KernelTrust5E.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5E.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5E.Tests\Cozy.NHW.KernelTrust5E.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5F.Tests">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5F.Tests\Cozy.NHW.KernelTrust5F.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5F.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5F.Tests\Cozy.NHW.KernelTrust5F.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5F.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5F.Tests\Cozy.NHW.KernelTrust5F.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5F.Live">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5F.Live\Cozy.NHW.KernelTrust5F.Live.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5F.Live:Clean">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5F.Live\Cozy.NHW.KernelTrust5F.Live.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.KernelTrust5F.Live:Make">
+    <MSBuild Projects="Cozy.NHW.KernelTrust5F.Live\Cozy.NHW.KernelTrust5F.Live.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Validation.Runner">
+    <MSBuild Projects="Cozy.NHW.Validation\Cozy.NHW.Validation.Runner.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Validation.Runner:Clean">
+    <MSBuild Projects="Cozy.NHW.Validation\Cozy.NHW.Validation.Runner.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Validation.Runner:Make">
+    <MSBuild Projects="Cozy.NHW.Validation\Cozy.NHW.Validation.Runner.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <ProjectExtensions>
+    <Borland.Personality>Default.Personality.12</Borland.Personality>
+    <Borland.ProjectType />
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')" />
+  <Target Name="Cozy.NHW.Refactor10.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10.Tests\Cozy.NHW.Refactor10.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10.Tests\Cozy.NHW.Refactor10.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10.Tests\Cozy.NHW.Refactor10.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10U.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10U.Tests\Cozy.NHW.Refactor10U.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10U.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10U.Tests\Cozy.NHW.Refactor10U.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10U.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10U.Tests\Cozy.NHW.Refactor10U.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10V.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10V.Tests\Cozy.NHW.Refactor10V.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10V.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10V.Tests\Cozy.NHW.Refactor10V.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10V.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10V.Tests\Cozy.NHW.Refactor10V.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10W.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10W.Tests\Cozy.NHW.Refactor10W.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10W.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10W.Tests\Cozy.NHW.Refactor10W.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10W.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10W.Tests\Cozy.NHW.Refactor10W.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10X.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10X.Tests\Cozy.NHW.Refactor10X.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10X.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10X.Tests\Cozy.NHW.Refactor10X.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10X.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10X.Tests\Cozy.NHW.Refactor10X.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10Y.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10Y.Tests\Cozy.NHW.Refactor10Y.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10Y.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10Y.Tests\Cozy.NHW.Refactor10Y.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10Y.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10Y.Tests\Cozy.NHW.Refactor10Y.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10Z.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10Z.Tests\Cozy.NHW.Refactor10Z.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10Z.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10Z.Tests\Cozy.NHW.Refactor10Z.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10Z.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10Z.Tests\Cozy.NHW.Refactor10Z.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AA.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10AA.Tests\Cozy.NHW.Refactor10AA.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AA.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10AA.Tests\Cozy.NHW.Refactor10AA.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AA.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10AA.Tests\Cozy.NHW.Refactor10AA.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AB.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10AB.Tests\Cozy.NHW.Refactor10AB.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AB.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10AB.Tests\Cozy.NHW.Refactor10AB.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AB.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10AB.Tests\Cozy.NHW.Refactor10AB.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AC.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10AC.Tests\Cozy.NHW.Refactor10AC.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AC.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10AC.Tests\Cozy.NHW.Refactor10AC.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AC.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10AC.Tests\Cozy.NHW.Refactor10AC.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AD.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10AD.Tests\Cozy.NHW.Refactor10AD.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AD.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10AD.Tests\Cozy.NHW.Refactor10AD.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AD.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10AD.Tests\Cozy.NHW.Refactor10AD.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AE.Tests">
+    <MSBuild Projects="Cozy.NHW.Refactor10AE.Tests\Cozy.NHW.Refactor10AE.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AE.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Refactor10AE.Tests\Cozy.NHW.Refactor10AE.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Refactor10AE.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Refactor10AE.Tests\Cozy.NHW.Refactor10AE.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Build" DependsOnTargets="Cozy.NHW.AdvancedCorrelation.Tests;Cozy.NHW.AllocationGuard.Tests;Cozy.NHW.AsyncRules.Tests;Cozy.NHW.Behavior.Tests;Cozy.NHW.CaptureRules.Test;Cozy.NHW.ETWAbi.Tests;Cozy.NHW.ETWFusion.Tests;Cozy.NHW.ExceptionRules.Tests;Cozy.NHW.ExportRules.Tests;Cozy.NHW.FileGuard.Tests;Cozy.NHW.Final12.Tests;Cozy.NHW.Hardened4.Tests;Cozy.NHW.HeapTLSRules.Tests;Cozy.NHW.HeapTLSSmoke;Cozy.NHW.IPC.Tests;Cozy.NHW.Lifecycle.Tests;Cozy.NHW.MappingGuard.Tests;Cozy.NHW.Namespace.Tests;Cozy.NHW.Native10M.Tests;Cozy.NHW.Native10N.Tests;Cozy.NHW.Native10O.Tests;Cozy.NHW.Native10P.Tests;Cozy.NHW.Native10Q.Tests;Cozy.NHW.Native5.Tests;Cozy.NHW.Native5B.Tests;Cozy.NHW.Native5C.Tests;Cozy.NHW.Native5D.Tests;Cozy.NHW.Native5E.Tests;Cozy.NHW.Native5F.Tests;Cozy.NHW.Native5G.Tests;Cozy.NHW.Native5H.Tests;Cozy.NHW.Native5I.Tests;Cozy.NHW.Native5J.Tests;Cozy.NHW.Native5K.Tests;Cozy.NHW.Native5L.Tests;Cozy.NHW.NetworkRules.Tests;Cozy.NHW.PECodeIntegrity.Smoke;Cozy.NHW.PERules.Tests;Cozy.NHW.PathRules.Tests;Cozy.NHW.ProtectionGuard.Tests;Cozy.NHW.ReadCanarySmoke;Cozy.NHW.ReadRulesTests;Cozy.NHW.Registry.Tests;Cozy.NHW.Scheduler.Tests;Cozy.NHW.Security.Tests;Cozy.NHW.SelfNative.Smoke;Cozy.NHW.SelfRules.Tests;Cozy.NHW.Stability.Tests;Cozy.NHW.StackGuard.Tests;Cozy.NHW.ThreadOrigin.Tests;Cozy.NHW.WaitChainRules.Tests;Cozy.NHW.WriteRulesTests;Cozy.NHW.WriteWatchSmoke;Cozy.NHW.v100.Regression.Tests;Cozy.NHW.v109.Selected.Tests;Cozy.NHW.v50.Replay.Tests;Cozy.NHW.v60.Regression.Tests;Cozy.NHW.v70.Regression.Tests;Cozy.NHW.v80.Regression.Tests;Cozy.NHW.v90.Regression.Tests;Cozy.NHW.KernelTrust5A.Tests;Cozy.NHW.KernelTrust5B.Tests;Cozy.NHW.KernelTrust5C.Tests;Cozy.NHW.KernelTrust5D.Tests;Cozy.NHW.KernelTrust5E.Tests;Cozy.NHW.KernelTrust5F.Tests;Cozy.NHW.KernelTrust5F.Live;Cozy.NHW.Validation.Runner;Cozy.NHW.Refactor10.Tests;Cozy.NHW.Refactor10U.Tests;Cozy.NHW.Refactor10V.Tests;Cozy.NHW.Refactor10W.Tests;Cozy.NHW.Refactor10X.Tests;Cozy.NHW.Refactor10Y.Tests;Cozy.NHW.Refactor10Z.Tests;Cozy.NHW.Refactor10AA.Tests;Cozy.NHW.Refactor10AB.Tests;Cozy.NHW.Refactor10AC.Tests;Cozy.NHW.Refactor10AD.Tests;Cozy.NHW.Refactor10AE.Tests;Cozy.NHW.RuntimeProbe;Cozy.NHW.Observer.Integration;Cozy.NHW.DetectionJournal;Cozy.NHW.Context.Tests" />
+  <Target Name="Clean" DependsOnTargets="Cozy.NHW.AdvancedCorrelation.Tests:Clean;Cozy.NHW.AllocationGuard.Tests:Clean;Cozy.NHW.AsyncRules.Tests:Clean;Cozy.NHW.Behavior.Tests:Clean;Cozy.NHW.CaptureRules.Test:Clean;Cozy.NHW.ETWAbi.Tests:Clean;Cozy.NHW.ETWFusion.Tests:Clean;Cozy.NHW.ExceptionRules.Tests:Clean;Cozy.NHW.ExportRules.Tests:Clean;Cozy.NHW.FileGuard.Tests:Clean;Cozy.NHW.Final12.Tests:Clean;Cozy.NHW.Hardened4.Tests:Clean;Cozy.NHW.HeapTLSRules.Tests:Clean;Cozy.NHW.HeapTLSSmoke:Clean;Cozy.NHW.IPC.Tests:Clean;Cozy.NHW.Lifecycle.Tests:Clean;Cozy.NHW.MappingGuard.Tests:Clean;Cozy.NHW.Namespace.Tests:Clean;Cozy.NHW.Native10M.Tests:Clean;Cozy.NHW.Native10N.Tests:Clean;Cozy.NHW.Native10O.Tests:Clean;Cozy.NHW.Native10P.Tests:Clean;Cozy.NHW.Native10Q.Tests:Clean;Cozy.NHW.Native5.Tests:Clean;Cozy.NHW.Native5B.Tests:Clean;Cozy.NHW.Native5C.Tests:Clean;Cozy.NHW.Native5D.Tests:Clean;Cozy.NHW.Native5E.Tests:Clean;Cozy.NHW.Native5F.Tests:Clean;Cozy.NHW.Native5G.Tests:Clean;Cozy.NHW.Native5H.Tests:Clean;Cozy.NHW.Native5I.Tests:Clean;Cozy.NHW.Native5J.Tests:Clean;Cozy.NHW.Native5K.Tests:Clean;Cozy.NHW.Native5L.Tests:Clean;Cozy.NHW.NetworkRules.Tests:Clean;Cozy.NHW.PECodeIntegrity.Smoke:Clean;Cozy.NHW.PERules.Tests:Clean;Cozy.NHW.PathRules.Tests:Clean;Cozy.NHW.ProtectionGuard.Tests:Clean;Cozy.NHW.ReadCanarySmoke:Clean;Cozy.NHW.ReadRulesTests:Clean;Cozy.NHW.Registry.Tests:Clean;Cozy.NHW.Scheduler.Tests:Clean;Cozy.NHW.Security.Tests:Clean;Cozy.NHW.SelfNative.Smoke:Clean;Cozy.NHW.SelfRules.Tests:Clean;Cozy.NHW.Stability.Tests:Clean;Cozy.NHW.StackGuard.Tests:Clean;Cozy.NHW.ThreadOrigin.Tests:Clean;Cozy.NHW.WaitChainRules.Tests:Clean;Cozy.NHW.WriteRulesTests:Clean;Cozy.NHW.WriteWatchSmoke:Clean;Cozy.NHW.v100.Regression.Tests:Clean;Cozy.NHW.v109.Selected.Tests:Clean;Cozy.NHW.v50.Replay.Tests:Clean;Cozy.NHW.v60.Regression.Tests:Clean;Cozy.NHW.v70.Regression.Tests:Clean;Cozy.NHW.v80.Regression.Tests:Clean;Cozy.NHW.v90.Regression.Tests:Clean;Cozy.NHW.KernelTrust5A.Tests:Clean;Cozy.NHW.KernelTrust5B.Tests:Clean;Cozy.NHW.KernelTrust5C.Tests:Clean;Cozy.NHW.KernelTrust5D.Tests:Clean;Cozy.NHW.KernelTrust5E.Tests:Clean;Cozy.NHW.KernelTrust5F.Tests:Clean;Cozy.NHW.KernelTrust5F.Live:Clean;Cozy.NHW.Validation.Runner:Clean;Cozy.NHW.Refactor10.Tests:Clean;Cozy.NHW.Refactor10U.Tests:Clean;Cozy.NHW.Refactor10V.Tests:Clean;Cozy.NHW.Refactor10W.Tests:Clean;Cozy.NHW.Refactor10X.Tests:Clean;Cozy.NHW.Refactor10Y.Tests:Clean;Cozy.NHW.Refactor10Z.Tests:Clean;Cozy.NHW.Refactor10AA.Tests:Clean;Cozy.NHW.Refactor10AB.Tests:Clean;Cozy.NHW.Refactor10AC.Tests:Clean;Cozy.NHW.Refactor10AD.Tests:Clean;Cozy.NHW.Refactor10AE.Tests:Clean;Cozy.NHW.RuntimeProbe:Clean;Cozy.NHW.Observer.Integration:Clean;Cozy.NHW.DetectionJournal:Clean;Cozy.NHW.Context.Tests:Clean" />
+  <Target Name="Make" DependsOnTargets="Cozy.NHW.AdvancedCorrelation.Tests:Make;Cozy.NHW.AllocationGuard.Tests:Make;Cozy.NHW.AsyncRules.Tests:Make;Cozy.NHW.Behavior.Tests:Make;Cozy.NHW.CaptureRules.Test:Make;Cozy.NHW.ETWAbi.Tests:Make;Cozy.NHW.ETWFusion.Tests:Make;Cozy.NHW.ExceptionRules.Tests:Make;Cozy.NHW.ExportRules.Tests:Make;Cozy.NHW.FileGuard.Tests:Make;Cozy.NHW.Final12.Tests:Make;Cozy.NHW.Hardened4.Tests:Make;Cozy.NHW.HeapTLSRules.Tests:Make;Cozy.NHW.HeapTLSSmoke:Make;Cozy.NHW.IPC.Tests:Make;Cozy.NHW.Lifecycle.Tests:Make;Cozy.NHW.MappingGuard.Tests:Make;Cozy.NHW.Namespace.Tests:Make;Cozy.NHW.Native10M.Tests:Make;Cozy.NHW.Native10N.Tests:Make;Cozy.NHW.Native10O.Tests:Make;Cozy.NHW.Native10P.Tests:Make;Cozy.NHW.Native10Q.Tests:Make;Cozy.NHW.Native5.Tests:Make;Cozy.NHW.Native5B.Tests:Make;Cozy.NHW.Native5C.Tests:Make;Cozy.NHW.Native5D.Tests:Make;Cozy.NHW.Native5E.Tests:Make;Cozy.NHW.Native5F.Tests:Make;Cozy.NHW.Native5G.Tests:Make;Cozy.NHW.Native5H.Tests:Make;Cozy.NHW.Native5I.Tests:Make;Cozy.NHW.Native5J.Tests:Make;Cozy.NHW.Native5K.Tests:Make;Cozy.NHW.Native5L.Tests:Make;Cozy.NHW.NetworkRules.Tests:Make;Cozy.NHW.PECodeIntegrity.Smoke:Make;Cozy.NHW.PERules.Tests:Make;Cozy.NHW.PathRules.Tests:Make;Cozy.NHW.ProtectionGuard.Tests:Make;Cozy.NHW.ReadCanarySmoke:Make;Cozy.NHW.ReadRulesTests:Make;Cozy.NHW.Registry.Tests:Make;Cozy.NHW.Scheduler.Tests:Make;Cozy.NHW.Security.Tests:Make;Cozy.NHW.SelfNative.Smoke:Make;Cozy.NHW.SelfRules.Tests:Make;Cozy.NHW.Stability.Tests:Make;Cozy.NHW.StackGuard.Tests:Make;Cozy.NHW.ThreadOrigin.Tests:Make;Cozy.NHW.WaitChainRules.Tests:Make;Cozy.NHW.WriteRulesTests:Make;Cozy.NHW.WriteWatchSmoke:Make;Cozy.NHW.v100.Regression.Tests:Make;Cozy.NHW.v109.Selected.Tests:Make;Cozy.NHW.v50.Replay.Tests:Make;Cozy.NHW.v60.Regression.Tests:Make;Cozy.NHW.v70.Regression.Tests:Make;Cozy.NHW.v80.Regression.Tests:Make;Cozy.NHW.v90.Regression.Tests:Make;Cozy.NHW.KernelTrust5A.Tests:Make;Cozy.NHW.KernelTrust5B.Tests:Make;Cozy.NHW.KernelTrust5C.Tests:Make;Cozy.NHW.KernelTrust5D.Tests:Make;Cozy.NHW.KernelTrust5E.Tests:Make;Cozy.NHW.KernelTrust5F.Tests:Make;Cozy.NHW.KernelTrust5F.Live:Make;Cozy.NHW.Validation.Runner:Make;Cozy.NHW.Refactor10.Tests:Make;Cozy.NHW.Refactor10U.Tests:Make;Cozy.NHW.Refactor10V.Tests:Make;Cozy.NHW.Refactor10W.Tests:Make;Cozy.NHW.Refactor10X.Tests:Make;Cozy.NHW.Refactor10Y.Tests:Make;Cozy.NHW.Refactor10Z.Tests:Make;Cozy.NHW.Refactor10AA.Tests:Make;Cozy.NHW.Refactor10AB.Tests:Make;Cozy.NHW.Refactor10AC.Tests:Make;Cozy.NHW.Refactor10AD.Tests:Make;Cozy.NHW.Refactor10AE.Tests:Make;Cozy.NHW.RuntimeProbe:Make;Cozy.NHW.Observer.Integration:Make;Cozy.NHW.DetectionJournal:Make;Cozy.NHW.Context.Tests:Make" />
+  <Target Name="Cozy.NHW.RuntimeProbe">
+    <MSBuild Projects="Cozy.NHW.RuntimeProbe\Cozy.NHW.RuntimeProbe.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.RuntimeProbe:Clean">
+    <MSBuild Projects="Cozy.NHW.RuntimeProbe\Cozy.NHW.RuntimeProbe.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.RuntimeProbe:Make">
+    <MSBuild Projects="Cozy.NHW.RuntimeProbe\Cozy.NHW.RuntimeProbe.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Observer.Integration">
+    <MSBuild Projects="Cozy.NHW.Observer.Integration\Cozy.NHW.Observer.Integration.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Observer.Integration:Clean">
+    <MSBuild Projects="Cozy.NHW.Observer.Integration\Cozy.NHW.Observer.Integration.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Observer.Integration:Make">
+    <MSBuild Projects="Cozy.NHW.Observer.Integration\Cozy.NHW.Observer.Integration.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.DetectionJournal">
+    <MSBuild Projects="Cozy.NHW.DetectionJournal\Cozy.NHW.DetectionJournal.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.DetectionJournal:Clean">
+    <MSBuild Projects="Cozy.NHW.DetectionJournal\Cozy.NHW.DetectionJournal.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.DetectionJournal:Make">
+    <MSBuild Projects="Cozy.NHW.DetectionJournal\Cozy.NHW.DetectionJournal.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Context.Tests">
+    <MSBuild Projects="Cozy.NHW.Context.Tests\Cozy.NHW.Context.Tests.dproj" Targets="Build" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Context.Tests:Clean">
+    <MSBuild Projects="Cozy.NHW.Context.Tests\Cozy.NHW.Context.Tests.dproj" Targets="Clean" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+  <Target Name="Cozy.NHW.Context.Tests:Make">
+    <MSBuild Projects="Cozy.NHW.Context.Tests\Cozy.NHW.Context.Tests.dproj" Targets="Make" Properties="Config=$(Config);Platform=$(Platform)" BuildInParallel="false" />
+  </Target>
+</Project>

@@ -1,0 +1,75 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{1B029EBD-3FFC-548B-98AF-F51E6A155085}</ProjectGuid>
+    <ProjectVersion>21.0</ProjectVersion>
+    <FrameworkType>None</FrameworkType>
+    <MainSource>Cozy.NHW.Native10P.Tests.dpr</MainSource>
+    <Base>True</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TargetedPlatforms>2</TargetedPlatforms>
+    <AppType>Console</AppType>
+    <DCC_DcuOutput>.\dcu\$(Platform)\$(Config)</DCC_DcuOutput>
+    <DCC_ExeOutput>.</DCC_ExeOutput>
+    <DCC_UnitSearchPath>.;..\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+    <DCC_Namespace>System;Winapi;System.Win;$(DCC_Namespace)</DCC_Namespace>
+    <DCC_Define>NHW_NATIVE10P_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_RangeChecking>true</DCC_RangeChecking>
+    <DCC_OverflowChecking>false</DCC_OverflowChecking>
+    <DCC_IncludePath>..\Cozy.NHW.Fixtures;$(DCC_IncludePath)</DCC_IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Release'">
+    <DCC_Define>RELEASE;NHW_NATIVE10P_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_DebugInformation>false</DCC_DebugInformation>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="$(MainSource)">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SelfRules.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.SelfRules.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Scheduler.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.Scheduler.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MicroburstAccess.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.MicroburstAccess.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AdaptiveInspector.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.AdaptiveInspector.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.TriggeredSnapshot.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.TriggeredSnapshot.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.CoverageWindow.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.CoverageWindow.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.HighResolutionClock.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.HighResolutionClock.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ObservationTrust.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.ObservationTrust.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.ReplayValidation.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.ReplayValidation.inc" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.AdvancedRealtimeRegression.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native10P.AdvancedRealtimeRegression.inc" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source>
+          <Source Name="MainSource">Cozy.NHW.Native10P.Tests.dpr</Source>
+        </Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+</Project>

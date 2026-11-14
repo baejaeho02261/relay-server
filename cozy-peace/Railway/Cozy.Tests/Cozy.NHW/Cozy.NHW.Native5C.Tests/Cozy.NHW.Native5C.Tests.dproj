@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='utf-8'?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{ABE7C935-0848-59B7-813B-8831C5C5F514}</ProjectGuid>
+    <ProjectVersion>21.0</ProjectVersion>
+    <FrameworkType>None</FrameworkType>
+    <MainSource>Cozy.NHW.Native5C.Tests.dpr</MainSource>
+    <Base>True</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TargetedPlatforms>2</TargetedPlatforms>
+    <AppType>Console</AppType>
+    <DCC_DcuOutput>.\dcu\$(Platform)\$(Config)</DCC_DcuOutput>
+    <DCC_ExeOutput>.</DCC_ExeOutput>
+    <DCC_UnitSearchPath>.;..\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+    <DCC_Namespace>System;Winapi;System.Win;$(DCC_Namespace)</DCC_Namespace>
+    <DCC_Define>NHW_NATIVE5C_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_IncludePath>..\Cozy.NHW.Fixtures;$(DCC_IncludePath)</DCC_IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Config)'=='Release'">
+    <DCC_Define>RELEASE;NHW_NATIVE5C_TESTS;$(DCC_Define)</DCC_Define>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_DebugInformation>false</DCC_DebugInformation>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="$(MainSource)">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Base">
+      <Key>Base</Key>
+    </BuildConfiguration>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Types.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.NativeSafety.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WinPointers.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Native.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Process.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Lifecycle.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Logging.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Threads.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.WriteWatchNative.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.MappingNative.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.SchedulerNative.pas" />
+    <DCCReference Include="..\..\..\Cozy.Source\Cozy.Security.NHW\Cozy.NHW.Security.pas" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5C.Threads.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5C.WriteWatch.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5C.Mapping.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5C.Scheduler.inc" />
+    <None Include="..\Cozy.NHW.Fixtures\Cozy.NHW.Native5C.Security.inc" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <Borland.Personality>Delphi.Personality.12</Borland.Personality>
+    <Borland.ProjectType>Application</Borland.ProjectType>
+    <BorlandProject>
+      <Delphi.Personality>
+        <Source>
+          <Source Name="MainSource">Cozy.NHW.Native5C.Tests.dpr</Source>
+        </Source>
+      </Delphi.Personality>
+      <Platforms>
+        <Platform value="Win64">True</Platform>
+        <Platform value="Win32">False</Platform>
+      </Platforms>
+    </BorlandProject>
+  </ProjectExtensions>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+</Project>

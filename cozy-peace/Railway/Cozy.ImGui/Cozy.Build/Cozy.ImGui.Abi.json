@@ -1,0 +1,886 @@
+{
+  "schemaVersion": 1,
+  "target": "classic-delphi-win64",
+  "pointerBytes": 8,
+  "hostVersion": 3,
+  "inputVersion": 1,
+  "callingConvention": "cdecl",
+  "hostSize": 32,
+  "hostAlignment": 8,
+  "callbacks": [
+    {
+      "c": "GameImGuiGetProc",
+      "pascal": "TImGuiGetProc",
+      "resultC": "void*",
+      "argsC": [
+        "int32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Pointer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "c": "GameImGuiAlloc",
+      "pascal": "TImGuiAlloc",
+      "resultC": "void*",
+      "argsC": [
+        "size_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Pointer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "NativeUInt"
+        }
+      ]
+    },
+    {
+      "c": "GameImGuiFree",
+      "pascal": "TImGuiFree",
+      "resultC": "void",
+      "argsC": [
+        "void*"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "Pointer"
+        }
+      ]
+    }
+  ],
+  "hostFields": [
+    {
+      "c": "abi_version",
+      "pascal": "ABIVersion",
+      "typeC": "uint32_t",
+      "typePascal": "Cardinal",
+      "offset": 0,
+      "size": 4
+    },
+    {
+      "c": "struct_size",
+      "pascal": "StructSize",
+      "typeC": "uint32_t",
+      "typePascal": "Cardinal",
+      "offset": 4,
+      "size": 4
+    },
+    {
+      "c": "get_proc",
+      "pascal": "GetProc",
+      "typeC": "GameImGuiGetProc",
+      "typePascal": "TImGuiGetProc",
+      "offset": 8,
+      "size": 8
+    },
+    {
+      "c": "alloc",
+      "pascal": "Alloc",
+      "typeC": "GameImGuiAlloc",
+      "typePascal": "TImGuiAlloc",
+      "offset": 16,
+      "size": 8
+    },
+    {
+      "c": "free",
+      "pascal": "Free",
+      "typeC": "GameImGuiFree",
+      "typePascal": "TImGuiFree",
+      "offset": 24,
+      "size": 8
+    }
+  ],
+  "procIds": {
+    "GI_PROC_D3D11_CREATE": 1,
+    "GI_PROC_D3D_COMPILE": 2,
+    "GI_PROC_CRT_VSPRINTF": 3,
+    "GI_PROC_CRT_VSSCANF": 4,
+    "GI_PROC_STRTOD": 5,
+    "GI_PROC_ACOS": 6,
+    "GI_PROC_ATAN2": 7,
+    "GI_PROC_CEIL": 8,
+    "GI_PROC_COS": 9,
+    "GI_PROC_FABS": 10,
+    "GI_PROC_FLOOR": 11,
+    "GI_PROC_FMOD": 12,
+    "GI_PROC_LOG": 13,
+    "GI_PROC_POW": 14,
+    "GI_PROC_SIN": 15,
+    "GI_PROC_SQRT": 16,
+    "GI_PROC_THREAD_ID": 17,
+    "GI_PROC_DCOMP_CREATE": 18,
+    "GI_PROC_LAST": 18
+  },
+  "functions": [
+    {
+      "name": "game_imgui_create",
+      "resultC": "int32_t",
+      "argsC": [
+        "void*",
+        "const GameImGuiHost*",
+        "GameImGuiHandle*"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "Pointer"
+        },
+        {
+          "mode": "value",
+          "type": "PImGuiHost"
+        },
+        {
+          "mode": "out",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_create_korean_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "void*",
+        "const GameImGuiHost*",
+        "const void*",
+        "uint32_t",
+        "GameImGuiHandle*"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "Pointer"
+        },
+        {
+          "mode": "value",
+          "type": "PImGuiHost"
+        },
+        {
+          "mode": "value",
+          "type": "Pointer"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        },
+        {
+          "mode": "out",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_destroy",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_resize",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t",
+        "int32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_set_dpi",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "float"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_new_frame",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t",
+        "int32_t",
+        "float"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_mouse_pos",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle",
+        "float",
+        "float"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_mouse_button",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t",
+        "int32_t"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_mouse_wheel",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle",
+        "float",
+        "float"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_key",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t",
+        "int32_t"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_focus",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_clear_input",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_text_input_version",
+      "resultC": "uint32_t",
+      "argsC": [],
+      "kindPascal": "function",
+      "resultPascal": "Cardinal",
+      "argsPascal": []
+    },
+    {
+      "name": "game_imgui_text_input_enable_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_text_input_utf8_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "const char*",
+        "uint32_t",
+        "int32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "PAnsiChar"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_text_input_utf16_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "uint32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_text_input_read_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "void*",
+        "uint32_t",
+        "uint32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Pointer"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_text_input_status_v1",
+      "resultC": "uint32_t",
+      "argsC": [
+        "GameImGuiHandle"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Cardinal",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_text_input_display_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "const char*",
+        "uint32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "PAnsiChar"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_begin_canvas",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_set_cursor_pos",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle",
+        "float",
+        "float"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_button",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "const char*",
+        "float",
+        "float",
+        "int32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "PAnsiChar"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_text",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle",
+        "const char*"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "PAnsiChar"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_end_canvas",
+      "resultC": "void",
+      "argsC": [
+        "GameImGuiHandle"
+      ],
+      "kindPascal": "procedure",
+      "resultPascal": "void",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_render_present",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_gpu_identity",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "void*",
+        "uint32_t"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Pointer"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_last_error",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_scene_v2",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t",
+        "int32_t",
+        "uint32_t",
+        "float",
+        "float"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_abi_version",
+      "resultC": "uint32_t",
+      "argsC": [],
+      "kindPascal": "function",
+      "resultPascal": "Cardinal",
+      "argsPascal": []
+    },
+    {
+      "name": "game_imgui_create_license_korean_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "void*",
+        "const GameImGuiHost*",
+        "const void*",
+        "uint32_t",
+        "GameImGuiHandle*"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "Pointer"
+        },
+        {
+          "mode": "value",
+          "type": "PImGuiHost"
+        },
+        {
+          "mode": "value",
+          "type": "Pointer"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        },
+        {
+          "mode": "out",
+          "type": "TImGuiContext"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_scene_v3",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t",
+        "int32_t",
+        "uint32_t",
+        "float",
+        "float",
+        "int32_t",
+        "float"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Cardinal"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    },
+    {
+      "name": "game_imgui_license_scene_v1",
+      "resultC": "int32_t",
+      "argsC": [
+        "GameImGuiHandle",
+        "int32_t",
+        "int32_t",
+        "float"
+      ],
+      "kindPascal": "function",
+      "resultPascal": "Integer",
+      "argsPascal": [
+        {
+          "mode": "value",
+          "type": "TImGuiContext"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Integer"
+        },
+        {
+          "mode": "value",
+          "type": "Single"
+        }
+      ]
+    }
+  ]
+}

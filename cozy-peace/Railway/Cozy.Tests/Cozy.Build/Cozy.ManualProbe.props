@@ -1,0 +1,33 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="CozyNativeRoot">
+  <PropertyGroup>
+    <CozyNativeRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</CozyNativeRoot>
+    <Cfg_1>true</Cfg_1>
+    <CfgParent>Base</CfgParent>
+    <Base>true</Base>
+    <DCC_ExeOutput>$(CozyNativeRoot)\build\tests\manual-ide</DCC_ExeOutput>
+    <DCC_DcuOutput>$(CozyNativeRoot)\build\tests\manual-ide\units\$(ProjectName)\$(Platform)\$(Config)</DCC_DcuOutput>
+    <DCC_UnitSearchPath>$(CozyNativeRoot)\Cozy.Source\Cozy.Application;$(CozyNativeRoot)\Cozy.Source\Cozy.License;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform;$(CozyNativeRoot)\Cozy.Source\Cozy.Security;$(CozyNativeRoot)\Cozy.Source\Cozy.Protection;$(CozyNativeRoot)\Cozy.Source\Cozy.Network;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Tests\Cozy.Build;$(CozyNativeRoot)\Cozy.Tests\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Tests\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Tests\Cozy.FaultInjection;$(CozyNativeRoot)\Cozy.Tests\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Tests\Cozy.Identity;$(CozyNativeRoot)\Cozy.Tests\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Tests\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Tests\Cozy.Network;$(CozyNativeRoot)\Cozy.Tests\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Tests\Cozy.Platform;$(CozyNativeRoot)\Cozy.Tests\Cozy.Protocol;$(CozyNativeRoot)\Cozy.Tests\Cozy.Security;$(CozyNativeRoot)\Cozy.Tests\Cozy.Startup</DCC_UnitSearchPath>
+    <DCC_IncludePath>$(CozyNativeRoot)\Cozy.Source\Cozy.Application;$(CozyNativeRoot)\Cozy.Source\Cozy.License;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform;$(CozyNativeRoot)\Cozy.Source\Cozy.Security;$(CozyNativeRoot)\Cozy.Source\Cozy.Protection;$(CozyNativeRoot)\Cozy.Source\Cozy.Network;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Tests\Cozy.Build;$(CozyNativeRoot)\Cozy.Tests\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Tests\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Tests\Cozy.FaultInjection;$(CozyNativeRoot)\Cozy.Tests\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Tests\Cozy.Identity;$(CozyNativeRoot)\Cozy.Tests\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Tests\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Tests\Cozy.Network;$(CozyNativeRoot)\Cozy.Tests\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Tests\Cozy.Platform;$(CozyNativeRoot)\Cozy.Tests\Cozy.Protocol;$(CozyNativeRoot)\Cozy.Tests\Cozy.Security;$(CozyNativeRoot)\Cozy.Tests\Cozy.Startup</DCC_IncludePath>
+    <DCC_ObjPath>$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui</DCC_ObjPath>
+    <DCC_Namespace>System;Winapi;System.Win</DCC_Namespace>
+    <DCC_Define>RELEASE;$(TestOnlyDefine)</DCC_Define>
+    <DCC_ConsoleTarget>true</DCC_ConsoleTarget>
+    <DCC_UsePackage />
+    <DCC_IntegerOverflowCheck>true</DCC_IntegerOverflowCheck>
+    <DCC_RangeChecking>true</DCC_RangeChecking>
+    <DCC_Optimize>true</DCC_Optimize>
+    <DCC_DebugInformation>0</DCC_DebugInformation>
+    <DCC_LocalDebugSymbols>false</DCC_LocalDebugSymbols>
+    <DCC_DebugDCUs>false</DCC_DebugDCUs>
+    <DCC_RemoteDebug>false</DCC_RemoteDebug>
+    <VerInfo_IncludeVerInfo>false</VerInfo_IncludeVerInfo>
+    <Manifest_File>(None)</Manifest_File>
+    <Icon_MainIcon />
+    <PreBuildEvent />
+    <PostBuildEvent />
+  </PropertyGroup>
+  <Target Name="ManualProbeConfiguration" BeforeTargets="_PasCoreCompile">
+    <Error Condition="'$(Platform)'!='Win64' or '$(Config)'!='Release'" Text="MANUAL_PROBE_WIN64_RELEASE_REQUIRED: select Win64 Release in the IDE." />
+    <MakeDir Directories="$(DCC_ExeOutput);$(DCC_DcuOutput)" />
+  </Target>
+</Project>

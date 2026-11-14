@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "version": "88.0.0.0",
+  "companyName": "Cozy",
+  "productName": "Cozy Peace",
+  "descriptions": {
+    "A": "Cozy Launcher",
+    "B": "Cozy Client",
+    "O": "Cozy Overlay"
+  }
+}

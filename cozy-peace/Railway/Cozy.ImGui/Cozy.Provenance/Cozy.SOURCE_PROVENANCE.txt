@@ -1,0 +1,90 @@
+{
+  "source": "User-supplied imgui-master.zip",
+  "version": "1.93.0 WIP",
+  "versionNumber": 19298,
+  "archiveSha512": "1dcab9ca50a5b910331bd9ae471fd8544313478df3eb243ffdc108a05f028809d21e6e2a3c055e05ea7e218bf16d26a180ce0893ed1ac7d665ce8a8091dbdac3",
+  "files": [
+    {
+      "file": "Cozy.Core/Cozy.imgui.h",
+      "sha512": "b2c7db0a9f2759909bbcffb7646e3ab9d76c26c9a837ed24b198d98f708731032399cde88882d36333e2b2488f78c385206e1974959b13fcc3eff16974b9fe84",
+      "upstreamSha512": "1c254a2ae46e596ad27150ffaa984186dbba7b5b2a25beeb79164ebe1b164ebb56723cba8bf6a429346f562ebdaa723d455b4228ddfaeb0309cfb2513f32a70c",
+      "upstreamFile": "imgui.h"
+    },
+    {
+      "file": "Cozy.Core/Cozy.imconfig.h",
+      "sha512": "658b75c2f0fea3b86ad9ac47fa2b9785a21e2de096c09cef17f548bdbf159946136c63644905d097b3c4894117cad6fcf1562b8eab0fdc5b3a9b7364b493ff5d",
+      "upstreamSha512": "cc4d2f15043f9b50de77a863c89211cd8121aec3c934e605bac6aad4a831f84671d38c3a6493781b63a603b2684672eaa1aff48a5ddb42caea3a4add562353bd",
+      "upstreamFile": "imconfig.h"
+    },
+    {
+      "file": "Cozy.Core/Cozy.imgui_internal.h",
+      "sha512": "0b7342230ddd71863b9b8efe9be4b24ab6ad4c180b47d6982aa44a86e6b9de92271d7f1266a26033aa96b84b1e37cfe44cd7389bfebc368456ea1b793ff83619",
+      "upstreamSha512": "e7ea5d8fa3e208b9d9e9394ac01a4db9089dab612d39cc91233bac0fbc56ca247862a92439c48154d2ff1b31479fa21b17aaaabd2512dee4c925d7c65dc0b3c4",
+      "upstreamFile": "imgui_internal.h"
+    },
+    {
+      "file": "Cozy.Core/Cozy.imgui.cpp",
+      "sha512": "f1c4d7e264c173293006d9f592f83a9a421b5609fa269214ca4bdaf4372113e80b50a047a9318de7aa1ef0bf761dfb473aa032002e781854f63820a680c172d9",
+      "upstreamSha512": "2eda9318e51c725c9ed115a44783cecd8c1f9623b7d226a3452c7b390c71b1e14f14a131783af1679af281d7a76c5042b4e90cd58b83d63d9bef5392c978ae65",
+      "upstreamFile": "imgui.cpp"
+    },
+    {
+      "file": "Cozy.Drawing/Cozy.imgui_draw.cpp",
+      "sha512": "a156a484c0b24f93ebaac0d93a69eb5bdb54170d7488344d28539aa283877230f2b34a432edb6e8b31ab7aa6873837e9f6ab1e16b4c85a14a198e24dbf7230b9",
+      "upstreamSha512": "a30f2e931b9fe8fca621ea84433278c1cbd7910cf86dd2821aeca7f1664f30b249c892bce516394ec15a8865b44a8d46b0521951be7e33fea47f16ce3ad4b591",
+      "upstreamFile": "imgui_draw.cpp"
+    },
+    {
+      "file": "Cozy.Tables/Cozy.imgui_tables.cpp",
+      "sha512": "d61ab21b8c34083478eded84232b91d1b489cec257606fd51529fcb468ccc6dc51b424e7b622986cfd44ad44fff677339a8865e3517fd43a0a30baf361c08272",
+      "upstreamSha512": "c5bd5fcbe744f24e9776f681b96a0957f4e655aa69059073c9a00034ac923a99a2c78f2b0d406343d6af09bdecde0472a9e1910001ebcd000d2ae88f0920fffb",
+      "upstreamFile": "imgui_tables.cpp"
+    },
+    {
+      "file": "Cozy.Widgets/Cozy.imgui_widgets.cpp",
+      "sha512": "ccd8b4e385da694a396da66740c50357c93b1eb92151f799500c06fcf2647826c630961edd2461585243430aafd83848d8a833afb097bcfccf1d93588a0cc594",
+      "upstreamSha512": "dbbfbcb04eb95020579ec431a561257f37188b4a4165b11acba30dc1e380d9b8643e168371a659ad065d9ae031a66bc9ce4617374fc6fc8a955afaf14339fe0f",
+      "upstreamFile": "imgui_widgets.cpp"
+    },
+    {
+      "file": "Cozy.ThirdParty/Cozy.imstb_rectpack.h",
+      "sha512": "f475740158ea0f2b2fb194b7f564ec2a64caa10fdadee47249f8572b755e6a8b6b36d3a05297c67074b7e0018c68920d7686885c0be81980b802fe7bd036b435",
+      "upstreamSha512": "f475740158ea0f2b2fb194b7f564ec2a64caa10fdadee47249f8572b755e6a8b6b36d3a05297c67074b7e0018c68920d7686885c0be81980b802fe7bd036b435",
+      "upstreamFile": "imstb_rectpack.h"
+    },
+    {
+      "file": "Cozy.ThirdParty/Cozy.imstb_truetype.h",
+      "sha512": "3d18eed7e5a01b6e6873acf810de3b585de7093311a5518da0ced5547f1cffebf67d7ca1bcd7157ff31f5dd09be8b19091ceadc7c5e721f2db46e54856bb0a40",
+      "upstreamSha512": "79f8dc75f18c26fd2d1cdfe91a4762d156902af3e5cf912a75808433a5cd1220f94db7715e9837f7a69daa20050963ef8f05eda2f70e1b89f4f123ad718868e0",
+      "upstreamFile": "imstb_truetype.h"
+    },
+    {
+      "file": "Cozy.ThirdParty/Cozy.imstb_textedit.h",
+      "sha512": "e5b40b44c014a5994fa15b02a8d4fd9e7c19cc055b40f7eb6d54f35dc466216f778405997eaabcee8dc28df4795008ec9b8a95b8a6ce871e25ff5c749bf23430",
+      "upstreamSha512": "e5b40b44c014a5994fa15b02a8d4fd9e7c19cc055b40f7eb6d54f35dc466216f778405997eaabcee8dc28df4795008ec9b8a95b8a6ce871e25ff5c749bf23430",
+      "upstreamFile": "imstb_textedit.h"
+    },
+    {
+      "file": "Cozy.Legal/Cozy.LICENSE.txt",
+      "sha512": "fff7ca4d8984277931e6e377563e42441b252836a5a0d6ab60879db92d37202b20877fe3c3602e13938b1d40838a199133ad444959a9f58f54094001493877b4",
+      "upstreamSha512": "fff7ca4d8984277931e6e377563e42441b252836a5a0d6ab60879db92d37202b20877fe3c3602e13938b1d40838a199133ad444959a9f58f54094001493877b4",
+      "upstreamFile": "LICENSE.txt"
+    },
+    {
+      "file": "Cozy.Backends/Cozy.imgui_impl_dx11.cpp",
+      "sha512": "b4f2b06a34c6bcc6d2d1ff0b5d8d2db3fafe56e6669f821b03ef2fb1502f4fdc8793236533adc56c2795a21c36efa0c132dba11bea739e6b4e788f7b38f95861",
+      "upstreamSha512": "8757571319fee3d43878243daf6f3e17b81a4799114899accfb8c3e922c439107e01af7ca5f97dcd0c4d0788c11419fd79119612cd97606dec77bb24c85b3e63",
+      "upstreamFile": "backends/imgui_impl_dx11.cpp"
+    },
+    {
+      "file": "Cozy.Backends/Cozy.imgui_impl_dx11.h",
+      "sha512": "d131c19031d0293137df3380c2b264a10573ec68b4d2430ee82eaae19d9513ee21d0070db7c1e5c3d9c94cb565f359544d83fc0a08f2310eb44b462f6ebfb43e",
+      "upstreamSha512": "b0f0aab2d60759e8ef44370eb8e4d37b8edb95584a0f373c6ff66bd282e959185ef295b3b69e73bcf42ce3d1065dd4c6a55c672271e39bcf58537a573a21170a",
+      "upstreamFile": "backends/imgui_impl_dx11.h"
+    }
+  ],
+  "transformations": [
+    "All native source filenames use the Cozy. prefix and are separated into functional subfolders. Vendor algorithms and API identifiers are unchanged; quoted local include paths and filename examples in comments follow the new layout. Upstream source identities and SHA-512 values are retained separately.",
+    "Public C/C++ string literals are referenced through editable Cozy.Strings literal macro headers. Literal spelling, encoding prefixes and compile-time array semantics are preserved; include/pragma/linkage and stringification syntax exceptions are recorded separately. Original upstream identities remain unchanged."
+  ]
+}

@@ -1,0 +1,114 @@
+﻿var
+  AttestTestIdentities: array[0..3] of TAttestedFileIdentity;
+  AttestTestFail, AttestTestRaise: Integer;
+  AttestTestCalls: Integer;
+function AttestTestModule(Index: Integer): HMODULE;
+begin Result := HMODULE(NativeUInt($100000) + NativeUInt(Index) * $100000); end;
+function AttestTestRead(Module: HMODULE; out Identity: TAttestedFileIdentity): Boolean;
+var I: Integer;
+begin
+  Inc(AttestTestCalls);
+  I := Integer((NativeUInt(Module) - $100000) div $100000);
+  Identity := Default(TAttestedFileIdentity);
+  if (I < 0) or (I > 3) then Exit(False);
+  if I = AttestTestRaise then raise Exception.Create('synthetic identity capture failure');
+  if I = AttestTestFail then Exit(False);
+  Identity := AttestTestIdentities[I];
+  Result := True;
+end;
+function TestFileAttestationHardening(out Failure: string;
+  out Checks: Integer): Boolean;
+var
+  SavedCapture: TAttestCaptureHook; SavedModule: TAttestModuleHook;
+  M: TFileAttestationMonitor; D: TDetectionKinds; A: TAttestedFileIdentity;
+  I, Calls: Integer; Raised: Boolean;
+  procedure Check(Value: Boolean; const Name: string);
+  begin Inc(Checks); if not Value then raise Exception.Create(Name); end;
+  procedure Setup;
+  var J: Integer;
+  begin
+    AttestTestFail := -1; AttestTestRaise := -1; AttestTestCalls := 0;
+    for J := 0 to 3 do
+    begin
+      AttestTestIdentities[J] := Default(TAttestedFileIdentity);
+      AttestTestIdentities[J].Valid := True;
+      AttestTestIdentities[J].Base := NativeUInt(AttestTestModule(J));
+      AttestTestIdentities[J].PathFileID := UInt64(100 + J);
+      AttestTestIdentities[J].MappedNameHash := UInt64(200 + J);
+      AttestTestIdentities[J].PEImageSize := $10000;
+    end;
+    M.Reset; D := []; M.Examine(True, False, 1000, D);
+  end;
+begin
+  Result := False; Failure := ''; Checks := 0; M := nil;
+  SavedCapture := AttestCaptureHook; SavedModule := AttestModuleHook;
+  try
+    try
+      AttestCaptureHook := AttestTestRead; AttestModuleHook := AttestTestModule;
+      M := TFileAttestationMonitor.Create; Setup;
+      Check(not CaptureAttestedFile(0, A) and not A.Valid, 'nil module never aliases EXE');
+      Check(M.FBase[0].Valid and (M.FConfirm[0] = 0), 'startup baseline captured');
+      Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      Check((M.FConfirm[0] = 1) and (D = []), 'one identity change is a candidate');
+      AttestTestFail := 0; M.Examine(False, True, 31000, D);
+      Check((M.FConfirm[0] = 0) and not M.FLast[0].Valid, 'failed collection clears candidate');
+      Check(M.FBase[0].PathFileID = 100, 'failed collection preserves approved baseline');
+      AttestTestFail := -1; M.Examine(False, True, 46000, D);
+      Check((M.FConfirm[0] = 1) and (D = []), 'recovery requires new first observation');
+      M.Examine(False, True, 61000, D);
+      Check(dkFileAttestation in D, 'two post-gap identical changes detect');
+      Setup; Inc(AttestTestIdentities[0].PathFileID);
+      M.Examine(False, False, 16000, D); M.Examine(False, False, 31000, D);
+      Check((M.FConfirm[0] = 2) and (D = []), 'independent evidence required');
+      for I := 0 to 9 do M.Examine(False, False, UInt64(46000 + I * 15000), D);
+      Check((M.FConfirm[0] <= 2) and (D = []), 'confirmation count bounded');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      Inc(AttestTestIdentities[0].MappedNameHash); M.Examine(False, True, 31000, D);
+      Check((M.FConfirm[0] = 1) and (D = []), 'different identity tuple restarts');
+      Inc(AttestTestIdentities[0].PEImageSize); M.Examine(False, True, 46000, D);
+      Check((M.FConfirm[0] = 1) and (D = []), 'image-size change also restarts');
+      M.Examine(False, True, 61000, D);
+      Check(dkFileAttestation in D, 'exact tuple confirmed twice');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      M.Examine(False, True, 61001, D);
+      Check((M.FConfirm[0] = 1) and (D = []), 'candidate older than 45 seconds expires');
+      M.Examine(False, True, 76001, D);
+      Check(dkFileAttestation in D, 'fresh pair after expiry detects');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      M.Examine(False, True, 61000, D);
+      Check(dkFileAttestation in D, 'candidate at exact 45-second boundary valid');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      M.Examine(False, True, 100, D);
+      Check((M.FConfirm[0] = 1) and (D = []), 'clock rollback discards old confirmations');
+      Check(M.FBase[0].PathFileID = 100, 'rollback does not approve candidate');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      AttestTestIdentities[0].Valid := False; M.Examine(False, True, 31000, D);
+      Check(M.FConfirm[0] = 0, 'invalid-success response rejected');
+      AttestTestIdentities[0].Valid := True; AttestTestIdentities[0].Base := $900000;
+      M.Examine(False, True, 46000, D);
+      Check((M.FConfirm[0] = 0) and (M.FBase[0].Base = $100000), 'wrong module base rejected');
+      AttestTestIdentities[0].Base := $100000; AttestTestIdentities[0].PEImageSize := 0;
+      M.Examine(False, True, 61000, D);
+      Check(M.FConfirm[0] = 0, 'zero image size rejected');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      Dec(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 31000, D);
+      Check((M.FConfirm[0] = 0) and not M.FLast[0].Valid, 'return to baseline clears candidate');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(True, True, 16000, D);
+      Check((M.FBase[0].PathFileID = 101) and (M.FConfirm[0] = 0), 'explicit baseline behavior preserved');
+      Setup; Inc(AttestTestIdentities[0].PathFileID); M.Examine(False, True, 16000, D);
+      Calls := AttestTestCalls; M.Examine(False, True, 16000, D);
+      Check((M.FConfirm[0] = 1) and (Calls = AttestTestCalls), 'same tick does not sample twice');
+      AttestTestRaise := 1; Raised := False;
+      try M.Examine(False, True, 31000, D); except on E: Exception do Raised := True; end;
+      Check(Raised and (M.FConfirm[0] = 0) and (M.FConfirm[1] = 0), 'exception invalidates candidate state');
+      Check(D = [], 'exception does not publish earlier partial detection');
+      Check(M.FBase[0].PathFileID = 100, 'exception preserves baseline');
+      A := AttestTestIdentities[0];
+      Check(not AttestationCandidate(M.FBase[0], A, 1, True), 'legacy single-sample predicate');
+      Check(AttestationCandidate(M.FBase[0], A, 2, True), 'legacy two-sample predicate');
+      Result := True;
+    except on E: Exception do Failure := E.Message; end;
+  finally
+    M.Free; AttestCaptureHook := SavedCapture; AttestModuleHook := SavedModule;
+  end;
+end;

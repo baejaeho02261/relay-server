@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>Floating-point JSON differential</title>
+<style>body{font:16px/1.6 system-ui,sans-serif;max-width:850px;margin:3rem auto;padding:0 1rem;color:#182434}h1{font-size:1.8rem}code,pre{font-family:ui-monospace,monospace;background:#edf2f7}pre{padding:1rem;white-space:pre-wrap;overflow-wrap:anywhere}table{border-collapse:collapse;width:100%}th,td{padding:.6rem;border:1px solid #cad4de;text-align:left}</style>
+<h1>Floating-point JSON differential</h1>
+<p>This test compares the existing JavaScript receipt canonicalization with an independent Python oracle. The oracle rounds exact decimal fractions to binary64 and searches decimal rounding intervals using integer arithmetic. It does not call a host floating-point formatter. Expected SHA-512 digests come from the pure-integer Python hash reference.</p>
+<h2>Server/reference test</h2>
+<p>From the extracted project root, with Node.js and Python 3 available:</p>
+<pre>node Relay Server/tests/cryptography/peace.test-float-canonicalization-14.js</pre>
+<p>The local verification covers 450 cases: 291 admitted protocol bodies, 159 rejected bodies, and 433 direct numeric-format comparisons. The 143 unsafe finite values checked only for formatting are explicitly labeled <code>FORMAT_ONLY_PROTOCOL_REJECTED</code>. A server/reference pass reports <code>nativeOutcome: "NOT_RUN"</code>.</p>
+<h2>Manual Windows comparison</h2>
+<ol>
+<li>Open <code>cozy.FloatJsonProbe.dproj</code> in RAD Studio. Select <strong>Win64 / Release</strong> and build this test project. The shared manual properties isolate its output and DCUs. This step does not build A/B/O.</li>
+<li>Run the command below from the project root on that Windows machine. The runner requires a real AMD64 PE executable, creates the numeric corpus, runs the probe, and removes its temporary inputs.</li>
+</ol>
+<pre>node Relay Server/tests/cryptography/peace.test-float-canonicalization-14.js --native-json Railway/build/tests/manual-ide/cozy.FloatJsonProbe.exe</pre>
+<p>The probe uses production <code>ParseProtocolObject</code>, <code>EncodeRequestEnvelope</code>, and <code>SHA512Bytes</code>. It measures parser decisions, Double bits, serialized body/envelope bytes, and their hashes. The runner independently canonicalizes the observed Delphi wire through Python and JavaScript, then compares exact UTF-8 bytes and receipt hashes. The product does not contain a Delphi receipt canonicalizer, so this result is labeled as Delphi wire normalization followed by server canonicalization.</p>
+<table><thead><tr><th>Result</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>status: "PASS"</code>, <code>nativeOutcome: "PASS"</code></td><td>The real Windows probe executed and all parser, numeric, wire, and hash comparisons passed.</td></tr>
+<tr><td><code>nativeOutcome: "NOT_RUN"</code></td><td>Only Python/JavaScript were compared. No native result is claimed.</td></tr>
+<tr><td><code>NATIVE_PROTOCOL_NUMERIC_UNSUPPORTED</code></td><td>A Delphi parser decision or Double value disagreed. The run fails; it does not silently skip the case or compare different numeric semantics.</td></tr>
+<tr><td><code>NATIVE_JSON_PROBE_REQUIRES_ACTUAL_WINDOWS</code></td><td>The native option was supplied outside Windows. No execution is counted.</td></tr>
+</tbody></table>
+<h2>Numeric scope</h2>
+<p>The server JSON boundary admits finite binary64 fractions, signed zero, and subnormal values; values that round to unsafe integers are rejected. Tiny decimal inputs can round to zero. NaN, Infinity, malformed JSON numbers, and overflowing values are rejected. Action schemas impose additional integer/type requirements on their own fields. Delphi RTL conversion parity remains subject to the native run above. The corpus covers decimal and binary powers and neighbors, normal/subnormal transitions, exact halfway rounding, notation boundaries, long lexemes, seeded bit patterns, nested arrays, and UTF-16 key ordering.</p>
+<p>No production serialization rule was changed. Native compilation and execution have not been performed in the Linux preparation environment.</p>
+</html>

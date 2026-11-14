@@ -1,0 +1,98 @@
+﻿var
+  UnwindTestSnapshot: TExceptionImageState;
+  UnwindTestOK, UnwindTestRaise: Boolean;
+  UnwindTestCalls: Integer;
+function UnwindTestCapture(out S: TExceptionImageState): Boolean;
+begin
+  Inc(UnwindTestCalls);
+  if UnwindTestRaise then raise Exception.Create('synthetic unwind read exception');
+  S := UnwindTestSnapshot; Result := UnwindTestOK;
+end;
+function TestUnwindHardening(out Failure: string; out Checks: Integer): Boolean;
+var
+  SavedCapture: TUnwindCaptureHook;
+  M: TUnwindConsistencyMonitor; D: TDetectionKinds;
+  BaseHash: UInt64; Calls: Integer; Raised: Boolean;
+  procedure Check(Value: Boolean; const Name: string);
+  begin Inc(Checks); if not Value then raise Exception.Create(Name); end;
+  procedure Setup;
+  begin
+    M.Reset; D := []; UnwindTestOK := True; UnwindTestRaise := False; UnwindTestCalls := 0;
+    UnwindTestSnapshot := Default(TExceptionImageState);
+    UnwindTestSnapshot.ImageBase := NativeUInt(HInstance);
+    UnwindTestSnapshot.ImageSize := $10000;
+    UnwindTestSnapshot.TableCount := 4;
+    UnwindTestSnapshot.RangeValid := True; UnwindTestSnapshot.UnwindValid := True;
+    UnwindTestSnapshot.HasUnwindSamples := True;
+    UnwindTestSnapshot.TableDigest := 10;
+    UnwindTestSnapshot.UnwindDigest := 20; UnwindTestSnapshot.RangeDigest := 30;
+    M.Examine(True, False, 1000, D); BaseHash := M.FBaseHash;
+    Inc(UnwindTestSnapshot.TableDigest);
+  end;
+begin
+  Result := False; Failure := ''; Checks := 0; M := nil;
+  SavedCapture := UnwindCaptureHook;
+  try
+    try
+      UnwindCaptureHook := UnwindTestCapture; M := TUnwindConsistencyMonitor.Create; Setup;
+      M.Examine(False, False, 9000, D);
+      Check((UnwindTestCalls = 1) and (D = []), 'idle scan remains deferred');
+      M.Examine(False, True, 9000, D);
+      Check((M.FConfirmations = 1) and (D = []), 'first candidate');
+      UnwindTestOK := False; M.Examine(False, True, 17000, D);
+      Check((M.FConfirmations = 0) and (M.FBaseHash = BaseHash), 'failure clears candidate preserves baseline');
+      UnwindTestOK := True; M.Examine(False, True, 25000, D);
+      Check((M.FConfirmations = 1) and (D = []), 'first after failure');
+      M.Examine(False, True, 33000, D);
+      Check(dkUnwindStructural in D, 'fresh pair detects');
+      D := []; M.Examine(False, True, 41000, D);
+      Check((D = []) and (M.FConfirmations = 2), 'bounded confirmation and cooldown');
+      Setup; M.Examine(False, True, 9000, D); Calls := UnwindTestCalls;
+      M.Examine(False, False, 39001, D);
+      Check((M.FConfirmations = 0) and (M.FPendingHash = 0) and
+        (UnwindTestCalls = Calls), 'evidence expiry clears even on idle early exit');
+      M.Examine(False, True, 47001, D);
+      Check((M.FConfirmations = 1) and (D = []), 'new evidence cannot resurrect old confirmation');
+      Setup; M.Examine(False, True, 9000, D); M.Examine(False, True, 39001, D);
+      Check((M.FConfirmations = 1) and (D = []), 'expiry checked before new evidence refresh');
+      Setup; M.Examine(False, True, 9000, D); M.Examine(False, False, 39000, D);
+      Check(dkUnwindStructural in D, 'exact 30-second boundary retained');
+      Setup; M.Examine(False, True, 9000, D); UnwindTestSnapshot.RangeValid := False;
+      M.Examine(False, True, 17000, D);
+      Check((M.FConfirmations = 0) and (M.FBaseHash = BaseHash), 'invalid range breaks sequence');
+      Setup; M.Examine(False, True, 9000, D); UnwindTestSnapshot.UnwindValid := False;
+      M.Examine(False, True, 17000, D);
+      Check(M.FConfirmations = 0, 'invalid unwind metadata breaks sequence');
+      Setup; M.Examine(False, True, 9000, D); UnwindTestSnapshot.TableCount := 0;
+      M.Examine(False, True, 17000, D);
+      Check(M.FConfirmations = 0, 'empty static table rejected');
+      Setup; M.Examine(False, True, 9000, D); UnwindTestSnapshot.HasUnwindSamples := False;
+      M.Examine(False, True, 17000, D);
+      Check(M.FConfirmations = 0, 'missing samples rejected');
+      Setup; M.Examine(False, True, 9000, D); Inc(UnwindTestSnapshot.ImageBase);
+      M.Examine(False, True, 17000, D);
+      Check(M.FConfirmations = 0, 'wrong image rejected');
+      Setup; M.Examine(False, True, 9000, D); Dec(UnwindTestSnapshot.TableDigest);
+      M.Examine(False, True, 17000, D);
+      Check((M.FConfirmations = 0) and (D = []), 'baseline restoration clears');
+      Setup; M.Examine(False, True, 9000, D); Inc(UnwindTestSnapshot.TableDigest);
+      M.Examine(False, True, 17000, D);
+      Check((M.FConfirmations = 1) and (D = []), 'different candidate starts fresh');
+      Setup; M.Examine(False, True, 9000, D); M.Examine(True, False, 17000, D);
+      Check((M.FConfirmations = 0) and (M.FBaseHash <> BaseHash) and (D = []), 'explicit baseline preserved');
+      Setup; M.Examine(False, True, 9000, D); M.Examine(False, True, 100, D);
+      Check((M.FConfirmations = 1) and (D = []), 'clock rollback starts new sequence');
+      Setup; M.Examine(False, True, 9000, D); Calls := UnwindTestCalls;
+      M.Examine(False, True, 9000, D);
+      Check((M.FConfirmations = 1) and (UnwindTestCalls = Calls), 'same tick not counted twice');
+      UnwindTestRaise := True; Raised := False;
+      try M.Examine(False, True, 17000, D); except on E: Exception do Raised := True; end;
+      Check(Raised and (M.FConfirmations = 0) and (D = []), 'exception invalidates pending only');
+      Check(M.FBaseHash = BaseHash, 'exception preserves approved baseline');
+      Check(not UnwindStructuralCandidate(1, 2, 1, True), 'legacy threshold preserved');
+      Check(not UnwindStructuralCandidate(1, 2, 2, False), 'legacy independent evidence preserved');
+      Check(UnwindStructuralCandidate(1, 2, 2, True), 'legacy qualifying predicate preserved');
+      Result := True;
+    except on E: Exception do Failure := E.Message; end;
+  finally M.Free; UnwindCaptureHook := SavedCapture; end;
+end;

@@ -1,0 +1,86 @@
+﻿var
+  ControlTestOK, ControlTestRaise: Boolean;
+  ControlTestKind: TCodeLocation;
+  ControlTestRegion: NativeUInt;
+function ControlTestDescribe(Address: NativeUInt; out Kind: TCodeLocation;
+  out Region: NativeUInt): Boolean;
+begin
+  if ControlTestRaise then raise Exception.Create('synthetic callback description exception');
+  Kind := ControlTestKind; Region := ControlTestRegion;
+  Result := ControlTestOK and (Address <> 0);
+end;
+function TestControlFlowHardening(out Failure: string; out Checks: Integer): Boolean;
+var
+  M: TControlFlowAttestation;
+  D: TDetectionKinds;
+  Saved: TControlDescribeHook;
+  Raised: Boolean;
+  procedure Check(Value: Boolean; const Name: string);
+  begin Inc(Checks); if not Value then raise Exception.Create(Name); end;
+  procedure Prime;
+  begin
+    M.Reset; D := []; ControlTestOK := True; ControlTestRaise := False;
+    ControlTestKind := clImage; ControlTestRegion := $10000;
+    M.Examine(True, False, $10040, 0, 0, 1000, D);
+    ControlTestKind := clPrivate; ControlTestRegion := $20000;
+  end;
+  procedure Observe(Address: NativeUInt; Tick: UInt64; Independent: Boolean);
+  begin D := []; M.Examine(False, Independent, Address, 0, 0, Tick, D); end;
+begin
+  Result := False; Failure := ''; Checks := 0; M := nil; Saved := ControlDescribeHook;
+  try
+    try
+      ControlDescribeHook := ControlTestDescribe; M := TControlFlowAttestation.Create;
+      Prime; Check(M.FExpected[0] = $10040, 'successfully described registration establishes baseline');
+      Observe($20040, 5000, True);
+      Check((M.FConfirm[0] = 1) and not (dkControlFlow in D), 'first private redirect only candidate');
+      ControlTestOK := False; Observe($20040, 9000, True);
+      Check((M.FConfirm[0] = 0) and not (dkControlFlow in D), 'failed description resets instead of confirming');
+      ControlTestOK := True; Observe($20040, 13000, True);
+      Check((M.FConfirm[0] = 1) and not (dkControlFlow in D), 'first after failure not report');
+      Observe($20040, 17000, True);
+      Check(dkControlFlow in D, 'two fresh valid observations detect');
+      Observe($20040, 21000, True);
+      Check((M.FConfirm[0] = 2) and not (dkControlFlow in D), 'counter saturates and cooldown preserved');
+      Prime; Observe($20040, 5000, True); Observe($20040, 5000, True);
+      Check(M.FConfirm[0] = 1, 'duplicate call cannot confirm');
+      Observe(0, 6000, True);
+      Check(M.FConfirm[0] = 0, 'zero callback breaks sequence even during throttle');
+      Observe($20040, 9000, True);
+      Check(M.FConfirm[0] = 1, 'zero disappearance requires new confirmation');
+      Prime; Observe($20040, 5000, True); ControlTestKind := clUnknown;
+      Observe($20040, 9000, True);
+      Check((M.FConfirm[0] = 0) and not (dkControlFlow in D), 'unknown code kind not trusted');
+      Prime; Observe($20040, 5000, True); ControlTestKind := clMapped;
+      Observe($20040, 9000, True);
+      Check(M.FConfirm[0] = 0, 'valid mapped code not private candidate');
+      Prime; Observe($20040, 5000, True); ControlTestRegion := $18000;
+      Observe($20040, 9000, True);
+      Check((M.FConfirm[0] = 1) and (M.FObservedRegion[0] = $18000), 'different region restarts');
+      Prime; Observe($20040, 5000, True); ControlTestRegion := $30000;
+      Observe($20040, 9000, True);
+      Check(M.FConfirm[0] = 0, 'non-containing region result rejected');
+      Prime; Observe($20040, 5000, True); ControlTestRegion := 0;
+      Observe($20040, 9000, True); Check(M.FConfirm[0] = 0, 'zero region result rejected');
+      Prime; Observe($20040, 5000, True); Observe($10040, 9000, True);
+      Check(M.FConfirm[0] = 0, 'return to approved address resets');
+      Prime; Observe($20040, 5000, True); M.Examine(True, True, $20040, 0, 0, 6000, D);
+      Check((M.FConfirm[0] = 0) and (M.FExpected[0] = $10040), 'baseline call clears pending but never silently approves replacement');
+      Prime; Observe($20040, 5000, True); Observe($20040, 100, True);
+      Check((M.FConfirm[0] = 1) and not (dkControlFlow in D), 'rollback does not carry confidence');
+      Prime; Observe($20040, 5000, False); Observe($20040, 9000, False);
+      Check(not (dkControlFlow in D), 'independent evidence remains mandatory');
+      M.Reset; ControlTestOK := False; Observe($10040, 1000, True);
+      Check(M.FExpected[0] = 0, 'failed first registration is not a baseline');
+      ControlTestOK := True; ControlTestKind := clUnknown; Observe($10040, 5000, True);
+      Check(M.FExpected[0] = 0, 'unknown first registration not a baseline');
+      Prime; Observe($20040, 5000, True); ControlTestRaise := True; Raised := False;
+      try Observe($20040, 9000, True); except on E: Exception do Raised := True; end;
+      Check(Raised, 'description exception propagated');
+      Check((M.FConfirm[0] = 0) and (M.FLastObserved[0] = 0), 'exception clears pending');
+      Check(CallbackAttestationCandidate(1, 2, True, 2, True), 'existing rule behavior preserved');
+      Check(not CallbackAttestationCandidate(1, 1, True, 2, True), 'unchanged callback rejected');
+      Result := True;
+    except on E: Exception do Failure := E.Message; end;
+  finally M.Free; ControlDescribeHook := Saved; end;
+end;

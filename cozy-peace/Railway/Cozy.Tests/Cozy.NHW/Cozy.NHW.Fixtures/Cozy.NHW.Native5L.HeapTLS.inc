@@ -1,0 +1,94 @@
+﻿function TestHeapTLS5L(out Failure: string; out Checks: Integer): Boolean;
+var M: THeapTLSMonitor; K: TDetectionKinds; Raised: Boolean;
+  procedure Check(C: Boolean; const Msg: string);
+  begin Inc(Checks); if not C then raise Exception.Create(Msg); end;
+  procedure LocalCheck(Baseline: Boolean = False);
+  begin K := []; M.InspectLocalSlots(Baseline, K); end;
+  procedure HeapCheck(Baseline: Boolean = False);
+  begin K := []; M.InspectHeapSet(Baseline, K); end;
+  procedure GoodSlots;
+  begin
+    Heap5LThread := 4242; Heap5LSlotRaise := False;
+    Heap5LTls := M.FCanary; Heap5LFls := M.FTicket;
+    Heap5LTicketValid := True; Heap5LTicketIntact := True;
+    Heap5LCanaryValid := True; Heap5LCanaryIntact := True;
+  end;
+begin
+  Result := False; Failure := ''; Checks := 0; M := nil;
+  try
+    try
+      M := THeapTLSMonitor.Create;
+      M.FOwnerThread := 4242; M.FTlsSlot := 1; M.FFlsSlot := 2;
+      M.FCanary := Pointer(NativeUInt($20000));
+      M.FTicket := Pointer(NativeUInt($30000)); GoodSlots;
+      Heap5LMode := 1; SetLength(Heap5LHeaps, 2);
+      Heap5LHeaps[0] := 1; Heap5LHeaps[1] := 2; HeapCheck;
+      Check((K = []) and M.FHeapReady, 'heap baseline accepted quietly');
+      SetLength(Heap5LHeaps, 3); Heap5LHeaps[2] := 3; HeapCheck;
+      Check((K = []) and (M.FHeapPending = 1), 'heap change first confirmation');
+      Heap5LMode := 0; HeapCheck;
+      Check((M.FHeapPending = 0) and (Length(M.FHeapCandidate) = 0), 'failed heap query clears candidate');
+      Check(Length(M.FHeapExpected) = 2, 'accepted heap baseline preserved');
+      Heap5LMode := 1; HeapCheck; Check(K = [], 'first recovery sample not confirmation two');
+      HeapCheck; Check(dkHeapState in K, 'two fresh heap samples detect');
+      HeapCheck; Check(K = [], 'stable accepted heap set quiet');
+      SetLength(Heap5LHeaps, 4); Heap5LHeaps[3] := 4; HeapCheck;
+      Heap5LMode := 2; Raised := False;
+      try HeapCheck; except on E: EOutOfMemory do Raised := True; end;
+      Check(Raised and (M.FHeapPending = 0), 'heap allocation failure breaks confirmation and propagates');
+      Check(Length(M.FHeapExpected) = 3, 'exception preserves accepted heaps');
+      Heap5LMode := 1; HeapCheck(True);
+      Check((M.FHeapPending = 0) and (Length(M.FHeapExpected) = 4), 'valid explicit baseline preserved');
+      LocalCheck; Check(K = [], 'good slots quiet');
+      Heap5LFls := nil; LocalCheck;
+      Check((K = []) and (M.FFlsPending = 1), 'first FLS mismatch pending');
+      Heap5LTicketValid := False; LocalCheck;
+      Check((K = []) and (M.FFlsPending = 0), 'unknown FLS ticket breaks pending count');
+      Heap5LTicketValid := True; LocalCheck; Check(K = [], 'first FLS recovery sample quiet');
+      LocalCheck; Check(dkFLSCallback in K, 'second fresh FLS mismatch detects');
+      Heap5LTicketValid := False; LocalCheck;
+      Check(M.FFlsAlerted, 'unknown does not clear an existing alert latch');
+      Heap5LTicketValid := True; LocalCheck; LocalCheck;
+      Check(K = [], 'unknown alone cannot rearm duplicate alert');
+      GoodSlots; LocalCheck; Check(not M.FFlsAlerted, 'valid normal sample clears FLS latch');
+      Heap5LCanaryIntact := False; LocalCheck;
+      Check(M.FCanaryPending = 1, 'first canary mismatch pending');
+      Heap5LCanaryValid := False; LocalCheck;
+      Check((K = []) and (M.FCanaryPending = 0), 'unreadable canary breaks count');
+      Heap5LCanaryValid := True; LocalCheck; Check(K = [], 'canary recovery first sample quiet');
+      LocalCheck; Check(dkHeapIntegrity in K, 'fresh second canary mismatch detects');
+      GoodSlots; LocalCheck;
+      Heap5LTls := nil; LocalCheck;
+      Check(M.FTlsPending = 1, 'TLS mismatch starts count');
+      Heap5LThread := 1; LocalCheck;
+      Check((K = []) and (M.FTlsPending = 0), 'wrong owner thread breaks continuity');
+      Heap5LThread := 4242; LocalCheck; Check(K = [], 'TLS first recovery sample quiet');
+      LocalCheck; Check(dkTLSPointer in K, 'TLS established behavior retained');
+      GoodSlots; LocalCheck; Heap5LFls := nil; LocalCheck;
+      LocalCheck(True); Check((K = []) and (M.FFlsPending = 0), 'baseline transition clears unconfirmed slots');
+      LocalCheck; Check(K = [], 'post-baseline sample starts fresh');
+      Heap5LSlotRaise := True; Raised := False;
+      try LocalCheck; except on E: Exception do Raised := True; end;
+      Check(Raised and (M.FFlsPending = 0), 'exception breaks local continuity');
+      GoodSlots; M.FSupported := True; M.FLastCheck := 0;
+      M.FFlsPending := 1; M.FTlsPending := 1; M.FCanaryPending := 1;
+      Heap5LMode := 2; Raised := False; K := [dkCaptureClient];
+      try M.Examine(False, 10000, False, K);
+      except on E: EOutOfMemory do Raised := True; end;
+      Check(Raised and (M.FFlsPending = 0) and (M.FTlsPending = 0) and
+        (M.FCanaryPending = 0), 'early heap exception breaks skipped local-probe continuity');
+      Check(K = [dkCaptureClient], 'fault path does not remove other sensor output');
+      M.FSupported := False; Heap5LMode := 1;
+      GoodSlots; K := [dkCaptureClient]; M.InspectLocalSlots(False, K);
+      Check(K = [dkCaptureClient], 'unrelated detections retained');
+      Result := True;
+    except on E: Exception do Failure := E.Message; end;
+  finally
+    if M <> nil then
+    begin
+      M.FTlsSlot := INVALID_LOCAL_SLOT; M.FFlsSlot := INVALID_LOCAL_SLOT;
+      M.FCanary := nil; M.FTicket := nil; M.FPrivateHeap := 0;
+    end;
+    M.Free; SetLength(Heap5LHeaps, 0);
+  end;
+end;

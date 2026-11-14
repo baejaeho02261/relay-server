@@ -1,0 +1,181 @@
+﻿var
+  LoaderTestPS, LoaderTestTH, LoaderTestAfter: TArray<NativeUInt>;
+  LoaderTestEnumCalls, LoaderTestIndex, LoaderTestCloseCalls, LoaderTestCreateCalls: Integer;
+  LoaderTestEndError: Cardinal;
+  LoaderTestEnumFail, LoaderTestCreateFail, LoaderTestNextRaise, LoaderTestBadEntry: Boolean;
+  LoaderTestUseAfter: Boolean;
+  LoaderTestNeededOverride: Integer;
+function LoaderTestEnum(Process: THandle; Modules: Pointer;
+  Bytes: Cardinal; out Needed: Cardinal): BOOL; stdcall;
+var Values: TArray<NativeUInt>;
+begin
+  Inc(LoaderTestEnumCalls);
+  if LoaderTestUseAfter and ((LoaderTestEnumCalls mod 2) = 0) then Values := LoaderTestAfter
+  else Values := LoaderTestPS;
+  Needed := Cardinal(Length(Values) * SizeOf(NativeUInt));
+  if (Needed > 0) and (Needed <= Bytes) then Move(Values[0], Modules^, Needed);
+  if LoaderTestNeededOverride >= 0 then Needed := Cardinal(LoaderTestNeededOverride);
+  Result := not LoaderTestEnumFail;
+end;
+function LoaderTestCreate(Flags, PID: Cardinal): THandle; stdcall;
+begin
+  Inc(LoaderTestCreateCalls); LoaderTestIndex := 0;
+  if LoaderTestCreateFail then Result := INVALID_HANDLE_VALUE else Result := $123400;
+end;
+procedure LoaderTestClose(Snapshot: THandle);
+begin Inc(LoaderTestCloseCalls); end;
+function LoaderTestFill(var Entry: TModuleEntry32W): BOOL;
+begin
+  if LoaderTestIndex >= Length(LoaderTestTH) then
+  begin
+    Winapi.Windows.SetLastError(LoaderTestEndError);
+    Exit(False);
+  end;
+  Entry := Default(TModuleEntry32W); Entry.dwSize := SizeOf(Entry);
+  Entry.th32ProcessID := WinCurrentProcessId;
+  Entry.modBaseAddr := Pointer(LoaderTestTH[LoaderTestIndex]);
+  Entry.hModule := HMODULE(LoaderTestTH[LoaderTestIndex]);
+  Entry.modBaseSize := $1000;
+  if LoaderTestBadEntry then Entry.th32ProcessID := Entry.th32ProcessID + 1;
+  Result := True;
+end;
+function LoaderTestFirst(Snapshot: THandle; var Entry: TModuleEntry32W): BOOL; stdcall;
+begin
+  LoaderTestIndex := 0; Result := LoaderTestFill(Entry);
+end;
+function LoaderTestNext(Snapshot: THandle; var Entry: TModuleEntry32W): BOOL; stdcall;
+begin
+  if LoaderTestNextRaise then raise Exception.Create('synthetic Module32Next failure');
+  Inc(LoaderTestIndex); Result := LoaderTestFill(Entry);
+end;
+function TestLoaderCrossViewHardening(out Failure: string;
+  out Checks: Integer): Boolean;
+var
+  SavedEnum: TEnumProcessModules; SavedCreate: TCreateModuleSnapshot;
+  SavedFirst: TModule32FirstW; SavedNext: TModule32NextW;
+  SavedClose: TLoaderCloseHook; SavedResolved: Boolean;
+  M: TLoaderCrossViewMonitor; C: TLoaderViewCounts;
+  A, B: TLoaderMismatches; D: TDetectionKinds;
+  I, Calls: Integer; Raised: Boolean;
+  procedure Check(Value: Boolean; const Name: string);
+  begin Inc(Checks); if not Value then raise Exception.Create(Name); end;
+  procedure Setup;
+  begin
+    LoaderTestPS := TArray<NativeUInt>.Create($30000, $10000, $20000);
+    LoaderTestTH := TArray<NativeUInt>.Create($20000, $10000, $30000);
+    LoaderTestAfter := nil;
+    LoaderTestEnumCalls := 0; LoaderTestIndex := 0; LoaderTestCloseCalls := 0;
+    LoaderTestCreateCalls := 0; LoaderTestEndError := ERROR_NO_MORE_FILES;
+    LoaderTestEnumFail := False; LoaderTestCreateFail := False;
+    LoaderTestNextRaise := False; LoaderTestBadEntry := False;
+    LoaderTestUseAfter := False; LoaderTestNeededOverride := -1;
+    M.Reset; D := [];
+  end;
+begin
+  Result := False; Failure := ''; Checks := 0; M := nil;
+  SavedEnum := EnumModules; SavedCreate := CreateSnapshot;
+  SavedFirst := ModuleFirst; SavedNext := ModuleNext; SavedClose := LoaderCloseHook;
+  SavedResolved := Resolved;
+  try
+    try
+      EnumModules := LoaderTestEnum; CreateSnapshot := LoaderTestCreate;
+      ModuleFirst := LoaderTestFirst; ModuleNext := LoaderTestNext;
+      LoaderCloseHook := LoaderTestClose; Resolved := True;
+      M := TLoaderCrossViewMonitor.Create; Setup;
+      Check(CaptureLoaderDetails(C, A), 'complete views accepted');
+      Check(C.Valid and (C.Missing = 0) and (Length(A) = 0), 'order changes are not missing modules');
+      Check((LoaderTestEnumCalls = 2) and (LoaderTestCloseCalls = 1), 'two PSAPI views and exactly one snapshot close');
+      LoaderTestTH := TArray<NativeUInt>.Create($10000, $20000);
+      Check(CaptureLoaderDetails(C, A) and (C.Missing = 1), 'missing Toolhelp module');
+      Check((A[0].Base = $30000) and (A[0].MissingFrom = 1), 'missing identity includes address and side');
+      LoaderTestPS := TArray<NativeUInt>.Create($10000);
+      Check(CaptureLoaderDetails(C, B) and (C.Missing = 1), 'missing PSAPI module');
+      Check((B[0].Base = $20000) and (B[0].MissingFrom = 2), 'reverse direction retained');
+      Check(not SameLoaderMismatches(A, B), 'equal counts not equal evidence');
+      B := Copy(A, 0, Length(A)); B[0].MissingFrom := 2;
+      Check(not SameLoaderMismatches(A, B), 'same address opposite side not equal');
+      B := Copy(A, 0, Length(A));
+      Check(SameLoaderMismatches(A, B), 'identical tuple set equal');
+      Setup; LoaderTestEndError := ERROR_ACCESS_DENIED;
+      Check(not CaptureLoaderDetails(C, A), 'unexpected enumeration termination rejected');
+      Check(not C.Valid and (C.Missing = 0) and (Length(A) = 0), 'no partial counts published');
+      Check(LoaderTestCloseCalls = 1, 'failed enumeration closes snapshot');
+      Setup; LoaderTestTH := nil;
+      Check(not CaptureLoaderDetails(C, A), 'empty self-module snapshot is incomplete');
+      Check(LoaderTestCloseCalls = 1, 'first-entry failure closes snapshot');
+      Setup; LoaderTestPS := TArray<NativeUInt>.Create($10000, $10000);
+      Check(not CaptureLoaderDetails(C, A), 'duplicate PSAPI module rejected');
+      Check(LoaderTestCreateCalls = 0, 'invalid PSAPI response rejected before snapshot');
+      Setup; LoaderTestTH := TArray<NativeUInt>.Create($10000, $10000);
+      Check(not CaptureLoaderDetails(C, A), 'duplicate Toolhelp module rejected');
+      Setup; LoaderTestBadEntry := True;
+      Check(not CaptureLoaderDetails(C, A), 'wrong-process Toolhelp entry rejected');
+      Setup; LoaderTestNeededOverride := 7;
+      Check(not CaptureLoaderDetails(C, A), 'partial HMODULE byte length rejected');
+      Setup; LoaderTestNeededOverride := (MAX_LOADER_MODULES + 1) * SizeOf(NativeUInt);
+      Check(not CaptureLoaderDetails(C, A), 'oversized PSAPI response rejected');
+      Setup; LoaderTestEnumFail := True;
+      Check(not CaptureLoaderCrossView(C) and not C.Valid, 'public capture clears failed output');
+      Setup; LoaderTestCreateFail := True;
+      Check(not CaptureLoaderDetails(C, A), 'failed snapshot creation');
+      Check(LoaderTestCloseCalls = 0, 'invalid handle never closed');
+      Setup; LoaderTestUseAfter := True;
+      LoaderTestAfter := TArray<NativeUInt>.Create($10000, $20000, $40000);
+      Check(not CaptureLoaderDetails(C, A), 'changing membership rejects comparison');
+      Check(not C.Valid and (LoaderTestCloseCalls = 1), 'changing view has no published partial result');
+      Setup; LoaderTestNextRaise := True; Raised := False;
+      try CaptureLoaderDetails(C, A); except on E: Exception do Raised := True; end;
+      Check(Raised and (LoaderTestCloseCalls = 1), 'exception closes snapshot');
+      Check(not C.Valid and (Length(A) = 0), 'exception preserves empty outputs');
+      Setup; SetLength(LoaderTestPS, MAX_LOADER_MODULES); SetLength(LoaderTestTH, MAX_LOADER_MODULES);
+      for I := 0 to MAX_LOADER_MODULES - 1 do
+      begin
+        LoaderTestPS[I] := NativeUInt($10000) + NativeUInt(I) * $10000;
+        LoaderTestTH[I] := LoaderTestPS[I];
+      end;
+      Check(CaptureLoaderDetails(C, A) and (C.PSAPICount = MAX_LOADER_MODULES), 'exact 512-module capacity valid');
+      SetLength(LoaderTestTH, MAX_LOADER_MODULES + 1);
+      LoaderTestTH[MAX_LOADER_MODULES] := $8000000;
+      Check(not CaptureLoaderDetails(C, A), '513th Toolhelp module invalidates bounded view');
+      Setup; LoaderTestTH := TArray<NativeUInt>.Create($10000, $20000);
+      M.Examine(False, True, 1000, D);
+      Check((M.FConfirmations = 1) and (D = []), 'first mismatch candidate');
+      LoaderTestPS := TArray<NativeUInt>.Create($10000, $20000, $40000);
+      M.Examine(False, True, 8000, D);
+      Check((M.FConfirmations = 1) and (D = []), 'equal count different module restarts');
+      M.Examine(False, True, 15000, D);
+      Check((M.FConfirmations = 2) and (D = []), 'two repeats not enough');
+      M.Examine(False, True, 22000, D);
+      Check(dkLoaderCrossView in D, 'third identical complete mismatch detects');
+      Setup; LoaderTestTH := TArray<NativeUInt>.Create($10000, $20000);
+      M.Examine(False, True, 1000, D); M.Examine(False, True, 8000, D);
+      LoaderTestEndError := ERROR_PARTIAL_COPY; M.Examine(False, True, 15000, D);
+      Check((M.FConfirmations = 0) and (Length(M.FLastMismatch) = 0), 'partial enumeration breaks continuity');
+      LoaderTestEndError := ERROR_NO_MORE_FILES; M.Examine(False, True, 22000, D);
+      Check((M.FConfirmations = 1) and (D = []), 'post-failure sample starts at one');
+      M.Examine(False, True, 36001, D);
+      Check((M.FConfirmations = 1) and (D = []), 'gap over 14 seconds resets continuity');
+      M.Examine(False, True, 100, D);
+      Check((M.FConfirmations = 1) and (D = []), 'clock rollback starts fresh');
+      M.Examine(True, True, 7100, D);
+      Check(M.FConfirmations = 0, 'baseline clears mismatch history');
+      Setup; LoaderTestTH := TArray<NativeUInt>.Create($10000, $20000);
+      for I := 0 to 9 do M.Examine(False, False, UInt64(1000 + I * 7000), D);
+      Check((M.FConfirmations = 3) and (D = []), 'saturation with no independent evidence');
+      Calls := LoaderTestEnumCalls; M.Examine(False, True, 64000, D);
+      Check(LoaderTestEnumCalls = Calls, 'same timestamp skipped');
+      LoaderTestNextRaise := True; Raised := False;
+      try M.Examine(False, True, 71000, D); except on E: Exception do Raised := True; end;
+      Check(Raised and (M.FConfirmations = 0), 'monitor exception invalidates confirmations');
+      C := Default(TLoaderViewCounts); C.Valid := True; C.Missing := 1;
+      Check(LoaderViewCandidate(C, 3, True), 'existing pure predicate remains compatible');
+      Check(not LoaderViewCandidate(C, 3, False), 'independent evidence gate preserved');
+      Result := True;
+    except on E: Exception do Failure := E.Message; end;
+  finally
+    M.Free; LoaderTestPS := nil; LoaderTestTH := nil; LoaderTestAfter := nil;
+    EnumModules := SavedEnum; CreateSnapshot := SavedCreate;
+    ModuleFirst := SavedFirst; ModuleNext := SavedNext; LoaderCloseHook := SavedClose;
+    Resolved := SavedResolved;
+  end;
+end;

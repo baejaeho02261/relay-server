@@ -1,0 +1,67 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ProjectGuid>{98505263-A11C-4AB1-8031-64D294EEEFD5}</ProjectGuid>
+    <ProjectVersion>20.3</ProjectVersion>
+    <ProjectName>Cozy.OverlayFaultTest</ProjectName>
+    <MainSource>Cozy.OverlayFaultTest.dpr</MainSource>
+    <FrameworkType>None</FrameworkType>
+    <AppType>Application</AppType>
+    <Base>true</Base>
+    <Config Condition="'$(Config)'==''">Release</Config>
+    <Platform Condition="'$(Platform)'==''">Win64</Platform>
+    <TestOnlyDefine>GAME_PRODUCT_FAULT_TESTS;GAME_IMGUI_FAULT_TESTS</TestOnlyDefine>
+  </PropertyGroup>
+  <Import Project="..\Cozy.Build\Cozy.ManualProbe.props" />
+  <PropertyGroup>
+    <DCC_ConsoleTarget>false</DCC_ConsoleTarget>
+    <DCC_IncludePath>$(MSBuildProjectDirectory)\..\..\Cozy.Source\Cozy.Security.NHW;$(CozyNativeRoot)\Cozy.Source\Cozy.Application;$(CozyNativeRoot)\Cozy.Source\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Source\Cozy.Platform;$(CozyNativeRoot)\Cozy.Source\Cozy.Security;$(CozyNativeRoot)\Cozy.Source\Cozy.Network;$(CozyNativeRoot)\Cozy.Source\Cozy.Identity;$(CozyNativeRoot)\Cozy.Source\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Source\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Source\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Source\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Source\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Tests\Cozy.Build;$(CozyNativeRoot)\Cozy.Tests\Cozy.Configuration;$(CozyNativeRoot)\Cozy.Tests\Cozy.Crypto;$(CozyNativeRoot)\Cozy.Tests\Cozy.FaultInjection;$(CozyNativeRoot)\Cozy.Tests\Cozy.Handoff;$(CozyNativeRoot)\Cozy.Tests\Cozy.Identity;$(CozyNativeRoot)\Cozy.Tests\Cozy.Integrity;$(CozyNativeRoot)\Cozy.Tests\Cozy.Lifecycle;$(CozyNativeRoot)\Cozy.Tests\Cozy.Network;$(CozyNativeRoot)\Cozy.Tests\Cozy.Overlay;$(CozyNativeRoot)\Cozy.Tests\Cozy.Platform;$(CozyNativeRoot)\Cozy.Tests\Cozy.Protocol;$(CozyNativeRoot)\Cozy.Tests\Cozy.Security;$(CozyNativeRoot)\Cozy.Tests\Cozy.Startup</DCC_IncludePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <DelphiCompile Include="Cozy.OverlayFaultTest.dpr">
+      <MainSource>MainSource</MainSource>
+    </DelphiCompile>
+    <BuildConfiguration Include="Release">
+      <Key>Cfg_1</Key>
+      <CfgParent>Base</CfgParent>
+    </BuildConfiguration>
+  </ItemGroup>
+  <Import Project="$(BDS)\Bin\CodeGear.Delphi.Targets" />
+  <PropertyGroup>
+    <DCC_ObjPath>$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui</DCC_ObjPath>
+  </PropertyGroup>
+  <Target Name="AuditProductFaultObject" BeforeTargets="_PasCoreCompile">
+    <Error Condition="!Exists('$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_fault_test.o')" Text="PRODUCT_FAULT_OBJECT_REQUIRED: compile Cozy.Tests/Cozy.Overlay/Cozy.GpuFault/Cozy.game_imgui_fault_test.cpp in the C++Builder IDE first; see Relay Server/tools/Product_Fault_Tests.html." />
+    <Error Condition="Exists('$(MSBuildProjectDirectory)\..\..\Cozy.game_imgui_fault_test.o')" Text="PRODUCT_FAULT_OBJECT_SHADOW: test object must not reside beside production units." />
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -File &quot;$(MSBuildProjectDirectory)\..\Cozy.Overlay\Cozy.GpuFault\Cozy.Audit-FaultObject.ps1&quot; -Path &quot;$(CozyNativeRoot)\Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_fault_test.o&quot;" />
+  </Target>
+  <Target Name="NormalizeProductFaultOverlay" AfterTargets="Build;Rebuild">
+    <Error Condition="!Exists('$(DCC_ExeOutput)\Cozy.OverlayFaultTest.exe')" Text="PRODUCT_FAULT_BUILD_OUTPUT_MISSING" />
+    <Exec Command="&quot;$(SystemRoot)\System32\WindowsPowerShell\v1.0\powershell.exe&quot; -NoProfile -File &quot;$(MSBuildProjectDirectory)\..\..\Cozy.ImGui\Cozy.Build\Cozy.Normalize-PE-Unwind.ps1&quot; -ImagePath &quot;$(DCC_ExeOutput)\Cozy.OverlayFaultTest.exe&quot;" />
+  </Target>
+  <PropertyGroup>
+    <DCC_ExeOutput>$(CozyNativeRoot)\build\tests\product-faults</DCC_ExeOutput>
+    <DCC_DcuOutput>$(CozyNativeRoot)\build\tests\product-faults\units\$(ProjectName)\$(Platform)\$(Config)</DCC_DcuOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- IDE file references only; DPR conditional uses control compilation. -->
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Application.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Crypto.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Handoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Identity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Integrity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Lifecycle.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Network.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Overlay.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Platform.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Protection.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.Security.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsFaultInjection.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsHandoff.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsIdentity.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsNetwork.pas" />
+    <DCCReference Include="..\..\Cozy.Source\Cozy.Configuration\Cozy.Strings.TestsPlatform.pas" />
+  </ItemGroup>
+  <PropertyGroup>
+    <DCC_UnitSearchPath>$(MSBuildProjectDirectory)\..\..\Cozy.Source\Cozy.Security.NHW;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+  </PropertyGroup>
+</Project>
