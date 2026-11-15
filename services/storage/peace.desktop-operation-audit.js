@@ -39,14 +39,21 @@ function ValidateOperation(op){
  if(!op||!HASH.test(op.operationId||'')||!op.meta||JSON.stringify(Safe(op.meta))!==JSON.stringify(op.meta)||!op.intent)throw Error('SERVER_AUDIT_OPERATION_INVALID');
  ValidateEvent(op.intent,'INTENT');if(op.operationId!==op.intent.operationId||Object.keys(op.meta).some(k=>op.intent[k]!==op.meta[k]))throw Error('SERVER_AUDIT_OPERATION_INVALID');
 }
-function ValidateEvent(e,phase){
- if(!e||!HASH.test(e.operationId||'')||e.phase!==phase||e.auditEventId!==sha('GAME-SERVER-OP-EVENT-V1\n'+e.operationId+'\n'+phase)||!Number.isSafeInteger(e.at)||e.at<1||Object.keys(e).some(k=>!['auditEventId','operationId','phase','at',...Object.keys(Safe(e))].includes(k)))throw Error('SERVER_AUDIT_OUTBOX_INVALID');
+function ValidateEvent(e,phase,stored=false){
+ if(!e||!HASH.test(e.operationId||'')||e.phase!==phase||e.auditEventId!==sha('GAME-SERVER-OP-EVENT-V1\n'+e.operationId+'\n'+phase)||!Number.isSafeInteger(e.at)||e.at<1)throw Error('SERVER_AUDIT_OUTBOX_INVALID');
+ const allowed=['auditEventId','operationId','phase','at',...Object.keys(Safe(e))];
+ // Earlier releases stored a detection category with the event. Retain the
+ // original field and value so replay can match the existing audit fingerprint.
+ const legacyCategory=e.categoryId;
+ if(stored&&typeof legacyCategory==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}$/.test(legacyCategory))allowed.push('categoryId');
+ if(Object.keys(e).some(key=>!allowed.includes(key)))throw Error('SERVER_AUDIT_OUTBOX_INVALID');
 }
 function Validate(rows){
  if(!rows||Array.isArray(rows)||Object.getPrototypeOf(rows)!==Object.prototype||Object.keys(rows).length>100000)throw Error('SERVER_AUDIT_OUTBOX_INVALID');
  for(const [id,row]of Object.entries(rows)){
   if(!['COMMITTED','FAILED','UNCERTAIN'].includes(row?.event?.phase))throw Error('SERVER_AUDIT_OUTBOX_INVALID');
-  ValidateEvent(row.event,row.event.phase);ValidateEvent(row.intent,'INTENT');
+  ValidateEvent(row.event,row.event.phase,true);ValidateEvent(row.intent,'INTENT',true);
+  if(row.intent.categoryId!==row.event.categoryId)throw Error('SERVER_AUDIT_OUTBOX_INVALID');
   if(id!==row.event.auditEventId||row.intent.operationId!==row.event.operationId||row.intent.kind!==row.event.kind||typeof row.acked!=='boolean'||Object.keys(row).some(k=>!['intent','event','acked'].includes(k)))throw Error('SERVER_AUDIT_OUTBOX_INVALID');
  }
 }

@@ -19,6 +19,7 @@ RUN npm ci --include=dev --ignore-scripts && node -e "const D=require('better-sq
 COPY ["./", "/app/cozy-peace/Relay Server/"]
 RUN node tools/build/peace.generate-packet-schema.js --check \
  && node --test tests/runtime/peace.test-runtime-environment.js tests/storage/peace.test-audit-redaction.js \
+ && node tests/storage/peace.test-server-storage-11-14.js legacy-audit-category-replays-without-rewriting \
  && node tests/security/peace.test-railway-web-security.js \
  && node tests/runtime/peace.test-railway-process-lifecycle.js \
  && node tests/web/peace.check-web-ui.js

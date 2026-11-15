@@ -81,6 +81,34 @@ const cases={
   failCommit=false;audit.Drain();assert.equal(Object.values(store.Load().serverAuditOutbox)[0].acked,true);assert.equal(events.size,2);
   events=new Map();audit.Drain({reconcile:true});assert.equal(events.size,2);assert(!JSON.stringify([...events.values()]).includes('must not'));
  },
+ 'legacy-audit-category-replays-without-rewriting':()=>{
+  const store=require('../../services/bootstrap/peace.desktop-bootstrap-store');
+  const replayed=[];
+  const audit=isolated('peace.desktop-operation-audit',{
+   '../storage/audit/peace.audit.js':{AppendOperationEvent(_id,_type,event){replayed.push(JSON.stringify(event));return {ok:true};}}
+  });
+  const operation=audit.Begin('OLD_DETECTION','TEST_OPERATOR',{categoryId:'legacy-tag_5F'});
+  assert.equal(operation.intent.categoryId,undefined);
+  const rows={};
+  audit.Attach({serverAuditOutbox:rows},operation);
+  const row=Object.values(rows)[0];
+  row.intent.categoryId='legacy-tag_5F';
+  row.event.categoryId='legacy-tag_5F';
+  const original=[JSON.stringify(row.intent),JSON.stringify(row.event)];
+  store.Atomic(db=>{db.serverAuditOutbox=rows;});
+  replayed.length=0;
+  assert.equal(audit.Drain({reconcile:true}).delivered,1);
+  assert.deepEqual(replayed,original);
+  const saved=Object.values(store.Load().serverAuditOutbox)[0];
+  assert.deepEqual([JSON.stringify(saved.intent),JSON.stringify(saved.event)],original);
+  const mismatched=structuredClone(rows);
+  Object.values(mismatched)[0].event.categoryId='other-5F';
+  assert.throws(()=>audit.Validate(mismatched),/OUTBOX_INVALID/);
+  const invalid=structuredClone(rows);
+  Object.values(invalid)[0].event.categoryId='invalid category';
+  Object.values(invalid)[0].intent.categoryId='invalid category';
+  assert.throws(()=>audit.Validate(invalid),/OUTBOX_INVALID/);
+ },
  'audit-unavailable-before-mutation':()=>{
   const store=require("../../services/bootstrap/peace.desktop-bootstrap-store");store.Load();const before=store.Load().revision;let ran=false;
   const audit=isolated('peace.desktop-operation-audit',{"../storage/audit/peace.audit.js":{AppendOperationEvent:()=>({ok:false})}});assert.throws(()=>audit.Run('NO_AUDIT','ADMIN',{},()=>{ran=true;}),/AUDIT_UNAVAILABLE/);assert.equal(ran,false);assert.equal(store.Load().revision,before);
