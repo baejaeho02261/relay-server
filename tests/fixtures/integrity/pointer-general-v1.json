@@ -1,0 +1,64 @@
+{
+  "length": 178,
+  "sha512": "a0774b73b11492656b88afa47a2b93bb01191cd3ca0004dd5c9b49701e7fc504b575190054cff6bcea3c220eaa5eb4283d022345f959bdee4dc1956190757ccf",
+  "crc64": "DA98C7AAAA10F742",
+  "hex": "434f5a592d504f494e5445522d47524150482d563100040000000400000002000000010000000100000018000000070000000100000002000000020000000c00000007000000010000000300000003000000100000000700000001000000040000000400000001000000070000000100000001000000020000000400000004000000010000000300000010000000080000000200000004000000040000000800000003000000040000000c00000004000000",
+  "purpose": "Independent Python struct/hashlib and bitwise ECMA-182 vector for the native V1 registered shared DAG; not native execution evidence.",
+  "nodes": [
+    {
+      "id": 1,
+      "kind": 1,
+      "span": 24,
+      "generation": 7,
+      "alive": true
+    },
+    {
+      "id": 2,
+      "kind": 2,
+      "span": 12,
+      "generation": 7,
+      "alive": true
+    },
+    {
+      "id": 3,
+      "kind": 3,
+      "span": 16,
+      "generation": 7,
+      "alive": true
+    },
+    {
+      "id": 4,
+      "kind": 4,
+      "span": 1,
+      "generation": 7,
+      "alive": true
+    }
+  ],
+  "edges": [
+    {
+      "source": 1,
+      "target": 2,
+      "offset": 4,
+      "width": 4
+    },
+    {
+      "source": 1,
+      "target": 3,
+      "offset": 16,
+      "width": 8
+    },
+    {
+      "source": 2,
+      "target": 4,
+      "offset": 4,
+      "width": 8
+    },
+    {
+      "source": 3,
+      "target": 4,
+      "offset": 12,
+      "width": 4
+    }
+  ],
+  "depth": 2
+}

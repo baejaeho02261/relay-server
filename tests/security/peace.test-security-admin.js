@@ -1,0 +1,45 @@
+'use strict';
+const MODULE_RESOURCE_ROOT = require('node:path').resolve(__dirname, "..");
+
+// Tests the existing password/session/CSRF primitives and the single-operator
+// desktop gate. It does not claim a full HTTP server or a physical-key test.
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-solo-admin-'));
+Object.assign(process.env,{DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',
+ ADMIN_SECRET:'fixture-private-admin-password',VIEWER_SECRET:'fixture-viewer-password',
+ DESKTOP_SECURITY_STEP_UP_REQUIRED:'1',DESKTOP_APPROVER_IDENTITIES_JSON:'{obsolete invalid mapping'});
+require("../../core/peace.utilities.js").EnsureDirs();
+const web=require("../../web/authentication/peace.web-auth"),guard=require("../../services/authentication/peace.desktop-admin-guard");
+const dual=require("../../services/authentication/peace.privileged-approval"),state=require("../../core/peace.runtime-state");
+const req={headers:{host:'localhost','x-forwarded-proto':'https'},socket:{remoteAddress:'127.0.0.1',encrypted:true}};
+let count=0,admin,viewer;
+const test=(name,fn)=>{fn();count++;console.log('PASS '+name);};
+const route='/api/desktop/bootstrap/security-authority';
+function authorize(actor,path,body){
+ const pending=guard.Authorize(actor,'POST',path,body);
+ if(pending.reason!=='ADMIN_ACTION_REQUIRED')return pending;
+ assert.equal(web.Reauthenticate(req,actor,process.env.ADMIN_SECRET).ok,true);
+ require("../../services/authentication/peace.desktop-action-approval").Approve(actor,pending.action.id);
+ return guard.Authorize(actor,'POST',path,body,'','',pending.action.id);
+}
+try{
+ test('Wrong password never produces a session',()=>{const r=web.Login(req,'admin','wrong');assert.equal(r.ok,false);assert.equal(r.code,'AUTH_FAILED');});
+ test('Existing password login produces the admin session, no passkey is created',()=>{const r=web.Login(req,'admin',process.env.ADMIN_SECRET);assert.equal(r.ok,true);admin=r.session;assert.equal(admin.role,'admin');assert.equal(admin.passkeyCredentialId,undefined);assert.equal(state.production.passkeyCredentials.size,0);});
+ test('Viewer/anonymous cannot authorize a desktop mutation',()=>{viewer=web.Login(req,'viewer',process.env.VIEWER_SECRET).session;for(const s of [null,{},viewer])assert.equal(guard.Authorize(s,'POST',route,{}).reason,'ADMIN_REQUIRED');});
+ test('Real cookie resolves session; fabricated and absent cookies do not',()=>{assert.equal(web.Authenticate(req),null);assert.equal(web.Authenticate({...req,headers:{cookie:'relay_admin_session=forged'}}),null);assert.equal(web.Authenticate({...req,headers:{cookie:'relay_admin_session='+admin.token}},false),admin);});
+ test('CSRF remains mandatory and is bound to the logged-in session',()=>{assert.equal(web.ValidateCsrf(req,admin),false);assert.equal(web.ValidateCsrf({...req,headers:{'x-csrf-token':'wrong'}},admin),false);assert.equal(web.ValidateCsrf({...req,headers:{'x-csrf-token':viewer.csrf}},admin),false);assert.equal(web.ValidateCsrf({...req,headers:{'x-csrf-token':admin.csrf}},admin),true);});
+ test('Session cookies retain HTTPS, HttpOnly and SameSite protection',()=>{const c=web.SessionCookie(req,admin.token,100);for(const s of ['Secure','HttpOnly','SameSite=Strict'])assert.ok(c.includes(s));});
+ test('Authenticated single administrator can mutate desktop policies without identity mapping',()=>{assert.equal(guard.Authorize(admin,'POST',route,{expectedRevision:0}).reason,'ADMIN_ACTION_REQUIRED');assert.equal(authorize(admin,route,{expectedRevision:0}).ok,true);assert.equal(guard.Status().stepUpRequired,true);assert.equal(guard.Status().criticalAuthenticationMethod,'PASSWORD_OR_PASSKEY');assert.equal(guard.Status().dualApprovalRequired,false);assert.equal(guard.Status().mode,'SINGLE_ADMIN');});
+ test('All desktop protected routes retain the admin gate and omit dual tickets',()=>{for(const action of ['controls','contracts','signers','rollout','test-evidence','activate','enable-all']){const p='/api/desktop/bootstrap/security-operations/'+action;assert.equal(guard.IsMutation(p),true);assert.equal(dual.Required(p),false);assert.equal(guard.Authorize(viewer,'POST',p,{}).ok,false);}for(const p of ['/api/desktop/bootstrap/artifacts','/api/desktop/bootstrap/module-baselines','/api/desktop/bootstrap/integrity-policy']){assert.equal(guard.IsMutation(p),true);assert.equal(authorize(admin,p,{}).ok,true);}assert.equal(state.production.privilegedApprovals.size,0);});
+ test('Old global settings do not introduce a two-person desktop gate',()=>{state.production.deploymentManifest.dualApprovalRequired=true;assert.equal(guard.CheckSession(admin).ok,true);assert.equal(dual.Required(route),false);assert.equal(dual.Required('/api/system/service/stop'),true);assert.equal(state.production.deploymentManifest.dualApprovalRequired,true);});
+ test('Explicit passkey revocation is accessible to existing admin without the key being revoked',()=>{assert.equal(guard.IsMutation('/api/production/passkeys/revoke'),true);assert.equal(authorize(admin,'/api/production/passkeys/revoke',{}).ok,true);assert.equal(dual.Required('/api/production/passkeys/revoke'),false);assert.equal(state.production.passkeyCredentials.size,0);});
+ test('Unrelated global two-person feature is unchanged, not silently disabled',()=>{const r=dual.Request(admin,'POST','/api/system/service/stop',{});assert.equal(r.ok,true);const other=web.Login(req,'admin',process.env.ADMIN_SECRET).session;assert.equal(dual.Approve(r.ticket.ticketId,other).ok,true);assert.equal(dual.Consume(r.ticket.ticketId,admin,'POST','/api/system/service/stop',{}).ok,true);state.production.deploymentManifest.dualApprovalRequired=false;});
+ test('Obsolete desktop approval APIs cannot create a fake second-person approval',()=>{const r=dual.Request(admin,'POST',route,{});assert.equal(r.reason,'SINGLE_OPERATOR_APPROVAL_NOT_REQUIRED');assert.equal(dual.Consume('',admin,'POST',route,{}).reason,'SINGLE_OPERATOR_APPROVAL_NOT_REQUIRED');});
+ test('Removed desktop passkey reauthentication returns explicit unused status',()=>{assert.equal(guard.Begin(admin,req).reason,'SECURITY_DESKTOP_PASSKEY_NOT_USED');assert.equal(guard.Finish(admin,req,{}).reason,'SECURITY_DESKTOP_PASSKEY_NOT_USED');assert.equal(admin.securityVerifiedAt,undefined);});
+ test('Non-secret summaries exclude private keys, bearer tokens and file bytes',()=>{const text=JSON.stringify(guard.Summary(route,{expectedRevision:1,privateKey:'PRIVATE_SENTINEL',token:'TOKEN_SENTINEL',bytes:'BYTES_SENTINEL',trustedReleaseKeys:[{keyId:'a'.repeat(64),publicKey:'PUBLIC_SENTINEL'}]}));for(const v of ['PRIVATE_SENTINEL','TOKEN_SENTINEL','BYTES_SENTINEL','PUBLIC_SENTINEL'])assert.ok(!text.includes(v));});
+ test('Existing logout invalidates a session including delayed mutations',()=>{const r={...req,headers:{cookie:'relay_admin_session='+admin.token}};web.Logout(r);assert.equal(web.Authenticate(r),null);assert.equal(guard.CheckSession(admin).reason,'ADMIN_SESSION_EXPIRED');});
+ // These two assertions are source wiring checks, separately named as such.
+ test('Source wiring: JSON mutation dispatcher still checks CSRF before authorization',()=>{const s=fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../web/http/peace.web-api.js"),'utf8');const csrf=/if\(!require\(["']\.\.\/authentication\/peace\.web-auth["']\)\.ValidateCsrf\(req,session\)\)/.exec(s);assert.ok(csrf,'actual relocated authentication module must check CSRF');const a=csrf.index,b=s.indexOf('desktopGuard.Authorize');assert.ok(b>a);assert.ok(s.includes('CanAcceptTraffic()'));});
+ test('Source wiring: raw uploads keep admin, CSRF and HA checks',()=>{const s=fs.readFileSync(path.join(MODULE_RESOURCE_ROOT,"../web/routes/bootstrap/peace.desktop-bootstrap-routes.js"),'utf8');assert.ok(s.includes('RequireAdmin(res,session)'));assert.ok(s.includes('ValidateCsrf(req,session)'));assert.ok(s.includes('CanAcceptTraffic()'));assert.ok(s.includes('.Authorize(session,method,pathname,summary'));});
+ console.log(`Single-operator admin regression: ${count} passed (15 service/session cases + 2 source-wiring checks; no full HTTP/browser execution)`);
+}finally{fs.rmSync(temp,{recursive:true,force:true});}

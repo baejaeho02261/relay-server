@@ -1,0 +1,1312 @@
+{
+  "version": 1,
+  "scope": "Public deterministic test vectors; schema admission only, never session/license/signature authorization. Native Windows execution is separate.",
+  "transcriptVectors": [
+    {
+      "name": "A-args0-function2",
+      "argsVariant": 0,
+      "body": {
+        "action": "challenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": []
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b25b294cb4deb69ea00a4c3cf3113904801b6015e5956bd019a8570b1fe1d6040e944ef3cdee16d0a46503ca6e659a25f21cf9ceddc13f352a3c98138c15d6af",
+      "binding": "60d3c2f6f49c5fe97576e9a8f64f2c8a1d62a4d5956c074a093a14e63f659f6996ca85f4059357523ec82397c661fc6784a8c6cf32e43ed534fc82f4256309e9",
+      "canonicalSha512": "5b47d9d405c2433d25ce30d7a9da003e6cc160117d93e63b4c66cfc9447a20d987e2945deb9ffb071f86732340f8bc0a76510329b0e3ccfdeb7b35c03738ebe2"
+    },
+    {
+      "name": "A-args0-function65535",
+      "argsVariant": 0,
+      "body": {
+        "action": "challenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": []
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b25b294cb4deb69ea00a4c3cf3113904801b6015e5956bd019a8570b1fe1d6040e944ef3cdee16d0a46503ca6e659a25f21cf9ceddc13f352a3c98138c15d6af",
+      "binding": "40db81d9e8586269a328641d54aff19d92440bc748c3ff7376934475d88aa62d263bda078b8d8b3c9ae4ff6b2a75c114a466f39a26a07415598951ebe8f87c19",
+      "canonicalSha512": "e861b6f912f6d0057b95946b3dbb76c2aa8f785dd3cc2bbeb78b95f2fccdf2a5c0b01dbf2c9f6636c67f3d53c44fc646868129fb008f23aa78bf6f9e67b6b81a"
+    },
+    {
+      "name": "A-args3-function2",
+      "argsVariant": 1,
+      "body": {
+        "action": "challenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": [
+          -2147483648,
+          0,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3c68f701a5768fd78363ff0e7523fa79f3b6a235b71a8831edfbfae65dbf0e7c5eb4f411a0f761679ba5ac86f2043d4f5fdf8c870f506fdc5d3c0b2398d4f412",
+      "canonicalSha512": "f10874d1bf34080b60df047f613f7ecc4ce8bfbb4d7cc8cc85108daf0ee5498b76d2d1f3056df440dc3749f5b5ad7a528e8b63f6c046adb47d7120428aa83373"
+    },
+    {
+      "name": "A-args3-function65535",
+      "argsVariant": 1,
+      "body": {
+        "action": "challenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": [
+          -2147483648,
+          0,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "714b89f8d0f68904c1db4204bb44e8fe9695114e7e9252dbcb9e61346270d8104ce22d46e2fb21b3188920afa51154d21fb377fbc58087e2f6c8cf7a406ba68b",
+      "canonicalSha512": "30762a44478f312741d9f77f3bf0391c0e0d4f369cb2b77ddc09541f21effffb5b255201111c6e31c57d9f35dba7adabfbc4bc1e2827679e93129593baa63d0c"
+    },
+    {
+      "name": "A-args8-function2",
+      "argsVariant": 2,
+      "body": {
+        "action": "challenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": [
+          -2147483648,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          7,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b671d80be1c07cba5b71e7c1060481d33a9e67909b2fccf85bec8f3b9c79a092aa04fc8ee706cd14af5f24456f6f78d9c781f31c99d073e374dac9e45135d96a",
+      "binding": "d424d815c6916925af4c64337f14abf7335bae610f4afe7dc525b0ea1a88de33a56c083142da2a5e29d4fe2e37a1dab5ab660c7727eed38c345a0564e1655872",
+      "canonicalSha512": "3e382dd903c33945f6cef3a24d20a4ac1e2140ea46aaa950f72ffd86c627136197dbd5874874dfca800d504b70dafbe2fdf619dec7ef7215f69bc26709496582"
+    },
+    {
+      "name": "A-args8-function65535",
+      "argsVariant": 2,
+      "body": {
+        "action": "challenge",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": [
+          -2147483648,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          7,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b671d80be1c07cba5b71e7c1060481d33a9e67909b2fccf85bec8f3b9c79a092aa04fc8ee706cd14af5f24456f6f78d9c781f31c99d073e374dac9e45135d96a",
+      "binding": "c235afb21981417f661fa6a126487277f9d16b45110377e3461c1b0f726d21f16970899f4d01ec64a3dabba70805df3d80988bfd8a9455c78215993c08254042",
+      "canonicalSha512": "a98fac439cc514e9dc25039224b8e36f1d4319d83d38788e297cb9285ae9cb9a620d5141f29707c17aade98e019498d2a02de36fba5f56b9932fd38a141cd452"
+    },
+    {
+      "name": "B-args0-function2",
+      "argsVariant": 0,
+      "body": {
+        "action": "challenge",
+        "stage": "B",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": []
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b25b294cb4deb69ea00a4c3cf3113904801b6015e5956bd019a8570b1fe1d6040e944ef3cdee16d0a46503ca6e659a25f21cf9ceddc13f352a3c98138c15d6af",
+      "binding": "46ee2bb38997aeddd057de192d2d8b1d65420f562d76ee97ebcfbc94621b56ec301535d40c0bc561a1a53314d80b2da240b56d5127bfafd6768f9b808a7d76f7",
+      "canonicalSha512": "8741ba5dad9e9dcf3fe3f576ecfdf7eeccd6ee652d9ae3e11fb5cfeea7e950fb73c2ccc43f576a2af462156b654646b80348cc6aa02117ba453750394c4456ff"
+    },
+    {
+      "name": "B-args0-function65535",
+      "argsVariant": 0,
+      "body": {
+        "action": "challenge",
+        "stage": "B",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": []
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b25b294cb4deb69ea00a4c3cf3113904801b6015e5956bd019a8570b1fe1d6040e944ef3cdee16d0a46503ca6e659a25f21cf9ceddc13f352a3c98138c15d6af",
+      "binding": "1c74193e57b8fc175269a68051bb23bc6e56f39bcc665d2d05e50ebb28d089de277c3974537271fd92ef8b13a75eaa91a0c0bb8b02d871ac6c524394e6fe1091",
+      "canonicalSha512": "7addf46bb277de72bea69965953e01f968a469d23f1ad8cc42930c59048e8fd7475d8b1db8701df01d552e813a61200c8297670f8d4be6d00e90ff5d8bf50347"
+    },
+    {
+      "name": "B-args3-function2",
+      "argsVariant": 1,
+      "body": {
+        "action": "challenge",
+        "stage": "B",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": [
+          -2147483648,
+          0,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3320a5e97eee3f3ad19146a8c349745f2feeed61a11bec5a4eeeac26f54d4a5f2ff05629ffd5cb43589c775a4e2ed6242c5dbb2535554f43e2127f22f6bf9e67",
+      "canonicalSha512": "2985f0d71603fc5c4e1fe47078bbaf7f14c7002eae59a042bc67b4d44e33c8a1797afe7f51dcc3c428a2c769ee2eed82f1efefd8efff1f0061c6e96e37e2155b"
+    },
+    {
+      "name": "B-args3-function65535",
+      "argsVariant": 1,
+      "body": {
+        "action": "challenge",
+        "stage": "B",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": [
+          -2147483648,
+          0,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "ee96d5a1864a63d5680bb38501c29d94a3f6de2c69d41649220abfea4f3769f18f3fe6e298d8867f3c95fe1f116ab5069ff30dd65dbbdeb08aaac575944bb72e",
+      "canonicalSha512": "caa739afd4e2b7a4e3851fccabe85923dbe64b07128044061b6257ae26cccec52c579ec630382bb2e7287df0e0de04eedc3333e01e95e1c30a424772cda7345b"
+    },
+    {
+      "name": "B-args8-function2",
+      "argsVariant": 2,
+      "body": {
+        "action": "challenge",
+        "stage": "B",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": [
+          -2147483648,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          7,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b671d80be1c07cba5b71e7c1060481d33a9e67909b2fccf85bec8f3b9c79a092aa04fc8ee706cd14af5f24456f6f78d9c781f31c99d073e374dac9e45135d96a",
+      "binding": "340ac18cc2934075f712ca459a3f627e57645e800d35aadbda4e3dec7aa63f2f14c73499c9dd16848b11efd9f86c6b36cfcc1c1db00780873960931bf57037cd",
+      "canonicalSha512": "861979c445f0789abe93a9524b5a77da4a32cfd65284d98da1899e03c9aa9ce4edfd5daabe423aaf79a9189e8348d720d649ebc63a949e86f0e92c4d366770ca"
+    },
+    {
+      "name": "B-args8-function65535",
+      "argsVariant": 2,
+      "body": {
+        "action": "challenge",
+        "stage": "B",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": [
+          -2147483648,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          7,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b671d80be1c07cba5b71e7c1060481d33a9e67909b2fccf85bec8f3b9c79a092aa04fc8ee706cd14af5f24456f6f78d9c781f31c99d073e374dac9e45135d96a",
+      "binding": "3dc2144e4cba27ed68a8ca3801f53a209de73f3404dbfd484d4cb1fab927d7f04904e56840191e2ebce6d8c74f33493b26211c94768e370643784a07e5f7afd4",
+      "canonicalSha512": "5bf4454f6d2a8fd16242aab641815911099855547912b5107aa2a04c2f8391fa8450b776fa8c7ee45219cd442cc53e1372a3087c5098415ffb578c7fd3761531"
+    },
+    {
+      "name": "O-args0-function2",
+      "argsVariant": 0,
+      "body": {
+        "action": "challenge",
+        "stage": "O",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": []
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b25b294cb4deb69ea00a4c3cf3113904801b6015e5956bd019a8570b1fe1d6040e944ef3cdee16d0a46503ca6e659a25f21cf9ceddc13f352a3c98138c15d6af",
+      "binding": "40bb871bea4e07395b9a2574d5bc066391f5b726674d58869c7b146f1c564ff69af4f273189aabf2496480056be3d289a06fded24e79236928404d6ea348454e",
+      "canonicalSha512": "8175e567e81f96afaf5be43bcf5830fc34b60c44c6711fba9cc0d438731717907a70723d9312ee510a11b4c97dc9024e0058fef5059a5802174451860acf9f32"
+    },
+    {
+      "name": "O-args0-function65535",
+      "argsVariant": 0,
+      "body": {
+        "action": "challenge",
+        "stage": "O",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": []
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b25b294cb4deb69ea00a4c3cf3113904801b6015e5956bd019a8570b1fe1d6040e944ef3cdee16d0a46503ca6e659a25f21cf9ceddc13f352a3c98138c15d6af",
+      "binding": "84c2d3aea56febed2f40a403b65713652d05f022524475c235478676634aafa6804c8934bc2d281f36ce318299f1fd256e5f3d0fc3273b54d3070733231715cf",
+      "canonicalSha512": "3061a4cfb84907109e357ba568956ba589caaff7ec8296f283f4d2167a892bceb21c6e4f37db5194a358d5e9388c03fd877b86691df4aae2f17134871a357492"
+    },
+    {
+      "name": "O-args3-function2",
+      "argsVariant": 1,
+      "body": {
+        "action": "challenge",
+        "stage": "O",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": [
+          -2147483648,
+          0,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "0c35ffc765eb4f3d9115beaf7942ed6112e1af1a1acb08f42b425dc7d93f6256dda559be9a343c09ee4963bca21b976f5bc99d2ad1c03e7db9d536c91e0bca4f",
+      "canonicalSha512": "3667bc521630240fc2161d618eb5d9a37d73dd15741df96ab7a03b926895d71ba09da241ce13d398caf5efe137e0957d94297c7ffa6d983de16585a83c9e44ba"
+    },
+    {
+      "name": "O-args3-function65535",
+      "argsVariant": 1,
+      "body": {
+        "action": "challenge",
+        "stage": "O",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": [
+          -2147483648,
+          0,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "c9886ee01d73a6a2ee6a97334bc841b65cec81d7f82bae59ca41be9550c9f00bdbe3256a6a318d7f6cf18869e33163bcba1bbb15768026d6587f36372316867f",
+      "canonicalSha512": "b4fef9145b2a448e234742a79aa5266d1a9c092d97988a947c3f44084d709b8e703b9da964ea61fe48cfd308b8061f74a8a7cf517afde6e5498e39931c3e7719"
+    },
+    {
+      "name": "O-args8-function2",
+      "argsVariant": 2,
+      "body": {
+        "action": "challenge",
+        "stage": "O",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 2,
+        "args": [
+          -2147483648,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          7,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b671d80be1c07cba5b71e7c1060481d33a9e67909b2fccf85bec8f3b9c79a092aa04fc8ee706cd14af5f24456f6f78d9c781f31c99d073e374dac9e45135d96a",
+      "binding": "0e8139951d9d4958de80d5f95a7fe363a0d3f0c7f549ddc1637b1081a7be56c7fe8c9355928c2dfab3840d62cbf8f59d798612a87de5b4d8b921c674ed8c10d5",
+      "canonicalSha512": "1109cdf399fb582e3c41aff92b02fcd5c55ebe3a59cd5be44365d6e3d9127adb07bddbc9e067fe45e2a507c0a3b62787185e8f58aa257e9171d4cf46ee635917"
+    },
+    {
+      "name": "O-args8-function65535",
+      "argsVariant": 2,
+      "body": {
+        "action": "challenge",
+        "stage": "O",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "ssssssssssssssssssssssssssssssss",
+        "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "requestId": "11111111-2222-3333-4444-555555555555",
+        "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "functionId": 65535,
+        "args": [
+          -2147483648,
+          -1,
+          0,
+          1,
+          2,
+          3,
+          7,
+          2147483647
+        ]
+      },
+      "challenge": {
+        "challengeId": "111111111111111111111111111111111111111111111111",
+        "nonce": "222222222222222222222222222222222222222222222222",
+        "epoch": "333333333333333333333333333333333333333333333333",
+        "revision": 0,
+        "operationsRevision": 0,
+        "expiresAt": 1790000000000
+      },
+      "argsSha512": "b671d80be1c07cba5b71e7c1060481d33a9e67909b2fccf85bec8f3b9c79a092aa04fc8ee706cd14af5f24456f6f78d9c781f31c99d073e374dac9e45135d96a",
+      "binding": "bccfc6a553969471de0d3d6e094e532f891d9bc132d9d47f7df9e7afc2403ce8cd0f3c2372afc20e7ecf6e171c6cf17168204a524b462e13cc820732d1c6cb4b",
+      "canonicalSha512": "102935c72aea6d2c559795e5580bb296fb82b6086f0da37d8cdc9652bc23ac93382a30dd1cdeb9f8f050a2a8ba4b9b25e81a23c9593202af8d282b743a97b797"
+    }
+  ],
+  "mutations": [
+    {
+      "name": "stage-A",
+      "bodyPatch": {
+        "stage": "A"
+      },
+      "challengePatch": {},
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3c68f701a5768fd78363ff0e7523fa79f3b6a235b71a8831edfbfae65dbf0e7c5eb4f411a0f761679ba5ac86f2043d4f5fdf8c870f506fdc5d3c0b2398d4f412",
+      "canonicalSha512": "f10874d1bf34080b60df047f613f7ecc4ce8bfbb4d7cc8cc85108daf0ee5498b76d2d1f3056df440dc3749f5b5ad7a528e8b63f6c046adb47d7120428aa83373"
+    },
+    {
+      "name": "stage-O",
+      "bodyPatch": {
+        "stage": "O"
+      },
+      "challengePatch": {},
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "0c35ffc765eb4f3d9115beaf7942ed6112e1af1a1acb08f42b425dc7d93f6256dda559be9a343c09ee4963bca21b976f5bc99d2ad1c03e7db9d536c91e0bca4f",
+      "canonicalSha512": "3667bc521630240fc2161d618eb5d9a37d73dd15741df96ab7a03b926895d71ba09da241ce13d398caf5efe137e0957d94297c7ffa6d983de16585a83c9e44ba"
+    },
+    {
+      "name": "session",
+      "bodyPatch": {
+        "sessionId": "CCCCCCCCCCCCCCCCCCCCCCCC"
+      },
+      "challengePatch": {},
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "14575f9f0418d6bcd6254344248c35b8d605dcdfcbac7f0d522ca4bb7be3d03d02ce81700eb876da1e237da78531af0d59992d00bab6ca200ba311eb284d2307",
+      "canonicalSha512": "c83e408e471185ce48ca87914fd81239908037353736b6dfbd60b8b97ad7102b41994fefcea44ef726868a653ab513b24497d1e9ec3fb24971bb1134b3c5f7c9"
+    },
+    {
+      "name": "machine",
+      "bodyPatch": {
+        "machineId": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD"
+      },
+      "challengePatch": {},
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "88dd441977cbb2455872df50e9fbc373846276b99fd0f54743308a9e85079964681af610969afc1ac365fa9c92f16213c550ad4b6636702399297e6fa935c49c",
+      "canonicalSha512": "42679c182b5f642c38a86d14680ca9607bc1a06a6ac130467e88fd09c0d38f78cbc650afb7cea26c41b7481567c224de6c63b6da2eb63f759fed380d04f45240"
+    },
+    {
+      "name": "policy",
+      "bodyPatch": {
+        "policyId": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+      },
+      "challengePatch": {},
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "393f5816939798e6a1d74e08f7a8037c2aaeeea528a8542611bdeb8082e3af5c386dd8ce2b04a52991a78f6af2d91f9b1372240432ae42cca8be882878be458b",
+      "canonicalSha512": "dc31f41a963df0047af28b8545e2fe828bb0ab906f265c1cd894e5ffb5dc2452b8eaa13f47c97d43404e3be888e746a074ef59436eeb0fea03de902c05068547"
+    },
+    {
+      "name": "request",
+      "bodyPatch": {
+        "requestId": "changed-request"
+      },
+      "challengePatch": {},
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "539c6094ea2ced639eb00d714b217d59e6154b3c5f01580433fd3dc29aff1fa9b513af1a49ac9fc6a6bca9a5bc2a42a01f529cdd372d7097de7300eaf8ea15a2",
+      "canonicalSha512": "2e9738c0402632693652e2a10f13df6ad1596ed7b9e7c0c56cdb3543dae8fee80f53f46b9cc2e8370d2b202409b02425ca8453d8d699f61baaf3e85f868330f4"
+    },
+    {
+      "name": "function",
+      "bodyPatch": {
+        "functionId": 65535
+      },
+      "challengePatch": {},
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "ee96d5a1864a63d5680bb38501c29d94a3f6de2c69d41649220abfea4f3769f18f3fe6e298d8867f3c95fe1f116ab5069ff30dd65dbbdeb08aaac575944bb72e",
+      "canonicalSha512": "caa739afd4e2b7a4e3851fccabe85923dbe64b07128044061b6257ae26cccec52c579ec630382bb2e7287df0e0de04eedc3333e01e95e1c30a424772cda7345b"
+    },
+    {
+      "name": "args",
+      "bodyPatch": {
+        "args": []
+      },
+      "challengePatch": {},
+      "argsSha512": "b25b294cb4deb69ea00a4c3cf3113904801b6015e5956bd019a8570b1fe1d6040e944ef3cdee16d0a46503ca6e659a25f21cf9ceddc13f352a3c98138c15d6af",
+      "binding": "46ee2bb38997aeddd057de192d2d8b1d65420f562d76ee97ebcfbc94621b56ec301535d40c0bc561a1a53314d80b2da240b56d5127bfafd6768f9b808a7d76f7",
+      "canonicalSha512": "8741ba5dad9e9dcf3fe3f576ecfdf7eeccd6ee652d9ae3e11fb5cfeea7e950fb73c2ccc43f576a2af462156b654646b80348cc6aa02117ba453750394c4456ff"
+    },
+    {
+      "name": "challengeId",
+      "bodyPatch": {},
+      "challengePatch": {
+        "challengeId": "444444444444444444444444444444444444444444444444"
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3320a5e97eee3f3ad19146a8c349745f2feeed61a11bec5a4eeeac26f54d4a5f2ff05629ffd5cb43589c775a4e2ed6242c5dbb2535554f43e2127f22f6bf9e67",
+      "canonicalSha512": "15401ef7bdf537894694936d7b8268342962b5609613d69da1a88c35ee793fc74a130df83bba2e92667446e84523b8fadb83ed2629b6997075509f37538f9920"
+    },
+    {
+      "name": "nonce",
+      "bodyPatch": {},
+      "challengePatch": {
+        "nonce": "555555555555555555555555555555555555555555555555"
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3320a5e97eee3f3ad19146a8c349745f2feeed61a11bec5a4eeeac26f54d4a5f2ff05629ffd5cb43589c775a4e2ed6242c5dbb2535554f43e2127f22f6bf9e67",
+      "canonicalSha512": "624ef16b68dd374b4261d6fa3f68fa4d1347960d6021817e4bc43f9c289c2f44ffa0c6376ad6a28a6f68d19f8b1a923353117375db26d4c68b5ce36c34c12739"
+    },
+    {
+      "name": "epoch",
+      "bodyPatch": {},
+      "challengePatch": {
+        "epoch": "666666666666666666666666666666666666666666666666"
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3320a5e97eee3f3ad19146a8c349745f2feeed61a11bec5a4eeeac26f54d4a5f2ff05629ffd5cb43589c775a4e2ed6242c5dbb2535554f43e2127f22f6bf9e67",
+      "canonicalSha512": "a01b8f1bfad3cd2e7ade5f4202d0ef3d48ea6962707dcb89e91b9675ed738eb36f2eff04b545ec25ef04f1c6691e6bb8f2e919073015ec40b95c28e2d671420a"
+    },
+    {
+      "name": "revision",
+      "bodyPatch": {},
+      "challengePatch": {
+        "revision": 1
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3320a5e97eee3f3ad19146a8c349745f2feeed61a11bec5a4eeeac26f54d4a5f2ff05629ffd5cb43589c775a4e2ed6242c5dbb2535554f43e2127f22f6bf9e67",
+      "canonicalSha512": "f34a078d83347716da3bab75c6a92319e60b89f78206f927f37066858dc01e7322ea7947a1fa06eeadabd7d7dc7d10fef1142fcfde3e6c2c08fd6b19cdf48dea"
+    },
+    {
+      "name": "operationsRevision",
+      "bodyPatch": {},
+      "challengePatch": {
+        "operationsRevision": 1
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3320a5e97eee3f3ad19146a8c349745f2feeed61a11bec5a4eeeac26f54d4a5f2ff05629ffd5cb43589c775a4e2ed6242c5dbb2535554f43e2127f22f6bf9e67",
+      "canonicalSha512": "fc5351ad552efcfe189de561c17159b91b81d86aca63661d1e342c07f94e71292b67720d9f3f7c36695eba005cb6d398beaa9cbd5c1e903c1d2ea881be3c7375"
+    },
+    {
+      "name": "expiresAt",
+      "bodyPatch": {},
+      "challengePatch": {
+        "expiresAt": 1790000000001
+      },
+      "argsSha512": "db3ed6671edc57d950f9c2416c0a60b4860cc2344f5e810badb558f04b2375d7611a04127d3fc06d2e803124ff014f8522f1ef153370fbda9fbe3f5aa6a4e766",
+      "binding": "3320a5e97eee3f3ad19146a8c349745f2feeed61a11bec5a4eeeac26f54d4a5f2ff05629ffd5cb43589c775a4e2ed6242c5dbb2535554f43e2127f22f6bf9e67",
+      "canonicalSha512": "0a2d43e5d28078cce5fce36d28e309a82be43a822b84a00a7a023f6fe2ea97f2d3854beb8700c7c42819358ae2bdce386f1d3c1253a4d545f10e1f9a9f29bf6c"
+    }
+  ],
+  "base": {
+    "action": "challenge",
+    "stage": "B",
+    "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+    "sessionToken": "ssssssssssssssssssssssssssssssss",
+    "machineId": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "requestId": "11111111-2222-3333-4444-555555555555",
+    "policyId": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "functionId": 2,
+    "args": [
+      -2147483648,
+      0,
+      2147483647
+    ]
+  },
+  "challenge": {
+    "challengeId": "111111111111111111111111111111111111111111111111",
+    "nonce": "222222222222222222222222222222222222222222222222",
+    "epoch": "333333333333333333333333333333333333333333333333",
+    "revision": 0,
+    "operationsRevision": 0,
+    "expiresAt": 1790000000000
+  },
+  "wireCases": [
+    {
+      "name": "A-challenge-args0-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[]}}",
+      "accept": true
+    },
+    {
+      "name": "A-challenge-args0-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[]}}",
+      "accept": true
+    },
+    {
+      "name": "A-challenge-args3-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "A-challenge-args3-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "A-challenge-args8-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "A-challenge-args8-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "A-invoke-args0-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "A-invoke-args0-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "A-invoke-args3-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "A-invoke-args3-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "A-invoke-args8-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "A-invoke-args8-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"A\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "B-challenge-args0-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[]}}",
+      "accept": true
+    },
+    {
+      "name": "B-challenge-args0-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[]}}",
+      "accept": true
+    },
+    {
+      "name": "B-challenge-args3-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "B-challenge-args3-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "B-challenge-args8-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "B-challenge-args8-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "B-invoke-args0-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "B-invoke-args0-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "B-invoke-args3-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "B-invoke-args3-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "B-invoke-args8-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "B-invoke-args8-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "O-challenge-args0-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[]}}",
+      "accept": true
+    },
+    {
+      "name": "O-challenge-args0-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[]}}",
+      "accept": true
+    },
+    {
+      "name": "O-challenge-args3-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "O-challenge-args3-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "O-challenge-args8-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "O-challenge-args8-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "O-invoke-args0-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "O-invoke-args0-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "O-invoke-args3-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "O-invoke-args3-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "O-invoke-args8-function2",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "O-invoke-args8-function65535",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"O\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65535,\"args\":[-2147483648,-1,0,1,2,3,7,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": true
+    },
+    {
+      "name": "reject-functionId-36",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":0,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-functionId-37",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":1,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-functionId-38",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":65536,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-functionId-39",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2.5,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-functionId-40",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":\"2\",\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-functionId-41",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":null,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-functionId-42",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":true,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-43",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[0,0,0,0,0,0,0,0,0]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-44",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[2147483648]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-45",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483649]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-46",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[0.5]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-47",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[\"1\"]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-48",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[true]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-49",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[null]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-50",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":{}}}",
+      "accept": false
+    },
+    {
+      "name": "reject-args-51",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":null}}",
+      "accept": false
+    },
+    {
+      "name": "reject-stage-52",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"b\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-stage-53",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"AB\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-stage-54",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-stage-55",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\\n\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-stage-56",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":null,\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-sessionId-57",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"aaaaaaaaaaaaaaaaaaaaaaaa\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-sessionId-58",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-sessionId-59",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\\n\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-machineId-60",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-machineId-61",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-machineId-62",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\\r\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-policyId-63",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-policyId-64",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-policyId-65",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\\n\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-requestId-66",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"aaaaaaa\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-requestId-67",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-requestId-68",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"valid-id\\n\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-requestId-69",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"valid\\u0000id\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-requestId-70",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"valid id\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-sessionToken-71",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-sessionToken-72",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-sessionToken-73",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":7,\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-action-74",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"unknown\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "reject-action-75",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":null,\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-action",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-stage",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-sessionId",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-sessionToken",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-machineId",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-requestId",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-policyId",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-functionId",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-args",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2}}",
+      "accept": false
+    },
+    {
+      "name": "unknown-body-field",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"unexpected\":true}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-reject-challengeId-86",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-reject-challengeId-87",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-reject-challengeId-88",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":2,\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-reject-signature-89",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"\"}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-reject-signature-90",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\"}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-reject-signature-91",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\",\"signature\":3}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-missing-challengeId",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"signature\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==\"}}",
+      "accept": false
+    },
+    {
+      "name": "invoke-missing-signature",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"111111111111111111111111111111111111111111111111\"}}",
+      "accept": false
+    },
+    {
+      "name": "version-reject-94",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":0,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "version-reject-95",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":2,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "version-reject-96",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":\"1\",\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "version-reject-97",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":null,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "version-reject-98",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":true,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "unknown-operation",
+      "wire": "{\"operation\":\"unknown\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "unknown-envelope-field",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]},\"unexpected\":true}",
+      "accept": false
+    },
+    {
+      "name": "body-null",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":null}",
+      "accept": false
+    },
+    {
+      "name": "body-array",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":[]}",
+      "accept": false
+    },
+    {
+      "name": "missing-operation",
+      "wire": "{\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "missing-body",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1}",
+      "accept": false
+    },
+    {
+      "name": "legacy-pin-version-omitted",
+      "wire": "{\"operation\":\"policy\",\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "request-id-boundary-106",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"aaaaaaaa\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "request-id-boundary-107",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "shape-only-token-boundary-108",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"s\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "shape-only-token-boundary-109",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true
+    },
+    {
+      "name": "shape-only-invoke-minimum",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"invoke\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647],\"challengeId\":\"x\",\"signature\":\"x\"}}",
+      "accept": true
+    },
+    {
+      "name": "byte-budget-exact",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": true,
+      "maxBytes": 428
+    },
+    {
+      "name": "byte-budget-one-short",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false,
+      "maxBytes": 427
+    },
+    {
+      "name": "byte-budget-zero",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false,
+      "maxBytes": 0
+    },
+    {
+      "name": "duplicate-body-field",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "duplicate-envelope-field",
+      "wire": "{\"operation\":\"policy\",\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    },
+    {
+      "name": "trailing-json",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}{}",
+      "accept": false
+    },
+    {
+      "name": "prototype-field",
+      "wire": "{\"operation\":\"policy\",\"tlsPinVersion\":1,\"body\":{\"action\":\"challenge\",\"stage\":\"B\",\"sessionId\":\"AAAAAAAAAAAAAAAAAAAAAAAA\",\"sessionToken\":\"ssssssssssssssssssssssssssssssss\",\"machineId\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"requestId\":\"11111111-2222-3333-4444-555555555555\",\"policyId\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"__proto__\":{},\"functionId\":2,\"args\":[-2147483648,0,2147483647]}}",
+      "accept": false
+    }
+  ]
+}

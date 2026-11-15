@@ -1,0 +1,9 @@
+'use strict';
+const crypto=require('node:crypto'),crc=require('../../../services/cryptography/peace.crc-layers');
+function Snapshot(){return {revision:'1',rootId:1,rootGeneration:1,nodes:Array.from({length:6},(_,i)=>({id:i+1,kind:i+1,span:i?8:40,generation:1,ownerId:i?1:0,ownerGeneration:i?1:0,alive:true})),edges:Array.from({length:5},(_,i)=>({sourceId:1,sourceGeneration:1,targetId:i+2,targetGeneration:1,offset:i*8,width:8}))};}
+// Independent fixed-profile encoding, not the production lifecycle serializer.
+function Bytes(s){const prefix=Buffer.from('COZY-OWNED-POINTER-GRAPH-V2\0'),b=Buffer.alloc(prefix.length+28+28*s.nodes.length+24*s.edges.length);prefix.copy(b);let at=prefix.length;b.writeBigUInt64LE(BigInt(s.revision),at);at+=8;const put=n=>{b.writeUInt32LE(n,at);at+=4;};[s.rootId,s.rootGeneration,s.nodes.length,s.edges.length,1].forEach(put);for(const n of [...s.nodes].sort((a,b)=>a.id-b.id))[n.id,n.kind,n.span,n.generation,n.ownerId,n.ownerGeneration,Number(n.alive)].forEach(put);for(const e of [...s.edges].sort((a,b)=>a.sourceId-b.sourceId||a.offset-b.offset))[e.sourceId,e.sourceGeneration,e.targetId,e.targetGeneration,e.offset,e.width].forEach(put);return b;}
+function Seal(value){const bytes=Bytes(value.before);value.sha512=crypto.createHash('sha512').update(bytes).digest('hex');value.crc64=crc.crcHex('ecma182',bytes);return value;}
+function Graph(profile='LICENSE_API_V1'){const before=Snapshot();return Seal({version:1,scope:'REGISTERED_APP_OBJECTS',profile,status:'MEASURED',reason:'STABLE',stable:true,before,after:structuredClone(before),changes:[],sha512:'',crc64:''});}
+function Failed(reason='MEASUREMENT_FAILED',profile='LICENSE_API_V1'){return {version:1,scope:'REGISTERED_APP_OBJECTS',profile,status:'FAILED',reason,stable:false,before:null,after:null,changes:[],sha512:'',crc64:''};}
+module.exports={Snapshot,Bytes,Seal,Graph,Failed};

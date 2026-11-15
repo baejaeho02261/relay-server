@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "releaseVersion": "1.0.0",
+  "artifacts": {
+    "A": "C:\\cozy.Client\\Railway\\bin\\cozy.Launcher.exe",
+    "B": "C:\\cozy.Client\\Railway\\bin\\cozy.Client.exe",
+    "O": "C:\\cozy.Client\\Railway\\bin\\cozy.Overlay.exe"
+  },
+  "faultArtifacts": {
+    "A": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.product-faults\\bin\\cozy.LauncherFaultTest.exe",
+    "B": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.product-faults\\bin\\cozy.ClientFaultTest.exe",
+    "O": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.product-faults\\bin\\cozy.OverlayFaultTest.exe"
+  },
+  "nativeReceiveProbe": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.manual-ide\\bin\\cozy.TlsReceiveProbe.exe"
+}
