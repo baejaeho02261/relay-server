@@ -57,7 +57,7 @@ function Load(){
   if(value.serverAuditOutbox!==undefined)require("../storage/peace.desktop-operation-audit").Validate(value.serverAuditOutbox);
   if(value.deviceRegistry!==undefined)require("../devices/peace.desktop-device-registry").Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require("../devices/peace.desktop-device-identity").Validate(value.deviceIdentity);
-  if(value.nhwReports!==undefined)require('../observability/peace.nhw-reports').ValidateState(value);
+  if(value.nhwReports!==undefined||value.nhwPolicy!==undefined)require('../observability/peace.nhw-reports').ValidateState(value);
   if(value.members!==undefined)require("../members/peace.desktop-members").Validate(value.members);
   if(value.serverPolicies!==undefined)require('../security/peace.server-policy-registry').ValidateStore(value);
   if(value.orphanQuarantine!==undefined)require("../storage/peace.desktop-orphan-files").Validate(value.orphanQuarantine);

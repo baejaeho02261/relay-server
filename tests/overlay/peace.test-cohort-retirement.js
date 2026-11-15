@@ -230,23 +230,89 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
         sessionToken: session.sessionToken, ids, confirmedIds, requestId: crypto.randomUUID()};
       return {...body, signature: fixture.Sign(device, nhw.Canonical(body))};
     }
-    await t.test('all 204 report IDs and warning labels are selectable without ending authority', () => {
+    await t.test('all 204 report IDs are checked by default, including raw detections and warnings', () => {
+      assert.deepEqual(nhw.Policy(), {version:1,revision:0,disabledIds:[]});
       const s = setup(), row = nhwBody('B', s.b, s.device, Array.from({length:204}, (_, i) => i));
-      const before = structuredClone([parent(s), child(s)]);
-      assert.deepEqual(boot.Execute(row), {version:1,status:'RECORDED',terminate:false});
-      assert.deepEqual([parent(s), child(s)], before);
+      assert.deepEqual(boot.Execute(row), {version:1,status:'RECORDED',terminate:true});
+      terminal(s, 'CLOSED');
       const result = members.Detail('unassigned', {category:'nhw'});
       assert.equal(result.nhwCatalog.length, 204);
       assert.equal(result.nhwCatalog[0].legacyLabel, 'Process Detect');
       assert.equal(result.nhwCatalog.filter(x=>x.legacyLabel === 'Waring Detect').length, 4);
       assert.equal(result.nhwCatalog.filter(x=>x.legacyLabel === null).length, 7);
-      assert.deepEqual(result.categories.nhw.items.find(x=>x.flowId === s.begin.flowId).detectionIds, row.ids);
+      const item = result.categories.nhw.items.find(x=>x.flowId === s.begin.flowId);
+      assert.equal(item.stage, 'B');
+      assert.deepEqual(item.detectionIds, row.ids);
+      assert.deepEqual(item.enforcedIds, row.ids);
       assert.ok(!JSON.stringify(result).includes(row.sessionToken));
       assert.ok(!JSON.stringify(result).includes(row.signature));
     });
+    await t.test('policy updates are bounded and old decisions survive checkbox changes and exact retries', () => {
+      const actor = 'ADMIN:nhw-policy-test';
+      const before = nhw.Policy();
+      assert.throws(() => nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[204]},actor), /NHW_POLICY_INPUT_INVALID/);
+      assert.throws(() => nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[1,1]},actor), /NHW_POLICY_INPUT_INVALID/);
+      assert.throws(() => nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[2,1]},actor), /NHW_POLICY_INPUT_INVALID/);
+      assert.deepEqual(nhw.Policy(), before);
+      const observe = nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[0,92]},actor);
+      assert.deepEqual(observe, {version:1,revision:before.revision+1,disabledIds:[0,92]});
+      assert.throws(() => nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[]},actor), /NHW_POLICY_CONFLICT/);
+      const authorityRevision = store.Load().revision;
+      assert.deepEqual(nhw.UpdatePolicy({expectedRevision:observe.revision,disabledIds:[0,92]},actor), observe);
+      assert.equal(store.Load().revision, authorityRevision, 'saving the exact policy again is read-only');
+      const s = setup();
+      const beforeReports = structuredClone([parent(s),child(s)]);
+      const first = nhwBody('B', s.b, s.device, [0,92], [92]);
+      assert.equal(boot.Execute(first).terminate, false, 'unchecked local confirmation is still observed');
+      assert.deepEqual([parent(s),child(s)], beforeReports);
+      const mixed = nhwBody('B', s.b, s.device, [0,92,203], [92]);
+      assert.equal(boot.Execute(mixed).terminate, true, 'one checked raw ID closes the cohort');
+      terminal(s, 'CLOSED');
+      const allChecked = nhw.UpdatePolicy({expectedRevision:observe.revision,disabledIds:[]},actor);
+      assert.deepEqual(allChecked, {version:1,revision:observe.revision+1,disabledIds:[]});
+      assert.equal(boot.Execute(first).terminate, false);
+      assert.equal(boot.Execute(mixed).terminate, true);
+      const history = nhw.MemberIndex(store.Load()).filter(row => row.flowId === s.begin.flowId);
+      assert.deepEqual(history.map(item => [item.stage, item.detectionIds, item.enforcedIds, item.protectionEnded]), [
+        ['B', [0,92], [], false], ['B', [0,92,203], [203], true]
+      ]);
+      const copy = structuredClone(store.Load());
+      copy.nhwPolicy.disabledIds = [204];
+      assert.throws(() => nhw.ValidateState(copy), /NHW_POLICY_STORAGE_INVALID/);
+      copy.nhwPolicy.disabledIds = [];
+      const old = Object.values(copy.nhwReports).find(row => row.requestId === first.requestId);
+      delete old.policyRevision;
+      nhw.ValidateState(copy);
+      assert.deepEqual(nhw.MemberIndex(copy).find(row => row.id === old.id).enforcedIds, []);
+    });
+    await t.test('repeated unchecked reports use bounded history and preserve outbox space for a checked report', () => {
+      const actor = 'ADMIN:nhw-policy-test';
+      const policy = nhw.UpdatePolicy({expectedRevision:nhw.Policy().revision,disabledIds:[0]},actor);
+      const s = setup(), outbox = () => Object.values(store.Load().serverAuditOutbox || {});
+      const before = outbox().length;
+      const first = nhwBody('B', s.b, s.device, [0]);
+      assert.equal(boot.Execute(first).terminate, false);
+      for (let i = 0; i < 3; i++) {
+        assert.equal(boot.Execute(nhwBody('B', s.b, s.device, [0])).terminate, false);
+      }
+      assert.equal(boot.Execute(first).terminate, false);
+      const rows = () => nhw.MemberIndex(store.Load()).filter(row => row.flowId === s.begin.flowId);
+      assert.equal(rows().length, 4);
+      assert.ok(rows().every(row => !row.protectionEnded && row.enforcedIds.length === 0));
+      assert.equal(outbox().length, before);
+      const ending = nhwBody('B', s.b, s.device, [0,1]);
+      assert.equal(boot.Execute(ending).terminate, true);
+      assert.equal(boot.Execute(ending).terminate, true);
+      terminal(s, 'CLOSED');
+      assert.equal(rows().length, 5);
+      assert.deepEqual(rows().at(-1).enforcedIds, [1]);
+      assert.equal(outbox().length, before + 1);
+      assert.ok(outbox().some(({event}) => event.kind === 'NHW_DETECTION_REPORT' && event.component === 'B'));
+      nhw.UpdatePolicy({expectedRevision:policy.revision,disabledIds:[]},actor);
+    });
     await t.test('NHW history follows explicit matching and uses ordinary admin pagination', () => {
       const s = setup(), row = nhwBody('B', s.b, s.device, [0,2]);
-      assert.equal(boot.Execute(row).terminate, false);
+      assert.equal(boot.Execute(row).terminate, true);
       const unassigned = () => members.Detail('unassigned', {category:'nhw',pageSize:'100'}).categories.nhw.items;
       assert.ok(unassigned().some(x => x.flowId === s.begin.flowId));
       const actor = 'ADMIN:cohort-test';

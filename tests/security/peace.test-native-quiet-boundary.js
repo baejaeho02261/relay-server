@@ -63,6 +63,24 @@ test('Legacy error formatter returns no visible text, including unknown errors',
   assert.doesNotMatch(format, /case\s|CP-\d|\.Message/);
 });
 
+test('NHW enforces only an authenticated and schema-valid Relay termination receipt', () => {
+  const source = stripComments(read('Cozy.Source/Cozy.Protection/Cozy.NHW.Monitor.pas'));
+  const capture = source.split('procedure TCozyNHWMonitor.Capture(')[1].split('procedure TCozyNHWMonitor.LatchTermination;')[0];
+  assert.match(capture, /FPending := FPending \+ NewKinds;/);
+  assert.match(capture, /FPendingConfirmed := FPendingConfirmed \+ \(Confirmed \* FPending\);/);
+  assert.match(capture, /NowTick >= FReportAgainAt\[Kind\]/);
+  assert.doesNotMatch(capture, /LatchTermination|FProtectiveStop|StopMonitoring|FStopHandler/);
+  const report = source.split('procedure TCozyNHWMonitor.ReportInBackground;')[1];
+  assert.match(report, /for Attempt := 1 to 2 do[\s\S]*?Transport\.PostJSON\('bootstrap', Body, AttemptBudget\)/);
+  assert(report.indexOf('RequestID := BootstrapRequestID;') < report.indexOf('for Attempt := 1 to 2 do'));
+  assert.match(report, /if not TJSONBool\(OK\)\.AsBoolean then Break;[\s\S]*?ValidateProtocolDocument\('nhwReport', Data\);\s+if TJSONBool\(Data\.GetValue\('terminate'\)\)\.AsBoolean then\s+begin\s+LatchTermination;/);
+  assert.equal((source.match(/\bLatchTermination;/g) || []).length, 3);
+  const latch = source.split('procedure TCozyNHWMonitor.LatchTermination;')[1].split('procedure TCozyNHWMonitor.ReportInBackground;')[0];
+  assert.match(latch, /TInterlocked\.CompareExchange\(FProtectiveStop, 1, 0\) <> 0 then Exit;/);
+  assert.match(latch, /StopMonitoring;\s+if Assigned\(StopHandler\) then/);
+  assert.doesNotMatch(source, /WriteConsole|WriteLn|OutputDebugString|MessageBox|ShowMessage/i);
+});
+
 test('B authorizes after hidden GPU initialization, presents before input and joins before GPU/API retirement', () => {
   const source = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Session.pas'));
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));

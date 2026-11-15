@@ -172,6 +172,64 @@ async function run(){
  for(const suffix of ['?page=1&page=1','?__proto__=x','?q=a&q=b','/'+alice.id+'?category=flows&category=devices'])assert.equal((await request(suffix)).status,400);
  assert.equal((await request('','POST',body({displayName:'No CSRF',note:''}),admin,false)).status,403);
  const created=await request('','POST',body({displayName:'Protected route',note:''}));assert.equal(created.status,200);
+ const nhwPath='/api/desktop/members/nhw-policy';
+ const {Readable}=require('node:stream');
+ const {HandleApiRequest}=require('../../web/http/peace.web-api');
+ const approval=require('../../services/authentication/peace.desktop-action-approval');
+ const guard=require('../../services/authentication/peace.desktop-admin-guard');
+ const coordinator=require('../../services/network/peace.ha-coordinator');
+ async function policyRequest(payload,headers={},session=admin){
+  const incoming=Object.assign(Readable.from(payload===undefined?[]:[Buffer.from(JSON.stringify(payload))]),{
+   url:nhwPath,method:payload===undefined?'GET':'POST',socket:req.socket,
+   headers:{'x-csrf-token':session?.csrf||'',...headers}
+  });
+  let status,value;
+  await HandleApiRequest(incoming,{writeHead(c){status=c;},end(v){value=JSON.parse(v);}},session);
+  return {status,value};
+ }
+ async function approveNhw(payload){
+  const response=await policyRequest(payload);
+  assert.equal(response.status,428);assert.equal(response.value.error,'ADMIN_ACTION_REQUIRED');
+  const action=response.value.action;
+  assert.equal(action.path,nhwPath);assert.deepEqual(action.summary.observationOnlyDetectionIds,payload.disabledIds);
+  assert.equal(auth.Reauthenticate(req,admin,process.env.ADMIN_SECRET).ok,true);
+  approval.Approve(admin,action.id);
+  return {'x-admin-action':action.id};
+ }
+ assert.equal(guard.CriticalMutation(nhwPath),true);
+ assert.equal(guard.ReauthenticationRequired(nhwPath,'GET'),false);
+ assert.equal((await policyRequest(undefined,{},null)).status,403);
+ const viewer={id:'viewer',role:'viewer',csrf:'synthetic-viewer'};
+ assert.equal((await policyRequest(undefined,{},viewer)).status,403);
+ const change={expectedRevision:0,disabledIds:[0,7]};
+ assert.equal((await policyRequest(change,{},viewer)).status,403);
+ assert.equal((await policyRequest(change,{'x-csrf-token':''})).value.error,'CSRF_FAILED');
+ assert.equal((await request('/nhw-policy?extra=1')).status,400);
+ const initial=await policyRequest();
+ assert.equal(initial.status,200);assert.equal(initial.value.canManageNhwPolicy,true);
+ assert.deepEqual(initial.value.nhwPolicy,{version:1,revision:0,disabledIds:[]});
+ assert.equal((await request('/nhw-policy','POST',change)).value.error,'ADMIN_ACTION_REQUIRED');
+ const changedBodyHeaders=await approveNhw(change);
+ assert.equal((await policyRequest({...change,disabledIds:[7]},changedBodyHeaders)).value.error,'ADMIN_ACTION_CHANGED');
+ assert.deepEqual((await policyRequest()).value.nhwPolicy,initial.value.nhwPolicy);
+ const successHeaders=await approveNhw(change);
+ const updated=await policyRequest(change,successHeaders);
+ assert.equal(updated.status,200);assert.deepEqual(updated.value.nhwPolicy,{version:1,revision:1,disabledIds:[0,7]});
+ assert.equal((await policyRequest(change,successHeaders)).value.error,'ADMIN_ACTION_INVALID');
+ const stale={expectedRevision:0,disabledIds:[]};
+ const staleResult=await policyRequest(stale,await approveNhw(stale));
+ assert.equal(staleResult.status,409);assert.equal(staleResult.value.error,'NHW_POLICY_CONFLICT');
+ const detailPolicy=await request('/unassigned?category=nhw');
+ assert.deepEqual(detailPolicy.value.nhwPolicy,updated.value.nhwPolicy);
+ assert.equal(detailPolicy.value.canManageNhwPolicy,true);
+ const active=coordinator.CanAcceptTraffic;
+ coordinator.CanAcceptTraffic=()=>false;
+ try{
+  assert.equal((await policyRequest()).value.canManageNhwPolicy,false);
+  assert.equal((await request('/unassigned?category=nhw')).value.canManageNhwPolicy,false);
+  assert.equal((await policyRequest({expectedRevision:1,disabledIds:[]})).value.error,'RELAY_STANDBY_READ_ONLY');
+ }finally{coordinator.CanAcceptTraffic=active;}
+ checks++;console.log('PASS NHW policy uses admin-only exact-request approval, CSRF, revision, and primary role protections');
  const originalNow=Date.now,now=Date.now();try{Date.now=()=>now+auth.REAUTH_MS+1;assert.equal((await request('','POST',body({displayName:'Stale auth',note:''}))).status,428);assert.equal((await request()).status,200);}finally{Date.now=originalNow;}
  auth.RevokeAllSessions();assert.equal((await request()).status,401);
  checks++;console.log('PASS Protected real routes enforce admin, exact query, CSRF, recent authentication and revoked-session checks');

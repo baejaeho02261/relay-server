@@ -11,9 +11,10 @@ const { persistent } = require('../runtime/peace.desktop-deadline');
 const { detections } = require('../../contracts/native-monitor/peace.nhw-detections-v1.json');
 
 const catalog = Object.freeze(detections.map(row => Object.freeze({...row})));
-const terminalIds = new Set(catalog.filter(row => row.terminal === true).map(row => row.id));
+const legacyTerminalIds = new Set(catalog.filter(row => row.terminal === true).map(row => row.id));
 const publicCatalog = Object.freeze(catalog.map(({id, symbol, label, legacyLabel}) =>
  Object.freeze({id, symbol, label, legacyLabel})));
+const defaultPolicy = Object.freeze({version: 1, revision: 0, disabledIds: Object.freeze([])});
 const MAX_REPORTS = 4096;
 const MAX_REPORTS_PER_STAGE = 32;
 const REPLAY_MS = 30000;
@@ -37,14 +38,51 @@ function RequestKey(stage, sessionId, requestId) {
 }
 
 function SortedIds(ids) {
- return Array.isArray(ids) && ids.length <= catalog.length &&
-  ids.every((id, index) => Number.isInteger(id) && catalog[id]?.id === id &&
-   (index === 0 || ids[index - 1] < id));
+ if (!Array.isArray(ids) || ids.length > catalog.length) return false;
+ let previous = -1;
+ for (const id of ids) {
+  if (!Number.isInteger(id) || id <= previous || catalog[id]?.id !== id) return false;
+  previous = id;
+ }
+ return true;
 }
 
-function ValidIds(ids, confirmedIds) {
+function ValidIds(ids, confirmedIds, legacy) {
  return SortedIds(ids) && ids.length > 0 && SortedIds(confirmedIds) &&
-  confirmedIds.every(id => terminalIds.has(id) && ids.includes(id));
+  confirmedIds.every(id => ids.includes(id) && (!legacy || legacyTerminalIds.has(id)));
+}
+
+function Plain(value) {
+ return !!value && Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function StoredPolicy(db) {
+ return db.nhwPolicy ?? defaultPolicy;
+}
+
+function CopyPolicy(policy) {
+ return {...policy, disabledIds: [...policy.disabledIds]};
+}
+
+function Policy(db = store.Load()) {
+ return CopyPolicy(StoredPolicy(db));
+}
+
+function UpdatePolicy(body, actor) {
+ if (!Plain(body) || Object.keys(body).sort().join(',') !== 'disabledIds,expectedRevision' ||
+  !Number.isSafeInteger(body.expectedRevision) || body.expectedRevision < 0 || !SortedIds(body.disabledIds)) {
+  Fail('NHW_POLICY_INPUT_INVALID');
+ }
+ const current = StoredPolicy(store.Load());
+ if (current.revision !== body.expectedRevision) Fail('NHW_POLICY_CONFLICT', 409);
+ if (current.disabledIds.join(',') === body.disabledIds.join(',')) return CopyPolicy(current);
+ if (current.revision === Number.MAX_SAFE_INTEGER) Fail('NHW_POLICY_REVISION_EXHAUSTED', 409);
+ const audit = require('../storage/peace.desktop-operation-audit');
+ return audit.Run('NHW_POLICY_UPDATE', actor, {revision: current.revision, count: body.disabledIds.length}, db => {
+  if (StoredPolicy(db).revision !== body.expectedRevision) Fail('NHW_POLICY_CONFLICT', 409);
+  db.nhwPolicy = {version: 1, revision: current.revision + 1, disabledIds: [...body.disabledIds]};
+  return CopyPolicy(db.nhwPolicy);
+ });
 }
 
 function Parse(body) {
@@ -53,7 +91,9 @@ function Parse(body) {
  } catch (_) {
   Fail('NHW_REPORT_INVALID');
  }
- if (body.action !== 'nhwReport' || !ValidIds(body.ids, body.confirmedIds)) Fail('NHW_REPORT_INVALID');
+ // Retain the wire transcript used by existing A/B/O builds. Local confirmation
+ // hints remain authenticated but do not decide the server's closure policy.
+ if (body.action !== 'nhwReport' || !ValidIds(body.ids, body.confirmedIds, true)) Fail('NHW_REPORT_INVALID');
  return {
   id: RequestKey(body.stage, body.sessionId, body.requestId),
   fingerprint: protocol.Fingerprint('nhw.report', body)
@@ -147,16 +187,19 @@ function Record(body) {
  const identity = Authenticate(body);
  boot.Verify(identity, Canonical(body), body.signature);
  const flowId = body.stage === 'O' ? identity.parentFlowId : identity.id;
- const audit = require('../storage/peace.desktop-operation-audit');
- const actor = 'NHW_' + body.stage;
- return audit.Run('NHW_DETECTION_REPORT', actor, {component: body.stage, count: body.ids.length}, next => {
+ const policy = StoredPolicy(store.Load());
+ const disabled = new Set(policy.disabledIds);
+ const confirmedIds = body.ids.filter(id => !disabled.has(id));
+ const commit = next => {
   const replay = Replay(next, request);
   if (replay) return replay;
   const flow = next.flows[flowId];
   if (!flow) Fail('NHW_REPORT_INVALID', 403);
+  if (StoredPolicy(next).revision !== policy.revision) Fail('NHW_POLICY_CONFLICT', 409);
   const row = {
    ...request, flowId, stage: body.stage, sessionId: body.sessionId, requestId: body.requestId,
-   at: Date.now(), ids: [...body.ids], confirmedIds: [...body.confirmedIds],
+   at: Date.now(), ids: [...body.ids], confirmedIds,
+   policyRevision: policy.revision,
    serverEpoch: next.serverRecovery?.epoch || 0
   };
   const rows = next.nhwReports || (next.nhwReports = {});
@@ -164,33 +207,48 @@ function Record(body) {
   rows[row.id] = row;
   if (row.confirmedIds.length > 0) EndCohort(next, flow, row.at);
   return Receipt(row);
- });
+ };
+ // Recurring observations have bounded durable history. Only mutations that
+ // end session authority consume the persistent server-operation audit outbox.
+ if (confirmedIds.length === 0) return store.Atomic(commit);
+ return require('../storage/peace.desktop-operation-audit').Run('NHW_DETECTION_REPORT', 'NHW_' + body.stage,
+  {component: body.stage, count: body.ids.length}, commit);
 }
 
 function MemberIndex(db) {
  return Object.values(db.nhwReports || {}).map(row => ({
   id: row.id, flowId: row.flowId, at: row.at, stage: row.stage, detectionIds: [...row.ids],
-  protectionEnded: row.confirmedIds.length > 0
+  enforcedIds: [...row.confirmedIds], protectionEnded: row.confirmedIds.length > 0
  }));
 }
 
 function ValidateState(db) {
+ const policy = db.nhwPolicy;
+ if (policy !== undefined && (!Plain(policy) || Object.keys(policy).sort().join(',') !== 'disabledIds,revision,version' ||
+  policy.version !== 1 || !Number.isSafeInteger(policy.revision) || policy.revision < 1 ||
+  !SortedIds(policy.disabledIds))) throw Error('NHW_POLICY_STORAGE_INVALID');
  const rows = db.nhwReports;
+ if (rows === undefined) return;
  const fields = ['at', 'confirmedIds', 'fingerprint', 'flowId', 'id', 'ids', 'requestId',
-  'serverEpoch', 'sessionId', 'stage'].sort().join(',');
- const validObject = value => value && Object.getPrototypeOf(value) === Object.prototype;
+  'serverEpoch', 'sessionId', 'stage'];
+ const legacyFields = fields.sort().join(',');
+ const policyFields = [...fields, 'policyRevision'].sort().join(',');
  const invalid = () => { throw Error('NHW_REPORT_STORAGE_INVALID'); };
- if (!validObject(rows) || Object.keys(rows).length > MAX_REPORTS) invalid();
+ if (!Plain(rows) || Object.keys(rows).length > MAX_REPORTS) invalid();
  const overlayBySession = new Map(Object.values(db.overlays || {}).map(row => [row.sessionId, row]));
  const limitBySession = new Map();
  for (const [key, row] of Object.entries(rows)) {
-  if (!validObject(row) || Object.keys(row).sort().join(',') !== fields ||
+  if (!Plain(row)) invalid();
+  const legacy = !Object.hasOwn(row, 'policyRevision');
+  if (Object.keys(row).sort().join(',') !== (legacy ? legacyFields : policyFields) ||
    key !== row.id || !DIGEST.test(key) || !DIGEST.test(row.fingerprint) ||
    !ROLES.includes(row.stage) || !ID.test(row.sessionId) || !ID.test(row.flowId) || !REQUEST_ID.test(row.requestId) ||
    RequestKey(row.stage, row.sessionId, row.requestId) !== key ||
    !Number.isSafeInteger(row.at) || row.at < 1 || !Number.isSafeInteger(row.serverEpoch) ||
    row.serverEpoch < 0 || row.serverEpoch > (db.serverRecovery?.epoch || 0) ||
-   !ValidIds(row.ids, row.confirmedIds)) invalid();
+   !ValidIds(row.ids, row.confirmedIds, legacy) ||
+   (!legacy && (!Number.isSafeInteger(row.policyRevision) || row.policyRevision < 0 ||
+    row.policyRevision > (policy?.revision ?? 0)))) invalid();
   const flow = db.flows?.[row.flowId];
   const overlay = overlayBySession.get(row.sessionId);
   if (!flow || (row.stage === 'A' && row.sessionId !== flow.id) ||
@@ -203,4 +261,5 @@ function ValidateState(db) {
  }
 }
 
-module.exports = {Canonical, ProofTasks, Record, MemberIndex, PublicCatalog: () => publicCatalog, ValidateState, Clear};
+module.exports = {Canonical, ProofTasks, Record, MemberIndex, PublicCatalog: () => publicCatalog,
+ Policy, UpdatePolicy, ValidateState, Clear};

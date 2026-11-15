@@ -38,4 +38,7 @@
 .desktop-member-nhw-option small { color:var(--muted); }
 .desktop-member-nhw-feed { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
 .desktop-member-nhw-feed:empty { display:none; }
-.desktop-member-nhw-feed>li { padding:9px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); color:var(--text); background:var(--panel); font:inherit; overflow-wrap:anywhere; }
+.desktop-member-nhw-feed>li { display:flex; align-items:center; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; padding:9px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); font:inherit; overflow-wrap:anywhere; }
+.desktop-member-nhw-feed>li.nhw-ended { color:var(--bad); background:var(--bad-bg); border-color:var(--bad-line); }
+.desktop-member-nhw-feed>li.nhw-observed { color:var(--warn); background:var(--warn-bg); border-color:var(--warn-line); }
+.desktop-member-nhw-feed>li>small { font-size:.8em; font-weight:600; }

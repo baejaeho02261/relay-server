@@ -78,13 +78,21 @@ for (const [name, role] of roles) test(`${role} isolated fixture has exact produ
   const fixtureMappings = mappings(fixture);
   const productMappings = mappings(product);
   const isTextUnit = ([unit]) => unit.startsWith('cozy.strings.');
-  const hostUnits = new Set(['cozy.nhw.monitor', 'cozy.protection.session']);
-  assert.deepEqual(productMappings.filter(([unit]) => hostUnits.has(unit)), [
+  const isProtectionUnit = ([unit]) => unit.startsWith('cozy.nhw.') || unit === 'cozy.protection.session';
+  const builtInProtection = new Set(['cozy.nhw.engine', 'cozy.nhw.logging', 'cozy.nhw.monitor', 'cozy.protection.session']);
+  assert.deepEqual(productMappings.filter(([unit]) => builtInProtection.has(unit)), [
+    ['cozy.nhw.engine', '..\\..\\cozy.source\\cozy.protection\\cozy.nhw.engine.pas'],
+    ['cozy.nhw.logging', '..\\..\\cozy.source\\cozy.protection\\cozy.nhw.logging.pas'],
     ['cozy.nhw.monitor', '..\\..\\cozy.source\\cozy.protection\\cozy.nhw.monitor.pas'],
     ['cozy.protection.session', '..\\..\\cozy.source\\cozy.protection\\cozy.protection.session.pas'],
   ]);
+  for (const [, unit, relative] of product.matchAll(/\b(Cozy\.NHW\.[A-Za-z0-9_.]+)\s+in\s+'([^']+)'/g)) {
+    const mapped = path.resolve(root, path.dirname(productPath), relative.replace(/\\/g, '/'));
+    assert.equal(mapped, path.join(root, 'Cozy.Source', 'Cozy.Protection', `${unit}.pas`));
+    assert(fs.existsSync(mapped), `missing mapped protection unit ${unit}`);
+  }
   assert.deepEqual(fixtureMappings.filter(entry => !isTextUnit(entry)),
-    productMappings.filter(entry => !isTextUnit(entry) && !hostUnits.has(entry[0])));
+    productMappings.filter(entry => !isTextUnit(entry) && !isProtectionUnit(entry)));
   for (const entry of productMappings.filter(isTextUnit)) {
     const shared = fixtureMappings.find(mapped => mapped[0] === entry[0]);
     if (shared) assert.equal(shared[1], entry[1], `mismatched shared text unit ${entry[0]}`);

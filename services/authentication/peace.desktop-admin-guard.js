@@ -5,8 +5,10 @@ const state=require("../../core/peace.runtime-state");
 // One-use server-only capability; never serialized to a browser or stored as an approval.
 const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
+const NHW_POLICY_PATH='/api/desktop/members/nhw-policy';
 function SecurityCenterMutation(pathname){return /^\/api\/desktop\/bootstrap\/security-center\/(?:parser-tests|artifact-scan|respond)$/.test(pathname||'');}
 function IsMutation(pathname) {
+  if(pathname===NHW_POLICY_PATH)return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/web-reset')return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/issued-a-keys')return true;
   if(/^\/api\/desktop\/bootstrap\/security-operations\/keyless-approvals\/[a-f0-9]{48}\/approve$/.test(pathname||''))return true;
@@ -37,7 +39,7 @@ function MarkVerified(session,credentialId){session.passkeyCredentialId=credenti
 // change other applications' optional global two-person policy or stored keys.
 function SingleOperatorPath(pathname) {
   return typeof pathname==='string' && (pathname.startsWith('/api/desktop/bootstrap/') || pathname.startsWith('/api/desktop/workspace/') ||
-    pathname==='/api/production/passkeys/revoke' || pathname==='/api/production/passkeys/register/begin' || pathname==='/api/production/passkeys/register/finish');
+    pathname===NHW_POLICY_PATH || pathname==='/api/production/passkeys/revoke' || pathname==='/api/production/passkeys/register/begin' || pathname==='/api/production/passkeys/register/finish');
 }
 // Mandatory trust-changing operations. Candidate uploads, read-only previews,
 // release planning and normal launcher/license operations are NOT step-up gates.
@@ -45,6 +47,7 @@ function SingleOperatorPath(pathname) {
 // changing evidence used by live authorization and recovery always are.
 function AdditionalCritical(pathname){return /^\/api\/backups\/[^/]+\/restore$/.test(pathname||'') || /^\/api\/production\/(?:config\/apply|transport|update\/(?:policy|rollback))$/.test(pathname||'');}
 function CriticalMutation(pathname) {
+  if(pathname===NHW_POLICY_PATH)return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/web-reset')return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/issued-a-keys')return true;
   if(/^\/api\/desktop\/bootstrap\/security-operations\/keyless-approvals\/[a-f0-9]{48}\/approve$/.test(pathname||''))return true;
@@ -115,6 +118,12 @@ function Summary(path,body){
   if(path==='/api/desktop/bootstrap/security-operations/enable-all')out.activationTargets={profile:body?.profile,targetHash:body?.targetHash,stepUpRequired:true,dualApprovalRequired:false,adminMode:'SINGLE_ADMIN',windows:body?.profile==='ALL'?'dynamicCode=prohibit; requireCfg=true':'UNCHANGED'};
   if(path==='/api/desktop/bootstrap/security-operations/registration-reset')out.reset={scope:body?.scope,confirmation:body?.confirmation,expectedEpoch:body?.expectedEpoch,requestId:body?.requestId,preserves:'SERVER_KEYS_ADMIN_LOGIN_SECURITY_FLOORS_AUDIT'};
   if(path==='/api/desktop/bootstrap/security-operations/web-reset')out.reset={scope:body?.scope,confirmation:body?.confirmation,expectedEpoch:body?.expectedEpoch,requestId:body?.requestId,preserves:'HOSTING_ADMIN_ENV_NETWORK_AND_RESET_RECOVERY_ONLY',destroys:'ALL_APPLICATION_DATA_DISK_KEYS_HISTORY_AND_PASSKEYS',oldEnvironmentApplicationKeys:'QUARANTINED_UNTIL_REPLACED'};
+  if(path===NHW_POLICY_PATH&&Array.isArray(body?.disabledIds)){
+    const ids=new Set(body.disabledIds);
+    const catalog=require('../observability/peace.nhw-reports').PublicCatalog();
+    out.observationOnlyDetectionIds=catalog.filter(row=>ids.has(row.id)).map(row=>row.id);
+    out.scope='FUTURE_AUTHENTICATED_A_B_O_REPORTS';
+  }
   if(body?.report)out.testEvidence={aSha512:body.report.aSha512,bSha512:body.report.bSha512,...(body.report.oSha512?{oSha512:body.report.oSha512}:{}),nativeBuild:body.report.nativeBuild,apiProbe:body.report.apiProbe,integration:body.report.integration,logsSha512:body.report.logsSha512};
   return out;
 }
@@ -141,7 +150,7 @@ function Authorize(session,method,path,body,ticketId,enrollmentToken='',actionId
     catch(e){return{ok:false,status:e.desktopError?e.status:503,reason:e.desktopError?e.message:'SECURITY_ACTIVATION_CHECK_FAILED'};}
   }
   if(SingleOperatorPath(path))return {ok:true,mode:'SINGLE_ADMIN',
-    ...((path==='/api/desktop/bootstrap/security-operations/enable-all'||path==='/api/desktop/bootstrap/security-operations/registration-reset'||path==='/api/desktop/bootstrap/security-operations/web-reset'||SecurityCenterMutation(path))?{ticket:SinglePermit(session,method,path,body)}:{})};
+    ...((path===NHW_POLICY_PATH||path==='/api/desktop/bootstrap/security-operations/enable-all'||path==='/api/desktop/bootstrap/security-operations/registration-reset'||path==='/api/desktop/bootstrap/security-operations/web-reset'||SecurityCenterMutation(path))?{ticket:SinglePermit(session,method,path,body)}:{})};
   if(path==='/api/production/dual-policy'&&body?.required===true){
     if(!Identity(session))return{ok:false,status:428,reason:'SECURITY_ADMIN_IDENTITY_REQUIRED'};
     if(new Set(Object.entries(Identities()||{}).filter(([id,principal])=>ProvisionedCredential(id,principal)).map(([,principal])=>principal)).size<2)return{ok:false,status:409,reason:'SECURITY_SECOND_OPERATOR_REQUIRED'};

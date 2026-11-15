@@ -3,19 +3,8 @@ Usage: python Relay Server/tests/source/verify-source.py [--root EXTRACTED_ROOT]
 A matching manifest is a consistency check, not a cryptographic publisher trust root.
 """
 from __future__ import annotations
-import argparse, hashlib, json, re
+import argparse, hashlib, json
 from pathlib import Path
-
-def nhw_source_path(parts: tuple[str, ...], is_file: bool) -> bool:
-    groups = {'Source', 'Tests', 'Validation'}
-    if not is_file:
-        return len(parts) == 1 or (len(parts) == 2 and parts[1] in groups)
-    if len(parts) == 2:
-        return parts[1] in {'NativeHandleWatch_v109_Win64.dpr',
-                            'NativeHandleWatch_v109_Win64.dproj',
-                            'NHW.FullValidation.groupproj'}
-    return (len(parts) == 3 and parts[1] in groups and
-            re.fullmatch(r'NHW\.[A-Za-z0-9_.-]+\.(?:pas|inc|dpr|dproj)', parts[2]) is not None)
 
 def verify(root: Path) -> list[str]:
     root=root.resolve(); manifest_path=root/'Relay Server/maintenance/source-manifest.json'
@@ -51,11 +40,6 @@ def verify(root: Path) -> list[str]:
         if project_output and (parts[2].lower() == 'dcu' or
                                (len(parts) == 3 and p.is_file() and
                                 parts[2].lower() == (parts[1]+'.exe').lower())):
-            continue
-        if parts[0] == 'Cozy.NativeHandleWatch':
-            name = p.relative_to(root).as_posix()
-            if not nhw_source_path(parts, p.is_file()) or (p.is_file() and name not in manifest['files']):
-                problems.append('Unexpected bundled NativeHandleWatch input: '+name)
             continue
         if not p.name.startswith('Cozy.'):
             problems.append('Native source name must start Cozy.: '+p.relative_to(root).as_posix())

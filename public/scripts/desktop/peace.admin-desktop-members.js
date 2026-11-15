@@ -7,20 +7,14 @@ let desktopMemberOwner='',desktopMemberPending=null;
 let desktopMemberSelectedId='',desktopMemberCategory='licenses',desktopMemberListDraft=null,desktopMemberListScroll=0;
 const desktopMemberPages=new Map();
 const desktopMemberCategories=[['licenses','라이선스'],['launchers','일회용 A 발급'],['flows','실행 · 종료 관측'],['devices','기기 · PC 차단'],['integrity','모듈 · CRC · 무결성'],['incidents','보안 사건 · 서버 기록'],['nhw','NHW 감지']];
-const desktopMemberNhwPreferenceKey='cozy-member-nhw-hidden-v1';
-const desktopMemberHiddenNhwIds=new Set();
-let desktopMemberNhwQuery='';
+const desktopMemberNhwPolicyKey='nhw-policy';
+const desktopMemberNhwPolicyUrl='/api/desktop/members/nhw-policy';
+let desktopMemberNhwQuery='',desktopMemberNhwDraft=null,desktopMemberNhwFeedback='',desktopMemberNhwSaving=false;
 function desktopMemberNhwId(value){return Number.isInteger(value)&&value>=0&&value<=255;}
-try{
- const hidden=JSON.parse(localStorage.getItem(desktopMemberNhwPreferenceKey)||'[]');
- if(Array.isArray(hidden)&&hidden.length<=256)for(const id of hidden)if(desktopMemberNhwId(id))desktopMemberHiddenNhwIds.add(id);
-}catch(_){}
-function desktopMemberSaveNhwPreference(){
- try{localStorage.setItem(desktopMemberNhwPreferenceKey,JSON.stringify([...desktopMemberHiddenNhwIds]));}catch(_){}
-}
 function desktopMemberResetOwner(owner){
  if(desktopMemberOwner===owner)return;
  desktopMemberOwner=owner;desktopMemberPending=null;desktopMemberPages.clear();desktopMemberQuery='';desktopMemberStatus='ACTIVE';desktopMemberPage=1;desktopMemberRenderedQuery=null;desktopMemberRenderedStatus=null;desktopMemberSelectedId='';desktopMemberCategory='licenses';desktopMemberListDraft=null;desktopMemberListScroll=0;desktopMemberNhwQuery='';
+ desktopMemberNhwDraft=null;desktopMemberNhwFeedback='';desktopMemberNhwSaving=false;
 }
 function desktopMemberCount(value){return Number.isSafeInteger(value)&&value>=0?value.toLocaleString():'—';}
 function desktopMemberKey(id,category='all',page=1){return 'member:'+id+':'+category+':'+page;}
@@ -39,10 +33,12 @@ function desktopMemberRequestPanels(owner){
  if(desktopMemberPages.size>120)for(const key of desktopMemberPages.keys())if(!id||!key.startsWith(id+':'))desktopMemberPages.delete(key);
  desktopRequestPanel('members','/api/desktop/members?'+new URLSearchParams({q:desktopMemberQuery,status:desktopMemberStatus,page:String(desktopMemberPage),pageSize:'20'}),owner);
  if(id){desktopMemberRequest(id);const page=desktopMemberPages.get(id+':'+desktopMemberCategory)||1;if(page>1)desktopMemberRequest(id,desktopMemberCategory,page);}
+ if(id&&desktopMemberCategory==='nhw')desktopRequestPanel(desktopMemberNhwPolicyKey,desktopMemberNhwPolicyUrl,owner);
 }
 function desktopMemberInvalidate(dropDetails=false){
  for(const key of [...desktopPanels.keys()])if(key==='members'||key.startsWith('member:')){if(dropDetails&&key.startsWith('member:'))desktopPanels.delete(key);else desktopInvalidatePanels(key);}
  desktopInvalidatePanels('bootstrap','integrity','machines');
+ desktopInvalidatePanels(desktopMemberNhwPolicyKey);
 }
 function desktopMemberNotice(entry,label){
  const text=entry?.error?`<p class="desktop-panel-pending" role="status">${esc(label)} 조회에 실패했습니다. 이전 내용은 최신 상태가 아닙니다. <button type="button" data-member-action="refresh">다시 조회</button></p>`:!entry?.data?'<p class="small-note" role="status">서버에서 기록을 불러오는 중입니다.</p>':entry.pending?'<p class="small-note" role="status">최신 기록 확인 중</p>':'';
@@ -106,29 +102,83 @@ function desktopMemberNhwCatalog(raw){
  }
  return entries;
 }
+function desktopMemberNhwPolicy(catalog,response=desktopPanels.get(desktopMemberNhwPolicyKey)?.data){
+ const policy=response?.nhwPolicy;
+ if(policy?.version!==1||!Number.isSafeInteger(policy.revision)||policy.revision<0||!Array.isArray(policy.disabledIds)||policy.disabledIds.length>catalog.size)return null;
+ const ids=policy.disabledIds;
+ if(ids.some((id,index)=>!catalog.has(id)||(index>0&&ids[index-1]>=id)))return null;
+ return {revision:policy.revision,disabledIds:new Set(ids),manageable:response.canManageNhwPolicy===true};
+}
+function desktopMemberNhwSameIds(a,b){return a.size===b.size&&[...a].every(id=>b.has(id));}
 function desktopMemberNhwOptions(catalog){
+ const entry=desktopPanels.get(desktopMemberNhwPolicyKey),policy=desktopMemberNhwPolicy(catalog);
+ const draft=desktopMemberNhwDraft,disabledIds=draft?.disabledIds??policy?.disabledIds;
+ const outdated=!!draft&&!!policy&&draft.revision!==policy.revision;
+ const dirty=!!draft&&!!policy&&!desktopMemberNhwSameIds(draft.disabledIds,policy.disabledIds);
+ const editable=!!policy?.manageable&&!entry?.error&&!desktopMemberNhwSaving&&!outdated;
  const counts=new Map(),filter=desktopMemberNhwQuery.trim().toLowerCase();
  for(const {label} of catalog.values())counts.set(label,(counts.get(label)||0)+1);
  const options=[...catalog.values()].map(({id,label,symbol})=>{
   const qualifier=counts.get(label)>1?(symbol||String(id)):'';
   const search=(label+' '+symbol+' '+id).toLowerCase();
-  return `<label class="desktop-member-nhw-option" data-desktop-key="nhw-option-${id}" data-nhw-search="${esc(search)}" ${search.includes(filter)?'':'hidden'}><input type="checkbox" data-nhw-detection-id="${id}" ${desktopMemberHiddenNhwIds.has(id)?'':'checked'}><span>${esc(label)}${qualifier?` <small>${esc(qualifier)}</small>`:''}</span></label>`;
+  return `<label class="desktop-member-nhw-option" data-desktop-key="nhw-option-${id}" data-nhw-search="${esc(search)}" ${search.includes(filter)?'':'hidden'}><input type="checkbox" data-nhw-detection-id="${id}" ${disabledIds&&!disabledIds.has(id)?'checked':''} ${editable?'':'disabled'}><span>${esc(label)}${qualifier?` <small>${esc(qualifier)}</small>`:''}</span></label>`;
  });
- return `<details class="desktop-member-nhw-filters" data-desktop-key="nhw-filters"><summary>표시할 감지 유형</summary><p class="small-note">이 브라우저에서 보이는 기록을 선택합니다.</p><div class="desktop-member-nhw-controls"><label for="desktop-member-nhw-filter" class="sr-only">감지 이름 검색</label><input type="search" id="desktop-member-nhw-filter" placeholder="감지 이름 검색" maxlength="96" autocomplete="off" value="${esc(desktopMemberNhwQuery)}"><button type="button" data-member-action="nhw-view-all">모두 표시</button><button type="button" data-member-action="nhw-view-none">모두 숨기기</button></div><div class="desktop-member-nhw-options">${options.join('')}</div></details>`;
+ const status=desktopMemberNhwSaving?'종료 정책 저장 중':outdated?'서버 정책이 바뀌었습니다. 서버 설정을 다시 불러온 후 선택하세요.':entry?.error?'종료 정책을 불러오지 못했습니다.':!policy?'서버에서 종료 정책을 불러오는 중입니다.':!policy.manageable?'종료 정책 조회 권한만 있습니다.':desktopMemberNhwFeedback||(dirty?'저장할 변경 사항이 있습니다.':'');
+ return `<details class="desktop-member-nhw-filters" data-desktop-key="nhw-filters"><summary>NHW 세션 종료 정책</summary><p class="small-note">전체 A/B/O에 적용됩니다. 체크하면 감지 시 세션이 종료됩니다. 해제한 유형은 관측 기록을 남깁니다.</p><div class="desktop-member-nhw-controls"><label for="desktop-member-nhw-filter" class="sr-only">감지 이름 검색</label><input type="search" id="desktop-member-nhw-filter" placeholder="감지 이름 검색" maxlength="96" autocomplete="off" value="${esc(desktopMemberNhwQuery)}"><button type="button" data-member-action="nhw-policy-all" ${editable?'':'disabled'}>모두 종료</button><button type="button" data-member-action="nhw-policy-none" ${editable?'':'disabled'}>모두 관측</button></div><div class="desktop-member-nhw-options">${options.join('')}</div><div class="desktop-member-nhw-controls"><button type="button" class="primary" data-member-action="nhw-policy-save" ${editable&&dirty?'':'disabled'}>종료 정책 저장</button><button type="button" data-member-action="nhw-policy-reset" ${desktopMemberNhwSaving?'disabled':''}>서버 설정 다시 읽기</button></div><p class="small-note" role="status">${esc(status)}</p></details>`;
 }
 function desktopMemberNhwMarkup(rawCatalog,items){
  const catalog=desktopMemberNhwCatalog(rawCatalog);
  if(!catalog.size)return '<p class="small-note" role="status">감지 유형을 확인하지 못했습니다.</p>';
  const records=items.map((row,index)=>{
-  if(!Array.isArray(row.detectionIds)||row.detectionIds.length>256)return '';
+  if(!['A','B','O'].includes(row.stage)||!Array.isArray(row.detectionIds)||row.detectionIds.length>256)return '';
+  const enforced=new Set(Array.isArray(row.enforcedIds)&&row.enforcedIds.length<=256?row.enforcedIds:[]);
   const labels=new Map();
   for(const id of row.detectionIds){
-   const label=catalog.get(id)?.legacyLabel;
-   if(label&&!desktopMemberHiddenNhwIds.has(id)&&!labels.has(label))labels.set(label,id);
+   const entry=catalog.get(id);
+   if(!entry)continue;
+   const label=entry.legacyLabel||entry.label+' Detect',ended=enforced.has(id),key=label+'\0'+ended;
+   if(!labels.has(key))labels.set(key,{label,id,ended});
   }
-  return [...labels].map(([label,id])=>`<li data-desktop-key="nhw-record-${esc(row.id||index)}-${id}">${esc(label)}</li>`).join('');
+  return [...labels.values()].map(({label,id,ended})=>`<li class="${ended?'nhw-ended':'nhw-observed'}" data-desktop-key="nhw-record-${esc(row.id||index)}-${id}"><span>${esc(label)} / ${row.stage}</span><small>${ended?'종료 확정':'관측'}</small></li>`).join('');
  });
- return desktopMemberNhwOptions(catalog)+`<ul class="desktop-member-nhw-feed" aria-label="감지 기록">${records.join('')}</ul>`;
+ return desktopMemberNhwOptions(catalog)+`<ul class="desktop-member-nhw-feed" aria-label="감지 기록">${records.join('')}</ul>`+(records.some(Boolean)?'':'<p class="small-note">이 범위의 NHW 감지 기록이 없습니다.</p>');
+}
+
+function desktopMemberNhwCurrentCatalog(){
+ return desktopMemberNhwCatalog(desktopPanels.get(desktopMemberKey(desktopMemberSelectedId))?.data?.nhwCatalog);
+}
+function desktopMemberEditNhwPolicy(catalog,ids,enabled){
+ const policy=desktopMemberNhwPolicy(catalog);
+ if(!policy?.manageable||desktopPanels.get(desktopMemberNhwPolicyKey)?.error||desktopMemberNhwSaving)return;
+ const draft=desktopMemberNhwDraft||{revision:policy.revision,disabledIds:new Set(policy.disabledIds)};
+ if(draft.revision!==policy.revision)return;
+ for(const id of ids){if(enabled)draft.disabledIds.delete(id);else draft.disabledIds.add(id);}
+ desktopMemberNhwDraft=desktopMemberNhwSameIds(draft.disabledIds,policy.disabledIds)?null:draft;
+ desktopMemberNhwFeedback='';
+}
+async function desktopMemberSaveNhwPolicy(catalog,owner){
+ const policy=desktopMemberNhwPolicy(catalog),draft=desktopMemberNhwDraft;
+ if(!policy?.manageable||!draft||draft.revision!==policy.revision||desktopMemberNhwSameIds(draft.disabledIds,policy.disabledIds))return;
+ desktopMemberNhwSaving=true;
+ try{
+  await renderCurrent();
+  if(session?.csrf!==owner||!roleIsAdmin())return;
+  const reply=await api(desktopMemberNhwPolicyUrl,{method:'POST',body:{expectedRevision:draft.revision,disabledIds:[...draft.disabledIds].sort((a,b)=>a-b)}});
+  if(session?.csrf!==owner||!roleIsAdmin())return;
+  const saved=desktopMemberNhwPolicy(catalog,reply);
+  if(!saved||saved.revision!==draft.revision+1||!desktopMemberNhwSameIds(saved.disabledIds,draft.disabledIds))throw Error('서버가 저장한 종료 정책을 확인하지 못했습니다.');
+  desktopPanels.set(desktopMemberNhwPolicyKey,{data:reply,at:Date.now(),pending:false,error:null});
+  desktopMemberNhwDraft=null;desktopMemberNhwFeedback='종료 정책을 저장했습니다.';
+ }catch(error){
+  if(session?.csrf!==owner||!roleIsAdmin())return;
+  if(error.code==='NHW_POLICY_CONFLICT'){
+   desktopMemberNhwDraft=null;
+   desktopMemberNhwFeedback='다른 관리자가 종료 정책을 변경했습니다. 최신 설정에서 다시 선택하세요.';
+  }else desktopMemberNhwFeedback=error.message||'종료 정책 저장 결과를 확인하지 못했습니다.';
+  desktopInvalidatePanels(desktopMemberNhwPolicyKey);
+ }finally{
+  if(session?.csrf===owner){desktopMemberNhwSaving=false;await renderCurrent();}
+ }
 }
 function desktopMemberDetailMarkup(id){
  const entry=desktopPanels.get(desktopMemberKey(id)),base=entry?.data;
@@ -208,13 +258,15 @@ async function handleDesktopMemberAction(target){
    desktopMemberCategory=category;const page=desktopMemberPages.get(id+':'+category)||1;desktopMemberRequest(id);if(page>1)desktopMemberRequest(id,category,page);await renderCurrent();return true;
   }
   if(action==='refresh'){desktopMemberInvalidate();await renderCurrent();return true;}
-  if(action==='nhw-view-all'||action==='nhw-view-none'){
+  if(['nhw-policy-save','nhw-policy-reset','nhw-policy-all','nhw-policy-none'].includes(action)){
    if(desktopMemberCategory!=='nhw')return true;
-   const catalog=desktopMemberNhwCatalog(desktopPanels.get(desktopMemberKey(desktopMemberSelectedId))?.data?.nhwCatalog);
-   const show=action==='nhw-view-all';
-   for(const id of catalog.keys())if(show)desktopMemberHiddenNhwIds.delete(id);else desktopMemberHiddenNhwIds.add(id);
-   for(const input of content.querySelectorAll('input[data-nhw-detection-id]'))input.checked=show;
-   desktopMemberSaveNhwPreference();await renderCurrent();return true;
+   const catalog=desktopMemberNhwCurrentCatalog();
+   if(action==='nhw-policy-save'){await desktopMemberSaveNhwPolicy(catalog,owner);return true;}
+   if(action==='nhw-policy-reset'){
+    desktopMemberNhwDraft=null;desktopMemberNhwFeedback='';
+    desktopInvalidatePanels(desktopMemberNhwPolicyKey);
+   }else desktopMemberEditNhwPolicy(catalog,catalog.keys(),action==='nhw-policy-all');
+   await renderCurrent();return true;
   }
   if(action==='clear'){desktopMemberQuery='';desktopMemberListDraft=null;desktopMemberStatus='ACTIVE';desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();return true;}
   if(action==='page'){const page=Number(target.dataset.memberPage);if(Number.isSafeInteger(page)&&page>0){desktopMemberPage=page;desktopPanels.delete('members');await renderCurrent();}return true;}
@@ -242,7 +294,10 @@ async function handleDesktopMemberAction(target){
    if(yes&&session?.csrf===owner)await desktopMemberSave('/api/desktop/members/'+encodeURIComponent(row.id)+'/archive',{archived},owner,expectedRevision);return true;
   }
   return false;
- }catch(error){throw desktopMemberError(error);}finally{desktopLicenseActionPending=false;if(target.isConnected)target.disabled=false;}
+ }catch(error){throw desktopMemberError(error);}finally{
+  desktopLicenseActionPending=false;
+  if(target.isConnected&&action!=='nhw-policy-save')target.disabled=false;
+ }
 }
 content.addEventListener('submit',async event=>{
  if(event.target.id!=='desktop-member-search-form')return;event.preventDefault();
@@ -251,11 +306,9 @@ content.addEventListener('submit',async event=>{
 content.addEventListener('change',async event=>{
  if(event.target.matches('input[type="checkbox"][data-nhw-detection-id]')){
   const id=Number(event.target.dataset.nhwDetectionId);
-  const catalog=desktopPanels.get(desktopMemberKey(desktopMemberSelectedId))?.data?.nhwCatalog;
-  if(!roleIsAdmin()||desktopMemberCategory!=='nhw'||!desktopMemberNhwCatalog(catalog).has(id))return;
-  if(event.target.checked)desktopMemberHiddenNhwIds.delete(id);
-  else desktopMemberHiddenNhwIds.add(id);
-  desktopMemberSaveNhwPreference();
+  const catalog=desktopMemberNhwCurrentCatalog();
+  if(!roleIsAdmin()||desktopMemberCategory!=='nhw'||desktopLicenseActionPending||!catalog.has(id))return;
+  desktopMemberEditNhwPolicy(catalog,[id],event.target.checked);
   await renderCurrent();return;
  }
  if(event.target.id!=='desktop-member-filter')return;desktopMemberStatus=event.target.value;desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();

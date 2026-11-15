@@ -156,6 +156,7 @@ function Detail(id,query={}){
   if(name==='flows')items=items.map(r=>({...r,machineBindingId:db.flows[r.id].machineId?require('../devices/peace.desktop-device-registry').BindingId(db.flows[r.id].machineId,db):'',lifecycle:require('../observability/peace.desktop-lifecycle-trace').Flow(r.id)}));
   categories[name]={items,totalCount:rows.length,...paging};
  }
- return {version:1,revision:s.revision,member,categories,nhwCatalog:require('../observability/peace.nhw-reports').PublicCatalog(),counts:Counts(counts,owner),readOnly:false,authorizationChanged:false,identitySource:'OPERATOR_ASSIGNED_NOT_HARDWARE_INFERRED',serverTime:Date.now()};
+ const nhw=require('../observability/peace.nhw-reports');
+ return {version:1,revision:s.revision,member,categories,nhwCatalog:nhw.PublicCatalog(),...(categories.nhw?{nhwPolicy:nhw.Policy(db)}:{}),counts:Counts(counts,owner),readOnly:false,authorizationChanged:false,identitySource:'OPERATOR_ASSIGNED_NOT_HARDWARE_INFERRED',serverTime:Date.now()};
 }
 module.exports={Empty,State,Validate,Create,Update,Archive,Assign,List,Detail,LicenseMembership,FlowMembership,LIMITS};

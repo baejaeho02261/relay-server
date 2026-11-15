@@ -50,6 +50,11 @@ function desktopPatchNode(previous,next,silent,mode='desktop') {
   const control=previous.matches('input,textarea,select');
   if(control){
     if(mode==='desktop'){
+      if(previous.matches('input[data-nhw-detection-id]')){
+        previous.disabled=next.disabled;
+        previous.checked=next.checked;
+        return;
+      }
       const committed=previous.id==='desktop-license-search'?desktopRenderedQuery!==desktopLicenseQuery:previous.id==='desktop-license-filter'?desktopRenderedStatus!==desktopLicenseStatus:previous.id==='desktop-member-search'?desktopMemberRenderedQuery!==desktopMemberQuery:previous.id==='desktop-member-filter'?desktopMemberRenderedStatus!==desktopMemberStatus:false;
       if(committed&&previous.value!==next.value)previous.value=next.value;
     }else{

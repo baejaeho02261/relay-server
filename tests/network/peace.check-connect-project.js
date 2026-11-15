@@ -13,7 +13,6 @@ const read = name => ReadContractFile(path.join(root, name), 'utf8');
 const projectDirectory = name => path.join('Cozy.Projects', name);
 const projectFile = (name, extension) => path.join(projectDirectory(name), name + extension);
 const sourceDirectories = ['Cozy.Application','Cozy.License','Cozy.Lifecycle','Cozy.Platform','Cozy.Security','Cozy.Network','Cozy.Identity','Cozy.Integrity','Cozy.Crypto','Cozy.Overlay','Cozy.Handoff','Cozy.Configuration','Cozy.Protection'].map(name=>'Cozy.Source/'+name);
-sourceDirectories.push('Cozy.NativeHandleWatch/Source');
 for(const directory of sourceDirectories){
   const files=fs.readdirSync(path.join(root,directory));
   assert(files.some(name=>/\.(?:pas|inc)$/i.test(name)),'Functional source group must contain actual source: '+directory);
@@ -105,8 +104,11 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   const afterStartup=role==='A'?'\\s+ExitCode := 31009;':'',afterProtection=role==='A'?'\\s+ExitCode := 31099;':'';
   assert.match(dpr.slice(startup), new RegExp("RequireNativeStartup\\("+startupArgument+"\\);"+afterStartup+"\\s+RequireCozyProtection\\('"+role+"'\\);"+afterProtection+"\\s+ExitCode := Run"), 'Role-specific startup and sealed protection checks must precede application execution');
   assert(dpr.includes("Cozy.Protection.Engine in '..\\..\\Cozy.Source\\Cozy.Protection\\Cozy.Protection.Engine.pas'"));
-  assert(dpr.includes("Cozy.NHW.Monitor in '..\\..\\Cozy.Source\\Cozy.Protection\\Cozy.NHW.Monitor.pas'"));
-  assert(project.includes('<DCCReference Include="..\\..\\Cozy.NativeHandleWatch\\Source\\NHW.Engine.pas" />'));
+  for (const unit of ['Cozy.NHW.Monitor', 'Cozy.NHW.Logging', 'Cozy.NHW.Engine']) {
+    const relative='..\\..\\Cozy.Source\\Cozy.Protection\\'+unit+'.pas';
+    assert(dpr.includes(unit+" in '"+relative+"'"), 'DPR must map protection unit '+unit);
+    assert(project.includes('<DCCReference Include="'+relative+'" />'), 'DPROJ must reference protection unit '+unit);
+  }
   assert.ok(dpr.includes('{$APPTYPE GUI}'));
   assert.match(dpr, /function GameBuildConfiguration: LongWord; stdcall;\s*begin\s*\{\$IFDEF RELEASE\}\s*Result := 2;\s*\{\$ELSE\}\s*Result := 1;/, 'Marker value must follow the actual compiler configuration');
   assert.match(dpr, /exports\s*\{\$IFDEF RELEASE\}\s*GameBuildConfiguration name 'GAME_BUILD_RELEASE_V1';\s*\{\$ELSE\}\s*GameBuildConfiguration name 'GAME_BUILD_DEBUG_V1';/, 'Debug must not carry the Release export marker');
