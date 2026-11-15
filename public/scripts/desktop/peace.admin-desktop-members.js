@@ -6,10 +6,21 @@ let desktopMemberRenderedQuery=null,desktopMemberRenderedStatus=null;
 let desktopMemberOwner='',desktopMemberPending=null;
 let desktopMemberSelectedId='',desktopMemberCategory='licenses',desktopMemberListDraft=null,desktopMemberListScroll=0;
 const desktopMemberPages=new Map();
-const desktopMemberCategories=[['licenses','라이선스'],['launchers','일회용 A 발급'],['flows','실행 · 종료 관측'],['devices','기기 · PC 차단'],['integrity','모듈 · CRC · 무결성'],['incidents','보안 사건 · 서버 기록']];
+const desktopMemberCategories=[['licenses','라이선스'],['launchers','일회용 A 발급'],['flows','실행 · 종료 관측'],['devices','기기 · PC 차단'],['integrity','모듈 · CRC · 무결성'],['incidents','보안 사건 · 서버 기록'],['nhw','NHW 감지']];
+const desktopMemberNhwPreferenceKey='cozy-member-nhw-hidden-v1';
+const desktopMemberHiddenNhwIds=new Set();
+let desktopMemberNhwQuery='';
+function desktopMemberNhwId(value){return Number.isInteger(value)&&value>=0&&value<=255;}
+try{
+ const hidden=JSON.parse(localStorage.getItem(desktopMemberNhwPreferenceKey)||'[]');
+ if(Array.isArray(hidden)&&hidden.length<=256)for(const id of hidden)if(desktopMemberNhwId(id))desktopMemberHiddenNhwIds.add(id);
+}catch(_){}
+function desktopMemberSaveNhwPreference(){
+ try{localStorage.setItem(desktopMemberNhwPreferenceKey,JSON.stringify([...desktopMemberHiddenNhwIds]));}catch(_){}
+}
 function desktopMemberResetOwner(owner){
  if(desktopMemberOwner===owner)return;
- desktopMemberOwner=owner;desktopMemberPending=null;desktopMemberPages.clear();desktopMemberQuery='';desktopMemberStatus='ACTIVE';desktopMemberPage=1;desktopMemberRenderedQuery=null;desktopMemberRenderedStatus=null;desktopMemberSelectedId='';desktopMemberCategory='licenses';desktopMemberListDraft=null;desktopMemberListScroll=0;
+ desktopMemberOwner=owner;desktopMemberPending=null;desktopMemberPages.clear();desktopMemberQuery='';desktopMemberStatus='ACTIVE';desktopMemberPage=1;desktopMemberRenderedQuery=null;desktopMemberRenderedStatus=null;desktopMemberSelectedId='';desktopMemberCategory='licenses';desktopMemberListDraft=null;desktopMemberListScroll=0;desktopMemberNhwQuery='';
 }
 function desktopMemberCount(value){return Number.isSafeInteger(value)&&value>=0?value.toLocaleString():'—';}
 function desktopMemberKey(id,category='all',page=1){return 'member:'+id+':'+category+':'+page;}
@@ -83,6 +94,42 @@ function desktopMemberCategoryRows(category,items){
   return `<tr data-desktop-key="member-${category}-${esc(row.id||row.flowId)}"><td><strong>${esc(row.label||row.id||row.flowId||'—')}</strong><span class="code desktop-wrap desktop-block">${esc(row.id||row.flowId||'')}</span>${detail}</td><td>${status}<small class="desktop-block">${desktopDate(row.lastVerifiedAt||row.lastSeenAt||row.issuedAt||row.createdAt||row.firstSeenAt)}</small></td><td>${desktopMemberOrigin(row)}${desktopMemberAssignmentButton(row)}</td></tr>`;
  }).join('')}</tbody></table></div>`;
 }
+function desktopMemberNhwCatalog(raw){
+ const entries=new Map();
+ if(!Array.isArray(raw)||raw.length>256)return entries;
+ for(const row of raw){
+  if(!row||!desktopMemberNhwId(row.id)||entries.has(row.id))continue;
+  if(typeof row.label!=='string'||!/^[\x20-\x7e]{1,96}$/.test(row.label))continue;
+  const legacyLabel=typeof row.legacyLabel==='string'&&/^[\x20-\x7e]{1,89} Detect$/.test(row.legacyLabel)?row.legacyLabel:'';
+  const symbol=typeof row.symbol==='string'&&/^dk[A-Za-z][A-Za-z0-9]{0,62}$/.test(row.symbol)?row.symbol:'';
+  entries.set(row.id,{id:row.id,label:row.label,legacyLabel,symbol});
+ }
+ return entries;
+}
+function desktopMemberNhwOptions(catalog){
+ const counts=new Map(),filter=desktopMemberNhwQuery.trim().toLowerCase();
+ for(const {label} of catalog.values())counts.set(label,(counts.get(label)||0)+1);
+ const options=[...catalog.values()].map(({id,label,symbol})=>{
+  const qualifier=counts.get(label)>1?(symbol||String(id)):'';
+  const search=(label+' '+symbol+' '+id).toLowerCase();
+  return `<label class="desktop-member-nhw-option" data-desktop-key="nhw-option-${id}" data-nhw-search="${esc(search)}" ${search.includes(filter)?'':'hidden'}><input type="checkbox" data-nhw-detection-id="${id}" ${desktopMemberHiddenNhwIds.has(id)?'':'checked'}><span>${esc(label)}${qualifier?` <small>${esc(qualifier)}</small>`:''}</span></label>`;
+ });
+ return `<details class="desktop-member-nhw-filters" data-desktop-key="nhw-filters"><summary>표시할 감지 유형</summary><p class="small-note">이 브라우저에서 보이는 기록을 선택합니다.</p><div class="desktop-member-nhw-controls"><label for="desktop-member-nhw-filter" class="sr-only">감지 이름 검색</label><input type="search" id="desktop-member-nhw-filter" placeholder="감지 이름 검색" maxlength="96" autocomplete="off" value="${esc(desktopMemberNhwQuery)}"><button type="button" data-member-action="nhw-view-all">모두 표시</button><button type="button" data-member-action="nhw-view-none">모두 숨기기</button></div><div class="desktop-member-nhw-options">${options.join('')}</div></details>`;
+}
+function desktopMemberNhwMarkup(rawCatalog,items){
+ const catalog=desktopMemberNhwCatalog(rawCatalog);
+ if(!catalog.size)return '<p class="small-note" role="status">감지 유형을 확인하지 못했습니다.</p>';
+ const records=items.map((row,index)=>{
+  if(!Array.isArray(row.detectionIds)||row.detectionIds.length>256)return '';
+  const labels=new Map();
+  for(const id of row.detectionIds){
+   const label=catalog.get(id)?.legacyLabel;
+   if(label&&!desktopMemberHiddenNhwIds.has(id)&&!labels.has(label))labels.set(label,id);
+  }
+  return [...labels].map(([label,id])=>`<li data-desktop-key="nhw-record-${esc(row.id||index)}-${id}">${esc(label)}</li>`).join('');
+ });
+ return desktopMemberNhwOptions(catalog)+`<ul class="desktop-member-nhw-feed" aria-label="감지 기록">${records.join('')}</ul>`;
+}
 function desktopMemberDetailMarkup(id){
  const entry=desktopPanels.get(desktopMemberKey(id)),base=entry?.data;
  if(!base)return desktopMemberNotice(entry,'회원 상세');
@@ -95,7 +142,8 @@ function desktopMemberDetailMarkup(id){
  const valid=!!part&&Array.isArray(part.items)&&Number.isSafeInteger(part.page)&&part.page===wanted&&Number.isSafeInteger(part.pageSize)&&part.pageSize>=1&&part.pageSize<=100&&Number.isSafeInteger(part.totalCount)&&part.totalCount>=0&&part.items.length<=part.pageSize;
  const scoped=valid&&part.items.every(row=>row&&row.memberId===owner);
  const page=valid?part.page:wanted,pages=valid?Math.max(1,Math.ceil(part.totalCount/part.pageSize)):1;
- return desktopMemberNotice(entry,'회원 상세')+`<div class="section-head"><div><h3>${title}</h3><p class="small-note">${id==='unassigned'?'담당 회원이 확인되지 않은 기록':esc(base.member.displayName)+' 회원에게 연결된 기록'} · ${desktopMemberCount(part?.totalCount)}건</p></div></div>${wanted>1?desktopMemberNotice(extra,title):''}${!part?'<p class="small-note" role="status">해당 페이지를 불러오는 중입니다.</p>':!scoped?'<p class="desktop-member-scope-warning" role="alert">선택한 회원과 기록의 연결 범위를 확인하지 못했습니다. 자료를 표시하지 않았습니다. 다시 조회하세요.</p>':desktopMemberCategoryRows(category,part.items)}<div class="desktop-pagination"><span>${page} / ${pages}</span><div class="actions"><button type="button" data-member-action="detail-page" data-member-id="${esc(id)}" data-member-category="${category}" data-member-page="${page-1}" ${!scoped||page<=1?'disabled':''}>이전 기록</button><button type="button" data-member-action="detail-page" data-member-id="${esc(id)}" data-member-category="${category}" data-member-page="${page+1}" ${!scoped||page>=pages?'disabled':''}>다음 기록</button></div></div>`;
+ const view=!part?'<p class="small-note" role="status">해당 페이지를 불러오는 중입니다.</p>':!scoped?'<p class="desktop-member-scope-warning" role="alert">선택한 회원과 기록의 연결 범위를 확인하지 못했습니다. 자료를 표시하지 않았습니다. 다시 조회하세요.</p>':category==='nhw'?desktopMemberNhwMarkup(base.nhwCatalog,part.items):desktopMemberCategoryRows(category,part.items);
+ return desktopMemberNotice(entry,'회원 상세')+`<div class="section-head"><div><h3>${title}</h3><p class="small-note">${id==='unassigned'?'담당 회원이 확인되지 않은 기록':esc(base.member.displayName)+' 회원에게 연결된 기록'} · ${desktopMemberCount(part?.totalCount)}건</p></div></div>${wanted>1?desktopMemberNotice(extra,title):''}${view}<div class="desktop-pagination"><span>${page} / ${pages}</span><div class="actions"><button type="button" data-member-action="detail-page" data-member-id="${esc(id)}" data-member-category="${category}" data-member-page="${page-1}" ${!scoped||page<=1?'disabled':''}>이전 기록</button><button type="button" data-member-action="detail-page" data-member-id="${esc(id)}" data-member-category="${category}" data-member-page="${page+1}" ${!scoped||page>=pages?'disabled':''}>다음 기록</button></div></div>`;
 }
 function desktopMemberError(error){
  const messages={MEMBER_REVISION_CONFLICT:'다른 관리 작업으로 회원 정보가 변경되었습니다. 목록을 새로고침하고 다시 확인하세요.',MEMBER_ASSIGNMENT_CONFLICT:'선택한 기록의 직접 연결 회원이 바뀌었습니다. 새로고침 후 다시 선택하세요.',MEMBER_ASSIGNMENT_NOT_DIRECT:'이 기록은 라이선스·A 발급에 연결된 회원을 따릅니다. 직접 연결된 원래 라이선스 또는 A 발급의 회원 연결을 변경하세요.',MEMBER_ASSOCIATION_CONFLICT:'연결된 라이선스·A 발급·실행의 회원이 서로 다릅니다. 기존 연결을 확인하고 해제한 뒤 같은 회원으로 배정하세요.',MEMBER_ARCHIVED:'보관된 회원은 새 기록에 연결할 수 없습니다. 보관을 해제하거나 다른 회원을 선택하세요.',MEMBER_TARGET_NOT_FOUND:'연결할 기록이 더 이상 없습니다. 목록을 새로고침하세요.',MEMBER_NOT_FOUND:'회원을 확인하지 못했습니다. 목록을 새로고침하세요.',MEMBER_INPUT_INVALID:'회원 이름·메모·연결 대상의 입력 범위를 확인하세요.',MEMBER_QUERY_INVALID:'검색 조건을 확인하세요.',MEMBER_CAPACITY:'회원 관리 저장 한도에 도달했습니다. 서버 운영 상태를 확인하세요.',MEMBER_REQUEST_REUSED:'다른 내용에 사용된 요청입니다. 목록을 새로고침한 뒤 다시 확인하세요.'};
@@ -160,6 +208,14 @@ async function handleDesktopMemberAction(target){
    desktopMemberCategory=category;const page=desktopMemberPages.get(id+':'+category)||1;desktopMemberRequest(id);if(page>1)desktopMemberRequest(id,category,page);await renderCurrent();return true;
   }
   if(action==='refresh'){desktopMemberInvalidate();await renderCurrent();return true;}
+  if(action==='nhw-view-all'||action==='nhw-view-none'){
+   if(desktopMemberCategory!=='nhw')return true;
+   const catalog=desktopMemberNhwCatalog(desktopPanels.get(desktopMemberKey(desktopMemberSelectedId))?.data?.nhwCatalog);
+   const show=action==='nhw-view-all';
+   for(const id of catalog.keys())if(show)desktopMemberHiddenNhwIds.delete(id);else desktopMemberHiddenNhwIds.add(id);
+   for(const input of content.querySelectorAll('input[data-nhw-detection-id]'))input.checked=show;
+   desktopMemberSaveNhwPreference();await renderCurrent();return true;
+  }
   if(action==='clear'){desktopMemberQuery='';desktopMemberListDraft=null;desktopMemberStatus='ACTIVE';desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();return true;}
   if(action==='page'){const page=Number(target.dataset.memberPage);if(Number.isSafeInteger(page)&&page>0){desktopMemberPage=page;desktopPanels.delete('members');await renderCurrent();}return true;}
   if(action==='detail-page'){const page=Number(target.dataset.memberPage),id=target.dataset.memberId,category=target.dataset.memberCategory;if(id===desktopMemberSelectedId&&category===desktopMemberCategory&&Number.isSafeInteger(page)&&page>0&&desktopMemberCategories.some(([name])=>name===category)){desktopMemberPages.set(id+':'+category,page);desktopMemberRequest(id,category,page);await renderCurrent();}return true;}
@@ -193,5 +249,20 @@ content.addEventListener('submit',async event=>{
  desktopMemberQuery=document.getElementById('desktop-member-search').value.trim();desktopMemberListDraft=null;desktopMemberStatus=document.getElementById('desktop-member-filter').value;desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();
 });
 content.addEventListener('change',async event=>{
+ if(event.target.matches('input[type="checkbox"][data-nhw-detection-id]')){
+  const id=Number(event.target.dataset.nhwDetectionId);
+  const catalog=desktopPanels.get(desktopMemberKey(desktopMemberSelectedId))?.data?.nhwCatalog;
+  if(!roleIsAdmin()||desktopMemberCategory!=='nhw'||!desktopMemberNhwCatalog(catalog).has(id))return;
+  if(event.target.checked)desktopMemberHiddenNhwIds.delete(id);
+  else desktopMemberHiddenNhwIds.add(id);
+  desktopMemberSaveNhwPreference();
+  await renderCurrent();return;
+ }
  if(event.target.id!=='desktop-member-filter')return;desktopMemberStatus=event.target.value;desktopMemberPage=1;desktopPanels.delete('members');await renderCurrent();
+});
+content.addEventListener('input',event=>{
+ if(event.target.id!=='desktop-member-nhw-filter')return;
+ desktopMemberNhwQuery=event.target.value;
+ const term=desktopMemberNhwQuery.trim().toLowerCase();
+ for(const row of event.target.closest('.desktop-member-nhw-filters').querySelectorAll('[data-nhw-search]'))row.hidden=!row.dataset.nhwSearch.includes(term);
 });

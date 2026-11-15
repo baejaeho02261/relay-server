@@ -55,7 +55,7 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
         oCodeSha512: prepared.release.codeSha512, oCodeCrc64: prepared.release.codeCrc64});
       const context = {stage: 'O', sessionId: o.sessionId, sessionToken: o.sessionToken, machineId: device.machineId};
       fixture.Enroll(overlayDevice, context);
-      return {device, overlayDevice, invitation, begin, b, o, prepared, context, common, activation};
+      return {parentDevice:parent, device, overlayDevice, invitation, begin, b, o, prepared, context, common, activation};
     }
     function observeAndVerify(s) {
       clock++;
@@ -222,6 +222,96 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       assert.equal(trace.Flow(s.begin.flowId).events.at(-1).source,'CLIENT_REPORTED');
       clock=intentAt+1;assert.throws(()=>boot.Execute(shutdown),/BOOTSTRAP_SESSION_CLOSED/,'wall-clock rollback cannot reopen expired acknowledgement');
       clock=intentAt+31001;
+    });
+    const nhw = require('../../services/observability/peace.nhw-reports');
+    const members = require('../../services/members/peace.desktop-members');
+    function nhwBody(role, session, device, ids, confirmedIds = []) {
+      const body = {action: 'nhwReport', stage: role, sessionId: session.sessionId,
+        sessionToken: session.sessionToken, ids, confirmedIds, requestId: crypto.randomUUID()};
+      return {...body, signature: fixture.Sign(device, nhw.Canonical(body))};
+    }
+    await t.test('all 204 report IDs and warning labels are selectable without ending authority', () => {
+      const s = setup(), row = nhwBody('B', s.b, s.device, Array.from({length:204}, (_, i) => i));
+      const before = structuredClone([parent(s), child(s)]);
+      assert.deepEqual(boot.Execute(row), {version:1,status:'RECORDED',terminate:false});
+      assert.deepEqual([parent(s), child(s)], before);
+      const result = members.Detail('unassigned', {category:'nhw'});
+      assert.equal(result.nhwCatalog.length, 204);
+      assert.equal(result.nhwCatalog[0].legacyLabel, 'Process Detect');
+      assert.equal(result.nhwCatalog.filter(x=>x.legacyLabel === 'Waring Detect').length, 4);
+      assert.equal(result.nhwCatalog.filter(x=>x.legacyLabel === null).length, 7);
+      assert.deepEqual(result.categories.nhw.items.find(x=>x.flowId === s.begin.flowId).detectionIds, row.ids);
+      assert.ok(!JSON.stringify(result).includes(row.sessionToken));
+      assert.ok(!JSON.stringify(result).includes(row.signature));
+    });
+    await t.test('NHW history follows explicit matching and uses ordinary admin pagination', () => {
+      const s = setup(), row = nhwBody('B', s.b, s.device, [0,2]);
+      assert.equal(boot.Execute(row).terminate, false);
+      const unassigned = () => members.Detail('unassigned', {category:'nhw',pageSize:'100'}).categories.nhw.items;
+      assert.ok(unassigned().some(x => x.flowId === s.begin.flowId));
+      const actor = 'ADMIN:cohort-test';
+      const {member} = members.Create({requestId:crypto.randomUUID(),expectedRevision:members.State().revision,
+        displayName:'NHW cohort owner',note:''},actor);
+      members.Assign({requestId:crypto.randomUUID(),expectedRevision:members.State().revision,
+        memberId:member.id,expectedMemberId:'',kind:'FLOW',targetId:s.begin.flowId},actor);
+      assert.ok(!unassigned().some(x => x.flowId === s.begin.flowId));
+      assert.deepEqual(members.Detail(member.id,{category:'nhw'}).categories.nhw.items[0].detectionIds,[0,2]);
+    });
+    await t.test('NHW confirmation and report commit together or leave A and its record untouched', () => {
+      const device=fixture.Device(), {begin}=fixture.Begin(device);
+      const session={sessionId:begin.flowId,sessionToken:begin.downloadTicket};
+      const row=nhwBody('A',session,device,[92],[92]);
+      const durable=require('../../services/storage/peace.durable-file');
+      const original=durable.Atomic;
+      durable.Atomic=(file,...args)=>{
+        if(path.basename(file)==='authority.json')throw Error('TEST_ATOMIC_STORAGE_FAILURE');
+        return original(file,...args);
+      };
+      try {assert.throws(()=>boot.Execute(row),/TEST_ATOMIC_STORAGE_FAILURE/);}
+      finally {durable.Atomic=original;}
+      assert.equal(store.Load().flows[begin.flowId].status,'STARTED');
+      assert.ok(!nhw.MemberIndex(store.Load()).some(x=>x.flowId===begin.flowId));
+      assert.equal(boot.Execute(row).terminate,true);
+      assert.equal(store.Load().flows[begin.flowId].status,'CLOSED');
+      assert.ok(nhw.MemberIndex(store.Load()).some(x=>x.flowId===begin.flowId));
+      const recordedAt=nhw.MemberIndex(store.Load()).find(x=>x.flowId===begin.flowId).at;
+      clock=recordedAt+30001;
+      assert.throws(()=>boot.Execute(row),/NHW_REPORT_EXPIRED/);
+    });
+    for (const stage of ['A','B','O']) await t.test('NHW '+stage+' signed confirmation closes only its matching cohort', () => {
+      const s = setup(), unrelated = setup(), before = structuredClone([parent(unrelated), child(unrelated)]);
+      const device = stage === 'A' ? s.parentDevice : stage === 'B' ? s.device : s.overlayDevice;
+      const session = stage === 'A' ? {sessionId: s.begin.flowId, sessionToken: s.begin.downloadTicket} :
+        stage === 'B' ? s.b : s.o;
+      const row = nhwBody(stage, session, device, [0,92,203], [92]);
+      const bad = nhwBody(stage, session, device, [0,92], [0]);
+      const revision = store.Load().revision;
+      assert.throws(() => boot.Execute(bad), /NHW_REPORT_INVALID/);
+      assert.throws(() => boot.Execute({...row, signature:fixture.Sign(unrelated.device, nhw.Canonical(row))}), /BOOTSTRAP_PROOF_INVALID/);
+      assert.throws(() => boot.Execute({...row, confirmedIds:[]}), /BOOTSTRAP_PROOF_INVALID/);
+      assert.throws(() => boot.Execute({...row, ids:[203,0,92]}), /NHW_REPORT_INVALID/);
+      assert.equal(store.Load().revision, revision);
+      const reply = boot.Execute(row);
+      assert.deepEqual(reply, {version:1,status:'RECORDED',terminate:true});
+      terminal(s, 'CLOSED');
+      assert.deepEqual([parent(unrelated), child(unrelated)], before);
+      const recordedRevision = store.Load().revision;
+      assert.deepEqual(boot.Execute(row), reply);
+      assert.equal(store.Load().revision, recordedRevision);
+      assert.throws(() => boot.Execute({...row, ids:[0,92]}), /NHW_REQUEST_REUSED/);
+      assert.throws(() => boot.Execute({...row, requestId:crypto.randomUUID()}), /^Error: BOOTSTRAP_/);
+      assert.equal(members.Detail('unassigned', {category:'nhw'}).categories.nhw.items.filter(x=>x.flowId===s.begin.flowId).length, 1);
+    });
+    await t.test('NHW B confirmation can finish its transferred O through the bounded successor context', () => {
+      const s=setup();
+      observeAndVerify(s);
+      const row=nhwBody('B',s.b,s.device,[184],[184]);
+      boot.Execute({action:'overlayCommit',handoffVersion:1,sessionId:s.b.sessionId,sessionToken:s.b.sessionToken,overlayId:s.prepared.overlayId,
+        signature:fixture.Sign(s.device,['GAME-OVERLAY-TRANSFER-V1',s.b.sessionId,s.prepared.overlayId].join('\n'))});
+      assert.equal(child(s).status,'CLAIMED');
+      assert.equal(boot.Execute(row).terminate,true);
+      terminal(s,'CLOSED');
+      assert.equal(child(s).reason,'NHW_CONFIRMED_DETECTION');
     });
     await t.test('retired cohorts survive a fresh store load without restoring runtime capabilities', () => {
       const script = 'const out=console.log;console.log=()=>{};Date.now=()=>Number(process.argv[1]);const boot=require(process.argv[2]),overlay=require(process.argv[3]);const db=boot.Initialize();overlay.ValidateStore(db);overlay.ValidateTransferRows(db);for(const row of [...Object.values(db.flows),...Object.values(db.overlays)]){if(["CLOSED","REVOKED","EXPIRED"].includes(row.status)&&row.sessionNonce!==undefined)throw Error("RETIRED_CAPABILITY_RESTORED");}boot.Stop();out("COHORT_RELOAD_OK");';

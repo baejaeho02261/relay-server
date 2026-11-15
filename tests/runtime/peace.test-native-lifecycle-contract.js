@@ -82,7 +82,7 @@ test('Shutdown reporter uses shared deadlines and never claims its own observed 
   assert.doesNotMatch(reporter, /WriteAll|WriteFile|CreateFile|\.SaveToFile|Sleep\(/);
 });
 test('A and B obtain permits before authority handoff and refresh during long active lifetimes', () => {
-  const runA = launcher.split('function RunLauncher: Integer;')[2];
+  const runA = launcher.split('function RunLauncher(const Monitor: ICozyProtectionSession): Integer;')[1];
   order(runA, ['Client.BeginKeylessFlow(', "Lifecycle.Prepare('A'", 'Client.ReportIntegrity(']);
   order(runA, ["Lifecycle.Prepare('A'", 'Grant := Client.Finish(', 'HandoffSucceeded := LaunchWithHandoff(']);
   assert.match(launcher, /Bytes := Client\.Chunk\(Flow, Offset\);\s+if Lifecycle <> nil then Lifecycle\.Prepare\('A'/);
@@ -103,10 +103,10 @@ test('Parent exit observations use the inherited exact process handle, before it
   assert.match(reporter, /Observation\.DispositionAccepted then Status := 'SCHEDULED'/);
 });
 test('Actual cleanup follows worker join and image reader retirement, before final report', () => {
-  const b = licenseSource.split('function RunLicenseClient: Integer;')[2];
-  order(b, ['Worker.Free;', 'Api.RetireImagesForShutdown', 'Context.CleanupOwnImageForShutdown', 'Bootstrap.Close;', "Lifecycle.Submit('B'"]);
-  const o = overlay.split('function RunOverlay: Integer;')[2];
-  order(o, ['Worker.WaitFor;', 'FreeAndNil(Image)', 'Context.CleanupOwnImageForShutdown', 'Client.ShutdownClose(', "Lifecycle.Submit('O'"]);
+  const b = licenseSource.split('function RunLicenseClient(const Monitor: ICozyProtectionSession): Integer;')[1];
+  order(b, ['Protection.StopAndDrain;', 'Worker.Free;', 'Api.RetireImagesForShutdown', 'Context.CleanupOwnImageForShutdown', 'Bootstrap.Close(', "Lifecycle.Submit('B'"]);
+  const o = overlay.split('function RunOverlay(const Monitor: ICozyProtectionSession): Integer;')[1];
+  order(o, ['Protection.StopMonitoring;', 'Worker.JoinBefore(', 'TOverlayClient.CloseSessionSnapshot(', 'Worker.WaitFor;', 'Protection.StopAndDrain;', 'FreeAndNil(Image)', 'Context.CleanupOwnImageForShutdown', 'Client.ShutdownClose(', "Lifecycle.Submit('O'"]);
   assert.match(handoff, /if not FCompleted then Exit;\s+FOwnObservation\.CleanupAttempted := True/);
   assert.match(handoff, /SameIdentity\(Info, FBinaryCleanupInfo\)/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(\s*FBinaryCleanupFile, FBinaryPath, BinarySHA512, FBinaryCleanupInfo/);

@@ -1,0 +1,1637 @@
+{
+  "schemaVersion": 1,
+  "detections": [
+    {
+      "id": 0,
+      "symbol": "dkProcess",
+      "label": "Process Detect",
+      "legacyLabel": "Process Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 1,
+      "symbol": "dkThread",
+      "label": "Thread Detect",
+      "legacyLabel": "Thread Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 2,
+      "symbol": "dkOwnership",
+      "label": "Ownership Detect",
+      "legacyLabel": "Ownership Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 3,
+      "symbol": "dkEscalation",
+      "label": "Escalation Detect",
+      "legacyLabel": "Escalation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 4,
+      "symbol": "dkReappearance",
+      "label": "Reappearance Detect",
+      "legacyLabel": "Reappearance Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 5,
+      "symbol": "dkThreadBurst",
+      "label": "Thread Burst Detect",
+      "legacyLabel": "Thread Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 6,
+      "symbol": "dkHandleChurn",
+      "label": "Handle Churn Detect",
+      "legacyLabel": "Handle Churn Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 7,
+      "symbol": "dkCrossAccess",
+      "label": "Cross Access Detect",
+      "legacyLabel": "Cross Access Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 8,
+      "symbol": "dkAccessBurst",
+      "label": "Access Burst Detect",
+      "legacyLabel": "Access Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 9,
+      "symbol": "dkThreadCreation",
+      "label": "Thread Creation Detect",
+      "legacyLabel": "Thread Creation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 10,
+      "symbol": "dkThreadExit",
+      "label": "Thread Exit Detect",
+      "legacyLabel": "Thread Exit Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 11,
+      "symbol": "dkThreadState",
+      "label": "Thread State Detect",
+      "legacyLabel": "Thread State Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 12,
+      "symbol": "dkHandleInherit",
+      "label": "Handle Inherit Detect",
+      "legacyLabel": "Handle Inherit Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 13,
+      "symbol": "dkLifecycle",
+      "label": "Lifecycle Detect",
+      "legacyLabel": "Lifecycle Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 14,
+      "symbol": "dkTokenObject",
+      "label": "Token Detect",
+      "legacyLabel": "Token Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 15,
+      "symbol": "dkTokenRights",
+      "label": "Token Rights Detect",
+      "legacyLabel": "Token Rights Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 16,
+      "symbol": "dkTokenChange",
+      "label": "Token Change Detect",
+      "legacyLabel": "Token Change Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 17,
+      "symbol": "dkDacl",
+      "label": "DACL Detect",
+      "legacyLabel": "DACL Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 18,
+      "symbol": "dkThreadToken",
+      "label": "Thread Token Detect",
+      "legacyLabel": "Thread Token Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 19,
+      "symbol": "dkEvent",
+      "label": "Event Detect",
+      "legacyLabel": "Event Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 20,
+      "symbol": "dkMutex",
+      "label": "Mutex Detect",
+      "legacyLabel": "Mutex Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 21,
+      "symbol": "dkSemaphore",
+      "label": "Semaphore Detect",
+      "legacyLabel": "Semaphore Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 22,
+      "symbol": "dkSection",
+      "label": "Section Detect",
+      "legacyLabel": "Section Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 23,
+      "symbol": "dkIPC",
+      "label": "IPC Detect",
+      "legacyLabel": "IPC Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 24,
+      "symbol": "dkJob",
+      "label": "Job Detect",
+      "legacyLabel": "Job Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 25,
+      "symbol": "dkFileSwap",
+      "label": "File Swap Detect",
+      "legacyLabel": "File Swap Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 26,
+      "symbol": "dkFileRename",
+      "label": "File Rename Detect",
+      "legacyLabel": "File Rename Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 27,
+      "symbol": "dkReparse",
+      "label": "Reparse Detect",
+      "legacyLabel": "Reparse Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 28,
+      "symbol": "dkStream",
+      "label": "Stream Detect",
+      "legacyLabel": "Stream Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 29,
+      "symbol": "dkFileSecurity",
+      "label": "File Security Detect",
+      "legacyLabel": "File Security Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 30,
+      "symbol": "dkFileLink",
+      "label": "File Link Detect",
+      "legacyLabel": "File Link Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 31,
+      "symbol": "dkRegistryValue",
+      "label": "Registry Value Detect",
+      "legacyLabel": "Registry Value Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 32,
+      "symbol": "dkRegistryKey",
+      "label": "Registry Key Detect",
+      "legacyLabel": "Registry Key Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 33,
+      "symbol": "dkRegistrySecurity",
+      "label": "Registry Security Detect",
+      "legacyLabel": "Registry Security Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 34,
+      "symbol": "dkPolicy",
+      "label": "Policy Detect",
+      "legacyLabel": "Policy Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 35,
+      "symbol": "dkRegistryBurst",
+      "label": "Registry Burst Detect",
+      "legacyLabel": "Registry Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 36,
+      "symbol": "dkThreadPriority",
+      "label": "Thread Priority Detect",
+      "legacyLabel": "Thread Priority Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 37,
+      "symbol": "dkProcessPriority",
+      "label": "Priority Detect",
+      "legacyLabel": "Priority Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 38,
+      "symbol": "dkAffinity",
+      "label": "Affinity Detect",
+      "legacyLabel": "Affinity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 39,
+      "symbol": "dkCPUGroup",
+      "label": "CPU Group Detect",
+      "legacyLabel": "CPU Group Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 40,
+      "symbol": "dkScheduling",
+      "label": "Scheduling Detect",
+      "legacyLabel": "Scheduling Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 41,
+      "symbol": "dkMitigation",
+      "label": "Mitigation Detect",
+      "legacyLabel": "Mitigation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 42,
+      "symbol": "dkNamespace",
+      "label": "Namespace",
+      "legacyLabel": null,
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 43,
+      "symbol": "dkObjectType",
+      "label": "Object Type Detect",
+      "legacyLabel": "Object Type Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 44,
+      "symbol": "dkSymbolicLink",
+      "label": "Symbolic Link Detect",
+      "legacyLabel": "Symbolic Link Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 45,
+      "symbol": "dkDeviceMap",
+      "label": "Device Map",
+      "legacyLabel": null,
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 46,
+      "symbol": "dkObjectSecurity",
+      "label": "Object Security Detect",
+      "legacyLabel": "Object Security Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 47,
+      "symbol": "dkNamespaceBurst",
+      "label": "Namespace Burst Detect",
+      "legacyLabel": "Namespace Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 48,
+      "symbol": "dkTransientThread",
+      "label": "Transient Thread Detect",
+      "legacyLabel": "Transient Thread Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 49,
+      "symbol": "dkProcessLifetime",
+      "label": "Process Lifetime Detect",
+      "legacyLabel": "Process Lifetime Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 50,
+      "symbol": "dkKernelFileIO",
+      "label": "File I/O Detect",
+      "legacyLabel": "File I/O Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 51,
+      "symbol": "dkKernelRegistry",
+      "label": "Registry Activity Detect",
+      "legacyLabel": "Registry Activity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 52,
+      "symbol": "dkEventFusion",
+      "label": "Event Fusion Detect",
+      "legacyLabel": "Event Fusion Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 53,
+      "symbol": "dkTraceGap",
+      "label": "Trace Gap Detect",
+      "legacyLabel": "Trace Gap Detect",
+      "kind": "diagnostic",
+      "terminal": false
+    },
+    {
+      "id": 54,
+      "symbol": "dkThreadStart",
+      "label": "Thread Start Detect",
+      "legacyLabel": "Thread Start Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 55,
+      "symbol": "dkPrivateThread",
+      "label": "Private Thread Detect",
+      "legacyLabel": "Private Thread Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 56,
+      "symbol": "dkRemoteThread",
+      "label": "Remote Thread Detect",
+      "legacyLabel": "Remote Thread Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 57,
+      "symbol": "dkThreadRegion",
+      "label": "Thread Region Detect",
+      "legacyLabel": "Thread Region Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 58,
+      "symbol": "dkThreadSpawn",
+      "label": "Thread Spawn Detect",
+      "legacyLabel": "Thread Spawn Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 59,
+      "symbol": "dkStackBounds",
+      "label": "Stack Bounds Detect",
+      "legacyLabel": "Stack Bounds Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 60,
+      "symbol": "dkStackGuard",
+      "label": "Stack Guard Detect",
+      "legacyLabel": "Stack Guard Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 61,
+      "symbol": "dkStackExecute",
+      "label": "Stack Execute Detect",
+      "legacyLabel": "Stack Execute Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 62,
+      "symbol": "dkStackAllocation",
+      "label": "Stack Allocation Detect",
+      "legacyLabel": "Stack Allocation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 63,
+      "symbol": "dkStackGrowth",
+      "label": "Stack Growth Detect",
+      "legacyLabel": "Stack Growth Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 64,
+      "symbol": "dkStackCorrelation",
+      "label": "Stack Correlation Detect",
+      "legacyLabel": "Stack Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 65,
+      "symbol": "dkAllocation",
+      "label": "Allocation",
+      "legacyLabel": null,
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 66,
+      "symbol": "dkCommit",
+      "label": "Memory Commit",
+      "legacyLabel": null,
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 67,
+      "symbol": "dkExecuteProtect",
+      "label": "Execute Protect Detect",
+      "legacyLabel": "Execute Protect Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 68,
+      "symbol": "dkRWX",
+      "label": "RWX Detect",
+      "legacyLabel": "RWX Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 69,
+      "symbol": "dkMemoryRelease",
+      "label": "Memory Release",
+      "legacyLabel": null,
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 70,
+      "symbol": "dkAllocationBurst",
+      "label": "Allocation Burst",
+      "legacyLabel": null,
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 71,
+      "symbol": "dkMappedView",
+      "label": "Mapped View Detect",
+      "legacyLabel": "Mapped View Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 72,
+      "symbol": "dkCOW",
+      "label": "COW Detect",
+      "legacyLabel": "COW Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 73,
+      "symbol": "dkPageSharing",
+      "label": "Page Sharing Detect",
+      "legacyLabel": "Page Sharing Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 74,
+      "symbol": "dkMappingBacking",
+      "label": "Mapping Backing Detect",
+      "legacyLabel": "Mapping Backing Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 75,
+      "symbol": "dkExecutableMapping",
+      "label": "Executable Mapping Detect",
+      "legacyLabel": "Executable Mapping Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 76,
+      "symbol": "dkMappingBurst",
+      "label": "Mapping Burst Detect",
+      "legacyLabel": "Mapping Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 77,
+      "symbol": "dkProtectTransition",
+      "label": "Protect Transition Detect",
+      "legacyLabel": "Protect Transition Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 78,
+      "symbol": "dkProtectionCycle",
+      "label": "Protection Cycle Detect",
+      "legacyLabel": "Protection Cycle Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 79,
+      "symbol": "dkImageProtection",
+      "label": "Image Protection Detect",
+      "legacyLabel": "Image Protection Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 80,
+      "symbol": "dkGuardTransition",
+      "label": "Guard Transition Detect",
+      "legacyLabel": "Guard Transition Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 81,
+      "symbol": "dkNoAccess",
+      "label": "NoAccess Detect",
+      "legacyLabel": "NoAccess Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 82,
+      "symbol": "dkProtectBurst",
+      "label": "Protect Burst Detect",
+      "legacyLabel": "Protect Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 83,
+      "symbol": "dkReadAccess",
+      "label": "Read Access Detect",
+      "legacyLabel": "Read Access Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 84,
+      "symbol": "dkCanaryAccess",
+      "label": "Canary Access Detect",
+      "legacyLabel": "Canary Access Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 85,
+      "symbol": "dkReadCorrelation",
+      "label": "Read Correlation Detect",
+      "legacyLabel": "Read Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 86,
+      "symbol": "dkReadPattern",
+      "label": "Read Pattern Detect",
+      "legacyLabel": "Read Pattern Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 87,
+      "symbol": "dkReadGap",
+      "label": "Read Sampling Gap",
+      "legacyLabel": null,
+      "kind": "diagnostic",
+      "terminal": false
+    },
+    {
+      "id": 88,
+      "symbol": "dkWriteWatch",
+      "label": "Write Watch Detect",
+      "legacyLabel": "Write Watch Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 89,
+      "symbol": "dkWriteBurst",
+      "label": "Write Burst Detect",
+      "legacyLabel": "Write Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 90,
+      "symbol": "dkRepeatedWrite",
+      "label": "Repeated Write Detect",
+      "legacyLabel": "Repeated Write Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 91,
+      "symbol": "dkWriteCorrelation",
+      "label": "Write Correlation Detect",
+      "legacyLabel": "Write Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 92,
+      "symbol": "dkWriteIntegrity",
+      "label": "Write Integrity Detect",
+      "legacyLabel": "Write Integrity Detect",
+      "kind": "evidence",
+      "terminal": true
+    },
+    {
+      "id": 93,
+      "symbol": "dkDeadlock",
+      "label": "Deadlock Detect",
+      "legacyLabel": "Deadlock Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 94,
+      "symbol": "dkThreadWait",
+      "label": "Thread Wait Detect",
+      "legacyLabel": "Thread Wait Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 95,
+      "symbol": "dkExternalWait",
+      "label": "External Wait Detect",
+      "legacyLabel": "External Wait Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 96,
+      "symbol": "dkCriticalSection",
+      "label": "Critical Section Detect",
+      "legacyLabel": "Critical Section Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 97,
+      "symbol": "dkContention",
+      "label": "Contention Detect",
+      "legacyLabel": "Contention Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 98,
+      "symbol": "dkWaitBurst",
+      "label": "Wait Burst Detect",
+      "legacyLabel": "Wait Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 99,
+      "symbol": "dkCaptureClient",
+      "label": "Capture Client Detect",
+      "legacyLabel": "Capture Client Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 100,
+      "symbol": "dkCaptureLibrary",
+      "label": "Capture Library Detect",
+      "legacyLabel": "Capture Library Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 101,
+      "symbol": "dkCaptureDriver",
+      "label": "Capture Driver Detect",
+      "legacyLabel": "Capture Driver Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 102,
+      "symbol": "dkCaptureProxy",
+      "label": "Packet Proxy Detect",
+      "legacyLabel": "Packet Proxy Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 103,
+      "symbol": "dkCaptureCorrelation",
+      "label": "Capture Correlation Detect",
+      "legacyLabel": "Capture Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 104,
+      "symbol": "dkNetworkFilter",
+      "label": "Network Filter Detect",
+      "legacyLabel": "Network Filter Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 105,
+      "symbol": "dkWFPCallout",
+      "label": "WFP Callout Detect",
+      "legacyLabel": "WFP Callout Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 106,
+      "symbol": "dkWFPProvider",
+      "label": "WFP Provider Detect",
+      "legacyLabel": "WFP Provider Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 107,
+      "symbol": "dkRouteChange",
+      "label": "Route Change Detect",
+      "legacyLabel": "Route Change Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 108,
+      "symbol": "dkProxyChange",
+      "label": "Proxy Change Detect",
+      "legacyLabel": "Proxy Change Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 109,
+      "symbol": "dkNetworkCorrelation",
+      "label": "Network Correlation Detect",
+      "legacyLabel": "Network Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 110,
+      "symbol": "dkDNSServer",
+      "label": "DNS Server Detect",
+      "legacyLabel": "DNS Server Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 111,
+      "symbol": "dkDNSPolicy",
+      "label": "DNS Policy Detect",
+      "legacyLabel": "DNS Policy Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 112,
+      "symbol": "dkWinsockProvider",
+      "label": "Winsock Provider Detect",
+      "legacyLabel": "Winsock Provider Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 113,
+      "symbol": "dkInterfaceChange",
+      "label": "Interface Detect",
+      "legacyLabel": "Interface Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 114,
+      "symbol": "dkPathCorrelation",
+      "label": "Path Correlation Detect",
+      "legacyLabel": "Path Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 115,
+      "symbol": "dkNetworkIntegrity",
+      "label": "Network Integrity Detect",
+      "legacyLabel": "Network Integrity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 116,
+      "symbol": "dkIAT",
+      "label": "IAT Detect",
+      "legacyLabel": "IAT Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 117,
+      "symbol": "dkFunctionPointer",
+      "label": "Function Pointer Detect",
+      "legacyLabel": "Function Pointer Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 118,
+      "symbol": "dkCallback",
+      "label": "Callback Detect",
+      "legacyLabel": "Callback Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 119,
+      "symbol": "dkProcessParameter",
+      "label": "Process Parameter Detect",
+      "legacyLabel": "Process Parameter Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 120,
+      "symbol": "dkThreadProvenance",
+      "label": "Thread Origin Detect",
+      "legacyLabel": "Thread Origin Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 121,
+      "symbol": "dkBoundary",
+      "label": "Boundary Detect",
+      "legacyLabel": "Boundary Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 122,
+      "symbol": "dkTLSPointer",
+      "label": "TLS Pointer Detect",
+      "legacyLabel": "TLS Pointer Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 123,
+      "symbol": "dkFLSCallback",
+      "label": "FLS Callback Detect",
+      "legacyLabel": "FLS Callback Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 124,
+      "symbol": "dkHeapState",
+      "label": "Heap State Detect",
+      "legacyLabel": "Heap State Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 125,
+      "symbol": "dkHeapIntegrity",
+      "label": "Heap Integrity Detect",
+      "legacyLabel": "Heap Integrity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 126,
+      "symbol": "dkHeapCorrelation",
+      "label": "Heap Correlation Detect",
+      "legacyLabel": "Heap Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 127,
+      "symbol": "dkUnwind",
+      "label": "Unwind Detect",
+      "legacyLabel": "Unwind Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 128,
+      "symbol": "dkFunctionTable",
+      "label": "Function Table Detect",
+      "legacyLabel": "Function Table Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 129,
+      "symbol": "dkExceptionRange",
+      "label": "Exception Range Detect",
+      "legacyLabel": "Exception Range Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 130,
+      "symbol": "dkExceptionCallback",
+      "label": "Exception Callback Detect",
+      "legacyLabel": "Exception Callback Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 131,
+      "symbol": "dkExceptionCorrelation",
+      "label": "Exception Correlation Detect",
+      "legacyLabel": "Exception Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 132,
+      "symbol": "dkCompletionPort",
+      "label": "Completion Port Detect",
+      "legacyLabel": "Completion Port Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 133,
+      "symbol": "dkCompletionKey",
+      "label": "Completion Key Detect",
+      "legacyLabel": "Completion Key Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 134,
+      "symbol": "dkAsyncCallback",
+      "label": "Async Callback Detect",
+      "legacyLabel": "Async Callback Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 135,
+      "symbol": "dkThreadpool",
+      "label": "Threadpool Detect",
+      "legacyLabel": "Threadpool Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 136,
+      "symbol": "dkAsyncBurst",
+      "label": "Async Burst Detect",
+      "legacyLabel": "Async Burst Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 137,
+      "symbol": "dkAsyncCorrelation",
+      "label": "Async Correlation Detect",
+      "legacyLabel": "Async Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 138,
+      "symbol": "dkPEHeader",
+      "label": "PE Header Detect",
+      "legacyLabel": "PE Header Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 139,
+      "symbol": "dkSectionMapping",
+      "label": "Section Mapping Detect",
+      "legacyLabel": "Section Mapping Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 140,
+      "symbol": "dkRelocation",
+      "label": "Relocation Detect",
+      "legacyLabel": "Relocation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 141,
+      "symbol": "dkTLSDirectory",
+      "label": "TLS Directory Detect",
+      "legacyLabel": "TLS Directory Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 142,
+      "symbol": "dkLoadConfig",
+      "label": "Load Config Detect",
+      "legacyLabel": "Load Config Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 143,
+      "symbol": "dkDirectoryBounds",
+      "label": "Directory Bounds Detect",
+      "legacyLabel": "Directory Bounds Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 144,
+      "symbol": "dkExportTable",
+      "label": "Export Table Detect",
+      "legacyLabel": "Export Table Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 145,
+      "symbol": "dkExportForwarder",
+      "label": "Export Forwarder Detect",
+      "legacyLabel": "Export Forwarder Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 146,
+      "symbol": "dkAPISet",
+      "label": "API Set Detect",
+      "legacyLabel": "API Set Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 147,
+      "symbol": "dkDelayImport",
+      "label": "Delay Import Detect",
+      "legacyLabel": "Delay Import Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 148,
+      "symbol": "dkExportTarget",
+      "label": "Export Target Detect",
+      "legacyLabel": "Export Target Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 149,
+      "symbol": "dkResolution",
+      "label": "Resolution Detect",
+      "legacyLabel": "Resolution Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 150,
+      "symbol": "dkMultiSignal",
+      "label": "Multi-Signal Detect",
+      "legacyLabel": "Multi-Signal Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 151,
+      "symbol": "dkPECodeIntegrity",
+      "label": "PE Code Integrity Detect",
+      "legacyLabel": "PE Code Integrity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 152,
+      "symbol": "dkPrivateExecRegion",
+      "label": "Private Executable Region Detect",
+      "legacyLabel": "Private Executable Region Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 153,
+      "symbol": "dkETWImageFusion",
+      "label": "ETW Image Correlation Detect",
+      "legacyLabel": "ETW Image Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 154,
+      "symbol": "dkInjectionEvidence",
+      "label": "Injection Evidence Detect",
+      "legacyLabel": "Injection Evidence Detect",
+      "kind": "evidence",
+      "terminal": true
+    },
+    {
+      "id": 155,
+      "symbol": "dkExecutionProvenance",
+      "label": "Execution Provenance Detect",
+      "legacyLabel": "Execution Provenance Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 156,
+      "symbol": "dkImageCOWIntegrity",
+      "label": "Image COW Detect",
+      "legacyLabel": "Image COW Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 157,
+      "symbol": "dkTemporalHandleGraph",
+      "label": "Temporal Handle Graph Detect",
+      "legacyLabel": "Temporal Handle Graph Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 158,
+      "symbol": "dkModuleOrigin",
+      "label": "Module Origin Detect",
+      "legacyLabel": "Module Origin Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 159,
+      "symbol": "dkETWLoss",
+      "label": "Waring Detect",
+      "legacyLabel": "Waring Detect",
+      "kind": "diagnostic",
+      "terminal": false
+    },
+    {
+      "id": 160,
+      "symbol": "dkImportRedirect",
+      "label": "Import Redirect Detect",
+      "legacyLabel": "Import Redirect Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 161,
+      "symbol": "dkTLSCallbackIntegrity",
+      "label": "TLS Callback Integrity Detect",
+      "legacyLabel": "TLS Callback Integrity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 162,
+      "symbol": "dkUnwindStructural",
+      "label": "Unwind Structural Detect",
+      "legacyLabel": "Unwind Structural Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 163,
+      "symbol": "dkExecutableLifecycle",
+      "label": "Executable Lifecycle Detect",
+      "legacyLabel": "Executable Lifecycle Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 164,
+      "symbol": "dkSectionBacking",
+      "label": "Section Backing Detect",
+      "legacyLabel": "Section Backing Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 165,
+      "symbol": "dkThreadStackOrigin",
+      "label": "Thread Stack Origin Detect",
+      "legacyLabel": "Thread Stack Origin Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 166,
+      "symbol": "dkCoverageGap",
+      "label": "Waring Detect",
+      "legacyLabel": "Waring Detect",
+      "kind": "diagnostic",
+      "terminal": false
+    },
+    {
+      "id": 167,
+      "symbol": "dkProcessSnapshot",
+      "label": "Process Snapshot Detect",
+      "legacyLabel": "Process Snapshot Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 168,
+      "symbol": "dkLoaderCrossView",
+      "label": "Loader Cross-View Detect",
+      "legacyLabel": "Loader Cross-View Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 169,
+      "symbol": "dkFileAttestation",
+      "label": "File Attestation Detect",
+      "legacyLabel": "File Attestation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 170,
+      "symbol": "dkControlFlow",
+      "label": "Control Flow Detect",
+      "legacyLabel": "Control Flow Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 171,
+      "symbol": "dkSnapshotETW",
+      "label": "Snapshot ETW Mismatch Detect",
+      "legacyLabel": "Snapshot ETW Mismatch Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 172,
+      "symbol": "dkObserverMismatch",
+      "label": "Observer Mismatch Detect",
+      "legacyLabel": "Observer Mismatch Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 173,
+      "symbol": "dkEvidenceIntegrity",
+      "label": "Evidence Integrity Detect",
+      "legacyLabel": "Evidence Integrity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 174,
+      "symbol": "dkRiskConfidence",
+      "label": "Risk Correlation Detect",
+      "legacyLabel": "Risk Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 175,
+      "symbol": "dkCausalSequence",
+      "label": "Causal Sequence Detect",
+      "legacyLabel": "Causal Sequence Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 176,
+      "symbol": "dkCodeProvenance",
+      "label": "Code Provenance Detect",
+      "legacyLabel": "Code Provenance Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 177,
+      "symbol": "dkSectionCorrelation",
+      "label": "Section Correlation Detect",
+      "legacyLabel": "Section Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 178,
+      "symbol": "dkIndirectTarget",
+      "label": "Indirect Target Detect",
+      "legacyLabel": "Indirect Target Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 179,
+      "symbol": "dkThreadTimeline",
+      "label": "Thread Timeline Detect",
+      "legacyLabel": "Thread Timeline Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 180,
+      "symbol": "dkObservationUncertain",
+      "label": "Waring Detect",
+      "legacyLabel": "Waring Detect",
+      "kind": "diagnostic",
+      "terminal": false
+    },
+    {
+      "id": 181,
+      "symbol": "dkSensorPressure",
+      "label": "Waring Detect",
+      "legacyLabel": "Waring Detect",
+      "kind": "diagnostic",
+      "terminal": false
+    },
+    {
+      "id": 182,
+      "symbol": "dkIncidentReconstruction",
+      "label": "Incident Correlation Detect",
+      "legacyLabel": "Incident Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 183,
+      "symbol": "dkHandleSharingEvidence",
+      "label": "Handle Sharing Evidence Detect",
+      "legacyLabel": "Handle Sharing Evidence Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 184,
+      "symbol": "dkAPCStyleEvidence",
+      "label": "APC-Style Evidence Detect",
+      "legacyLabel": "APC-Style Evidence Detect",
+      "kind": "evidence",
+      "terminal": true
+    },
+    {
+      "id": 185,
+      "symbol": "dkBootTrust",
+      "label": "Boot Trust Detect",
+      "legacyLabel": "Boot Trust Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 186,
+      "symbol": "dkVBSHVCI",
+      "label": "VBS HVCI Detect",
+      "legacyLabel": "VBS HVCI Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 187,
+      "symbol": "dkVulnerableDriver",
+      "label": "Vulnerable Driver Detect",
+      "legacyLabel": "Vulnerable Driver Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 188,
+      "symbol": "dkDriverIdentity",
+      "label": "Driver Identity Detect",
+      "legacyLabel": "Driver Identity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 189,
+      "symbol": "dkDriverCrossView",
+      "label": "Driver Cross-View Detect",
+      "legacyLabel": "Driver Cross-View Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 190,
+      "symbol": "dkKernelTrustDowngrade",
+      "label": "Kernel Trust Downgrade Detect",
+      "legacyLabel": "Kernel Trust Downgrade Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 191,
+      "symbol": "dkCodeIntegrityPolicy",
+      "label": "Code Integrity Policy Detect",
+      "legacyLabel": "Code Integrity Policy Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 192,
+      "symbol": "dkDriverTimelineKernel",
+      "label": "Driver Timeline Detect",
+      "legacyLabel": "Driver Timeline Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 193,
+      "symbol": "dkSystemViewDisagreement",
+      "label": "System View Disagreement Detect",
+      "legacyLabel": "System View Disagreement Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 194,
+      "symbol": "dkKernelMappingEvidence",
+      "label": "Kernel Mapping Evidence Detect",
+      "legacyLabel": "Kernel Mapping Evidence Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 195,
+      "symbol": "dkBootAttestationContinuity",
+      "label": "Boot Attestation Continuity Detect",
+      "legacyLabel": "Boot Attestation Continuity Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 196,
+      "symbol": "dkCodeIntegrityEventCorrelation",
+      "label": "Code Integrity Event Correlation Detect",
+      "legacyLabel": "Code Integrity Event Correlation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 197,
+      "symbol": "dkKernelTelemetryGap",
+      "label": "Kernel Telemetry Gap Detect",
+      "legacyLabel": "Kernel Telemetry Gap Detect",
+      "kind": "diagnostic",
+      "terminal": false
+    },
+    {
+      "id": 198,
+      "symbol": "dkSessionTrustUntrusted",
+      "label": "Session Trust Detect",
+      "legacyLabel": "Session Trust Detect",
+      "kind": "evidence",
+      "terminal": true
+    },
+    {
+      "id": 199,
+      "symbol": "dkDriverLoadProvenance",
+      "label": "Driver Load Provenance Detect",
+      "legacyLabel": "Driver Load Provenance Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 200,
+      "symbol": "dkDriverSignerAttestation",
+      "label": "Driver Signer Attestation Detect",
+      "legacyLabel": "Driver Signer Attestation Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 201,
+      "symbol": "dkDriverServiceTimeline",
+      "label": "Driver Service Timeline Detect",
+      "legacyLabel": "Driver Service Timeline Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 202,
+      "symbol": "dkHypervisorVBSCrossView",
+      "label": "Hypervisor VBS Cross-View Detect",
+      "legacyLabel": "Hypervisor VBS Cross-View Detect",
+      "kind": "observation",
+      "terminal": false
+    },
+    {
+      "id": 203,
+      "symbol": "dkKernelDMAIOMMUTrust",
+      "label": "Kernel DMA IOMMU Trust Detect",
+      "legacyLabel": "Kernel DMA IOMMU Trust Detect",
+      "kind": "observation",
+      "terminal": false
+    }
+  ]
+}

@@ -331,6 +331,19 @@ function AuthenticateIntegrityReport(body){
  if(body.machineId!==undefined&&MachinePolicy().Validate(body.machineId)!==row.machineId)Fail('BOOTSTRAP_SESSION_INVALID',403);
  return {...row,...(stage==='A'?delegation.Parent(row):{}),stage,reportContextId:stage==='A'?row.id:row.sessionId,integrityArtifact:{id:artifact.id,component:artifact.component,pointerGraphSlots:artifact.ownMeasurementVersion>=2?require('../security/peace.desktop-security-operations').PointerGraphSlots(artifact):0,measurementPlanVersion:artifact.measurementPlanVersion||0,ownMeasurementVersion:artifact.ownMeasurementVersion||0,hashVersion:3,sha512:stage==='A'?row.launcherSha512:artifact.sha512,crc64:stage==='A'?row.launcherCrc64:artifact.crc64,fileXxh3_128:stage==='A'?DB().launchers[row.launcherId].xxh3_128:artifact.xxh3_128,fileBlake3:stage==='A'?DB().launchers[row.launcherId].blake3:artifact.blake3,codeSha512:artifact.codeSha512,codeCrc64:artifact.codeCrc64,codeXxh3_128:artifact.codeXxh3_128,codeBlake3:artifact.codeBlake3,crcLayers:artifact.crcLayers}};
 }
+// A valid detection formed before the successor took authority can arrive
+// during the existing bounded handoff/cleanup interval.
+function AuthenticateNhwHandoff(body){
+ const row=AuthenticateIntegrityReceipt(body);
+ const bounds=require('../runtime/peace.desktop-deadline').persistent;
+ if(body.stage==='A'){
+  if(!['CLAIMED','CLOSED'].includes(row.status)||bounds.expired('A.nhw-handoff:'+row.id,row.claimedAt,row.claimedAt+CLEANUP_RECEIPT_MS))Fail('BOOTSTRAP_SESSION_CLOSED');
+  if(row.status==='CLAIMED')FlowLive(row,true);
+  else require('../overlay/peace.desktop-overlay').RequireNhwSuccessor(row);
+ }else if(body.stage==='B'&&row.closedByOverlay)require('../overlay/peace.desktop-overlay').RequireNhwSuccessor(row);
+ else Fail('BOOTSTRAP_SESSION_CLOSED');
+ return row;
+}
 function LicenseState(row){
  if(!row.licenseId)return {licenseStatus:'',licenseLastVerifiedAt:0};
  const license=require("../licensing/peace.desktop-licenses").DB().licenses[row.licenseId];if(!license)return {licenseStatus:'UNKNOWN',licenseLastVerifiedAt:0};
@@ -428,8 +441,16 @@ function LicenseActivity(id){
  return activityIndex.get(id)||null;
 }
 function RetireLauncher(row,at=now()){store.AfterCommit(()=>require('../runtime/peace.desktop-deadline').persistent.forget('A.launcher:'+row.id));delete row.ticketNonce;delete row.profile;delete row.configNonce;row.retiredAt||=at;}
-function RetireFlow(row,db){store.AfterCommit(()=>{for(const kind of ['A.flow:','B.claim:','B.session:','B.claim-recovery:'])require("../runtime/peace.desktop-deadline").persistent.forget(kind+row.id);});if(db)require("../overlay/peace.desktop-overlay").RetireForParent(db,row);row.licenseLeaseExpiresAt=0;RetireRuntime(row);for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])delete row[key];row.retiredAt||=now();}
-function RetireRuntime(row){require("../devices/peace.desktop-device-identity").RetireContext(row,'A');require("../devices/peace.desktop-device-identity").RetireContext(row,'B');require("../security/peace.desktop-security-authority").RetireContext(row,'A');require("../security/peace.desktop-security-authority").RetireContext(row,'B');require("../integrity/peace.desktop-integrity-reports").RetireContext(row);require("../licensing/peace.desktop-licenses").RetireRuntime(row);for(const key of integritySuccessTimes.keys())if(key.includes(':'+row.sessionId+':'))integritySuccessTimes.delete(key);}
+function RetireFlow(row,db,{sessionOnly=false}={}){
+ store.AfterCommit(()=>{for(const kind of ['A.flow:','B.claim:','B.session:','B.claim-recovery:'])require("../runtime/peace.desktop-deadline").persistent.forget(kind+row.id);});
+ if(db)require("../overlay/peace.desktop-overlay").RetireForParent(db,row);
+ row.licenseLeaseExpiresAt=0;
+ if(sessionOnly)store.AfterCommit(()=>RetireRuntime(row,{sessionOnly:true}));
+ else RetireRuntime(row);
+ for(const key of ['downloadNonce','finishNonce','handoffNonce','claimNonce','sessionNonce'])delete row[key];
+ row.retiredAt||=now();
+}
+function RetireRuntime(row,options){require("../devices/peace.desktop-device-identity").RetireContext(row,'A');require("../devices/peace.desktop-device-identity").RetireContext(row,'B');require("../security/peace.desktop-security-authority").RetireContext(row,'A');require("../security/peace.desktop-security-authority").RetireContext(row,'B');require("../integrity/peace.desktop-integrity-reports").RetireContext(row);require("../licensing/peace.desktop-licenses").RetireRuntime(row,options);for(const key of integritySuccessTimes.keys())if(key.includes(':'+row.sessionId+':'))integritySuccessTimes.delete(key);}
 function Prune(){
  require('./peace.keyless-bootstrap').Maintain();
  require('../security/peace.server-policy-operations').Maintain();
@@ -446,8 +467,9 @@ function Stop(){if(retirementTimer){clearInterval(retirementTimer);retirementTim
 function Overview(){
  Prune();const db=DB();return {artifacts:{A:Artifact(db.artifacts[db.active.A]),B:Artifact(db.artifacts[db.active.B]),O:Artifact(db.artifacts[db.active.O])},launchers:Object.values(db.launchers).map(row=>({id:row.id,downloadName:LauncherName(row),label:row.label,issuedAt:row.issuedAt,expiresAt:row.expiresAt,finalIssuedSigning:LauncherSigningView(row),status:row.status==='AVAILABLE'&&row.expiresAt<=now()?'EXPIRED':row.status,flowId:row.flowId||'',sha512:row.sha512,crc64:row.crc64})).sort((a,b)=>b.issuedAt-a.issuedAt),sessions:[...Object.values(db.flows).map(SessionView),...require("../overlay/peace.desktop-overlay").List()].sort((a,b)=>b.createdAt-a.createdAt),limits:{maxArtifactBytes:MAX_ARTIFACT_BYTES,chunkSize:CHUNK_SIZE,launcherLifetimeMs:LAUNCHER_MS,flowLifetimeMs:FLOW_MS,sessionLifetimeMs:SESSION_MS},serverTime:now()};
 }
-function Execute(body,keylessPrepared){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');require("../protocol/peace.desktop-request-protocol").Resolve('bootstrap',body.action);if(['lifecycleChallenge','lifecycleReport'].includes(body.action)){DB();return require("../observability/peace.desktop-lifecycle-trace").Execute(body);}if(typeof body.action==='string'&&body.action.startsWith('overlay')){if(!['overlayClose','overlayAbort','overlayShutdown'].includes(body.action))Available();else DB();return require("../overlay/peace.desktop-overlay").Execute(body);}if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'keylessPolicy':case 'keylessChallenge':case 'keylessProve':case 'keylessTpmActivate':case 'keylessStatus':case 'beginKeyless':return require('./peace.keyless-bootstrap').Execute(body,Begin,keylessPrepared);case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
+function Execute(body,keylessPrepared){if(!Plain(body))Fail('BOOTSTRAP_INPUT_INVALID');require("../protocol/peace.desktop-request-protocol").Resolve('bootstrap',body.action);if(body.action==='nhwReport')return require('../observability/peace.nhw-reports').Record(body);if(['lifecycleChallenge','lifecycleReport'].includes(body.action)){DB();return require("../observability/peace.desktop-lifecycle-trace").Execute(body);}if(typeof body.action==='string'&&body.action.startsWith('overlay')){if(!['overlayClose','overlayAbort','overlayShutdown'].includes(body.action))Available();else DB();return require("../overlay/peace.desktop-overlay").Execute(body);}if(['close','abort'].includes(body.action)){DB();Prune();}else Available();switch(body.action){case 'keylessPolicy':case 'keylessChallenge':case 'keylessProve':case 'keylessTpmActivate':case 'keylessStatus':case 'beginKeyless':return require('./peace.keyless-bootstrap').Execute(body,Begin,keylessPrepared);case 'begin':return Begin(body);case 'chunk':return Chunk(body);case 'finish':return Finish(body);case 'claim':return Claim(body);case 'status':return Status(body);case 'close':return Close(body);case 'abort':return Abort(body);default:Fail('BOOTSTRAP_INPUT_INVALID');}}
 function ProofTasks(body){
+ if(body.action==='nhwReport')return require('../observability/peace.nhw-reports').ProofTasks(body);
  if(['keylessPolicy','keylessChallenge','keylessProve','keylessTpmActivate','keylessStatus','beginKeyless'].includes(body.action))return require('./peace.keyless-bootstrap').ProofTasks(body);
  if(['lifecycleChallenge','lifecycleReport'].includes(body.action))return require("../observability/peace.desktop-lifecycle-trace").ProofTasks(body);
  if(String(body.action).startsWith('overlay'))return require("../overlay/peace.desktop-overlay").ProofTasks(body);
@@ -456,6 +478,6 @@ function ProofTasks(body){
  if(body.action==='claim')return delegation.ProofTasks(row,body,'B',ClaimCanonical(row));
  return [];
 }
-module.exports={LauncherExpired,RetireLauncher,RequireLauncherSelection,AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,AssertSecurityAvailable:Availability,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,CONFIG_FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
+module.exports={AuthenticateNhwHandoff,LauncherExpired,RetireLauncher,RequireLauncherSelection,AssertFlowLifetime,ProofTasks,AuthenticateIntegrityReceipt,RequireCleanupReceipt,ReconcileLicenseOperations,RetireFlow,RetireRuntime,Release,Verify,CheckFile,CheckCode,EqualHash,Artifact,SessionAuthenticated,RequireFlowPair,ReadArtifactBytes:Bytes,EnsureSecurityAvailable:Available,AssertSecurityAvailable:Availability,MAX_ARTIFACT_BYTES,CHUNK_SIZE,LAUNCHER_MS,FLOW_MS,HANDOFF_MS,SESSION_MS,FOOTER,CONFIG_FOOTER,messages,Fail,Initialize,Publish,IssueLauncher,LauncherBytes,LauncherName,Execute,Gate,AuthenticateIntegrityReport,TouchLicense,LicenseActivity,Overview,SessionView,Revoke};
 
 module.exports.Stop=Stop;

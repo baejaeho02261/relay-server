@@ -1,6 +1,6 @@
 { Generated document shapes only; no authorization or Windows test evidence. }
 const
-  ProtocolDocumentSchemaCases: array[0..13] of string = (
+  ProtocolDocumentSchemaCases: array[0..14] of string = (
     '{"name":"overlayRelease","value":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"AAAAAAAAAAAAAAAA","xxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaa","size":1,"codeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","c' +
@@ -40,5 +40,6 @@ const
     '{"name":"overlayShutdown","value":{"version":1,"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","parentSessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","status":"CLOSED","scope":"OWNED_A_B_O","cleanup"' +
     ':"PENDING"}}',
     '{"name":"overlayStart","value":{"version":1,"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","productId":"cleaner.pubg","requestId":"rrrrrrrr","sequence":1,"status":"AUTHORIZED","durationMs"' +
-    ':5000,"serverTime":1,"expiresAt":1}}'
+    ':5000,"serverTime":1,"expiresAt":1}}',
+    '{"name":"nhwReport","value":{"version":1,"status":"RECORDED","terminate":false}}'
   );

@@ -22,7 +22,7 @@ test('actual product local gates retain their matching role before application w
     const source = read(`Cozy.Projects/${name}/${name}.dpr`);
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
     const start = body.indexOf(`RequireNativeStartup(${role}`);
-    assert(start >= 0 && start < body.indexOf(`ExitCode := ${run};`), name);
+    assert(start >= 0 && start < body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create);`), name);
     assert.equal((body.match(/RequireNativeStartup\(/g) || []).length, 1);
     assert.doesNotMatch(body, /CaptureNativeStartupObservation|PublishStartupObservation|Writeln|WriteLn/);
   }
@@ -73,12 +73,18 @@ for (const [name, role] of roles) test(`${role} isolated fixture has exact produ
   const product = read(productPath);
   const fixturePath = `Cozy.Tests/Cozy.Startup/${name}StartupProbe.dpr`;
   const fixture = read(fixturePath);
-  // Test-only diagnostic strings may need additional constant units. Every
-  // executable product unit and its path must still match exactly.
+  // The startup probe checks the role gates independently of the background
+  // application monitor. All other executable unit paths must match exactly.
   const fixtureMappings = mappings(fixture);
   const productMappings = mappings(product);
   const isTextUnit = ([unit]) => unit.startsWith('cozy.strings.');
-  assert.deepEqual(fixtureMappings.filter(entry => !isTextUnit(entry)), productMappings.filter(entry => !isTextUnit(entry)));
+  const hostUnits = new Set(['cozy.nhw.monitor', 'cozy.protection.session']);
+  assert.deepEqual(productMappings.filter(([unit]) => hostUnits.has(unit)), [
+    ['cozy.nhw.monitor', '..\\..\\cozy.source\\cozy.protection\\cozy.nhw.monitor.pas'],
+    ['cozy.protection.session', '..\\..\\cozy.source\\cozy.protection\\cozy.protection.session.pas'],
+  ]);
+  assert.deepEqual(fixtureMappings.filter(entry => !isTextUnit(entry)),
+    productMappings.filter(entry => !isTextUnit(entry) && !hostUnits.has(entry[0])));
   for (const entry of productMappings.filter(isTextUnit)) {
     const shared = fixtureMappings.find(mapped => mapped[0] === entry[0]);
     if (shared) assert.equal(shared[1], entry[1], `mismatched shared text unit ${entry[0]}`);

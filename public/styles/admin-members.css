@@ -26,3 +26,16 @@
 @media(min-width:761px) { .desktop-member-workspace-head>div:first-child { display:grid; grid-template-columns:auto minmax(0,1fr); gap:0 14px; align-items:center; }.desktop-member-workspace-head>div>button:first-child { grid-column:1; grid-row:1; justify-self:start; margin:0 0 12px; }.desktop-member-workspace-head .desktop-eyebrow { grid-column:2; grid-row:1; margin:0 0 12px; font-size:9px; }.desktop-member-workspace-head h3,.desktop-member-workspace-head p { grid-column:1/-1; }.desktop-member-workspace-head .actions { padding-top:1px; } }
 
 @media(max-width:760px) { .desktop-members-table th:last-child,.desktop-members-table td:last-child { position:sticky; right:0; z-index:3; width:112px; min-width:112px; padding:12px 10px; border-left:1px solid var(--line); background:var(--panel); box-shadow:-5px 0 9px rgba(20,45,30,.035); }.desktop-members-table th:last-child { z-index:4; background:var(--panel-2); }.desktop-members-table tbody tr:hover>td:last-child { background:var(--panel-2); }.desktop-members-table td:last-child .desktop-member-open { padding:8px 10px; white-space:nowrap; } }
+.desktop-member-nhw-filters { min-width:0; padding:12px 16px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--panel-2); }
+.desktop-member-nhw-filters>summary { cursor:pointer; color:var(--text); font-size:13px; }
+.desktop-member-nhw-controls { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin:8px 0; }
+.desktop-member-nhw-controls>input { width:100%; max-width:320px; }
+.desktop-member-nhw-controls>button { font-size:11px; }
+.desktop-member-nhw-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap:4px 14px; max-height:16rem; overflow:auto; }
+.desktop-member-nhw-option { display:flex; align-items:flex-start; gap:7px; padding:5px 2px; color:var(--text); font-size:12px; overflow-wrap:anywhere; }
+.desktop-member-nhw-option[hidden] { display:none; }
+.desktop-member-nhw-option>input { flex:none; width:auto; margin:2px 0 0; }
+.desktop-member-nhw-option small { color:var(--muted); }
+.desktop-member-nhw-feed { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
+.desktop-member-nhw-feed:empty { display:none; }
+.desktop-member-nhw-feed>li { padding:9px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); color:var(--text); background:var(--panel); font:inherit; overflow-wrap:anywhere; }

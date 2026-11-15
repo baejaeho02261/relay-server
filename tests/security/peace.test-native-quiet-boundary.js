@@ -22,7 +22,7 @@ test('Production A/B/O reject invalid invocation shapes before startup work and 
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
     assert.match(body, name === 'Launcher' ? /ExitCode := 31000;/ : /ExitCode := 1;/);
     const gate = body.search(shape), seal = body.indexOf('SealApiPointerStorage;');
-    const startup = body.indexOf(name === 'Launcher' ? `RequireNativeStartup(${role}, @ExitCode);` : `RequireNativeStartup(${role});`), application = body.indexOf(`ExitCode := ${run};`);
+    const startup = body.indexOf(name === 'Launcher' ? `RequireNativeStartup(${role}, @ExitCode);` : `RequireNativeStartup(${role});`), application = body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create);`);
     assert(gate >= 0 && gate < seal && seal < startup && startup < application, name);
     assert.match(body, name === 'Launcher' ? /except\s+end;/ : /except\s+ExitCode := 1;\s+end;/);
     assert.doesNotMatch(body, /MessageBox|ShowMessage|WriteLn|OutputDebugString|WriteConsole/i);
@@ -66,7 +66,7 @@ test('Legacy error formatter returns no visible text, including unknown errors',
 test('B authorizes after hidden GPU initialization, presents before input and joins before GPU/API retirement', () => {
   const source = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Session.pas'));
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));
-  const entry = source.slice(source.lastIndexOf('function RunLicenseClient: Integer;'));
+  const entry = source.slice(source.lastIndexOf('function RunLicenseClient(const Monitor: ICozyProtectionSession): Integer;'));
   assert(entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('RunLicenseWindow('));
   assert(entry.indexOf('Api.CheckIntegrity;') < entry.indexOf('Worker.StartChecks;'));
   const create = window.split('constructor TLicenseWindow.Create(')[1].split('destructor TLicenseWindow.Destroy;')[0];

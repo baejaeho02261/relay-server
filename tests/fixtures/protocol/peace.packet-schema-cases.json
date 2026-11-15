@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "2eeffe7ada6b9898f5dfcb511a92ca280cc0042a99a5eee2778726f38bc6fae42ede6162d7cc2611eb507100e4c4559bcb5fd9a1c665f834fe6639fd60a48686",
+  "schemaSha512": "10354d2e43b1175175b5fdee80efb4cda5424955c9970f6d34c2e99579591c5b4b5d730369072fa417d6bfe912030ac9d624127d17370025c4f9948b4c504676",
   "cases": [
     {
       "operation": "bootstrap",
@@ -546,6 +546,20 @@
         "productId": "cleaner.pubg",
         "requestId": "rrrrrrrr",
         "sequence": 1,
+        "signature": "{}"
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "nhwReport",
+        "stage": "A",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "requestId": "rrrrrrrr",
+        "ids": [],
+        "confirmedIds": [],
         "signature": "{}"
       }
     }

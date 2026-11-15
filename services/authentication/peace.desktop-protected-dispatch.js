@@ -40,6 +40,7 @@ const ROUTES=Object.freeze({
  'report.challenge': ['report','AUTHENTICATED_STAGE_CONTEXT','REPORT_CHALLENGE_NOT_GRANT'],
  'report.submit': ['report','SIGNED_CURRENT_STAGE_CHALLENGE','VALIDATE_COMPLETE_SNAPSHOT'],
  'lifecycle.challenge': ['bootstrap','RETAINED_BOUND_CONTEXT','DIAGNOSTIC_ONLY'],
+ 'nhw.report': ['bootstrap','SIGNED_EXACT_STAGE_SESSION_REPORT','RECORD_AND_END_EXACT_COHORT_ON_CONFIRMED_EVIDENCE'],
  'lifecycle.report': ['bootstrap','ONE_USE_SIGNED_REPORT','DIAGNOSTIC_ONLY'],
  'device.policy': ['device','AUTHENTICATED_STAGE_CONTEXT','DEVICE_POLICY_ONLY'],
  'device.challenge': ['device','AUTHENTICATED_STAGE_CONTEXT','DEVICE_CHALLENGE_NOT_GRANT'],

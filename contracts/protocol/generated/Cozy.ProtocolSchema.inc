@@ -1,7 +1,7 @@
 { Generated from peace.packet-schema-v1.json. Do not edit. }
 const
   ProtocolSchemaMaximumRequestBytes = 32768;
-  ProtocolSchemaSHA512 = '2eeffe7ada6b9898f5dfcb511a92ca280cc0042a99a5eee2778726f38bc6fae42ede6162d7cc2611eb507100e4c4559bcb5fd9a1c665f834fe6639fd60a48686';
+  ProtocolSchemaSHA512 = '10354d2e43b1175175b5fdee80efb4cda5424955c9970f6d34c2e99579591c5b4b5d730369072fa417d6bfe912030ac9d624127d17370025c4f9948b4c504676';
   ProtocolSchemaJSON: string =
     '{"schemaVersion":1,"protocol":"GAME-CONNECT-4","maximumRequestBytes":32768,"envelope":{"type":"object","properties":{"operation":{"enum":["bootstrap","challenge","execute","report"' +
     ',"security","device","policy"]},"tlsPinVersion":{"enum":[1]},"body":{"$ref":"object"}},"required":["operation","body"],"additionalProperties":false},"definitions":{"id24":{"type":"' +
@@ -305,8 +305,13 @@ const
     'hallengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"bootstrap","action":"overlayStart","body":{"type":"object","propert' +
     'ies":{"action":{"enum":["overlayStart"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"productId":{"$ref":"licensedProduct"},"requestId":{"$ref":"request"},"sequence' +
     '":{"type":"integer","minimum":1,"maximum":2147483647},"signature":{"$ref":"signature"}},"required":["action","sessionId","sessionToken","productId","requestId","sequence","signatur' +
-    'e"],"additionalProperties":false}}],"scope":"Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mi' +
-    'tigation environments remain subject to existing domain validators; this schema grants no authorization.","documents":{"overlayRelease":{"$ref":"overlayRelease"},"overlayPrepare":{' +
-    '"$ref":"overlayPrepare"},"overlayChunk":{"$ref":"overlayChunk"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"overlayClaim"},"overlayVerify":{"$ref":"overlayVeri' +
-    'fy"},"overlayCommit":{"$ref":"overlayCommit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"authorityChallenge":{"$ref":"authorityChallenge"},"auth' +
-    'orityPayload":{"$ref":"authorityPayload"},"authorityReply":{"$ref":"authorityReply"},"overlayShutdown":{"$ref":"overlayShutdown"},"overlayStart":{"$ref":"overlayStart"}}}';
+    'e"],"additionalProperties":false}},{"operation":"bootstrap","action":"nhwReport","body":{"type":"object","properties":{"action":{"enum":["nhwReport"]},"stage":{"$ref":"stage"},"ses' +
+    'sionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"requestId":{"$ref":"request"},"ids":{"type":"array","maxItems":204,"items":{"type":"integer","minimum":0,"maximum":203}},"c' +
+    'onfirmedIds":{"type":"array","maxItems":204,"items":{"type":"integer","minimum":0,"maximum":203}},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessio' +
+    'nToken","requestId","ids","confirmedIds","signature"],"additionalProperties":false}}],"scope":"Command envelopes and command body field/type/version/range rules. Signed nested JSON' +
+    ' payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization.","documents":{"overlayRel' +
+    'ease":{"$ref":"overlayRelease"},"overlayPrepare":{"$ref":"overlayPrepare"},"overlayChunk":{"$ref":"overlayChunk"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"o' +
+    'verlayClaim"},"overlayVerify":{"$ref":"overlayVerify"},"overlayCommit":{"$ref":"overlayCommit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"autho' +
+    'rityChallenge":{"$ref":"authorityChallenge"},"authorityPayload":{"$ref":"authorityPayload"},"authorityReply":{"$ref":"authorityReply"},"overlayShutdown":{"$ref":"overlayShutdown"},' +
+    '"overlayStart":{"$ref":"overlayStart"},"nhwReport":{"type":"object","properties":{"version":{"enum":[1]},"status":{"enum":["RECORDED"]},"terminate":{"enum":[false,true]}},"required' +
+    '":["version","status","terminate"],"additionalProperties":false}}}';

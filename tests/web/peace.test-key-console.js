@@ -47,10 +47,10 @@ try{
   const native=path.resolve(MODULE_RESOURCE_ROOT,'../../Railway');
   const text=ReadContractFile(path.join(native,'Cozy.Source/Cozy.License/Cozy.License.Session.pas'),'utf8');
   const window=ReadContractFile(path.join(native,'Cozy.Source/Cozy.License/Cozy.License.Window.pas'),'utf8');
-  const entry=text.split('function RunLicenseClient: Integer;').at(-1);
+  const entry=text.split('function RunLicenseClient(const Monitor: ICozyProtectionSession): Integer;').at(-1);
   assert(entry.indexOf('Context.CompleteClaimAndCleanup(')<entry.indexOf('RunLicenseWindow('));
   for(const word of ['Worker := TLicenseWorker.Create(Api);','Worker.SubmitKey(Key)','Worker.RequestStop;','Worker.StopAndJoin;','Worker.Free;'])assert(entry.includes(word),word);
-  for(const word of ['procedure TLicenseWindow.PasteKey;','FreeAndNil(Key)','ImGuiLicenseScene(FContext, Phase, FKey.Count, FElapsed)','FKey.Clear'])assert(window.includes(word),word);
+  for(const word of ['procedure TLicenseWindow.PasteKey;','FreeAndNil(Key)','ImGuiLicenseScene(FContext, Phase, FKey.Count, Percent / 100)','FKey.Clear'])assert(window.includes(word),word);
   assert(text.includes('FCommands.Complete(WorkerTransferred);'));
   assert(window.includes('State = WorkerTransferred'));
   assert(entry.indexOf('Worker.Free;')<entry.indexOf('Api.Free;'));

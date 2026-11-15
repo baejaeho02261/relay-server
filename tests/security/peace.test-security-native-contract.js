@@ -44,7 +44,7 @@ test('API module ownership precedes parsing and target pinning precedes applicat
   // ordering does not depend on this optional diagnostic output parameter.
   const diagnostic=role==='gcrLauncher'?'(?:\\s*,\\s*@ExitCode)?':'';
   const gates=[...dpr.matchAll(new RegExp('RequireNativeStartup\\(\\s*'+role+diagnostic+'\\s*\\);','g'))];
-  const seal=dpr.indexOf('SealApiPointerStorage;'),gate=gates[0]?.index??-1,work=dpr.indexOf('ExitCode := '+run+';');
+  const seal=dpr.indexOf('SealApiPointerStorage;'),gate=gates[0]?.index??-1,work=dpr.indexOf('ExitCode := '+run+'(TCozyNHWMonitor.Create);');
   assert.equal(gates.length,1,file+' must use exactly one matching native startup gate');
   assert.ok(seal>=0&&gate>seal&&work>gate,file+' must seal and validate/pin before application work');
  }

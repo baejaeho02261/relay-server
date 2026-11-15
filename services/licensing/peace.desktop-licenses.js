@@ -265,7 +265,14 @@ function Execute(body){
  }
  c.used=true;result.revision=DB().revision;if(body.action==='redeem')seen.set(result.licenseId,{at:now(),leaseExpiresAt:result.leaseExpiresAt,appVersion:payload.appVersion||''});return BootstrapResult(result,payload,body.deviceId,body.action,DB().receipts[receiptKey]||verifyReceipts.get(receiptKey));
 }
-function RetireRuntime(row){for(const [id,value]of challenges)if(value.deviceId===row.deviceId)challenges.delete(id);for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);if(row.licenseId)seen.delete(row.licenseId);}
+function RetireRuntime(row,{sessionOnly=false}={}){
+ // A challenge is keyed by the device and an opaque payload digest. It may
+ // belong to another session, so scoped retirement leaves it to expire. The
+ // closed flow is still rejected by the session gate on every execute.
+ if(!sessionOnly)for(const [id,value]of challenges)if(value.deviceId===row.deviceId)challenges.delete(id);
+ for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);
+ if(row.licenseId)seen.delete(row.licenseId);
+}
 module.exports={DrainAudit,ReconcileOperations,RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
 
 module.exports.InvalidateVolatile=function(){challenges.clear();seen.clear();verifyReceipts.clear();};
