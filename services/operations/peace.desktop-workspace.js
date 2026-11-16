@@ -42,19 +42,28 @@ function Detail(id){
  const flows=Object.values(boot.flows).filter(x=>x.licenseId===id||!x.licenseId&&launchers.some(l=>l.id===x.launcherId));
  const timeline=[{at:license.issuedAt,type:'LICENSE_ISSUED',label:'라이선스 발급'}];
  for(const l of launchers)timeline.push({at:l.issuedAt,type:'LAUNCHER_ISSUED',label:'A 발급',launcherId:l.id});
- const stages=[['createdAt','FLOW_STARTED','A 실행'],['downloadedAt','DOWNLOADED','B 다운로드 완료'],['claimedAt','B_CLAIMED','B 연결'],['lastVerifiedAt','VERIFIED','최근 인증'],['closedAt','CLOSED','종료'],['revokedAt','REVOKED','관리자 종료']];
- for(const f of flows)for(const [key,type,label]of stages)if(f[key])timeline.push({at:f[key],type,label,flowId:f.id,sessionId:f.sessionId});
+ const stages=[['createdAt','FLOW_STARTED','A 실행'],['downloadedAt','DOWNLOADED','B 다운로드 완료'],['claimedAt','B_CLAIMED','B 연결'],['lastVerifiedAt','VERIFIED','최근 인증'],['closedAt','CLOSED','종료'],['revokedAt','REVOKED','세션 폐기']];
+ for(const f of flows)for(const [key,type,label]of stages)if(f[key])timeline.push({at:f[key],type,label:type==='REVOKED'&&/^admin:/i.test(f.revokedBy||'')?'관리자 종료':label,flowId:f.id,sessionId:f.sessionId});
  const ids=new Set([id,...launchers.map(x=>x.id),...flows.flatMap(x=>[x.id,x.sessionId])].filter(Boolean));
+ const parentSessions=new Map(flows.map(f=>[f.id,f.sessionId]));
+ const overlaySessions=new Set(Object.values(boot.overlays||{}).filter(o=>o.licenseId===id&&o.parentSessionId&&o.parentSessionId===parentSessions.get(o.parentFlowId)).map(o=>o.sessionId).filter(Boolean));
  for(const e of state.events.slice(-1000)){
   if(!String(e.type).startsWith('DESKTOP_'))continue;
   let d;try{d=JSON.parse(e.detail);}catch(_){continue;}
-  if(!Plain(d)||!['id','licenseId','sessionId','flowId','launcherId'].some(k=>ids.has(d[k])))continue;
+  if(!Plain(d)||(!['id','licenseId','sessionId','flowId','launcherId'].some(k=>ids.has(d[k]))&&!overlaySessions.has(d.sessionId)))continue;
   // BASELINE_MATCH is the authority evaluator's PASS reason, not an error.
   // Restrict this rendering exception to its real observation event; unknown
   // event kinds and actual failures retain the existing error guidance.
   const baselineMatched=e.type==='DESKTOP_SECURITY_AUTHORITY'&&d.kind==='OBSERVATION'&&d.reason==='BASELINE_MATCH'&&(!Object.hasOwn(d,'status')||d.status==='PASS');
   const progress=e.type==='DESKTOP_OVERLAY_PROGRESS',failure=progress&&d.phase==='FAILED'?overlayStartup.FailureLabel(d.failure):'';
-  const label=baselineMatched?'서버 보안 검사 정상':progress?'O 시작 단계 · '+String(d.phase||'UNKNOWN').slice(0,40)+(failure?' · '+failure:'')+' · 클라이언트 보고 '+(Number.isSafeInteger(d.elapsedMs)?d.elapsedMs+'ms':''):e.type==='DESKTOP_RUNTIME_REQUEST_FAILED'?'서버에서 요청 거절':String(e.type).slice(0,80);
+  let label=String(e.type).slice(0,80);
+  if(baselineMatched)label='서버 보안 검사 정상';
+  else if(progress)label='O 시작 단계 · '+String(d.phase||'UNKNOWN').slice(0,40)+(failure?' · '+failure:'')+' · 클라이언트 보고 '+(Number.isSafeInteger(d.elapsedMs)?d.elapsedMs+'ms':'');
+  else if(e.type==='DESKTOP_RUNTIME_REQUEST_FAILED')label='서버에서 요청 거절';
+  else if(e.type==='DESKTOP_INTEGRITY_REJECTED'&&d.stage==='O'&&d.check==='MODULE_SNAPSHOT'){
+   label='O 모듈 검사 거절';
+   if(d.snapshotDiagnostics?.generation==='TRACKED_CHANGED'&&['MEASUREMENT_PLAN_INCOMPLETE','MEASUREMENT_GENERATION_INCOMPLETE'].includes(d.reason))label+=' · 검사 중 로드 상태 변경';
+  }
   timeline.push({at:e.time||e.at||0,type:String(e.type).slice(0,80),label,...(progress?{source:'SIGNED_CLIENT_REPORT',attested:false}:{}),reason:typeof d.reason==='string'?d.reason.slice(0,80):'',problem:!baselineMatched&&typeof d.reason==='string'?require("../runtime/peace.desktop-operations-errors").Explain(d.reason):null});
  }
  const histories=flows.map(f=>({flowId:f.id,sessionId:f.sessionId,launcherId:f.launcherId,status:bootstrap.SessionView(f).status,createdAt:f.createdAt,version:boot.artifacts[f.releaseId]?.version||'',binarySha512:boot.artifacts[f.releaseId]?.sha512||'',machineId:f.machineId||'',lastVerifiedAt:f.lastVerifiedAt||0}));

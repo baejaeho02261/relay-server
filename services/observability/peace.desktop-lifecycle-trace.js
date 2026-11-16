@@ -26,12 +26,28 @@ function Maintain(){
  return store.Atomic(next=>{const live=next.lifecycleTrace,before=Object.keys(live.permits).length;PruneState(live);return {removed:before-Object.keys(live.permits).length};});
 }
 function RootFlow(db,row,stage){return stage==='O'?db.flows[row.parentFlowId]:db.flows[row.id];}
+function FailedChild(db,flow){return Object.values(db.overlays||{}).find(o=>o.parentFlowId===flow.id&&o.parentSessionId===flow.sessionId&&TERMINAL.has(o.status)&&o.transferVersion===undefined);}
 function Binding(body){
  if(!lifecycleContract.roleAllowed(body.stage,body.targetRole))Fail('LIFECYCLE_ROLE_INVALID',403);
- const identity=require("../bootstrap/peace.desktop-bootstrap").AuthenticateIntegrityReport(body),db=store.Load(),flow=RootFlow(db,identity,body.stage);
+ const boot=require('../bootstrap/peace.desktop-bootstrap'),recovery=require('../recovery/peace.desktop-recovery');
+ let identity;
+ if(body.stage==='B')identity=boot.SessionAuthenticated(body.sessionId,body.sessionToken);
+ else if(body.stage==='O')identity=boot.AuthenticateIntegrityReceipt(body);
+ const db=store.Load(),at=Date.now();
+ if(identity&&TERMINAL.has(identity.status)){
+  recovery.Assert(identity,db);
+  if((body.stage!==body.targetRole&&lifecycleContract.spec.failedChildRole[body.stage]!==body.targetRole)||
+     !Number.isSafeInteger(identity.retiredAt)||at<identity.retiredAt||at-identity.retiredAt>=TTL)Fail('LIFECYCLE_CONTEXT_RETIRED',403);
+ }else identity=boot.AuthenticateIntegrityReport(body);
+ const flow=RootFlow(db,identity,body.stage);
  if(!flow)Fail('LIFECYCLE_CONTEXT_INVALID',403);
- const targetSessionId=body.targetRole==='A'?flow.id:body.targetRole==='B'?flow.sessionId:identity.sessionId;
- return {flowId:flow.id,reporterRole:body.stage,reporterSessionId:body.sessionId,targetRole:body.targetRole,targetSessionId,publicKey:identity.publicKey,serverEpoch:require("../recovery/peace.desktop-recovery").Epoch(db)};
+ let targetSessionId=body.targetRole==='A'?flow.id:body.targetRole==='B'?flow.sessionId:identity.sessionId;
+ if(lifecycleContract.spec.failedChildRole[body.stage]===body.targetRole){
+  const child=FailedChild(db,flow);
+  if(!child||!Number.isSafeInteger(child.retiredAt)||at<child.retiredAt||at-child.retiredAt>=TTL)Fail('LIFECYCLE_ROLE_INVALID',403);
+  targetSessionId=child.sessionId;
+ }
+ return {flowId:flow.id,reporterRole:body.stage,reporterSessionId:body.sessionId,targetRole:body.targetRole,targetSessionId,publicKey:identity.publicKey,serverEpoch:recovery.Epoch(db)};
 }
 function Response(p){return {version:1,permitId:p.id,nonce:p.nonce,expiresAt:p.expiresAt,flowId:p.flowId,reporterRole:p.reporterRole,targetRole:p.targetRole,targetSessionId:p.targetSessionId,serverTime:p.createdAt};}
 function Challenge(body){
@@ -100,15 +116,16 @@ function ObserveTransitions(before,next){
  if(next.lifecycleTrace)PruneState(next.lifecycleTrace);
 }
 function Role(role,sessionId,status,events){
- const list=events.filter(e=>e.role===role&&e.targetSessionId===sessionId),childRole=({A:'B',B:'O'})[role];
+ const list=events.filter(e=>e.role===role&&e.targetSessionId===sessionId);
  const last=(event,predicate=()=>true)=>list.filter(e=>e.event===event&&e.source==='CLIENT_REPORTED'&&predicate(e)).at(-1);
  // A delayed self-report may arrive after its child has already observed the
  // held parent process handle and removed that parent's file. Arrival order
  // must not turn the older self-cleanup failure into a residual-process claim.
- // Retain every receipt in the timeline; prefer the bound direct child's
- // observation for this exact parent session when one is available.
- const observation=event=>childRole&&last(event,e=>e.reporterRole===childRole)||last(event);
- return {role,sessionId,status,authorityEnded:TERMINAL.has(status)||status==='HANDED_OFF',processExit:observation('PROCESS_EXIT')?.status==='OBSERVED'?'CLIENT_REPORTED':'NOT_REPORTED',fileCleanup:observation('FILE_CLEANUP')?.status||'NOT_REPORTED',lastAt:list.at(-1)?.at||0};
+ // A successful observation of exit or file absence is conclusive for this
+ // client receipt. A later timeout or self-cleanup failure cannot erase it.
+ const exit=last('PROCESS_EXIT',e=>e.status==='OBSERVED');
+ const cleanup=last('FILE_CLEANUP',e=>e.status==='REMOVED')||last('FILE_CLEANUP',e=>e.reporterRole!==role)||last('FILE_CLEANUP');
+ return {role,sessionId,status,authorityEnded:TERMINAL.has(status)||status==='HANDED_OFF',processExit:exit?'CLIENT_REPORTED':'NOT_REPORTED',fileCleanup:cleanup?.status||'NOT_REPORTED',lastAt:list.at(-1)?.at||0};
 }
 function Flow(flowId){
  if(!KindId(flowId,'BF'))Fail('LIFECYCLE_INPUT_INVALID');const db=store.Load(),row=db.flows[flowId];if(!row)Fail('LIFECYCLE_NOT_FOUND',404);
@@ -122,9 +139,10 @@ function Overview(query={}){const {flowId,licenseId,limit=50}=query;if(Object.ke
 function Validate(s,db){
  const invalid=()=>{throw Error('LIFECYCLE_STORAGE_INVALID');};
  const keys=(x,required,optional=[])=>Plain(x)&&required.every(k=>Object.hasOwn(x,k))&&Object.keys(x).every(k=>required.includes(k)||optional.includes(k));
- const rolePair=(reporter,target)=>reporter===target||({B:'A',O:'B'})[reporter]===target;
+ const rolePair=lifecycleContract.roleAllowed;
  const time=x=>Number.isSafeInteger(x)&&x>0;
  const bound=(flow,role,session)=>role==='A'?session===flow.id:role==='B'?session===flow.sessionId:Object.values(db.overlays||{}).some(o=>o.parentFlowId===flow.id&&o.sessionId===session);
+ const failedChild=(flow,reporter,target,session)=>lifecycleContract.spec.failedChildRole[reporter]!==target||FailedChild(db,flow)?.sessionId===session;
  if(!keys(s,['version','flows','permits'])||s.version!==1||!Plain(s.flows)||!Plain(s.permits)||Object.keys(s.flows).length>MAX_FLOWS||Object.keys(s.permits).length>MAX_PERMITS)invalid();
  for(const [id,f]of Object.entries(s.flows)){
   const flow=db?.flows?.[id];if(!KindId(id,'BF')||!keys(f,['flowId','updatedAt','events'])||f.flowId!==id||!time(f.updatedAt)||!Array.isArray(f.events)||f.events.length>MAX_EVENTS||db&&!flow)invalid();
@@ -134,7 +152,7 @@ function Validate(s,db){
    if(!keys(e,required,client?['pid','exitCode','win32Error','elapsedMs']:[])||!Hex(e.id,24)||seen.has(e.id)||!time(e.at)||!['A','B','O'].includes(e.role)||!Id(e.targetSessionId)||!['SERVER_CONFIRMED','CLIENT_REPORTED'].includes(e.source)||typeof e.event!=='string'||typeof e.status!=='string')invalid();seen.add(e.id);
    if(db&&!bound(flow,e.role,e.targetSessionId))invalid();
    if(client){
-    if(!['A','B','O'].includes(e.reporterRole)||!Id(e.reporterSessionId)||!rolePair(e.reporterRole,e.role)||db&&!bound(flow,e.reporterRole,e.reporterSessionId))invalid();
+    if(!['A','B','O'].includes(e.reporterRole)||!Id(e.reporterSessionId)||!rolePair(e.reporterRole,e.role)||db&&(!bound(flow,e.reporterRole,e.reporterSessionId)||!failedChild(flow,e.reporterRole,e.role,e.targetSessionId)))invalid();
     const clean={};for(const key of ['event','status','pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,key))clean[key]=e[key];
     try{Events(JSON.stringify([clean]),{reporterRole:e.reporterRole,targetRole:e.role},false);}catch(_){invalid();}
    }else if(!Object.hasOwn(SERVER_PAIRS,e.event)||!SERVER_PAIRS[e.event].includes(e.status))invalid();
@@ -144,7 +162,7 @@ function Validate(s,db){
  for(const [id,p]of Object.entries(s.permits)){
   const required=['flowId','reporterRole','reporterSessionId','targetRole','targetSessionId','publicKey','serverEpoch','id','nonce','createdAt','expiresAt','challengeKey','requestId'];
   if(!keys(p,required,['receipt','fingerprint'])||id!==p.id||!Hex(id,32)||!Hex(p.nonce,48)||!KindId(p.flowId,'BF')||!Id(p.reporterSessionId)||!Id(p.targetSessionId)||!['A','B','O'].includes(p.reporterRole)||!['A','B','O'].includes(p.targetRole)||!rolePair(p.reporterRole,p.targetRole)||!time(p.createdAt)||p.expiresAt!==p.createdAt+TTL||!Number.isSafeInteger(p.expiresAt)||!Number.isSafeInteger(p.serverEpoch)||p.serverEpoch<0||typeof p.publicKey!=='string'||p.publicKey.length<100||p.publicKey.length>500||!Hex(p.challengeKey,128)||typeof p.requestId!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(p.requestId)||p.challengeKey!==sha(JSON.stringify([p.reporterRole,p.reporterSessionId,p.requestId]))||(Object.hasOwn(p,'receipt')!==Object.hasOwn(p,'fingerprint')))invalid();
-  if(db){const flow=db.flows[p.flowId];if(!flow||!bound(flow,p.reporterRole,p.reporterSessionId)||!bound(flow,p.targetRole,p.targetSessionId)||p.serverEpoch>(db.serverRecovery?.epoch||0))invalid();const identity=p.reporterRole==='A'?require("../bootstrap/peace.desktop-handoff-delegation").Parent(flow):p.reporterRole==='B'?flow:Object.values(db.overlays||{}).find(o=>o.sessionId===p.reporterSessionId);if(identity.publicKey!==p.publicKey)invalid();}
+  if(db){const flow=db.flows[p.flowId];if(!flow||!bound(flow,p.reporterRole,p.reporterSessionId)||!bound(flow,p.targetRole,p.targetSessionId)||!failedChild(flow,p.reporterRole,p.targetRole,p.targetSessionId)||p.serverEpoch>(db.serverRecovery?.epoch||0))invalid();const identity=p.reporterRole==='A'?require("../bootstrap/peace.desktop-handoff-delegation").Parent(flow):p.reporterRole==='B'?flow:Object.values(db.overlays||{}).find(o=>o.sessionId===p.reporterSessionId);if(identity.publicKey!==p.publicKey)invalid();}
   if(p.receipt){const r=p.receipt;if(!keys(r,['version','permitId','status','recordedAt','eventCount'])||r.version!==1||r.permitId!==id||r.status!=='RECORDED'||!time(r.recordedAt)||r.recordedAt<p.createdAt||r.recordedAt>=p.expiresAt||!Number.isInteger(r.eventCount)||r.eventCount<1||r.eventCount>8||!Hex(p.fingerprint,128))invalid();}
  }
  return s;

@@ -207,5 +207,46 @@ function submit(data){return reports.Execute(request(data));}
    console.log(JSON.stringify({scenario:'bounded-unicode-module-packing',kind,batchSize,batchCount,maxPayload,maxEnvelope,rowsRetained:sent.length}));
   }
  });
+ await check('O retains all 86 rows in six signed batches and only a coherent generation satisfies startup',()=>{
+  const before={...row},beforeAuth={...common},modules=Array.from({length:86},(_,i)=>({
+   ...moduleRow('overlay-'+i+'.dll'),codeStatus:'MATCH_LOCAL_FILE',exportTableStatus:'NO_EXPORTS',
+   exportCoverage:'NO_EXPORTS',failurePhase:0
+  }));
+  const utf8=value=>Buffer.byteLength(value,'utf8');
+  try{
+   row.stage='O';common.stage='O';
+   for(const stable of [false,true]){
+    row.id='O_FLOW_'+stable;row.sessionId='O_SESSION_'+stable;row.reportContextId=row.sessionId;common.sessionId=row.sessionId;
+    const snapshotId=crypto.randomUUID(),batchSize=16,batchCount=Math.ceil(modules.length/batchSize);
+    let reply;
+    for(let batchIndex=0;batchIndex<batchCount;batchIndex++){
+     const data=payload({snapshotId,batchIndex,batchCount,complete:stable,coverage:stable?'FULL':'PARTIAL',
+      moduleGenerationStatus:stable?'TRACKED_STABLE':'TRACKED_CHANGED',moduleGenerationStable:stable,
+      totalModules:modules.length,measuredModules:modules.length,modules:modules.slice(batchIndex*batchSize,(batchIndex+1)*batchSize)});
+     const body=request(data);
+     assert(utf8(body.payload)<=24576);
+     assert(utf8(JSON.stringify({operation:'report',tlsPinVersion:1,body}))<=32768);
+     reply=reports.Execute(body);
+     if(batchIndex+1<batchCount){
+      assert.equal(reply.terminate,false);
+      assert.equal(Object.hasOwn(reply,'snapshotBudget'),false);
+     }
+    }
+    assert.equal(batchCount,6);
+    assert.equal(reply.terminate,!stable);
+    const record=reports.List({sessionId:row.sessionId}).items.find(item=>item.id===reply.reportId);
+    assert.equal(record.stage,'O');
+    assert.equal(record.snapshotReceivedBatches,6);
+    assert.equal(record.snapshotStatus,stable?'COMPLETE_PASS':'COMPLETE_REJECTED');
+    assert.equal(record.snapshotDiagnostics.receivedModules,86);
+    if(stable)assert.deepEqual(reports.RequireSnapshot(row,'O'),{expiresAt:reply.snapshotBudget.expiresAt});
+    else{
+     assert.equal(Object.hasOwn(reply,'snapshotBudget'),false);
+     assert.equal(record.reason,'MEASUREMENT_PLAN_INCOMPLETE');
+     assert(revoked.includes('INTEGRITY_MEASUREMENT_PLAN_INCOMPLETE'));
+    }
+   }
+  }finally{Object.assign(row,before);Object.assign(common,beforeAuth);}
+ });
  console.log(JSON.stringify({suite:'completion-measurement-6-10',groups:n,status:'PASS',actualSignatures:true,actualReportFiles:true,isolatedAuthorization:true,nativeExecuted:false}));
  }catch(e){console.error(e);process.exitCode=1;}finally{await Promise.all([work.auth,work.pe,work.proof,work.renewalProof,work.tpmAttestation].map(q=>q.close()));fs.rmSync(temp,{recursive:true,force:true});}})();

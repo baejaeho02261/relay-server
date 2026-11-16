@@ -6,8 +6,9 @@ const failures=new Set(['READ_ERROR','FILE_UNAVAILABLE','SKIPPED_LIMIT','NAME_TO
 const token=x=>typeof x==='string'&&/^[A-Z_]{1,64}$/.test(x)?x:'UNKNOWN';
 function Summarize(payload,rows,reasons){
  if(!Array.isArray(rows)||rows.length>1024)throw Error('SNAPSHOT_DIAGNOSTICS_INVALID');
- const incomplete=[];let failureCount=0;
+ const incomplete=[];let failureCount=0,localMismatchCount=0;
  for(const r of rows){
+  if(r.status==='LOCAL_DIFFERENCE'||r.codeStatus==='LOCAL_DIFFERENCE')localMismatchCount++;
   const failed=failures.has(r.status)||failures.has(r.codeStatus)||!r.fileSha512||!r.codeSha512||['READ_ERROR','UNSUPPORTED_EXPORT_LAYOUT'].includes(r.exportTableStatus);
   if(!failed)continue;failureCount++;
   if(incomplete.length>=16)continue;
@@ -16,6 +17,10 @@ function Summarize(payload,rows,reasons){
   incomplete.push({name:safeName,status:token(r.status),codeStatus:token(r.codeStatus),exportStatus:token(r.exportTableStatus),phase:phases[phase]});
  }
  const elapsed=payload.measurementFinishedTick-payload.measurementStartedTick;
- return {version:1,totalModules:payload.totalModules,reportedMeasuredModules:payload.measuredModules,receivedModules:rows.length,failedModuleCount:failureCount,omittedFailureCount:Math.max(0,failureCount-incomplete.length),coverage:token(payload.coverage),generation:token(payload.moduleGenerationStatus),complete:payload.complete===true,truncated:payload.truncated===true,elapsedMs:Number.isSafeInteger(elapsed)&&elapsed>=0&&elapsed<=60000?elapsed:null,reasons:(reasons||[]).slice(0,16).map(token),incomplete};
+ const threads=payload.threadInventory;
+ return {version:1,totalModules:payload.totalModules,reportedMeasuredModules:payload.measuredModules,receivedModules:rows.length,failedModuleCount:failureCount,omittedFailureCount:Math.max(0,failureCount-incomplete.length),localMismatchCount,coverage:token(payload.coverage),generation:token(payload.moduleGenerationStatus),complete:payload.complete===true,truncated:payload.truncated===true,elapsedMs:Number.isSafeInteger(elapsed)&&elapsed>=0&&elapsed<=60000?elapsed:null,
+  ...(threads?{threadCoverage:{status:threads.status,unknownStart:threads.unknownStart,unreadable:threads.unreadable,truncated:threads.truncated}}:{}),
+  ...(payload.deviceSignals?{deviceSignalStatus:payload.deviceSignals.status}:{}),
+  reasons:(reasons||[]).slice(0,16).map(token),incomplete};
 }
 module.exports={Summarize};

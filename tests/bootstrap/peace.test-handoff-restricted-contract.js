@@ -52,13 +52,16 @@ check('restricted token handle retains the rights required by both subsequent Wi
 check('actual child token is checked while suspended and before any grant is released', () => {
   const launch = body(restricted, 'procedure CreateOverlayRestrictedProcess(', '\ninitialization');
   order(launch, ['Token := CreateOverlayRestrictedToken', 'SlotCreateProcess', 'CREATE_SUSPENDED',
-    'RequireOverlayRestrictedProcess(Process.hProcess)', 'SlotResume']);
-  assert.match(launch, /SlotResume\)\)\(Process.hThread\) = 1/);
+    'RequireOverlayRestrictedProcess(Process.hProcess)', 'procedure ResumeHandoffChild(Thread: THandle);', 'SlotResume']);
+  assert.match(launch, /SlotResume\)\)\(Thread\) = 1/);
   assert.doesNotMatch(launch, /CreateProcessW|CreateProcessWithLogon|ShellExecute|except/);
   const actual = body(handoff, 'function LaunchWithHandoff(', '\nconstructor THandoffContext.Create;');
   order(actual, ['HANDOFF_RESTRICTED_PROFILE_O_ONLY', 'if LaunchProfile = hlpOverlayRestricted then',
-    'CreateOverlayRestrictedProcess(', 'Hello := ReadHello(', 'RequireOverlayRestrictedProcess(Process.hProcess)',
+    'CreateOverlayRestrictedProcess(', 'CREATE_SUSPENDED', 'Check(DuplicateHandle(GetCurrentProcess, Process.hProcess',
+    'Check(CloseHandle(Process.hProcess)', 'Process.hProcess := ChildWaitHandle;', 'ResumeHandoffChild(Process.hThread);',
+    'Hello := ReadHello(', 'RequireOverlayRestrictedProcess(Process.hProcess)',
     'Payload := BuildPayload(', 'WaitHandoffReadiness(', 'RequireOverlayRestrictedProcess(Process.hProcess)', 'Result := True']);
+  assert.match(actual, /@ChildWaitHandle, SYNCHRONIZE or ProcessQueryLimitedInformation or PROCESS_TERMINATE,\s*False, 0\)/);
   assert.match(actual, /if not Result and \(Process.hProcess <> 0\) then[\s\S]*?TerminateProcess\(Process.hProcess, 1\)/);
 });
 
@@ -80,9 +83,9 @@ check('token readback rejects elevation, service accounts, operator groups and r
 check('public opt-in reaches the real O launch path and keeps the compatibility default', () => {
   assert.match(api, /function StartOverlay\(RestrictedPrivileges: Boolean = False;\s+const Progress: TProc<Integer> = nil\): Boolean/);
   assert.match(api, /Result := StartOverlayCore\(RestrictedPrivileges, Progress\)/);
-  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, RestrictedPrivileges,\s+MaintainParent, Progress\)/);
+  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, FailedChild, RestrictedPrivileges,\s+MaintainParent, Progress\)/);
   assert.match(overlay, /if RestrictedPrivileges then LaunchProfile := hlpOverlayRestricted/);
-  assert.match(overlay, /Flow.Release.SHA512, True,\s+LaunchProfile, WaitMaintenance\)/);
+  assert.match(overlay, /Flow.Release.SHA512, True,\s+LaunchProfile, WaitMaintenance,\s+procedure\(const Observation: THandoffCleanupObservation\)/);
   assert.match(api, /RestrictedPrivileges <> FOverlayRestrictedPrivileges/);
 });
 

@@ -4004,6 +4004,7 @@
               "OWN_BEGIN",
               "OWN_READY",
               "MODULES_BEGIN",
+              "MODULES_MEASURED",
               "MODULES_READY",
               "AUTHORITY_BEGIN",
               "AUTHORIZED",
@@ -4036,6 +4037,8 @@
                   "RESIZE",
                   "GPU_IDENTITY",
                   "FLOATING_POINT",
+                  "MODULE_SCAN",
+                  "MODULE_UPLOAD",
                   "UNKNOWN"
                 ]
               },

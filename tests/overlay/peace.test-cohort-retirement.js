@@ -232,9 +232,13 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
     }
     const warningIds = [87,159,166,180,181];
     const corroboratedIds = [1,9,10,13,14,15,38,58,65,66,69,70,79,80,150,167];
-    await t.test('all 204 IDs retain history while scoped sightings and coverage warnings require different treatment', () => {
+    for (const stage of ['A', 'B', 'O']) await t.test(stage + ' retains all 204 IDs with the same evidence policy', () => {
       assert.deepEqual(nhw.Policy(), {version:1,revision:0,disabledIds:warningIds});
-      const s = setup(), row = nhwBody('B', s.b, s.device, Array.from({length:204}, (_, i) => i));
+      const s = setup();
+      const [session, signer] = stage === 'A' ?
+        [{sessionId: s.begin.flowId, sessionToken: s.begin.downloadTicket}, s.parentDevice] :
+        stage === 'B' ? [s.b, s.device] : [s.o, s.overlayDevice];
+      const row = nhwBody(stage, session, signer, Array.from({length:204}, (_, i) => i));
       assert.deepEqual(boot.Execute(row), {version:1,status:'RECORDED',terminate:true});
       terminal(s, 'CLOSED');
       const result = members.Detail('unassigned', {category:'nhw'});
@@ -245,7 +249,7 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       assert.deepEqual(result.nhwCatalog.filter(x=>x.mode === 'corroborated').map(x=>x.id), corroboratedIds);
       assert.deepEqual(result.nhwCatalog.filter(x=>x.mode === 'observation').map(x=>x.id), warningIds);
       const item = result.categories.nhw.items.find(x=>x.flowId === s.begin.flowId);
-      assert.equal(item.stage, 'B');
+      assert.equal(item.stage, stage);
       assert.deepEqual(item.detectionIds, row.ids);
       assert.deepEqual(item.enforcedIds, row.ids.filter(id=>!corroboratedIds.includes(id) && !warningIds.includes(id)));
       assert.ok(!JSON.stringify(result).includes(row.sessionToken));

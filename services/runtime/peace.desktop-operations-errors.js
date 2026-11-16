@@ -117,6 +117,8 @@ const rows={
  CRC_BASELINE_UNAVAILABLE:['이 빌드의 CRC 기준값을 확인할 수 없습니다.','배포 파일에 유효한 CRC 계층 기준값이 없습니다.','수정된 서버에 다시 빌드·서명한 A/B/O 후보를 등록하고 조합을 검증하세요.','deploy'],
  CRC_COVERAGE_INCOMPLETE:['이 빌드의 필수 CRC 검사 범위가 부족합니다.','일부 검사 함수의 측정 범위가 제공되지 않아 현재 정책을 충족하지 않습니다.','수정된 소스로 A/B/O를 다시 빌드·서명한 뒤 후보 등록, 조합 게시, 새 A 발급 순서로 적용하세요.','deploy'],
  INTEGRITY_CRC_COVERAGE_INCOMPLETE:['필수 CRC 검사 범위가 부족해 실행을 거절했습니다.','해시값이 일치해도 일부 CRC 검사 범위가 없으면 승인되지 않습니다.','모듈·무결성의 계층별 상태를 확인하고 수정한 A/B/O를 다시 빌드·게시하세요.','deploy'],
+ MEASUREMENT_PLAN_INCOMPLETE:['모듈 검사 범위를 완료하지 못했습니다.','측정 도중 로드 상태가 바뀌거나 일부 필수 측정값을 수집하지 못했습니다.','모듈·무결성에서 검사 범위와 로드 상태를 확인하세요.','security'],
+ MEASUREMENT_GENERATION_INCOMPLETE:['안정된 상태의 모듈 검사 결과를 확인하지 못했습니다.','모듈을 읽는 동안 로드 상태가 바뀌었거나 표본만 수집되었습니다.','모듈·무결성에서 로드 상태와 수집 범위를 확인하세요.','security'],
  INTEGRITY_CRC_ROLE_MISMATCH:['CRC 계층의 측정값이 서버 기준과 다릅니다.','독립 CRC 검사 중 하나 이상이 일치하지 않습니다.','모듈·무결성에서 불일치 계층과 해당 배포 버전을 확인하세요.','security'],
  INTEGRITY_CODE_HASH_MISMATCH:['실행 코드 해시가 서버 기준과 다릅니다.','코드 SHA-512 또는 CRC64 비교가 일치하지 않습니다.','모듈·무결성에서 기준값과 측정값을 확인하고 등록한 원본 빌드와 비교하세요.','security'],
  INTEGRITY_CODE_EXTENDED_HASH_MISMATCH:['코드 확장 해시가 서버 기준과 다릅니다.','코드 XXH3-128 또는 BLAKE3 비교가 일치하지 않습니다.','모듈·무결성의 코드 확장 해시와 배포 버전을 확인하세요.','security'],

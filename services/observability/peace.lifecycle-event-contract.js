@@ -4,7 +4,7 @@
 const spec = require("../../contracts/runtime/peace.lifecycle-events-v1.json");
 const pairs = Object.freeze(Object.fromEntries(spec.events.map(e=>[e.name,Object.freeze([...e.statuses])])));
 const plain = x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
-function roleAllowed(reporter,target){return spec.roles.includes(reporter)&&spec.roles.includes(target)&&(reporter===target||spec.parentRole[reporter]===target);}
+function roleAllowed(reporter,target){return spec.roles.includes(reporter)&&spec.roles.includes(target)&&(reporter===target||spec.parentRole[reporter]===target||spec.failedChildRole[reporter]===target);}
 function combinationAllowed(reporter,target,event,status){
  if(!roleAllowed(reporter,target)||!Object.hasOwn(pairs,event)||!pairs[event].includes(status))return false;
  const def=spec.events.find(x=>x.name===event);

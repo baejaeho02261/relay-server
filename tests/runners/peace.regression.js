@@ -83,7 +83,7 @@ const checks = [
   ["observability/peace.test-performance-metrics.js"], ["observability/peace.test-performance-dashboard-ui.js"], ["runtime/peace.test-lifecycle-windows.js"], ["recovery/peace.test-recovery-device-probe.js"], ["recovery/peace.test-recovery-windows.js"],
   ["runtime/peace.test-manual-verification-v3.js"], ["observability/peace.test-lifecycle-trace.js"],
   ["web/peace.test-server-state-read-routes.js"], ["observability/peace.test-server-state-dashboard-ui.js"], ["web/peace.test-server-state-service-ui.js"],
-  ["overlay/peace.test-overlay-lease-expiry.js"], ["runtime/peace.test-native-lifecycle-contract.js"],
+  ["overlay/peace.test-overlay-lease-expiry.js"], ["overlay/peace.test-overlay-startup-failure.js"], ["runtime/peace.test-native-lifecycle-contract.js"],
   ["recovery/peace.test-recovery-drill.js"], ["runtime/peace.test-product-fault-tests.js"], ["runtime/peace.test-product-fault-wire.js"],
   ["fixtures/integrity/peace.test-native-receive-fixture.js"], ["network/peace.test-product-fault-tls-proxy.js"],
   ["build/peace.test-ide-build-observation.js"], ["storage/peace.test-etcd-consensus-store.js"],

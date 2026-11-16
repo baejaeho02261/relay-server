@@ -15,14 +15,14 @@ const gate = startup.split('procedure RequireNativeStartup(Role: TGameComponentR
 const capture = startup.split('function CaptureNativeStartupObservation(Role: TGameComponentRole): TNativeStartupObservation;').at(-1).split('function NativeStartupObservationComplete')[0];
 const publish = (startup.split('procedure PublishStartupObservation')[1] || '').split('procedure SetApiContract')[0];
 const checks = {skip: !available};
-const roles = [['Cozy.Launcher', 'gcrLauncher', 'RunLauncher'], ['Cozy.Client', 'gcrConnect', 'RunLicenseClient'], ['Cozy.Overlay', 'gcrOverlay', 'RunOverlay']];
+const roles = [['Cozy.Launcher', 'gcrLauncher', 'RunLauncher', 'ntsLauncher'], ['Cozy.Client', 'gcrConnect', 'RunLicenseClient', 'ntsClient'], ['Cozy.Overlay', 'gcrOverlay', 'RunOverlay', 'ntsOverlay']];
 
 test('actual product local gates retain their matching role before application work', checks, () => {
-  for (const [name, role, run] of roles) {
+  for (const [name, role, run, traceScope] of roles) {
     const source = read(`Cozy.Projects/${name}/${name}.dpr`);
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
     const start = body.indexOf(`RequireNativeStartup(${role}`);
-    assert(start >= 0 && start < body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create);`), name);
+    assert(start >= 0 && start < body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}));`), name);
     assert.equal((body.match(/RequireNativeStartup\(/g) || []).length, 1);
     assert.doesNotMatch(body, /CaptureNativeStartupObservation|PublishStartupObservation|Writeln|WriteLn/);
   }

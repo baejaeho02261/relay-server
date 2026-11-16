@@ -13,7 +13,7 @@ test('native enum tables exactly derive from the deployed role/event/status sche
 test('all role pairs and event/status combinations share one explicit allowlist',()=>{
  let accepted=0;
  for(const reporter of [...c.spec.roles,'X'])for(const target of [...c.spec.roles,'X'])for(const e of c.spec.events)for(const status of [...new Set(c.spec.events.flatMap(x=>x.statuses)),'INVALID']){
-  const roleAllowed=c.spec.roles.includes(reporter)&&c.spec.roles.includes(target)&&(reporter===target||c.spec.parentRole[reporter]===target);
+  const roleAllowed=c.spec.roles.includes(reporter)&&c.spec.roles.includes(target)&&(reporter===target||c.spec.parentRole[reporter]===target||c.spec.failedChildRole[reporter]===target);
   const expected=roleAllowed&&e.statuses.includes(status)&&(reporter===target||e.scope==='self-or-parent')&&!(reporter===target&&e.selfForbidden?.includes(status))&&!(e.scope==='A-self'&&(reporter!=='A'||target!=='A'));
   assert.equal(c.combinationAllowed(reporter,target,e.name,status),expected,JSON.stringify({reporter,target,event:e.name,status}));if(expected)accepted++;
  }
@@ -25,6 +25,9 @@ test('one-use batches reject duplicate/backward/false parent success and retain 
  assert(!c.validate([{event:'FILE_CLEANUP',status:'FAILED'},{event:'PROCESS_EXIT',status:'OBSERVED'}],'O','B'));
  assert(!c.validate([{event:'PROCESS_EXIT',status:'TIMEOUT'},{event:'FILE_CLEANUP',status:'REMOVED'}],'B','A'));
  assert(c.validate([{event:'PROCESS_EXIT',status:'OBSERVED'},{event:'FILE_CLEANUP',status:'REMOVED'}],'B','A'));
+ assert(c.validate([{event:'PROCESS_EXIT',status:'OBSERVED'},{event:'FILE_CLEANUP',status:'REMOVED'}],'B','O'));
+ assert(!c.validate([{event:'SHUTDOWN_BEGIN',status:'REQUESTED'}],'B','O'));
+ assert(!c.validate([{event:'FILE_CLEANUP',status:'REMOVED'}],'B','O'));
  assert(!c.validate([{event:'SHUTDOWN_BEGIN',status:'REQUESTED'},{event:'SHUTDOWN_BEGIN',status:'REQUESTED'}],'B','B'));
  // Stored events are checked individually. Batch ordering is enforced at new
  // ingestion, without erasing or refusing valid historical individual rows.

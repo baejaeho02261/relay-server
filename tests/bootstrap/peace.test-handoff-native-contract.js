@@ -58,7 +58,7 @@ check('Fresh hello and exact child handle stay bound to encrypted payload',()=>{
 });
 check('Child environment is explicit and role delegation is irreversibly consumed',()=>{
  assert.match(handoff,/Environment := ChildEnvironment/);
- assert.match(handoff,/ExtendedStartupInfoPresent or UnicodeEnvironmentFlag, PWideChar\(Environment\)/);
+ assert.match(handoff,/ExtendedStartupInfoPresent or UnicodeEnvironmentFlag or CREATE_SUSPENDED,\s*PWideChar\(Environment\)/);
  assert.match(handoff,/Entries\[Count\] := 'PATH='/);
  assert.match(security,/if FHandoffAccepted or not IsUpperHex64/);
  assert.match(security,/FHandoffAccepted := True/);

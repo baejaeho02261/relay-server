@@ -7,7 +7,7 @@ const tracker=require('../../services/overlay/peace.desktop-overlay-startup');
 const audit=require('../../storage/audit/peace.audit.js'),originalLog=audit.LogEvent,events=[];
 audit.LogEvent=(kind,payload)=>events.push({kind,...JSON.parse(payload)});
 process.once('exit',()=>{audit.LogEvent=originalLog;});
-const stages=['BINDING','FONT_READ','FONT_DATA','CREATE','RESIZE','GPU_IDENTITY','FLOATING_POINT','UNKNOWN'];
+const stages=['BINDING','FONT_READ','FONT_DATA','CREATE','RESIZE','GPU_IDENTITY','FLOATING_POINT','MODULE_SCAN','MODULE_UPLOAD','UNKNOWN'];
 function fixture(){const f=OverlayFixture();f.row.status='CLAIMED';return f;}
 function signed(f,{phase='FAILED',sequence=12,elapsedMs=5000,failure}={}){
  const b={action:'overlayProgress',sessionId:f.row.sessionId,sessionToken:'TOKEN',sequence,phase,elapsedMs,signature:'pending',...(failure===undefined?{}:{failure})};
@@ -42,6 +42,26 @@ test('V2 signs closed stage and signed HRESULT without changing authority',()=>{
  const e=events.find(x=>x.sessionId===f.row.sessionId);assert.deepEqual(e.failure,failure);assert.equal(e.attested,false);
  for(const secret of [b.sessionToken,f.keys.privateKey.export({type:'pkcs8',format:'pem'})])assert.ok(!JSON.stringify(e).includes(secret));
  assert.equal(tracker.FailureLabel(failure),'CREATE · 0x8007000E');
+});
+test('module scan and send diagnostics accept exact replays and old sequence numbers',()=>{
+ const packet=require('../../services/protocol/peace.packet-schema');
+ for(const steps of [['MODULES_BEGIN','MODULES_MEASURED','MODULES_READY'],['MODULES_BEGIN','MODULES_READY']]){
+  const f=fixture(),startEvents=events.length,before=JSON.stringify([f.row,f.parent,f.license]);
+  for(const [offset,phase]of steps.entries()){
+   const b=signed(f,{phase,sequence:7+offset,elapsedMs:17000+offset});
+   assert.deepEqual(f.api.__probe.Progress(packet.ValidateRequest('bootstrap',b)),{recorded:true});
+   assert.deepEqual(f.api.__probe.Progress(b),{recorded:true});
+  }
+  assert.deepEqual(events.slice(startEvents).map(x=>x.phase),steps);
+  assert.equal(tracker.View(f.row.sessionId).phase,'MODULES_READY');
+  rejected(()=>f.api.__probe.Progress(signed(f,{phase:'MODULES_MEASURED',sequence:16,elapsedMs:24000})),/OVERLAY_PROGRESS_REPLAY/);
+  assert.equal(JSON.stringify([f.row,f.parent,f.license]),before);assert.equal(f.calls.writes,0);
+ }
+ for(const stage of ['MODULE_SCAN','MODULE_UPLOAD']){
+  const f=fixture(),b=signed(f,{failure:{version:1,stage,code:0}});
+  assert.deepEqual(f.api.__probe.Progress(packet.ValidateRequest('bootstrap',b)),{recorded:true});
+  assert.equal(tracker.FailureLabel(tracker.View(f.row.sessionId).failure),stage+' · 원인 코드 없음');
+ }
 });
 test('initial resize HRESULT and Windows exception codes survive signed admission without authority changes',()=>{
  const packet=require('../../services/protocol/peace.packet-schema');
@@ -163,9 +183,14 @@ test('member/license timeline formats bounded failure and excludes other license
  const events=[
   {time:2,type:'DESKTOP_OVERLAY_PROGRESS',detail:JSON.stringify({licenseId:'LICENSE',phase:'FAILED',elapsedMs:5000,failure:{version:1,stage:'CREATE',code:-2147024882}})},
   {time:3,type:'DESKTOP_OVERLAY_PROGRESS',detail:JSON.stringify({licenseId:'OTHER',phase:'FAILED',elapsedMs:5001,failure:{version:1,stage:'FONT_READ',code:0}})},
-  {time:4,type:'DESKTOP_OVERLAY_PROGRESS',detail:JSON.stringify({licenseId:'LICENSE',phase:'FAILED',elapsedMs:5002,failure:{version:1,stage:'C:\\private\\token',code:0}})}
+  {time:4,type:'DESKTOP_OVERLAY_PROGRESS',detail:JSON.stringify({licenseId:'LICENSE',phase:'FAILED',elapsedMs:5002,failure:{version:1,stage:'C:\\private\\token',code:0}})},
+  ...['CHILD','OTHER','WRONG_PARENT'].map((sessionId,index)=>({time:5+index,type:'DESKTOP_INTEGRITY_REJECTED',detail:JSON.stringify({sessionId,stage:'O',check:'MODULE_SNAPSHOT',reason:'MEASUREMENT_PLAN_INCOMPLETE',snapshotDiagnostics:{generation:'TRACKED_CHANGED',detail:'PRIVATE MODULE PATH'}})}))
  ];
- const boot={launchers:{},flows:{F:{id:'F',licenseId:'LICENSE',sessionId:'PARENT',releaseId:'B',createdAt:1,status:'CLAIMED'}},artifacts:{B:{version:'1',sha512:'a'.repeat(128)}}};
+ const boot={launchers:{},flows:{F:{id:'F',licenseId:'LICENSE',sessionId:'PARENT',releaseId:'B',createdAt:1,revokedAt:5,status:'REVOKED'}},overlays:{
+  O:{sessionId:'CHILD',parentFlowId:'F',parentSessionId:'PARENT',licenseId:'LICENSE'},
+  Other:{sessionId:'OTHER',parentFlowId:'F',parentSessionId:'PARENT',licenseId:'ANOTHER_LICENSE'},
+  Invalid:{sessionId:'WRONG_PARENT',parentFlowId:'F',parentSessionId:'OTHER_PARENT',licenseId:'LICENSE'}
+ },artifacts:{B:{version:'1',sha512:'a'.repeat(128)}}};
  const workspace=Isolated('services/operations/peace.desktop-workspace.js',[],{
   '../../core/peace.runtime-state':{events},
   './peace.desktop-workspace-store':{Load:()=>({metadata:{}})},
@@ -179,5 +204,12 @@ test('member/license timeline formats bounded failure and excludes other license
  const detail=workspace.Detail('LICENSE'),progress=detail.timeline.filter(x=>x.type==='DESKTOP_OVERLAY_PROGRESS');
  assert.equal(progress.length,2);assert.ok(progress.some(x=>x.label.includes('CREATE · 0x8007000E')));
  assert.ok(progress.every(x=>x.source==='SIGNED_CLIENT_REPORT'&&x.attested===false&&x.label.includes('클라이언트 보고')));
- assert.doesNotMatch(JSON.stringify(detail),/FONT_READ|private|token|failure/);
+ const rejectedInHistory=detail.timeline.filter(x=>x.type==='DESKTOP_INTEGRITY_REJECTED');
+ assert.equal(rejectedInHistory.length,1);
+ assert.equal(rejectedInHistory[0].label,'O 모듈 검사 거절 · 검사 중 로드 상태 변경');
+ assert.equal(rejectedInHistory[0].problem.code,'MEASUREMENT_PLAN_INCOMPLETE');
+ assert.equal(detail.timeline.find(x=>x.type==='REVOKED').label,'세션 폐기');
+ boot.flows.F.revokedBy='admin:fixture';
+ assert.equal(workspace.Detail('LICENSE').timeline.find(x=>x.type==='REVOKED').label,'관리자 종료');
+ assert.doesNotMatch(JSON.stringify(detail),/FONT_READ|private|token|failure|PRIVATE MODULE PATH/);
 });

@@ -37,11 +37,28 @@ test('source: batch callback cannot manufacture a lease',()=>{
  assert.match(client,/FLeaseDeadlineTick := VerifyRequestTick \+ UInt64\(Result\)/);
  assert.doesNotMatch(refresh,/FDeadline := CozyTick \+/);
 });
-test('source: periodic scan starts with ordinary renewal; unchanged snapshot across batches',()=>{
- order(core,"StartupPhaseCore('MODULES_BEGIN')",'MaintainLease(True);','Snapshot := CollectModuleInventoryJSON','SnapshotID := BootstrapRequestID;','repeat','MaintainLease(False);','Payload := TJSONObject.Create;',"Payload.AddPair('snapshotId', SnapshotID)",'Send(Payload);');
- assert.equal((core.match(/CollectModuleInventoryJSON\(/g)||[]).length,1);
+test('source: retries a loader-only generation race before signing any part of a fresh inventory',()=>{
+ order(core,"StartupPhaseCore('MODULES_BEGIN')",'for ScanAttempt := 0 to ModuleGenerationRetryLimit do',
+  'MaintainLease(ScanAttempt = 0);','Snapshot := CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity);',
+  '(ScanAttempt = ModuleGenerationRetryLimit) or','not ModuleInventoryGenerationRetryable(Snapshot) then Break;',
+  'FreeAndNil(Snapshot);','SnapshotID := BootstrapRequestID;');
+ assert.match(core,/ModuleGenerationRetryLimit = 2;/);
  assert.equal((core.match(/SnapshotID := BootstrapRequestID/g)||[]).length,1);
  assert.match(core,/Snapshot.Free/);
+});
+test('source: a single byte-bounded inventory is signed and each batch remains subject to the existing authority',()=>{
+ const api=read('Cozy.Source/Cozy.Platform/Cozy.Api.pas'),inventory=read('Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas');
+ assert.match(api,/FModuleBatchSize := ModuleInventoryBatchSize/);
+ assert.match(inventory,/MaximumBatchRows = 16;/);
+ assert.match(inventory,/LargestRowBytes \+ 1[\s\S]*ModuleReportPayloadMaximum[\s\S]*LargestEncodedRowBytes \+ 1[\s\S]*ProtocolRequestMaximumBytes/);
+ order(core,'Payload := CreateModulePayload(255, 256, Batch);',
+  'BatchSize := ModuleInventoryBatchSize(Payload.ToJSON, TJSONArray(Modules), SubmitOverheadBytes);',
+  "Value.Value = 'FULL'","StartupPhaseCore('MODULES_MEASURED')",'for BatchIndex := 0 to BatchCount - 1 do',
+  'MaintainLease(False);','Payload := CreateModulePayload(BatchIndex, BatchCount, Batch);',
+  '(Batch.Count < BatchSize)','Send(Payload);',"StartupPhaseCore('MODULES_READY')");
+ assert.match(core,/Metadata.AddPair\('snapshotId', SnapshotID\)/);
+ assert.match(core,/ModuleStartupFailure\('MODULE_SCAN'\);/);
+ assert.match(core,/ModuleStartupFailure\('MODULE_UPLOAD'\);/);
 });
 test('source: default nil callback preserves existing callers',()=>{
  assert.equal((client.match(/const MaintainLease: TProc<Boolean> = nil/g)||[]).length,2);

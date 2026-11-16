@@ -102,6 +102,16 @@ test('Parent exit observations use the inherited exact process handle, before it
   assert.match(reporter, /Observation\.FileRemoved and Observation\.CleanupAttempted and\s+\(Observation\.Win32Error = 0\) then Status := 'REMOVED'/);
   assert.match(reporter, /Observation\.DispositionAccepted then Status := 'SCHEDULED'/);
 });
+test('Failed O startup reports only the exact held child exit and verified file cleanup', () => {
+  const wait = handoff.split('function LaunchWithHandoff(').at(-1);
+  order(wait, ['TerminateProcess(Process.hProcess, 1)', 'WaitForSingleObject(Process.hProcess, ParentExitTimeoutMS)', 'Observation.ProcessID := Process.dwProcessId', 'Observation.ExitObserved := WaitResult = WAIT_OBJECT_0', 'ObserveFailure(Observation)', 'Close(Process.hProcess)']);
+  const launch = client.split('function LaunchOverlay(').at(-1).split('function TOverlayClient.ClaimCore')[0];
+  order(launch, ['LaunchWithHandoff(', 'ChildObservation := Observation', 'ChildObservation.ExitObserved', 'DeleteCreatedBinary(', 'FailedChild := ChildObservation']);
+  const remove = client.split('procedure DeleteCreatedBinary(')[1].split('function DownloadVerifiedBinary')[0];
+  order(remove, ['SameFileIdentity(Info, CreatedInfo)', 'HashHandleSHA512(Handle) <> SHA512', 'LauncherSetFileInformationByHandle(', 'DispositionAccepted := True', 'CloseHandle(Handle)', 'Handle := CreateFileW(PWideChar(BinaryPath), 0,', 'Observation^.FileRemoved := Error = ERROR_FILE_NOT_FOUND']);
+  const start = api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean;')[1].split('function TGameApi.RedeemCore')[0];
+  order(start, ['TransferClient.AbortChild(', 'FailedChild.ProcessID <> 0', "FLifecycle.ObserveCleanup('O', FailedChild, True)", "FLifecycle.Prepare('O'", "FLifecycle.Submit('O'"]);
+});
 test('Actual cleanup follows worker join and image reader retirement, before final report', () => {
   const b = licenseSource.split('function RunLicenseClient(const Monitor: ICozyProtectionSession): Integer;')[1];
   order(b, ['Protection.StopAndDrain;', 'Worker.Free;', 'Api.RetireImagesForShutdown', 'Context.CleanupOwnImageForShutdown', 'Bootstrap.Close(', "Lifecycle.Submit('B'"]);

@@ -1,7 +1,7 @@
 { Generated from peace.packet-schema-v1.json. Do not edit. }
 const
   ProtocolSchemaMaximumRequestBytes = 32768;
-  ProtocolSchemaSHA512 = 'b86e3f1a2310ae55820af631225cec9d24f64d7e4dee2af48c9dc4861176773085e7a0dcb177428cb9c2fe467101ba1f840fa337cde2f5968fe74a714b371578';
+  ProtocolSchemaSHA512 = '4a07fc4393f4a5c59bbf2b2d92712678cd6b2b2b7ce1524a806fb1f4b3ce96659356e915fd19602e8f67a45bcc2df96594fce639dce3580a397ff1945e1a1be9';
   ProtocolSchemaJSON: string =
     '{"schemaVersion":1,"protocol":"GAME-CONNECT-4","maximumRequestBytes":32768,"envelope":{"type":"object","properties":{"operation":{"enum":["bootstrap","challenge","execute","report"' +
     ',"security","device","policy"]},"tlsPinVersion":{"enum":[1]},"body":{"$ref":"object"}},"required":["operation","body"],"additionalProperties":false},"definitions":{"id24":{"type":"' +
@@ -236,85 +236,85 @@ const
     'ion":{"$ref":"version1"},"productScopeVersion":{"$ref":"version1"}},"required":["action","sessionId","sessionToken","machineId","binarySha512","binaryCrc64","codeSha512","codeCrc64' +
     '"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayProgress","body":{"type":"object","properties":{"action":{"enum":["overlayProgress"]},"sessionId":{"$ref' +
     '":"id24"},"sessionToken":{"$ref":"token"},"sequence":{"type":"integer","minimum":1,"maximum":32},"phase":{"enum":["CLAIMED","IMAGE_BOUND","GPU_BEGIN","GPU_READY","OWN_BEGIN","OWN_R' +
-    'EADY","MODULES_BEGIN","MODULES_READY","AUTHORITY_BEGIN","AUTHORIZED","VISIBLE","FAILED"]},"elapsedMs":{"type":"integer","minimum":0,"maximum":180000},"signature":{"$ref":"signature' +
-    '"},"failure":{"type":"object","properties":{"version":{"enum":[1]},"stage":{"enum":["BINDING","FONT_READ","FONT_DATA","CREATE","RESIZE","GPU_IDENTITY","FLOATING_POINT","UNKNOWN"]},' +
-    '"code":{"type":"integer","minimum":-2147483648,"maximum":2147483647}},"required":["version","stage","code"],"additionalProperties":false}},"required":["action","sessionId","session' +
-    'Token","sequence","phase","elapsedMs","signature"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayCommit","body":{"type":"object","properties":{"action":{' +
-    '"enum":["overlayCommit"]},"handoffVersion":{"enum":[1]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"overlayId":{"$ref":"id24"},"signature":{"$ref":"signature"}},"r' +
-    'equired":["action","handoffVersion","sessionId","sessionToken","overlayId","signature"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayShutdown","body":{"' +
-    'type":"object","properties":{"action":{"enum":["overlayShutdown"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"requestId":{"$ref":"request"}},"required":["action",' +
-    '"sessionId","sessionToken","requestId"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayClose","body":{"type":"object","properties":{"action":{"enum":["ove' +
-    'rlayClose"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"shutdown":{"$ref":"object"}},"required":["action","sessionId","sessionToken"],"additionalProperties":false' +
-    '}},{"operation":"bootstrap","action":"overlayAbort","body":{"type":"object","properties":{"action":{"enum":["overlayAbort"]},"handoffVersion":{"enum":[3]},"parentSessionId":{"$ref"' +
-    ':"id24"},"parentSessionToken":{"$ref":"token"},"signature":{"$ref":"signature"},"overlayId":{"$ref":"id24"},"prepareRequestId":{"$ref":"request"}},"required":["action","handoffVers' +
-    'ion","parentSessionId","parentSessionToken","signature"],"additionalProperties":false,"exactlyOne":["overlayId","prepareRequestId"]}},{"operation":"bootstrap","action":"lifecycleCh' +
-    'allenge","body":{"type":"object","properties":{"action":{"enum":["lifecycleChallenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"target' +
-    'Role":{"$ref":"stage"},"requestId":{"$ref":"request"}},"required":["action","stage","sessionId","sessionToken","targetRole","requestId"],"additionalProperties":false}},{"operation"' +
-    ':"bootstrap","action":"lifecycleReport","body":{"type":"object","properties":{"action":{"enum":["lifecycleReport"]},"permitId":{"$ref":"challenge"},"requestId":{"$ref":"request"},"' +
-    'eventsJson":{"type":"string","minLength":2,"maxBytes":32768},"signature":{"$ref":"signature"}},"required":["action","permitId","requestId","eventsJson","signature"],"additionalProp' +
-    'erties":false}},{"operation":"device","action":"policy","body":{"type":"object","properties":{"action":{"enum":["policy"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"ses' +
-    'sionToken":{"$ref":"token"},"machineId":{"$ref":"machine"}},"required":["action","stage","sessionId","sessionToken","machineId"],"additionalProperties":false}},{"operation":"device' +
-    '","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"m' +
-    'achineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"publicKey":{"$ref":"publicKey"},"keyProvider":{"enum":["SOFTWARE","PLATFORM"]}},"required":["action","stage","sessionId' +
-    '","sessionToken","machineId","requestId","publicKey","keyProvider"],"additionalProperties":false}},{"operation":"device","action":"complete","body":{"type":"object","properties":{"' +
-    'action":{"enum":["complete"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"challengeId":{"$ref":"challenge"}' +
-    ',"appSignature":{"$ref":"signature"},"signature":{"$ref":"signature"},"tpmEvidence":{"$ref":"object"}},"required":["action","stage","sessionId","sessionToken","machineId","challeng' +
-    'eId","appSignature","signature"],"additionalProperties":false}},{"operation":"device","action":"tpmActivate","body":{"type":"object","properties":{"action":{"enum":["tpmActivate"]}' +
-    ',"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"challengeId":{"$ref":"challenge"},"secret":{"$ref":"token"},"s' +
-    'ignature":{"$ref":"signature"},"appSignature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","challengeId","secret","signature","appSigna' +
-    'ture"],"additionalProperties":false}},{"operation":"security","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"s' +
-    'essionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"intent":{"enum":["finish","redeem","verify","observe"]},"binding":{"$ref":"hash"},"mitigat' +
-    'ionProfileVersion":{"$ref":"version1"},"mitigationEnvironment":{"$ref":"object"},"deviceSignalsVersion":{"$ref":"version1"}},"required":["action","stage","sessionId","sessionToken"' +
-    ',"machineId","intent","binding"],"additionalProperties":false}},{"operation":"security","action":"submit","body":{"type":"object","properties":{"action":{"enum":["submit"]},"stage"' +
-    ':{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"intent":{"enum":["finish","redeem","verify","observe"]},"binding":{"$r' +
-    'ef":"hash"},"challengeId":{"$ref":"challenge"},"payload":{"$ref":"payload"},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","i' +
-    'ntent","binding","challengeId","payload","signature"],"additionalProperties":false}},{"operation":"report","action":"challenge","body":{"type":"object","properties":{"action":{"enu' +
-    'm":["challenge"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"stage":{"$ref":"stage"},"machineId":{"$ref":"machine"},"binarySha512":{"$ref":"hash"},"binaryCrc64":{' +
-    '"$ref":"crc"},"codeSha512":{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sessionToken"],"additionalProperties":false}},{"operation":"report","action' +
-    '":"submit","body":{"type":"object","properties":{"action":{"enum":["submit"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"reportId":{"$ref":"challenge"},"payload":' +
-    '{"$ref":"payload"},"signature":{"$ref":"signature"},"stage":{"$ref":"stage"},"machineId":{"$ref":"machine"},"binarySha512":{"$ref":"hash"},"binaryCrc64":{"$ref":"crc"},"codeSha512"' +
-    ':{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sessionToken","reportId","payload","signature"],"additionalProperties":false}},{"operation":"policy",' +
-    '"action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"mac' +
-    'hineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type":"integer","mini' +
-    'mum":2,"maximum":65535},"args":{"$ref":"intArgs"}},"required":["action","stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args"],"additionalProper' +
-    'ties":false}},{"operation":"policy","action":"invoke","body":{"type":"object","properties":{"action":{"enum":["invoke"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessi' +
-    'onToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"funct' +
-    'ionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["action","stage","s' +
-    'essionId","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"policy","action":"result","b' +
-    'ody":{"type":"object","properties":{"action":{"enum":["result"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"}' +
-    ',"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"a' +
-    'rgs":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","requestId","policy' +
-    'Id","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"challenge","action":"redeem","body":{"type":"object","properties":{"action":{"enum":' +
-    '["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId"' +
-    ',"publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"redeem","body":{"type":"object","properties":{"action":{"enum":["redeem"]},"requestId":{' +
-    '"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string",' +
-    '"minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey",' +
-    '"challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"verify","body":{"type":"object","properties"' +
-    ':{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","re' +
-    'questId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"verify","body":{"type":"object","properties":{"action":{"enum":["veri' +
-    'fy"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON' +
-    '":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","dev' +
-    'iceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"release","body":{"type":"' +
-    'object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"re' +
-    'quired":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"release","body":{"type":"object","properties":{"' +
-    'action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"s' +
-    'ignature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["a' +
-    'ction","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","action":"ov' +
-    'erlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHas' +
-    'h":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"overlay","body":{"type":"' +
-    'object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"}' +
-    ',"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":' +
-    '"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"' +
-    'bootstrap","action":"overlayStart","body":{"type":"object","properties":{"action":{"enum":["overlayStart"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"productId":' +
-    '{"$ref":"licensedProduct"},"requestId":{"$ref":"request"},"sequence":{"type":"integer","minimum":1,"maximum":2147483647},"signature":{"$ref":"signature"}},"required":["action","ses' +
-    'sionId","sessionToken","productId","requestId","sequence","signature"],"additionalProperties":false}},{"operation":"bootstrap","action":"nhwReport","body":{"type":"object","propert' +
-    'ies":{"action":{"enum":["nhwReport"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"requestId":{"$ref":"request"},"ids":{"type":"array","max' +
-    'Items":204,"items":{"type":"integer","minimum":0,"maximum":203}},"confirmedIds":{"type":"array","maxItems":204,"items":{"type":"integer","minimum":0,"maximum":203}},"signature":{"$' +
-    'ref":"signature"}},"required":["action","stage","sessionId","sessionToken","requestId","ids","confirmedIds","signature"],"additionalProperties":false}}],"scope":"Command envelopes ' +
-    'and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to existing domain validat' +
-    'ors; this schema grants no authorization.","documents":{"overlayRelease":{"$ref":"overlayRelease"},"overlayPrepare":{"$ref":"overlayPrepare"},"overlayChunk":{"$ref":"overlayChunk"}' +
-    ',"overlayChunkBatch":{"$ref":"overlayChunkBatch"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"overlayClaim"},"overlayVerify":{"$ref":"overlayVerify"},"overlayC' +
-    'ommit":{"$ref":"overlayCommit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"authorityChallenge":{"$ref":"authorityChallenge"},"authorityPayload":' +
-    '{"$ref":"authorityPayload"},"authorityReply":{"$ref":"authorityReply"},"overlayShutdown":{"$ref":"overlayShutdown"},"overlayStart":{"$ref":"overlayStart"},"nhwReport":{"type":"obje' +
-    'ct","properties":{"version":{"enum":[1]},"status":{"enum":["RECORDED"]},"terminate":{"enum":[false,true]}},"required":["version","status","terminate"],"additionalProperties":false}' +
-    '}}';
+    'EADY","MODULES_BEGIN","MODULES_MEASURED","MODULES_READY","AUTHORITY_BEGIN","AUTHORIZED","VISIBLE","FAILED"]},"elapsedMs":{"type":"integer","minimum":0,"maximum":180000},"signature"' +
+    ':{"$ref":"signature"},"failure":{"type":"object","properties":{"version":{"enum":[1]},"stage":{"enum":["BINDING","FONT_READ","FONT_DATA","CREATE","RESIZE","GPU_IDENTITY","FLOATING_' +
+    'POINT","MODULE_SCAN","MODULE_UPLOAD","UNKNOWN"]},"code":{"type":"integer","minimum":-2147483648,"maximum":2147483647}},"required":["version","stage","code"],"additionalProperties":' +
+    'false}},"required":["action","sessionId","sessionToken","sequence","phase","elapsedMs","signature"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayCommit"' +
+    ',"body":{"type":"object","properties":{"action":{"enum":["overlayCommit"]},"handoffVersion":{"enum":[1]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"overlayId":{"$' +
+    'ref":"id24"},"signature":{"$ref":"signature"}},"required":["action","handoffVersion","sessionId","sessionToken","overlayId","signature"],"additionalProperties":false}},{"operation"' +
+    ':"bootstrap","action":"overlayShutdown","body":{"type":"object","properties":{"action":{"enum":["overlayShutdown"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"req' +
+    'uestId":{"$ref":"request"}},"required":["action","sessionId","sessionToken","requestId"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayClose","body":{"ty' +
+    'pe":"object","properties":{"action":{"enum":["overlayClose"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"shutdown":{"$ref":"object"}},"required":["action","sessio' +
+    'nId","sessionToken"],"additionalProperties":false}},{"operation":"bootstrap","action":"overlayAbort","body":{"type":"object","properties":{"action":{"enum":["overlayAbort"]},"hando' +
+    'ffVersion":{"enum":[3]},"parentSessionId":{"$ref":"id24"},"parentSessionToken":{"$ref":"token"},"signature":{"$ref":"signature"},"overlayId":{"$ref":"id24"},"prepareRequestId":{"$r' +
+    'ef":"request"}},"required":["action","handoffVersion","parentSessionId","parentSessionToken","signature"],"additionalProperties":false,"exactlyOne":["overlayId","prepareRequestId"]' +
+    '}},{"operation":"bootstrap","action":"lifecycleChallenge","body":{"type":"object","properties":{"action":{"enum":["lifecycleChallenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref' +
+    '":"id24"},"sessionToken":{"$ref":"token"},"targetRole":{"$ref":"stage"},"requestId":{"$ref":"request"}},"required":["action","stage","sessionId","sessionToken","targetRole","reques' +
+    'tId"],"additionalProperties":false}},{"operation":"bootstrap","action":"lifecycleReport","body":{"type":"object","properties":{"action":{"enum":["lifecycleReport"]},"permitId":{"$r' +
+    'ef":"challenge"},"requestId":{"$ref":"request"},"eventsJson":{"type":"string","minLength":2,"maxBytes":32768},"signature":{"$ref":"signature"}},"required":["action","permitId","req' +
+    'uestId","eventsJson","signature"],"additionalProperties":false}},{"operation":"device","action":"policy","body":{"type":"object","properties":{"action":{"enum":["policy"]},"stage":' +
+    '{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"}},"required":["action","stage","sessionId","sessionToken","machineId"],"a' +
+    'dditionalProperties":false}},{"operation":"device","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{' +
+    '"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"publicKey":{"$ref":"publicKey"},"keyProvider":{"enum":["SOFTWARE","PLA' +
+    'TFORM"]}},"required":["action","stage","sessionId","sessionToken","machineId","requestId","publicKey","keyProvider"],"additionalProperties":false}},{"operation":"device","action":"' +
+    'complete","body":{"type":"object","properties":{"action":{"enum":["complete"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$r' +
+    'ef":"machine"},"challengeId":{"$ref":"challenge"},"appSignature":{"$ref":"signature"},"signature":{"$ref":"signature"},"tpmEvidence":{"$ref":"object"}},"required":["action","stage"' +
+    ',"sessionId","sessionToken","machineId","challengeId","appSignature","signature"],"additionalProperties":false}},{"operation":"device","action":"tpmActivate","body":{"type":"object' +
+    '","properties":{"action":{"enum":["tpmActivate"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"challengeId":' +
+    '{"$ref":"challenge"},"secret":{"$ref":"token"},"signature":{"$ref":"signature"},"appSignature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","machin' +
+    'eId","challengeId","secret","signature","appSignature"],"additionalProperties":false}},{"operation":"security","action":"challenge","body":{"type":"object","properties":{"action":{' +
+    '"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"intent":{"enum":["finish","redeem","verif' +
+    'y","observe"]},"binding":{"$ref":"hash"},"mitigationProfileVersion":{"$ref":"version1"},"mitigationEnvironment":{"$ref":"object"},"deviceSignalsVersion":{"$ref":"version1"}},"requi' +
+    'red":["action","stage","sessionId","sessionToken","machineId","intent","binding"],"additionalProperties":false}},{"operation":"security","action":"submit","body":{"type":"object","' +
+    'properties":{"action":{"enum":["submit"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"intent":{"enum":["fin' +
+    'ish","redeem","verify","observe"]},"binding":{"$ref":"hash"},"challengeId":{"$ref":"challenge"},"payload":{"$ref":"payload"},"signature":{"$ref":"signature"}},"required":["action",' +
+    '"stage","sessionId","sessionToken","machineId","intent","binding","challengeId","payload","signature"],"additionalProperties":false}},{"operation":"report","action":"challenge","bo' +
+    'dy":{"type":"object","properties":{"action":{"enum":["challenge"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"stage":{"$ref":"stage"},"machineId":{"$ref":"machine' +
+    '"},"binarySha512":{"$ref":"hash"},"binaryCrc64":{"$ref":"crc"},"codeSha512":{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sessionToken"],"additional' +
+    'Properties":false}},{"operation":"report","action":"submit","body":{"type":"object","properties":{"action":{"enum":["submit"]},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"t' +
+    'oken"},"reportId":{"$ref":"challenge"},"payload":{"$ref":"payload"},"signature":{"$ref":"signature"},"stage":{"$ref":"stage"},"machineId":{"$ref":"machine"},"binarySha512":{"$ref":' +
+    '"hash"},"binaryCrc64":{"$ref":"crc"},"codeSha512":{"$ref":"hash"},"codeCrc64":{"$ref":"crc"}},"required":["action","sessionId","sessionToken","reportId","payload","signature"],"add' +
+    'itionalProperties":false}},{"operation":"policy","action":"challenge","body":{"type":"object","properties":{"action":{"enum":["challenge"]},"stage":{"$ref":"stage"},"sessionId":{"$' +
+    'ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-' +
+    'f0-9]{64}$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"}},"required":["action","stage","sessionId","sessionToken","machineId","requestId",' +
+    '"policyId","functionId","args"],"additionalProperties":false}},{"operation":"policy","action":"invoke","body":{"type":"object","properties":{"action":{"enum":["invoke"]},"stage":{"' +
+    '$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,' +
+    '"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$r' +
+    'ef":"signature"}},"required":["action","stage","sessionId","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":f' +
+    'alse}},{"operation":"policy","action":"result","body":{"type":"object","properties":{"action":{"enum":["result"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken' +
+    '":{"$ref":"token"},"machineId":{"$ref":"machine"},"requestId":{"$ref":"request"},"policyId":{"type":"string","minLength":64,"maxLength":64,"pattern":"^[a-f0-9]{64}$"},"functionId":' +
+    '{"type":"integer","minimum":2,"maximum":65535},"args":{"$ref":"intArgs"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"}},"required":["action","stage","sessionI' +
+    'd","sessionToken","machineId","requestId","policyId","functionId","args","challengeId","signature"],"additionalProperties":false}},{"operation":"challenge","action":"redeem","body"' +
+    ':{"type":"object","properties":{"action":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"ha' +
+    'sh"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"redeem","body":{"type":"object","proper' +
+    'ties":{"action":{"enum":["redeem"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$' +
+    'ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"requir' +
+    'ed":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation":"challenge","acti' +
+    'on":"verify","body":{"type":"object","properties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"paylo' +
+    'adHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":"verify","body":{"typ' +
+    'e":"object","properties":{"action":{"enum":["verify"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challengeId":{"$ref":"challeng' +
+    'e"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":4096},"payloadHash":{"$re' +
+    'f":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payloadJson"]}},{"operation' +
+    '":"challenge","action":"release","body":{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref' +
+    '":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operation":"execute","action":' +
+    '"release","body":{"type":"object","properties":{"action":{"enum":["release"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref":"publicKey"},"challen' +
+    'geId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","minLength":2,"maxBytes":40' +
+    '96},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOne":["payloadJSON","payl' +
+    'oadJson"]}},{"operation":"challenge","action":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machi' +
+    'ne"},"publicKey":{"$ref":"publicKey"},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","payloadHash"],"additionalProperties":false}},{"operati' +
+    'on":"execute","action":"overlay","body":{"type":"object","properties":{"action":{"enum":["overlay"]},"requestId":{"$ref":"request"},"deviceId":{"$ref":"machine"},"publicKey":{"$ref' +
+    '":"publicKey"},"challengeId":{"$ref":"challenge"},"signature":{"$ref":"signature"},"payloadJSON":{"type":"string","minLength":2,"maxBytes":4096},"payloadJson":{"type":"string","min' +
+    'Length":2,"maxBytes":4096},"payloadHash":{"$ref":"hash"}},"required":["action","requestId","deviceId","publicKey","challengeId","signature"],"additionalProperties":false,"exactlyOn' +
+    'e":["payloadJSON","payloadJson"]}},{"operation":"bootstrap","action":"overlayStart","body":{"type":"object","properties":{"action":{"enum":["overlayStart"]},"sessionId":{"$ref":"id' +
+    '24"},"sessionToken":{"$ref":"token"},"productId":{"$ref":"licensedProduct"},"requestId":{"$ref":"request"},"sequence":{"type":"integer","minimum":1,"maximum":2147483647},"signature' +
+    '":{"$ref":"signature"}},"required":["action","sessionId","sessionToken","productId","requestId","sequence","signature"],"additionalProperties":false}},{"operation":"bootstrap","act' +
+    'ion":"nhwReport","body":{"type":"object","properties":{"action":{"enum":["nhwReport"]},"stage":{"$ref":"stage"},"sessionId":{"$ref":"id24"},"sessionToken":{"$ref":"token"},"request' +
+    'Id":{"$ref":"request"},"ids":{"type":"array","maxItems":204,"items":{"type":"integer","minimum":0,"maximum":203}},"confirmedIds":{"type":"array","maxItems":204,"items":{"type":"int' +
+    'eger","minimum":0,"maximum":203}},"signature":{"$ref":"signature"}},"required":["action","stage","sessionId","sessionToken","requestId","ids","confirmedIds","signature"],"additiona' +
+    'lProperties":false}}],"scope":"Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation envir' +
+    'onments remain subject to existing domain validators; this schema grants no authorization.","documents":{"overlayRelease":{"$ref":"overlayRelease"},"overlayPrepare":{"$ref":"overla' +
+    'yPrepare"},"overlayChunk":{"$ref":"overlayChunk"},"overlayChunkBatch":{"$ref":"overlayChunkBatch"},"overlayFinish":{"$ref":"overlayFinish"},"overlayClaim":{"$ref":"overlayClaim"},"' +
+    'overlayVerify":{"$ref":"overlayVerify"},"overlayCommit":{"$ref":"overlayCommit"},"overlayAbort":{"$ref":"overlayAbort"},"overlayClose":{"$ref":"overlayClose"},"authorityChallenge":' +
+    '{"$ref":"authorityChallenge"},"authorityPayload":{"$ref":"authorityPayload"},"authorityReply":{"$ref":"authorityReply"},"overlayShutdown":{"$ref":"overlayShutdown"},"overlayStart":' +
+    '{"$ref":"overlayStart"},"nhwReport":{"type":"object","properties":{"version":{"enum":[1]},"status":{"enum":["RECORDED"]},"terminate":{"enum":[false,true]}},"required":["version","s' +
+    'tatus","terminate"],"additionalProperties":false}}}';

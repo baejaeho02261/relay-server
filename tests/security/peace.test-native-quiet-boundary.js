@@ -13,16 +13,16 @@ const stripComments = source => source.replace(/\{[\s\S]*?\}|\(\*[\s\S]*?\*\)|\/
 
 test('Production A/B/O reject invalid invocation shapes before startup work and catch failures silently', () => {
   const cases = [
-    ['Launcher', /if ParamCount = 0 then/, 'gcrLauncher', 'RunLauncher'],
-    ['Client', /if \(ParamCount = 2\) and \(ParamStr\(1\) = '--game-handoff'\) then/, 'gcrConnect', 'RunLicenseClient'],
-    ['Overlay', /if \(ParamCount = 2\) and \(ParamStr\(1\) = '--game-overlay'\) then/, 'gcrOverlay', 'RunOverlay'],
+    ['Launcher', /if ParamCount = 0 then/, 'gcrLauncher', 'RunLauncher', 'ntsLauncher'],
+    ['Client', /if \(ParamCount = 2\) and \(ParamStr\(1\) = '--game-handoff'\) then/, 'gcrConnect', 'RunLicenseClient', 'ntsClient'],
+    ['Overlay', /if \(ParamCount = 2\) and \(ParamStr\(1\) = '--game-overlay'\) then/, 'gcrOverlay', 'RunOverlay', 'ntsOverlay'],
   ];
-  for (const [name, shape, role, run] of cases) {
+  for (const [name, shape, role, run, traceScope] of cases) {
     const source = stripComments(read(`Cozy.Projects/Cozy.${name}/Cozy.${name}.dpr`));
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
     assert.match(body, name === 'Launcher' ? /ExitCode := 31000;/ : /ExitCode := 1;/);
     const gate = body.search(shape), seal = body.indexOf('SealApiPointerStorage;');
-    const startup = body.indexOf(name === 'Launcher' ? `RequireNativeStartup(${role}, @ExitCode);` : `RequireNativeStartup(${role});`), application = body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create);`);
+    const startup = body.indexOf(name === 'Launcher' ? `RequireNativeStartup(${role}, @ExitCode);` : `RequireNativeStartup(${role});`), application = body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}));`);
     assert(gate >= 0 && gate < seal && seal < startup && startup < application, name);
     assert.match(body, name === 'Launcher' ? /except\s+end;/ : /except\s+ExitCode := 1;\s+end;/);
     assert.doesNotMatch(body, /MessageBox|ShowMessage|WriteLn|OutputDebugString|WriteConsole/i);
@@ -100,6 +100,27 @@ test('NHW corroborates only the scoped kinds in a fresh complete own-process fra
   const capture = monitor.split('procedure TCozyNHWMonitor.Capture(')[1].split('procedure TCozyNHWMonitor.LatchTermination;')[0];
   assert.match(capture, /Kind in \(Confirmed \* NHWCorroborationKinds\)\) and\s+\(NowTick >= FConfirmedAgainAt\[Kind\]\) then\s+begin\s+Include\(NewKinds, Kind\);/);
   assert(capture.indexOf('FConfirmedAgainAt[Kind]') < capture.indexOf('NowTick >= FReportAgainAt[Kind]'));
+});
+
+test('each role owns a distinct bounded optional NHW kernel logger during handoff', () => {
+  const directory = 'Cozy.Source/Cozy.Protection/';
+  const etw = read(directory + 'Cozy.NHW.ETW.pas');
+  const engine = stripComments(read(directory + 'Cozy.NHW.Engine.pas'));
+  const monitor = stripComments(read(directory + 'Cozy.NHW.Monitor.pas'));
+  assert.match(monitor, /RunEmbedded\(FSensorStop, TraceScope,/);
+  assert.match(engine, /KernelTrace := TETWMonitor\.Create\(TraceScope\);/);
+  const names = etw.match(/TRACE_NAMES: array\[TNHWTraceScope\] of string = \(([\s\S]*?)\);/)[1];
+  assert.equal(new Set(names.match(/'[^']+'/g)).size, 4);
+  const roleGuids = ['LAUNCHER', 'CLIENT', 'OVERLAY'].map(role => {
+    const scope = role[0] + role.slice(1).toLowerCase();
+    assert.ok(etw.includes(`nts${scope}: FTraceGuid := GUID_${role};`));
+    return etw.match(new RegExp(`GUID_${role}: TGUID = '([^']+)';`))[1];
+  });
+  assert.equal(new Set(roleGuids).size, 3);
+  assert.match(etw, /FTraceName := TRACE_NAMES\[Scope\]/);
+  assert.match(etw, /Props\^\.Wnode\.Guid := FTraceGuid;/);
+  assert.match(etw, /EtwStartTrace\(FSession, PWideChar\(FTraceName\), Props\)[\s\S]*FLogger\.LoggerName := PWideChar\(FTraceName\)/);
+  assert.match(etw, /if FSession <> 0 then[\s\S]*EtwControlTrace\(FSession, nil,\s*PEtwTraceProperties\(@FTraceProps\[0\]\), ETW_TRACE_CONTROL_STOP\)/);
 });
 
 test('B authorizes after hidden GPU initialization, presents before input and joins before GPU/API retirement', () => {
