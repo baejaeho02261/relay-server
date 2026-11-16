@@ -22,6 +22,11 @@ for(let i=0;i<fixtures.cases.length;i++){
  if(command.body.allOrNone){x=clone(packet);x.body[command.body.allOrNone[0]]=3;reject(x);}
  if(command.body.exactlyOne){x=clone(packet);for(const k of command.body.exactlyOne)delete x.body[k];reject(x);x=clone(packet);for(const k of command.body.exactlyOne)x.body[k]=fixtures.cases.find(c=>Object.hasOwn(c.body,k))?.body[k]||'dummy';reject(x);}
 }
+for(const action of ['chunk','overlayChunk']){
+ const packet=clone(fixtures.cases.find(x=>x.body.action===action));
+ packet.body.count=2;assert.deepEqual(contract.ParseRequest(JSON.stringify(packet)),packet);checks++;
+ for(const invalid of [0,1,3,'2',false]){packet.body.count=invalid;reject(packet);}
+}
 const good=fixtures.cases.find(x=>x.body.action==='keylessPolicy');
 assert.deepEqual(contract.ParseRequest(JSON.stringify(good).replace('"tlsPinVersion":1','"tlsPinVersion":1e0').replace('"version":1','"version":1.0')),good);checks++;
 for(const value of [[],null,true,{},1,'x'])reject(value);

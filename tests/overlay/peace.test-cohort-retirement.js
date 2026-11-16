@@ -230,8 +230,10 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
         sessionToken: session.sessionToken, ids, confirmedIds, requestId: crypto.randomUUID()};
       return {...body, signature: fixture.Sign(device, nhw.Canonical(body))};
     }
-    await t.test('all 204 report IDs are checked by default, including raw detections and warnings', () => {
-      assert.deepEqual(nhw.Policy(), {version:1,revision:0,disabledIds:[]});
+    const warningIds = [87,159,166,180,181];
+    const corroboratedIds = [1,9,10,13,14,15,38,58,65,66,69,70,79,80,150,167];
+    await t.test('all 204 IDs retain history while scoped sightings and coverage warnings require different treatment', () => {
+      assert.deepEqual(nhw.Policy(), {version:1,revision:0,disabledIds:warningIds});
       const s = setup(), row = nhwBody('B', s.b, s.device, Array.from({length:204}, (_, i) => i));
       assert.deepEqual(boot.Execute(row), {version:1,status:'RECORDED',terminate:true});
       terminal(s, 'CLOSED');
@@ -240,12 +242,39 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       assert.equal(result.nhwCatalog[0].legacyLabel, 'Process Detect');
       assert.equal(result.nhwCatalog.filter(x=>x.legacyLabel === 'Waring Detect').length, 4);
       assert.equal(result.nhwCatalog.filter(x=>x.legacyLabel === null).length, 7);
+      assert.deepEqual(result.nhwCatalog.filter(x=>x.mode === 'corroborated').map(x=>x.id), corroboratedIds);
+      assert.deepEqual(result.nhwCatalog.filter(x=>x.mode === 'observation').map(x=>x.id), warningIds);
       const item = result.categories.nhw.items.find(x=>x.flowId === s.begin.flowId);
       assert.equal(item.stage, 'B');
       assert.deepEqual(item.detectionIds, row.ids);
-      assert.deepEqual(item.enforcedIds, row.ids);
+      assert.deepEqual(item.enforcedIds, row.ids.filter(id=>!corroboratedIds.includes(id) && !warningIds.includes(id)));
       assert.ok(!JSON.stringify(result).includes(row.sessionToken));
       assert.ok(!JSON.stringify(result).includes(row.signature));
+    });
+    await t.test('scoped observations remain active until signed corroboration, and coverage warnings cannot end authority', () => {
+      const legacy = {nhwPolicy:{version:1,revision:2,disabledIds:[0,38,87]}};
+      assert.deepEqual(nhw.Policy(legacy), {version:1,revision:3,disabledIds:[0,...warningIds]});
+      assert.deepEqual(nhw.Policy({...legacy,nhwPolicyModeVersion:1}),
+        {version:1,revision:2,disabledIds:[0,38,...warningIds]});
+      store.Atomic(db=>{
+        db.nhwPolicy = legacy.nhwPolicy;
+        delete db.nhwPolicyModeVersion;
+      });
+      const s = setup(), ids = [...corroboratedIds,...warningIds].sort((a,b)=>a-b);
+      const raw = nhwBody('B',s.b,s.device,ids);
+      assert.equal(boot.Execute(raw).terminate,false);
+      assert.deepEqual(store.Load().nhwPolicy,{version:1,revision:3,disabledIds:[0,...warningIds]});
+      assert.equal(store.Load().nhwPolicyModeVersion,1);
+      assert.equal(boot.Execute(raw).terminate,false,'an exact retry preserves the original verdict');
+      assert.throws(()=>boot.Execute(nhwBody('B',s.b,s.device,[87],[87])),/NHW_REPORT_INVALID/);
+      const off = nhw.UpdatePolicy({expectedRevision:3,disabledIds:[0,38,...warningIds]},'test-admin');
+      assert.equal(boot.Execute(nhwBody('B',s.b,s.device,[38],[38])).terminate,false);
+      nhw.UpdatePolicy({expectedRevision:off.revision,disabledIds:[0,...warningIds]},'test-admin');
+      const mixed = nhwBody('B',s.b,s.device,[1,38,87],[38]);
+      assert.equal(boot.Execute(mixed).terminate,true);
+      terminal(s,'CLOSED');
+      const history=nhw.MemberIndex(store.Load()).filter(x=>x.flowId===s.begin.flowId);
+      assert.deepEqual(history.map(x=>x.enforcedIds),[[],[],[38]]);
     });
     await t.test('policy updates are bounded and old decisions survive checkbox changes and exact retries', () => {
       const actor = 'ADMIN:nhw-policy-test';
@@ -255,7 +284,7 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       assert.throws(() => nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[2,1]},actor), /NHW_POLICY_INPUT_INVALID/);
       assert.deepEqual(nhw.Policy(), before);
       const observe = nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[0,92]},actor);
-      assert.deepEqual(observe, {version:1,revision:before.revision+1,disabledIds:[0,92]});
+      assert.deepEqual(observe, {version:1,revision:before.revision+1,disabledIds:[0,87,92,159,166,180,181]});
       assert.throws(() => nhw.UpdatePolicy({expectedRevision:before.revision,disabledIds:[]},actor), /NHW_POLICY_CONFLICT/);
       const authorityRevision = store.Load().revision;
       assert.deepEqual(nhw.UpdatePolicy({expectedRevision:observe.revision,disabledIds:[0,92]},actor), observe);
@@ -269,7 +298,7 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       assert.equal(boot.Execute(mixed).terminate, true, 'one checked raw ID closes the cohort');
       terminal(s, 'CLOSED');
       const allChecked = nhw.UpdatePolicy({expectedRevision:observe.revision,disabledIds:[]},actor);
-      assert.deepEqual(allChecked, {version:1,revision:observe.revision+1,disabledIds:[]});
+      assert.deepEqual(allChecked, {version:1,revision:observe.revision+1,disabledIds:warningIds});
       assert.equal(boot.Execute(first).terminate, false);
       assert.equal(boot.Execute(mixed).terminate, true);
       const history = nhw.MemberIndex(store.Load()).filter(row => row.flowId === s.begin.flowId);
@@ -300,12 +329,12 @@ test('server lease retirement is terminal and restricted to the related A/B/O co
       assert.equal(rows().length, 4);
       assert.ok(rows().every(row => !row.protectionEnded && row.enforcedIds.length === 0));
       assert.equal(outbox().length, before);
-      const ending = nhwBody('B', s.b, s.device, [0,1]);
+      const ending = nhwBody('B', s.b, s.device, [0,2]);
       assert.equal(boot.Execute(ending).terminate, true);
       assert.equal(boot.Execute(ending).terminate, true);
       terminal(s, 'CLOSED');
       assert.equal(rows().length, 5);
-      assert.deepEqual(rows().at(-1).enforcedIds, [1]);
+      assert.deepEqual(rows().at(-1).enforcedIds, [2]);
       assert.equal(outbox().length, before + 1);
       assert.ok(outbox().some(({event}) => event.kind === 'NHW_DETECTION_REPORT' && event.component === 'B'));
       nhw.UpdatePolicy({expectedRevision:policy.revision,disabledIds:[]},actor);

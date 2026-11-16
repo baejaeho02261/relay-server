@@ -1,6 +1,6 @@
 { Generated document shapes only; no authorization or Windows test evidence. }
 const
-  ProtocolDocumentSchemaCases: array[0..14] of string = (
+  ProtocolDocumentSchemaCases: array[0..15] of string = (
     '{"name":"overlayRelease","value":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"AAAAAAAAAAAAAAAA","xxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaa","size":1,"codeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","c' +
@@ -13,6 +13,7 @@ const
     'aaaaaaaaaaaa","codeBlake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","codeAlgorithm":"PE64-CODE-V1"},"chunkSize":262144,"expiresAt":1,"finishCanonical":"{}' +
     '","claimCanonical":"{}"}}',
     '{"name":"overlayChunk","value":{"offset":0,"size":1,"data":"rrrr"}}',
+    '{"name":"overlayChunkBatch","value":{"offset":0,"size":1,"data":"rrrr"}}',
     '{"name":"overlayFinish","value":{"overlayId":"AAAAAAAAAAAAAAAAAAAAAAAA","overlayTicket":"r","claimCanonical":"{}","expiresAt":1}}',
     '{"name":"overlayClaim","value":{"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","sessionToken":"r","expiresAt":1,"release":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sh' +
     'a512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"AAAAAAAAAAAAAAAA","xxh3_128":"aaaa' +

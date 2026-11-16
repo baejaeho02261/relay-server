@@ -207,14 +207,14 @@ async function run(){
  assert.equal((await request('/nhw-policy?extra=1')).status,400);
  const initial=await policyRequest();
  assert.equal(initial.status,200);assert.equal(initial.value.canManageNhwPolicy,true);
- assert.deepEqual(initial.value.nhwPolicy,{version:1,revision:0,disabledIds:[]});
+ assert.deepEqual(initial.value.nhwPolicy,{version:1,revision:0,disabledIds:[87,159,166,180,181]});
  assert.equal((await request('/nhw-policy','POST',change)).value.error,'ADMIN_ACTION_REQUIRED');
  const changedBodyHeaders=await approveNhw(change);
  assert.equal((await policyRequest({...change,disabledIds:[7]},changedBodyHeaders)).value.error,'ADMIN_ACTION_CHANGED');
  assert.deepEqual((await policyRequest()).value.nhwPolicy,initial.value.nhwPolicy);
  const successHeaders=await approveNhw(change);
  const updated=await policyRequest(change,successHeaders);
- assert.equal(updated.status,200);assert.deepEqual(updated.value.nhwPolicy,{version:1,revision:1,disabledIds:[0,7]});
+ assert.equal(updated.status,200);assert.deepEqual(updated.value.nhwPolicy,{version:1,revision:1,disabledIds:[0,7,87,159,166,180,181]});
  assert.equal((await policyRequest(change,successHeaders)).value.error,'ADMIN_ACTION_INVALID');
  const stale={expectedRevision:0,disabledIds:[]};
  const staleResult=await policyRequest(stale,await approveNhw(stale));

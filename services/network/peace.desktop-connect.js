@@ -2,6 +2,7 @@
 const tls=require('node:tls'),crypto=require('node:crypto'),{TextDecoder}=require('node:util');
 const desktop=require("../licensing/peace.desktop-licenses"),identity=require('./peace.connect-transport-key');
 const PROTOCOL='GAME-CONNECT-4',MAX_FRAME=65536,MAX_CLEAR=32768,MAX_RESPONSE_CLEAR=512*1024,MAX_RESPONSE_FRAME=768*1024,DEADLINE_MS=10000;
+const MAX_BATCH_RESPONSE_CLEAR=768*1024,MAX_BATCH_RESPONSE_FRAME=1024*1024;
 const REPLAY_MS=10*60*1000,MAX_REPLAYS=12000,seen=new Map(),pendingReplays=new Set();
 const work=require("../runtime/peace.desktop-work-queue"),{performance}=require('node:perf_hooks');
 const admission=new(require('./peace.desktop-connection-admission').Admission)();
@@ -33,10 +34,10 @@ async function Open(frame,budgetMs,peerKey=''){
  }finally{pendingReplays.delete(transportId);value?.key?.fill(0);}
 
 }
-function Seal(opened,result){
+function Seal(opened,result,maxClearBytes){
  let nonce;do{nonce=crypto.randomBytes(12);}while(nonce.equals(opened.nonce));
  const cipher=crypto.createCipheriv('aes-256-gcm',opened.key,nonce,{authTagLength:16});cipher.setAAD(Aad('RESPONSE',opened.requestId,opened.keyId));
- const clear=Buffer.from(JSON.stringify(result),'utf8');try{if(clear.length>MAX_RESPONSE_CLEAR)throw Error('CONNECT_RESPONSE_TOO_LARGE');const ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);return {v:1,requestId:opened.requestId,nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};}finally{clear.fill(0);opened.key.fill(0);}
+ const clear=Buffer.from(JSON.stringify(result),'utf8');try{if(clear.length>maxClearBytes)throw Error('CONNECT_RESPONSE_TOO_LARGE');const ciphertext=Buffer.concat([cipher.update(clear),cipher.final()]);return {v:1,requestId:opened.requestId,nonce:nonce.toString('base64'),ciphertext:ciphertext.toString('base64'),tag:cipher.getAuthTag().toString('base64')};}finally{clear.fill(0);opened.key.fill(0);}
 }
 async function Dispatch(opened,absoluteDeadline){
  const payload=opened.payload;let devicePrepared,keylessPrepared;
@@ -73,7 +74,14 @@ function Accept(socket){
   // Monotonic server processing time: a complete frame through response enqueue
   // (or failure). It is neither network round-trip nor client lease latency.
   const requestStarted=performance.now();
-  let opened,renewalRecorded=false;try{const raw=buffer.subarray(0,end);opened=await Open(require("../protocol/peace.strict-json").Parse(raw,{maxBytes:MAX_FRAME}),absoluteDeadline-performance.now(),String(socket.remoteAddress||'UNKNOWN'));if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const result=await Dispatch(opened,absoluteDeadline);if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');if(opened.payload.tlsPinVersion===1){const plan=require('./peace.desktop-tls-pin-transition').Offer();if(plan)result.tlsPinPlan=plan;}const response=Seal(opened,result),wire=JSON.stringify(response)+'\n';if(Buffer.byteLength(wire)>MAX_RESPONSE_FRAME)throw Error('CONNECT_RESPONSE_TOO_LARGE');if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');socket.end(wire);work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,result.ok,performance.now()-requestStarted);renewalRecorded=true;}
+  let opened,renewalRecorded=false;try{const raw=buffer.subarray(0,end);opened=await Open(require("../protocol/peace.strict-json").Parse(raw,{maxBytes:MAX_FRAME}),absoluteDeadline-performance.now(),String(socket.remoteAddress||'UNKNOWN'));if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');const result=await Dispatch(opened,absoluteDeadline);if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');if(opened.payload.tlsPinVersion===1){const plan=require('./peace.desktop-tls-pin-transition').Offer();if(plan)result.tlsPinPlan=plan;}const {operation,body}=opened.payload;
+   // The larger response limits apply only after an authorized two-chunk download.
+   const batched=result.ok&&operation==='bootstrap'&&(body.action==='chunk'||body.action==='overlayChunk')&&body.count===2;
+   const response=Seal(opened,result,batched?MAX_BATCH_RESPONSE_CLEAR:MAX_RESPONSE_CLEAR);
+   const wire=JSON.stringify(response)+'\n';
+   if(Buffer.byteLength(wire)>(batched?MAX_BATCH_RESPONSE_FRAME:MAX_RESPONSE_FRAME))throw Error('CONNECT_RESPONSE_TOO_LARGE');
+   if(socket.destroyed||performance.now()>=absoluteDeadline)throw Error('CONNECT_DEADLINE');
+   socket.end(wire);work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,result.ok,performance.now()-requestStarted);renewalRecorded=true;}
   catch(_){if(opened&&!renewalRecorded)work.RecordRenewal(opened.payload?.operation,opened.payload?.body?.action,false,performance.now()-requestStarted);opened?.key.fill(0);socket.destroy();}
  });
 }
@@ -107,4 +115,4 @@ function Start(){
 }
 async function Stop(){const server=listener;listener=null;for(const socket of rawSockets)socket.destroy();rawSockets.clear();rawDeadlines.clear();pendingReplays.clear();seen.clear();if(server?.listening)await new Promise(resolve=>server.close(resolve));}
 function IsListening(){if(!listener||!listener.listening)return false;try{require('./peace.connect-tls').Load();return true;}catch(_){return false;}}
-module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,MAX_RESPONSE_CLEAR,MAX_RESPONSE_FRAME,DEADLINE_MS,Aad,CreateServer,Start,IsListening,Stop};
+module.exports={PROTOCOL,MAX_FRAME,MAX_CLEAR,MAX_RESPONSE_CLEAR,MAX_RESPONSE_FRAME,MAX_BATCH_RESPONSE_CLEAR,MAX_BATCH_RESPONSE_FRAME,DEADLINE_MS,Aad,CreateServer,Start,IsListening,Stop};

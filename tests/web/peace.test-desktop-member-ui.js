@@ -8,7 +8,8 @@ const w=dom.window;w.eval=code=>vm.runInContext(code,dom.getInternalVMContext())
 const clone=value=>JSON.parse(JSON.stringify(value));
 const memberId='A'.repeat(24),otherId='B'.repeat(24),targetId='C'.repeat(24);
 let revision=3,failWrite=false,dialog=null,mutationCount=0,licenseOwner=memberId;
-let nhwRevision=0,nhwDisabledIds=[],canManageNhwPolicy=true;
+const observationIds=[1,2,4,5,7];
+let nhwRevision=0,nhwDisabledIds=[...observationIds],canManageNhwPolicy=true;
 const members=[{id:memberId,displayName:'<img src=x onerror=bad()>',note:'고객 메모 <script>bad()</script>',status:'ACTIVE',createdAt:now,updatedAt:now,counts:{licenses:25,launchers:1,flows:1,devices:1,integrity:1,incidents:1}},{id:otherId,displayName:'두 번째 회원',note:'',status:'ACTIVE',createdAt:now,updatedAt:now,counts:{licenses:0,launchers:0,flows:0,devices:0,integrity:0,incidents:0}}];
 const nhwCatalog=Array.from({length:204},(_,id)=>({id,label:'Fixture '+id,legacyLabel:null}));
 nhwCatalog[0]={id:0,label:'Process Detect',legacyLabel:'Process Detect',symbol:'dkProcess'};
@@ -16,6 +17,8 @@ nhwCatalog[1]={id:1,label:'Waring Detect',legacyLabel:'Waring Detect',symbol:'dk
 nhwCatalog[2]={id:2,label:'Waring Detect',legacyLabel:'Waring Detect',symbol:'dkObservationUncertain'};
 nhwCatalog[3]={id:3,label:'Silent Kind',legacyLabel:null,symbol:'dkSilentKind'};
 nhwCatalog[203]={id:203,label:'Session Trust Detect',legacyLabel:'Session Trust Detect',symbol:'dkSessionTrust'};
+nhwCatalog[6].mode='corroborated';
+for(const id of observationIds)nhwCatalog[id].mode='observation';
 const receipts=new Map();
 const nhwPolicyResponse=()=>({ok:true,canManageNhwPolicy,nhwPolicy:{version:1,revision:nhwRevision,disabledIds:nhwDisabledIds}});
 function category(items,totalCount=items.length,page=1){return {items,totalCount,page,pageSize:20};}
@@ -134,29 +137,52 @@ async function idle(){await until(()=>w.eval('!desktopLicenseActionPending'),'ac
  const nhwOptions=()=>[...w.document.querySelectorAll('input[data-nhw-detection-id]')];
  const savePolicy='[data-member-action="nhw-policy-save"]',resetPolicy='[data-member-action="nhw-policy-reset"]';
  const policyWrites=()=>requests.filter(request=>request.method==='POST'&&request.url==='/api/desktop/members/nhw-policy');
- await until(()=>nhwOptions().length===204&&nhwOptions().every(input=>input.checked&&!input.disabled),'default termination policy');
- assert.equal(nhwOptions().length,204);assert.ok(nhwOptions().every(input=>input.checked));
+ const isObservationOnly=input=>observationIds.includes(Number(input.dataset.nhwDetectionId));
+ await until(()=>nhwOptions().length===204&&nhwOptions().every(input=>input.checked!==isObservationOnly(input)&&input.disabled===isObservationOnly(input)),'default termination policy');
+ assert.equal(nhwOptions().length,204);
+ assert.match(query('[data-desktop-key="nhw-option-1"] .desktop-member-nhw-text').textContent,/관측 전용/);
+ assert.match(query('[data-desktop-key="nhw-option-6"] .desktop-member-nhw-text').textContent,/교차 확인 후 종료/);
+ for(const input of nhwOptions()){
+  assert.equal(input.tabIndex,0);
+  assert.ok(input.parentElement.matches('.desktop-member-nhw-check'));
+  assert.ok(input.labels[0].querySelector('.desktop-member-nhw-text').textContent.trim());
+ }
  assert.ok(query(savePolicy).disabled);
  const history=[['Process Detect / A','종료 확정','nhw-ended'],['Waring Detect / A','종료 확정','nhw-ended'],['Waring Detect / A','관측','nhw-observed'],['Silent Kind Detect / A','관측','nhw-observed'],['Session Trust Detect / A','종료 확정','nhw-ended'],['Process Detect / B','종료 확정','nhw-ended'],['Waring Detect / O','관측','nhw-observed']];
  assert.deepEqual(nhwMessages(),history);
  const toggleNhW=id=>click('input[data-nhw-detection-id="'+id+'"]');
- toggleNhW(2);toggleNhW(1);await until(()=>!query(savePolicy).disabled,'unsaved policy selection');
+ const controlsStyle=w.document.createElement('style');
+ controlsStyle.textContent=['admin-controls.css','admin-members.css'].map(file=>fs.readFileSync(path.join(root,'public/styles',file),'utf8')).join('\n');
+ w.document.head.append(controlsStyle);
+ const corroboratedNhw=query('input[data-nhw-detection-id="6"]');
+ const style=w.getComputedStyle(corroboratedNhw);
+ assert.equal(w.getComputedStyle(corroboratedNhw.labels[0]).display,'grid');
+ assert.equal(style.width,'17px');assert.equal(style.height,'17px');assert.notEqual(style.position,'absolute');
+ click('.desktop-member-nhw-option[data-desktop-key="nhw-option-1"] .desktop-member-nhw-text');
+ assert.equal(query('input[data-nhw-detection-id="1"]').checked,false);
+ assert.ok(query(savePolicy).disabled);
+ corroboratedNhw.focus();
+ click('.desktop-member-nhw-option[data-desktop-key="nhw-option-6"] .desktop-member-nhw-text');
+ await until(()=>!corroboratedNhw.checked,'checkbox label click');
+ assert.equal(query('input[data-nhw-detection-id="6"]'),corroboratedNhw);
+ assert.equal(w.document.activeElement,corroboratedNhw);
+ toggleNhW(0);await until(()=>!query(savePolicy).disabled,'unsaved policy selection');
  assert.deepEqual(nhwMessages(),history);assert.deepEqual(policyWrites(),[]);
- click(savePolicy);await idle();assert.deepEqual(policyWrites().at(-1).body,{expectedRevision:0,disabledIds:[1,2]});
+ click(savePolicy);await idle();assert.deepEqual(policyWrites().at(-1).body,{expectedRevision:0,disabledIds:[0,1,2,4,5,6,7]});
  assert.deepEqual(nhwMessages(),history);assert.equal(query(savePolicy).disabled,true);
- assert.ok(nhwOptions().every(input=>input.checked===![1,2].includes(Number(input.dataset.nhwDetectionId))));
+ assert.ok(nhwOptions().every(input=>input.checked===![0,1,2,4,5,6,7].includes(Number(input.dataset.nhwDetectionId))));
  const nhwQuery=query('#desktop-member-nhw-filter');nhwQuery.value='ObservationUncertain';nhwQuery.dispatchEvent(new w.Event('input',{bubbles:true}));
  assert.equal(w.document.querySelectorAll('.desktop-member-nhw-option:not([hidden])').length,1);
  assert.equal(query('.desktop-member-nhw-option:not([hidden]) input').dataset.nhwDetectionId,'2');
  click('[data-member-action="nhw-policy-none"]');await idle();assert.deepEqual(nhwMessages(),history);assert.ok(nhwOptions().every(input=>!input.checked));
- click('[data-member-action="nhw-policy-all"]');await idle();assert.deepEqual(nhwMessages(),history);assert.ok(nhwOptions().every(input=>input.checked));
- nhwRevision++;nhwDisabledIds=[3];click(savePolicy);await idle();
+ click('[data-member-action="nhw-policy-all"]');await idle();assert.deepEqual(nhwMessages(),history);assert.ok(nhwOptions().every(input=>input.checked!==isObservationOnly(input)));
+ nhwRevision++;nhwDisabledIds=[1,2,3,4,5,7];click(savePolicy);await idle();
  await until(()=>w.content.textContent.includes('다른 관리자가 종료 정책을 변경했습니다.')&&!query('input[data-nhw-detection-id="3"]').checked,'server policy conflict refresh');
- assert.deepEqual(policyWrites().at(-1).body,{expectedRevision:1,disabledIds:[]});assert.deepEqual(nhwMessages(),history);
+ assert.deepEqual(policyWrites().at(-1).body,{expectedRevision:1,disabledIds:observationIds});assert.deepEqual(nhwMessages(),history);
  canManageNhwPolicy=false;click(resetPolicy);await idle();
  await until(()=>nhwOptions().every(input=>input.disabled)&&w.content.textContent.includes('종료 정책 조회 권한만 있습니다.'),'read-only policy');
  assert.equal(nhwOptions().length,204);assert.equal(query(savePolicy).disabled,true);
- canManageNhwPolicy=true;click(resetPolicy);await idle();await until(()=>nhwOptions().every(input=>!input.disabled),'admin policy restored');
+ canManageNhwPolicy=true;click(resetPolicy);await idle();await until(()=>nhwOptions().every(input=>input.disabled===isObservationOnly(input)),'admin policy restored');
  const unassignedKey='member:unassigned:all:1',currentNhw=w.eval('desktopPanels.get('+JSON.stringify(unassignedKey)+').data.categories.nhw');
  currentNhw.items.push({...currentNhw.items[0],id:'foreign-nhw',memberId:memberId});
  await w.renderCurrent();assert.deepEqual(nhwMessages(),[]);
@@ -182,5 +208,5 @@ async function idle(){await until(()=>w.eval('!desktopLicenseActionPending'),'ac
   if(change==='member'){assert.equal(query('#desktop-member-workspace').dataset.memberWorkspaceId,otherId);click('[data-member-action="back"]');await idle();}
   else{assert.equal(w.eval('desktopMemberListScroll'),0);assert.equal(query('#desktop-member-workspace'),null);}
  }
- marker.remove();assert.equal(errors.length,0,errors.join('\n'));console.log('MEMBER UI PASS: scoped records, NHW policy draft/save and conflicts, exact labels with stage and historical outcome, delayed-response isolation, category paging, keyboard focus and scroll preservation, safe diagnostics, explicit assignment, CRUD/archive, exact retry and stale revision.');
+ marker.remove();assert.equal(errors.length,0,errors.join('\n'));console.log('MEMBER UI PASS: scoped records, NHW checkbox layout/accessibility, policy modes, draft/save and conflicts, exact labels with stage and historical outcome, delayed-response isolation, category paging, keyboard focus and scroll preservation, safe diagnostics, explicit assignment, CRUD/archive, exact retry and stale revision.');
  }finally{w.close();}})().catch(error=>{console.error(error.stack);process.exitCode=1;});

@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "10354d2e43b1175175b5fdee80efb4cda5424955c9970f6d34c2e99579591c5b4b5d730369072fa417d6bfe912030ac9d624127d17370025c4f9948b4c504676",
+  "schemaSha512": "b86e3f1a2310ae55820af631225cec9d24f64d7e4dee2af48c9dc4861176773085e7a0dcb177428cb9c2fe467101ba1f840fa337cde2f5968fe74a714b371578",
   "cases": [
     {
       "name": "overlayRelease",
@@ -48,6 +48,14 @@
     },
     {
       "name": "overlayChunk",
+      "value": {
+        "offset": 0,
+        "size": 1,
+        "data": "rrrr"
+      }
+    },
+    {
+      "name": "overlayChunkBatch",
       "value": {
         "offset": 0,
         "size": 1,

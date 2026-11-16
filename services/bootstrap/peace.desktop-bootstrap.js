@@ -236,18 +236,21 @@ function Begin(body,keylessAuthorization){
 }
 function BeginResult(row){return {flowId:row.id,downloadTicket:DownloadTicket(row),release:Release(DB().artifacts[row.releaseId]),chunkSize:CHUNK_SIZE,expiresAt:row.expiresAt,finishCanonical:FinishCanonical(row)};}
 function Chunk(body){
- Fields(body,['flowId','downloadTicket','offset']);const row=DownloadFlow(body),artifact=DB().artifacts[row.releaseId];
+ Fields(body,['flowId','downloadTicket','offset','count']);const row=DownloadFlow(body),artifact=DB().artifacts[row.releaseId];
  if(!Number.isSafeInteger(body.offset)||body.offset<0||body.offset>=artifact.size||body.offset%CHUNK_SIZE!==0)Fail('BOOTSTRAP_INPUT_INVALID');
- const size=Math.min(CHUNK_SIZE,artifact.size-body.offset),bytes=Buffer.alloc(size);let fd;
+ const remaining=artifact.size-body.offset;
+ if(body.count!==undefined&&(body.count!==2||remaining<=CHUNK_SIZE))Fail('BOOTSTRAP_INPUT_INVALID');
+ const size=Math.min(CHUNK_SIZE*(body.count??1),remaining),bytes=Buffer.alloc(size),offsets=[body.offset];let fd;
+ if(size>CHUNK_SIZE)offsets.push(body.offset+CHUNK_SIZE);
  try{
   try{const file=store.ArtifactPath(artifact.id);fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const stat=fs.fstatSync(fd);if(!stat.isFile()||stat.size!==artifact.size)throw Error();let read=0;while(read<size){const count=fs.readSync(fd,bytes,read,size-read,body.offset+read);if(!count)throw Error();read+=count;}}
   catch(_){Fail('BOOTSTRAP_ARTIFACT_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
   // Reading or durable receipt writes may cross a server deadline. Re-evaluate
   // the actual capability, artifacts and runtime policy, not a client flag.
   const current=DownloadFlow(body);if(current.releaseId!==artifact.id)Fail('BOOTSTRAP_ARTIFACT_INVALID',503);
-  if(!current.chunkOffsets.includes(body.offset))Atomic('BOOTSTRAP_CHUNK','SERVER',db=>{
-   DownloadFlow(body);FlowLive(db.flows[row.id]);
-   if(!db.flows[row.id].chunkOffsets.includes(body.offset))db.flows[row.id].chunkOffsets.push(body.offset);
+  if(offsets.some(offset=>!current.chunkOffsets.includes(offset)))Atomic('BOOTSTRAP_CHUNK','SERVER',db=>{
+   DownloadFlow(body);const item=db.flows[row.id];FlowLive(item);
+   for(const offset of offsets)if(!item.chunkOffsets.includes(offset))item.chunkOffsets.push(offset);
   });
   const data=bytes.toString('base64');Available();DownloadFlow(body);
   return {offset:body.offset,data,size};

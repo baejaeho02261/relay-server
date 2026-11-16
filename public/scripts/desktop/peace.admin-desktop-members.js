@@ -98,7 +98,8 @@ function desktopMemberNhwCatalog(raw){
   if(typeof row.label!=='string'||!/^[\x20-\x7e]{1,96}$/.test(row.label))continue;
   const legacyLabel=typeof row.legacyLabel==='string'&&/^[\x20-\x7e]{1,89} Detect$/.test(row.legacyLabel)?row.legacyLabel:'';
   const symbol=typeof row.symbol==='string'&&/^dk[A-Za-z][A-Za-z0-9]{0,62}$/.test(row.symbol)?row.symbol:'';
-  entries.set(row.id,{id:row.id,label:row.label,legacyLabel,symbol});
+  const mode=['observation','corroborated'].includes(row.mode)?row.mode:'reported';
+  entries.set(row.id,{id:row.id,label:row.label,legacyLabel,symbol,mode});
  }
  return entries;
 }
@@ -118,13 +119,16 @@ function desktopMemberNhwOptions(catalog){
  const editable=!!policy?.manageable&&!entry?.error&&!desktopMemberNhwSaving&&!outdated;
  const counts=new Map(),filter=desktopMemberNhwQuery.trim().toLowerCase();
  for(const {label} of catalog.values())counts.set(label,(counts.get(label)||0)+1);
- const options=[...catalog.values()].map(({id,label,symbol})=>{
+ const options=[...catalog.values()].map(({id,label,symbol,mode})=>{
   const qualifier=counts.get(label)>1?(symbol||String(id)):'';
-  const search=(label+' '+symbol+' '+id).toLowerCase();
-  return `<label class="desktop-member-nhw-option" data-desktop-key="nhw-option-${id}" data-nhw-search="${esc(search)}" ${search.includes(filter)?'':'hidden'}><input type="checkbox" data-nhw-detection-id="${id}" ${disabledIds&&!disabledIds.has(id)?'checked':''} ${editable?'':'disabled'}><span>${esc(label)}${qualifier?` <small>${esc(qualifier)}</small>`:''}</span></label>`;
+  const observationOnly=mode==='observation';
+  const policyLabel=observationOnly?'관측 전용':mode==='corroborated'?'교차 확인 후 종료':'';
+  const detail=[qualifier,policyLabel].filter(Boolean).join(' · ');
+  const search=(label+' '+symbol+' '+id+' '+policyLabel).toLowerCase();
+  return `<label class="desktop-member-nhw-option" data-desktop-key="nhw-option-${id}" data-nhw-search="${esc(search)}" ${search.includes(filter)?'':'hidden'}><span class="desktop-member-nhw-check"><input type="checkbox" data-nhw-detection-id="${id}" ${disabledIds&&!observationOnly&&!disabledIds.has(id)?'checked':''} ${editable&&!observationOnly?'':'disabled'}></span><span class="desktop-member-nhw-text">${esc(label)}${detail?` <small>${esc(detail)}</small>`:''}</span></label>`;
  });
  const status=desktopMemberNhwSaving?'종료 정책 저장 중':outdated?'서버 정책이 바뀌었습니다. 서버 설정을 다시 불러온 후 선택하세요.':entry?.error?'종료 정책을 불러오지 못했습니다.':!policy?'서버에서 종료 정책을 불러오는 중입니다.':!policy.manageable?'종료 정책 조회 권한만 있습니다.':desktopMemberNhwFeedback||(dirty?'저장할 변경 사항이 있습니다.':'');
- return `<details class="desktop-member-nhw-filters" data-desktop-key="nhw-filters"><summary>NHW 세션 종료 정책</summary><p class="small-note">전체 A/B/O에 적용됩니다. 체크하면 감지 시 세션이 종료됩니다. 해제한 유형은 관측 기록을 남깁니다.</p><div class="desktop-member-nhw-controls"><label for="desktop-member-nhw-filter" class="sr-only">감지 이름 검색</label><input type="search" id="desktop-member-nhw-filter" placeholder="감지 이름 검색" maxlength="96" autocomplete="off" value="${esc(desktopMemberNhwQuery)}"><button type="button" data-member-action="nhw-policy-all" ${editable?'':'disabled'}>모두 종료</button><button type="button" data-member-action="nhw-policy-none" ${editable?'':'disabled'}>모두 관측</button></div><div class="desktop-member-nhw-options">${options.join('')}</div><div class="desktop-member-nhw-controls"><button type="button" class="primary" data-member-action="nhw-policy-save" ${editable&&dirty?'':'disabled'}>종료 정책 저장</button><button type="button" data-member-action="nhw-policy-reset" ${desktopMemberNhwSaving?'disabled':''}>서버 설정 다시 읽기</button></div><p class="small-note" role="status">${esc(status)}</p></details>`;
+ return `<details class="desktop-member-nhw-filters" data-desktop-key="nhw-filters"><summary>NHW 세션 종료 정책</summary><p class="small-note">전체 A/B/O에 적용됩니다. 일반 유형은 체크하면 감지 시 종료됩니다. 교차 확인 유형은 체크하고 추가 근거가 확인되면 종료됩니다. 관측 전용과 체크 해제 유형은 기록만 남깁니다.</p><div class="desktop-member-nhw-controls"><label for="desktop-member-nhw-filter" class="sr-only">감지 이름 검색</label><input type="search" id="desktop-member-nhw-filter" placeholder="감지 이름 검색" maxlength="96" autocomplete="off" value="${esc(desktopMemberNhwQuery)}"><button type="button" data-member-action="nhw-policy-all" ${editable?'':'disabled'}>종료 항목 모두 선택</button><button type="button" data-member-action="nhw-policy-none" ${editable?'':'disabled'}>모두 해제</button></div><div class="desktop-member-nhw-options">${options.join('')}</div><div class="desktop-member-nhw-controls"><button type="button" class="primary" data-member-action="nhw-policy-save" ${editable&&dirty?'':'disabled'}>종료 정책 저장</button><button type="button" data-member-action="nhw-policy-reset" ${desktopMemberNhwSaving?'disabled':''}>서버 설정 다시 읽기</button></div><p class="small-note" role="status">${esc(status)}</p></details>`;
 }
 function desktopMemberNhwMarkup(rawCatalog,items){
  const catalog=desktopMemberNhwCatalog(rawCatalog);
@@ -152,7 +156,11 @@ function desktopMemberEditNhwPolicy(catalog,ids,enabled){
  if(!policy?.manageable||desktopPanels.get(desktopMemberNhwPolicyKey)?.error||desktopMemberNhwSaving)return;
  const draft=desktopMemberNhwDraft||{revision:policy.revision,disabledIds:new Set(policy.disabledIds)};
  if(draft.revision!==policy.revision)return;
- for(const id of ids){if(enabled)draft.disabledIds.delete(id);else draft.disabledIds.add(id);}
+ for(const id of ids){
+  const detection=catalog.get(id);
+  if(!detection||detection.mode==='observation')continue;
+  if(enabled)draft.disabledIds.delete(id);else draft.disabledIds.add(id);
+ }
  desktopMemberNhwDraft=desktopMemberNhwSameIds(draft.disabledIds,policy.disabledIds)?null:draft;
  desktopMemberNhwFeedback='';
 }

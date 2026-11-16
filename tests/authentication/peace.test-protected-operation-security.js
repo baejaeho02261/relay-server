@@ -6,8 +6,8 @@ const {Isolated}=require("../fixtures/protocol/peace.completion-6-10-fixture"),p
 const {DeviceRate}=require("../../services/runtime/peace.desktop-request-rate");
 const digest=x=>crypto.createHash('sha256').update(x).digest('hex');
 const fail=code=>{const e=Error(code);e.desktopError=true;e.status=403;throw e;};
-function BootFixture(){
- const at=Date.now(),id=crypto.randomBytes(12).toString('hex'),bytes=Buffer.from('SYNTHETIC_ARTIFACT_DATA_ONLY');
+function BootFixture(bytes=Buffer.from('SYNTHETIC_ARTIFACT_DATA_ONLY')){
+ const at=Date.now(),id=crypto.randomBytes(12).toString('hex');
  const make=role=>({id:role,component:role,sha512:'a'.repeat(128),crc64:'A'.repeat(16),codeSha512:'b'.repeat(128),codeCrc64:'B'.repeat(16),size:bytes.length});
  const row={id,sessionId:'SESSION',launcherId:'L',releaseId:'B',overlayReleaseId:'O',status:'STARTED',createdAt:at-1000,expiresAt:at+60000,sessionExpiresAt:at+60000,claimedAt:at-1000,deviceId:'DEVICE',machineId:'MACHINE',downloadHash:digest('DOWNLOAD_SECRET'),sessionHash:digest('SESSION_SECRET'),chunkOffsets:[]};
  const db={launchers:{L:{id:'L',artifactId:'A',status:'AVAILABLE',issuedAt:at-1000,expiresAt:at+60000}},artifacts:{A:make('A'),B:make('B'),O:make('O')},flows:{[id]:row}},state={serviceEnabled:true,maintenanceMode:false};
@@ -27,6 +27,26 @@ function BootFixture(){
 }
 for(const part of ['A','B','O'])test('bootstrap runtime pair rechecks revoked '+part,()=>{const f=BootFixture();f.revoked.add(part);assert.throws(()=>f.api.__probe.RequireFlowPair(f.row),/RELEASE_REVOKED/);});
 test('bootstrap chunk valid capability and exact retry return same bytes without another receipt',()=>{const f=BootFixture(),a=f.api.Execute(f.body),b=f.api.Execute(f.body);assert.equal(a.data,f.bytes.toString('base64'));assert.deepEqual(a,b);assert.equal(f.calls.writes,1);assert(f.calls.artifacts.length>=12);});
+test('A download batches a partial final chunk with durable per-offset receipts and exact retries',()=>{
+ const part=262144,bytes=Buffer.concat([Buffer.alloc(part,1),Buffer.from('TAIL')]);
+ const f=BootFixture(bytes),body={...f.body,count:2},first=f.api.Execute(body);
+ assert.equal(first.offset,0);
+ assert.equal(first.size,bytes.length);
+ assert.deepEqual(Buffer.from(first.data,'base64'),bytes);
+ assert.deepEqual(f.row.chunkOffsets,[0,part]);
+ assert.deepEqual(f.api.Execute(body),first);
+ assert.equal(f.api.Execute({...f.body,offset:part}).size,4);
+ assert.equal(f.calls.writes,1);
+ for(const invalid of [{count:1},{count:3},{count:'2'},{count:2,offset:part}])
+  assert.throws(()=>f.api.Execute({...f.body,...invalid}),/INPUT_INVALID/);
+});
+test('A batch crossing expiry acknowledges neither offset',()=>{
+ const f=BootFixture(Buffer.alloc(2*262144));
+ f.onRead(()=>{f.row.expiresAt=Date.now()-1;});
+ assert.throws(()=>f.api.Execute({...f.body,count:2}),/EXPIRED/);
+ assert.deepEqual(f.row.chunkOffsets,[]);
+ assert.equal(f.calls.writes,0);
+});
 test('wrong download ticket fails before artifact read',()=>{const f=BootFixture();assert.throws(()=>f.api.Execute({...f.body,downloadTicket:'OTHER'}),/FLOW_INVALID/);assert.equal(f.calls.read,0);});
 test('chunk read crossing expiry does not create receipt or return bytes',()=>{const f=BootFixture();f.onRead(()=>f.row.expiresAt=Date.now()-1);assert.throws(()=>f.api.__probe.Chunk(f.body),/EXPIRED/);assert.equal(f.calls.writes,0);});
 test('chunk artifact revoked during read is rejected before acknowledgement',()=>{const f=BootFixture();f.onRead(()=>f.revoked.add('B'));assert.throws(()=>f.api.__probe.Chunk(f.body),/RELEASE_REVOKED/);assert.equal(f.calls.writes,0);});

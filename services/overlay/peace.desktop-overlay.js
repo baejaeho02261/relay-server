@@ -59,16 +59,22 @@ function Prepare(parent,license,requestId,fingerprint){
 }
 function PrepareResult(row){return require('../protocol/peace.packet-schema').ValidateDocument('overlayPrepare',{overlayId:row.id,parentSessionId:row.parentSessionId,overlayTicket:Ticket(row),release:Boot().Release(store.Load().artifacts[row.releaseId]),chunkSize:CHUNK_SIZE,expiresAt:row.expiresAt,finishCanonical:Canonical(row,'FINISH'),claimCanonical:Canonical(row,'CLAIM')});}
 function TicketRow(body){const row=Rows()[body.overlayId];if(!row||!Boot().EqualHash(body.overlayTicket,row.ticketHash))Fail('BOOTSTRAP_FLOW_INVALID',401);Live(row);return row;}
-function Chunk(body){Fields(body,['overlayId','overlayTicket','offset']);const row=TicketRow(body);if(row.status!=='PREPARED')Fail('BOOTSTRAP_LAUNCHER_USED',409);const parent=store.Load().flows[row.parentFlowId];if(parent.status!=='CLAIMED'||parent.sessionExpiresAt<=now())Fail('BOOTSTRAP_SESSION_CLOSED');const artifact=RequireArtifact(row);
+function Chunk(body){Fields(body,['overlayId','overlayTicket','offset','count']);const row=TicketRow(body);if(row.status!=='PREPARED')Fail('BOOTSTRAP_LAUNCHER_USED',409);const parent=store.Load().flows[row.parentFlowId];if(parent.status!=='CLAIMED'||parent.sessionExpiresAt<=now())Fail('BOOTSTRAP_SESSION_CLOSED');const artifact=RequireArtifact(row);
  if(!Number.isSafeInteger(body.offset)||body.offset<0||body.offset>=artifact.size||body.offset%CHUNK_SIZE)Fail('BOOTSTRAP_INPUT_INVALID',400);
- const size=Math.min(CHUNK_SIZE,artifact.size-body.offset),bytes=Buffer.alloc(size);let fd;
+ const offsets=[body.offset];
+ if(Object.hasOwn(body,'count')){
+  if(body.count!==2||body.offset+CHUNK_SIZE>=artifact.size)Fail('BOOTSTRAP_INPUT_INVALID',400);
+  offsets.push(body.offset+CHUNK_SIZE);
+ }
+ const size=Math.min(CHUNK_SIZE*offsets.length,artifact.size-body.offset),bytes=Buffer.alloc(size);let fd;
  try{
   try{fd=fs.openSync(store.ArtifactPath(artifact.id),fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));const st=fs.fstatSync(fd);if(!st.isFile()||st.size!==artifact.size)throw Error();let at=0;while(at<size){const n=fs.readSync(fd,bytes,at,size-at,body.offset+at);if(!n)throw Error();at+=n;}}
   catch(_){Fail('BOOTSTRAP_ARTIFACT_INVALID',503);}finally{if(fd!==undefined)fs.closeSync(fd);}
   const current=TicketRow(body);if(current.status!=='PREPARED'||current.releaseId!==artifact.id)Fail('BOOTSTRAP_FLOW_INVALID');
-  if(!current.chunkOffsets.includes(body.offset))Atomic('OVERLAY_CHUNK','SERVER',next=>{
-   TicketRow(body);Live(next.overlays[row.id]);
-   if(!next.overlays[row.id].chunkOffsets.includes(body.offset))next.overlays[row.id].chunkOffsets.push(body.offset);
+  const missing=offsets.filter(offset=>!current.chunkOffsets.includes(offset));
+  if(missing.length)Atomic('OVERLAY_CHUNK','SERVER',next=>{
+   TicketRow(body);const item=next.overlays[row.id];Live(item);
+   for(const offset of missing)if(!item.chunkOffsets.includes(offset))item.chunkOffsets.push(offset);
   });
   const data=bytes.toString('base64');Boot().EnsureSecurityAvailable();TicketRow(body);
   return {offset:body.offset,data,size};
@@ -336,7 +342,7 @@ function ValidateVerifyReceipt(row){
  if(Object.hasOwn(q,'renewalBudget')){const b=q.renewalBudget;if(!plain(b)||Object.keys(b).sort().join(',')!=='observationExpiresAt,snapshotExpiresAt,version'||b.version!==1||!Number.isSafeInteger(b.snapshotExpiresAt)||b.snapshotExpiresAt<0||b.snapshotExpiresAt>q.serverTime+120000||(b.snapshotExpiresAt!==0&&b.snapshotExpiresAt<q.expiresAt)||!Number.isSafeInteger(b.observationExpiresAt)||b.observationExpiresAt<q.expiresAt)throw Error('OVERLAY_STORE_INVALID');}
 }
 function ValidateTransferRows(db){for(const row of Object.values(db.overlays||{})){if(row.productScopeVersion!==undefined&&(row.productScopeVersion!==1||!Number.isSafeInteger(row.claimedAt)||['PREPARED','READY'].includes(row.status)))throw Error('OVERLAY_STORE_INVALID');ValidateVerifyReceipt(row);ValidateShutdownIntent(row);ValidateStartReceipt(row);if(row.authorizedAt!==undefined&&(!Number.isSafeInteger(row.authorizedAt)||row.authorizedAt<row.claimedAt||row.authorizedAt!==row.lastVerifiedAt))throw Error('OVERLAY_STORE_INVALID');if(row.transferVersion===undefined){if(row.transferredAt!==undefined)throw Error('OVERLAY_STORE_INVALID');continue;}const parent=db.flows[row.parentFlowId];if(row.transferVersion!==1||!Number.isSafeInteger(row.transferredAt)||row.transferredAt<row.claimedAt||row.authorizedAt===undefined||parent?.transferredOverlayId!==row.id||parent?.transferredAt!==row.transferredAt||parent?.overlayTransferVersion!==1||parent?.closedByOverlay!==true||!['CLOSED','REVOKED','EXPIRED'].includes(parent.status))throw Error('OVERLAY_STORE_INVALID');}}
-function Execute(body){if(!plain(body))Fail('BOOTSTRAP_INPUT_INVALID',400);const purpose=require("../protocol/peace.desktop-request-protocol").Resolve('bootstrap',body.action);if(!purpose.name.startsWith('overlay.'))Fail('BOOTSTRAP_INPUT_INVALID',400);if(!['overlayClose','overlayAbort','overlayShutdown'].includes(body.action))Boot().EnsureSecurityAvailable();Prune();let response;switch(body.action){case 'overlayChunk':response=Chunk(body);break;case 'overlayFinish':response=Finish(body);break;case 'overlayClaim':response=Claim(body);break;case 'overlayProgress':return Progress(body);case 'overlayVerify':response=Verify(body);break;case 'overlayStart':response=Start(body);break;case 'overlayCommit':response=Commit(body);break;case 'overlayClose':response=Close(body);break;case 'overlayShutdown':response=Shutdown(body);break;case 'overlayAbort':response=Abort(body);break;default:Fail('BOOTSTRAP_INPUT_INVALID',400);}return require('../protocol/peace.packet-schema').ValidateDocument(body.action,response);}
+function Execute(body){if(!plain(body))Fail('BOOTSTRAP_INPUT_INVALID',400);const purpose=require("../protocol/peace.desktop-request-protocol").Resolve('bootstrap',body.action);if(!purpose.name.startsWith('overlay.'))Fail('BOOTSTRAP_INPUT_INVALID',400);if(!['overlayClose','overlayAbort','overlayShutdown'].includes(body.action))Boot().EnsureSecurityAvailable();Prune();let response;switch(body.action){case 'overlayChunk':response=Chunk(body);break;case 'overlayFinish':response=Finish(body);break;case 'overlayClaim':response=Claim(body);break;case 'overlayProgress':return Progress(body);case 'overlayVerify':response=Verify(body);break;case 'overlayStart':response=Start(body);break;case 'overlayCommit':response=Commit(body);break;case 'overlayClose':response=Close(body);break;case 'overlayShutdown':response=Shutdown(body);break;case 'overlayAbort':response=Abort(body);break;default:Fail('BOOTSTRAP_INPUT_INVALID',400);}return require('../protocol/peace.packet-schema').ValidateDocument(body.action==='overlayChunk'&&body.count===2?'overlayChunkBatch':body.action,response);}
 function ProofTasks(body){
  const db=store.Load(),row=db.overlays?.[body.overlayId],work=require("../integrity/peace.desktop-proof-work");
  if(body.action==='overlayFinish'&&row)return [work.Job(delegation.Parent(row).publicKey,Canonical(row,'FINISH'),body.signature)];

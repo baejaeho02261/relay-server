@@ -19,7 +19,7 @@ function Cases(rule,value,at=[]){rule=Resolve(rule);if(rule.anyOf){const selecte
  return rows;
 }
 test('all generated response/evidence fixtures have strict recursive field, type and range rules',()=>{
- assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,15);let rejected=0;
+ assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,16);let rejected=0;
  for(const row of fixtures.cases){assert.equal(contract.ValidateDocument(row.name,row.value),row.value);assert.deepEqual(contract.ParseDocument(row.name,JSON.stringify(row.value)),row.value);
   for(const mutation of Cases(schema.documents[row.name],row.value)){const body=clone(row.value);let candidate;if(mutation.at.length){Set(body,mutation.at,mutation.value);candidate=body;}else candidate=mutation.value;
    assert.throws(()=>contract.ValidateDocument(row.name,candidate),/PROTOCOL_SCHEMA_INVALID/,row.name+':'+mutation.at.join('.')+':'+mutation.reason);rejected++;
@@ -57,6 +57,16 @@ test('document parse limits cover a real maximum chunk but reject non-integer an
  assert(bytes>65536&&bytes<contract.maximumDocumentBytes);assert.deepEqual(contract.ParseDocument('overlayChunk',text),value);
  assert.deepEqual(contract.ParseDocument('overlayChunk',text,{maxBytes:bytes}),value);assert.throws(()=>contract.ParseDocument('overlayChunk',text,{maxBytes:bytes-1}));
  for(const maxBytes of [NaN,Infinity,-Infinity,'x','524288',0,-1,1.5,contract.maximumDocumentBytes+1])assert.throws(()=>contract.ParseDocument('overlayChunk',text,{maxBytes}),/PROTOCOL_SCHEMA_INVALID/);
+});
+test('batched overlay documents allow only the explicit larger size and preserve the legacy bound',()=>{
+ const value={offset:0,size:524288,data:Buffer.alloc(524288).toString('base64')},text=JSON.stringify(value);
+ const bytes=Buffer.byteLength(text);
+ assert(bytes>contract.maximumDocumentBytes);
+ assert.deepEqual(contract.ParseDocument('overlayChunkBatch',text),value);
+ assert.throws(()=>contract.ParseDocument('overlayChunkBatch',text,{maxBytes:bytes-1}));
+ assert.throws(()=>contract.ParseDocument('overlayChunkBatch',text,{maxBytes:786433}),/PROTOCOL_SCHEMA_INVALID/);
+ assert.throws(()=>contract.ParseDocument('overlayChunk',text,{maxBytes:bytes}),/PROTOCOL_SCHEMA_INVALID/);
+ assert.throws(()=>contract.ValidateDocument('overlayChunk',value),/PROTOCOL_SCHEMA_INVALID/);
 });
 test('in-memory response validation rejects malformed Unicode just like the actual Delphi validator',()=>{
  for(const text of ['\ud800','\udfff','x\ud800x','\udc00\ud800']){

@@ -29,13 +29,42 @@
 .desktop-member-nhw-filters { min-width:0; padding:12px 16px; border:1px solid var(--line); border-radius:var(--radius-sm); background:var(--panel-2); }
 .desktop-member-nhw-filters>summary { cursor:pointer; color:var(--text); font-size:13px; }
 .desktop-member-nhw-controls { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin:8px 0; }
-.desktop-member-nhw-controls>input { width:100%; max-width:320px; }
+.desktop-member-nhw-controls>input { flex:1 1 15rem; min-width:0; max-width:320px; }
 .desktop-member-nhw-controls>button { font-size:11px; }
-.desktop-member-nhw-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap:4px 14px; max-height:16rem; overflow:auto; }
-.desktop-member-nhw-option { display:flex; align-items:flex-start; gap:7px; padding:5px 2px; color:var(--text); font-size:12px; overflow-wrap:anywhere; }
+.desktop-member-nhw-options {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));
+  gap:4px 8px;
+  min-width:0;
+  max-height:20rem;
+  padding:2px;
+  overflow:auto;
+  scrollbar-gutter:stable;
+}
+.desktop-member-nhw-option {
+  display:grid;
+  grid-template-columns:17px minmax(0,1fr);
+  align-items:start;
+  gap:9px;
+  min-height:40px;
+  margin:0;
+  padding:8px;
+  border:1px solid transparent;
+  border-radius:var(--radius-sm);
+  color:var(--text);
+  font-size:12px;
+  font-weight:500;
+  line-height:1.5;
+  overflow-wrap:anywhere;
+  cursor:pointer;
+}
 .desktop-member-nhw-option[hidden] { display:none; }
-.desktop-member-nhw-option>input { flex:none; width:auto; margin:2px 0 0; }
-.desktop-member-nhw-option small { color:var(--muted); }
+.desktop-member-nhw-option:has(input:disabled) { color:var(--muted); cursor:not-allowed; }
+.desktop-member-nhw-option:has(input:enabled):hover { border-color:var(--line); background:var(--panel); }
+.desktop-member-nhw-check { display:grid; align-items:center; min-height:18px; }
+.desktop-member-nhw-check>input[type="checkbox"] { width:17px; height:17px; cursor:inherit; }
+.desktop-member-nhw-text { min-width:0; }
+.desktop-member-nhw-text>small { display:block; color:var(--muted); font-size:10px; }
 .desktop-member-nhw-feed { display:grid; gap:6px; margin:0; padding:0; list-style:none; }
 .desktop-member-nhw-feed:empty { display:none; }
 .desktop-member-nhw-feed>li { display:flex; align-items:center; justify-content:space-between; gap:8px 16px; flex-wrap:wrap; padding:9px 12px; border:1px solid var(--line); border-radius:var(--radius-sm); font:inherit; overflow-wrap:anywhere; }

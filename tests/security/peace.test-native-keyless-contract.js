@@ -92,7 +92,9 @@ test('Native actual approval path rechecks post-response cancellation and uses b
   assert.match(keyless,/if Hint > MaximumPollMilliseconds then Hint := MaximumPollMilliseconds/);
   assert.match(keyless,/Cancelled\(\) then CancellationSeen := True/);
   const exchange=keyless.split('  function Exchange(Request: TJSONObject): TJSONObject;')[1].split('  function Proof(')[0];
-  assert.match(exchange,/Transport.PostJSON\('bootstrap', Request, Remaining\);\s+Remaining;/);
+  assert.match(exchange,/for Attempt := 1 to 2 do[\s\S]*Transport.PostJSON\('bootstrap', Request, Remaining\);/);
+  assert.match(exchange,/on E: EConnectTransport do[\s\S]*'CONNECT_TIMEOUT'[\s\S]*'CONNECT_RECEIVE_FAILED'[\s\S]*raise;/);
+  assert.match(exchange,/end;\s+Remaining;[^\n]*\n\s+if not TrueField\(Envelope,/);
   assert.match(keyless,/Status := ValidateKeylessDecision\(Reply, ChallengeID, ExpiresAt,/);
   assert.match(keyless,/if Left > 100 then Left := 100;\s+if Left > Budget then Left := Budget;/);
   const probe=read('Cozy.Tests/Cozy.Identity/Cozy.KeylessApprovalProbe.dpr');

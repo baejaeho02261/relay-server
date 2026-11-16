@@ -12,9 +12,25 @@ const { detections } = require('../../contracts/native-monitor/peace.nhw-detecti
 
 const catalog = Object.freeze(detections.map(row => Object.freeze({...row})));
 const legacyTerminalIds = new Set(catalog.filter(row => row.terminal === true).map(row => row.id));
+const corroboratedKinds = new Set([
+ 'dkThread', 'dkThreadCreation', 'dkThreadExit', 'dkLifecycle', 'dkTokenObject', 'dkTokenRights',
+ 'dkAffinity', 'dkThreadSpawn', 'dkAllocation', 'dkCommit', 'dkMemoryRelease', 'dkAllocationBurst',
+ 'dkImageProtection', 'dkGuardTransition', 'dkMultiSignal', 'dkProcessSnapshot',
+]);
+const observationKinds = new Set([
+ 'dkReadGap', 'dkETWLoss', 'dkCoverageGap', 'dkObservationUncertain', 'dkSensorPressure',
+]);
+const corroboratedIds = new Set(catalog.filter(row => corroboratedKinds.has(row.symbol)).map(row => row.id));
+const observationIds = new Set(catalog.filter(row => observationKinds.has(row.symbol)).map(row => row.id));
+if (corroboratedIds.size !== corroboratedKinds.size || observationIds.size !== observationKinds.size) {
+ throw Error('NHW_CATALOG_POLICY_MISMATCH');
+}
+const nativeHintIds = new Set([...legacyTerminalIds, ...corroboratedIds]);
 const publicCatalog = Object.freeze(catalog.map(({id, symbol, label, legacyLabel}) =>
- Object.freeze({id, symbol, label, legacyLabel})));
+ Object.freeze({id, symbol, label, legacyLabel,
+  mode: observationIds.has(id) ? 'observation' : corroboratedIds.has(id) ? 'corroborated' : 'reported'})));
 const defaultPolicy = Object.freeze({version: 1, revision: 0, disabledIds: Object.freeze([])});
+const POLICY_MODE_VERSION = 1;
 const MAX_REPORTS = 4096;
 const MAX_REPORTS_PER_STAGE = 32;
 const REPLAY_MS = 30000;
@@ -47,9 +63,9 @@ function SortedIds(ids) {
  return true;
 }
 
-function ValidIds(ids, confirmedIds, legacy) {
+function ValidIds(ids, confirmedIds, eligibleIds) {
  return SortedIds(ids) && ids.length > 0 && SortedIds(confirmedIds) &&
-  confirmedIds.every(id => ids.includes(id) && (!legacy || legacyTerminalIds.has(id)));
+  confirmedIds.every(id => ids.includes(id) && (!eligibleIds || eligibleIds.has(id)));
 }
 
 function Plain(value) {
@@ -57,7 +73,27 @@ function Plain(value) {
 }
 
 function StoredPolicy(db) {
- return db.nhwPolicy ?? defaultPolicy;
+ const current = db.nhwPolicy ?? defaultPolicy;
+ if (db.nhwPolicyModeVersion === POLICY_MODE_VERSION) {
+  return {...current, disabledIds: WithObservationIds(current.disabledIds)};
+ }
+ // The reported false-positive families move from their old checkbox rule
+ // to native corroboration once. Keep every other saved selection intact.
+ const disabledIds = WithObservationIds(current.disabledIds.filter(id => !corroboratedIds.has(id)));
+ const changed = disabledIds.join(',') !== current.disabledIds.join(',');
+ const revision = db.nhwPolicy && changed && current.revision < Number.MAX_SAFE_INTEGER
+  ? current.revision + 1 : current.revision;
+ return {version: 1, revision, disabledIds};
+}
+
+function WithObservationIds(ids) {
+ return [...new Set([...ids, ...observationIds])].sort((a, b) => a - b);
+}
+
+function PersistMode(db, policy) {
+ if (db.nhwPolicyModeVersion === POLICY_MODE_VERSION) return;
+ if (policy.revision > 0) db.nhwPolicy = CopyPolicy(policy);
+ db.nhwPolicyModeVersion = POLICY_MODE_VERSION;
 }
 
 function CopyPolicy(policy) {
@@ -75,12 +111,14 @@ function UpdatePolicy(body, actor) {
  }
  const current = StoredPolicy(store.Load());
  if (current.revision !== body.expectedRevision) Fail('NHW_POLICY_CONFLICT', 409);
- if (current.disabledIds.join(',') === body.disabledIds.join(',')) return CopyPolicy(current);
+ const disabledIds = WithObservationIds(body.disabledIds);
+ if (current.disabledIds.join(',') === disabledIds.join(',')) return CopyPolicy(current);
  if (current.revision === Number.MAX_SAFE_INTEGER) Fail('NHW_POLICY_REVISION_EXHAUSTED', 409);
  const audit = require('../storage/peace.desktop-operation-audit');
- return audit.Run('NHW_POLICY_UPDATE', actor, {revision: current.revision, count: body.disabledIds.length}, db => {
+ return audit.Run('NHW_POLICY_UPDATE', actor, {revision: current.revision, count: disabledIds.length}, db => {
   if (StoredPolicy(db).revision !== body.expectedRevision) Fail('NHW_POLICY_CONFLICT', 409);
-  db.nhwPolicy = {version: 1, revision: current.revision + 1, disabledIds: [...body.disabledIds]};
+  db.nhwPolicyModeVersion = POLICY_MODE_VERSION;
+  db.nhwPolicy = {version: 1, revision: current.revision + 1, disabledIds};
   return CopyPolicy(db.nhwPolicy);
  });
 }
@@ -91,9 +129,9 @@ function Parse(body) {
  } catch (_) {
   Fail('NHW_REPORT_INVALID');
  }
- // Retain the wire transcript used by existing A/B/O builds. Local confirmation
- // hints remain authenticated but do not decide the server's closure policy.
- if (body.action !== 'nhwReport' || !ValidIds(body.ids, body.confirmedIds, true)) Fail('NHW_REPORT_INVALID');
+ // Retain the wire transcript used by existing A/B/O builds. New native
+ // corroboration hints are accepted only for the explicitly scoped families.
+ if (body.action !== 'nhwReport' || !ValidIds(body.ids, body.confirmedIds, nativeHintIds)) Fail('NHW_REPORT_INVALID');
  return {
   id: RequestKey(body.stage, body.sessionId, body.requestId),
   fingerprint: protocol.Fingerprint('nhw.report', body)
@@ -189,13 +227,16 @@ function Record(body) {
  const flowId = body.stage === 'O' ? identity.parentFlowId : identity.id;
  const policy = StoredPolicy(store.Load());
  const disabled = new Set(policy.disabledIds);
- const confirmedIds = body.ids.filter(id => !disabled.has(id));
+ const hints = new Set(body.confirmedIds);
+ const confirmedIds = body.ids.filter(id => !disabled.has(id) &&
+  (!corroboratedIds.has(id) || hints.has(id)));
  const commit = next => {
   const replay = Replay(next, request);
   if (replay) return replay;
   const flow = next.flows[flowId];
   if (!flow) Fail('NHW_REPORT_INVALID', 403);
   if (StoredPolicy(next).revision !== policy.revision) Fail('NHW_POLICY_CONFLICT', 409);
+  PersistMode(next, policy);
   const row = {
    ...request, flowId, stage: body.stage, sessionId: body.sessionId, requestId: body.requestId,
    at: Date.now(), ids: [...body.ids], confirmedIds,
@@ -224,6 +265,9 @@ function MemberIndex(db) {
 
 function ValidateState(db) {
  const policy = db.nhwPolicy;
+ if (db.nhwPolicyModeVersion !== undefined && db.nhwPolicyModeVersion !== POLICY_MODE_VERSION) {
+  throw Error('NHW_POLICY_STORAGE_INVALID');
+ }
  if (policy !== undefined && (!Plain(policy) || Object.keys(policy).sort().join(',') !== 'disabledIds,revision,version' ||
   policy.version !== 1 || !Number.isSafeInteger(policy.revision) || policy.revision < 1 ||
   !SortedIds(policy.disabledIds))) throw Error('NHW_POLICY_STORAGE_INVALID');
@@ -246,7 +290,7 @@ function ValidateState(db) {
    RequestKey(row.stage, row.sessionId, row.requestId) !== key ||
    !Number.isSafeInteger(row.at) || row.at < 1 || !Number.isSafeInteger(row.serverEpoch) ||
    row.serverEpoch < 0 || row.serverEpoch > (db.serverRecovery?.epoch || 0) ||
-   !ValidIds(row.ids, row.confirmedIds, legacy) ||
+   !ValidIds(row.ids, row.confirmedIds, legacy ? legacyTerminalIds : null) ||
    (!legacy && (!Number.isSafeInteger(row.policyRevision) || row.policyRevision < 0 ||
     row.policyRevision > (policy?.revision ?? 0)))) invalid();
   const flow = db.flows?.[row.flowId];

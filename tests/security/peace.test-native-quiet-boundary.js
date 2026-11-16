@@ -81,6 +81,27 @@ test('NHW enforces only an authenticated and schema-valid Relay termination rece
   assert.doesNotMatch(source, /WriteConsole|WriteLn|OutputDebugString|MessageBox|ShowMessage/i);
 });
 
+test('NHW corroborates only the scoped kinds in a fresh complete own-process frame', () => {
+  const directory = 'Cozy.Source/Cozy.Protection/';
+  const control = stripComments(read(directory + 'Cozy.NHW.FalsePositiveControl.pas'));
+  const engine = stripComments(read(directory + 'Cozy.NHW.Engine.pas'));
+  const monitor = stripComments(read(directory + 'Cozy.NHW.Monitor.pas'));
+  const catalog = require('../../contracts/native-monitor/peace.nhw-detections-v1.json').detections;
+  const declarations = control.split('const\n')[1].split('\ntype')[0];
+  const affected = new Set(declarations.match(/\bdk\w+/g));
+  assert.deepEqual(catalog.filter(({symbol}) => affected.has(symbol)).map(({id}) => id),
+    [1, 9, 10, 13, 14, 15, 38, 58, 65, 66, 69, 70, 79, 80, 150, 167]);
+  const rule = control.slice(control.lastIndexOf('function CorroborateNHWObservations(')).split('function IsV60Signal(')[0];
+  assert.match(rule, /if not OwnCompleteFrame then Exit;[\s\S]*?if not ExecutionImpact and not \(dkWriteIntegrity in VerifiedImpact\) then Exit;/);
+  assert.match(rule, /if ExecutionImpact then Result := Result \+ \(Observed \* NHWCorroboratedThreadKinds\);/);
+  assert.match(rule, /if \(Observed \* \[dkTokenChange, dkDacl\]\) <> \[\] then\s+Result := Result \+ \(Observed \* NHWCorroboratedTokenKinds\);/);
+  const cycle = engine.split('procedure RecordCycleEvidence;')[1].split('procedure FinalizeSamplingAndReport;')[0];
+  assert.match(cycle, /Confirmed := \[\];\s+if Embedded and \(not NewMonitorBaseline\) and StableTarget and\s+\(LivePID = WinCurrentProcessId\) then[\s\S]*?\(dkWriteIntegrity in Detected\) and not WriteGuard\.ObservationFailed[\s\S]*?SensorConsensus\.Last\.Corroborated[\s\S]*?if CorrelationCoverageValid and Unified\.CurrentComplete and\s+\(Unified\.PrimaryRootCount >= 2\) then\s+Confirmed := Confirmed \+ CorroborateNHWObservations\(True, Detected, Confirmed\);/);
+  const capture = monitor.split('procedure TCozyNHWMonitor.Capture(')[1].split('procedure TCozyNHWMonitor.LatchTermination;')[0];
+  assert.match(capture, /Kind in \(Confirmed \* NHWCorroborationKinds\)\) and\s+\(NowTick >= FConfirmedAgainAt\[Kind\]\) then\s+begin\s+Include\(NewKinds, Kind\);/);
+  assert(capture.indexOf('FConfirmedAgainAt[Kind]') < capture.indexOf('NowTick >= FReportAgainAt[Kind]'));
+});
+
 test('B authorizes after hidden GPU initialization, presents before input and joins before GPU/API retirement', () => {
   const source = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Session.pas'));
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));
