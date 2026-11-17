@@ -417,18 +417,19 @@ check('Product START queues only after visible Present, exact entitlement and fr
 });
 
 check('Only a fresh server product grant begins bounded product progress and restores controls',()=>{
+  assert.match(pascal,/IMGUI_SCENE_PROGRESS_COMPLETE\s*=\s*16;/);
   const state=method('function TOverlayWindow.ReadRunState:', 'procedure TOverlayWindow.ApplySceneActions(');
   inOrder(state,['if FScenePhase=1 then', 'State := 3;',
     'if Assigned(FProductRunState) then State := FProductRunState();', 'if State=2 then',
     'FScenePhase:=2; FRunStarted:=CozyTick;', 'FRunFullShownSeconds:=0;', 'else if State<>1 then',
     'FScenePhase:=0; FRunStarted:=0; FRunDuration:=0; UpdateCursor;',
-    'if (FScenePhase=2) and (FRunFullShownSeconds>=0.25) then', 'FScenePhase:=0; FRunStarted:=0; FRunDuration:=0;',
+    'if (FScenePhase=2) and (FRunFullShownSeconds>=0.20) then', 'FScenePhase:=0; FRunStarted:=0; FRunDuration:=0;',
     'CancelInteraction; UpdateCursor;', 'Result:=FScenePhase;'], 'Authorized monotonic progress and denial recovery');
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['RunProgress := (ProgressTick-FRunStarted)/FRunDuration;', 'if RunProgress>1 then RunProgress:=1;',
     'ImGuiPresent(', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE) and',
-    'if FRendered and (RunProgress>=1) then', 'FRunFullShownSeconds:=FRunFullShownSeconds+Delta',
-    'else FRunFullShownSeconds:=0;'], 'Full mask must be visibly presented before the completion hold advances');
+    'if FRendered and ((SceneActions and IMGUI_SCENE_PROGRESS_COMPLETE)<>0) then', 'FRunFullShownSeconds:=FRunFullShownSeconds+Delta',
+    'else FRunFullShownSeconds:=0;'], 'Closed square must be visibly presented before the completion hold advances');
   assert.doesNotMatch(renderer,/SceneCountdownMs|CountdownSeconds/);
   const productState=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas');
   assert.match(productState,/if \(Card < 0\) or \(Card > 17\) then Exit\(0\);/);
@@ -465,7 +466,15 @@ check('Only a fresh server product grant begins bounded product progress and res
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
   assert.match(scene,/const bool start_allowed=enabled&&licensed_card==cozy_scene_tab_base\(c->scene_tab\)\+selected&&/);
   assert.match(scene,/if\(run&&start_allowed\)actions=8/);
-  assert.match(scene,/if\(phase==1\|\|phase==2\)\{[\s\S]*?scene_blur_active=true[\s\S]*?actions=0;/);
+  const busyStart=scene.indexOf('    if(phase==1||phase==2){');
+  const busy=scene.slice(busyStart,scene.indexOf('    if(revealing)',busyStart));
+  assert(busyStart>=0);
+  assert.match(busy,/scene_blur_active=true/);
+  assert.match(busy,/const bool completed=cozy_scene_update_completion\(c,delta,phase==2&&c->scene_run_progress>=1\.0f\)/);
+  assert.match(busy,/actions=completed\?CozyProgressCompleteAction:0;/);
+  assert.equal((busy.match(/\bactions\s*(?:=|\|=|&=)/g)||[]).length,1,
+    'Busy presentation exposes only the completed-square observation');
+  assert.match(scene,/CozyProgressCompleteAction = 16;/);
   assert.match(scene,/licensed_card< -1\|\|licensed_card>17/);
   assert.match(scene,/run_progress>=0&&run_progress<=1/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
