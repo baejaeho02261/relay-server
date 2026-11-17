@@ -24,6 +24,21 @@ test('source: full-snapshot due time is completion-based and transfer-aware',()=
 test('source: first frame is not raced by another measurement',()=>{
  order(execute,'if ShouldClose then','if not AwaitingTransfer then','CozyWaitForDelay(100, function: Boolean begin Result := Terminated; end);','Continue;','ReportVisible := FVisibleReportPending;','StartupPhase(\'VISIBLE\')');
 });
+test('source: O remains hidden until exact B exit and fresh transfer confirmation',()=>{
+ const start=part(overlay,'procedure TOverlayWorker.StartAuthorized;','function TOverlayWorker.CapturePrivacyRequested:');
+ const barrier=part(overlay,'procedure TOverlayWorker.PrepareTransferBeforeShow;','procedure TOverlayWorker.StartAuthorized;');
+ const frame=part(overlay,'procedure TOverlayWorker.FirstFrameReady;','procedure TOverlayWorker.Refresh;');
+ order(start,'Refresh;','PrepareTransferBeforeShow;','FStarted := True;','Start;');
+ order(barrier,'CozyTick >= FDeadline','FContext.ConfirmOverlayReady;','FReadyForTransfer := True;',
+  'ExitDeadline := CozyTick + 30000;','if CurrentDeadline < ExitDeadline then ExitDeadline := CurrentDeadline;',
+  'while FContext.ParentIsAlive do','RequestCancelled or (CozyTick >= ExitDeadline)',
+  'MaintainLease(False);','CozyWaitForDelay(100,','MaintainLease(True);',
+  'if not FTransferred or not FParentRetirementDone or FFailed or');
+ assert.doesNotMatch(barrier,/ApiShowWindow|FirstFrameReady|FTransferred := True|FParentRetirementDone := True/);
+ order(frame,'not FTransferred or not FParentRetirementDone','if FFirstFrameShown then Exit;',
+  'OverlayTransition(FState, osVisible);','OverlayTransition(FState, osTransferred);','FFirstFrameShown := True;');
+ assert.doesNotMatch(frame,/ConfirmOverlayReady/);
+});
 test('source: parent exit confirmation takes the cheap path before full refresh',()=>{
  order(execute,'if not FParentRetirementDone and not FContext.ParentIsAlive then','MaintainLease(True);','else if CozyTick >= NextCheck then','Refresh;');
 });

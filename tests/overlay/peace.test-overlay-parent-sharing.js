@@ -52,7 +52,7 @@ check('Three B-parent readers and the independent B integrity reader alone opt i
   assert.deepEqual(optedIn, [
     'FBinaryPath, False, IntegrityInfo, False, True',
     'FLauncherPath, False, ParentInfo, False, True',
-    'LauncherPath, False, LauncherInfo, False, PreserveParent',
+    'LauncherPath, False, LauncherInfo, False, PreserveParent, @FailureError',
     'Result.FLauncherPath, False, Info, False, OverlayRole'
   ].sort());
   assert(calls.includes('FBinaryPath, True, FinalBinaryInfo, True'));
@@ -61,8 +61,13 @@ check('Three B-parent readers and the independent B integrity reader alone opt i
     assert(args.length<=6);
     if(args.length>=5)assert.equal(args[4],'False','Diagnostic error output must not widen parent-delete sharing');
     if(args.length===6){
-      assert.equal(args[1],'True');assert.equal(args[3],'False');
-      assert.match(args[5],/^@F(?:Parent|Own)Observation\.Win32Error$/);
+      assert.equal(args[3],'False');
+      if (args[5]==='@FailureError') {
+        assert.deepEqual(args.slice(0,3), ['BinaryPath','False','BinaryInfo']);
+      } else {
+        assert.equal(args[1],'True');
+        assert.match(args[5],/^@F(?:Parent|Own)Observation\.Win32Error$/);
+      }
     }
   }
   assert.match(handoff, /FBinaryCleanupFile := BinaryFile;/);
@@ -106,10 +111,10 @@ check('A to B normal path and OS read-only fallback retain compatible strict pin
   assert.equal(canOpen([fallbackB, safeImage(false, true)], file(DELETE, READ | WRITE | DELETE)), false);
 });
 
-check('B retirement follows authorized visible O readiness and keeps O parent identity pinned', () => {
+check('B retirement follows authorized hidden O readiness and keeps O parent identity pinned', () => {
   const redeem = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.RedeemPending'), licenseSource.indexOf('procedure TLicenseWorker.Execute'));
-  assert(redeem.includes('if not FApi.StartOverlay then'));
-  assert(redeem.indexOf('if not FApi.StartOverlay then') < redeem.indexOf('FCommands.Complete(WorkerTransferred)'));
+  assert(redeem.includes('if not FApi.StartOverlay(False,'));
+  assert(redeem.indexOf('if not FApi.StartOverlay(False,') < redeem.indexOf('FCommands.Complete(WorkerTransferred)'));
   assert.doesNotMatch(redeem, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);
   const complete = handoff.slice(handoff.indexOf('procedure THandoffContext.CompleteOverlayClaimCore'), handoff.indexOf('procedure THandoffContext.ConfirmOverlayReadyCore'));
@@ -119,7 +124,10 @@ check('B retirement follows authorized visible O readiness and keeps O parent id
   assert.match(complete, /ParentInfo\.nFileIndexLow = FLauncherIndexLow/);
   assert.match(complete, /FParentImage := ParentFile;\s*ParentFile := 0;/);
   assert.match(complete, /FParentPins := Pins;\s*Pins := nil;/);
-  assert(overlay.indexOf('Worker.StartAuthorized;') < overlay.indexOf('Result := RunOverlayUI('));
+  const barrier = overlay.slice(overlay.indexOf('procedure TOverlayWorker.PrepareTransferBeforeShow;'), overlay.indexOf('procedure TOverlayWorker.StartAuthorized;'));
+  assert(barrier.indexOf('FContext.ConfirmOverlayReady;') < barrier.indexOf('while FContext.ParentIsAlive do'));
+  assert(barrier.indexOf('while FContext.ParentIsAlive do') < barrier.indexOf('MaintainLease(True);'));
+  assert.match(barrier, /not FTransferred or not FParentRetirementDone/);
   assert(overlay.indexOf('Result := RunOverlayUI(') < overlay.lastIndexOf('Worker.FirstFrameReady;'));
 });
 

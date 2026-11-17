@@ -216,7 +216,7 @@ check('Exact supplied Dear ImGui core, backend reference and MIT license match t
 
 });
 
-check('B readiness remains downstream of a visible Present and a fresh authority check', () => {
+check('O visibility follows hidden authorization and keeps first-frame observation gated by Present', () => {
   const paint = method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint, ['FRendered := False;', 'not AuthorityValid', 'ImGuiNewFrame(', 'ImGuiEndCanvas(', 'if not AuthorityValid then Exit;', 'ImGuiPresent(', 'IMGUI_PRESENT_FAILED', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE) and', 'ApiIsWindowVisible(FWindow) and not FMinimized and not FSessionPaused;'], 'Frame');
   assert.match(pascal, /IMGUI_PRESENT_FAILED\s*=\s*-1;/);
@@ -400,7 +400,7 @@ check('Product START queues only after visible Present, exact entitlement and fr
     'if FScenePhase<>0 then Exit;', 'Card := OverlayCategoryCard(FSceneCategory,FSceneSelected);',
     'if not OverlayProductCanStart(FLicensedCard,Card) or',
     'not Assigned(FRequestProductRun) or not Assigned(FProductRunState) then Exit;',
-    'if not FRequestProductRun(Card) then Exit;', 'FScenePhase:=1; FRunStarted:=0; FRunDeadline:=0;', 'FRunDuration:=OverlayProductRunMilliseconds(Card);',
+    'if not FRequestProductRun(Card) then Exit;', 'FScenePhase:=1; FRunStarted:=0; FRunFullShownSeconds:=0;', 'FRunDuration:=OverlayProductRunMilliseconds(Card);',
     'CancelInteraction; UpdateCursor;', 'Exit;'],'Queue scoped authorization without starting a local timer');
   assert.doesNotMatch(actions,/CreateProcess|ShellExecute|InvokeServerPolicy|\.Post\(/);
   for(const [name,category] of [['CLEANNER',0],['MOBILE',1],['SPOOFER',2]])assert(actions.includes('IMGUI_SCENE_TAB_'+name+')<>0 then FSceneCategory:='+category));
@@ -420,10 +420,15 @@ check('Only a fresh server product grant begins bounded product progress and res
   const state=method('function TOverlayWindow.ReadRunState:', 'procedure TOverlayWindow.ApplySceneActions(');
   inOrder(state,['if FScenePhase=1 then', 'State := 3;',
     'if Assigned(FProductRunState) then State := FProductRunState();', 'if State=2 then',
-    'FScenePhase:=2; FRunStarted:=CozyTick;', 'FRunDeadline:=FRunStarted+FRunDuration+OverlayRunSettleMilliseconds;', 'else if State<>1 then',
-    'FScenePhase:=0; FRunStarted:=0; FRunDeadline:=0; FRunDuration:=0; UpdateCursor;',
-    'if (FScenePhase=2) and (CozyTick>=FRunDeadline) then', 'FScenePhase:=0; FRunStarted:=0; FRunDeadline:=0; FRunDuration:=0;',
+    'FScenePhase:=2; FRunStarted:=CozyTick;', 'FRunFullShownSeconds:=0;', 'else if State<>1 then',
+    'FScenePhase:=0; FRunStarted:=0; FRunDuration:=0; UpdateCursor;',
+    'if (FScenePhase=2) and (FRunFullShownSeconds>=0.25) then', 'FScenePhase:=0; FRunStarted:=0; FRunDuration:=0;',
     'CancelInteraction; UpdateCursor;', 'Result:=FScenePhase;'], 'Authorized monotonic progress and denial recovery');
+  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint,['RunProgress := (ProgressTick-FRunStarted)/FRunDuration;', 'if RunProgress>1 then RunProgress:=1;',
+    'ImGuiPresent(', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE) and',
+    'if FRendered and (RunProgress>=1) then', 'FRunFullShownSeconds:=FRunFullShownSeconds+Delta',
+    'else FRunFullShownSeconds:=0;'], 'Full mask must be visibly presented before the completion hold advances');
   assert.doesNotMatch(renderer,/SceneCountdownMs|CountdownSeconds/);
   const productState=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas');
   assert.match(productState,/if \(Card < 0\) or \(Card > 17\) then Exit\(0\);/);
@@ -440,7 +445,7 @@ check('Only a fresh server product grant begins bounded product progress and res
     'WM_IME_STARTCOMPOSITION,WM_IME_COMPOSITION,WM_IME_ENDCOMPOSITION,WM_IME_CHAR: Exit(0);'], 'Input isolation');
   assert.match(handle,/WM_SETCURSOR:[\s\S]*?if FScenePhase in \[1,2\] then ApiSetCursor\(FBusyCursor\)[\s\S]*?else ApiSetCursor\(FNormalCursor\)/);
   assert.match(renderer,/FBusyCursor:=ApiLoadCursorW\(0,PWideChar\(NativeUInt\(32648\)\)\)/);
-  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+
   inOrder(paint,['SceneFlags := Cardinal(FSceneCategory) shl 4;', 'if FScenePhase=0 then SceneFlags := SceneFlags or IMGUI_SCENE_RUN_AVAILABLE;'], 'Only idle phase is actionable');
   inOrder(paint,['RunProgress := 0;', 'ProgressTick := CozyTick;',
     'if (FScenePhase=2) and (FRunDuration>0) and (ProgressTick>=FRunStarted) then',

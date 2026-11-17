@@ -20,11 +20,11 @@ test('Production A/B/O reject invalid invocation shapes before startup work and 
   for (const [name, shape, role, run, traceScope] of cases) {
     const source = stripComments(read(`Cozy.Projects/Cozy.${name}/Cozy.${name}.dpr`));
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
-    assert.match(body, name === 'Launcher' ? /ExitCode := 31000;/ : /ExitCode := 1;/);
+    assert.match(body, /ExitCode := 31000;/);
     const gate = body.search(shape), seal = body.indexOf('SealApiPointerStorage;');
-    const startup = body.indexOf(name === 'Launcher' ? `RequireNativeStartup(${role}, @ExitCode);` : `RequireNativeStartup(${role});`), application = body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}));`);
+    const startup = body.indexOf(`RequireNativeStartup(${role}, @ExitCode);`), application = body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}));`);
     assert(gate >= 0 && gate < seal && seal < startup && startup < application, name);
-    assert.match(body, name === 'Launcher' ? /except\s+end;/ : /except\s+ExitCode := 1;\s+end;/);
+    assert.match(body, /except\s+end;/);
     assert.doesNotMatch(body, /MessageBox|ShowMessage|WriteLn|OutputDebugString|WriteConsole/i);
   }
 });
@@ -135,7 +135,7 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   assert(run.indexOf('BeforeShow();') < run.indexOf('ApiShowWindow(FWindow, SW_SHOW)'));
   assert.match(window, /FShown and FFocused and FVisibleFrame and \(FElapsed >= 0\.45\)/);
   assert.match(window, /FVisibleFrame := Presented = IMGUI_PRESENT_VISIBLE/);
-  assert.match(window, /if Presented <> IMGUI_PRESENT_VISIBLE then Exit;/);
+  assert.match(window, /if Presented <> IMGUI_PRESENT_VISIBLE then\s+begin FCompletedVisibleSeconds := 0; Exit; end;/);
   const destroy = window.split('destructor TLicenseWindow.Destroy;')[1].split('procedure TLicenseWindow.RequireOwner;')[0];
   assert(destroy.indexOf('ApiShowWindow(FWindow, SW_HIDE)') < destroy.indexOf('FJoinWorker()'));
   assert(destroy.indexOf('FJoinWorker()') < destroy.indexOf('ImGuiDestroy(FContext)'));

@@ -49,13 +49,26 @@ check('B displays completed worker milestones and keeps API locks away from rend
       and 'Percent := FProgress();' in window
       and 'ImGuiLicenseScene(FContext, Phase, FKey.Count, Percent / 100)' in window
       and 'function TLicenseWindow.BusyVisual: Boolean;' in window
-      and 'Result := Assigned(FState) and (FState() = WorkerBusy);' in window)
+      and 'Result := not FClosing and Assigned(FState) and' in window
+      and '((FState() = WorkerBusy) or (FState() = WorkerTransferred));' in window)
 check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
       and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem
       and 'else\n          FCommands.Complete(WorkerFailed);' in redeem)
 check('Confirmed transfer terminates B worker without another proof or active unlink', redeem.index('if not FApi.StartOverlay(False,') < redeem.index('FCommands.Complete(WorkerTransferred)') < redeem.index('Terminate;') and 'CleanupBinaryAfterLicense' not in license_session and 'WorkerActive' not in license_session)
 check('B window exits on transfer and joins worker before destroying resources', 'State = WorkerTransferred' in window and main.index('Worker.Free;') < main.index('Api.Free;') < main.index('Context.Free;'))
+paint=window.split('procedure TLicenseWindow.Paint;',1)[1].split('function TLicenseWindow.Message(',1)[0]
+check('B completion visibly fills the wave before closing and keeps occlusion bounded',
+      'if State = WorkerTransferred then Phase := 3' in paint
+      and 'if Phase = 3 then Percent := 100;' in paint
+      and paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then')
+      < paint.index('Actions and LicenseSceneComplete') < paint.index('FCompletedVisibleSeconds >= CompletedWaveHoldSeconds then Close;')
+      and 'TransferCloseFallbackMs = 2000;' in window
+      and '(FMinimized or not FVisibleFrame) and' in window
+      and 'CozyTick - FTransferStarted >= TransferCloseFallbackMs' in window)
+check('B busy cursor matches O and failure closing does not await presentation',
+      'FBusyCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32648)))' in window
+      and paint.index('if (State = WorkerFailed) or (State = WorkerStopped) then') < paint.index('if State = WorkerTransferred then Phase := 3'))
 check('Cleanup is guarded once and preserves nonfatal OS refusal', 'if FBinaryCleanupAttempted then Exit;' in cleanup and 'FBinaryCleanupInfo, False);' in cleanup)
 check('Cleanup pins the directory but retains the owner after OS refusal', cleanup.index('PinDirectories(') < cleanup.index('UnlinkVerifiedOwnImage(') < cleanup.index('finally') < cleanup.index('CloseAll(Pins)') and 'Close(FBinaryCleanupFile)' not in cleanup)
 check('Integrity owns a separate read file object while the cleanup pin remains held', 'IntegrityFile := OpenSafeImage(FBinaryPath, False, IntegrityInfo, False, True);' in claim and 'TImageIntegrity.Create(IntegrityFile, BinarySHA512, ExpectedCRC64);' in claim and 'TImageIntegrity.Create(BinaryFile,' not in claim)
@@ -68,11 +81,12 @@ check('Only a confirmed transfer skips redundant B close after the worker is joi
 retire=handoff.split('procedure THandoffContext.CleanupTransferredParentCore;',1)[1].split('procedure THandoffContext.CleanupBinaryAfterLicenseCore;',1)[0]
 check('O deletes only an exited process image through matching held and DELETE identities', retire.index('WaitForSingleObject(FParentProcess, 0) = WAIT_OBJECT_0') < retire.index('DeleteFile := OpenSafeImage(') < retire.index('SameIdentity(HeldInfo, DeleteInfo)') < re.search(r'SetFileInfo\(DeleteFile,\s*FileDispositionInfoClass', retire).start())
 refresh=overlay.split('procedure TOverlayWorker.Refresh;',1)[1].split('procedure TOverlayWorker.MaintainLease(',1)[0]
-renew=overlay.split('procedure TOverlayWorker.RenewLease(',1)[1].split('procedure TOverlayWorker.StartAuthorized;',1)[0]
+renew=overlay.split('procedure TOverlayWorker.RenewLease(',1)[1].split('procedure TOverlayWorker.PrepareTransferBeforeShow;',1)[0]
 check('O independently confirms server transfer before B cleanup', renew.index('Lease := FClient.Verify(') < renew.index('TransferConfirmed := FClient.TransferConfirmed;') < renew.index('CleanupParent := ParentExited and FTransferred and not FParentRetirementDone;') < renew.index('if CleanupParent then') < renew.index('FContext.CleanupTransferredParent;'))
 check('Full snapshot scheduling remains server-bound and transfer-aware', 'IncludeModules := OverlaySnapshotDue(CozyTick, FLastSnapshotAt, FTransferred,' in refresh and 'FClient.SnapshotDeadlineTick, FLastSnapshotDuration);' in refresh and 'FClient.ReportIntegrity(FContext.Security, FContext.CodeIntegrity, Image,\n    IncludeModules,' in refresh)
 ready=overlay.split('procedure TOverlayWorker.FirstFrameReady;',1)[1].split('procedure TOverlayWorker.Refresh;',1)[0]
-check('Worker observes readiness only after local handoff completion under the same lock', ready.index('TMonitor.Enter(FLock)') < ready.index('FContext.ConfirmOverlayReady;') < ready.index('FReadyForTransfer := True;') < ready.index('TMonitor.Exit(FLock)'))
+barrier=overlay.split('procedure TOverlayWorker.PrepareTransferBeforeShow;',1)[1].split('procedure TOverlayWorker.StartAuthorized;',1)[0]
+check('Hidden readiness is published under the lock before waiting for B process exit', barrier.index('TMonitor.Enter(FLock)') < barrier.index('FContext.ConfirmOverlayReady;') < barrier.index('FReadyForTransfer := True;') < barrier.index('TMonitor.Exit(FLock)') < barrier.index('while FContext.ParentIsAlive do'))
 check('O transition remains bounded by last authenticated lease', '(CozyTick >= FDeadline)' in overlay and "raise EBootstrap.Create('OVERLAY_TRANSFER_NOT_CONFIRMED')" in renew)
 check('Window keeps rendering separate from API ownership and has no auto assignment', 'ImGuiCreate(FWindow, True)' in window and not any(x in window for x in ['TGameApi', 'Bootstrap.Claim', 'Redeem(', 'SERVER_ASSIGNED_V1', 'Vcl.Forms', 'FMX.Forms']))
 # These inspect the production unit's lock boundaries and cleanup ordering.
@@ -81,12 +95,12 @@ cancel=overlay.split('function TOverlayWorker.RequestCancelled: Boolean;',1)[1].
 stop=overlay.split('procedure TOverlayWorker.Stop;',1)[1].split('function TOverlayWorker.AwaitingTransfer:',1)[0]
 close=overlay.split('function TOverlayWorker.ShouldClose: Boolean;',1)[1].split('procedure TOverlayWorker.Execute;',1)[0]
 run=overlay.split('function RunOverlay(const Monitor: ICozyProtectionSession): Integer;')[-1].split('\ninitialization')[0]
-check('Ready event rechecks active authorization while holding its publication lock',
-      ready.index('TMonitor.Enter(FLock)') < ready.index('if Terminated or FFailed or (FDeadline = 0)') < ready.index('FContext.ConfirmOverlayReady;')
+check('First visible frame requires confirmed transfer and actual parent retirement',
+      ready.index('TMonitor.Enter(FLock)') < ready.index('not FTransferred or not FParentRetirementDone') < ready.index('OverlayTransition(FState, osVisible);')
       and '(CozyTick >= FDeadline)' in ready
-      and '(not FReadyForTransfer and not FContext.ParentIsAlive)' in ready)
-check('Repeated successful frame callbacks cannot signal or close the ready event twice',
-      ready.index('if FReadyForTransfer then Exit;') < ready.index('FContext.ConfirmOverlayReady;'))
+      and 'ConfirmOverlayReady' not in ready)
+check('Repeated successful frame callbacks cannot duplicate visibility publication',
+      ready.index('if FFirstFrameShown then Exit;') < ready.index('FFirstFrameShown := True;'))
 check('Stop invalidates authorization under the same lock used to publish ready',
       stop.index('Terminate;') < stop.index('TMonitor.Enter(FLock)') < stop.index('FFailed := True;') < stop.index('FDeadline := 0;') < stop.index('TMonitor.Exit(FLock)'))
 check('In-flight report and verification callbacks cancel on sticky failure and expired lease',
@@ -158,15 +172,15 @@ check('A fresh completed snapshot allows queued redemption even when the next sc
       and 'FModuleDeadlineTick - At > ModuleSnapshotCheckpointReserve' in readiness
       and 'FNextModules' not in readiness)
 check('Packing retains every row while respecting both payload and escaped signed-envelope byte limits',
-      'ModuleBatchMaximum = 16;' in api
-      and 'ModulePayloadMaximum = 24576;' in api and 'ModuleEnvelopeMaximum = 32768;' in api
+      'MaximumBatchRows = 16;' in module_inventory
+      and 'ModuleReportPayloadMaximum = 24576;' in module_inventory
       and 'Payload := CreateModulePayload(255, 256);' in modules
-      and 'EncodedMetadataBytes := EncodedStringBytes(Payload.ToJSON);' in modules
-      and 'Bytes := EncodedStringBytes(TJSONArray(Modules).Items[I].ToJSON) - 2;' in modules
-      and 'SubmitOverhead := IntegritySubmitOverheadBytes;' in modules
-      and 'Int64(LargestEncodedModuleBytes + 1) * FModuleBatchSize > ModuleEnvelopeMaximum' in modules
+      and 'FModuleBatchSize := ModuleInventoryBatchSize(Payload.ToJSON,' in modules
+      and 'TJSONArray(Modules), IntegritySubmitOverheadBytes);' in modules
+      and 'Int64(LargestRowBytes + 1) * Result > ModuleReportPayloadMaximum' in module_inventory
+      and 'Int64(LargestEncodedRowBytes + 1) * Result > ProtocolRequestMaximumBytes' in module_inventory
       and 'FModuleBatchCount := (Total + FModuleBatchSize - 1) div FModuleBatchSize;' in modules
       and 'Batch.AddElement(TJSONValue(TJSONArray(Modules).Items[FModuleNextIndex].Clone));' in modules
       and 'Inc(FModuleNextIndex);' in modules
-      and 'TEncoding.UTF8.GetByteCount(Text) > ModulePayloadMaximum' in send)
+      and 'TEncoding.UTF8.GetByteCount(Text) > ModuleReportPayloadMaximum' in send)
 print(f'License-success source contracts: {count} passed. Static checks only; no Windows deletion or rendering test.')

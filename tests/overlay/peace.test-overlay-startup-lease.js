@@ -21,9 +21,50 @@ test('shortened snapshot during commit rejects previously computed longer lease'
 test('same observation returns same response and does not grant additional time',()=>{const f=OverlayFixture({observationExpiry:Date.now()+20000});f.row.status='CLAIMED';const a=f.api.__probe.Verify(f.verify),writes=f.calls.writes;f.options.observationExpiry=Date.now()+60000;const b=f.api.__probe.Verify(f.verify);assert.deepEqual(b,a);assert.equal(f.calls.writes,writes);});
 test('B-to-O transfer never extends existing O authorization',()=>{const f=OverlayFixture({observationExpiry:Date.now()+30000});f.row.status='CLAIMED';const granted=f.api.__probe.Verify(f.verify).expiresAt;assert.equal(f.api.__probe.Commit(f.commit).status,'TRANSFERRED');assert.ok(f.row.sessionExpiresAt<=granted);assert.equal(f.parent.status,'CLOSED');});
 test('later source revocation blocks renewal despite recent startup progress',()=>{const f=OverlayFixture();f.row.status='CLAIMED';f.api.__probe.Progress(Progress(f,'GPU_READY',4,100));f.revoked.add('O');assert.throws(()=>f.api.__probe.Verify(f.verify),/RELEASE_REVOKED/);});
+test('slow module upload can finish inside the original Claim expiry without progress authorizing transfer',()=>{
+ const realNow=Date.now,claimedAt=1800000000000;let now=claimedAt;
+ Date.now=()=>now;
+ try{
+  const f=OverlayFixture(),claimExpiry=claimedAt+112000;
+  f.row.status='CLAIMED';f.row.claimedAt=claimedAt;f.row.sessionExpiresAt=claimExpiry;
+  delete f.row.authorizedAt;
+  f.parent.sessionExpiresAt=claimedAt+180000;f.license.expiresAt=claimedAt+180000;
+  // Observed MODULES_MEASURED elapsed time; the remaining upload and proof
+  // durations are representative test inputs, not observed Windows timings.
+  now=claimedAt+76652;
+  f.api.__probe.Progress(Progress(f,'MODULES_MEASURED',8,76652));
+  assert.equal(f.row.sessionExpiresAt,claimExpiry);
+  assert.throws(()=>f.api.__probe.Commit(f.commit),/OVERLAY_NOT_READY/);
+  assert.equal(f.calls.writes,0);
+  now=claimedAt+101000;
+  f.options.snapshotExpiry=now+21000;f.options.observationExpiry=now+28000;
+  const verified=f.api.__probe.Verify(f.verify);
+  assert.equal(verified.status,'ACTIVE');
+  assert.equal(verified.expiresAt,f.options.snapshotExpiry);
+ }finally{Date.now=realNow;}
+});
 // These are SOURCE CONTRACT checks, not Delphi compilation or rendered frames.
 test('native pre-authorization reentrancy cannot poison yet-unacquired lease (source)',()=>{const s=native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Renderer.pas"),start=s.indexOf('function TOverlayWindow.AuthorityValid'),end=s.indexOf('function TOverlayWindow.Run',start),fn=s.slice(start,end);assert.ok(fn.indexOf('if FAuthorizing then Exit(False)')<fn.indexOf('FShouldClose()'));assert.ok(fn.indexOf('if FAuthorizing then Exit(False)')<fn.indexOf('FFailed := True'));assert.match(s,/finally FAuthorizing := False; end;/);assert.ok(s.indexOf('AuthorizeBeforeShow();')<s.indexOf('ApiShowWindow(FWindow, SW_SHOWNORMAL)'));});
-test('110s startup ready bound is absolute; ordinary pipe/AB stays 45s (source)',()=>{const s=native("Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas");assert.match(s,/HandoffTimeoutMS = 45000/);assert.match(s,/OverlayReadyTimeoutMS = 110000/);assert.match(s,/if PreserveParent then\s+Inc\(Deadline, OverlayReadyTimeoutMS - HandoffTimeoutMS\)/);assert.equal((s.match(/Inc\(Deadline, OverlayReadyTimeoutMS/g)||[]).length,1);});
+test('150s O ready and 450s B startup bounds are absolute; ordinary pipe/AB stays 45s (source)',()=>{
+ const handoff=native('Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas');
+ const api=native('Cozy.Source/Cozy.Platform/Cozy.Api.pas');
+ assert.match(handoff,/HandoffTimeoutMS = 45000/);
+ assert.match(handoff,/OverlayReadyTimeoutMS = 150000/);
+ assert.match(handoff,/if PreserveParent then\s+Inc\(Deadline, OverlayReadyTimeoutMS - HandoffTimeoutMS\)/);
+ assert.equal((handoff.match(/Inc\(Deadline, OverlayReadyTimeoutMS/g)||[]).length,1);
+ assert.match(api,/ParentStartupDeadline := CozyTick \+ 450000/);
+ assert.equal((api.match(/ParentStartupDeadline\s*:=/g)||[]).length,1);
+ assert.match(api,/CozyTick >= ParentStartupDeadline/);
+});
+test('native initial O window uses the original Claim bound until fresh Verify (source)',()=>{
+ const client=native('Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas');
+ const worker=native('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
+ assert.match(client,/Remaining := FSession\.ExpiresAt - WallNow;\s+if Remaining > 120000 then Remaining := 120000;/);
+ assert.match(client,/FInitialClaimDeadlineTick := ClaimTick \+ UInt64\(Remaining\)/);
+ assert.match(client,/RequireInitialClaimActive;\s+FInitialClaimDeadlineTick := 0;\s+StartupPhaseCore\('AUTHORIZED'\)/);
+ assert.match(worker,/FInitialDeadline := Client\.InitialClaimDeadlineTick/);
+ assert.match(worker,/\(\(FDeadline = 0\) and \(CozyTick >= FInitialDeadline\)\)/);
+});
 test('native expired old lease cannot be revived by repeated server receipt (source)',()=>{const s=native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas");assert.match(s,/PreviousDeadline := FLeaseDeadlineTick;\s+FLeaseDeadlineTick := 0;/);assert.match(s,/FLeaseDeadlineTick := VerifyRequestTick \+ UInt64\(Result\)/);assert.match(s,/ServerTime = FLastLeaseServerTime/);assert.match(s,/if PreviousDeadline < FLeaseDeadlineTick then FLeaseDeadlineTick := PreviousDeadline/);assert.match(s,/if ServerTime < FLastLeaseServerTime then InvalidResponse/);});
 test('no API-removal shortcut for virtual memory or synchronization (source)',()=>{const ci=native("Cozy.Source/Cozy.Integrity/Cozy.CodeIntegrity.pas");assert.match(ci,/VirtualQuery/);assert.ok(!ci.includes('ReadProcessMemory'));for(const n of ["Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas","Cozy.Source/Cozy.Integrity/Cozy.Integrity.pas","Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas"]){assert.match(native(n),/THandle\(NativeInt\(-1\)\)/);assert.ok(!/Slot_GetCurrentProcess\s*:=/.test(native(n)));}});
 test('290s download timeout remains a separately named A deadline (source)',()=>{const s=native("Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas");assert.match(s,/290000/);assert.match(s,/BOOTSTRAP_DOWNLOAD_DEADLINE/);assert.match(native("Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas"),/if Delay > 10000 then Delay := 10000/);});
