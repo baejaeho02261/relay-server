@@ -63,9 +63,10 @@ function Permit(id){if(!Hex(id,32))Fail('LIFECYCLE_INPUT_INVALID');const p=store
 function Events(text,p,ordered=true){
  if(typeof text!=='string'||Buffer.byteLength(text)>8192)Fail('LIFECYCLE_INPUT_INVALID');let events;try{events=require("../protocol/peace.strict-json").Parse(text,{maxBytes:8192,maxNodes:128});}catch(_){Fail('LIFECYCLE_INPUT_INVALID');}
  if(!Array.isArray(events)||!events.length||events.length>8)Fail('LIFECYCLE_INPUT_INVALID');
- for(const e of events){if(!Plain(e)||Object.keys(e).some(k=>!['event','status','pid','exitCode','win32Error','elapsedMs'].includes(k))||typeof e.event!=='string'||!Object.hasOwn(PAIRS,e.event)||!PAIRS[e.event].includes(e.status))Fail('LIFECYCLE_INPUT_INVALID');
+ for(const e of events){if(!Plain(e)||Object.keys(e).some(k=>!['event','status','pid','exitCode','childExitCode','win32Error','elapsedMs'].includes(k))||typeof e.event!=='string'||!Object.hasOwn(PAIRS,e.event)||!PAIRS[e.event].includes(e.status))Fail('LIFECYCLE_INPUT_INVALID');
+  if(Object.hasOwn(e,'childExitCode')&&(e.event!=='STARTUP_FAILURE'||p.reporterRole!==p.targetRole))Fail('LIFECYCLE_INPUT_INVALID');
   if(e.event==='DOWNLOAD_DEADLINE'&&(p.reporterRole!=='A'||p.targetRole!=='A'))Fail('LIFECYCLE_ROLE_INVALID',403);
-  for(const k of ['pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,k)&&(!Number.isSafeInteger(e[k])||e[k]<0||e[k]>(k==='elapsedMs'?600000:0xffffffff)))Fail('LIFECYCLE_INPUT_INVALID');
+  for(const k of ['pid','exitCode','childExitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,k)&&(!Number.isSafeInteger(e[k])||e[k]<0||e[k]>(k==='elapsedMs'?600000:0xffffffff)))Fail('LIFECYCLE_INPUT_INVALID');
   if(p.reporterRole!==p.targetRole&&!['PROCESS_EXIT','FILE_CLEANUP'].includes(e.event)||p.reporterRole===p.targetRole&&e.event==='PROCESS_EXIT'&&e.status==='OBSERVED')Fail('LIFECYCLE_ROLE_INVALID',403);
  }
  if(!lifecycleContract.validate(events,p.reporterRole,p.targetRole,{ordered}))Fail('LIFECYCLE_INPUT_INVALID');
@@ -130,8 +131,12 @@ function Role(role,sessionId,status,events){
 function Flow(flowId){
  if(!KindId(flowId,'BF'))Fail('LIFECYCLE_INPUT_INVALID');const db=store.Load(),row=db.flows[flowId];if(!row)Fail('LIFECYCLE_NOT_FOUND',404);
  const overlay=Object.values(db.overlays||{}).filter(o=>o.parentFlowId===row.id).sort((a,b)=>b.createdAt-a.createdAt)[0],events=structuredClone(db.lifecycleTrace?.flows[flowId]?.events||[]);
+ for(const event of events)if(event.event==='STARTUP_FAILURE'){
+  event.startupStage=lifecycleContract.startupStage(event.exitCode,event.role);
+  if(Object.hasOwn(event,'childExitCode'))event.childStartupStage=lifecycleContract.childStartupStage(event.childExitCode);
+ }
  const roles={A:Role('A',row.id,row.claimedAt?'HANDED_OFF':row.status,events),B:Role('B',row.sessionId,row.claimedAt?row.status:'NOT_STARTED',events),O:Role('O',overlay?.sessionId||'',overlay?.status||'NOT_STARTED',events)};
- let code='B_NOT_STARTED',summary='B 실행이 서버에 등록되지 않았습니다.';
+ let code='B_NOT_STARTED',summary='B의 세션 인수가 서버에 등록되지 않았습니다. 프로세스 생성 여부는 이 기록만으로 판단할 수 없습니다.';
  if(row.claimedAt){if(!roles.B.authorityEnded){code='B_AUTHORITY_ACTIVE';summary='B의 서버 권한이 아직 종료되지 않았습니다.';}else if(roles.B.processExit==='NOT_REPORTED'){code='B_EXIT_NOT_REPORTED';summary='B의 서버 권한은 종료됐지만 자식의 프로세스 종료 관측 보고가 없습니다.';}else if(roles.B.fileCleanup==='FAILED'){code='B_FILE_CLEANUP_FAILED';summary='자식이 B 종료를 관측했으나 파일 정리 실패를 보고했습니다. 오류 코드를 확인하세요.';}else if(roles.B.fileCleanup!=='REMOVED'){code='B_FILE_CLEANUP_PENDING';summary='자식의 B 종료 관측은 있으나 파일 제거 완료 보고가 없습니다.';}else{code='B_CLEANUP_CLIENT_REPORTED';summary='인증된 자식이 B 프로세스 종료와 파일 제거를 보고했습니다. 서버의 OS 직접 관측은 아닙니다.';}}
  return {flowId:row.id,licenseId:row.licenseId||'',launcherId:row.launcherId,sessionId:row.sessionId,createdAt:row.createdAt,roles,events,timing:require("../runtime/peace.desktop-timing-diagnosis").Describe(events),bResidual:{code,summary,confirmed:false},processTruth:'AUTHENTICATED_CLIENT_OBSERVATION_ONLY',eventRetention:MAX_EVENTS};
 }
@@ -149,11 +154,11 @@ function Validate(s,db){
   const seen=new Set();
   for(const e of f.events){
    const client=e?.source==='CLIENT_REPORTED',required=['id','at','role','event','status','targetSessionId','source',...(client?['reporterRole','reporterSessionId']:[])];
-   if(!keys(e,required,client?['pid','exitCode','win32Error','elapsedMs']:[])||!Hex(e.id,24)||seen.has(e.id)||!time(e.at)||!['A','B','O'].includes(e.role)||!Id(e.targetSessionId)||!['SERVER_CONFIRMED','CLIENT_REPORTED'].includes(e.source)||typeof e.event!=='string'||typeof e.status!=='string')invalid();seen.add(e.id);
+   if(!keys(e,required,client?['pid','exitCode','childExitCode','win32Error','elapsedMs']:[])||!Hex(e.id,24)||seen.has(e.id)||!time(e.at)||!['A','B','O'].includes(e.role)||!Id(e.targetSessionId)||!['SERVER_CONFIRMED','CLIENT_REPORTED'].includes(e.source)||typeof e.event!=='string'||typeof e.status!=='string')invalid();seen.add(e.id);
    if(db&&!bound(flow,e.role,e.targetSessionId))invalid();
    if(client){
     if(!['A','B','O'].includes(e.reporterRole)||!Id(e.reporterSessionId)||!rolePair(e.reporterRole,e.role)||db&&(!bound(flow,e.reporterRole,e.reporterSessionId)||!failedChild(flow,e.reporterRole,e.role,e.targetSessionId)))invalid();
-    const clean={};for(const key of ['event','status','pid','exitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,key))clean[key]=e[key];
+    const clean={};for(const key of ['event','status','pid','exitCode','childExitCode','win32Error','elapsedMs'])if(Object.hasOwn(e,key))clean[key]=e[key];
     try{Events(JSON.stringify([clean]),{reporterRole:e.reporterRole,targetRole:e.role},false);}catch(_){invalid();}
    }else if(!Object.hasOwn(SERVER_PAIRS,e.event)||!SERVER_PAIRS[e.event].includes(e.status))invalid();
   }

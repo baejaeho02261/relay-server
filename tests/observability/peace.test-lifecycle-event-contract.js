@@ -53,3 +53,19 @@ test('closed runtime diagnostics cannot claim authority or another role failure'
  const ui=fs.readFileSync(path.join(root,'public/scripts/desktop/peace.admin-desktop-server-state.js'),'utf8');
  assert.match(ui,/RENEWAL_FAILED:'오버레이 갱신 실패'/);assert.match(ui,/UI_RUNTIME_FAILURE:'오버레이 화면 오류'/);
 });
+
+test('startup stages are closed, role-bound and distinct from observed child exit',()=>{
+ for(const stage of c.spec.startupStages){
+  for(const role of ['A','B','O'])assert.equal(c.validate([{event:'STARTUP_FAILURE',status:'FAILED',exitCode:stage.code}],role,role),stage.roles.includes(role));
+ }
+ for(const code of [0,31029,31110,0x100000000,-1,NaN])assert(!c.validate([{event:'STARTUP_FAILURE',status:'FAILED',exitCode:code}],'A','A'));
+ assert(!c.validate([{event:'STARTUP_FAILURE',status:'FAILED',exitCode:31107}],'B','A'));
+ assert(!c.validate([{event:'STARTUP_FAILURE',status:'FAILED'}],'A','A'));
+ assert.equal(c.childStartupStage(31006).label,'자식 역할 API 준비');assert.equal(c.childStartupStage(1),null);
+});
+test('A and B export only bounded handoff metadata with a separate observed child exit',{skip:!available},()=>{
+ const railway=path.resolve(native,'..'),launcher=ReadContractFile(path.join(railway,'Cozy.Application/Cozy.Launcher.pas'),'utf8'),api=ReadContractFile(path.join(railway,'Cozy.Platform/Cozy.Api.pas'),'utf8');
+ for(const source of [launcher,api]){assert.match(source,/EHandoff\(E\).StageCode >= 31101/);assert.match(source,/EHandoff\(E\).StageCode <= 31109/);assert.match(source,/FailedChild.ExitObserved and FailedChild.ExitCodeKnown/);assert.match(source,/'STARTUP_FAILURE'/);}
+ const failure=launcher.slice(launcher.indexOf('StartupNativeError := 0;'),launcher.indexOf('finally\n    if Protection'));
+ assert.doesNotMatch(failure,/GetLastError|E.Message/);assert.match(launcher,/begin FailedChild := Observation; end/);
+});

@@ -52,17 +52,23 @@ check('restricted token handle retains the rights required by both subsequent Wi
 check('actual child token is checked while suspended and before any grant is released', () => {
   const launch = body(restricted, 'procedure CreateOverlayRestrictedProcess(', '\ninitialization');
   order(launch, ['Token := CreateOverlayRestrictedToken', 'SlotCreateProcess', 'CREATE_SUSPENDED',
-    'RequireOverlayRestrictedProcess(Process.hProcess)', 'procedure ResumeHandoffChild(Thread: THandle);', 'SlotResume']);
-  assert.match(launch, /SlotResume\)\)\(Thread\) = 1/);
+    'RequireOverlayRestrictedProcess(Process.hProcess)', 'procedure ResumeHandoffChild(Thread: THandle; NativeError: PCardinal);', 'SlotResume']);
+  assert.match(launch, /PreviousCount := TResumeThreadProc\(DecodeApiPointer\(SlotResume\)\)\(Thread\)/);
+  assert.match(launch, /Require\(PreviousCount = 1,/);
+  assert.match(launch, /if \(PreviousCount = DWORD\(-1\)\) and \(NativeError <> nil\) then\s+NativeError\^ := TGetLastErrorProc/);
   assert.doesNotMatch(launch, /CreateProcessW|CreateProcessWithLogon|ShellExecute|except/);
   const actual = body(handoff, 'function LaunchWithHandoff(', '\nconstructor THandoffContext.Create;');
   order(actual, ['HANDOFF_RESTRICTED_PROFILE_O_ONLY', 'if LaunchProfile = hlpOverlayRestricted then',
-    'CreateOverlayRestrictedProcess(', 'CREATE_SUSPENDED', 'Check(DuplicateHandle(GetCurrentProcess, Process.hProcess',
-    'Check(CloseHandle(Process.hProcess)', 'Process.hProcess := ChildWaitHandle;', 'ResumeHandoffChild(Process.hThread);',
+    'CreateOverlayRestrictedProcess(', 'CREATE_SUSPENDED', 'Check(NativeResult(DuplicateHandle(GetCurrentProcess, Process.hProcess',
+    'Check(NativeResult(CloseHandle(Process.hProcess)', 'Process.hProcess := ChildWaitHandle;', 'ResumeHandoffChild(Process.hThread, @FailureError);',
     'Hello := ReadHello(', 'RequireOverlayRestrictedProcess(Process.hProcess)',
     'Payload := BuildPayload(', 'WaitHandoffReadiness(', 'RequireOverlayRestrictedProcess(Process.hProcess)', 'Result := True']);
   assert.match(actual, /@ChildWaitHandle, SYNCHRONIZE or ProcessQueryLimitedInformation or PROCESS_TERMINATE,\s*False, 0\)/);
   assert.match(actual, /if not Result and \(Process.hProcess <> 0\) then[\s\S]*?TerminateProcess\(Process.hProcess, 1\)/);
+  const cleanup = actual.slice(actual.indexOf('if not Result and (Process.hProcess <> 0) then'));
+  assert.match(cleanup, /WaitResult := WaitForSingleObject\(Process\.hProcess, 0\);\s+if WaitResult = WAIT_OBJECT_0 then\s+begin\s+Observation\.ExitCodeKnown := GetExitCodeProcess\(Process\.hProcess, Observation\.ExitCode\);[\s\S]*?end\s+else\s+begin\s+TerminateProcess\(Process\.hProcess, 1\)/);
+  assert.doesNotMatch(cleanup.slice(cleanup.indexOf('TerminateProcess(Process.hProcess, 1)')), /GetExitCodeProcess/,
+    'forced child cleanup must never be reported as the original child exit');
 });
 
 check('token readback rejects elevation, service accounts, operator groups and remaining privileges', () => {

@@ -3,6 +3,13 @@
 // authenticated client claims, never execution authority or OS attestation.
 const spec = require("../../contracts/runtime/peace.lifecycle-events-v1.json");
 const pairs = Object.freeze(Object.fromEntries(spec.events.map(e=>[e.name,Object.freeze([...e.statuses])])));
+// Closed application stages only. The existing exitCode wire field carries
+// these for STARTUP_FAILURE; it is not an observed process exit in that event.
+// V1 is an additive event/optional-number extension: old stored reports and
+// signatures stay valid. Deploy this receiver before the new native cohort.
+const startupStages = new Map(spec.startupStages.map(stage=>[stage.code,stage]));
+function startupStage(code,role){const stage=startupStages.get(code);return stage?.roles.includes(role)?{code:stage.code,label:stage.label}:null;}
+function childStartupStage(code){const stage=spec.childStartupStages.find(stage=>stage.code===code);return stage?{code:stage.code,label:stage.label}:null;}
 const plain = x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
 function roleAllowed(reporter,target){return spec.roles.includes(reporter)&&spec.roles.includes(target)&&(reporter===target||spec.parentRole[reporter]===target||spec.failedChildRole[reporter]===target);}
 function combinationAllowed(reporter,target,event,status){
@@ -18,6 +25,7 @@ function validate(events,reporter,target,{ordered=true}={}){
  const seen=new Set();let parentExitObserved=false;
  for(const e of events){
   if(!plain(e)||!combinationAllowed(reporter,target,e.event,e.status))return false;
+  if(e.event==='STARTUP_FAILURE'&&!startupStage(e.exitCode,reporter))return false;
   if(ordered){
    if(seen.has(e.event))return false;
    if(reporter!==target){
@@ -30,4 +38,4 @@ function validate(events,reporter,target,{ordered=true}={}){
  }
  return true;
 }
-module.exports=Object.freeze({spec,pairs,roleAllowed,combinationAllowed,validate});
+module.exports=Object.freeze({spec,pairs,roleAllowed,combinationAllowed,startupStage,childStartupStage,validate});

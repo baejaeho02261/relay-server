@@ -100,7 +100,9 @@ check('Authority and each signed report retry share one monotonic deadline acros
  for(const retry of retries){
   const loop=retry.indexOf('for Attempt := 1 to Attempts');
   assert.ok(loop>0);
-  assert.equal((retry.match(/Deadline :=/g)||[]).length,1);
+  // A may clamp the initial budget to its earlier original flow deadline.
+  // Only the initial clock anchor is created once; no retry can reset it.
+  assert.equal((retry.match(/Deadline := CozyTick/g)||[]).length,1);
   assert.ok(retry.indexOf('Deadline := CozyTick + 15000')<loop);
   const attempts=retry.slice(loop,retry.indexOf('Response.GetValue('));
   assert.match(attempts,/NowTick := CozyTick/);

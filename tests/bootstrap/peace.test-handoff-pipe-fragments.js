@@ -34,8 +34,8 @@ check('the production last read and EOF cannot finish an expired absolute budget
 check('ReadHello publishes validated outputs atomically and wipes failed output', () => {
   const hello = section(handoff, 'function ReadHello(', 'function Transcript(');
   assert.match(hello, /Result := nil; ChildKeyID := ''; Nonce := ''; Wrapping := nil;/);
-  assert.equal((hello.match(/ReadExact\([^;]+Deadline\);/g) || []).length, 2);
-  assert.match(hello, /RequirePipeEnd\(Pipe, Deadline\);[\s\S]*?CandidateKeyID := DevicePublicKeyID\(Signing\);[\s\S]*?Check\(Remaining\(Deadline\) > 0,[\s\S]*?ChildKeyID := CandidateKeyID/);
+  assert.equal((hello.match(/ReadExact\([^;]+Deadline, NativeError\);/g) || []).length, 2);
+  assert.match(hello, /RequirePipeEnd\(Pipe, Deadline, NativeError\);[\s\S]*?CandidateKeyID := DevicePublicKeyID\(Signing\);[\s\S]*?Check\(Remaining\(Deadline\) > 0,[\s\S]*?ChildKeyID := CandidateKeyID/);
   assert.match(hello, /except\s+WipeBytes\(Result\); WipeBytes\(Wrapping\);\s+WipeText\(ChildKeyID\); WipeText\(Nonce\);\s+raise;/);
   assert.match(hello, /finally\s+WipeText\(Signing\); WipeText\(CandidateKeyID\); WipeText\(CandidateNonce\);\s+WipeBytes\(CandidateWrapping\);/);
   assert.doesNotMatch(hello, /Deadline\s*:=/);

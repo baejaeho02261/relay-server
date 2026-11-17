@@ -24,6 +24,7 @@ RUN node tools/build/peace.generate-packet-schema.js --check \
  && node tests/runtime/peace.test-railway-process-lifecycle.js \
  && node --test tests/authentication/peace.test-protected-operation-security.js tests/bootstrap/peace.test-keyless-bootstrap.js \
  && node --test tests/overlay/peace.test-cohort-retirement.js tests/protocol/peace.test-document-schema.js tests/licensing/peace.test-desktop-members.js tests/web/peace.test-desktop-member-ui.js \
+ && node --test tests/observability/peace.test-lifecycle-trace.js \
  && node tests/web/peace.check-web-ui.js
 # Validate the UI with pinned test dependencies, then retain production dependencies only.
 RUN npm prune --omit=dev --ignore-scripts && node -e "const D=require('better-sqlite3');const d=new D(':memory:');d.prepare('SELECT 1').get();d.close();"

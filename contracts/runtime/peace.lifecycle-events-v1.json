@@ -89,6 +89,13 @@
         "FAILED"
       ],
       "scope": "self"
+    },
+    {
+      "name": "STARTUP_FAILURE",
+      "statuses": [
+        "FAILED"
+      ],
+      "scope": "self"
     }
   ],
   "ordering": {
@@ -98,5 +105,159 @@
     "parentRemovedRequiresObservedExit": true,
     "selfShutdownBeforeFileWhenBothPresent": true,
     "closeResponseMayPrecedeShutdown": "B transfer commit can precede shutdown; observation order is retained"
-  }
+  },
+  "startupStages": [
+    {
+      "code": 31030,
+      "roles": [
+        "A"
+      ],
+      "label": "A 초기 무결성 보고"
+    },
+    {
+      "code": 31031,
+      "roles": [
+        "A"
+      ],
+      "label": "B 파일 다운로드·검증"
+    },
+    {
+      "code": 31032,
+      "roles": [
+        "A"
+      ],
+      "label": "A 이미지 재검증"
+    },
+    {
+      "code": 31033,
+      "roles": [
+        "A"
+      ],
+      "label": "A 모듈 목록 보고"
+    },
+    {
+      "code": 31034,
+      "roles": [
+        "A"
+      ],
+      "label": "A 인계 승인 응답 확인"
+    },
+    {
+      "code": 31035,
+      "roles": [
+        "A"
+      ],
+      "label": "A 인계 전 상태 확인"
+    },
+    {
+      "code": 31101,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "자식 실행 경로·이미지 검증"
+    },
+    {
+      "code": 31102,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "상속 핸들·파이프 준비"
+    },
+    {
+      "code": 31103,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "자식 환경·시작 속성 준비"
+    },
+    {
+      "code": 31104,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "자식 프로세스 생성"
+    },
+    {
+      "code": 31105,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "자식 프로세스 핸들 권한 설정"
+    },
+    {
+      "code": 31106,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "자식 스레드 재개"
+    },
+    {
+      "code": 31107,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "자식 초기 응답 대기"
+    },
+    {
+      "code": 31108,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "암호화 인계 데이터 전송"
+    },
+    {
+      "code": 31109,
+      "roles": [
+        "A",
+        "B"
+      ],
+      "label": "자식 준비 완료 대기"
+    }
+  ],
+  "childStartupStages": [
+    {
+      "code": 31000,
+      "label": "자식 실행 인수 검증"
+    },
+    {
+      "code": 31001,
+      "label": "자식 포인터 테이블 봉인"
+    },
+    {
+      "code": 31004,
+      "label": "자식 ABI 검증"
+    },
+    {
+      "code": 31005,
+      "label": "자식 포인터 봉인 검증"
+    },
+    {
+      "code": 31006,
+      "label": "자식 역할 API 준비"
+    },
+    {
+      "code": 31007,
+      "label": "자식 리소스 검증"
+    },
+    {
+      "code": 31008,
+      "label": "자식 알고리즘 자체 검증"
+    },
+    {
+      "code": 31009,
+      "label": "자식 보호 모니터 시작"
+    },
+    {
+      "code": 31099,
+      "label": "자식 런타임 생성·실행"
+    }
+  ]
 }

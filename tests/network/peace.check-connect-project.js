@@ -97,11 +97,11 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
   assert.doesNotMatch(dpr, /\{\$\s*DEFINE\s+GAME_(?:(?:LICENSE|TLS|HANDOFF)_CONTRACT_TESTS|NATIVE_ABI_TESTS)\b/i, 'Probe-only hooks must not be enabled in an application entry point');
   assert.ok(dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') >= 0 && dpr.indexOf('{$DEFINE GAME_APPLICATION_BUILD}') < dpr.search(/\{\$I [^}]*Cozy\.Metadata\.inc\}/), 'Direct compiler builds must reject probe hooks');
   const expectedRole = {"Cozy.Launcher":'gcrLauncher',"Cozy.Client":'gcrConnect',"Cozy.Overlay":'gcrOverlay'}[name];
-  const startupCall='RequireNativeStartup('+expectedRole+(role==='A'?', @ExitCode':'')+');';
+  const startupCall='RequireNativeStartup('+expectedRole+', @ExitCode);';
   const seal = dpr.indexOf('SealApiPointerStorage;'), startup = dpr.indexOf(startupCall);
   assert.ok(seal >= 0 && startup > seal, 'Native startup validation must follow API sealing');
-  const startupArgument=expectedRole+(role==='A'?', @ExitCode':'');
-  const afterStartup=role==='A'?'\\s+ExitCode := 31009;':'',afterProtection=role==='A'?'\\s+ExitCode := 31099;':'';
+  const startupArgument=expectedRole+', @ExitCode';
+  const afterStartup='\\s+ExitCode := 31009;',afterProtection='\\s+ExitCode := 31099;';
   assert.match(dpr.slice(startup), new RegExp("RequireNativeStartup\\("+startupArgument+"\\);"+afterStartup+"\\s+RequireCozyProtection\\('"+role+"'\\);"+afterProtection+"\\s+ExitCode := Run"), 'Role-specific startup and sealed protection checks must precede application execution');
   assert(dpr.includes("Cozy.Protection.Engine in '..\\..\\Cozy.Source\\Cozy.Protection\\Cozy.Protection.Engine.pas'"));
   for (const unit of ['Cozy.NHW.Monitor', 'Cozy.NHW.Logging', 'Cozy.NHW.Engine']) {

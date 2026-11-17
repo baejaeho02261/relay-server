@@ -50,7 +50,7 @@ check('Authenticated IPC uses single-use wrapping and rejects old wire',()=>{
 check('Fresh hello and exact child handle stay bound to encrypted payload',()=>{
  assert.match(handoff,/InheritedHandles: array\[0\.\.3\] of THandle/);
  assert.match(handoff,/InheritedHandles\[3\] := ReplyWrite/);
- assert.match(handoff,/Close\(ReplyWrite\);\s+WritePublicFrame\(WritePipe, PublicBootstrap\);\s+Hello := ReadHello/);
+ assert.match(handoff,/Close\(ReplyWrite\);\s+FailureStage := 31107; FailureError := 0;\s+WritePublicFrame\(WritePipe, PublicBootstrap, @FailureError\);\s+Hello := ReadHello/);
  assert.match(handoff,/GetProcessId\(Process\.hProcess\) = Process\.dwProcessId/);
  assert.match(handoff,/PayloadNonce = Nonce/);
  assert.match(handoff,/AAD := Transcript\(PublicBootstrap, Hello\)/);

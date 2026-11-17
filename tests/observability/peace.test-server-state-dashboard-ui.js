@@ -21,7 +21,7 @@ function status(){
  {buildKey:'other-build',manifestId:otherManifest,sourceManifestSha512:hash('f'),artifacts:{A:hash('4'),B:hash('5'),O:hash('6')},active:false,recordCount:0,domains:Array.from({length:14},(_,n)=>domain(n+1)),history:[]}
  ]}}};
 }
-const flows={version:1,items:[{flowId:'A'.repeat(24),createdAt:Date.parse(when),roles:{A:{status:'CLOSED',authorityEnded:true,processExit:'CLIENT_REPORTED',fileCleanup:'OBSERVED'},B:{status:'CLOSED',authorityEnded:true,processExit:'NOT_REPORTED',fileCleanup:'FAILED'},O:{status:'ACTIVE',authorityEnded:false,processExit:'NOT_REPORTED',fileCleanup:'NOT_REPORTED'}},events:[{id:'EVENT',role:'B',at:Date.parse(when),event:'FILE_CLEANUP <img src=x>',source:'CLIENT_REPORTED',status:'FAILED',pid:123,exitCode:0,win32Error:5,reporterRole:'O'}],bResidual:{code:'B_EXIT_NOT_REPORTED',summary:'B 종료 보고 없음 <img src=x>',confirmed:false}}]};
+const flows={version:1,items:[{flowId:'A'.repeat(24),createdAt:Date.parse(when),roles:{A:{status:'CLOSED',authorityEnded:true,processExit:'CLIENT_REPORTED',fileCleanup:'OBSERVED'},B:{status:'CLOSED',authorityEnded:true,processExit:'NOT_REPORTED',fileCleanup:'FAILED'},O:{status:'ACTIVE',authorityEnded:false,processExit:'NOT_REPORTED',fileCleanup:'NOT_REPORTED'}},events:[{id:'STARTUP',role:'A',at:Date.parse(when),event:'STARTUP_FAILURE',source:'CLIENT_REPORTED',status:'FAILED',exitCode:31107,childExitCode:31006,startupStage:{code:31107,label:'자식 초기 응답 대기 <img src=x>'},childStartupStage:{code:31006,label:'자식 역할 API 준비'},reporterRole:'A'},{id:'EVENT',role:'B',at:Date.parse(when),event:'FILE_CLEANUP <img src=x>',source:'CLIENT_REPORTED',status:'FAILED',pid:123,exitCode:0,win32Error:5,reporterRole:'O'}],bResidual:{code:'B_EXIT_NOT_REPORTED',summary:'B 종료 보고 없음 <img src=x>',confirmed:false}}]};
 async function waitFor(test){for(let i=0;i<200;i++){if(test())return;await new Promise(resolve=>setTimeout(resolve,5));}throw Error('UI_COMPLETION_TIMEOUT');}
 function create(overrides={}){
  const dom=new JSDOM('<!doctype html><body></body>',{url:'https://admin.test/',runScripts:'outside-only'}),w=dom.window,calls=[];let close,download=null;
@@ -72,6 +72,7 @@ const click=(w,action)=>w.document.querySelector(`[data-server-state-action="${a
   assert(w.document.querySelector('#server-lifecycle-panel').textContent.includes('B_EXIT_NOT_REPORTED'));
   assert(w.document.querySelector('#server-lifecycle-panel').textContent.includes('잔류 또는 정상 정리를 단정하지 않습니다'));
   assert(w.document.querySelector('#server-lifecycle-events').textContent.includes('Windows 오류 5'));
+  assert(w.document.querySelector('#server-lifecycle-events').textContent.includes('시작 실패'));assert(w.document.querySelector('#server-lifecycle-events').textContent.includes('시작 단계 코드 31107'));assert(w.document.querySelector('#server-lifecycle-events').textContent.includes('자식 실제 종료 코드 31006'));assert(w.document.querySelector('#server-lifecycle-events').textContent.includes('자식 역할 API 준비'));assert.equal(w.document.querySelectorAll('#server-lifecycle-events img').length,0);
   assert(w.document.querySelector('#server-lifecycle-roles [data-outcome="FAILED"]'));
   assert.equal(w.document.querySelector('#server-lifecycle-panel img'),null);
   // Size rejection must never reach mutation API.

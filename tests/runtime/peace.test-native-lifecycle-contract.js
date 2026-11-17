@@ -104,7 +104,11 @@ test('Parent exit observations use the inherited exact process handle, before it
 });
 test('Failed O startup reports only the exact held child exit and verified file cleanup', () => {
   const wait = handoff.split('function LaunchWithHandoff(').at(-1);
-  order(wait, ['TerminateProcess(Process.hProcess, 1)', 'WaitForSingleObject(Process.hProcess, ParentExitTimeoutMS)', 'Observation.ProcessID := Process.dwProcessId', 'Observation.ExitObserved := WaitResult = WAIT_OBJECT_0', 'ObserveFailure(Observation)', 'Close(Process.hProcess)']);
+  const cleanup = wait.slice(wait.indexOf('if not Result and (Process.hProcess <> 0) then'), wait.indexOf('Close(Process.hProcess)'));
+  order(cleanup, ['Observation := Default(THandoffCleanupObservation)', 'Observation.ProcessID := Process.dwProcessId', 'WaitForSingleObject(Process.hProcess, 0)', 'Observation.ExitCodeKnown := GetExitCodeProcess(Process.hProcess, Observation.ExitCode)', 'TerminateProcess(Process.hProcess, 1)', 'WaitForSingleObject(Process.hProcess, ParentExitTimeoutMS)', 'Observation.ExitObserved := WaitResult = WAIT_OBJECT_0', 'ObserveFailure(Observation)']);
+  assert.match(cleanup, /if WaitResult = WAIT_OBJECT_0 then\s+begin\s+Observation\.ExitCodeKnown := GetExitCodeProcess\(Process\.hProcess, Observation\.ExitCode\);[\s\S]*?end\s+else\s+begin\s+TerminateProcess\(Process\.hProcess, 1\)/);
+  assert.doesNotMatch(cleanup.slice(cleanup.indexOf('TerminateProcess(Process.hProcess, 1)')), /GetExitCodeProcess|(?:ExitCodeKnown|ExitCode)\s*:=/,
+    'forced cleanup must not manufacture or replace the original child exit code');
   const launch = client.split('function LaunchOverlay(').at(-1).split('function TOverlayClient.ClaimCore')[0];
   order(launch, ['LaunchWithHandoff(', 'ChildObservation := Observation', 'ChildObservation.ExitObserved', 'DeleteCreatedBinary(', 'FailedChild := ChildObservation']);
   const remove = client.split('procedure DeleteCreatedBinary(')[1].split('function DownloadVerifiedBinary')[0];

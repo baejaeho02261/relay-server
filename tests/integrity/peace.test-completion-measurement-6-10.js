@@ -4,8 +4,8 @@ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'game-measurement-6-10-'));proce
 const {Isolated,PE}=require("../fixtures/protocol/peace.completion-6-10-fixture"),contract=require("../../services/integrity/peace.measurement-plan-contract"),work=require("../../services/runtime/peace.desktop-work-queue");
 let n=0;async function check(name,fn){await fn();n++;console.log('PASS '+name);}
 const keys=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),publicKey=require("../../services/network/peace.connect-transport-key").PublicBlob(keys.publicKey).toString('base64');
-const artifact={id:'TEST_ARTIFACT',measurementPlanVersion:1},row={id:'TEST_FLOW',sessionId:'TEST_SESSION',reportContextId:'TEST_SESSION',releaseId:artifact.id,stage:'B',machineId:'A'.repeat(64),publicKey,integrityArtifact:artifact},revoked=[];
-const reports=Isolated("services/integrity/peace.desktop-integrity-reports.js",['observations:()=>observations'],{"../bootstrap/peace.desktop-bootstrap":{AuthenticateIntegrityReport:()=>row,AuthenticateIntegrityReceipt:()=>row,Revoke:(_s,b)=>revoked.push(b.reason)},"../bootstrap/peace.desktop-bootstrap-store":{Load:()=>({artifacts:{[artifact.id]:artifact},launchers:{}})},"../security/peace.desktop-security-authority":{Policy:()=>({revision:1}),UsesAuthority:()=>false},"../security/peace.desktop-security-operations":{Revision:()=>1},"../../storage/audit/peace.audit.js":{LogEvent:()=>{}}});
+const artifact={id:'TEST_ARTIFACT',measurementPlanVersion:1},row={id:'TEST_FLOW',sessionId:'TEST_SESSION',reportContextId:'TEST_SESSION',releaseId:artifact.id,launcherId:'TEST_LAUNCHER',stage:'B',machineId:'A'.repeat(64),publicKey,integrityArtifact:artifact},revoked=[];
+const reports=Isolated("services/integrity/peace.desktop-integrity-reports.js",['observations:()=>observations'],{"../bootstrap/peace.desktop-bootstrap":{AuthenticateIntegrityReport:()=>row,AuthenticateIntegrityReceipt:()=>row,Revoke:(_s,b)=>revoked.push(b.reason)},"../bootstrap/peace.desktop-bootstrap-store":{Load:()=>({artifacts:{[artifact.id]:artifact},launchers:{TEST_LAUNCHER:{artifactId:artifact.id}}})},"../security/peace.desktop-security-authority":{Policy:()=>({revision:1}),UsesAuthority:()=>false},"../security/peace.desktop-security-operations":{Revision:()=>1},"../../storage/audit/peace.audit.js":{LogEvent:()=>{}}});
 const moduleRow=(name='sample.dll')=>({name,status:'UNVERIFIED_BASELINE',codeStatus:'UNVERIFIED_BASELINE',fileSha512:'a'.repeat(128),fileCrc64:'B'.repeat(16),codeSha512:'c'.repeat(128),codeCrc64:'D'.repeat(16),fileXxh3_128:'e'.repeat(32),fileBlake3:'f'.repeat(64),codeXxh3_128:'1'.repeat(32),codeBlake3:'2'.repeat(64)});
 function payload(changes={}){return {version:1,hashVersion:3,check:'MODULE_INVENTORY',reason:'PERIODIC',snapshotId:crypto.randomUUID(),batchIndex:0,batchCount:1,complete:true,truncated:false,totalModules:1,measuredModules:1,scope:'current-process',trust:'client-reported',measurementContract:contract.CONTRACT,measurementPlanVersion:1,measurementStartedTick:10000,measurementFinishedTick:10100,moduleGenerationStable:true,coverage:'FULL',modules:[moduleRow()],...changes};}
 const common={stage:'B',sessionId:row.sessionId,sessionToken:'TEST_TOKEN',machineId:row.machineId};
@@ -207,43 +207,45 @@ function submit(data){return reports.Execute(request(data));}
    console.log(JSON.stringify({scenario:'bounded-unicode-module-packing',kind,batchSize,batchCount,maxPayload,maxEnvelope,rowsRetained:sent.length}));
   }
  });
- await check('O retains all 86 rows in six signed batches and only a coherent generation satisfies startup',()=>{
-  const before={...row},beforeAuth={...common},modules=Array.from({length:86},(_,i)=>({
-   ...moduleRow('overlay-'+i+'.dll'),codeStatus:'MATCH_LOCAL_FILE',exportTableStatus:'NO_EXPORTS',
-   exportCoverage:'NO_EXPORTS',failurePhase:0
-  }));
-  const utf8=value=>Buffer.byteLength(value,'utf8');
+ await check('A and O retain every signed row; only the complete coherent generation satisfies startup',()=>{
+  const before={...row},beforeAuth={...common},utf8=value=>Buffer.byteLength(value,'utf8');
   try{
-   row.stage='O';common.stage='O';
-   for(const stable of [false,true]){
-    row.id='O_FLOW_'+stable;row.sessionId='O_SESSION_'+stable;row.reportContextId=row.sessionId;common.sessionId=row.sessionId;
-    const snapshotId=crypto.randomUUID(),batchSize=16,batchCount=Math.ceil(modules.length/batchSize);
-    let reply;
-    for(let batchIndex=0;batchIndex<batchCount;batchIndex++){
-     const data=payload({snapshotId,batchIndex,batchCount,complete:stable,coverage:stable?'FULL':'PARTIAL',
-      moduleGenerationStatus:stable?'TRACKED_STABLE':'TRACKED_CHANGED',moduleGenerationStable:stable,
-      totalModules:modules.length,measuredModules:modules.length,modules:modules.slice(batchIndex*batchSize,(batchIndex+1)*batchSize)});
-     const body=request(data);
-     assert(utf8(body.payload)<=24576);
-     assert(utf8(JSON.stringify({operation:'report',tlsPinVersion:1,body}))<=32768);
-     reply=reports.Execute(body);
-     if(batchIndex+1<batchCount){
-      assert.equal(reply.terminate,false);
-      assert.equal(Object.hasOwn(reply,'snapshotBudget'),false);
+   for(const [stage,total,expectedBatches] of [['A',58,4],['O',86,6]]){
+    const modules=Array.from({length:total},(_,i)=>({
+     ...moduleRow(stage.toLowerCase()+'-'+i+'.dll'),codeStatus:'MATCH_LOCAL_FILE',exportTableStatus:'NO_EXPORTS',
+     exportCoverage:'NO_EXPORTS',failurePhase:0
+    }));
+    row.stage=stage;common.stage=stage;
+    for(const stable of [false,true]){
+     row.id=stage+'_FLOW_'+stable;row.sessionId=stage+'_SESSION_'+stable;row.reportContextId=row.sessionId;common.sessionId=row.sessionId;
+     const snapshotId=crypto.randomUUID(),batchSize=16,batchCount=Math.ceil(modules.length/batchSize);
+     let reply;
+     for(let batchIndex=0;batchIndex<batchCount;batchIndex++){
+      const data=payload({snapshotId,batchIndex,batchCount,complete:stable,coverage:stable?'FULL':'PARTIAL',
+       moduleGenerationStatus:stable?'TRACKED_STABLE':'TRACKED_CHANGED',moduleGenerationStable:stable,
+       totalModules:modules.length,measuredModules:modules.length,modules:modules.slice(batchIndex*batchSize,(batchIndex+1)*batchSize)});
+      const body=request(data);
+      assert(utf8(body.payload)<=24576);
+      assert(utf8(JSON.stringify({operation:'report',tlsPinVersion:1,body}))<=32768);
+      reply=reports.Execute(body);
+      if(batchIndex+1<batchCount){
+       assert.equal(reply.terminate,false);
+       assert.equal(Object.hasOwn(reply,'snapshotBudget'),false);
+      }
      }
-    }
-    assert.equal(batchCount,6);
-    assert.equal(reply.terminate,!stable);
-    const record=reports.List({sessionId:row.sessionId}).items.find(item=>item.id===reply.reportId);
-    assert.equal(record.stage,'O');
-    assert.equal(record.snapshotReceivedBatches,6);
-    assert.equal(record.snapshotStatus,stable?'COMPLETE_PASS':'COMPLETE_REJECTED');
-    assert.equal(record.snapshotDiagnostics.receivedModules,86);
-    if(stable)assert.deepEqual(reports.RequireSnapshot(row,'O'),{expiresAt:reply.snapshotBudget.expiresAt});
-    else{
-     assert.equal(Object.hasOwn(reply,'snapshotBudget'),false);
-     assert.equal(record.reason,'MEASUREMENT_PLAN_INCOMPLETE');
-     assert(revoked.includes('INTEGRITY_MEASUREMENT_PLAN_INCOMPLETE'));
+     assert.equal(batchCount,expectedBatches);
+     assert.equal(reply.terminate,!stable);
+     const record=reports.List({sessionId:row.sessionId}).items.find(item=>item.id===reply.reportId);
+     assert.equal(record.stage,stage);
+     assert.equal(record.snapshotReceivedBatches,expectedBatches);
+     assert.equal(record.snapshotStatus,stable?'COMPLETE_PASS':'COMPLETE_REJECTED');
+     assert.equal(record.snapshotDiagnostics.receivedModules,total);
+     if(stable)assert.deepEqual(reports.RequireSnapshot(row,stage),{expiresAt:reply.snapshotBudget.expiresAt});
+     else{
+      assert.equal(Object.hasOwn(reply,'snapshotBudget'),false);
+      assert.equal(record.reason,'MEASUREMENT_PLAN_INCOMPLETE');
+      assert(revoked.includes('INTEGRITY_MEASUREMENT_PLAN_INCOMPLETE'));
+     }
     }
    }
   }finally{Object.assign(row,before);Object.assign(common,beforeAuth);}
