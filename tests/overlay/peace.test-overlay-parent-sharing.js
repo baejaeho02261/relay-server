@@ -112,10 +112,18 @@ check('A to B normal path and OS read-only fallback retain compatible strict pin
 });
 
 check('B retirement follows authorized hidden O readiness and keeps O parent identity pinned', () => {
-  const redeem = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.RedeemPending'), licenseSource.indexOf('procedure TLicenseWorker.Execute'));
-  assert(redeem.includes('if not FApi.StartOverlay(False,'));
-  assert(redeem.indexOf('if not FApi.StartOverlay(False,') < redeem.indexOf('FCommands.Complete(WorkerTransferred)'));
-  assert.doesNotMatch(redeem, /CleanupBinaryAfterLicense/);
+  const redeem = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.RedeemPending'), licenseSource.indexOf('procedure TLicenseWorker.ScheduleLicenseRenewal'));
+  const launch = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.LaunchOverlay;'), licenseSource.indexOf('procedure TLicenseWorker.Execute'));
+  const executeStart = licenseSource.indexOf('procedure TLicenseWorker.Execute');
+  const execute = licenseSource.slice(executeStart, licenseSource.indexOf('function RunLicenseClient(', executeStart));
+  assert(redeem.indexOf('if not LicenseState.IsActive then') < redeem.indexOf('FCommands.Complete(WorkerLicensed)'));
+  assert.doesNotMatch(redeem, /StartOverlay\(|WorkerTransferred|CleanupBinaryAfterLicense/,
+    'Activation only publishes a server-verified Licensed state; it cannot retire B');
+  assert(launch.includes('if not FApi.StartOverlay(False,'));
+  assert(launch.indexOf('if not RenewActivatedLicense then Exit;') < launch.indexOf('if not FApi.StartOverlay(False,'));
+  assert(launch.indexOf('if not FApi.StartOverlay(False,') < launch.indexOf('FCommands.Complete(WorkerTransferred)'));
+  assert(execute.indexOf('if FCommands.TakeLaunch then') < execute.indexOf('LaunchOverlay;'));
+  assert.doesNotMatch(launch, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);
   const complete = handoff.slice(handoff.indexOf('procedure THandoffContext.CompleteOverlayClaimCore'), handoff.indexOf('procedure THandoffContext.ConfirmOverlayReadyCore'));
   assert.match(complete, /SameText\(HashHandle\(ParentFile\), LauncherSHA512\)/);
