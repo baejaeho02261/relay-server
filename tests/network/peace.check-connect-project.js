@@ -184,7 +184,7 @@ for(const name of ["Cozy.Client","Cozy.Launcher","Cozy.Overlay"])assert.ok(read(
 
 const licenseSource = fs.readFileSync(path.join(root, "Cozy.Source/Cozy.License/Cozy.License.Session.pas"), 'utf8');
 const windowSource = fs.readFileSync(path.join(root, "Cozy.Source/Cozy.License/Cozy.License.Window.pas"), 'utf8');
-const entry = licenseSource.slice(licenseSource.indexOf('function RunLicenseClient(const Monitor: ICozyProtectionSession): Integer;', licenseSource.indexOf('implementation')));
+const entry = licenseSource.slice(licenseSource.indexOf('function RunLicenseClient(const Monitor: ICozyProtectionSession;', licenseSource.indexOf('implementation')));
 assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') >= 0 && entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('RunLicenseWindow('), 'License window starts only after authenticated handoff and cleanup');
 assert.ok(entry.includes('Api.CheckIntegrity;') && entry.includes('Worker.StartChecks;'));
 assert.ok(entry.includes('Worker := TLicenseWorker.Create(Api);') && entry.includes('Worker.SubmitKey(Key)'));

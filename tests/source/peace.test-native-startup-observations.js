@@ -21,8 +21,11 @@ test('actual product local gates retain their matching role before application w
   for (const [name, role, run, traceScope] of roles) {
     const source = read(`Cozy.Projects/${name}/${name}.dpr`);
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
-    const start = body.indexOf(`RequireNativeStartup(${role}`);
-    assert(start >= 0 && start < body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}));`), name);
+    const runCall = name === 'Cozy.Client'
+      ? `ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}), @ExitCode);`
+      : `ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}));`;
+    const start = body.indexOf(`RequireNativeStartup(${role}`), application = body.indexOf(runCall);
+    assert(start >= 0 && application >= 0 && start < application, name);
     assert.equal((body.match(/RequireNativeStartup\(/g) || []).length, 1);
     assert.doesNotMatch(body, /CaptureNativeStartupObservation|PublishStartupObservation|Writeln|WriteLn/);
   }

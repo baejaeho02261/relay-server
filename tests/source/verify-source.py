@@ -57,6 +57,7 @@ def verify(root: Path) -> list[str]:
             'Cozy.Build/Cozy.Prepare-LauncherResource.js',
             'Cozy.Tests/Cozy.Security/Cozy.test-launcher-resource.js',
             'Cozy.ImGui/Cozy.Strings/Cozy.NativeStrings.map.json',
+            'Cozy.ImGui/Cozy.Assets/Cozy.LicenseGallery/Cozy.LicenseGallery.Reference.json',
             'Cozy.Source/Cozy.Configuration/Cozy.StringUnits.map.json',
         }
         if not ((native_test_contract or native_build_contract) and name in manifest['files']):

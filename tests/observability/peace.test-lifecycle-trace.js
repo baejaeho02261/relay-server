@@ -82,6 +82,18 @@ check('Startup failure is a closed signed self diagnostic, preserves real child 
  boot.Execute(report(key,self,[{event:'STARTUP_FAILURE',status:'FAILED',exitCode:31104,win32Error:5}]));
  const absent=trace.Flow(next.begin.flowId).events.find(e=>e.event==='STARTUP_FAILURE');assert(!Object.hasOwn(absent,'childExitCode'));assert(!Object.hasOwn(absent,'childStartupStage'));
  for(const code of [0,0xffffffff]){const attempt=challenge('B',bSession);boot.Execute(report(key,attempt,[{event:'STARTUP_FAILURE',status:'FAILED',exitCode:31107,childExitCode:code}]));const event=trace.Flow(next.begin.flowId).events.filter(e=>e.event==='STARTUP_FAILURE').at(-1);assert.equal(event.childExitCode,code);assert.equal(event.childStartupStage,null);}
+ const bFailureDevice=fixture.Device(),bFailure=fixture.Begin(bFailureDevice),bFailureSession={sessionId:bFailure.begin.flowId,sessionToken:bFailure.begin.downloadTicket},bFailurePermit=challenge('A',bFailureSession);
+ boot.Execute({action:'abort',flowId:bFailureSession.sessionId,downloadTicket:bFailureSession.sessionToken});
+ boot.Execute(report(bFailureDevice,bFailurePermit,[{event:'STARTUP_FAILURE',status:'FAILED',exitCode:31109,childExitCode:31404}]));
+ const bFailureTrace=trace.Flow(bFailureSession.sessionId),claimFailure=bFailureTrace.events.find(e=>e.event==='STARTUP_FAILURE');
+ assert.deepEqual(claimFailure.startupStage,{code:31109,label:'자식 준비 완료 대기'});
+ assert.deepEqual(claimFailure.childStartupStage,{code:31404,label:'B Claim 서버 요청'});
+ assert.equal(bFailureTrace.roles.B.status,'NOT_STARTED');assert.equal(bFailureTrace.roles.B.processExit,'NOT_REPORTED');
+ const downloadDevice=fixture.Device(),downloadFailure=fixture.Begin(downloadDevice),downloadSession={sessionId:downloadFailure.begin.flowId,sessionToken:downloadFailure.begin.downloadTicket},downloadPermit=challenge('A',downloadSession);
+ boot.Execute({action:'abort',flowId:downloadSession.sessionId,downloadTicket:downloadSession.sessionToken});
+ boot.Execute(report(downloadDevice,downloadPermit,[{event:'STARTUP_FAILURE',status:'FAILED',exitCode:31501}]));
+ const downloadTrace=trace.Flow(downloadSession.sessionId),downloadEvent=downloadTrace.events.find(e=>e.event==='STARTUP_FAILURE');
+ assert.deepEqual(downloadEvent.startupStage,{code:31501,label:'B 파일 수신'});assert.equal(downloadTrace.roles.B.status,'NOT_STARTED');assert(!Object.hasOwn(downloadEvent,'childExitCode'));
  const invalid=structuredClone(store.Load().lifecycleTrace),entry=invalid.flows[next.begin.flowId].events.filter(e=>e.event==='STARTUP_FAILURE').at(-1);entry.event='SHUTDOWN_BEGIN';entry.status='REQUESTED';assert.throws(()=>trace.Validate(invalid,store.Load()),/LIFECYCLE_STORAGE_INVALID/);
 });
 const fresh=fixture.Device(),freshSession=fixture.Session(fresh),pending=challenge('B',freshSession);

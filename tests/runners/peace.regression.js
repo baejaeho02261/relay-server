@@ -5,6 +5,9 @@ const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs'), os = require('node:os');
 const checks = [
+  ["security/peace.test-module-baseline-space.js"],
+  ["web/peace.test-resource-disk-error-ui.js"],
+  ["network/peace.test-download-size-recovery.js"],
   ["bootstrap/peace.test-issued-a-keyring.js"],
   ["bootstrap/peace.test-keyless-tpm-recovery.js"],
   ["source/peace.test-native-string-contract-reader.js"],

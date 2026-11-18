@@ -33,7 +33,7 @@ launch=license_session.split('procedure TLicenseWorker.LaunchOverlay;',1)[1].spl
 execute=license_session.split('procedure TLicenseWorker.Execute;',1)[1].split('function RunLicenseClient(',1)[0]
 request_launch=commands.split('function TLicenseCommandMailbox.RequestLaunch: Boolean;',1)[1].split('function TLicenseCommandMailbox.TakeLaunch:',1)[0]
 take_launch=commands.split('function TLicenseCommandMailbox.TakeLaunch: Boolean;',1)[1].split('procedure TLicenseCommandMailbox.Complete(',1)[0]
-main=license_session.split('function RunLicenseClient(const Monitor: ICozyProtectionSession): Integer;')[-1].split('\ninitialization')[0]
+main=license_session.split('function RunLicenseClient(const Monitor: ICozyProtectionSession;')[-1].split('\ninitialization')[0]
 check('A deletion stays in authenticated handoff', re.search(r'SetFileInfo\(LauncherFile,\s*FileDispositionInfoClass', claim) is not None)
 check('B is not unlinked at claim time', 'UnlinkVerifiedOwnImage(' not in claim)
 check('The verified B handle is transferred rather than reopened after license', 'FBinaryCleanupFile := BinaryFile;\n    BinaryFile := 0;' in claim and 'OpenSafeImage(' not in cleanup)

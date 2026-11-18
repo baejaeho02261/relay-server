@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'cozy-peace-v19-product-licenses';
+const WEB_UI_REVISION = 'cozy-peace-v20-storage-headroom';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -171,6 +171,12 @@ function toast(message, error = false) {
   toastTimer = setTimeout(() => toastEl.classList.add('hidden'), 3200);
 }
 
+function resourceDiskDetails(resource) {
+  if (!resource || !['availableBytes','minFreeBytes','reservedDiskBytes','requestedDiskBytes','shortfallBytes'].every(k => Number.isSafeInteger(resource[k]) && resource[k] >= 0)) return '';
+  const mib = n => (n / (1024 * 1024)).toFixed(2) + ' MiB';
+  return `가용 ${mib(resource.availableBytes)} · 안전 여유 ${mib(resource.minFreeBytes)} · 새 작업 ${mib(resource.requestedDiskBytes)} · 기존 예약 ${mib(resource.reservedDiskBytes)} · 부족 ${mib(resource.shortfallBytes)}`;
+}
+
 function readableApiError(code) {
   if (code === 'ARTIFACT_EXPOSURE_BLOCKED') return "배포물에서 비밀 또는 개발 정보 노출이 발견됐습니다. 보안 자동 시험 · 탐지 · 배포물 검사에서 규칙과 위치를 확인하고, 개발 자료·비밀을 제외한 새 최종 파일로 검증하세요.";
   if (code === 'ARTIFACT_EXPOSURE_SCAN_REQUIRED') return "이 최종 파일의 서버 검사 결과가 필요합니다. 보안 자동 시험 · 탐지 · 배포물 검사에서 선택 A/B/O를 검사한 뒤 다시 활성화하세요. 현재 실행은 자동 폐기하지 않습니다.";
@@ -265,7 +271,8 @@ async function api(url, options = {}) {
     const detail = data && data.detail ? ` [${data.detail}]` : '';
     const error=new Error(`${readableApiError(data && data.error || `HTTP_${response.status}`)}${detail}`);
     error.code=data?.error||`HTTP_${response.status}`;error.status=response.status;
-    error.connection=data?.connection;error.serverMessage=data?.message;error.problem=data?.problem;if(error.problem)error.message=error.problem.title+' '+error.problem.next;throw error;
+    error.connection=data?.connection;error.serverMessage=data?.message;error.problem=data?.problem;if(error.problem)error.message=error.problem.title+' '+error.problem.next;
+    if(error.code==='RESOURCE_DISK_RESERVE'){const disk=resourceDiskDetails(data?.resource);if(disk)error.message+=' '+disk;}throw error;
   }
   if (!data || typeof data !== 'object') throw new Error(`EMPTY_API_RESPONSE [${method} ${url}]`);
   if (!['GET', 'HEAD'].includes(method)) {dirtyViews.delete(currentView);adminEditedControls=new WeakSet();}

@@ -69,3 +69,42 @@ test('A and B export only bounded handoff metadata with a separate observed chil
  const failure=launcher.slice(launcher.indexOf('StartupNativeError := 0;'),launcher.indexOf('finally\n    if Protection'));
  assert.doesNotMatch(failure,/GetLastError|E.Message/);assert.match(launcher,/begin FailedChild := Observation; end/);
 });
+
+
+test('B pre-claim stages remain closed child-exit annotations with complete native coverage',()=>{
+ const codes=[...Array.from({length:11},(_,i)=>31200+i),...Array.from({length:17},(_,i)=>31300+i),...Array.from({length:7},(_,i)=>31400+i)];
+ assert.equal(new Set(c.spec.childStartupStages.map(stage=>stage.code)).size,c.spec.childStartupStages.length);
+ for(const code of codes){
+  const stage=c.childStartupStage(code);assert.equal(stage.code,code);assert(stage.label.length>0);
+  for(const role of c.spec.roles)assert.equal(c.startupStage(code,role),null,'child code is never an authoritative self-stage');
+ }
+ for(const code of [31211,31317,31407,'31404',NaN])assert.equal(c.childStartupStage(code),null);
+ assert.equal(c.childStartupStage(31314).label,'B 코드 무결성 측정 계획 생성');
+ assert.equal(c.childStartupStage(31404).label,'B Claim 서버 요청');
+ assert.equal(c.startupStage(31107,'A').label,'자식 초기 응답 대기');
+ if(!available)return;
+ const railway=path.resolve(native,'..'),sources=['Cozy.License/Cozy.License.Session.pas','Cozy.Handoff/Cozy.Handoff.pas','Cozy.Application/Cozy.Bootstrap.pas'].map(file=>ReadContractFile(path.join(railway,file),'utf8'));
+ const nativeCodes=sources.flatMap(source=>[...source.matchAll(/\bStage\((31[234]\d{2})\)/g)].map(match=>Number(match[1])));
+ const claim=sources[2].split('function TBootstrapClient.Claim(')[1].split('function TBootstrapClient.InvokeServerPolicy(')[0];
+ assert.match(claim,/DiagnosticCode\^ := 31400;/);nativeCodes.push(31400);
+ assert.deepEqual(nativeCodes.sort((a,b)=>a-b),codes);
+});
+
+
+test('A download phases use self stages and never imply a B claim',()=>{
+ for(let code=31501;code<=31507;code++){
+  assert.equal(c.startupStage(code,'A').code,code);
+  for(const role of ['B','O'])assert.equal(c.startupStage(code,role),null);
+  assert.equal(c.childStartupStage(code),null);
+ }
+ assert.equal(c.startupStage(31501,'A').label,'B 파일 수신');
+ if(!available)return;
+ const source=ReadContractFile(path.resolve(native,'../Cozy.Application/Cozy.Launcher.pas'),'utf8');
+ const download=source.split('function DownloadVerifiedBinary(')[1].split('function RunLauncher(')[0];
+ assert.deepEqual([...download.matchAll(/\bStage\((315\d{2})\)/g)].map(match=>Number(match[1])),[31501,31502,31503,31504,31505,31506,31507]);
+ assert.match(source,/DownloadVerifiedBinary\(Client, Flow, BinaryPath, CreatedInfo, Lifecycle, Protection, @Result\)/);
+ const diagnostic=source.slice(source.indexOf('StartupNativeError := 0;'),source.indexOf('{ No exception text, credentials or diagnostic files'));
+ assert.match(diagnostic,/Lifecycle\.Prepare\('A', Flow\.FlowID, Flow\.DownloadTicket,\s*TLifecycleReporter\.Tick \+ 1500, True\);/);
+ assert(diagnostic.indexOf('Lifecycle.Prepare(')<diagnostic.indexOf("Lifecycle.Note('A', 'STARTUP_FAILURE'"));
+ assert.doesNotMatch(diagnostic.slice(diagnostic.indexOf('Lifecycle.Prepare(')),/Result\s*:=/);
+});

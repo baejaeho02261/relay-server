@@ -3,7 +3,7 @@ const bootstrap=require("../../../services/bootstrap/peace.desktop-bootstrap");
 const {RequireAdmin,Json,ApiError}=require("../../http/peace.api-context");
 const {UploadError}=require("../../../services/artifacts/peace.desktop-pe-cache");
 let uploadPending=false;
-function ErrorResponse(res,error){const code=error.desktopError?error.message:'BOOTSTRAP_INPUT_INVALID';Json(res,error.desktopError?error.status:400,{ok:false,error:code,reason:code,...(code==='ARTIFACT_EXPOSURE_BLOCKED'&&error.exposure?{exposure:error.exposure}:{}),problem:require("../../../services/runtime/peace.desktop-operations-errors").Explain(code),message:bootstrap.messages[code]||require("../../../services/licensing/peace.desktop-licenses").messages[code]||'실행 파일 요청을 처리하지 못했습니다.'});}
+function ErrorResponse(res,error){const code=error.desktopError?error.message:'BOOTSTRAP_INPUT_INVALID';Json(res,error.desktopError?error.status:400,{ok:false,error:code,reason:code,...(code==='ARTIFACT_EXPOSURE_BLOCKED'&&error.exposure?{exposure:error.exposure}:{}),...(code==='RESOURCE_DISK_RESERVE'&&error.resource?{resource:error.resource}:{}),problem:require("../../../services/runtime/peace.desktop-operations-errors").Explain(code),message:bootstrap.messages[code]||require("../../../services/licensing/peace.desktop-licenses").messages[code]||'실행 파일 요청을 처리하지 못했습니다.'});}
 function ReadBytes(req,maximum){
  if(!Number.isSafeInteger(maximum)||maximum<1||maximum>bootstrap.MAX_ARTIFACT_BYTES)return Promise.reject(Error('BOOTSTRAP_INPUT_INVALID'));
  return new Promise((resolve,reject)=>{
@@ -29,8 +29,10 @@ async function HandleUpload({method,pathname,url,req,res,session}){
  try{
   if(!/^application\/octet-stream(?:\s*;|$)/i.test(req.headers['content-type']||'')||req.headers['content-encoding']&&req.headers['content-encoding']!=='identity')bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');
   const rawLength=req.headers['content-length'];if(rawLength!==undefined&&(typeof rawLength!=='string'||!/^\d+$/.test(rawLength)))bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');const length=Number(rawLength||0);if(!Number.isSafeInteger(length)||length<0)bootstrap.Fail('BOOTSTRAP_INPUT_INVALID');if(length>bootstrap.MAX_ARTIFACT_BYTES)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
-  const maximum=pathname==='/api/desktop/bootstrap/module-baselines'?32*1024*1024:bootstrap.MAX_ARTIFACT_BYTES;
-  resourceLease=require("../../../services/runtime/peace.server-resource-budget").Admit('upload',{key:session.id,bytes:4*(length||maximum),diskBytes:length||maximum});
+  const moduleBaseline=pathname==='/api/desktop/bootstrap/module-baselines',maximum=moduleBaseline?32*1024*1024:bootstrap.MAX_ARTIFACT_BYTES;
+  if(length>maximum)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);
+  const diskBytes=moduleBaseline?require("../../../services/integrity/peace.desktop-integrity-reports").BaselineWriteReservation():length||maximum;
+  resourceLease=require("../../../services/runtime/peace.server-resource-budget").Admit('upload',{key:session.id,bytes:4*(length||maximum),diskBytes});
   if(pathname==='/api/desktop/bootstrap/module-baselines'){
    if(length>32*1024*1024)bootstrap.Fail('BOOTSTRAP_ARTIFACT_TOO_LARGE',413);uploadPending=true;
    const bytes=await ReadBytes(req,32*1024*1024),fileName=url.searchParams.get('fileName'),label=url.searchParams.get('label')||'';
@@ -40,7 +42,7 @@ async function HandleUpload({method,pathname,url,req,res,session}){
    const allowed=require("../../../services/authentication/peace.desktop-admin-guard").Authorize(session,method,pathname,summary,String(req.headers['x-approval-ticket']||''),'',String(req.headers['x-admin-action']||''));
    if(!allowed.ok){require("../../../services/authentication/peace.desktop-action-approval").Deny(res,allowed);return true;}
    require("../../../services/security/peace.desktop-security-operations").AuditIntent('MODULE_BASELINE_REGISTER',session.id);
-   const baseline=require("../../../services/integrity/peace.desktop-integrity-reports").RegisterBaseline(fileName,label,bytes,String(session.role||'ADMIN')+':'+String(session.id||''));Json(res,200,{ok:true,baseline});return true;
+   const baseline=require("../../../services/integrity/peace.desktop-integrity-reports").RegisterBaseline(fileName,label,bytes,String(session.role||'ADMIN')+':'+String(session.id||''),required=>resourceLease.reserveDisk(required));Json(res,200,{ok:true,baseline});return true;
   }
   const component=url.searchParams.get('component'),version=url.searchParams.get('version'),name=url.searchParams.get('fileName')||'',releaseManifestId=url.searchParams.get('releaseManifestId')||'';
   if(releaseManifestId&&!/^[a-f0-9]{128}$/.test(releaseManifestId))bootstrap.Fail('SECURITY_RELEASE_MANIFEST_INVALID');

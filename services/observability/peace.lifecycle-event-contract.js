@@ -9,7 +9,10 @@ const pairs = Object.freeze(Object.fromEntries(spec.events.map(e=>[e.name,Object
 // signatures stay valid. Deploy this receiver before the new native cohort.
 const startupStages = new Map(spec.startupStages.map(stage=>[stage.code,stage]));
 function startupStage(code,role){const stage=startupStages.get(code);return stage?.roles.includes(role)?{code:stage.code,label:stage.label}:null;}
-function childStartupStage(code){const stage=spec.childStartupStages.find(stage=>stage.code===code);return stage?{code:stage.code,label:stage.label}:null;}
+// B's 312xx/313xx/314xx codes annotate an actually observed child exit only.
+// They never become an A startup stage or establish a successful B claim.
+const childStartupStages = new Map(spec.childStartupStages.map(stage=>[stage.code,stage]));
+function childStartupStage(code){const stage=childStartupStages.get(code);return stage?{code:stage.code,label:stage.label}:null;}
 const plain = x=>!!x&&Object.getPrototypeOf(x)===Object.prototype;
 function roleAllowed(reporter,target){return spec.roles.includes(reporter)&&spec.roles.includes(target)&&(reporter===target||spec.parentRole[reporter]===target||spec.failedChildRole[reporter]===target);}
 function combinationAllowed(reporter,target,event,status){

@@ -117,7 +117,7 @@ test('Failed O startup reports only the exact held child exit and verified file 
   order(start, ['TransferClient.AbortChild(', 'FailedChild.ProcessID <> 0', "FLifecycle.ObserveCleanup('O', FailedChild, True)", "FLifecycle.Prepare('O'", "FLifecycle.Submit('O'"]);
 });
 test('Actual cleanup follows worker join and image reader retirement, before final report', () => {
-  const b = licenseSource.split('function RunLicenseClient(const Monitor: ICozyProtectionSession): Integer;')[1];
+  const b = licenseSource.split('function RunLicenseClient(const Monitor: ICozyProtectionSession;')[1];
   order(b, ['Protection.StopAndDrain;', 'Worker.Free;', 'Api.RetireImagesForShutdown', 'Context.CleanupOwnImageForShutdown', 'Bootstrap.Close(', "Lifecycle.Submit('B'"]);
   const o = overlay.split('function RunOverlay(const Monitor: ICozyProtectionSession): Integer;')[1];
   order(o, ['Protection.StopMonitoring;', 'Worker.JoinBefore(', 'TOverlayClient.CloseSessionSnapshot(', 'Worker.WaitFor;', 'Protection.StopAndDrain;', 'FreeAndNil(Image)', 'Context.CleanupOwnImageForShutdown', 'Client.ShutdownClose(', "Lifecycle.Submit('O'"]);

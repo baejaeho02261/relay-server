@@ -8,6 +8,7 @@ const deadline=require("../runtime/peace.desktop-deadline");
 const requestProtocol=require("../protocol/peace.desktop-request-protocol");
 const receipts=requestProtocol.CreateReceipts({conflict:'INTEGRITY_REPORT_REQUEST_REUSED'});
 const DIR=path.join(config.DATA_DIR,'desktop-integrity-reports'),FILE=path.join(DIR,'reports.json'),KEY=path.join(DIR,'authority.key');
+const MAX_STORE_BYTES=64*1024*1024,BASELINE_WRITE_OVERHEAD_BYTES=128*1024;
 const MAX_PAYLOAD=24576,MAX_REPORTS=512,MAX_PENDING=1024,TTL=30000;
 const MAX_MODULES=1024,MAX_BATCHES=256,SNAPSHOT_TTL=600000,FRESHNESS={A:180000,B:120000,O:120000};
 const DEFAULT_MODULES=['ntdll.dll','kernel32.dll','kernelbase.dll'];
@@ -58,11 +59,12 @@ function Load(){
  if(fs.existsSync(FILE)){const raw=ReadFile(FILE),envelope=require("../protocol/peace.strict-json").Parse(raw,{maxBytes:64*1024*1024,maxNodes:4000000});const data=envelope?.data;if(!data||![1,2,3].includes(data.version)||!Number.isSafeInteger(data.revision)||!Array.isArray(data.records)||data.records.length>MAX_REPORTS||!require("../protocol/peace.strict-json").SecretEqual(envelope.mac,Mac(data))||data.version>=2&&!require("../protocol/peace.strict-json").SecretEqual(envelope.blake3Mac,Blake3Mac(data))||data.version===3&&!require("../protocol/peace.strict-json").SecretEqual(envelope.kmac256Mac,KmacMac(data)))throw Error('INTEGRITY_REPORT_STORAGE_INVALID');Anchor().Open(Mark(data,raw),!fs.existsSync(FILE+'.head'));revision=data.revision;registrationResetReceipts=ValidateResetReceipts(data.registrationResetReceipts||{},revision);records=data.records;observations=data.observations||[];if(!Array.isArray(observations)||observations.length>4096)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');baselines=data.baselines||[];if(!Array.isArray(baselines)||baselines.length>256)throw Error('INTEGRITY_REPORT_STORAGE_INVALID');if(data.policy){try{ValidatePolicy(data.policy,true);}catch(_){throw Error('INTEGRITY_REPORT_STORAGE_INVALID');}policy={requireExtendedHashes:false,...data.policy};}for(const row of records)if(row.snapshotFinal&&row.snapshotId)finishedSnapshots.set(SnapshotKey(row.stage,row.stage==='A'?row.flowId:row.sessionId,row.snapshotId),row.at+900000);}
  if(created)Save([]);loaded=true;
 }
-function Save(next){
+function Save(next,beforeWrite){
  if(poisoned)throw Error('INTEGRITY_REPORT_RESTART_REQUIRED');
  const data={version:3,revision:revision+1,records:next,baselines,policy,observations,...(Object.keys(registrationResetReceipts).length?{registrationResetReceipts}:{})};
  const raw=Buffer.from(JSON.stringify({data,mac:Mac(data),blake3Mac:Blake3Mac(data),kmac256Mac:KmacMac(data)})),nextHead=Mark(data,raw);let previous,published=false;
  try{
+  if(beforeWrite)beforeWrite(raw.length);
   if(fs.existsSync(FILE)){const before=ReadFile(FILE),old=require("../protocol/peace.strict-json").Parse(before,{maxBytes:64*1024*1024,maxNodes:4000000});previous=Mark(old.data,before);Anchor().Prepare(previous,nextHead);}
   require("../storage/peace.durable-file").Atomic(FILE,raw,{createOnly:!previous});published=true;
   if(previous)Anchor().Settle(nextHead);else Anchor().Open(nextHead,true);
@@ -292,14 +294,22 @@ function CompareModule(row,hashVersion=3){
  const expected={};for(const field of EXTENDED_FIELDS)expected['expected'+field[0].toUpperCase()+field.slice(1)]=baseline[field]||'';
  return {...row,...expected,baselineId:baseline.id,serverComparison:matches?'MATCH_REGISTERED_BASELINE':'REGISTERED_BASELINE_MISMATCH',expectedCodeSha512:baseline.codeSha512,expectedCodeCrc64:baseline.codeCrc64,exportTableVerified:!!exportComparable&&row.exportTableStatus==='MEASURED'&&!!exportMatches,expectedExportTableSha512:baseline.exportTableSha512||'',expectedExportTableCrc64:baseline.exportTableCrc64||'',fileExtendedVerified,codeExtendedVerified,exportTableExtendedVerified,extendedHashesVerified:matches&&fileExtendedVerified&&codeExtendedVerified&&exportTableExtendedVerified};
 }
-function RegisterBaseline(name,label,bytes,actor){
+// The DLL remains in RAM. Atomic() needs a second copy of the metadata store,
+// plus bounded row growth, journal head, audit append and allocation overhead.
+// Do not Load() here: admission must not create or rewrite any stored data.
+function BaselineWriteReservation(){
+ let size=0;try{const stat=fs.lstatSync(FILE);if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||!Number.isSafeInteger(stat.size)||stat.size<0||stat.size>MAX_STORE_BYTES)Fail('INTEGRITY_REPORT_STORAGE_INVALID',503);size=stat.size;}catch(error){if(error.code!=='ENOENT')throw error;}
+ return size+BASELINE_WRITE_OVERHEAD_BYTES;
+}
+function RegisterBaseline(name,label,bytes,actor,beforeWrite){
  Load();if(typeof name!=='string'||name.length>64||!/^[-A-Za-z0-9_. ]{1,160}\.dll$/i.test(name)||typeof label!=='string'||label.length>120||/[\x00-\x1f\x7f]/.test(label)||!Buffer.isBuffer(bytes)||bytes.length>32*1024*1024)Fail('INTEGRITY_BASELINE_INVALID');
+ const save=()=>Save(records,size=>{if(size>MAX_STORE_BYTES)Fail('INTEGRITY_BASELINE_LIMIT',409);if(beforeWrite)beforeWrite(size+BASELINE_WRITE_OVERHEAD_BYTES);});
  const integrity=require('./peace.desktop-integrity');let code;try{const pe=bytes.length>=64?bytes.readUInt32LE(0x3c):0;if(pe<64||pe+24>bytes.length||!(bytes.readUInt16LE(pe+22)&0x2000))Fail('INTEGRITY_BASELINE_INVALID');code=integrity.CodeImage(bytes);}catch(_){Fail('INTEGRITY_BASELINE_INVALID');}const file=integrity.Digests(bytes);
  const exportTable=require("../artifacts/peace.desktop-pe-exports").ExportTable(bytes),exportFields={exportTableStatus:exportTable.status,exportTableSha512:exportTable.sha512||'',exportTableCrc64:exportTable.crc64||'',fileXxh3_128:file.xxh3_128,fileBlake3:file.blake3,codeXxh3_128:code.xxh3_128,codeBlake3:code.blake3,exportTableXxh3_128:exportTable.xxh3_128||'',exportTableBlake3:exportTable.blake3||''};
- const old=baselines.find(b=>b.name.toLowerCase()===name.toLowerCase()&&b.fileSha512===file.sha512);if(old){if(Object.entries(exportFields).every(([key,value])=>old[key]===value))return old;const previous={...old};Object.assign(old,exportFields);try{Save(records);}catch(error){for(const key of Object.keys(old))delete old[key];Object.assign(old,previous);throw error;}return old;}
+ const old=baselines.find(b=>b.name.toLowerCase()===name.toLowerCase()&&b.fileSha512===file.sha512);if(old){if(Object.entries(exportFields).every(([key,value])=>old[key]===value))return old;const previous={...old};Object.assign(old,exportFields);try{save();}catch(error){for(const key of Object.keys(old))delete old[key];Object.assign(old,previous);throw error;}return old;}
  if(baselines.length>=256)Fail('INTEGRITY_BASELINE_LIMIT',409);
  const row={id:crypto.randomBytes(12).toString('hex').toUpperCase(),name,label,hashVersion:3,fileSha512:file.sha512,fileCrc64:file.crc64,codeSha512:code.sha512,codeCrc64:code.crc64,...exportFields,createdAt:Date.now(),actor:String(actor||'ADMIN').slice(0,120)};
- baselines.push(row);try{Save(records);}catch(error){baselines.pop();throw error;}return row;
+ baselines.push(row);try{save();}catch(error){baselines.pop();throw error;}return row;
 }
 function Baselines(){Load();return {items:baselines.slice(),revision,serverTime:Date.now()};}
 function ValidatePolicy(value,stored=false){
@@ -382,4 +392,4 @@ function ProofTasks(body){
  if(body.action!=='submit')return [];const challenge=pending.get(body.reportId);if(!challenge)return [];
  const row=Auth(body);return [require('./peace.desktop-proof-work').Job(row.publicKey,Canonical(row.reportContextId||row.sessionId,challenge,body.payload),body.signature)];
 }
-module.exports={ProofTasks,InvalidateVolatile,RetireContext,Execute,Record,List,MemberIndex,MemberRecords,Payload,Canonical,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,ResetRegistrations,RegistrationStatus};
+module.exports={ProofTasks,InvalidateVolatile,RetireContext,Execute,Record,List,MemberIndex,MemberRecords,Payload,Canonical,BaselineWriteReservation,RegisterBaseline,Baselines,Policy,SetPolicy,RequireSnapshot,MAX_PAYLOAD,FILE,KEY,ResetRegistrations,RegistrationStatus};
