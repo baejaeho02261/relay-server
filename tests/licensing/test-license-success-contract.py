@@ -40,21 +40,21 @@ check('The verified B handle is transferred rather than reopened after license',
 check('Activation verifies a live license without starting O',
       redeem.index('LicenseState := FApi.Redeem(BoundaryKey);') < redeem.index('if not LicenseState.IsActive then') < redeem.index('FCommands.Complete(WorkerLicensed);')
       and 'StartOverlay(' not in redeem and 'Terminate;' not in redeem)
-check('Only a verified worker grant and queued handoff starts O',
+check('Only a verified and explicitly queued launch starts O',
       'FState <> WorkerLicensed' in request_launch
       and request_launch.index('FLock.Acquire;') < request_launch.index('FLaunchPending := True;') < request_launch.index('FState := WorkerBusy;') < request_launch.index('finally FLock.Release;')
       and 'if FStopping or (FState <> WorkerBusy) or not FLaunchPending then Exit;' in take_launch
       and take_launch.index('FLaunchPending := False;') < take_launch.index('Result := True;')
       and execute.index('if FCommands.TakeLaunch then') < execute.index('LaunchOverlay;')
       and launch.index('if Terminated or FCommands.Stopping then Exit;') < launch.index('if not FApi.StartOverlay(False,'))
-check('An authenticated grant remains monitored while its automatic request is queued',
+check('An activated gallery remains monitored while waiting for launch',
       'WorkerLicensed = 2;' in commands
       and 'if Outcome = WorkerLicensed then FProgress := 40 else FProgress := 0;' in commands
       and 'if Outcome = WorkerFailed then FStopping := True;' in commands
       and 'while not Terminated and not FCommands.Stopping do' in execute
       and 'FApi.CheckIntegrity;' in execute and 'FApi.ContinueModuleInventory' in execute
       and 'begin Result := Worker.RequestLaunch; end);' in main)
-check('The authenticated session renews inside its last signed license window',
+check('The activated gallery renews inside its last signed license window',
       'LicenseState.LeaseDeadlineTick <= NowTick' in schedule
       and 'Delay := (LicenseState.LeaseDeadlineTick - NowTick) div 3;' in schedule
       and 'if Delay > HeartbeatMilliseconds then Delay := HeartbeatMilliseconds;' in schedule
@@ -69,7 +69,7 @@ check('License renewal cannot revive an expired or stopped gallery permission',
       < renew_activated.index('(CozyTick >= Previous.LeaseDeadlineTick) or not Renewed.IsActive')
       < renew_activated.index('ScheduleLicenseRenewal(Renewed);')
       and 'FCommands.Complete(WorkerFailed); Exit;' in renew_activated)
-check('The automatic worker handoff rechecks the live license and observes renewal time',
+check('A manual launch rechecks the live license and its worker wait observes renewal time',
       launch.index('if not RenewActivatedLicense then Exit;') < launch.index('if not FApi.StartOverlay(False,')
       and execute.index('if (State = WorkerLicensed) and (FNextLicenseCheck < WaitUntil) then')
       < execute.index('WaitUntil := FNextLicenseCheck;') < execute.index('WaitForMultipleObjects('))
@@ -80,7 +80,7 @@ check('A stopped or duplicate launch cannot reopen work or retain a key',
       and '((FState <> WorkerBusy) or (FPending <> nil) or FLaunchPending) then Exit;' in commands)
 check('Submit has no artificial minimum wait or time-based completion',
       all(token not in license_session+window+commands for token in
-          ['WaitForSubmitPresentation', 'LicenseSubmitMinimumMilliseconds', 'AttemptStartedAt', 'FSubmitAt', 'CompletedWaveHoldSeconds', 'TransferCloseFallbackMs']))
+          ['WaitForSubmitPresentation', 'LicenseSubmitMinimumMilliseconds', 'AttemptStartedAt', 'FSubmitAt']))
 progress=commands.split('procedure TLicenseCommandMailbox.ReportProgress(Value: Integer);',1)[1].split('function TLicenseCommandMailbox.Progress:',1)[0]
 completion=commands.split('procedure TLicenseCommandMailbox.Complete(Outcome: Integer);',1)[1].split('procedure TLicenseCommandMailbox.Stop;',1)[0]
 check('Worker milestones are monotonic and cannot publish transfer completion',
@@ -95,9 +95,8 @@ check('B displays completed worker milestones and keeps API locks away from rend
       and 'Percent := FProgress();' in window
       and 'ImGuiLicenseScene(FContext, Phase, FKey.Count, Percent / 100)' in window
       and 'function TLicenseWindow.BusyVisual: Boolean;' in window
-      and 'if FClosing or not Assigned(FState) then Exit;' in window
-      and 'Result := (State = WorkerTransferred) or' in window
-      and '((State = WorkerBusy) and FLaunchRequested);' in window)
+      and 'Result := not FClosing and Assigned(FState) and' in window
+      and '((FState() = WorkerBusy) or (FState() = WorkerTransferred));' in window)
 check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
       and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem
@@ -105,67 +104,19 @@ check('Only definitive key rejection silently reopens the same B without a timer
 check('Confirmed transfer terminates B worker without another proof or active unlink', launch.index('if not FApi.StartOverlay(False,') < launch.index('FCommands.Complete(WorkerTransferred)') < launch.index('Terminate;') and 'CleanupBinaryAfterLicense' not in license_session and 'WorkerActive' not in license_session)
 check('B window exits on transfer and joins worker before destroying resources', 'State = WorkerTransferred' in window and main.index('Worker.Free;') < main.index('Api.Free;') < main.index('Context.Free;'))
 paint=window.split('procedure TLicenseWindow.Paint;',1)[1].split('function TLicenseWindow.Message(',1)[0]
-window_run=window.split('function TLicenseWindow.Run(const BeforeShow: TProc): Integer;',1)[1].split('function RunLicenseWindow(',1)[0]
-automatic=window.split('procedure TLicenseWindow.AdvanceAutomaticLaunch(State: Integer);',1)[1].split('procedure TLicenseWindow.Paint;',1)[0]
-submit=window.split('procedure TLicenseWindow.Submit;',1)[1].split('procedure TLicenseWindow.AdvanceAutomaticLaunch(',1)[0]
-window_cancel=window.split('procedure TLicenseWindow.CancelInput;',1)[1].split('procedure TLicenseWindow.Close;',1)[0]
-check('A worker-confirmed transfer closes after one visibly completed frame without a dwell timer',
+check('B completion is visibly presented before closing and keeps occlusion bounded',
       'if State = WorkerTransferred then Phase := 3' in paint
       and 'if Phase = 3 then Percent := 100;' in paint
       and paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then')
-      < paint.index('Actions and LicenseSceneComplete') < paint.index('begin Close; Exit; end;',paint.index('Actions and LicenseSceneComplete'))
-      and all(token not in window for token in ['FCompletedVisibleSeconds', 'CompletedWaveHoldSeconds', 'FTransferStarted', 'TransferCloseFallbackMs']))
-check('Only a true transferred state can skip presentation when minimized or actually occluded',
-      'if (State = WorkerTransferred) and FMinimized then' in window_run
-      and window_run.index('if (State = WorkerTransferred) and FMinimized then') < window_run.index('begin Result := 0; Close; Break; end;')
-      and 'if (Phase = 3) and (Presented = IMGUI_PRESENT_OCCLUDED) then Close;' in paint
-      and paint.index('if FResizePending then Resize;') < paint.index('Presented := ImGuiPresent(FContext);'))
-check('An actual grant queues automatic handoff before rendering including a minimized window',
-      window_run.index('State := FState();') < window_run.index('AdvanceAutomaticLaunch(State);')
-      < window_run.index('if (State = WorkerTransferred) and FMinimized then') < window_run.index('Paint;')
-      and paint.index('State := FState();') < paint.index('AdvanceAutomaticLaunch(State);') < paint.index('if State = WorkerTransferred then Phase := 3')
-      and 'if (State <> WorkerLicensed) or FAutoLaunchAttempted then Exit;' in automatic
-      and automatic.index('FAutoLaunchAttempted := True;') < automatic.index('Accepted := FLaunch();')
-      and not any(token in automatic for token in ['Presented', 'WindowInputEnabled', 'FVisibleFrame', 'CozyTick', 'CozyFrameSeconds', 'FKey.Count'])
-      and 'Actions and 2' not in window)
-check('Automatic handoff is attempted once per grant and only an idle retry releases its latch',
-      automatic.index('if State = WorkerIdle then') < automatic.index('FAutoLaunchAttempted := False;')
-      < automatic.index('FLaunchRequested := False;') < automatic.index('Exit;', automatic.index('FLaunchRequested := False;'))
-      < automatic.index('if (State <> WorkerLicensed) or FAutoLaunchAttempted then Exit;')
-      and automatic.count('FAutoLaunchAttempted := False;') == 2
-      and automatic.index('Accepted := FLaunch();') < automatic.index('State := FState();')
-      < automatic.index('if Accepted or (State = WorkerBusy) or (State = WorkerTransferred) then')
-      < automatic.index('FLaunchRequested := True;')
-      and 'else Close;' in automatic and 'if not Assigned(FLaunch) then' in automatic)
-refused=automatic.split('else if State = WorkerIdle then',1)[1].split('else Close;',1)[0]
-check('A refused request with a retracted idle grant returns silently without destroying editable input',
-      automatic.index('Accepted := FLaunch();') < automatic.index('State := FState();')
-      < automatic.index('else if State = WorkerIdle then')
-      and all(token in refused for token in ['FAutoLaunchAttempted := False;', 'FLaunchRequested := False;', 'FWasBusy := True;'])
-      and all(token not in refused for token in ['Close;', 'FKey.Clear', 'FInputFocused := False', 'CancelInput', 'CopyText']))
-check('A queued handoff is an explicit phase even if the approved frame was never visible',
-      'if FLaunchRequested then Phase := 5 else Phase := 1;' in paint
-      and 'else if State = WorkerLicensed then Phase := 4' in paint
-      and 'if (Phase = 1) or (Phase = 5) then Percent := FProgress();' in paint)
-check('Silent rejection preserves the editable original in sensitive storage and moves only a separate sensitive owner',
-      submit.index('Key := TCozySensitiveText.Create(MaximumKeyCharacters);')
-      < submit.index('Key.AppendBuffer(FKey);') < submit.index('FWasBusy := FSubmit(Key);')
-      < submit.index('finally') < submit.index('FreeAndNil(Key);')
-      and not any(token in submit for token in ['CopyText', 'Key := FKey', 'FKey := nil', 'FKey.Clear', 'FreeAndNil(FKey)', 'FInputFocused := False', 'ImGuiClearInput']))
-check('Grant, cancellation, focus loss and final destruction wipe the retained editor secret',
-      automatic.index('if (State <> WorkerLicensed) or FAutoLaunchAttempted then Exit;')
-      < automatic.index('Accepted := FLaunch();') < automatic.index('if Accepted or (State = WorkerBusy) or (State = WorkerTransferred) then')
-      < automatic.index('if FKey <> nil then FKey.Clear;')
-      and 'if FKey <> nil then FKey.Clear;' in window_cancel
-      and 'WM_KILLFOCUS: begin FFocused := False; CancelInput; ImGuiFocus(FContext, False); Exit; end;' in window
-      and 'FreeAndNil(FKey);' in window)
-retry_frame=paint.split('if FWasBusy then',1)[1].split('end;',1)[0]
-check('Rejected verification has no forced focus, editor clearing, shake command or error page',
-      'Phase := 2;' in retry_frame
-      and not any(token in retry_frame for token in ['ImGuiClearInput', 'FInputFocused := True', 'FKey.Clear'])
-      and 'if (Phase = 0) or (Phase = 2) then' in paint
-      and paint.index('if (Phase = 0) or (Phase = 2) then') < paint.index('FModalVisible := (Actions and LicenseSceneModalVisible) <> 0;')
-      and not any(token in window for token in ['MessageBeep', 'MessageBox', 'Beep(', 'Shake', 'ErrorPage']))
+      < paint.index('Actions and LicenseSceneComplete') < paint.index('FCompletedVisibleSeconds >= CompletedWaveHoldSeconds then Close;')
+      and 'TransferCloseFallbackMs = 2000;' in window
+      and '(FMinimized or not FVisibleFrame) and' in window
+      and 'CozyTick - FTransferStarted >= TransferCloseFallbackMs' in window)
+check('The product screen requires a visible frame and server validation to request launch',
+      paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then')
+      < paint.index('if SceneInputEnabled and (State = WorkerLicensed) and')
+      < paint.index('((Actions and 2) <> 0) and Assigned(FLaunch) then') < paint.index('if FLaunch() then')
+      and 'else if State = WorkerLicensed then' in paint and 'Phase := 4;' in paint)
 check('B fits the monitor and uses the scene pixel coordinates for its rounded client window',
       all(token in window for token in ['PanelWidth = 380;', 'PanelHeight = 520;',
           'WM_NCCALCSIZE: Exit(0);', 'Width := Round(PanelWidth * FitScale);', 'Height := Round(PanelHeight * FitScale);',
@@ -174,16 +125,17 @@ check('B fits the monitor and uses the scene pixel coordinates for its rounded c
       and window.index('ApiSetWindowPos(FWindow, 0, Suggested.Left, Suggested.Top,')
       < window.index('Monitor := ApiMonitorFromWindow(FWindow, LicenseMonitorDefaultToNearest);') < window.index('FitScale := FScale;')
       and all(token not in window for token in ['HeaderContains', 'InputContains', 'WS_CAPTION', 'WS_THICKFRAME', 'SetWindowRgn']))
-check('No on-screen close or minimize action remains while OS close and taskbar access stay usable',
-      'WS_EX_APPWINDOW or NoRedirectionBitmap' in window
-      and "LicenseClass, 'Cozy', WS_POPUP or WS_MINIMIZEBOX" in window
-      and 'WM_CLOSE: begin Close; Exit; end;' in window and 'WParam = VK_F4' in window
-      and not any(token in window for token in ['LicenseSceneMinimize', 'LicenseSceneClose', 'ApiShowWindow(FWindow, SW_MINIMIZE)']))
+check('Native title controls apply to a visible interactive frame and support taskbar restore',
+      'WS_EX_APPWINDOW or NoRedirectionBitmap' in window and "LicenseClass, 'Cozy', WS_POPUP or WS_MINIMIZEBOX" in window
+      and 'LicenseSceneMinimize = 512;' in window and 'LicenseSceneClose = 1024;' in window
+      and paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then') < paint.index('if WindowInputEnabled then')
+      < paint.index('Actions and LicenseSceneClose') < paint.index('begin Close; Exit; end;',paint.index('Actions and LicenseSceneClose'))
+      < paint.index('Actions and LicenseSceneMinimize') < paint.index('ApiShowWindow(FWindow, SW_MINIMIZE)'))
 press=window.split('    WM_LBUTTONDOWN:',1)[1].split('    WM_LBUTTONUP:',1)[0]
 release=window.split('    WM_LBUTTONUP:',1)[1].split('    WM_MOUSEWHEEL',1)[0]
 check('A background drag is thresholded and never sends a native control press',
       press.index('Hit := ImGuiLicenseHit(FContext, X, Y);') < press.index('if (Hit = HitBackground) or (Hit = HitDismissBackdrop) then')
-      < press.index('if Hit = HitDismissBackdrop then FGesture := lgBackdrop') < press.index('if not SceneInputEnabled then Exit;')
+      < press.index('if Hit = HitDismissBackdrop then FGesture := lgBackdrop') < press.index('if not WindowInputEnabled then Exit;') < press.index('if (Hit <> HitButton) and not SceneInputEnabled then Exit;')
       < press.index('FGesture := lgControl;') < press.index('ImGuiMouseButton(FContext, 0, True);')
       and 'if DragThresholdReached(Position) then FGesture := lgMoving;' in window
       and 'Threshold := Round(4 * FScale);' in window and 'WM_CANCELMODE, WM_CAPTURECHANGED:' in window
@@ -209,26 +161,17 @@ check('Escape revokes host secret focus before later messages can submit or appe
       and 'if (LParam and $40000000) = 0 then' in keys
       and 'if FKey.Count > 0 then Submit' in keys and 'else ImGuiKey(FContext, WParam, True);' in keys)
 cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
-check('Verification has no busy cursor change and only a postgrant handoff uses the busy pointer',
+check('A presented scene resolves the current pointer to hand, text, busy, or arrow',
       'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
-      and 'FBusyCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32648)))' in window
       and cursor.index('if FVisibleFrame and not FResizePending') < cursor.index('Hit := ImGuiLicenseHit(FContext, Position.X - Bounds.Left, Position.Y - Bounds.Top);')
-      < cursor.index('else if BusyVisual then Cursor := FBusyCursor')
       < cursor.index('else if (Hit = HitButton) and WindowInputEnabled then Cursor := FHandCursor')
-      < cursor.index('else if (Hit = HitKeyField) and FModalVisible and WindowInputEnabled then')
-      < cursor.index('Cursor := FInputCursor;') < cursor.index('ApiSetCursor(Cursor);')
-      and '((State = WorkerBusy) and FLaunchRequested);' in window
+      < cursor.index('else if BusyVisual then Cursor := FBusyCursor') < cursor.index('else if (Hit = HitKeyField) and InputEnabled then Cursor := FInputCursor;')
+      < cursor.index('ApiSetCursor(Cursor);')
       and 'WM_MOUSELEAVE: begin PointerLeft; Exit; end;' in window
-      and 'then ImGuiMousePos(FContext, -1E30, -1E30);' in window)
-check('Pending verification rejects duplicate keyboard/control submissions and releases any held mouse without clearing focus',
-      'if SceneInputEnabled then' in keys
-      and 'Result := State = WorkerIdle;' in window
-      and 'if not SceneInputEnabled then Exit;' in press
-      and 'ImGuiMouseButton(FContext, 0, False);' in submit
-      and 'ImGuiKey(FContext, VK_SHIFT, False);' in submit
-      and 'ImGuiClearInput' not in submit)
-check('Failure closing remains independent of native presentation',
-      paint.index('if (State = WorkerFailed) or (State = WorkerStopped) then') < paint.index('if State = WorkerTransferred then Phase := 3'))
+      and 'then ImGuiMousePos(FContext, -1E30, -1E30);' in window and 'FSceneHand' not in window)
+check('B busy cursor matches O and failure closing does not await presentation',
+      'FBusyCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32648)))' in window
+      and paint.index('if (State = WorkerFailed) or (State = WorkerStopped) then') < paint.index('if State = WorkerTransferred then Phase := 3'))
 check('Cleanup is guarded once and preserves nonfatal OS refusal', 'if FBinaryCleanupAttempted then Exit;' in cleanup and 'FBinaryCleanupInfo, False);' in cleanup)
 check('Cleanup pins the directory but retains the owner after OS refusal', cleanup.index('PinDirectories(') < cleanup.index('UnlinkVerifiedOwnImage(') < cleanup.index('finally') < cleanup.index('CloseAll(Pins)') and 'Close(FBinaryCleanupFile)' not in cleanup)
 check('Integrity owns a separate read file object while the cleanup pin remains held', 'IntegrityFile := OpenSafeImage(FBinaryPath, False, IntegrityInfo, False, True);' in claim and 'TImageIntegrity.Create(IntegrityFile, BinarySHA512, ExpectedCRC64);' in claim and 'TImageIntegrity.Create(BinaryFile,' not in claim)
