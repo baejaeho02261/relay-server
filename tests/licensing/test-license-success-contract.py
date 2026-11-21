@@ -117,33 +117,49 @@ check('The gallery cannot bypass a visible frame or server validation to request
       < paint.index('if SceneInputEnabled and (State = WorkerLicensed) and')
       < paint.index('((Actions and 2) <> 0) and Assigned(FLaunch) then') < paint.index('if FLaunch() then')
       and 'else if State = WorkerLicensed then' in paint and 'Phase := 4;' in paint)
-check('B has a five-percent smaller square-corner host and a centered design-space input grid',
-      all(token in window for token in ['PanelWidth = 760;', 'PanelHeight = 494;', 'DesignWidth = 800;', 'DesignHeight = 520;',
+check('B fits the monitor and uses the scene pixel coordinates for its rounded client window',
+      all(token in window for token in ['PanelWidth = 760;', 'PanelHeight = 494;',
           'WM_NCCALCSIZE: Exit(0);', 'Width := Round(PanelWidth * FitScale);', 'Height := Round(PanelHeight * FitScale);',
-          'FitWindow(PRect(LParam), LoWord(WParam))', 'Scale := Area.Right / DesignWidth;', 'Area.Bottom / DesignHeight',
-          'if not FModalVisible and HeaderContains(X, Y) and', 'WM_CLOSE: begin Close; Exit; end;', 'WParam = VK_F4'])
+          'FitWindow(PRect(LParam), LoWord(WParam))', 'WM_NCHITTEST:', 'then Exit(HTTRANSPARENT);',
+          'Hit := ImGuiLicenseHit(FContext, X, Y);', 'WM_CLOSE: begin Close; Exit; end;', 'WParam = VK_F4'])
       and window.index('ApiSetWindowPos(FWindow, 0, Suggested.Left, Suggested.Top,')
       < window.index('Monitor := ApiMonitorFromWindow(FWindow, LicenseMonitorDefaultToNearest);') < window.index('FitScale := FScale;')
-      and all(token not in window for token in ['WindowControlsContain', 'LicenseSceneMinimize', 'LicenseSceneClose', 'WS_CAPTION', 'WS_THICKFRAME']))
+      and all(token not in window for token in ['HeaderContains', 'InputContains', 'WS_CAPTION', 'WS_THICKFRAME', 'SetWindowRgn']))
+press=window.split('    WM_LBUTTONDOWN:',1)[1].split('    WM_LBUTTONUP:',1)[0]
+release=window.split('    WM_LBUTTONUP:',1)[1].split('    WM_MOUSEWHEEL',1)[0]
+check('A background drag is thresholded and never sends a native control press',
+      press.index('Hit := ImGuiLicenseHit(FContext, X, Y);') < press.index('if (Hit = HitBackground) or (Hit = HitDismissBackdrop) then')
+      < press.index('if Hit = HitDismissBackdrop then FGesture := lgBackdrop') < press.index('if not SceneInputEnabled then Exit;')
+      < press.index('FGesture := lgControl;') < press.index('ImGuiMouseButton(FContext, 0, True);')
+      and 'if DragThresholdReached(Position) then FGesture := lgMoving;' in window
+      and 'Threshold := Round(4 * FScale);' in window and 'WM_CANCELMODE, WM_CAPTURECHANGED:' in window
+      and 'if ApiGetCapture <> Window then' in press
+      and 'if FGesture <> lgMoving then CancelInput;' in window
+      and 'FDragOrigin := Bounds.TopLeft; FDragAnchor := Position;' in window)
+check('Only a short backdrop click dismisses the license panel',
+      release.index('else if (FGesture = lgBackdrop) and InputEnabled and') < release.index('if not DragThresholdReached(Position) then')
+      < release.index('FInputFocused := False;') < release.index('ImGuiMouseButton(FContext, 0, True); ImGuiMouseButton(FContext, 0, False);')
+      < release.index('ReleaseOwnCapture;'))
 check('Only an explicitly open native modal enables secret editing',
       'Result := SceneInputEnabled and FModalVisible and (FState() = WorkerIdle);' in window
       and paint.index('FModalVisible := (Actions and LicenseSceneModalVisible) <> 0;') < paint.index('if InputEnabled then')
       and 'if not FModalVisible then FInputFocused := False;' in paint
-      and 'if not InputContains(X, Y) then FInputFocused := False;' in window
-      and 'FInputFocused := InputContains(' not in window)
+      and 'if Hit <> HitKeyField then FInputFocused := False;' in press
+      and 'FInputFocused := Hit' not in press)
 keys=window.split('    WM_KEYDOWN, WM_SYSKEYDOWN:',1)[1].split('    WM_KEYUP, WM_SYSKEYUP:',1)[0]
 check('Escape revokes host secret focus before later messages can submit or append',
       keys.index('if WParam = VK_ESCAPE then') < keys.index('FInputFocused := False; FModalVisible := False;')
       < keys.index('if InputEnabled then') < keys.index('if (WParam = VK_RETURN) and FInputFocused then')
       < keys.index('ImGuiKey(FContext, WParam, True);')
       and 'if not InputEnabled or not FInputFocused then Exit;' in window)
-cursor=window.split('procedure TLicenseWindow.UpdateCursor;',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
-check('Native hand feedback reaches the real B cursor only after a visible frame',
+cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
+check('A presented scene resolves the current pointer to hand, text, busy, or arrow',
       'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
-      and paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then') < paint.index('FSceneHand := (Actions and LicenseSceneHandCursor) <> 0;')
-      and cursor.index('if BusyVisual then Cursor := FBusyCursor') < cursor.index('else if InputEnabled and not FDragging and')
-      < cursor.index('else if FSceneHand and not FDragging then Cursor := FHandCursor;') < cursor.index('ApiSetCursor(Cursor);')
-      and 'FModalVisible := False; FSceneHand := False;' in window)
+      and cursor.index('if FVisibleFrame and not FResizePending') < cursor.index('Hit := ImGuiLicenseHit(FContext, Position.X - Bounds.Left, Position.Y - Bounds.Top);')
+      < cursor.index('else if BusyVisual then Cursor := FBusyCursor') < cursor.index('else if (Hit = HitKeyField) and InputEnabled then Cursor := FInputCursor')
+      < cursor.index('else if (Hit = HitButton) and SceneInputEnabled then Cursor := FHandCursor;') < cursor.index('ApiSetCursor(Cursor);')
+      and 'WM_MOUSELEAVE: begin PointerLeft; Exit; end;' in window
+      and 'then ImGuiMousePos(FContext, -1E30, -1E30);' in window and 'FSceneHand' not in window)
 check('B busy cursor matches O and failure closing does not await presentation',
       'FBusyCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32648)))' in window
       and paint.index('if (State = WorkerFailed) or (State = WorkerStopped) then') < paint.index('if State = WorkerTransferred then Phase := 3'))

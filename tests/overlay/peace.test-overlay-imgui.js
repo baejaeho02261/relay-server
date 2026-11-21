@@ -43,7 +43,7 @@ function method(name, next) {
 check('Every C export has an exact cdecl Pascal declaration and matching Win64 primitive ABI', () => {
   const abi = require(path.join(native, 'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js'));
   const schema = JSON.parse(ReadContractFile(abi.schemaPath, 'utf8'));
-  assert.equal(abi.check(abi.loadSources(), schema).exports, 32);
+  assert.equal(abi.check(abi.loadSources(), schema).exports, 33);
   abi.verifyProbes(schema);
   const cTypes = {
     void: 'void', int32_t: 'i32', uint32_t: 'u32', float: 'f32',
@@ -79,9 +79,10 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     assert(!pExports.has(name), 'Duplicate Pascal export ' + name);
     pExports.set(name, { result: kind === 'procedure' ? 'void' : pTypes[result], args });
   }
-  assert.equal(cExports.size, 32, 'Reviewed product gallery and key-length-only license scene extend the existing ABI');
+  assert.equal(cExports.size, 33, 'Reviewed product, license scene, and scene point queries extend the existing ABI');
   assert.deepEqual(cExports.get('game_imgui_scene_v2'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32']});
   assert.deepEqual(cExports.get('game_imgui_scene_v3'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32','i32','f32']});
+  assert.deepEqual(cExports.get('game_imgui_license_hit_v1'), {result:'i32',args:['ptr','i32','i32']});
   assert.deepEqual(cExports.get('game_imgui_license_scene_v1'), {result:'i32',args:['ptr','i32','i32','f32']});
   assert.deepEqual(cExports.get('game_imgui_create_license_korean_v1'), {result:'i32',args:['ptr','ptr','ptr','u32','ptrptr']});
   assert.deepEqual(cExports.get('game_imgui_set_dpi'), { result: 'i32', args: ['ptr', 'f32'] });
@@ -133,7 +134,7 @@ check('Host callback layout is versioned and checked before static-object creati
   assert.match(pascal, /ImGuiHostABIVersion\s*=\s*3;/);
   assert.match(pascal, /ImGuiHostBytes\s*=\s*32;/);
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt; LicenseOnly: Boolean): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
-  inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'FontBytes := ReadKoreanSystemFont;', 'CreateResult := game_imgui_create_korean_v1(Pointer(Window), @Host,', '@FontBytes[0], Length(FontBytes), Result)', 'FillChar(FontBytes[0], Length(FontBytes), 0)', 'FontBytes := nil;'], 'Host validation');
+  inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'FontBytes := ReadSystemUiFont(LicenseOnly);', 'CreateResult := game_imgui_create_korean_v1(Pointer(Window), @Host,', '@FontBytes[0], Length(FontBytes), Result)', 'FillChar(FontBytes[0], Length(FontBytes), 0)', 'FontBytes := nil;'], 'Host validation');
   assert.equal((pascal.match(/\{\$L\s+'[^']+'\}/g) || []).length, 2);
   const objectLinks = [...pascal.matchAll(/\{\$L\s+'[^']+'\}/g)];
   const firstExternal = pascal.indexOf('function game_imgui_create(');
@@ -523,7 +524,7 @@ check('Initial reveal advances only after showing, then latches full-size input 
     'if not ContractDone then begin ContractDone := True; Contract; end;'],'Probe waits for real render completion');
 });
 
-check('O retains soft rounded corners while B uses its entire opaque rectangular surface',()=>{
+check('B and O clip their full-bleed composition surface with one soft DPI-scaled outer edge',()=>{
   const bridge=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.cpp');
   const graphics=read('Cozy.ImGui/Cozy.Bridge/Cozy.Graphics/Cozy.game_imgui_dx11.cpp');
   assert.match(renderer,/OverlayNoRedirectionBitmap = \$00200000;/);
@@ -539,10 +540,12 @@ check('O retains soft rounded corners while B uses its entire opaque rectangular
   assert.match(bridge,/game_dcomp_visual_clip\(c->composition_visual,c->composition_clip\)/);
   assert.doesNotMatch(bridge,/composition_visual->SetClip\(|clip->Set(?:Left|Top|Right|Bottom)/,
     'SDK overload layout must not dispatch DirectComposition clip calls');
-  assert.match(bridge,/if\(SUCCEEDED\(hr\)&&!c->license_only\)hr=c->composition->CreateRectangleClip/);
-  assert.match(bridge,/if\(c->license_only\)hr=c->composition_visual->SetBorderMode\(DCOMPOSITION_BORDER_MODE_HARD\)/);
-  assert.match(bridge,/radius=6\.0f\*ImMin\(width\/680\.0f,height\/440\.0f\)/);
-  assert.match(bridge,/const float\* clear_color=c->license_only\?opaque_black:black;/);
+  assert.match(bridge,/if\(SUCCEEDED\(hr\)\)hr=c->composition->CreateRectangleClip/);
+  assert.doesNotMatch(bridge,/DCOMPOSITION_BORDER_MODE_HARD/);
+  assert.match(bridge,/return 12\.0f \* ImMin\(width \/ 760\.0f, height \/ 494\.0f\)/);
+  assert.match(bridge,/radius=c->license_only\?license_corner_radius\([\s\S]*?:6\.0f\*ImMin\(width\/680\.0f,height\/440\.0f\)/);
+  assert.match(bridge,/const float radius = license_corner_radius\(w, h\)/);
+  assert.match(bridge,/ClearRenderTargetView\(c->render_target,black\)/);
   assert.match(bridge,/if\(!game_make_render_target\(c\)\|\|!game_composition_clip\(c,width,height\)\)return 0;/);
   assert.doesNotMatch(bridge.slice(bridge.indexOf('static int32_t game_create('),bridge.indexOf('int32_t GAME_IMGUI_CALL game_imgui_set_dpi(')),/game_blur_prepare/);
   assert.match(bridge,/if\(!c->license_only&&c->scene_blur_active\)\{/);
