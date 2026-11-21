@@ -15,7 +15,11 @@ function wrapper(source,cls,name){
  const start=source.search(new RegExp('^(?:function|procedure) '+cls.replaceAll('.','\\.')+'\\.'+name+'(?=[(:;])','m'));
  assert.ok(start>=0,cls+'.'+name+' missing');
  const body=source.slice(start,source.indexOf('\nend;',start)+5);
- assert.match(body,/begin\s+FGate\.Enter;/);
+ // Claim initializes its caller-owned diagnostic output before entering the gate.
+ const admission = cls === 'TBootstrapClient' && name === 'Claim'
+   ? /begin\s+(?:if DiagnosticCode <> nil then DiagnosticCode\^ := 31400;\s+)?FGate\.Enter;/
+   : /begin\s+FGate\.Enter;/;
+ assert.match(body,admission);
  assert.match(body,/finally FGate\.Leave; end;/);
  return body;
 }
