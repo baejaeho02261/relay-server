@@ -1,3 +1,15 @@
+# B 라이선스 화면 v16 · 2026-11-21
+
+Please sign in 화면에서 Cozy 라이선스 키를 입력하고 Confirm을 누릅니다. 화면에서는 키 문자가 가려집니다. B의 기존 인증 절차가 실제 서버에 키를 확인하는 동안 Signing in...이 표시됩니다. 거부되면 다시 입력할 수 있고, 승인되면 성공 안내를 거쳐 Product 화면이 열립니다.
+
+기본 창 크기는 96 DPI에서 380×520입니다. 340×480의 둥근 패널에 로그인·제품·실행 상태가 차례로 나타납니다. Product 화면의 Cozy session에서 Launch를 누르면 기존 Cozy 인계 절차가 O를 준비하고, 인계 확인 후 B가 종료됩니다.
+
+디자인에 사용한 로고와 제품 그림은 첨부한 69-ImGui-Loader-main.zip에서 가져왔습니다. 각 원본의 크기·경로·해시는 `Cozy.ImGui/Cozy.Assets/Cozy.LicenseGallery/Cozy.LicenseGallery.Reference.json`에서 확인할 수 있습니다. Prompt Regular의 라이선스는 `Cozy.Source/Cozy.Overlay/Cozy.License.Prompt-OFL.txt`에 포함되어 있습니다.
+
+미리보기 영상에서는 모의 인증 결과와 진행 상태를 B의 화면 코드에 전달합니다. Windows 10·11의 실기 구동은 이번 영상 검증에 포함되지 않았습니다. Windows에서 적용하려면 네이티브 그래픽 구성 요소와 Win64 Release를 빌드한 뒤 새 B가 포함된 조합을 승인·등록하세요.
+
+## 이전 버전 변경 기록
+
 # B 라이선스 화면 v15 · 2026-11-21
 
 B의 Access 화면에서 Continue를 누르거나 License key 탭을 열어 키를 입력합니다. Activate license를 누르면 기존 Cozy 서버가 키를 검증합니다. 승인이 끝나면 Your library에서 Counter-Strike 2, VALORANT, Apex Legends, Rust, Minecraft, Grand Theft Auto V의 여섯 테마를 선택할 수 있습니다.

@@ -112,13 +112,13 @@ check('B completion is visibly presented before closing and keeps occlusion boun
       and 'TransferCloseFallbackMs = 2000;' in window
       and '(FMinimized or not FVisibleFrame) and' in window
       and 'CozyTick - FTransferStarted >= TransferCloseFallbackMs' in window)
-check('The gallery cannot bypass a visible frame or server validation to request launch',
+check('The product screen requires a visible frame and server validation to request launch',
       paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then')
       < paint.index('if SceneInputEnabled and (State = WorkerLicensed) and')
       < paint.index('((Actions and 2) <> 0) and Assigned(FLaunch) then') < paint.index('if FLaunch() then')
       and 'else if State = WorkerLicensed then' in paint and 'Phase := 4;' in paint)
 check('B fits the monitor and uses the scene pixel coordinates for its rounded client window',
-      all(token in window for token in ['PanelWidth = 960;', 'PanelHeight = 600;',
+      all(token in window for token in ['PanelWidth = 380;', 'PanelHeight = 520;',
           'WM_NCCALCSIZE: Exit(0);', 'Width := Round(PanelWidth * FitScale);', 'Height := Round(PanelHeight * FitScale);',
           'FitWindow(PRect(LParam), LoWord(WParam))', 'WM_NCHITTEST:', 'then Exit(HTTRANSPARENT);',
           'Hit := ImGuiLicenseHit(FContext, X, Y);', 'WM_CLOSE: begin Close; Exit; end;', 'WParam = VK_F4'])
@@ -128,14 +128,14 @@ check('B fits the monitor and uses the scene pixel coordinates for its rounded c
 check('Native title controls apply to a visible interactive frame and support taskbar restore',
       'WS_EX_APPWINDOW or NoRedirectionBitmap' in window and "LicenseClass, 'Cozy', WS_POPUP or WS_MINIMIZEBOX" in window
       and 'LicenseSceneMinimize = 512;' in window and 'LicenseSceneClose = 1024;' in window
-      and paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then') < paint.index('if SceneInputEnabled then')
+      and paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then') < paint.index('if WindowInputEnabled then')
       < paint.index('Actions and LicenseSceneClose') < paint.index('begin Close; Exit; end;',paint.index('Actions and LicenseSceneClose'))
       < paint.index('Actions and LicenseSceneMinimize') < paint.index('ApiShowWindow(FWindow, SW_MINIMIZE)'))
 press=window.split('    WM_LBUTTONDOWN:',1)[1].split('    WM_LBUTTONUP:',1)[0]
 release=window.split('    WM_LBUTTONUP:',1)[1].split('    WM_MOUSEWHEEL',1)[0]
 check('A background drag is thresholded and never sends a native control press',
       press.index('Hit := ImGuiLicenseHit(FContext, X, Y);') < press.index('if (Hit = HitBackground) or (Hit = HitDismissBackdrop) then')
-      < press.index('if Hit = HitDismissBackdrop then FGesture := lgBackdrop') < press.index('if not SceneInputEnabled then Exit;')
+      < press.index('if Hit = HitDismissBackdrop then FGesture := lgBackdrop') < press.index('if not WindowInputEnabled then Exit;') < press.index('if (Hit <> HitButton) and not SceneInputEnabled then Exit;')
       < press.index('FGesture := lgControl;') < press.index('ImGuiMouseButton(FContext, 0, True);')
       and 'if DragThresholdReached(Position) then FGesture := lgMoving;' in window
       and 'Threshold := Round(4 * FScale);' in window and 'WM_CANCELMODE, WM_CAPTURECHANGED:' in window
@@ -146,7 +146,7 @@ check('Only a short backdrop click dismisses the license panel',
       release.index('else if (FGesture = lgBackdrop) and InputEnabled and') < release.index('if not DragThresholdReached(Position) then')
       < release.index('FInputFocused := False;') < release.index('ImGuiMouseButton(FContext, 0, True); ImGuiMouseButton(FContext, 0, False);')
       < release.index('ReleaseOwnCapture;'))
-check('Only an explicitly open native modal enables secret editing',
+check('Only a visible and focused login field can receive secret edits',
       'Result := SceneInputEnabled and FModalVisible and (FState() = WorkerIdle);' in window
       and paint.index('FModalVisible := (Actions and LicenseSceneModalVisible) <> 0;') < paint.index('if InputEnabled then')
       and 'if not FModalVisible then FInputFocused := False;' in paint
@@ -157,13 +157,16 @@ check('Escape revokes host secret focus before later messages can submit or appe
       keys.index('if WParam = VK_ESCAPE then') < keys.index('FInputFocused := False; FModalVisible := False;')
       < keys.index('if InputEnabled then') < keys.index('if (WParam = VK_RETURN) and FInputFocused then')
       < keys.index('ImGuiKey(FContext, WParam, True);')
-      and 'if not InputEnabled or not FInputFocused then Exit;' in window)
+      and 'if not InputEnabled or not FInputFocused then Exit;' in window
+      and 'if (LParam and $40000000) = 0 then' in keys
+      and 'if FKey.Count > 0 then Submit' in keys and 'else ImGuiKey(FContext, WParam, True);' in keys)
 cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
 check('A presented scene resolves the current pointer to hand, text, busy, or arrow',
       'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
       and cursor.index('if FVisibleFrame and not FResizePending') < cursor.index('Hit := ImGuiLicenseHit(FContext, Position.X - Bounds.Left, Position.Y - Bounds.Top);')
-      < cursor.index('else if BusyVisual then Cursor := FBusyCursor') < cursor.index('else if (Hit = HitKeyField) and InputEnabled then Cursor := FInputCursor')
-      < cursor.index('else if (Hit = HitButton) and SceneInputEnabled then Cursor := FHandCursor;') < cursor.index('ApiSetCursor(Cursor);')
+      < cursor.index('else if (Hit = HitButton) and WindowInputEnabled then Cursor := FHandCursor')
+      < cursor.index('else if BusyVisual then Cursor := FBusyCursor') < cursor.index('else if (Hit = HitKeyField) and InputEnabled then Cursor := FInputCursor;')
+      < cursor.index('ApiSetCursor(Cursor);')
       and 'WM_MOUSELEAVE: begin PointerLeft; Exit; end;' in window
       and 'then ImGuiMousePos(FContext, -1E30, -1E30);' in window and 'FSceneHand' not in window)
 check('B busy cursor matches O and failure closing does not await presentation',

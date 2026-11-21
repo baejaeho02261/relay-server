@@ -134,7 +134,7 @@ check('Host callback layout is versioned and checked before static-object creati
   assert.match(pascal, /ImGuiHostABIVersion\s*=\s*3;/);
   assert.match(pascal, /ImGuiHostBytes\s*=\s*32;/);
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt; LicenseOnly: Boolean): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
-  inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'FontBytes := ReadSystemUiFont(LicenseOnly);', 'CreateResult := game_imgui_create_korean_v1(Pointer(Window), @Host,', '@FontBytes[0], Length(FontBytes), Result)', 'FillChar(FontBytes[0], Length(FontBytes), 0)', 'FontBytes := nil;'], 'Host validation');
+  inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', '@LicensePromptFont[0], SizeOf(LicensePromptFont), Result)', 'FontBytes := ReadOverlayFont;', 'CreateResult := game_imgui_create_korean_v1(Pointer(Window), @Host,', '@FontBytes[0], Length(FontBytes), Result)', 'FillChar(FontBytes[0], Length(FontBytes), 0)', 'FontBytes := nil;'], 'Host validation');
   assert.equal((pascal.match(/\{\$L\s+'[^']+'\}/g) || []).length, 2);
   const objectLinks = [...pascal.matchAll(/\{\$L\s+'[^']+'\}/g)];
   const firstExternal = pascal.indexOf('function game_imgui_create(');
@@ -542,7 +542,7 @@ check('B and O clip their full-bleed composition surface with one soft DPI-scale
     'SDK overload layout must not dispatch DirectComposition clip calls');
   assert.match(bridge,/if\(SUCCEEDED\(hr\)\)hr=c->composition->CreateRectangleClip/);
   assert.doesNotMatch(bridge,/DCOMPOSITION_BORDER_MODE_HARD/);
-  assert.match(bridge,/return 12\.0f \* ImMin\(width \/ 960\.0f, height \/ 600\.0f\)/);
+  assert.match(bridge,/return 12\.0f \* ImMin\(width \/ 380\.0f, height \/ 520\.0f\)/);
   assert.match(bridge,/radius=c->license_only\?license_corner_radius\([\s\S]*?:6\.0f\*ImMin\(width\/680\.0f,height\/440\.0f\)/);
   assert.match(bridge,/const float radius = license_corner_radius\(w, h\)/);
   assert.match(bridge,/ClearRenderTargetView\(c->render_target,black\)/);
