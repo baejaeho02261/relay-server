@@ -118,13 +118,19 @@ check('The gallery cannot bypass a visible frame or server validation to request
       < paint.index('((Actions and 2) <> 0) and Assigned(FLaunch) then') < paint.index('if FLaunch() then')
       and 'else if State = WorkerLicensed then' in paint and 'Phase := 4;' in paint)
 check('B fits the monitor and uses the scene pixel coordinates for its rounded client window',
-      all(token in window for token in ['PanelWidth = 760;', 'PanelHeight = 494;',
+      all(token in window for token in ['PanelWidth = 960;', 'PanelHeight = 600;',
           'WM_NCCALCSIZE: Exit(0);', 'Width := Round(PanelWidth * FitScale);', 'Height := Round(PanelHeight * FitScale);',
           'FitWindow(PRect(LParam), LoWord(WParam))', 'WM_NCHITTEST:', 'then Exit(HTTRANSPARENT);',
           'Hit := ImGuiLicenseHit(FContext, X, Y);', 'WM_CLOSE: begin Close; Exit; end;', 'WParam = VK_F4'])
       and window.index('ApiSetWindowPos(FWindow, 0, Suggested.Left, Suggested.Top,')
       < window.index('Monitor := ApiMonitorFromWindow(FWindow, LicenseMonitorDefaultToNearest);') < window.index('FitScale := FScale;')
       and all(token not in window for token in ['HeaderContains', 'InputContains', 'WS_CAPTION', 'WS_THICKFRAME', 'SetWindowRgn']))
+check('Native title controls apply to a visible interactive frame and support taskbar restore',
+      'WS_EX_APPWINDOW or NoRedirectionBitmap' in window and "LicenseClass, 'Cozy', WS_POPUP or WS_MINIMIZEBOX" in window
+      and 'LicenseSceneMinimize = 512;' in window and 'LicenseSceneClose = 1024;' in window
+      and paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then') < paint.index('if SceneInputEnabled then')
+      < paint.index('Actions and LicenseSceneClose') < paint.index('begin Close; Exit; end;',paint.index('Actions and LicenseSceneClose'))
+      < paint.index('Actions and LicenseSceneMinimize') < paint.index('ApiShowWindow(FWindow, SW_MINIMIZE)'))
 press=window.split('    WM_LBUTTONDOWN:',1)[1].split('    WM_LBUTTONUP:',1)[0]
 release=window.split('    WM_LBUTTONUP:',1)[1].split('    WM_MOUSEWHEEL',1)[0]
 check('A background drag is thresholded and never sends a native control press',

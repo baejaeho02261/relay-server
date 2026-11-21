@@ -1,3 +1,15 @@
+# B 라이선스 화면 v15 · 2026-11-21
+
+B의 Access 화면에서 Continue를 누르거나 License key 탭을 열어 키를 입력합니다. Activate license를 누르면 기존 Cozy 서버가 키를 검증합니다. 승인이 끝나면 Your library에서 Counter-Strike 2, VALORANT, Apex Legends, Rust, Minecraft, Grand Theft Auto V의 여섯 테마를 선택할 수 있습니다.
+
+라이브러리 목록에서 항목을 선택하면 오른쪽 포스터가 바뀝니다. Continue로 상세 화면을 열면 Overview에서 게임 소개, Updates에서 런처 변경 내역을 볼 수 있습니다. Settings의 Reduce motion과 High contrast는 열려 있는 B 창에 적용됩니다. Open Cozy session은 서버에서 승인한 현재 Cozy 세션을 O로 넘깁니다.
+
+화면 왼쪽에는 은색 Cozy 심벌과 움직이는 입자가 보입니다. 우측 상단에서 창을 최소화하거나 닫을 수 있고, 최소화하면 Windows 작업 표시줄의 Cozy에서 복원할 수 있습니다. 게임별 포스터·배지의 원본과 제작 정보는 `Cozy.ImGui/Cozy.Assets/Cozy.LicenseGallery/Cozy.LicenseGallery.Reference.json`에 있습니다.
+
+Windows에 적용하려면 새 B 네이티브 그래픽 구성 요소와 Win64 Release를 빌드하고 운영 절차에 따라 새 실행 파일 조합을 등록하세요.
+
+## 이전 버전 변경 기록
+
 # B 라이선스 갤러리 v14 · 2026-11-21
 
 B는 Valorant, Fortnite, FiveM, Rust, Delta Force 순서로 다섯 카드를 표시합니다. 각 게임에는 창 전체를 채우는 배경과 카드용 가로 표지가 따로 있습니다. 옆 카드나 하단의 다섯 점 중 하나를 누르면 선택이 바뀝니다. 휠과 좌우 방향키로도 카드를 넘길 수 있습니다. 중앙에는 선택한 표지가 표시됩니다.

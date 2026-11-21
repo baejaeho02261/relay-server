@@ -542,7 +542,7 @@ check('B and O clip their full-bleed composition surface with one soft DPI-scale
     'SDK overload layout must not dispatch DirectComposition clip calls');
   assert.match(bridge,/if\(SUCCEEDED\(hr\)\)hr=c->composition->CreateRectangleClip/);
   assert.doesNotMatch(bridge,/DCOMPOSITION_BORDER_MODE_HARD/);
-  assert.match(bridge,/return 12\.0f \* ImMin\(width \/ 760\.0f, height \/ 494\.0f\)/);
+  assert.match(bridge,/return 12\.0f \* ImMin\(width \/ 960\.0f, height \/ 600\.0f\)/);
   assert.match(bridge,/radius=c->license_only\?license_corner_radius\([\s\S]*?:6\.0f\*ImMin\(width\/680\.0f,height\/440\.0f\)/);
   assert.match(bridge,/const float radius = license_corner_radius\(w, h\)/);
   assert.match(bridge,/ClearRenderTargetView\(c->render_target,black\)/);
