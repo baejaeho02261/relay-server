@@ -117,9 +117,16 @@ check('The gallery cannot bypass a visible frame or server validation to request
       < paint.index('if SceneInputEnabled and (State = WorkerLicensed) and')
       < paint.index('((Actions and 2) <> 0) and Assigned(FLaunch) then') < paint.index('if FLaunch() then')
       and 'else if State = WorkerLicensed then' in paint and 'Phase := 4;' in paint)
+check('B has a five-percent smaller square-corner host and a centered design-space input grid',
+      all(token in window for token in ['PanelWidth = 760;', 'PanelHeight = 494;', 'DesignWidth = 800;', 'DesignHeight = 520;',
+          'WM_NCCALCSIZE: Exit(0);', 'Width := Round(PanelWidth * FitScale);', 'Height := Round(PanelHeight * FitScale);',
+          'FitWindow(PRect(LParam), LoWord(WParam))', 'Scale := Area.Right / DesignWidth;', 'Area.Bottom / DesignHeight',
+          'if not FModalVisible and HeaderContains(X, Y) and', 'WM_CLOSE: begin Close; Exit; end;', 'WParam = VK_F4'])
+      and window.index('ApiSetWindowPos(FWindow, 0, Suggested.Left, Suggested.Top,')
+      < window.index('Monitor := ApiMonitorFromWindow(FWindow, LicenseMonitorDefaultToNearest);') < window.index('FitScale := FScale;')
+      and all(token not in window for token in ['WindowControlsContain', 'LicenseSceneMinimize', 'LicenseSceneClose', 'WS_CAPTION', 'WS_THICKFRAME']))
 check('Only an explicitly open native modal enables secret editing',
-      'PanelWidth = 800;' in window and 'PanelHeight = 520;' in window
-      and 'Result := SceneInputEnabled and FModalVisible and (FState() = WorkerIdle);' in window
+      'Result := SceneInputEnabled and FModalVisible and (FState() = WorkerIdle);' in window
       and paint.index('FModalVisible := (Actions and LicenseSceneModalVisible) <> 0;') < paint.index('if InputEnabled then')
       and 'if not FModalVisible then FInputFocused := False;' in paint
       and 'if not InputContains(X, Y) then FInputFocused := False;' in window
@@ -134,7 +141,7 @@ cursor=window.split('procedure TLicenseWindow.UpdateCursor;',1)[1].split('proced
 check('Native hand feedback reaches the real B cursor only after a visible frame',
       'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
       and paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then') < paint.index('FSceneHand := (Actions and LicenseSceneHandCursor) <> 0;')
-      and cursor.index('if BusyVisual and not WindowControlsContain(') < cursor.index('else if InputEnabled and not FDragging and')
+      and cursor.index('if BusyVisual then Cursor := FBusyCursor') < cursor.index('else if InputEnabled and not FDragging and')
       < cursor.index('else if FSceneHand and not FDragging then Cursor := FHandCursor;') < cursor.index('ApiSetCursor(Cursor);')
       and 'FModalVisible := False; FSceneHand := False;' in window)
 check('B busy cursor matches O and failure closing does not await presentation',

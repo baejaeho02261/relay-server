@@ -523,7 +523,7 @@ check('Initial reveal advances only after showing, then latches full-size input 
     'if not ContractDone then begin ContractDone := True; Contract; end;'],'Probe waits for real render completion');
 });
 
-check('Rounded composition corners use soft clipping and a premultiplied transparent flip chain',()=>{
+check('O retains soft rounded corners while B uses its entire opaque rectangular surface',()=>{
   const bridge=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.cpp');
   const graphics=read('Cozy.ImGui/Cozy.Bridge/Cozy.Graphics/Cozy.game_imgui_dx11.cpp');
   assert.match(renderer,/OverlayNoRedirectionBitmap = \$00200000;/);
@@ -539,12 +539,13 @@ check('Rounded composition corners use soft clipping and a premultiplied transpa
   assert.match(bridge,/game_dcomp_visual_clip\(c->composition_visual,c->composition_clip\)/);
   assert.doesNotMatch(bridge,/composition_visual->SetClip\(|clip->Set(?:Left|Top|Right|Bottom)/,
     'SDK overload layout must not dispatch DirectComposition clip calls');
-  assert.match(bridge,/radius=\(c->license_only\?8\.0f:6\.0f\)\*scale/);
+  assert.match(bridge,/if\(SUCCEEDED\(hr\)&&!c->license_only\)hr=c->composition->CreateRectangleClip/);
+  assert.match(bridge,/if\(c->license_only\)hr=c->composition_visual->SetBorderMode\(DCOMPOSITION_BORDER_MODE_HARD\)/);
+  assert.match(bridge,/radius=6\.0f\*ImMin\(width\/680\.0f,height\/440\.0f\)/);
+  assert.match(bridge,/const float\* clear_color=c->license_only\?opaque_black:black;/);
   assert.match(bridge,/if\(!game_make_render_target\(c\)\|\|!game_composition_clip\(c,width,height\)\)return 0;/);
-  inOrder(bridge.slice(bridge.indexOf('if(!ImGui_ImplDX11_Init(')),
-    ['ImGui_ImplDX11_CreateDeviceObjects()', 'if(c->license_only)',
-     'game_blur_prepare(c->scene_blur', 'if(FAILED(hr))return game_create_failure'],
-    'B prepares the full-panel blur before authentication can begin');
+  assert.doesNotMatch(bridge.slice(bridge.indexOf('static int32_t game_create('),bridge.indexOf('int32_t GAME_IMGUI_CALL game_imgui_set_dpi(')),/game_blur_prepare/);
+  assert.match(bridge,/if\(!c->license_only&&c->scene_blur_active\)\{/);
   inOrder(bridge.slice(bridge.indexOf('static void game_destroy_context(')),
     ['composition_target->SetRoot(0)', 'composition->Commit()', 'composition_clip->Release()',
      'composition_visual->Release()', 'composition_target->Release()', 'composition->Release()',
