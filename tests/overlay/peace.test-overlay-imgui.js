@@ -43,16 +43,16 @@ function method(name, next) {
 check('Every C export has an exact cdecl Pascal declaration and matching Win64 primitive ABI', () => {
   const abi = require(path.join(native, 'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js'));
   const schema = JSON.parse(ReadContractFile(abi.schemaPath, 'utf8'));
-  assert.equal(abi.check(abi.loadSources(), schema).exports, 33);
+  assert.equal(abi.check(abi.loadSources(), schema).exports, 34);
   abi.verifyProbes(schema);
   const cTypes = {
     void: 'void', int32_t: 'i32', uint32_t: 'u32', float: 'f32',
     'void*': 'ptr', 'const void*': 'ptr', 'const GameImGuiHost*': 'ptr',
-    GameImGuiHandle: 'ptr', 'GameImGuiHandle*': 'ptrptr', 'const char*': 'ptr'
+    GameImGuiHandle: 'ptr', 'GameImGuiHandle*': 'ptrptr', 'const char*': 'ptr', 'const uint16_t*': 'ptr'
   };
   const pTypes = {
     Integer: 'i32', Cardinal: 'u32', Single: 'f32', Pointer: 'ptr',
-    PImGuiHost: 'ptr', TImGuiContext: 'ptr', PAnsiChar: 'ptr'
+    PImGuiHost: 'ptr', TImGuiContext: 'ptr', PAnsiChar: 'ptr', PWideChar: 'ptr'
   };
   const cExports = new Map();
   for (const [, result, name, params] of cHeader.matchAll(/\b(void|int32_t|uint32_t)\s+GAME_IMGUI_CALL\s+(game_imgui_\w+)\(([^)]*)\)\s*GAME_IMGUI_NOEXCEPT\s*;/g)) {
@@ -79,11 +79,12 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     assert(!pExports.has(name), 'Duplicate Pascal export ' + name);
     pExports.set(name, { result: kind === 'procedure' ? 'void' : pTypes[result], args });
   }
-  assert.equal(cExports.size, 33, 'Reviewed product, license scene, and scene point queries extend the existing ABI');
+  assert.equal(cExports.size, 34, 'Both B scene entry points share the existing callback layout');
   assert.deepEqual(cExports.get('game_imgui_scene_v2'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32']});
   assert.deepEqual(cExports.get('game_imgui_scene_v3'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32','i32','f32']});
   assert.deepEqual(cExports.get('game_imgui_license_hit_v1'), {result:'i32',args:['ptr','i32','i32']});
   assert.deepEqual(cExports.get('game_imgui_license_scene_v1'), {result:'i32',args:['ptr','i32','i32','f32']});
+  assert.deepEqual(cExports.get('game_imgui_license_scene_reveal_v1'), {result:'i32',args:['ptr','i32','i32','f32','ptr','i32']});
   assert.deepEqual(cExports.get('game_imgui_create_license_korean_v1'), {result:'i32',args:['ptr','ptr','ptr','u32','ptrptr']});
   assert.deepEqual(cExports.get('game_imgui_set_dpi'), { result: 'i32', args: ['ptr', 'f32'] });
   assert.deepEqual(pExports, cExports);
@@ -134,12 +135,9 @@ check('Host callback layout is versioned and checked before static-object creati
   assert.match(pascal, /ImGuiHostABIVersion\s*=\s*3;/);
   assert.match(pascal, /ImGuiHostBytes\s*=\s*32;/);
   const create = pascal.slice(pascal.indexOf('function ImGuiCreate(Window: NativeUInt; LicenseOnly: Boolean): TImGuiContext;', pascal.indexOf('implementation')), pascal.indexOf('procedure ImGuiDestroy(var Context:', pascal.indexOf('implementation')));
-  inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion',
-    'not ApiPointerStorageIsSealed','if LicenseOnly then','FontBytes := ReadLicenseFont;',
-    'game_imgui_create_license_korean_v1(Pointer(Window), @Host,','@FontBytes[0], Length(FontBytes), Result)',
-    'FillChar(FontBytes[0], Length(FontBytes), 0)','FontBytes := nil;',
-    'game_imgui_create(Pointer(Window), @Host, Result);'],'Host validation and font lifetime');
-  assert.match(pascal,/Fonts\\consola\.ttf/i);
+  inOrder(create, ['SizeOf(TImGuiHost) <> ImGuiHostBytes', 'game_imgui_abi_version <> ImGuiHostABIVersion', 'not ApiPointerStorageIsSealed', 'FontBytes := ReadSystemUiFont(LicenseOnly);', 'CreateResult := game_imgui_create_license_korean_v1(Pointer(Window), @Host,', '@FontBytes[0], Length(FontBytes), Result)', 'CreateResult := game_imgui_create_korean_v1(Pointer(Window), @Host,', '@FontBytes[0], Length(FontBytes), Result)', 'FillChar(FontBytes[0], Length(FontBytes), 0)', 'FontBytes := nil;'], 'Host validation');
+  const fontReader = pascal.slice(pascal.indexOf('function ReadSystemUiFont('), pascal.indexOf('function ImGuiCreate(', pascal.indexOf('function ReadSystemUiFont(')));
+  inOrder(fontReader, ['Target(@Buffer[0], Length(Buffer))', 'IncludeTrailingPathDelimiter(ExtractFileDir(Directory))', 'if LicenseOnly then', 'Fonts\\consola.ttf', 'else', 'Fonts\\malgun.ttf', 'TFileStream.Create(Directory', '16 * 1024 * 1024', 'Stream.ReadBuffer'], 'System-owned, bounded B and O fonts');
   assert.equal((pascal.match(/\{\$L\s+'[^']+'\}/g) || []).length, 2);
   const objectLinks = [...pascal.matchAll(/\{\$L\s+'[^']+'\}/g)];
   const firstExternal = pascal.indexOf('function game_imgui_create(');
@@ -283,7 +281,7 @@ check('GPU failure HRESULT survives the C/Pascal boundary and failed frames cann
   assert.match(backend, /FAILED\(game_dx11_result\(bd->pd3dDevice->CreateBuffer/);
   assert.match(backend, /game_dx11_result\(device->Map/);
   assert.match(backend, /game_dx11_result\(bd->pd3dDevice->GetDeviceRemovedReason\(\)\)/);
-  assert.match(pascal, /CreateResult := game_imgui_create_license_korean_v1\(Pointer\(Window\), @Host,\s*@FontBytes\[0\], Length\(FontBytes\), Result\);/);
+  assert.match(pascal, /CreateResult := game_imgui_create_korean_v1\(Pointer\(Window\), @Host,\s*@FontBytes\[0\], Length\(FontBytes\), Result\);/);
   assert.match(pascal, /OverlayGraphicsFailure\(CreateResult, 'CREATE'\)/);
   assert.match(renderer, /OverlayGraphicsFailure\(ImGuiLastError\(FContext\), 'FRAME'\)/);
   assert.match(bridge, /ImGui_ImplDX11_NewFrame\(\);\s*if\(game_imgui_runtime_failed\|\|game_imgui_dx11_failed\)return 0;/);
@@ -371,45 +369,162 @@ check('O prepares its unsigned PE exception table before publishing the release 
   assert(fs.existsSync(path.join(native, "Cozy.ImGui/Cozy.Tests/Cozy.Unwind/Cozy.Test-PE-Unwind.ps1")));
 });
 
-check('The blank overlay has one draggable rounded surface and cancels unowned pointer capture',()=>{
-  const release=method('procedure TOverlayWindow.ReleaseOwnCapture;','procedure TOverlayWindow.CancelInteraction;');
-  inOrder(release,['ApiGetCapture <> FWindow','FReleasingCapture := True;','ApiReleaseCapture;','FReleasingCapture := False;'],'owned capture lifetime');
-  const cancel=method('procedure TOverlayWindow.CancelInteraction;','procedure TOverlayWindow.PointerDown(');
-  inOrder(cancel,['FDragging := False;','ImGuiClearInput(','ReleaseOwnCapture;'],'cancel drag');
-  const down=method('procedure TOverlayWindow.PointerDown(','procedure TOverlayWindow.PointerMove(');
-  inOrder(down,['if not FRendered or not SurfaceHit(X, Y) then Exit;','ApiGetCursorPos(FDragAnchor)','ApiSetCapture(FWindow);','if ApiGetCapture <> FWindow then Exit;','FDragging := True;'],'start a visible drag');
-  const move=method('procedure TOverlayWindow.PointerMove(','procedure TOverlayWindow.PointerUp(');
-  assert.match(move,/FDragging and \(ApiGetCapture <> FWindow\)[\s\S]*?CancelInteraction;/);
-  const up=method('procedure TOverlayWindow.PointerUp(','function TOverlayWindow.Handle(');
-  inOrder(up,['FDragging := False;','ReleaseOwnCapture;'],'end drag');
-  assert.doesNotMatch(down+up,/ImGuiMouseButton|RequestProductRun/);
-  const handle=method('function TOverlayWindow.Handle(','function TOverlayWindow.AuthorityValid:');
-  assert.match(handle,/WM_CAPTURECHANGED:\s*begin\s*if not FReleasingCapture then CancelInteraction;/);
-  assert.match(handle,/WM_KILLFOCUS:\s*begin\s*CancelInteraction;/);
-  assert.match(renderer,/SceneWidth\s*=\s*380;[\s\S]*?SceneHeight\s*=\s*520;/);
+check('Intentional capture release preserves ImGui mouse-up; unexpected capture/focus loss cancels it', () => {
+  const release = method('procedure TOverlayWindow.ReleaseOwnCapture;', 'procedure TOverlayWindow.CancelInteraction;');
+  inOrder(release, ['ApiGetCapture <> FWindow', 'FReleasingCapture := True;', 'try', 'ApiReleaseCapture;', 'finally', 'FReleasingCapture := False;'], 'Release capture');
+  const up = method('procedure TOverlayWindow.PointerUp(', 'function TOverlayWindow.Handle(');
+  inOrder(up, ['FButtonTracking and (ApiGetCapture = FWindow)', 'ImGuiMousePos(', 'ImGuiMouseButton(FContext, 0, False);', 'FDragging := False;', 'FButtonTracking := False;', 'ReleaseOwnCapture;'], 'Mouse release event');
+  assert.doesNotMatch(up, /ImGuiClearInput|CancelInteraction/);
+  const cancel = method('procedure TOverlayWindow.CancelInteraction;', 'procedure TOverlayWindow.PointerDown(');
+  inOrder(cancel, ['FDragging := False;', 'FButtonTracking := False;', 'ImGuiClearInput(', 'ReleaseOwnCapture;'], 'Cancellation');
+  const handle = method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
+  assert.match(handle, /WM_CAPTURECHANGED:\s*begin\s*if not FReleasingCapture then CancelInteraction;/);
+  assert.match(handle, /WM_CANCELMODE:\s*begin CancelInteraction;/);
+  assert.match(handle, /WM_KILLFOCUS:\s*begin\s*CancelInteraction;/);
+  assert.match(handle, /WM_ACTIVATE:\s*if LOWORD\(WParam\) = WA_INACTIVE then CancelInteraction;/);
+  const down = method('procedure TOverlayWindow.PointerDown(', 'procedure TOverlayWindow.PointerMove(');
+  inOrder(down, ['ApiGetCursorPos(FDragAnchor)', 'ApiGetWindowRect(', 'ApiSetCapture(', 'if ApiGetCapture <> FWindow then Exit;', 'FButtonTracking := ButtonHit(X, Y);', 'FDragging := not FButtonTracking;'], 'Pointer selection');
+  const move = method('procedure TOverlayWindow.PointerMove(', 'procedure TOverlayWindow.PointerUp(');
+  assert.match(move, /FDragOrigin\.X \+ Cursor\.X - FDragAnchor\.X/);
+  assert.match(move, /FDragOrigin\.Y \+ Cursor\.Y - FDragAnchor\.Y/);
 });
 
-check('B and O share the same panel while O submits only a decorative surface',()=>{
-  const base='Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_';
-  const scene=read(base+'scene.h'),license=read(base+'license.h'),bridge=read(base+'bridge.cpp');
-  const display=scene.slice(scene.indexOf('static int32_t cozy_scene_frame('),scene.indexOf('int32_t GAME_IMGUI_CALL game_imgui_scene_v3('));
-  assert.match(display,/license_glass_surface\(/);
-  assert.match(license,/license_glass_surface\(/);
-  assert.match(display,/return game_imgui_runtime_failed\?-1:0;/);
-  assert.doesNotMatch(display,/Add(?:Image|Text)|Button\(|NavID|AddKeyEvent|game_scene_texture/);
-  assert.match(bridge,/!c->license_only\|\|game_license_create_images\(c\)/);
-  assert.doesNotMatch(bridge,/\bGameScene(?:Image|Blur)\d*\b|scene_assets\.h|game_blur_prepare\(/);
-  const paint=method('procedure TOverlayWindow.Paint;','procedure TOverlayWindow.Resize;');
-  inOrder(paint,['if not FWindowShown','if (FContext = nil) or not AuthorityValid then Exit;','ImGuiNewFrame(','ImGuiBeginCanvas(','ImGuiProductScene(FContext, 0, 0, 0, FSceneSeconds, 0, -1, 0)','ImGuiEndCanvas(','if not AuthorityValid then Exit;','ImGuiPresent('],'visible authorized decorative frame');
-  assert.doesNotMatch(paint,/ApplySceneActions|FRequestProductRun|FProductRunState/);
+check('Product START queues only after visible Present, exact entitlement and fresh authority', () => {
+  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint,['FScenePhase := ReadRunState;', 'FLicensedCard := -1;',
+    'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
+    'if (FLicensedCard < -1) or (FLicensedCard > 17) then FLicensedCard := -1;',
+    'ImGuiNewFrame(', 'ImGuiProductScene(FContext, FScenePhase, FSceneSelected, SceneFlags,',
+    'FSceneSeconds, FCarouselPosition, FLicensedCard, RunProgress);',
+    'SceneActions := SceneActions or Integer(FSceneKeyActions);','FSceneKeyActions := 0;',
+    'ImGuiEndCanvas(', 'if not AuthorityValid then Exit;', 'ImGuiPresent(',
+    'if FRendered and AuthorityValid then ApplySceneActions(Cardinal(SceneActions));'],'Visible scoped action gate');
+  const actions=method('procedure TOverlayWindow.ApplySceneActions(', 'function TOverlayWindow.SceneKey(');
+  inOrder(actions,['not AuthorityValid then Exit;', 'FScenePhase := ReadRunState;',
+    'if FScenePhase<>0 then Exit;', 'Card := OverlayCategoryCard(FSceneCategory,FSceneSelected);',
+    'if not OverlayProductCanStart(FLicensedCard,Card) or',
+    'not Assigned(FRequestProductRun) or not Assigned(FProductRunState) then Exit;',
+    'if not FRequestProductRun(Card) then Exit;', 'FScenePhase:=1; FRunStarted:=0; FRunFullShownSeconds:=0;', 'FRunDuration:=OverlayProductRunMilliseconds(Card);',
+    'CancelInteraction; UpdateCursor;', 'Exit;'],'Queue scoped authorization without starting a local timer');
+  assert.doesNotMatch(actions,/CreateProcess|ShellExecute|InvokeServerPolicy|\.Post\(/);
+  for(const [name,category] of [['CLEANNER',0],['MOBILE',1],['SPOOFER',2]])assert(actions.includes('IMGUI_SCENE_TAB_'+name+')<>0 then FSceneCategory:='+category));
+  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+5\) mod 6/);
+  assert.match(actions,/FSceneSelected:=\(FSceneSelected\+1\) mod 6/);
+  assert.match(paint,/FCarouselPosition := FSceneSelected;/);
+  assert.doesNotMatch(paint,/FCarouselPosition\s*:=.*\*Ease/,'Native pointer-follow owns the sole visual interpolation');
+  const keyboard=method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
+  assert.match(keyboard,/if not FSceneRevealComplete or SyncTextInput\s+or \(ReadRunState<>0\) then Exit/);
+  assert.match(keyboard,/if Result and not Repeated then/);
+  assert.doesNotMatch(keyboard,/VK_RETURN:/,'Enter belongs to the focused ImGui item');
+  const cancel=method('procedure TOverlayWindow.CancelInteraction;', 'procedure TOverlayWindow.PointerDown(');
+  inOrder(cancel,['FSceneKeyActions := 0;', 'ImGuiClearInput('],'Cancellation clears pending actions');
 });
 
-check('O motion supports the independent reduced-animation argument and a single entrance',()=>{
+check('Only a fresh server product grant begins bounded product progress and restores controls',()=>{
+  assert.match(pascal,/IMGUI_SCENE_PROGRESS_COMPLETE\s*=\s*16;/);
+  const state=method('function TOverlayWindow.ReadRunState:', 'procedure TOverlayWindow.ApplySceneActions(');
+  inOrder(state,['if FScenePhase=1 then', 'State := 3;',
+    'if Assigned(FProductRunState) then State := FProductRunState();', 'if State=2 then',
+    'FScenePhase:=2; FRunStarted:=CozyTick;', 'FRunFullShownSeconds:=0;', 'else if State<>1 then',
+    'FScenePhase:=0; FRunStarted:=0; FRunDuration:=0; UpdateCursor;',
+    'if (FScenePhase=2) and (FRunFullShownSeconds>=0.20) then', 'FScenePhase:=0; FRunStarted:=0; FRunDuration:=0;',
+    'CancelInteraction; UpdateCursor;', 'Result:=FScenePhase;'], 'Authorized monotonic progress and denial recovery');
+  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint,['RunProgress := (ProgressTick-FRunStarted)/FRunDuration;', 'if RunProgress>1 then RunProgress:=1;',
+    'ImGuiPresent(', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE) and',
+    'if FRendered and ((SceneActions and IMGUI_SCENE_PROGRESS_COMPLETE)<>0) then', 'FRunFullShownSeconds:=FRunFullShownSeconds+Delta',
+    'else FRunFullShownSeconds:=0;'], 'Closed square must be visibly presented before the completion hold advances');
+  assert.doesNotMatch(renderer,/SceneCountdownMs|CountdownSeconds/);
+  const productState=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas');
+  assert.match(productState,/if \(Card < 0\) or \(Card > 17\) then Exit\(0\);/);
+  assert.match(productState,/Result := 2400 \+ \(\(Card \* 7\) mod 18\) \* 110;/);
+  assert.match(productState,/OverlayRunSettleMilliseconds = 160;/);
+  assert.match(productState,/OverlayRunGrantMarginMilliseconds = 250;/);
+  assert.doesNotMatch(renderer,/FToastDeadline|SceneToastMs|SceneLoadingMs/);
+  assert.doesNotMatch(state,/Close|Shutdown/);
+  const authority=method('function TOverlayWindow.AuthorityValid:', 'function TOverlayWindow.Run(');
+  assert.doesNotMatch(authority,/FScenePhase|ReadRunState/,'Presentation progress cannot bypass session authority');
+  const handle=method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
+  inOrder(handle,['if not FSceneRevealComplete or (ReadRunState<>0) then', 'WM_LBUTTONDOWN,WM_LBUTTONUP,WM_RBUTTONDOWN,WM_RBUTTONUP,',
+    'WM_MOUSEMOVE,WM_MOUSEWHEEL,WM_MOUSEHWHEEL,WM_KEYDOWN,WM_KEYUP,WM_CHAR,',
+    'WM_IME_STARTCOMPOSITION,WM_IME_COMPOSITION,WM_IME_ENDCOMPOSITION,WM_IME_CHAR: Exit(0);'], 'Input isolation');
+  assert.match(handle,/WM_SETCURSOR:[\s\S]*?if FScenePhase in \[1,2\] then ApiSetCursor\(FBusyCursor\)[\s\S]*?else ApiSetCursor\(FNormalCursor\)/);
+  assert.match(renderer,/FBusyCursor:=ApiLoadCursorW\(0,PWideChar\(NativeUInt\(32648\)\)\)/);
+
+  inOrder(paint,['SceneFlags := Cardinal(FSceneCategory) shl 4;', 'if FScenePhase=0 then SceneFlags := SceneFlags or IMGUI_SCENE_RUN_AVAILABLE;'], 'Only idle phase is actionable');
+  inOrder(paint,['RunProgress := 0;', 'ProgressTick := CozyTick;',
+    'if (FScenePhase=2) and (FRunDuration>0) and (ProgressTick>=FRunStarted) then',
+    'RunProgress := (ProgressTick-FRunStarted)/FRunDuration;', 'if RunProgress>1 then RunProgress:=1;'], 'Progress is normalized, bounded and begins after approval');
+  const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
+  const request=controller.slice(controller.indexOf('function TOverlayWorker.RequestProductRun('),controller.indexOf('function TOverlayWorker.ProductRunState:'));
+  assert.match(request,/OverlayProductCanStart\(FProductCard, Card\)/);
+  assert.doesNotMatch(request,/AuthorizeProductStart|\.Post\(/,'The UI callback only queues bounded work');
+  const process=controller.slice(controller.indexOf('procedure TOverlayWorker.ProcessProductRun;'),controller.indexOf('function TOverlayWorker.ShouldClose:'));
+  inOrder(process,['MaintainLease(False);', 'FClient.AuthorizeProductStart(FContext.Security, Card,',
+    'not OverlayProductCanStart(FProductCard, Card)', '(GrantDeadline <= CozyTick +', 'OverlayProductRunMilliseconds(Card) + OverlayRunGrantMarginMilliseconds)',
+    'FProductRunState := 3;', 'FProductGrantDeadline := GrantDeadline;', 'FProductRunState := 2;'],'Worker rejects denied or stale grants');
+  const grant=controller.slice(controller.indexOf('function TOverlayWorker.ProductRunState:'),controller.indexOf('procedure TOverlayWorker.ProcessProductRun;'));
+  assert.match(grant,/FProductGrantDeadline <= CozyTick \+\s*OverlayProductRunMilliseconds\(FRunProductCard\) \+ OverlayRunGrantMarginMilliseconds/);
+  assert.match(grant,/if Result in \[2,3\] then/,'An accepted or rejected grant is consumed once');
+  assert.doesNotMatch(controller,/RequestCohortShutdown|FRunRequestedAt/,'START has no cohort-shutdown path');
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
-  assert.match(scene,/const bool reduced=\(flags&2\)!=0/);
-  assert.match(scene,/if\(!reduced\)c->license_elapsed\+=dt/);
-  assert.match(scene,/scene_reveal_seconds=reduced\?/);
-  assert.match(scene,/license_glass_surface\([\s\S]*?c->license_elapsed,opacity\)/);
+  assert.match(scene,/const bool start_allowed=enabled&&licensed_card==cozy_scene_tab_base\(c->scene_tab\)\+selected&&/);
+  assert.match(scene,/if\(run&&start_allowed\)actions=8/);
+  const busyStart=scene.indexOf('    if(phase==1||phase==2){');
+  const busy=scene.slice(busyStart,scene.indexOf('    if(revealing)',busyStart));
+  assert(busyStart>=0);
+  assert.match(busy,/scene_blur_active=true/);
+  assert.match(busy,/const bool completed=cozy_scene_update_completion\(c,delta,phase==2&&c->scene_run_progress>=1\.0f\)/);
+  assert.match(busy,/actions=completed\?CozyProgressCompleteAction:0;/);
+  assert.equal((busy.match(/\bactions\s*(?:=|\|=|&=)/g)||[]).length,1,
+    'Busy presentation exposes only the completed-square observation');
+  assert.match(scene,/CozyProgressCompleteAction = 16;/);
+  assert.match(scene,/licensed_card< -1\|\|licensed_card>17/);
+  assert.match(scene,/run_progress>=0&&run_progress<=1/);
+  const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
+  assert.match(legacy,/carousel_position,-1,0,true\)/,'Legacy scene has no entitlement and cannot START');
+});
+
+check('Responsive scene uses only the empty header for window dragging and stays within work area', () => {
+  const hit = method('function TOverlayWindow.ButtonHit(', 'procedure TOverlayWindow.ApplySceneActions(');
+  inOrder(hit, ['X < 0', 'X >= Area.Right', 'Scale := Area.Right / SceneWidth;',
+    'VerticalScale := Area.Bottom / SceneHeight;', 'if VerticalScale < Scale then Scale := VerticalScale;',
+    'OriginX := (Area.Right-SceneWidth*Scale)/2;', 'OriginY := (Area.Bottom-SceneHeight*Scale)/2;',
+    'Y >= OriginY+SceneHeaderHeight*Scale', 'X >= OriginX+180*Scale', 'Y >= OriginY+22*Scale'], 'Responsive header versus content hit test');
+  assert.match(hit,/X < OriginX\+500\*Scale/);
+  assert.match(hit,/Y < OriginY\+66\*Scale/);
+  assert.match(renderer, /InitialWidth = 680;/);
+  assert.match(renderer, /InitialHeight = 440;/);
+  const display = method('procedure TOverlayWindow.FitToWorkArea;', 'procedure TOverlayWindow.ReconcileDisplay;');
+  assert.match(display, /if Width > Info.Work.Right - Info.Work.Left then Width := Info.Work.Right - Info.Work.Left;/);
+  assert.match(display, /if Height > Info.Work.Bottom - Info.Work.Top then Height := Info.Work.Bottom - Info.Work.Top;/);
+  assert.match(display, /ApiSetWindowPos\(FWindow, 0, X, Y, Width, Height,/);
+  assert.doesNotMatch(display, /\bSetDpi\(/, 'Work-area fitting must not recursively reapply DPI');
+  const handle = method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
+  inOrder(handle, ['DpiChangedMessage:', 'SetDpi(LOWORD(WParam), PRect(LParam));',
+    'FitToWorkArea; Exit;'], 'Per-monitor DPI transition fits the OS suggestion');
+});
+
+
+check('Initial reveal advances only after showing, then latches full-size input after visible Present',()=>{
+  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint,['if not FWindowShown or (FWindow=0) or not ApiIsWindowVisible(FWindow) then',
+    'begin FRendered:=False; Exit; end;', 'NowSeconds := CozyFrameSeconds;',
+    'ImGuiProductScene(', 'ImGuiPresent(', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE)',
+    'if FRendered and (FSceneSeconds>=SceneRevealSeconds) then FSceneRevealComplete:=True;',
+    'if FRendered and AuthorityValid then ApplySceneActions'], 'Visible one-shot reveal');
+  assert.match(renderer,/SceneRevealSeconds = 0\.45;/);
+  assert.doesNotMatch(renderer,/FSceneRevealComplete\s*:=\s*False/i,'Phase changes cannot replay the initial reveal');
+  const keys=method('function TOverlayWindow.SceneKey(', 'procedure TOverlayWindow.ReleaseOwnCapture;');
+  assert.match(keys,/not FSceneRevealComplete/);
+  const actions=method('procedure TOverlayWindow.ApplySceneActions(', 'function TOverlayWindow.SceneKey(');
+  assert.match(actions,/not FSceneRevealComplete/);
+  const probe=read('Cozy.Tests/Cozy.Overlay/Cozy.OverlayEnvironmentProbe.dpr');
+  for(const name of ['INTRO_FIRST_VISIBLE_FRAME_IS_PARTIAL','INTRO_BLOCKS_HOST_AND_SCENE_INPUT',
+    'INTRO_COMPLETES_BEFORE_INTERACTION_CONTRACT','START_DOES_NOT_RESTART_INTRO']) assert(probe.includes(name));
+  inOrder(probe,['if not IntroChecked then begin IntroChecked:=True; IntroContract; end;',
+    'if not OverlayTestEnvironment.RevealComplete then', 'INTRO_COMPLETION_DEADLINE',
+    'if not ContractDone then begin ContractDone := True; Contract; end;'],'Probe waits for real render completion');
 });
 
 check('B and O clip their full-bleed composition surface with one soft DPI-scaled outer edge',()=>{
@@ -431,12 +546,12 @@ check('B and O clip their full-bleed composition surface with one soft DPI-scale
   assert.match(bridge,/if\(SUCCEEDED\(hr\)\)hr=c->composition->CreateRectangleClip/);
   assert.doesNotMatch(bridge,/DCOMPOSITION_BORDER_MODE_HARD/);
   assert.match(bridge,/return 12\.0f \* ImMin\(width \/ 380\.0f, height \/ 520\.0f\)/);
-  assert.match(bridge,/const float radius=license_corner_radius\(static_cast<float>\(width\),static_cast<float>\(height\)\)/);
-  assert.match(bridge,/const float radius = 12\.0f \* scale/);
+  assert.match(bridge,/radius=c->license_only\?license_corner_radius\([\s\S]*?:6\.0f\*ImMin\(width\/680\.0f,height\/440\.0f\)/);
+  assert.match(bridge,/const float radius = license_corner_radius\(w, h\)/);
   assert.match(bridge,/ClearRenderTargetView\(c->render_target,black\)/);
   assert.match(bridge,/if\(!game_make_render_target\(c\)\|\|!game_composition_clip\(c,width,height\)\)return 0;/);
   assert.doesNotMatch(bridge.slice(bridge.indexOf('static int32_t game_create('),bridge.indexOf('int32_t GAME_IMGUI_CALL game_imgui_set_dpi(')),/game_blur_prepare/);
-  assert.doesNotMatch(bridge,/scene_blur_active|game_blur_prepare\(/);
+  assert.match(bridge,/if\(!c->license_only&&c->scene_blur_active\)\{/);
   inOrder(bridge.slice(bridge.indexOf('static void game_destroy_context(')),
     ['composition_target->SetRoot(0)', 'composition->Commit()', 'composition_clip->Release()',
      'composition_visual->Release()', 'composition_target->Release()', 'composition->Release()',
