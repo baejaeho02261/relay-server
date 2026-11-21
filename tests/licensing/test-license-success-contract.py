@@ -107,7 +107,11 @@ check('B window exits on transfer and joins worker before destroying resources',
 paint=window.split('procedure TLicenseWindow.Paint;',1)[1].split('function TLicenseWindow.Message(',1)[0]
 window_run=window.split('function TLicenseWindow.Run(const BeforeShow: TProc): Integer;',1)[1].split('function RunLicenseWindow(',1)[0]
 automatic=window.split('procedure TLicenseWindow.AdvanceAutomaticLaunch(State: Integer);',1)[1].split('procedure TLicenseWindow.Paint;',1)[0]
-submit=window.split('procedure TLicenseWindow.Submit;',1)[1].split('procedure TLicenseWindow.AdvanceAutomaticLaunch(',1)[0]
+submit=window.split('procedure TLicenseWindow.Submit(const Digest: string);',1)[1].split('procedure TLicenseWindow.AdvanceAutomaticLaunch(',1)[0]
+auto_submit=window.split('procedure TLicenseWindow.TryAutomaticSubmit(Immediate: Boolean);',1)[1].split('procedure TLicenseWindow.Submit(',1)[0]
+key_edit=window.split('procedure TLicenseWindow.KeyEdited(Immediate: Boolean);',1)[1].split('procedure TLicenseWindow.TryAutomaticSubmit(',1)[0]
+fingerprint=window.split('function LicenseKeyFingerprint(',1)[1].split('constructor TLicenseWindow.Create(',1)[0]
+paste=window.split('procedure TLicenseWindow.PasteKey;',1)[1].split('procedure TLicenseWindow.KeyEdited(',1)[0]
 window_cancel=window.split('procedure TLicenseWindow.CancelInput;',1)[1].split('procedure TLicenseWindow.Close;',1)[0]
 check('A worker-confirmed transfer closes after one visibly completed frame without a dwell timer',
       'if State = WorkerTransferred then Phase := 3' in paint
@@ -149,7 +153,7 @@ check('A queued handoff is an explicit phase even if the approved frame was neve
       and 'if (Phase = 1) or (Phase = 5) then Percent := FProgress();' in paint)
 check('Silent rejection preserves the editable original in sensitive storage and moves only a separate sensitive owner',
       submit.index('Key := TCozySensitiveText.Create(MaximumKeyCharacters);')
-      < submit.index('Key.AppendBuffer(FKey);') < submit.index('FWasBusy := FSubmit(Key);')
+      < submit.index('Key.AppendBuffer(FKey);') < submit.index('Accepted := FSubmit(Key);')
       < submit.index('finally') < submit.index('FreeAndNil(Key);')
       and not any(token in submit for token in ['CopyText', 'Key := FKey', 'FKey := nil', 'FKey.Clear', 'FreeAndNil(FKey)', 'FInputFocused := False', 'ImGuiClearInput']))
 check('Grant, cancellation, focus loss and final destruction wipe the retained editor secret',
@@ -163,8 +167,8 @@ retry_frame=paint.split('if FWasBusy then',1)[1].split('end;',1)[0]
 check('Rejected verification has no forced focus, editor clearing, shake command or error page',
       'Phase := 2;' in retry_frame
       and not any(token in retry_frame for token in ['ImGuiClearInput', 'FInputFocused := True', 'FKey.Clear'])
-      and 'if (Phase = 0) or (Phase = 2) then' in paint
-      and paint.index('if (Phase = 0) or (Phase = 2) then') < paint.index('FModalVisible := (Actions and LicenseSceneModalVisible) <> 0;')
+      and 'if ((Phase = 0) or (Phase = 1) or (Phase = 2)) and FFocused then' in paint
+      and paint.index('if ((Phase = 0) or (Phase = 1) or (Phase = 2)) and FFocused then') < paint.index('FModalVisible := (Actions and LicenseSceneModalVisible) <> 0;')
       and not any(token in window for token in ['MessageBeep', 'MessageBox', 'Beep(', 'Shake', 'ErrorPage']))
 check('B fits the monitor and uses the scene pixel coordinates for its rounded client window',
       all(token in window for token in ['PanelWidth = 380;', 'PanelHeight = 520;',
@@ -191,15 +195,20 @@ check('A background drag is thresholded and never sends a native control press',
       and 'if FGesture <> lgMoving then CancelInput;' in window
       and 'FDragOrigin := Bounds.TopLeft; FDragAnchor := Position;' in window)
 check('Only a short backdrop click dismisses the license panel',
-      release.index('else if (FGesture = lgBackdrop) and InputEnabled and') < release.index('if not DragThresholdReached(Position) then')
+      release.index('else if (FGesture in [lgBackground, lgBackdrop]) and InputEnabled and') < release.index('if not DragThresholdReached(Position) then')
       < release.index('FInputFocused := False;') < release.index('ImGuiMouseButton(FContext, 0, True); ImGuiMouseButton(FContext, 0, False);')
       < release.index('ReleaseOwnCapture;'))
-check('Only a visible and focused login field can receive secret edits',
-      'Result := SceneInputEnabled and FModalVisible and (FState() = WorkerIdle);' in window
-      and paint.index('FModalVisible := (Actions and LicenseSceneModalVisible) <> 0;') < paint.index('if InputEnabled then')
-      and 'if not FModalVisible then FInputFocused := False;' in paint
+check('A visible focused editor stays usable during unapproved verification but not handoff',
+      'Result := SceneInputEnabled and FModalVisible;' in window
+      and 'Result := (State = WorkerIdle) or ((State = WorkerBusy) and not FLaunchRequested);' in window
+      and 'if not InputEnabled or not FInputFocused then Exit;' in window
       and 'if Hit <> HitKeyField then FInputFocused := False;' in press
       and 'FInputFocused := Hit' not in press)
+check('First native focus edges survive occlusion without admitting invisible secret edits',
+      paint.index('if ((Phase = 0) or (Phase = 1) or (Phase = 2)) and FFocused then')
+      < paint.index('if (Actions and 4) <> 0 then FInputFocused := True') < paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then')
+      and 'Result := not FClosing and FShown and FFocused and FVisibleFrame and' in window
+      and 'not FMinimized and not FResizePending;' in window)
 keys=window.split('    WM_KEYDOWN, WM_SYSKEYDOWN:',1)[1].split('    WM_KEYUP, WM_SYSKEYUP:',1)[0]
 check('Escape revokes host secret focus before later messages can submit or append',
       keys.index('if WParam = VK_ESCAPE then') < keys.index('FInputFocused := False; FModalVisible := False;')
@@ -207,7 +216,8 @@ check('Escape revokes host secret focus before later messages can submit or appe
       < keys.index('ImGuiKey(FContext, WParam, True);')
       and 'if not InputEnabled or not FInputFocused then Exit;' in window
       and 'if (LParam and $40000000) = 0 then' in keys
-      and 'if FKey.Count > 0 then Submit' in keys and 'else ImGuiKey(FContext, WParam, True);' in keys)
+      and 'if FState() = WorkerIdle then KeyEdited(True)' in keys
+      and 'else if FEditGeneration <> FSubmittedGeneration then' in keys)
 cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
 check('Verification has no busy cursor change and only a postgrant handoff uses the busy pointer',
       'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
@@ -220,13 +230,57 @@ check('Verification has no busy cursor change and only a postgrant handoff uses 
       and '((State = WorkerBusy) and FLaunchRequested);' in window
       and 'WM_MOUSELEAVE: begin PointerLeft; Exit; end;' in window
       and 'then ImGuiMousePos(FContext, -1E30, -1E30);' in window)
-check('Pending verification rejects duplicate keyboard/control submissions and releases any held mouse without clearing focus',
+check('Pending verification permits edits but only an idle worker can accept a new immutable snapshot',
       'if SceneInputEnabled then' in keys
-      and 'Result := State = WorkerIdle;' in window
-      and 'if not SceneInputEnabled then Exit;' in press
+      and 'Result := (State = WorkerIdle) or ((State = WorkerBusy) and not FLaunchRequested);' in window
+      and '(FState() <> WorkerIdle) then Exit;' in auto_submit
+      and '(FState() <> WorkerIdle) or' in submit
       and 'ImGuiMouseButton(FContext, 0, False);' in submit
       and 'ImGuiKey(FContext, VK_SHIFT, False);' in submit
       and 'ImGuiClearInput' not in submit)
+check('The credential parser matches the actual raw and legacy server grammar and wipes its bounded boundary copy',
+      'if Length(Text) = 64 then First := 1' in fingerprint
+      and '(Length(Text) = 75)' in fingerprint
+      and all(token in fingerprint for token in ['WideChar($4D)', 'WideChar($4F)', 'WideChar($41)', "(Text[4] = '-')", '((I - 4) mod 9)', "if Text[I] <> '-' then Exit;"])
+      and "((Ch >= '0') and (Ch <= '9')) or ((Ch >= 'A') and (Ch <= 'F'))" in fingerprint
+      and fingerprint.index('Text := Key.CopyText;') < fingerprint.index('Digest := Hasher.FinishHex;') < fingerprint.index('finally')
+      < fingerprint.index('Hasher.Free;') < fingerprint.index('WipeBoundaryText(Text);'))
+check('Typing schedules one bounded intent and never treats a timeout or format match as license authority',
+      'InputDebounceMilliseconds = 250;' in window
+      and key_edit.index('Inc(FEditGeneration);') < key_edit.index('FLastEditTick := CozyTick;') < key_edit.index('FAutoPending := True;')
+      and 'if Immediate then TryAutomaticSubmit(True);' in key_edit
+      and 'Tick - FLastEditTick < InputDebounceMilliseconds' in auto_submit
+      and 'Tick - FLastAttemptTick < InputDebounceMilliseconds' in auto_submit
+      and auto_submit.index('LicenseKeyFingerprint(FKey, Digest)') < auto_submit.index('Submit(Digest);')
+      and all(token not in auto_submit for token in ['WorkerLicensed', 'WorkerTransferred', 'FLaunch()', 'Key.Count = 64']))
+check('Unchanged polling cannot spam a rejected key while deliberate fresh input may request a bounded same-key retry',
+      '(FSubmittedGeneration = FEditGeneration) and (Digest = FLastAttemptDigest)' in auto_submit
+      and 'if FState() = WorkerIdle then KeyEdited(True)' in keys
+      and 'else if FEditGeneration <> FSubmittedGeneration then' in keys
+      and submit.index('Accepted := FSubmit(Key);') < submit.index('if Accepted then') < submit.index('FSubmittedGeneration := FEditGeneration;')
+      and 'FLastAttemptDigest := Digest;' in submit
+      and 'WipeBoundaryText(FLastAttemptDigest);' in window)
+check('A second full clipboard key replaces the first atomically after all validation and never alters the worker snapshot',
+      paste.index('if not Terminated or (Value.Count = 0) then Exit;') < paste.index('Swap := FKey; FKey := Value; Value := Swap; Swap := nil;')
+      < paste.index('KeyEdited(True);') < paste.index('FreeAndNil(Value);')
+      and all(token not in paste for token in ['FKey.Count + Value.Count', 'FKey.Clear', 'FKey.AppendBuffer(Value)']))
+check('Accepted request wins staged edits and no native Confirm action can submit a credential',
+      'Actions and 1' not in window
+      and window_run.index('AdvanceAutomaticLaunch(State);') < window_run.index('TryAutomaticSubmit(False);')
+      and automatic.index('if Accepted or (State = WorkerBusy) or (State = WorkerTransferred) then')
+      < automatic.index('FAutoPending := False; FImmediatePending := False;') < automatic.index('if FKey <> nil then FKey.Clear;')
+      and 'if FKey.Count <> BeforeCount then KeyEdited(False);' in keys
+      and 'begin FKey.Append(Ch); KeyEdited(False); end;' in window)
+ownership_probe=read('Railway/Cozy.Tests/Cozy.FaultInjection/Cozy.LicenseOwnershipProbe.dpr')
+check('Production protected-owner and mailbox probes exercise second full paste, rejection retry and old-snapshot success',
+      'procedure ReplacePasteWhilePending;' in ownership_probe
+      and 'procedure AcceptedSnapshotWinsStagedEdit;' in ownership_probe
+      and 'ReplacePasteWhilePending; AcceptedSnapshotWinsStagedEdit;' in ownership_probe
+      and 'Swap := Editor; Editor := ClipboardValue; ClipboardValue := Swap; Swap := nil;' in ownership_probe
+      and 'FixtureKeyMatches(Owned, WideChar($41))' in ownership_probe
+      and 'FixtureKeyMatches(Owned, WideChar($43))' in ownership_probe
+      and 'Mailbox.Complete(WorkerIdle);' in ownership_probe
+      and 'Mailbox.RequestLaunch and not Mailbox.RequestLaunch' in ownership_probe)
 check('Failure closing remains independent of native presentation',
       paint.index('if (State = WorkerFailed) or (State = WorkerStopped) then') < paint.index('if State = WorkerTransferred then Phase := 3'))
 check('Cleanup is guarded once and preserves nonfatal OS refusal', 'if FBinaryCleanupAttempted then Exit;' in cleanup and 'FBinaryCleanupInfo, False);' in cleanup)

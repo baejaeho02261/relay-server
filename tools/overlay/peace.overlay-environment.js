@@ -18,7 +18,7 @@ function Validate(raw,nonce){
   if(r.seq!==i||!Number.isSafeInteger(r.tick)||r.tick<tick||r.tick>1800000||!Number.isSafeInteger(r.msg)||!Number.isSafeInteger(r.wparam)||!Number.isSafeInteger(r.dpi)||r.dpi<48||r.dpi>768||!Number.isSafeInteger(r.windowDpi)||r.windowDpi<48||r.windowDpi>768||!Number.isSafeInteger(r.clearCount)||r.clearCount<clears||!Number.isSafeInteger(r.clearBefore)||r.clearBefore<0||r.clearBefore>r.clearCount||!/^[0-9A-F]{16}$/.test(r.monitor)||r.monitor==='0000000000000000'||bools.some(k=>typeof r[k]!=='boolean'))throw Error('OVERLAY_ENVIRONMENT_ROW_INVALID');
   for(const k of ['left','top','right','bottom','workLeft','workTop','workRight','workBottom'])if(!Number.isSafeInteger(r[k])||Math.abs(r[k])>1000000)throw Error('OVERLAY_ENVIRONMENT_RECT_INVALID');
   if(r.right<=r.left||r.bottom<=r.top||r.workRight<=r.workLeft||r.workBottom<=r.workTop)throw Error('OVERLAY_ENVIRONMENT_RECT_INVALID');
-  if([0x201,0x202].includes(r.msg)&&(!Number.isInteger(r.x)||!Number.isInteger(r.y)||typeof r.hostButtonHit!=='boolean'))throw Error('OVERLAY_ENVIRONMENT_POINTER_INVALID');
+  if([0x201,0x202].includes(r.msg)&&(!Number.isInteger(r.x)||!Number.isInteger(r.y)||typeof r.hostSurfaceHit!=='boolean'))throw Error('OVERLAY_ENVIRONMENT_POINTER_INVALID');
   tick=r.tick;clears=r.clearCount;
  }
  return raw;
@@ -31,9 +31,12 @@ function Evaluate(raw,confirmation,nonce){
   if(r.msg===0x2b1&&!r.sessionRegistered)errors.push('SESSION_MESSAGE_WITHOUT_NOTIFICATION_REGISTRATION');
   if(r.dpi!==r.windowDpi)errors.push('WINDOW_DPI_READBACK_MISMATCH');
   if([0x201,0x202].includes(r.msg)){
-   const expected=r.x>=32*r.dpi/96&&r.x<288*r.dpi/96&&r.y>=52*r.dpi/96&&r.y<96*r.dpi/96;
-   if(r.hostButtonHit!==expected)errors.push('INDEPENDENT_HIT_TEST_MISMATCH');
-   if(r.msg===0x201&&!r.sessionPaused&&(!r.captureOwned||r.buttonTracking!==expected||r.dragging===expected))errors.push('POINTER_CAPTURE_STATE_MISMATCH');
+   const width=r.right-r.left,height=r.bottom-r.top,scale=Math.min(width/380,height/520);
+   const x=(r.x+0.5-(width-380*scale)/2)/scale,y=(r.y+0.5-(height-520*scale)/2)/scale;
+   const dx=Math.max(32-x,x-348,0),dy=Math.max(32-y,y-488,0);
+   const expected=x>=20&&x<360&&y>=20&&y<500&&dx*dx+dy*dy<=144;
+   if(r.hostSurfaceHit!==expected)errors.push('INDEPENDENT_HIT_TEST_MISMATCH');
+   if(r.msg===0x201&&!r.sessionPaused&&(r.buttonTracking||r.captureOwned!==expected||r.dragging!==expected))errors.push('POINTER_CAPTURE_STATE_MISMATCH');
   }
   const reset=r.msg===8||r.msg===0x2e0||r.msg===0x7e||r.msg===0x2b1;
   if(reset&&(r.clearCount<=r.clearBefore||r.dragging||r.buttonTracking||r.captureOwned))errors.push('INPUT_NOT_CLEARED_AFTER_TRANSITION');
@@ -46,8 +49,8 @@ function Evaluate(raw,confirmation,nonce){
  const firstRemote=rows.findIndex(r=>r.msg===0x2b1&&[3,4].includes(r.wparam));
  const local=firstRemote<0?rows:rows.slice(0,firstRemote);
  const monitors=new Set(local.map(r=>r.monitor)),dpis=new Set(local.map(r=>r.dpi));
- const pointerMonitors=new Set(local.filter(r=>r.msg===0x201&&r.hostButtonHit).map(r=>r.monitor));
- const dragMonitors=new Set(local.filter(r=>r.msg===0x201&&!r.hostButtonHit&&r.dragging).map(r=>r.monitor));
+ const pointerMonitors=new Set(local.filter(r=>r.msg===0x201&&r.hostSurfaceHit).map(r=>r.monitor));
+ const dragMonitors=new Set(local.filter(r=>r.msg===0x201&&r.hostSurfaceHit&&r.dragging).map(r=>r.monitor));
  const didFocus=rows.some(r=>r.msg===8),didDpi=local.some(r=>r.msg===0x2e0&&r.suggestedMatches);
  let disconnected=-1,resumed=false;
  for(const [i,r] of rows.entries()){if(r.msg===0x2b1&&r.wparam===4)disconnected=i;else if(disconnected>=0&&r.msg===0x2b1&&[1,3].includes(r.wparam)&&i>disconnected)resumed=true;}
@@ -56,11 +59,11 @@ function Evaluate(raw,confirmation,nonce){
  const registrationVerified=rows.some(r=>r.sessionRegistered)&&rows.filter(r=>r.msg===0x2b1).every(r=>r.sessionRegistered);
  const result=(id,ok,reason)=>({id,outcome:errors.length?'FAIL':complete&&ok?'PASS':'NOT_RUN',...(!complete||!ok?{reason}:{})});
  const stages=[
-  result('physical-dpi-multi-monitor',monitors.size>=2&&pointerMonitors.size>=2&&dragMonitors.size>=2&&didFocus,'TWO_LOCAL_PHYSICAL_MONITORS_WITH_REAL_BUTTON_DRAG_FOCUS_CHECKS_REQUIRED'),
+  result('physical-dpi-multi-monitor',monitors.size>=2&&pointerMonitors.size>=2&&dragMonitors.size>=2&&didFocus,'TWO_LOCAL_PHYSICAL_MONITORS_WITH_REAL_SURFACE_DRAG_FOCUS_CHECKS_REQUIRED'),
   result('mixed-dpi-monitor-move',monitors.size>=2&&dpis.size>=2&&didDpi&&didFocus,'TWO_DISTINCT_LOCAL_DPI_VALUES_AND_OS_DPI_CHANGE_REQUIRED'),
   result('rdp-disconnect-reconnect',resumed&&didFocus&&registrationVerified,'WTS_REGISTRATION_AND_REAL_REMOTE_DISCONNECT_THEN_CONNECT_OF_SAME_SESSION_REQUIRED')
  ];
- return {version:1,kind:'OVERLAY_ENVIRONMENT_VERIFICATION',evidenceType:'OPERATOR_RECORDED_LOCAL_MEASUREMENT',outcome:errors.length?'FAIL':stages.every(x=>x.outcome==='PASS')?'PASS':'INCOMPLETE',stages,errors:[...new Set(errors)],measured:{events:rows.length,localMonitors:monitors.size,localDpis:[...dpis].sort((a,b)=>a-b),buttonMonitors:pointerMonitors.size,dragMonitors:dragMonitors.size,remoteDisconnectThenResume:resumed},confirmation,hardwareAttested:false,publicationApproval:false,scope:'Local operator observations plus independently checked renderer telemetry; prebuilt probe source/build identity is not attested.'};
+ return {version:1,kind:'OVERLAY_ENVIRONMENT_VERIFICATION',evidenceType:'OPERATOR_RECORDED_LOCAL_MEASUREMENT',outcome:errors.length?'FAIL':stages.every(x=>x.outcome==='PASS')?'PASS':'INCOMPLETE',stages,errors:[...new Set(errors)],measured:{events:rows.length,localMonitors:monitors.size,localDpis:[...dpis].sort((a,b)=>a-b),surfaceMonitors:pointerMonitors.size,dragMonitors:dragMonitors.size,remoteDisconnectThenResume:resumed},confirmation,hardwareAttested:false,publicationApproval:false,scope:'Local operator observations plus independently checked renderer telemetry; prebuilt probe source/build identity is not attested.'};
 }
 function Ask(prompt){process.stdout.write(prompt+' [YES / NO]: ');let s='',b=Buffer.alloc(1);while(fs.readSync(0,b,0,1,null)){const c=b.toString();if(c==='\n')break;if(c!=='\r')s+=c;if(s.length>256)throw Error('OVERLAY_ENVIRONMENT_INPUT_TOO_LONG');}return s.trim().toUpperCase()==='YES';}
 function Run(probe){
@@ -75,11 +78,11 @@ function Run(probe){
  const startedAt=new Date().toISOString();
  console.log('Build tests/cozy.manual-ide/cozy.OverlayEnvironmentProbe.dproj in RAD Studio Win64 Release first.');
  console.log('This workflow needs real local monitors with DIFFERENT scale settings and real RDP reconnect.');
- console.log('Window: click inside Injection, drag black background on EACH monitor, switch focus while holding input.');
+ console.log('Window: drag the rounded surface on each monitor and switch focus while holding the mouse button.');
  console.log('Perform the local monitor tests BEFORE connecting RDP. Return to same session. Release F6 for checkpoint, F10 to finish.');
  const child=cp.spawnSync(copy,['--interactive','--output',rawFile,'--nonce',nonce],{encoding:'utf8',timeout:31*60*1000,maxBuffer:8*1024*1024,windowsHide:false});fs.writeFileSync(log,(child.stdout||'')+(child.stderr||''),{flag:'wx'});
  if(child.error||child.status!==0||!fs.existsSync(rawFile))throw Error('OVERLAY_ENVIRONMENT_PROBE_FAILED_SEE_'+runId);
- const confirmation={physicalMonitors:Ask('Were at least TWO actual physical monitors used before RDP'),unmodifiedRealInput:Ask('Were real mouse/focus/RDP transitions used, without injected messages or simulated monitors'),visualPositionAndHitAlignment:Ask('Was the window visible on-screen with correct button/drag hit alignment and no stuck input after EVERY transition')};
+ const confirmation={physicalMonitors:Ask('Were at least TWO actual physical monitors used before RDP'),unmodifiedRealInput:Ask('Were real mouse/focus/RDP transitions used, without injected messages or simulated monitors'),visualPositionAndHitAlignment:Ask('Was the window visible on-screen with correct rounded-surface hit alignment and no stuck input after EVERY transition')};
  const raw=Json(rawFile),report=Evaluate(raw,confirmation,nonce);
  // Include the confirmation interval in both before/after input checks.
  let unchanged=false,sourceUnchanged=false;
