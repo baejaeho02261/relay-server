@@ -1587,7 +1587,7 @@
     "Relay Server/tests/overlay/peace.test-overlay-start-diagnostics.js": "2282224bbd57b5c54591d654700f5b293fa6f43bb286ae6c1e56420f0ed0396d2222c0532802ac805399b44ef218138d1bd161f4beafcdcb54c784205d498c4f",
     "Relay Server/tests/overlay/peace.test-overlay-startup-failure.js": "2f3a7a46feebf60695d6ad0e68947aeb1405f21b1c2a5f499a2e166542e555f8f5335f9099870f120cec594fe4435f7f1a18a6a996d49ef70354ac554db98304",
     "Relay Server/tests/overlay/peace.test-overlay-startup-lease.js": "6cd58f0c9c7e326d873a3744043691582b51fee7ae25afc524996de352960153eef37c6ee2f3570b7d3809d6c1ead135fcc08e7cfc371130275adfc87c871279",
-    "Relay Server/tests/overlay/peace.test-overlay-text-input.js": "5baf8cae071ac4a7d14cc04c9038ccf76068949543919272201833d3925cdf56c6eec4ba0a487eb3274593ee4184761676d9936446c78f5ef684ca63dbec04e7",
+    "Relay Server/tests/overlay/peace.test-overlay-text-input.js": "f25b3fa3b345fb788ff0cbd049252fa2dd8d0d39f183fc9280a238337cb8080bc2addaca8a8b6a9831a3bf032656152df5fe3e0a71e75014d503e20c42d3ff9f",
     "Relay Server/tests/overlay/peace.test-overlay-transfer.js": "99d3a09e19918c71b8286f431cc6f7d3e80d9852a0f17c426fafcbba0777b13c836c552813664dc7b9c2bdf14e028ac6ee86610345175b52fe535a0d6287ec03",
     "Relay Server/tests/overlay/peace.test-overlay-web-policy.js": "a4927b786cc655ab2a173873bfef3b8b5dadc936c52954c38ffb34f4fa4a9a8fa5aa97f5b18e2dc730ad4a8bfc6009bc9149f4edc795cec6eb0d7a509596e222",
     "Relay Server/tests/protocol/independent-contract-reference.py": "3b24c7f0455f5386125ebe0877321c448685a120338d804b680e2d01c77b202665b04fb341951ebbb6be78f5d936d2a62c63108f14d476ed3390546cbaa3ee9f",
