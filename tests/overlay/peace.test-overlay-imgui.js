@@ -418,8 +418,10 @@ check('O reads the game name only from a valid signed transfer and draws no cont
   inOrder(frame,['licensed_card < -1 || licensed_card >= IM_ARRAYSIZE(CozyOverlayTitles)',
     'license_glass_panel(draw,origin+ImVec2(20.f,20.f)*scale,scale,c->license_elapsed,opacity);',
     'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity);',
-    'return game_imgui_runtime_failed ? -1 : 0;'], 'Only shared background and optional title');
-  assert.match(b,/license_glass_panel\(v\.draw,v\.point\(20,20\),scale,c->license_elapsed,opacity\);/);
+    'return game_imgui_runtime_failed ? -1 : 0;'], 'Only the O background and optional title');
+  assert.match(b,/license_flat_panel\(v\);/);
+  assert.doesNotMatch(b,/license_glass_(?:panel|shadow|button)\(/);
+  assert.doesNotMatch(scene,/license_flat_panel\(/);
   assert.doesNotMatch(scene,/ImGui::(?:Button|InvisibleButton|InputText)|AddImage|license_planet|scene_run_progress|start_allowed/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
   assert.match(legacy,/cozy_scene_frame\(game_context\(handle\),phase,selected,flags,-1,\s*animation_seconds,carousel_position,0\.f\)/);
