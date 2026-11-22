@@ -24,14 +24,13 @@ test('The passive O host neither enables a native editor nor invokes legacy text
   assert(!create.includes('sizeof(CozyTextInput)'),'display-only creation must not allocate input state');
 });
 
-test('O consumes character, wheel and IME messages while its theme dropdown handles bounded keys',()=>{
+test('O consumes character, wheel and IME messages while its native color controls handle bounded keys',()=>{
   const handler=section(renderer,'function TOverlayWindow.Handle(','function TOverlayWindow.AuthorityValid:');
   assert.match(handler,/WM_MOUSEWHEEL, WM_MOUSEHWHEEL, WM_CHAR,\s*WM_IME_STARTCOMPOSITION, WM_IME_COMPOSITION,\s*WM_IME_ENDCOMPOSITION, WM_IME_CHAR: Exit\(0\);/);
-  assert.match(handler,/WM_KEYDOWN:\s*begin\s*if FSessionPaused or not AuthorityValid then Exit;\s*if ThemeKey\(WParam\) then Exit;\s*if WParam = VK_ESCAPE then/);
-  const theme=section(renderer,'function TOverlayWindow.ThemeKey(', 'function TOverlayWindow.Handle(');
-  assert.match(theme,/VK_ESCAPE:\s*if FThemePopup then CloseThemePopup else Result := False;/);
-  assert.match(theme,/VK_RETURN, VK_SPACE:[\s\S]*?if FThemeKeyboard > 0 then FThemeRequested := FThemeKeyboard - 1;/);
-  assert.match(theme,/VK_UP, VK_DOWN:[\s\S]*?mod ThemeCount;/);
+  assert.match(handler,/WM_KEYDOWN:\s*begin\s*if FSessionPaused or not AuthorityValid then Exit;\s*if WParam = VK_ESCAPE then/);
+  assert.match(handler,/if ThemePickerOpen then ImGuiKey\(FContext, VK_ESCAPE, True\)\s*else\s*begin\s*BeginClosing;/);
+  assert.match(handler,/VK_TAB, VK_RETURN, VK_SPACE, VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_SHIFT:\s*ImGuiKey\(FContext, Integer\(WParam\), True\);/);
+  assert.match(handler,/WM_KEYUP:[\s\S]*?VK_ESCAPE, VK_TAB, VK_RETURN, VK_SPACE, VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_SHIFT:\s*ImGuiKey\(FContext, Integer\(WParam\), False\);/);
   assert.doesNotMatch(renderer,/ImmGetCompositionString|SetWindowsHook|GetAsyncKeyState|GetKeyboardState/);
 });
 

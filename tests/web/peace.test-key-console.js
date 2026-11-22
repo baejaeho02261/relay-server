@@ -57,11 +57,14 @@ try{
   assert.match(submit,/finally\s+FreeAndNil\(Key\);/);
   const paint=window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
   assert.match(paint,/if \(Actions and LicenseSceneReadClipboard\) <> 0 then PasteKey\s+else if \(Actions and LicenseSceneAutoSubmit\) <> 0 then Submit;/);
-  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;\s+if \(State = WorkerTransferred\) and \(Phase = 3\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) then\s+begin\s+FOutcomePhase := LicensePhaseToast;/);
+  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;\s+if \(State = WorkerTransferred\) and \(Phase = 3\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) then\s+begin\s+FPresentationComplete := True;\s+Close;\s+Exit;/);
   const advance=window.split('procedure TLicenseWindow.AdvancePresentedSequence(')[1].split('procedure TLicenseWindow.Paint;')[0];
   assert.match(advance,/LicensePhaseRejectScan: FOutcomePhase := LicensePhaseRejected;/);
   assert.match(advance,/LicensePhaseAcceptScan: FOutcomePhase := LicensePhaseAccepted;/);
-  assert.match(advance,/LicensePhaseToast:[\s\S]*?FPresentationComplete := True;\s+Close;/);
+  assert.doesNotMatch(window,/License(?:PhaseToast|SceneToastComplete)/);
+  assert.match(window,/ApiCreateWindowExW\(WS_EX_TOOLWINDOW or NoRedirectionBitmap,/);
+  assert.doesNotMatch(window,/\bWS_EX_APPWINDOW\b/);
+  assert.match(window,/\(Hit in \[HitClipboardPlanet, HitPalette\]\) and SceneInputEnabled/);
   assert(text.includes('FCommands.Complete(WorkerTransferred);'));
   assert(window.includes('State = WorkerTransferred'));
   assert(entry.indexOf('Worker.Free;')<entry.indexOf('Api.Free;'));
