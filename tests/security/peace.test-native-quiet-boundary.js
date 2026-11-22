@@ -30,18 +30,24 @@ test('Production A/B/O reject invalid invocation shapes before startup work and 
   }
 });
 
-test('B owns masked key input outside ImGui and rejects output paths for secrets or exception text', () => {
+test('B keeps the owned key private across focus changes and wipes its bounded frame copies', () => {
   const worker = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Session.pas'));
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));
   const mailbox = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Commands.pas'));
-  assert.match(window, /ImGuiLicenseScene\(FContext, Phase, FKey\.Count, Percent \/ 100\)/);
-  assert.doesNotMatch(window, /CopyText|ImGuiTextInput|InputText|PWideChar\(.*Key|PAnsiChar\(.*Key/);
-  assert.match(window, /Key := FKey; FKey := nil;/);
+  const paint = window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
+  assert.match(paint, /then KeyCharacters := FKey\.Count;\s+if \(KeyCharacters > 0\) and WindowInputEnabled then\s+begin[\s\S]*?RevealedKey := FKey\.CopyText;\s+Actions := ImGuiLicenseSceneReveal\(FContext, Phase, Length\(RevealedKey\),\s+Progress, PWideChar\(RevealedKey\), Length\(RevealedKey\)\);\s+finally\s+WipeBoundaryText\(RevealedKey\);\s+end;\s+end\s+else\s+Actions := ImGuiLicenseSceneReveal\(FContext, Phase, KeyCharacters, Progress, nil, 0\);/);
+  assert(paint.indexOf('WipeBoundaryText(RevealedKey);') < paint.indexOf('ImGuiEndCanvas(FContext);'));
+  const cancel = window.split('procedure TLicenseWindow.CancelInput;')[1].split('procedure TLicenseWindow.ClearKey;')[0];
+  assert.doesNotMatch(cancel, /FKey|ClearKey/);
+  assert.match(window, /procedure TLicenseWindow\.Close;[\s\S]*?FClosing := True;\s+ClearKey;/);
+  assert.doesNotMatch(window, /ImGuiTextInput|PAnsiChar\(.*Key/);
+  assert.match(window, /Key.AppendBuffer\(FKey\);\s+FRedemptionPending := FSubmit\(Key\);/);
   assert.match(window, /finally\s+FreeAndNil\(Key\);/);
   assert.match(window, /if FKey <> nil then FKey\.Clear;/);
   assert.match(window, /MaximumKeyCharacters = 100/);
   assert.match(window, /MaximumClipboardCharacters = 4096/);
-  assert.match(window, /if not Terminated or \(Value\.Count = 0\)/);
+  assert.match(window, /if Last = Limit then Exit;/);
+  assert.match(window, /else if Count <> 64 then Exit;/);
   assert.match(worker, /BoundaryKey := Key\.CopyText;/);
   assert.match(worker, /FreeAndNil\(Key\);\s+try LicenseState := FApi\.Redeem\(BoundaryKey\);\s+finally WipeText\(BoundaryKey\); end;/);
   assert.match(mailbox, /FPending := Key; Key := nil;/);
@@ -134,19 +140,21 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   assert(create.indexOf('ImGuiCreate(FWindow, True)') < create.indexOf('SetMitigationGpuIdentity(ImGuiGpuIdentity(FContext))'));
   const run = window.split('function TLicenseWindow.Run(')[1].split('function RunLicenseWindow(')[0];
   assert(run.indexOf('BeforeShow();') < run.indexOf('ApiShowWindow(FWindow, SW_SHOW)'));
-  const sceneInput = window.split('function TLicenseWindow.SceneInputEnabled: Boolean;')[1].split('function TLicenseWindow.InputEnabled: Boolean;')[0];
-  assert.match(sceneInput, /FClosing or not FShown or not FFocused or not FVisibleFrame or/);
-  assert.match(sceneInput, /\(FElapsed < 0\.45\) or not Assigned\(FState\) then Exit;/);
-  assert.match(sceneInput, /Result := \(State = WorkerIdle\) or \(State = WorkerLicensed\);/);
-  assert.match(window, /FVisibleFrame := Presented = IMGUI_PRESENT_VISIBLE/);
-  assert.match(window, /if Presented <> IMGUI_PRESENT_VISIBLE then\s+begin FCompletedVisibleSeconds := 0; Exit; end;/);
+  const windowInput = window.split('function TLicenseWindow.WindowInputEnabled: Boolean;')[1].split('function TLicenseWindow.SceneInputEnabled: Boolean;')[0];
+  assert.match(windowInput, /Result := not FClosing and FShown and FFocused and FVisibleFrame and\s+not FMinimized and not FResizePending;/);
+  const sceneInput = window.split('function TLicenseWindow.SceneInputEnabled: Boolean;')[1].split('function TLicenseWindow.DragThresholdReached(')[0];
+  assert.match(sceneInput, /if not WindowInputEnabled or FRedemptionPending or \(FOutcomePhase <> 0\) or\s+not Assigned\(FState\) then Exit;/);
+  assert.match(sceneInput, /Result := State = WorkerIdle;/);
+  assert.match(window, /FVisibleFrame := FShown and \(Presented = IMGUI_PRESENT_VISIBLE\)/);
+  assert.match(window, /if not FVisibleFrame then\s+begin\s+CancelInput;\s+Exit;\s+end;/);
   const destroy = window.split('destructor TLicenseWindow.Destroy;')[1].split('procedure TLicenseWindow.RequireOwner;')[0];
   assert(destroy.indexOf('ApiShowWindow(FWindow, SW_HIDE)') < destroy.indexOf('FJoinWorker()'));
   assert(destroy.indexOf('FJoinWorker()') < destroy.indexOf('ImGuiDestroy(FContext)'));
   assert.match(entry, /begin Worker\.RequestStop; end,/);
   assert.match(entry, /begin Worker\.StopAndJoin; end,\s+function: Boolean\s+begin Result := Worker\.RequestLaunch; end\)/);
-  assert.match(run, /if FState\(\) = WorkerTransferred then Result := 0/);
-  assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if Transferred then Result := 0;/);
+  assert.match(run, /if FPresentationComplete and \(FState\(\) = WorkerTransferred\) then Result := 0/);
+  assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if \(Result = 0\) and not Transferred then Result := 1;/);
+  assert.doesNotMatch(entry, /if Transferred then Result := 0;/);
   assert(entry.indexOf('Worker.Free;') < entry.indexOf('Api.Free;'));
   assert(entry.indexOf('Worker.Free;') < entry.indexOf('Context.Free;'));
 });

@@ -24,10 +24,14 @@ test('The passive O host neither enables a native editor nor invokes legacy text
   assert(!create.includes('sizeof(CozyTextInput)'),'display-only creation must not allocate input state');
 });
 
-test('Passive O consumes character, wheel and IME messages without forwarding text',()=>{
+test('O consumes character, wheel and IME messages while its theme dropdown handles bounded keys',()=>{
   const handler=section(renderer,'function TOverlayWindow.Handle(','function TOverlayWindow.AuthorityValid:');
   assert.match(handler,/WM_MOUSEWHEEL, WM_MOUSEHWHEEL, WM_CHAR,\s*WM_IME_STARTCOMPOSITION, WM_IME_COMPOSITION,\s*WM_IME_ENDCOMPOSITION, WM_IME_CHAR: Exit\(0\);/);
-  assert.match(handler,/WM_KEYDOWN:\s*begin\s*if \(WParam = VK_ESCAPE\) and not FSessionPaused and AuthorityValid then/);
+  assert.match(handler,/WM_KEYDOWN:\s*begin\s*if FSessionPaused or not AuthorityValid then Exit;\s*if ThemeKey\(WParam\) then Exit;\s*if WParam = VK_ESCAPE then/);
+  const theme=section(renderer,'function TOverlayWindow.ThemeKey(', 'function TOverlayWindow.Handle(');
+  assert.match(theme,/VK_ESCAPE:\s*if FThemePopup then CloseThemePopup else Result := False;/);
+  assert.match(theme,/VK_RETURN, VK_SPACE:[\s\S]*?if FThemeKeyboard > 0 then FThemeRequested := FThemeKeyboard - 1;/);
+  assert.match(theme,/VK_UP, VK_DOWN:[\s\S]*?mod ThemeCount;/);
   assert.doesNotMatch(renderer,/ImmGetCompositionString|SetWindowsHook|GetAsyncKeyState|GetKeyboardState/);
 });
 

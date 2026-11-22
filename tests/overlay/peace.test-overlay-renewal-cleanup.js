@@ -24,16 +24,20 @@ test('source: full-snapshot due time is completion-based and transfer-aware',()=
 test('source: first frame is not raced by another measurement',()=>{
  order(execute,'if ShouldClose then','if not AwaitingTransfer then','CozyWaitForDelay(100, function: Boolean begin Result := Terminated; end);','Continue;','ReportVisible := FVisibleReportPending;','StartupPhase(\'VISIBLE\')');
 });
-test('source: O remains hidden until exact B exit and fresh transfer confirmation',()=>{
+test('source: O remains hidden until successful presented B exit and fresh transfer confirmation',()=>{
  const start=part(overlay,'procedure TOverlayWorker.StartAuthorized;','function TOverlayWorker.CapturePrivacyRequested:');
  const barrier=part(overlay,'procedure TOverlayWorker.PrepareTransferBeforeShow;','procedure TOverlayWorker.StartAuthorized;');
  const frame=part(overlay,'procedure TOverlayWorker.FirstFrameReady;','procedure TOverlayWorker.Refresh;');
  order(start,'Refresh;','PrepareTransferBeforeShow;','FStarted := True;','Start;');
- order(barrier,'CozyTick >= FDeadline','FContext.ConfirmOverlayReady;','FReadyForTransfer := True;',
-  'ExitDeadline := CozyTick + 30000;','if CurrentDeadline < ExitDeadline then ExitDeadline := CurrentDeadline;',
+ order(barrier,'CozyTick >= FDeadline','ExitDeadline := CozyTick + 30000;',
+  'if FDeadline < ExitDeadline then ExitDeadline := FDeadline;',
+  'FContext.ConfirmOverlayReady;','FReadyForTransfer := True;',
   'while FContext.ParentIsAlive do','RequestCancelled or (CozyTick >= ExitDeadline)',
   'MaintainLease(False);','CozyWaitForDelay(100,','MaintainLease(True);',
-  'if not FTransferred or not FParentRetirementDone or FFailed or');
+  'ParentCompletion := FContext.ParentCleanupObservation;',
+  'if not FTransferred or not FParentRetirementDone or FFailed or',
+  'not ParentCompletion.ExitObserved or',
+  'not ParentCompletion.ExitCodeKnown or (ParentCompletion.ExitCode <> 0) then');
  assert.doesNotMatch(barrier,/ApiShowWindow|FirstFrameReady|FTransferred := True|FParentRetirementDone := True/);
  order(frame,'not FTransferred or not FParentRetirementDone','if FFirstFrameShown then Exit;',
   'OverlayTransition(FState, osVisible);','OverlayTransition(FState, osTransferred);','FFirstFrameShown := True;');

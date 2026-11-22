@@ -43,14 +43,25 @@ try{
  test('An explicit reserved A keeps its assignment metadata with a manual-input B',()=>{F.CurrentCohort({version:'92.1',marker:'KEY_WINDOW_RESTORED'});reserved=d.Create({productId:'cleaner.pubg',label:'Historical reserved key',requestId:crypto.randomUUID()},'TEST');oldIssue=b.IssueLauncher({requestId:crypto.randomUUID(),label:'old reserved A',licenseId:reserved.license.id},'TEST');secondDev=F.Device();secondSession=openIssued(secondDev,oldIssue);});
  test('Historical A assignment cannot auto-authorize the new license-window build',()=>{bad(()=>d.Execute(proof(secondDev,secondSession,'redeem',{licenseKey:'SERVER_ASSIGNED_V1'})),'DESKTOP_KEY_INVALID');assert.equal(d.Detail(reserved.license.id).license.status,'AVAILABLE');});
  test('The user-entered valid KEY wins over unused historical A assignment metadata',()=>{other=d.Create({productId:'cleaner.pubg',label:'Actually entered key',requestId:crypto.randomUUID()},'TEST');const r=d.Execute(proof(secondDev,secondSession,'redeem',{licenseKey:other.licenseKey}));assert.equal(r.licenseId,other.license.id);assert.equal(d.Detail(reserved.license.id).license.status,'AVAILABLE');assert.equal(b.Initialize().launchers[oldIssue.launcherId].assignedLicenseId,reserved.license.id);assert.equal(w.Detail(reserved.license.id).flows.length,0);assert.ok(w.Detail(other.license.id).flows.some(x=>x.launcherId===oldIssue.launcherId));});
- test('B license window preserves manual key ownership, authenticated handoff and worker cleanup',()=>{
+ test('B activates an explicitly imported key once and waits for each presented handoff phase',()=>{
   const native=path.resolve(MODULE_RESOURCE_ROOT,'../../Railway');
   const text=ReadContractFile(path.join(native,'Cozy.Source/Cozy.License/Cozy.License.Session.pas'),'utf8');
   const window=ReadContractFile(path.join(native,'Cozy.Source/Cozy.License/Cozy.License.Window.pas'),'utf8');
   const entry=text.split('function RunLicenseClient(const Monitor: ICozyProtectionSession;').at(-1);
   assert(entry.indexOf('Context.CompleteClaimAndCleanup(')<entry.indexOf('RunLicenseWindow('));
   for(const word of ['Worker := TLicenseWorker.Create(Api);','Worker.SubmitKey(Key)','Worker.RequestStop;','Worker.StopAndJoin;','Worker.Free;'])assert(entry.includes(word),word);
-  for(const word of ['procedure TLicenseWindow.PasteKey;','if (Actions and LicenseSceneReadClipboard) <> 0 then PasteKey','else if (Actions and LicenseSceneConfirm) <> 0 then Submit;','FreeAndNil(Key)','KeyCharacters := FOutcomeKeyCharacters;','ImGuiLicenseSceneReveal(FContext, Phase, KeyCharacters, Progress, nil, 0)','FKey.Clear'])assert(window.includes(word),word);
+  const paste=window.split('procedure TLicenseWindow.PasteKey;')[1].split('procedure TLicenseWindow.Submit;')[0];
+  const submit=window.split('procedure TLicenseWindow.Submit;')[1].split('procedure TLicenseWindow.AdvanceAutomaticLaunch(')[0];
+  assert.match(paste,/if not SceneInputEnabled then Exit;[\s\S]*?FKey := Value;[\s\S]*?FResetKeySequence := True;\s+FAutoSubmitPending := True;/);
+  assert.match(submit,/if not FAutoSubmitPending or not SceneInputEnabled or \(FKey.Count = 0\) then Exit;\s+FAutoSubmitPending := False;[\s\S]*?Key.AppendBuffer\(FKey\);\s+FRedemptionPending := FSubmit\(Key\);/);
+  assert.match(submit,/finally\s+FreeAndNil\(Key\);/);
+  const paint=window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
+  assert.match(paint,/if \(Actions and LicenseSceneReadClipboard\) <> 0 then PasteKey\s+else if \(Actions and LicenseSceneAutoSubmit\) <> 0 then Submit;/);
+  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;\s+if \(State = WorkerTransferred\) and \(Phase = 3\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) then\s+begin\s+FOutcomePhase := LicensePhaseToast;/);
+  const advance=window.split('procedure TLicenseWindow.AdvancePresentedSequence(')[1].split('procedure TLicenseWindow.Paint;')[0];
+  assert.match(advance,/LicensePhaseRejectScan: FOutcomePhase := LicensePhaseRejected;/);
+  assert.match(advance,/LicensePhaseAcceptScan: FOutcomePhase := LicensePhaseAccepted;/);
+  assert.match(advance,/LicensePhaseToast:[\s\S]*?FPresentationComplete := True;\s+Close;/);
   assert(text.includes('FCommands.Complete(WorkerTransferred);'));
   assert(window.includes('State = WorkerTransferred'));
   assert(entry.indexOf('Worker.Free;')<entry.indexOf('Api.Free;'));

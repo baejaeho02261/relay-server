@@ -136,6 +136,10 @@ check('B retirement follows authorized hidden O readiness and keeps O parent ide
   assert(barrier.indexOf('FContext.ConfirmOverlayReady;') < barrier.indexOf('while FContext.ParentIsAlive do'));
   assert(barrier.indexOf('while FContext.ParentIsAlive do') < barrier.indexOf('MaintainLease(True);'));
   assert.match(barrier, /not FTransferred or not FParentRetirementDone/);
+  assert.match(barrier, /not ParentCompletion\.ExitObserved or\s*not ParentCompletion\.ExitCodeKnown or \(ParentCompletion\.ExitCode <> 0\) then/);
+  const core=handoff.indexOf('procedure THandoffContext.CleanupTransferredParentCore;');
+  const retirement=handoff.slice(core,handoff.indexOf('procedure THandoffContext.CleanupTransferredParent;',core));
+  assert.match(retirement, /WaitForSingleObject\(FParentProcess, 0\) = WAIT_OBJECT_0[\s\S]*?FParentObservation.ExitObserved := True;\s*FParentObservation.ExitCodeKnown := GetExitCodeProcess\(FParentProcess,\s*FParentObservation.ExitCode\);/);
   assert(overlay.indexOf('Result := RunOverlayUI(') < overlay.lastIndexOf('Worker.FirstFrameReady;'));
 });
 

@@ -369,34 +369,39 @@ check('O prepares its unsigned PE exception table before publishing the release 
   assert(fs.existsSync(path.join(native, "Cozy.ImGui/Cozy.Tests/Cozy.Unwind/Cozy.Test-PE-Unwind.ps1")));
 });
 
-check('Passive O drag owns capture and releases cleanly across focus and session changes', () => {
+check('O theme selection owns its click and leaves window drag capture separate', () => {
   const release = method('procedure TOverlayWindow.ReleaseOwnCapture;', 'procedure TOverlayWindow.CancelInteraction;');
   inOrder(release, ['ApiGetCapture <> FWindow', 'FReleasingCapture := True;', 'try', 'ApiReleaseCapture;', 'finally', 'FReleasingCapture := False;'], 'Release capture');
-  const up = method('procedure TOverlayWindow.PointerUp;', 'function TOverlayWindow.Handle(');
-  inOrder(up, ['FDragging := False;', 'ReleaseOwnCapture;'], 'Mouse release');
+  const up = method('procedure TOverlayWindow.PointerUp(', 'function TOverlayWindow.ThemeKey(');
+  inOrder(up, ['Hit := FThemePressed;', 'FThemePressed := 0;', 'FDragging := False;', 'ReleaseOwnCapture;',
+    'not AuthorityValid or (ThemeHit(X, Y) <> Hit) then Exit;', 'FThemeRequested := Hit - 2;', 'CloseThemePopup;'], 'Matched theme release');
   assert.doesNotMatch(up, /ImGuiMouseButton|ImGuiClearInput|CancelInteraction/);
   const cancel = method('procedure TOverlayWindow.CancelInteraction;', 'procedure TOverlayWindow.PointerDown(');
-  inOrder(cancel, ['FDragging := False;', 'ImGuiClearInput(', 'ReleaseOwnCapture;'], 'Cancellation');
+  inOrder(cancel, ['FDragging := False;', 'FThemePressed := 0;', 'CloseThemePopup;', 'ImGuiClearInput(', 'ReleaseOwnCapture;'], 'Cancellation');
   const handle = method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
   assert.match(handle, /WM_CAPTURECHANGED:\s*begin\s*if not FReleasingCapture then CancelInteraction;/);
   assert.match(handle, /WM_CANCELMODE:\s*begin CancelInteraction;/);
   assert.match(handle, /WM_KILLFOCUS:\s*begin\s*CancelInteraction;/);
   assert.match(handle, /WM_ACTIVATE:\s*if LOWORD\(WParam\) = WA_INACTIVE then CancelInteraction;/);
   const down = method('procedure TOverlayWindow.PointerDown(', 'procedure TOverlayWindow.PointerMove(');
-  inOrder(down, ['not SurfaceHit(X, Y) then Exit;', 'ApiGetCursorPos(FDragAnchor)', 'ApiGetWindowRect(', 'ApiSetCapture(', 'if ApiGetCapture <> FWindow then Exit;', 'FDragging := True;'], 'Rounded surface drag only');
+  inOrder(down, ['not SurfaceHit(X, Y) then Exit;', 'Hit := ThemeHit(X, Y);',
+    'if ApiGetCapture = FWindow then FThemePressed := Hit;', 'Exit;', 'ApiGetCursorPos(FDragAnchor)',
+    'ApiGetWindowRect(', 'ApiSetCapture(', 'if ApiGetCapture <> FWindow then Exit;', 'FDragging := True;'], 'Selector or rounded surface drag');
   assert.doesNotMatch(down, /ImGuiMouseButton|FButtonTracking/);
-  const move = method('procedure TOverlayWindow.PointerMove(', 'procedure TOverlayWindow.PointerUp;');
+  const move = method('procedure TOverlayWindow.PointerMove(', 'procedure TOverlayWindow.PointerUp(');
   assert.match(move, /FDragOrigin\.X \+ Cursor\.X - FDragAnchor\.X/);
   assert.match(move, /FDragOrigin\.Y \+ Cursor\.Y - FDragAnchor\.Y/);
 });
 
-check('O reads the game name only from a valid signed transfer and draws no control actions', () => {
+check('O reads the game name only from a valid signed transfer and theme choice changes appearance only', () => {
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['not AuthorityValid then Exit;', 'FLicensedCard := -1;',
     'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
     'if (FLicensedCard < -1) or (FLicensedCard > 17) then FLicensedCard := -1;',
-    'ImGuiNewFrame(', 'ImGuiProductScene(FContext, 0, 0, 0, FSceneSeconds, 0, FLicensedCard, 0) <> 0',
-    'ImGuiEndCanvas(', 'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified read-only frame');
+    'ImGuiNewFrame(', 'FThemeCurrent := FThemeRequested;', 'SceneFlags := StyledSceneFlag;',
+    'ImGuiProductScene(FContext, 0, FThemeCurrent, SceneFlags, FSceneSeconds,',
+    'FThemePrevious, FLicensedCard, FThemeBlend) <> 0', 'ImGuiEndCanvas(',
+    'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified title plus local palette');
   assert.doesNotMatch(renderer, /ApplySceneActions|FSceneKeyActions|FRequestProductRun|FProductRunState|ImGuiMouseButton|ReadRunState|FCarouselPosition|FBusyCursor/);
 
   const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
@@ -416,9 +421,16 @@ check('O reads the game name only from a valid signed transfer and draws no cont
   const frame=scene.slice(scene.indexOf('static int32_t cozy_scene_frame('),scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v3('));
   inOrder(title,['if (licensed_card < 0 || opacity <= 0.f) return;', 'CozyOverlayTitles[licensed_card]', 'draw->AddText('], 'Title from a fixed native index');
   inOrder(frame,['licensed_card < -1 || licensed_card >= IM_ARRAYSIZE(CozyOverlayTitles)',
+    'previous>=IM_ARRAYSIZE(CozyOverlayPalettes)',
+    'cozy_overlay_palette(previous,selected,reduced_motion?1.f:run_progress);',
+    'cozy_overlay_panel(draw,origin,scale,c->license_elapsed,opacity,palette);',
+    'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity,palette.text);',
+    'cozy_overlay_theme_selector(c,draw,origin,scale,opacity,palette,selected,open,keyboard);',
     'license_glass_panel(draw,origin+ImVec2(20.f,20.f)*scale,scale,c->license_elapsed,opacity);',
     'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity);',
-    'return game_imgui_runtime_failed ? -1 : 0;'], 'Only the O background and optional title');
+    'return game_imgui_runtime_failed ? -1 : 0;'], 'Styled or legacy read-only rendering');
+  assert.doesNotMatch(method('function TOverlayWindow.ThemeKey(', 'function TOverlayWindow.Handle('),
+    /FLicensedCard|FGetLicensedCard|Authorize|\.Post\(/);
   assert.match(b,/license_flat_panel\(v\);/);
   assert.doesNotMatch(b,/license_glass_(?:panel|shadow|button)\(/);
   assert.doesNotMatch(scene,/license_flat_panel\(/);
@@ -453,14 +465,23 @@ check('Existing worker product authorization still rejects denied, stale and mis
   assert.doesNotMatch(controller,/RequestCohortShutdown|FRunRequestedAt/,'START has no cohort-shutdown path');
 });
 
-check('Passive rounded surface uses centered, scaled client hit geometry and stays within the work area', () => {
-  const hit = method('function TOverlayWindow.SurfaceHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;');
-  inOrder(hit, ['Scale := Area.Right / SceneWidth;', 'VerticalScale := Area.Bottom / SceneHeight;',
+check('O rounds the surface and shares the scaled scene coordinates with the theme selector', () => {
+  const point = method('function TOverlayWindow.ScenePoint(', 'function TOverlayWindow.SurfaceHit(');
+  inOrder(point, ['Scale := Area.Right / SceneWidth;', 'VerticalScale := Area.Bottom / SceneHeight;',
     'if VerticalScale < Scale then Scale := VerticalScale;', 'OriginX := (Area.Right-SceneWidth*Scale)/2;',
-    'OriginY := (Area.Bottom-SceneHeight*Scale)/2;', 'LocalX := (X + 0.5 - OriginX)/Scale - PanelInset;',
-    'LocalY := (Y + 0.5 - OriginY)/Scale - PanelInset;',
+    'OriginY := (Area.Bottom-SceneHeight*Scale)/2;', 'LocalX := (X + 0.5 - OriginX)/Scale;',
+    'LocalY := (Y + 0.5 - OriginY)/Scale;'], 'Shared scaled coordinates');
+  const hit = method('function TOverlayWindow.SurfaceHit(', 'function TOverlayWindow.ThemeHit(');
+  inOrder(hit, ['if not ScenePoint(X, Y, LocalX, LocalY) then Exit;', 'LocalX := LocalX - PanelInset;',
+    'LocalY := LocalY - PanelInset;',
     'if (LocalX < 0) or (LocalX >= Width) or (LocalY < 0) or (LocalY >= Height) then Exit;',
     'Result := DX*DX + DY*DY <= Sqr(PanelRadius);'], 'Rounded hit geometry');
+  const theme = method('function TOverlayWindow.ThemeHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;');
+  inOrder(theme, ['not ScenePoint(X, Y, LocalX, LocalY) then Exit;',
+    'if (LocalX < 94) or (LocalX >= 286) then Exit;',
+    'if (LocalY >= 444) and (LocalY < 480) then Exit(1);',
+    'if FThemePopup and (LocalY >= 300) and (LocalY < 436) then',
+    'Result := 2 + Trunc((LocalY-300)/34);'], 'Theme selector and open rows');
   assert.match(renderer, /SceneWidth = 380;/);
   assert.match(renderer, /SceneHeight = 520;/);
   assert.match(renderer, /InitialWidth = SceneWidth;/);
