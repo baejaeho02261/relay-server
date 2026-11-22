@@ -89,15 +89,15 @@ check('Worker milestones are monotonic and cannot publish transfer completion',
       and 'FProgress := Value;' in progress
       and 'if Outcome = WorkerTransferred then' in completion
       and 'FState := WorkerTransferred; FProgress := 100; FStopping := True;' in completion)
-check('B displays completed worker milestones and keeps API locks away from rendering',
+check('B remaps milestones after redemption to zero-based handoff targets and reserves 100 for transfer',
       'FCommands.ReportProgress(40);' in redeem
       and 'procedure(Value: Integer) begin FCommands.ReportProgress(Value); end)' in launch
-      and 'Percent := FProgress();' in window
-      and 'ImGuiLicenseSceneReveal(FContext, Phase, 0, Percent / 100, nil, 0)' in window
-      and 'function TLicenseWindow.BusyVisual: Boolean;' in window
-      and 'if FClosing or not Assigned(FState) then Exit;' in window
-      and 'Result := (State = WorkerTransferred) or' in window
-      and '((State = WorkerBusy) and FLaunchRequested);' in window)
+      and 'LicenseHandoffBaseline = 40;' in window
+      and 'Percent := FProgress() - LicenseHandoffBaseline;' in window
+      and 'if Percent < 0 then Percent := 0;' in window
+      and 'if Percent > 99 - LicenseHandoffBaseline then Percent := 99 - LicenseHandoffBaseline;' in window
+      and 'Progress := Percent / (100 - LicenseHandoffBaseline);' in window
+      and 'ImGuiLicenseSceneReveal(FContext, Phase, 0, Progress, nil, 0)' in window)
 check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
       and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem
@@ -110,10 +110,10 @@ automatic=window.split('procedure TLicenseWindow.AdvanceAutomaticLaunch(State: I
 submit=window.split('procedure TLicenseWindow.Submit;',1)[1].split('procedure TLicenseWindow.AdvanceAutomaticLaunch(',1)[0]
 window_cancel=window.split('procedure TLicenseWindow.CancelInput;',1)[1].split('procedure TLicenseWindow.Close;',1)[0]
 paste=window.split('procedure TLicenseWindow.PasteKey;',1)[1].split('procedure TLicenseWindow.Submit;',1)[0]
-check('The planet receives a temporary key pointer only for a focused idle or retry frame',
-      'else\n    Actions := ImGuiLicenseSceneReveal(FContext, Phase, 0, Percent / 100, nil, 0);' in paint
+check('The planet borrows a protected key only for focused clipboard, redemption or outcome frames',
+      'else\n    Actions := ImGuiLicenseSceneReveal(FContext, Phase, 0, Progress, nil, 0);' in paint
       and paint.count('FKey.CopyText') == 1
-      and re.search(r'if \(\(Phase = 0\) or \(Phase = 2\)\) and not FResetKeySequence and\s*SceneInputEnabled and \(FKey.Count > 0\) then', paint) is not None)
+      and re.search(r'if \(\(Phase = 0\) or \(Phase = 1\) or \(Phase = 2\) or\s*\(Phase = LicensePhaseRejected\) or \(Phase = LicensePhaseAccepted\)\) and\s*not FResetKeySequence and WindowInputEnabled and \(FKey.Count > 0\) then', paint) is not None)
 check('The copied key is wiped from temporary text before presenting the synchronous draw',
       paint.index('RevealedKey := FKey.CopyText;')
       < paint.index('PWideChar(RevealedKey), Length(RevealedKey)')
@@ -138,20 +138,21 @@ check('A validated clipboard snapshot replaces the prior key only after a fresh 
       < paste.index('FResetKeySequence := True;') < paste.index('FreeAndNil(Value);')
       and 'if Last = Limit then Exit;' in window
       and 'if Count = 75 then' in window and 'else if Count <> 64 then Exit;' in window)
-check('A worker-confirmed transfer closes after one visibly completed frame without a dwell timer',
-      'if State = WorkerTransferred then Phase := 3' in paint
-      and 'if Phase = 3 then Percent := 100;' in paint
+check('A worker-confirmed transfer closes after a visibly completed frame',
+      'else if State = WorkerTransferred then Phase := 3' in paint
+      and 'if Phase = 3 then Progress := 1;' in paint
       and paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then')
-      < paint.index('Actions and LicenseSceneComplete') < paint.index('begin Close; Exit; end;',paint.index('Actions and LicenseSceneComplete'))
-      and all(token not in window for token in ['FCompletedVisibleSeconds', 'CompletedWaveHoldSeconds', 'FTransferStarted', 'TransferCloseFallbackMs']))
-check('Only a true transferred state can skip presentation when minimized or actually occluded',
-      'if (State = WorkerTransferred) and FMinimized then' in window_run
-      and window_run.index('if (State = WorkerTransferred) and FMinimized then') < window_run.index('begin Result := 0; Close; Break; end;')
-      and 'if (Phase = 3) and (Presented = IMGUI_PRESENT_OCCLUDED) then Close;' in paint
+      < paint.index('if (State = WorkerTransferred) and (Phase = 3) and')
+      < paint.index('Actions and LicenseSceneComplete') < paint.index('begin Close; Exit; end;',paint.index('Actions and LicenseSceneComplete')))
+check('Only a true transferred state can skip presentation after occlusion, minimization or a stalled visual deadline',
+      window_run.index('if State = WorkerTransferred then') < window_run.index('FTransferVisualDeadline := CozyTick + LicenseMaxTransferVisualMs;')
+      < window_run.index('if FMinimized or (CozyTick >= FTransferVisualDeadline) then')
+      < window_run.index('begin Result := 0; Close; Break; end;')
+      and 'if (State = WorkerTransferred) and (Presented = IMGUI_PRESENT_OCCLUDED) then Close;' in paint
       and paint.index('if FResizePending then Resize;') < paint.index('Presented := ImGuiPresent(FContext);'))
 check('An actual grant queues automatic handoff before rendering including a minimized window',
       window_run.index('State := FState();') < window_run.index('AdvanceAutomaticLaunch(State);')
-      < window_run.index('if (State = WorkerTransferred) and FMinimized then') < window_run.index('Paint;')
+      < window_run.index('if State = WorkerTransferred then') < window_run.index('Paint;')
       and paint.index('State := FState();') < paint.index('AdvanceAutomaticLaunch(State);') < paint.index('if State = WorkerTransferred then Phase := 3')
       and 'if (State <> WorkerLicensed) or FAutoLaunchAttempted then Exit;' in automatic
       and automatic.index('FAutoLaunchAttempted := True;') < automatic.index('Accepted := FLaunch();')
@@ -170,28 +171,32 @@ refused=automatic.split('else if State = WorkerIdle then',1)[1].split('else Clos
 check('A refused request with a retracted idle grant returns silently to the planet',
       automatic.index('Accepted := FLaunch();') < automatic.index('State := FState();')
       < automatic.index('else if State = WorkerIdle then')
-      and all(token in refused for token in ['FAutoLaunchAttempted := False;', 'FLaunchRequested := False;', 'FWasBusy := True;'])
+      and all(token in refused for token in ['FAutoLaunchAttempted := False;', 'FLaunchRequested := False;', 'if FAbsorbPhase = LicensePhaseAccepted then FAbsorbPhase := LicensePhaseRejected;'])
       and all(token not in refused for token in ['Close;', 'FKey.Clear', 'FInputFocused := False', 'CancelInput', 'CopyText']))
 check('A queued handoff is an explicit phase even if the approved frame was never visible',
       'if FLaunchRequested then Phase := 5 else Phase := 1;' in paint
       and 'else if State = WorkerLicensed then Phase := 4' in paint
-      and 'if (Phase = 1) or (Phase = 5) then Percent := FProgress();' in paint)
-check('Confirm moves only a separate sensitive owner and clears the visible copy on accepted submission',
+      and 'if FAbsorbPhase <> 0 then Phase := FAbsorbPhase' in paint
+      and paint.index('if FAbsorbPhase <> 0 then Phase := FAbsorbPhase') < paint.index('else if State = WorkerTransferred then Phase := 3'))
+check('Confirm moves a separate sensitive key owner and retains only the protected rendering buffer for the result',
       submit.index('Key := TCozySensitiveText.Create(MaximumKeyCharacters);')
-      < submit.index('Key.AppendBuffer(FKey);') < submit.index('FWasBusy := FSubmit(Key);')
-      < submit.index('if FWasBusy then FKey.Clear;') < submit.index('finally') < submit.index('FreeAndNil(Key);')
-      and not any(token in submit for token in ['CopyText', 'Key := FKey', 'FKey := nil', 'FreeAndNil(FKey)', 'ImGuiClearInput']))
-check('Grant, cancellation, focus loss and final destruction wipe the retained clipboard key',
-      automatic.index('if (State <> WorkerLicensed) or FAutoLaunchAttempted then Exit;')
-      < automatic.index('Accepted := FLaunch();') < automatic.index('if Accepted or (State = WorkerBusy) or (State = WorkerTransferred) then')
-      < automatic.index('if FKey <> nil then FKey.Clear;')
+      < submit.index('Key.AppendBuffer(FKey);') < submit.index('FRedemptionPending := FSubmit(Key);')
+      < submit.index('finally') < submit.index('FreeAndNil(Key);')
+      and not any(token in submit for token in ['CopyText', 'Key := FKey', 'FKey := nil', 'FreeAndNil(FKey)', 'ImGuiClearInput', 'FKey.Clear']))
+check('A visibly completed outcome, cancellation, focus loss and destruction wipe the retained clipboard key',
+      paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if Presented <> IMGUI_PRESENT_VISIBLE then')
+      < paint.index('Actions and LicenseSceneAbsorbed') < paint.index('FKey.Clear;') < paint.index('FAbsorbPhase := 0;')
+      and 'FKey.Clear' not in automatic
       and 'if FKey <> nil then FKey.Clear;' in window_cancel
       and 'WM_KILLFOCUS: begin FFocused := False; CancelInput; ImGuiFocus(FContext, False); Exit; end;' in window
       and 'FreeAndNil(FKey);' in window)
-retry_frame=paint.split('if FWasBusy then',1)[1].split('end;',1)[0]
-check('Rejected verification returns to the same planet without forced focus, shake commands or an error page',
-      'Phase := 2;' in retry_frame
-      and not any(token in retry_frame for token in ['ImGuiClearInput', 'FKey.Clear', 'PasteKey', 'Submit'])
+outcome=window.split('procedure TLicenseWindow.ObserveRedemption(State: Integer);',1)[1].split('procedure TLicenseWindow.Paint;',1)[0]
+check('Only a real worker outcome triggers absorption and rejection returns silently to the planet',
+      outcome.index('if not FRedemptionPending then Exit;') < outcome.index('case State of')
+      and 'WorkerIdle: FAbsorbPhase := LicensePhaseRejected;' in outcome
+      and 'WorkerLicensed, WorkerTransferred: FAbsorbPhase := LicensePhaseAccepted;' in outcome
+      and 'if FLaunchRequested then FAbsorbPhase := LicensePhaseAccepted else Exit;' in outcome
+      and 'FShowRetryFrame := Phase = LicensePhaseRejected;' in paint
       and 'if ((Phase = 0) or (Phase = 2)) and SceneInputEnabled then' in paint
       and not any(token in window for token in ['MessageBeep', 'MessageBox', 'Beep(', 'Shake', 'ErrorPage']))
 check('B fits the monitor and uses the scene pixel coordinates for its rounded client window',
@@ -228,14 +233,13 @@ check('Escape clears the key and other keys activate controls only through the n
       and all(token not in keys for token in ['FKey.', 'PasteKey', 'Submit', 'VK_RETURN'])
       and 'WM_CHAR: Exit;' in window)
 cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
-check('Only postgrant handoff uses the busy pointer and the planet and Confirm show a hand while idle',
+check('Only idle planet and Confirm controls use a hand while pending and progress keep the default pointer',
       'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
-      and 'FBusyCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32648)))' in window
-      and cursor.index('if FVisibleFrame and not FResizePending') < cursor.index('Hit := ImGuiLicenseHit(FContext, Position.X - Bounds.Left, Position.Y - Bounds.Top);')
-      < cursor.index('else if BusyVisual then Cursor := FBusyCursor')
-      < cursor.index('else if ((Hit = HitButton) or (Hit = HitClipboardPlanet)) and SceneInputEnabled then')
-      < cursor.index('Cursor := FHandCursor;') < cursor.index('ApiSetCursor(Cursor);')
-      and '((State = WorkerBusy) and FLaunchRequested);' in window
+      and 'FBusyCursor' not in window and 'NativeUInt(32648)' not in window
+      and cursor.index('Cursor := FNormalCursor;') < cursor.index('if FVisibleFrame and not FResizePending')
+      < cursor.index('Hit := ImGuiLicenseHit(FContext, Position.X - Bounds.Left, Position.Y - Bounds.Top);')
+      < cursor.index('SceneInputEnabled then') < cursor.index('Cursor := FHandCursor;') < cursor.index('ApiSetCursor(Cursor);')
+      and 'if not WindowInputEnabled or FRedemptionPending or (FAbsorbPhase <> 0) or' in window
       and 'WM_MOUSELEAVE: begin PointerLeft; Exit; end;' in window
       and 'then ImGuiMousePos(FContext, -1E30, -1E30);' in window)
 check('Pending verification rejects duplicate keyboard and control submissions while releasing mouse capture',
