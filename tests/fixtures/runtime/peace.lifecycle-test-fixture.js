@@ -14,6 +14,7 @@ function Attach(result){
  r.fixture.lifecycle={flowCount:1,flow:{flowId,roles:{A:{sessionId:flowId,authorityEnded:true,processExit:'CLIENT_REPORTED',fileCleanup:'REMOVED'},B:{sessionId:bSession,authorityEnded:true,processExit:'CLIENT_REPORTED',fileCleanup:expected},O:{sessionId:oSession,authorityEnded:true}},events,bResidual:{code},processTruth:'AUTHENTICATED_CLIENT_OBSERVATION_ONLY'},overviewMatches:true,workspaceMatches:true,reports};
  if(lease)r.nativeEvents.push({version:1,runId:r.runId,scenario:r.scenario,pid:13,stage:r.scenario,event:'lifecycle-late-report-released'});
  if(expected!=='REMOVED'){
+  r.overlayObserved=false;
   r.lifecycleFile={mode:expected,identity:'1234:5678',sha512:r.expectedBHash,hashMatched:true,heldSameIdentity:true,initialPathMatched:true,heldPathMatches:true,heldPathError:0,handleError:0,deletePending:expected==='SCHEDULED',filePresentBefore:true,pathAbsent:false,pathIdentityMatched:expected==='FAILED',pathError:expected==='FAILED'?0:5,disposed:false,afterReleaseDisposed:true,absentAfterRelease:expected==='SCHEDULED'};
   r.nativeEvents.push({version:1,runId:r.runId,scenario:r.scenario,pid:13,childPid:12,stage:'lifecycle-parent-cleanup',event:'fault-observed'});
  }

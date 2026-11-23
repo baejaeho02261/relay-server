@@ -211,7 +211,10 @@ function BootstrapResult(result,payload,deviceId,action,operation={}){
   operation.projected=true;
   if(!replay)try{require("../../web/events/peace.web-events").BroadcastEvent({time:now(),type:'DESKTOP_LICENSE_VERIFIED',detail:JSON.stringify({id:row.id,deviceId:row.deviceId,status:Status(row)})});}catch(_){}
  }
- if(operation.operationId)DrainAudit();return result;
+ if(operation.operationId)DrainAudit();
+ // Display metadata belongs to the same verified license and bootstrap session.
+ if(action==='redeem'||action==='verify')result.productId=products.Id(row);
+ return result;
 }
 function Execute(body){
  Available();Prune();const parsed=Bind(body);requestProtocol.Purpose('license.'+body.action);const c=challenges.get(body.challengeId);RequireChallenge(c);

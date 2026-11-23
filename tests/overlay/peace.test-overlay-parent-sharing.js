@@ -116,7 +116,8 @@ check('B retirement follows authorized hidden O readiness and keeps O parent ide
   const launch = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.LaunchOverlay;'), licenseSource.indexOf('procedure TLicenseWorker.Execute'));
   const executeStart = licenseSource.indexOf('procedure TLicenseWorker.Execute');
   const execute = licenseSource.slice(executeStart, licenseSource.indexOf('function RunLicenseClient(', executeStart));
-  assert(redeem.indexOf('if not LicenseState.IsActive then') < redeem.indexOf('FCommands.Complete(WorkerLicensed)'));
+  assert(redeem.indexOf('if not LicenseState.IsActive then') <
+    redeem.indexOf('FCommands.Complete(WorkerLicensed, LicenseState.ProductCard)'));
   assert.doesNotMatch(redeem, /StartOverlay\(|WorkerTransferred|CleanupBinaryAfterLicense/,
     'Activation only publishes a server-verified Licensed state; it cannot retire B');
   assert(launch.includes('if not FApi.StartOverlay(False,'));
@@ -136,7 +137,7 @@ check('B retirement follows authorized hidden O readiness and keeps O parent ide
   assert(barrier.indexOf('FContext.ConfirmOverlayReady;') < barrier.indexOf('while FContext.ParentIsAlive do'));
   assert(barrier.indexOf('while FContext.ParentIsAlive do') < barrier.indexOf('MaintainLease(True);'));
   assert.match(barrier, /not FTransferred or not FParentRetirementDone/);
-  assert.match(barrier, /not ParentCompletion\.ExitObserved or\s*not ParentCompletion\.ExitCodeKnown or \(ParentCompletion\.ExitCode <> 0\) then/);
+  assert.match(barrier, /not ParentCompletion\.ExitObserved or\s*not ParentCompletion\.ExitCodeKnown or \(ParentCompletion\.ExitCode <> 0\) or\s*not ParentCompletion\.DispositionAccepted or not ParentCompletion\.FileRemoved then/);
   const core=handoff.indexOf('procedure THandoffContext.CleanupTransferredParentCore;');
   const retirement=handoff.slice(core,handoff.indexOf('procedure THandoffContext.CleanupTransferredParent;',core));
   assert.match(retirement, /WaitForSingleObject\(FParentProcess, 0\) = WAIT_OBJECT_0[\s\S]*?FParentObservation.ExitObserved := True;\s*FParentObservation.ExitCodeKnown := GetExitCodeProcess\(FParentProcess,\s*FParentObservation.ExitCode\);/);

@@ -110,9 +110,10 @@ function Run-Case($Case,[string]$CaseRoot,[string]$Node,[string]$WorkRoot,[strin
    if($Case.id -eq 'overlay-lease-expiry' -and -not $lateRelease -and $status.ContainsKey('lease') -and $status.lease.serverExpired -and @($nativeEvents|Where-Object{$_.event -eq 'lifecycle-late-report-ready' -and $_.pid -eq $oId}).Count -eq 1){
     [IO.File]::WriteAllText((Join-Path $CaseRoot ('release-late-'+[string]$oId)),'continue');$lateRelease=$true
    }
-   if($Case.id -in @('lifecycle-cleanup-success','lifecycle-cleanup-scheduled') -and $result.overlayObserved -and $status.transferCommitted -and $result.ContainsKey('parentCleanupObserved') -and $result.parentCleanupObserved -and $status.ContainsKey('lifecycle') -and $null -ne $status.lifecycle.flow -and -not $closed){
-    $bState=$status.lifecycle.flow.roles.B.fileCleanup
-    if(($Case.id -eq 'lifecycle-cleanup-success' -and $bState -eq 'REMOVED') -or ($Case.id -eq 'lifecycle-cleanup-scheduled' -and $bState -eq 'SCHEDULED' -and $fileObserved)){$closed=[GameWindowsTests.DesktopControl]::Window($oId,$true)}
+   # Only the successful removal case is allowed to give the runner a visible O.
+   # Refused or pending removal exits while hidden and is checked from the signed report.
+   if($Case.id -eq 'lifecycle-cleanup-success' -and $result.overlayObserved -and $status.transferCommitted -and $result.ContainsKey('parentCleanupObserved') -and $result.parentCleanupObserved -and $status.ContainsKey('lifecycle') -and $null -ne $status.lifecycle.flow -and -not $closed){
+    if($status.lifecycle.flow.roles.B.fileCleanup -eq 'REMOVED'){$closed=[GameWindowsTests.DesktopControl]::Window($oId,$true)}
    }
    # Wait until the exact A and B are gone before arming: the transfer response
    # must already have reached B, so a pending B response cannot be mistaken

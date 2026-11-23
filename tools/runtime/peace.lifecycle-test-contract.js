@@ -7,6 +7,7 @@ function Evaluate(id,r){
  const l=r.fixture?.lifecycle,f=l?.flow,p=r.parentPids;
  if(!l||l.flowCount!==1||!f||l.overviewMatches!==true||l.workspaceMatches!==true||f.processTruth!=='AUTHENTICATED_CLIENT_OBSERVATION_ONLY'||!Array.isArray(f.events)||!Array.isArray(l.reports)||!p||!Number.isSafeInteger(p.A)||!Number.isSafeInteger(p.B)||!Number.isSafeInteger(r.overlayPid)||new Set([p.A,p.B,r.overlayPid]).size!==3||[p.A,p.B,r.overlayPid].some(pid=>!r.verifiedPids?.includes(pid)))return fail('LIFECYCLE_SAME_FLOW_OBSERVATION_MISSING');
  const expected=id==='lifecycle-cleanup-refused'?'FAILED':id==='lifecycle-cleanup-scheduled'?'SCHEDULED':'REMOVED';
+ if(r.overlayObserved!==(expected==='REMOVED'))return fail('LIFECYCLE_VISIBILITY_BEFORE_PARENT_REMOVAL');
  for(const role of ['A','B','O'])if(!f.roles?.[role]?.authorityEnded)return fail('LIFECYCLE_AUTHORITY_NOT_TERMINAL');
  for(const role of ['A','B']){
   const child=role==='A'?'B':'O',events=f.events.filter(e=>e.source==='CLIENT_REPORTED'&&e.role===role&&e.targetSessionId===f.roles[role].sessionId&&e.reporterRole===child&&e.reporterSessionId===f.roles[child].sessionId);

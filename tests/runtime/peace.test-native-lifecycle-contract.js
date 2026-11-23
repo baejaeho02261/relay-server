@@ -94,11 +94,14 @@ test('A and B obtain permits before authority handoff and refresh during long ac
 });
 test('Parent exit observations use the inherited exact process handle, before its retirement', () => {
   const a = handoff.split('procedure THandoffContext.CompleteClaimAndCleanupCore(')[1].split('function THandoffContext.ParentIsAliveCore')[0];
-  order(a, ['GetProcessId(FParentProcess) = FParentID', 'WaitResult := WaitForSingleObject(FParentProcess, ParentExitTimeoutMS)', 'ExitObserved := WaitResult = WAIT_OBJECT_0', 'Close(FParentProcess)', 'Attributes := GetFileAttributesW']);
+  order(a, ['GetProcessId(FParentProcess) = FParentID', 'WaitResult := WaitForSingleObject(FParentProcess, ParentExitTimeoutMS)', 'ExitObserved := WaitResult = WAIT_OBJECT_0', 'Close(FParentProcess)',
+    'ObserveRetiredParentFile(FLauncherPath, FParentObservation);', 'Check(FParentObservation.FileRemoved']);
   const b = handoff.split('procedure THandoffContext.CleanupTransferredParentCore;')[1].split('procedure THandoffContext.CleanupBinaryAfterLicenseCore;')[0];
-  order(b, ['GetProcessId(FParentProcess) = FParentID', 'WaitForSingleObject(FParentProcess, 0) = WAIT_OBJECT_0', 'ExitObserved := True', 'Close(FParentImage)', 'Close(FParentProcess)', 'Attributes := GetFileAttributesW']);
-  assert.match(a, /Error = ERROR_FILE_NOT_FOUND/);
-  assert.match(b, /Error = ERROR_FILE_NOT_FOUND/);
+  order(b, ['GetProcessId(FParentProcess) = FParentID', 'WaitForSingleObject(FParentProcess, 0) = WAIT_OBJECT_0', 'ExitObserved := True', 'Close(FParentImage)', 'Close(FParentProcess)',
+    'ObserveRetiredParentFile(FLauncherPath, FParentObservation);', 'CloseAll(FParentPins);']);
+  const observation = handoff.split('procedure ObserveRetiredParentFile(')[1].split('procedure THandoffContext.CompleteClaimAndCleanupCore(')[0];
+  order(observation, ['Attributes := GetFileAttributesW', 'Observation.FileRemoved := (Attributes = INVALID_FILE_ATTRIBUTES) and',
+    'Error = ERROR_FILE_NOT_FOUND', 'if CozyTick >= Deadline then Exit;']);
   assert.match(reporter, /Observation\.FileRemoved and Observation\.CleanupAttempted and\s+\(Observation\.Win32Error = 0\) then Status := 'REMOVED'/);
   assert.match(reporter, /Observation\.DispositionAccepted then Status := 'SCHEDULED'/);
 });

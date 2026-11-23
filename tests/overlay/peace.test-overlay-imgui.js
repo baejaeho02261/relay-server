@@ -395,7 +395,7 @@ check('O theme selection owns its click and leaves window drag capture separate'
   assert.match(move, /FDragOrigin\.Y \+ Cursor\.Y - FDragAnchor\.Y/);
 });
 
-check('O reads the game name only from a valid signed transfer and theme choice changes appearance only', () => {
+check('O draws game-specific artwork and title from a valid signed transfer, with a palette-only dropdown', () => {
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['not AuthorityValid then Exit;', 'FLicensedCard := -1;',
     'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
@@ -420,15 +420,23 @@ check('O reads the game name only from a valid signed transfer and theme choice 
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
   const b=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h');
   const palette=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_palette.h');
-  const title=scene.slice(scene.indexOf('static void cozy_overlay_title('),scene.indexOf('static int32_t cozy_scene_frame('));
+  const identity=scene.slice(scene.indexOf('static const char* cozy_game_identity('),scene.indexOf('static constexpr float CozyOverlayWidth'));
+  const title=scene.slice(scene.indexOf('static void cozy_overlay_title('),scene.indexOf('static void cozy_overlay_game_art('));
+  const art=scene.slice(scene.indexOf('static void cozy_overlay_game_art('),scene.indexOf('static int32_t cozy_scene_frame('));
   const frame=scene.slice(scene.indexOf('static int32_t cozy_scene_frame('),scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v3('));
-  inOrder(title,['if (licensed_card < 0 || opacity <= 0.f) return;', 'CozyOverlayTitles[licensed_card]', 'draw->AddText('], 'Title from a fixed native index');
+  inOrder(identity,['card >= 0 && card < IM_ARRAYSIZE(CozyOverlayTitles)', 'CozyOverlayTitles[card]',
+    'cozy_game_identity(card)', 'draw->AddText('], 'Caption from a bounded, fixed native index');
+  inOrder(title,['if (licensed_card < 0 || opacity <= 0.f) return;', 'cozy_game_caption('], 'Entitlement title');
+  inOrder(art,['if (!cozy_game_identity(licensed_card)) return;', 'if (licensed_card==4)',
+    'cozy_game_mark(', 'return;', 'cozy_game_cover(', 'if (licensed_card==0)'], 'Distinct passive PUBG and Overwatch artwork');
+  assert.doesNotMatch(art,/license_hit_add|ImGui::|ButtonBehavior|\.Post\(/);
   inOrder(frame,['licensed_card < -1 || licensed_card >= IM_ARRAYSIZE(CozyOverlayTitles)',
     'previous>=IM_ARRAYSIZE(CozyOverlayPalettes)',
-    'if (swatches) {', 'license_hit_reset(c,0);', 'cozy_palette_current(c,reduced_motion);',
+    'if (shared_palette) {', 'license_hit_reset(c,0);', 'cozy_palette_current(c,reduced_motion);',
     'cozy_palette_panel(draw,origin,scale,c->license_elapsed,opacity,palette);',
+    'cozy_overlay_game_art(draw,origin,scale,licensed_card,opacity,c->license_elapsed,palette);',
     'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity,palette.text);',
-    'cozy_palette_controls(c,draw,origin,scale,opacity,palette,441.f,c->input_focused);',
+    'cozy_palette_controls(c,draw,origin,scale,opacity,palette,444.f,c->input_focused);',
     '} else if (styled) {',
     'cozy_overlay_palette(previous,selected,reduced_motion?1.f:run_progress);',
     'cozy_overlay_panel(draw,origin,scale,c->license_elapsed,opacity,palette);',
@@ -440,23 +448,28 @@ check('O reads the game name only from a valid signed transfer and theme choice 
   assert.doesNotMatch(method('function TOverlayWindow.ThemeHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;'),
     /FLicensedCard|FGetLicensedCard|Authorize|\.Post\(/);
   assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette\);/);
-  assert.match(b,/cozy_palette_controls\(c,v\.draw,origin,scale,opacity,v\.palette,65\.f,c->input_focused\);/);
-  assert.match(palette,/CozyPalettePresetCount = 4;[\s\S]*?CozyPaletteCustom = CozyPalettePresetCount;/);
+  assert.match(b,/cozy_palette_controls\(c,v\.draw,origin,scale,opacity,v\.palette,65\.f,/);
+  assert.match(palette,/CozyPalettePresetCount = 4;/);
   assert.match(palette,/columns=16,rows=22;/);
-  assert.match(palette,/for \(int i=0;i<=CozyPaletteCustom;\+\+i\)/);
-  assert.match(palette,/cozy_palette_hsv\(state\.hue,state\.saturation,state\.value\)/);
+  const names=palette.match(/static const char\* const CozyPaletteNames\[\] = \{([\s\S]*?)\};/)[1];
+  assert.deepEqual([...names.matchAll(/"([^"]+)"/g)].map(match=>match[1]),
+    ['Blue Starlink','Mint Orbit','Violet Nebula','Amber Nova']);
+  assert.match(palette,/state\.open && ImGui::IsMouseClicked\(ImGuiMouseButton_Left\)/);
+  assert.match(palette,/cozy_palette_choose\(state,state\.menu_selection\)/);
+  assert.match(palette,/for \(int i=0;i<CozyPalettePresetCount;\+\+i\)/);
+  assert.doesNotMatch(palette,/CozyPaletteCustom|cozy_palette_hsv|ColorPicker|Swatch/i);
   assert.match(palette,/cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars\);/);
   assert.doesNotMatch(b,/license_glass_(?:panel|shadow|button)\(/);
   assert.doesNotMatch(scene,/license_flat_panel\(/);
   assert.doesNotMatch(scene,/ImGui::(?:Button|InvisibleButton|InputText)|AddImage|license_planet|scene_run_progress|start_allowed/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
   assert.match(legacy,/cozy_scene_frame\(game_context\(handle\),phase,selected,flags,-1,\s*animation_seconds,carousel_position,0\.f\)/);
-  const names=['PUBG','TALESRUNNER','LOST_SAGA','APEX_LEGENDS','OVERWATCH','COUNTER_STRIKE_2',
+  const gameNames=['PUBG','TALESRUNNER','LOST_SAGA','APEX_LEGENDS','OVERWATCH','COUNTER_STRIKE_2',
     'BATTLEYE','XIGNCODE3','EASY_ANTI_CHEAT','RIOT_VANGUARD','RICOCHET','ACE',
     'ROBLOX','BRAWL_STARS','PUBG_MOBILE','GENSHIN_IMPACT','POKEMON_GO','CLASH_ROYALE'];
   const rawScene=fs.readFileSync(path.join(native,'Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h'),'utf8');
   const list=rawScene.match(/static const char\* const CozyOverlayTitles\[\] = \{([\s\S]*?)\};/)[1];
-  assert.deepEqual([...list.matchAll(/COZY_TEXT_GAME_IMGUI_SCENE_([A-Z_0-9]+)_[0-9A-F]{8}/g)].map(match=>match[1]), names);
+  assert.deepEqual([...list.matchAll(/COZY_TEXT_GAME_IMGUI_SCENE_([A-Z_0-9]+)_[0-9A-F]{8}/g)].map(match=>match[1]), gameNames);
 });
 
 check('Existing worker product authorization still rejects denied, stale and mismatched grants',()=>{
@@ -479,7 +492,7 @@ check('Existing worker product authorization still rejects denied, stale and mis
   assert.doesNotMatch(controller,/RequestCohortShutdown|FRunRequestedAt/,'START has no cohort-shutdown path');
 });
 
-check('O rounds the surface and uses native scene hit testing for swatches', () => {
+check('O rounds the surface and uses native scene hit testing for its dropdown', () => {
   const point = method('function TOverlayWindow.ScenePoint(', 'function TOverlayWindow.SurfaceHit(');
   inOrder(point, ['Scale := Area.Right / SceneWidth;', 'VerticalScale := Area.Bottom / SceneHeight;',
     'if VerticalScale < Scale then Scale := VerticalScale;', 'OriginX := (Area.Right-SceneWidth*Scale)/2;',
