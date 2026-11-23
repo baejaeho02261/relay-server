@@ -16,6 +16,8 @@ commands=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Commands.pas')
 api=read('Railway/Cozy.Source/Cozy.Platform/Cozy.Api.pas')
 overlay=read('Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas')
 module_inventory=read('Railway/Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas')
+license_scene=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h')
+lunar_scene=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license_lunar.h')
 count=0
 
 def check(name,condition):
@@ -89,7 +91,7 @@ check('Worker milestones are monotonic and cannot publish transfer completion',
       and 'FProgress := Value;' in progress
       and 'if Outcome = WorkerTransferred then' in completion
       and 'FState := WorkerTransferred; FProgress := 100; FStopping := True;' in completion)
-check('B maps handoff loading bar milestones from 0 and reserves 100 for transfer',
+check('B maps circular handoff milestones from 0 and reserves 100 for transfer',
       'FCommands.ReportProgress(40);' in redeem
       and 'procedure(Value: Integer) begin FCommands.ReportProgress(Value); end)' in launch
       and 'LicenseHandoffBaseline = 40;' in window
@@ -98,6 +100,24 @@ check('B maps handoff loading bar milestones from 0 and reserves 100 for transfe
       and 'if Percent > 99 - LicenseHandoffBaseline then Percent := 99 - LicenseHandoffBaseline;' in window
       and 'Progress := Percent / (100 - LicenseHandoffBaseline);' in window
       and 'ImGuiLicenseSceneReveal(FContext, ScenePhase, KeyCharacters, Progress, nil, 0)' in window)
+orbit=license_scene.split('static void license_transfer_orbit(',1)[1].split('static bool license_key_valid(',1)[0]
+rocket_control=license_scene.split('static void license_rocket_control(',1)[1].split('static ImVec2 license_orbit_point(',1)[0]
+check('The handoff draws a themed orbit and the rocket keeps its invisible launch control',
+      all(token in orbit for token in ['v.palette.accent', 'AddCircle(', 'license_transfer_arc(',
+                                      'revolution*fill', 'license_percent_value(fill)'])
+      and 'AddRectFilled(' not in orbit
+      and 'if(transfer)license_transfer_orbit(v,fill);' in license_scene
+      and 'if(rocket&&full&&rocket_previously_full)license_rocket_control(' in license_scene
+      and 'InvisibleButton(' in rocket_control and 'LicenseRocketLaunchAction' in rocket_control
+      and all(text not in license_scene for text in ['Open O', 'license_rocket_hint']))
+earth_scene=license_scene.split('if(full)v.actions|=rocket?LicenseRocketReadyAction:CozyProgressCompleteAction;',1)[1]
+check('The passively drawn Moon and alien travel loop stay on the Earth scene',
+      license_scene.count('cozy_draw_moon(') == 1 and license_scene.count('cozy_draw_lunar_alien(') == 1
+      and earth_scene.index('cozy_draw_moon(') < earth_scene.index('cozy_draw_lunar_alien(') < earth_scene.index('license_form(')
+      and 'cozy_lunar_landing_x(cycle-1u)' in lunar_scene
+      and 'cozy_lunar_landing_x(cycle)' in lunar_scene and 'cozy_moon_surface_y(' in lunar_scene
+      and 'clockwise' in lunar_scene
+      and not any(text in lunar_scene for text in ['license_hit_add(', 'ImGui::InvisibleButton(', 'v.actions']))
 check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
       and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem

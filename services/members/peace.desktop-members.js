@@ -72,7 +72,7 @@ function Create(body,actor){return Mutation('CREATE','',body,actor,['displayName
 function Member(s,id){if(!ID.test(id)||!s.items[id])Fail('MEMBER_NOT_FOUND',404);return s.items[id];}
 function Update(id,body,actor){return Mutation('UPDATE',id,body,actor,['displayName','note'],s=>{const row=Member(s,id);row.displayName=Text(body.displayName,80,true);row.note=Text(body.note,1000,false,true);row.updatedAt=Math.max(row.createdAt,Date.now());return {member:{...row}};});}
 function Archive(id,body,actor){return Mutation('ARCHIVE',id,body,actor,['archived'],(s,db)=>{if(typeof body.archived!=='boolean')Fail('MEMBER_INPUT_INVALID');const row=Member(s,id);row.status=body.archived?'ARCHIVED':'ACTIVE';row.updatedAt=Math.max(row.createdAt,Date.now());return {member:{...row},authorizationChanged:false};});}
-function TargetExists(db,kind,id){if(!KINDS.includes(kind)||!TargetId(kind,id))return false;if(kind==='LICENSE')return !!require('../licensing/peace.desktop-licenses').DB().licenses[id];if(kind==='DEVICE')return !!db.deviceRegistry?.bindings[id];return !!db[kind==='LAUNCHER'?'launchers':'flows'][id];}
+function TargetExists(db,kind,id){if(!KINDS.includes(kind)||!TargetId(kind,id))return false;if(kind==='LICENSE'){const licenses=require('../licensing/peace.desktop-licenses');return licenses.IsOperational(licenses.DB().licenses[id]);}if(kind==='DEVICE')return !!db.deviceRegistry?.bindings[id];return !!db[kind==='LAUNCHER'?'launchers':'flows'][id];}
 function Assign(body,actor){return Mutation('ASSIGN',String(body?.kind||'')+':'+String(body?.targetId||''),body,actor,['kind','targetId','memberId','expectedMemberId'],(s,db)=>{
  if(!TargetExists(db,body.kind,body.targetId))Fail('MEMBER_TARGET_NOT_FOUND',404);
  if(typeof body.memberId!=='string'||body.memberId&&!ID.test(body.memberId)||typeof body.expectedMemberId!=='string'||body.expectedMemberId&&!ID.test(body.expectedMemberId))Fail('MEMBER_INPUT_INVALID');
@@ -98,7 +98,7 @@ function Snapshot(){
  const data=Object.fromEntries(CATEGORIES.map(k=>[k,[]])),flowOwners=new Map(),sessionFlow=new Map();
  for(const r of Object.values(db.flows)){flowOwners.set(r.id,FlowOwner(s,db,r));sessionFlow.set(r.id,r.id);sessionFlow.set(r.sessionId,r.id);}
  for(const r of Object.values(db.overlays||{}))sessionFlow.set(r.sessionId,r.parentFlowId);
- for(const r of Object.values(licenses.DB().licenses))data.licenses.push(Decorate({id:r.id,label:r.label,issuedAt:r.issuedAt},'LICENSE',r.id,Direct(s,'LICENSE',r.id),s));
+ for(const r of Object.values(licenses.DB().licenses))if(licenses.IsOperational(r))data.licenses.push(Decorate({id:r.id,label:r.label,issuedAt:r.issuedAt},'LICENSE',r.id,Direct(s,'LICENSE',r.id),s));
  for(const r of Object.values(db.launchers)){
   const owner=Direct(s,'LAUNCHER',r.id)||Direct(s,'LICENSE',r.assignedLicenseId||'');
   data.launchers.push(Decorate({id:r.id,label:r.label,status:r.status==='AVAILABLE'&&r.expiresAt<=Date.now()?'EXPIRED':r.status,issuedAt:r.issuedAt,expiresAt:r.expiresAt,flowId:r.flowId||''},'LAUNCHER',r.id,owner,s));

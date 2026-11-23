@@ -94,8 +94,23 @@ function RefreshSummary(){
  summary={asOf:Date.now(),since,pending:false,scope:'FLOW_CREATED_WITHIN_7_DAYS',issued:issued.length,started:flows.length,downloaded,claimed,authorized,medianStartToClaimMs:quantile(.5),p95StartToClaimMs:quantile(.95),versions:Object.values(byVersion),incompleteIsFailure:false,flowCountLifetime:all.length,downloadTiming:timings(downloadDurations),claimTiming:timings(claimDurations),recentRequestFailures:Object.values(failures),failureScope:'LAST_1000_EVENTS_10_SECOND_DEDUP_NOT_ALL_FAILED_USERS',releaseNote:db.Load().releaseNotes?.[b.active.A+':'+b.active.B+(b.active.O?':'+b.active.O:'')]?.note||''};return summary;
 }
 function Summary(){if(!summary.asOf)RefreshSummary();return {...structuredClone(summary),desktopPerformance:require("../observability/peace.desktop-performance-metrics").Snapshot({resolution:'hour',limit:24})};}
-function ProjectJob(j){return{id:j.id,kind:j.kind,status:j.status,createdAt:j.createdAt,updatedAt:j.updatedAt||j.createdAt,total:j.items.length,done:j.items.filter(x=>x.status==='DONE').length,failed:j.items.filter(x=>x.status==='FAILED').length,items:j.items.map((x,index)=>({index,status:x.status,reference:x.input.id||x.input.label||'',result:x.result||null,error:x.error||''})),createdBy:j.createdBy};}
-function Jobs(){return{items:Object.values(db.Load().jobs).sort((a,b)=>b.createdAt-a.createdAt).slice(0,100).map(ProjectJob),serverTime:Date.now(),storage:'SERVER_ONLY'};}
+function OperationalJobItem(kind,item){
+ if(kind==='CLEANUP')return true;
+ const {input,result}=item,license=result?.license||result;
+ if(products.Retired(input.productId)||products.Retired(license?.productId)||license?.productRetired===true)return false;
+ const id=input.id||license?.id,row=id&&licenses.DB().licenses[id];
+ return !row||licenses.IsOperational(row);
+}
+function OperationalJobItems(j){return j.items.map((item,index)=>({item,index})).filter(({item})=>OperationalJobItem(j.kind,item));}
+function ProjectJob(j){
+ const available=OperationalJobItems(j);if(!available.length)return null;
+ const items=available.map(({item,index})=>({index,status:item.status,reference:item.input.id||item.input.label||'',result:item.result||null,error:item.error||''}));
+ const done=items.filter(x=>x.status==='DONE').length,failed=items.filter(x=>x.status==='FAILED').length;
+ const status=j.status==='PARTIAL'&&!failed?'DONE':j.status;
+ return{id:j.id,kind:j.kind,status,createdAt:j.createdAt,updatedAt:j.updatedAt||j.createdAt,total:items.length,done,failed,items,createdBy:j.createdBy};
+}
+function RequireJobView(j){const view=j&&ProjectJob(j);if(!view)Fail('NOT_FOUND',404);return view;}
+function Jobs(){const items=[];for(const row of Object.values(db.Load().jobs).sort((a,b)=>b.createdAt-a.createdAt)){const view=ProjectJob(row);if(view)items.push(view);if(items.length===100)break;}return{items,serverTime:Date.now(),storage:'SERVER_ONLY'};}
 function Ids(input){if(!Array.isArray(input)||!input.length||input.length>100||new Set(input).size!==input.length)Fail('INPUT_INVALID');for(const id of input)licenses.Detail(id);return input;}
 async function Preview(body,session){
  Fields(body,['kind','count','prefix','productId','ids','note','tags'],['kind']);let items=[];
@@ -117,7 +132,7 @@ async function Preview(body,session){
 function Submit(body,session){
  Fields(body,['planId','requestId']);if(!/^[a-f0-9]{48}$/.test(body.planId||'')||!/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId||''))Fail('INPUT_INVALID');
  const stateNow=db.Load(),receiptKey=crypto.createHash('sha256').update(session.id+'|'+body.requestId).digest('hex'),prior=stateNow.receipts[receiptKey];
- if(prior){if(prior.planId!==body.planId)Fail('WORKSPACE_CONFLICT',409);return ProjectJob(stateNow.jobs[prior.jobId]);}
+ if(prior){if(prior.planId!==body.planId)Fail('WORKSPACE_CONFLICT',409);return RequireJobView(stateNow.jobs[prior.jobId]);}
  const plan=plans.get(body.planId);if(!plan||plan.owner!==session.id||plan.expiresAt<=Date.now())Fail('WORKSPACE_PLAN_EXPIRED',409);
  if(Object.keys(stateNow.jobs).length>=1000||Object.values(stateNow.jobs).filter(j=>['QUEUED','RUNNING'].includes(j.status)).length>=100)Fail('WORKSPACE_JOB_CAPACITY',429);
  if(plan.kind==='CLEANUP')for(const i of plan.items)space.Check(i.id,i.sha512);
@@ -152,9 +167,9 @@ function Pump(){
  finally{runner=false;}
 }
 function Schedule(){if(scheduledPump)return;scheduledPump=setImmediate(()=>{scheduledPump=undefined;Pump();});}
-function Retry(id,actor){const j=db.Load().jobs[id];if(!j)Fail('NOT_FOUND',404);if(!['DONE','PARTIAL'].includes(j.status))Fail('WORKSPACE_CONFLICT',409);if(j.status==='DONE')return ProjectJob(j);Audit('RETRY',actor);Atomic('WORKSPACE_RETRY',actor,next=>{const row=next.jobs[id];for(const i of row.items)if(i.status==='FAILED'){i.status='PENDING';delete i.error;}row.status='QUEUED';});Schedule();return ProjectJob(db.Load().jobs[id]);}
-function Cancel(id,actor){const j=db.Load().jobs[id];if(!j)Fail('NOT_FOUND',404);Audit('CANCEL',actor);Atomic('WORKSPACE_CANCEL',actor,next=>{if(['QUEUED','RUNNING'].includes(next.jobs[id].status))next.jobs[id].status='CANCELLED';});return ProjectJob(db.Load().jobs[id]);}
-function Export(id){const j=db.Load().jobs[id];if(!j||j.kind!=='EXPORT')Fail('NOT_FOUND',404);if(!['DONE','PARTIAL'].includes(j.status))Fail('WORKSPACE_CONFLICT',409);return{jobId:j.id,generatedAt:j.updatedAt,items:j.items.filter(i=>i.status==='DONE').map(i=>i.result),failed:j.items.filter(i=>i.status==='FAILED').map(i=>({id:i.input.id,error:i.error}))};}
+function Retry(id,actor){const j=db.Load().jobs[id],view=RequireJobView(j);if(!['DONE','PARTIAL'].includes(view.status))Fail('WORKSPACE_CONFLICT',409);if(view.status==='DONE')return view;Audit('RETRY',actor);Atomic('WORKSPACE_RETRY',actor,next=>{const row=next.jobs[id];for(const {item} of OperationalJobItems(row))if(item.status==='FAILED'){item.status='PENDING';delete item.error;}row.status='QUEUED';});Schedule();return ProjectJob(db.Load().jobs[id]);}
+function Cancel(id,actor){RequireJobView(db.Load().jobs[id]);Audit('CANCEL',actor);Atomic('WORKSPACE_CANCEL',actor,next=>{if(['QUEUED','RUNNING'].includes(next.jobs[id].status))next.jobs[id].status='CANCELLED';});return ProjectJob(db.Load().jobs[id]);}
+function Export(id){const j=db.Load().jobs[id];if(!j||j.kind!=='EXPORT')Fail('NOT_FOUND',404);RequireJobView(j);if(!['DONE','PARTIAL'].includes(j.status))Fail('WORKSPACE_CONFLICT',409);const items=OperationalJobItems(j).map(({item})=>item);return{jobId:j.id,generatedAt:j.updatedAt,items:items.filter(i=>i.status==='DONE').map(i=>i.result),failed:items.filter(i=>i.status==='FAILED').map(i=>({id:i.input.id,error:i.error}))};}
 function Start(){if(timer)return;db.Load();timer=setInterval(()=>{Pump();if(Date.now()-summary.asOf>10000)try{RefreshSummary();}catch(e){summary={...summary,error:'WORKSPACE_SUMMARY_UNAVAILABLE'};}},250);timer.unref();Schedule();space.Scan().catch(()=>{});}
 function Stop(){if(timer)clearInterval(timer);timer=undefined;if(scheduledPump)clearImmediate(scheduledPump);scheduledPump=undefined;}
 module.exports={Query,Detail,SaveMetadata,SaveReleaseNote,Summary,RefreshSummary,Preview,Submit,Jobs,Retry,Cancel,Export,Start,Stop,Pump,Meta,Fail};

@@ -32,5 +32,5 @@ function Require(value){
 }
 function List(){return rows.map(row=>({...row}));}
 function Id(row){return Find(row?.productId)?.id||'';}
-function Projection(row){const product=Find(row?.productId),retired=!product&&(Retired(row?.productId)||row?.productRetired===true);return {productId:product?.id||'',productName:product?.name||'',productCategory:product?.category||'',productAssigned:!!product,...(retired?{productRetired:true}:{})};}
+function Projection(row){const product=Find(row?.productId);return {productId:product?.id||'',productName:product?.name||'',productCategory:product?.category||'',productAssigned:!!product};}
 module.exports=Object.freeze({List,Find,Retired,IsStoredProduct,Require,Id,Projection});

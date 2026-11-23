@@ -119,6 +119,17 @@ async function run(){
   assert.ok(!encoded.includes(licenseA.licenseKey));assert.ok(!encoded.includes(licenseB.licenseKey));
   assert.doesNotMatch(encoded,/"(?:launcherTicket|sessionToken|downloadNonce|handoffNonce|publicKey|privateKey|signature|tokenHash|keyHash|issuanceNonce)"/);
  });
+ check('Retired products have no member listing, count or assignment target',()=>{
+  const id='F'.repeat(24),stored=licenses.DB().licenses;
+  stored[id]={id,label:'Historical product',productId:'spoofer.ace',issuedAt:1};
+  try{
+   const view=members.Detail('unassigned',{category:'licenses'});
+   assert.equal(view.categories.licenses.totalCount,1);
+   assert.deepEqual(view.categories.licenses.items.map(row=>row.id),[licenseB.license.id]);
+   reject('MEMBER_TARGET_NOT_FOUND',()=>assign('LICENSE',id,alice.id));
+   assert.equal(stored[id].productId,'spoofer.ace');
+  }finally{delete stored[id];}
+ });
  check('An aborted durable mutation leaves no changed member or consumed request',()=>{
   const original=store.Atomic,request=body({displayName:'Write failed',note:''}),before=JSON.stringify(members.State());
   store.Atomic=()=>{throw Error('SYNTHETIC_WRITE_FAILURE');};try{assert.throws(()=>members.Create(request,actor),/SYNTHETIC_WRITE_FAILURE/);}finally{store.Atomic=original;}

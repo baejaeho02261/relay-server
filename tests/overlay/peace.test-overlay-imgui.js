@@ -395,14 +395,14 @@ check('O workspace controls own their click and leave window drag capture separa
   assert.match(move, /FDragOrigin\.Y \+ Cursor\.Y - FDragAnchor\.Y/);
 });
 
-check('O displays the product only after a valid signed transfer and lease', () => {
+check('O receives the entitlement and shared theme only after a valid signed transfer and lease', () => {
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['not AuthorityValid then Exit;', 'FLicensedCard := -1;',
     'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
     'if (FLicensedCard < -1) or (FLicensedCard > 17) then FLicensedCard := -1;',
     'ImGuiNewFrame(', 'SceneAction := ImGuiProductScene(FContext, 0, Theme.Index, SceneFlags, FSceneSeconds,',
     '0, FLicensedCard, 0)', 'ImGuiEndCanvas(',
-    'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified title and shared palette');
+    'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified entitlement and shared palette');
   assert.match(renderer, /WorkspaceSceneFlag = \$1000;/);
   assert.doesNotMatch(renderer, /FRequestProductRun|FProductRunState|ReadRunState|FCarouselPosition|FBusyCursor/);
 
@@ -420,27 +420,44 @@ check('O displays the product only after a valid signed transfer and lease', () 
   assert.match(controller,/Result\s*:=\s*Worker\.LicensedCard;/);
 });
 
-check('O has three left tabs with passive product text, one toggle and a Settings-only palette', () => {
+check('O draws icon-only tabs, blank General and Market pages, and two Settings checkboxes', () => {
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
   const b=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h');
   const palette=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_palette.h');
-  const tabs=scene.slice(scene.indexOf('static const char* const CozyOverlayTabs'),scene.indexOf('static void cozy_workspace_identity('));
-  inOrder(tabs,['"General"', '"Market"', '"Settings"', 'v.box(35.f,y,117.f,y+32.f)', 'v.context->overlay_tab='],
-    'Three bounded left-side workspace tabs');
-  const identity=scene.slice(scene.indexOf('static void cozy_workspace_identity('),scene.indexOf('static void cozy_workspace_market('));
-  inOrder(identity,['if (licensed_card<0 || !CozyOverlayTitles[licensed_card])',
-    'static constexpr Placement placements[]=', 'placements[licensed_card]',
-    'CozyOverlayTitles[licensed_card]'], 'Authorized index chooses the presentation');
-  assert.doesNotMatch(identity,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
+  const tabs=scene.slice(scene.indexOf('static const char* const CozyWorkspaceLabels'),scene.indexOf('static void cozy_workspace_usage_meter('));
+  inOrder(tabs,['"General"', '"Market"', '"Settings"', '"Usage"', 'static void cozy_workspace_icon(',
+    'case CozyWorkspaceLicense:', 'case CozyWorkspaceCatalog:', 'case CozyWorkspaceAppearance:', 'case CozyWorkspaceUsage:',
+    'static void cozy_workspace_alien(', 'PathBezierCubicCurveTo(', 'AddEllipseFilled('],
+    'Four bounded workspace symbols and the drawn alien insignia');
+  const tabControls=tabs.slice(tabs.indexOf('static void cozy_workspace_tabs('));
+  inOrder(tabControls,['cozy_workspace_alien(v);', 'v.box(35.f,y,117.f,y+32.f)',
+    'cozy_palette_item(area,CozyWorkspaceLabels[i],', 'v.context->overlay_tab=', 'cozy_workspace_icon(v,'],
+    'Only the drawn tab is visible and its named hit target stays keyboard-operable');
+  assert.doesNotMatch(tabControls,/\.text\(|AddText\(/);
+  const checkbox=scene.slice(scene.indexOf('static void cozy_workspace_checkbox('),scene.indexOf('static int cozy_workspace_settings('));
+  inOrder(checkbox,['cozy_palette_item(row,label,interactive)', 'disabled=!disabled;',
+    'ImGuiItemStatusFlags_Checkable', 'ImGuiItemStatusFlags_Checked', 'license_glass_contour(v.draw,checkbox.Min,checkbox.Max,',
+    'if (checked)', 'PathStroke('], 'Theme checkbox tracks an interactive boolean and draws a check mark');
   const settings=scene.slice(scene.indexOf('static int cozy_workspace_settings('),scene.indexOf('static int cozy_overlay_workspace('));
-  assert.equal((settings.match(/overlay_reduced_motion=!v\.context->overlay_reduced_motion/g)||[]).length,1);
-  inOrder(settings,['cozy_palette_item(selector,','CozyOverlayPaletteNames[selected]', 'motion.pressed',
+  assert.equal((settings.match(/cozy_workspace_checkbox\(/g)||[]).length,2);
+  inOrder(settings,['cozy_palette_item(selector,','CozyOverlayPaletteNames[selected]', 'if (saving)',
+    'PathArcTo(', 'if (failed)', 'cozy_workspace_checkbox(', 'overlay_stars_paused',
+    'cozy_workspace_checkbox(', 'overlay_stars_hidden',
     'for (int i=0;i<CozyPalettePresetCount;++i)', 'if (i!=selected) requested=i+1;', 'return requested;'],
-    'One animation toggle and four approved theme requests');
+    'Independent checkboxes, graphical save feedback and four approved theme requests');
+  assert.doesNotMatch(settings,/Saving theme|Shared theme|Appearance|\.rule\(/i);
+  const usage=scene.slice(scene.indexOf('static void cozy_workspace_usage_meter('),scene.indexOf('static void cozy_workspace_checkbox('));
+  inOrder(usage,['ImLerp(start,328.f,amount)', 'AddRectFilled(', 'static void cozy_workspace_usage(',
+    '"Preview"', 'cozy_workspace_usage_meter(v,151.f,', '.58f', 'cozy_workspace_usage_meter(v,252.f,', '.32f'],
+    'Usage renders clearly labeled sample bars');
+  assert.doesNotMatch(usage,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
   const workspace=scene.slice(scene.indexOf('static int cozy_overlay_workspace('),scene.indexOf('static int32_t cozy_scene_frame('));
-  inOrder(workspace,['cozy_palette_apply_preset(c,selected,', 'cozy_palette_panel(', 'cozy_workspace_tabs(v,popover);',
-    'if (c->overlay_tab==0) cozy_workspace_identity(', 'if (c->overlay_tab==1) cozy_workspace_market(',
-    'if (c->overlay_tab==2)', 'return cozy_workspace_settings('], 'Only Settings offers appearance controls');
+  inOrder(workspace,['cozy_palette_apply_preset(c,selected,', 'cozy_palette_panel(', '!c->overlay_stars_hidden',
+    'cozy_workspace_tabs(v,popover);', 'if (c->overlay_tab==CozyWorkspaceAppearance)',
+    'return cozy_workspace_settings(', 'if (c->overlay_tab==CozyWorkspaceUsage)', 'cozy_workspace_usage('],
+    'Settings and Usage alone add content to the shared workspace background');
+  assert.doesNotMatch(workspace,/cozy_workspace_identity|cozy_workspace_market|headings|\.text\(|\.rule\(|->AddLine\(/);
+  assert.match(scene,/if \(!reduced_motion && \(!workspace \|\| !c->overlay_stars_paused\)\) c->license_elapsed \+= io\.DeltaTime;/);
   assert.match(scene,/if \(workspace\) \{\s*action=cozy_overlay_workspace\(/);
   assert.doesNotMatch(scene,/AddImage|game_cover|game_mark/);
   assert.doesNotMatch(workspace,/cozy_palette_controls\(/);
@@ -448,7 +465,7 @@ check('O has three left tabs with passive product text, one toggle and a Setting
   assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette\);/);
   assert.doesNotMatch(b,/cozy_palette_controls\(|cozy_palette_hsv\(|game_cover|game_mark/);
   assert.match(palette,/CozyPalettePresetCount = 4;/);
-  assert.match(palette,/cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars\);/);
+  assert.match(palette,/if\s*\(show_stars\)\s*cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars\);/);
   assert.doesNotMatch(method('function TOverlayWindow.ThemeHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;'),
     /FLicensedCard|FGetLicensedCard|Authorize|\.Post\(/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));

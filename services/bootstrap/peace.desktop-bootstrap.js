@@ -165,7 +165,6 @@ function IssueLauncher(body={},actor='ADMIN'){
  if(body.licenseId!==undefined){
   if(typeof body.licenseId!=='string'||!/^(?:DL-)?[A-F0-9]{24}$/.test(body.licenseId))Fail('BOOTSTRAP_INPUT_INVALID');
   const license=require("../licensing/peace.desktop-licenses").Detail(body.licenseId).license;
-  if(license.productRetired)Fail('DESKTOP_REVOKED',403);
   if(license.status!=='AVAILABLE'||license.consumed)Fail('DESKTOP_KEY_USED',409);
   if(Object.values(db.launchers).some(l=>l.assignedLicenseId===body.licenseId&&(l.status==='AVAILABLE'&&l.expiresAt>now()||l.status==='CONSUMED'&&db.flows[l.flowId]&&!['CLOSED','REVOKED','EXPIRED'].includes(ProjectStatus(db.flows[l.flowId])))))Fail('WORKSPACE_LICENSE_RESERVED',409);
  }else if(db.artifacts[db.active.B].backgroundVersion===1)Fail('WORKSPACE_LICENSE_REQUIRED',409);

@@ -234,7 +234,6 @@ async function renderDesktopLicenses(silent = false) {
 }
 const desktopProductCategories=Object.freeze({cleaner:'Cleanner',mobile:'Mobile'});
 function desktopProductProjection(row) {
-  if(row?.productRetired===true)return '지원 종료 · 사용 불가';
   return row?.productAssigned===true&&typeof row.productId==='string'&&typeof row.productName==='string'&&row.productName.length>0&&Object.hasOwn(desktopProductCategories,row.productCategory)&&row.productId.startsWith(row.productCategory+'.')
     ?desktopProductCategories[row.productCategory]+' · '+row.productName:'제품 미지정';
 }

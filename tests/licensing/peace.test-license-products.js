@@ -60,7 +60,7 @@ test('legacy imports and exact old issuance receipts remain unassigned without w
  const unknown=structuredClone(f.persisted());unknown.licenses[id].productId='all';
  assert.throws(()=>fixture(unknown).api.DB(),/DESKTOP_STORAGE_INVALID/);
 });
-test('retired products are preserved in storage and denied for authority or receipt recovery',()=>{
+test('retired products are absent from live license administration and still denied for authority',()=>{
  const actor='TEST',id='B'.repeat(24),signingSecret='1'.repeat(64),issuanceNonce='2'.repeat(48);
  const body={label:'legacy',productId:'spoofer.battleye',requestId:'RETIRED_REQUEST_1'};
  const key=crypto.createHmac('sha256',Buffer.from(signingSecret,'hex')).update('GAME-DESKTOP-KEY-V2|'+id+'|'+issuanceNonce).digest('hex').toUpperCase();
@@ -68,20 +68,34 @@ test('retired products are preserved in storage and denied for authority or rece
  const receiptKey='ADMIN:'+hash(actor)+':'+body.requestId,receipt={fingerprint:hash(JSON.stringify({action:'create',id:'',body})),licenseId:id,action:'create',at:1};
  const seed={schema:1,revision:1,signingSecret,licenses:{[id]:row},receipts:{[receiptKey]:receipt}},f=fixture(seed);
  assert.deepEqual(f.api.DB(),seed);
- assert.equal(f.api.Detail(id).license.productRetired,true);
- assert.equal(f.api.Detail(id).license.productId,'');
- assert.equal(f.api.Detail(id).license.status,'REVOKED');
- assert.equal(f.api.List({status:'AVAILABLE'}).items.length,0);
+ assert.throws(()=>f.api.Detail(id),e=>e.message==='DESKTOP_KEY_INVALID'&&e.status===404);
+ assert.deepEqual(f.api.List().items,[]);
+ assert.equal(f.api.List().totalCount,0);
+ assert.deepEqual(f.api.List({status:'REVOKED'}).counts,{AVAILABLE:0,USED:0,REVOKED:0,EXPIRED:0});
  assert.throws(()=>f.api.Create(body,actor),/DESKTOP_REVOKED/);
  assert.throws(()=>f.api.CreateReference(body,actor),/DESKTOP_REVOKED/);
  const used={...row,consumed:true,status:'USED'};
  assert.throws(()=>f.api.__probe.Active(used),/DESKTOP_REVOKED/);
  assert.doesNotThrow(()=>f.api.__probe.Active(used,true),'release remains available for old authority');
+ assert.throws(()=>f.api.Revoke(id,{reason:'Retired',requestId:'RETIRED_REVOKE_1'},actor),/DESKTOP_KEY_INVALID/);
+ assert.throws(()=>f.api.Reissue(id,{reason:'New supported product',productId:'cleaner.apex',requestId:'RETIRED_REISSUE_1'},actor),/DESKTOP_KEY_INVALID/);
  assert.equal(f.calls.writes,0);assert.deepEqual(f.persisted(),seed);
- const replacement=f.api.Reissue(id,{reason:'New supported product',productId:'cleaner.apex',requestId:'RETIRED_REISSUE_1'},actor);
+ const replacement=f.api.Create({label:'New supported product',productId:'cleaner.apex',requestId:'SUPPORTED_ISSUE_1'},actor);
  assert.notEqual(replacement.licenseKey,key);
  assert.equal(replacement.license.productId,'cleaner.apex');
+ assert.deepEqual(f.api.List().items.map(x=>x.id),[replacement.license.id]);
  assert.equal(f.persisted().licenses[id].productId,row.productId);
+ const supported=replacement.license.id,mixed={id:'mixed',kind:'EXPORT',status:'PARTIAL',createdAt:2,updatedAt:3,items:[
+  {input:{id},status:'FAILED',error:'DESKTOP_KEY_INVALID'},
+  {input:{id:supported},status:'DONE',result:{id:supported,productId:'cleaner.apex'}}
+ ]},old={id:'old',kind:'CREATE',status:'DONE',createdAt:1,items:[{input:body,status:'DONE',result:{license:{id,productRetired:true}}}]};
+ const workspace=Isolated('services/operations/peace.desktop-workspace.js',[],{
+  '../licensing/peace.desktop-licenses':f.api,'./peace.desktop-workspace-store':{Load:()=>({jobs:{mixed,old}})}
+ });
+ assert.deepEqual(workspace.Jobs().items.map(({id,status,total,items})=>[id,status,total,items[0].index]),[['mixed','DONE',1,1]]);
+ assert.deepEqual(workspace.Export('mixed').items.map(x=>x.id),[supported]);
+ assert.deepEqual(workspace.Export('mixed').failed,[]);
+ for (const action of ['Retry','Cancel'])assert.throws(()=>workspace[action]('old',actor),e=>e.message==='NOT_FOUND'&&e.status===404);
 });
 test('journal replay rejects changing or retrofitting a license product',()=>{
  const journal=Isolated('services/licensing/peace.desktop-journal.js',['Apply']);
