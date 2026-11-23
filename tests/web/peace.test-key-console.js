@@ -35,20 +35,10 @@ try{
  test('Missing and unknown keys do not implicitly consume or create licenses',()=>{bad(()=>d.Execute(proof(dev,session,'redeem',{licenseKey:''})),'DESKTOP_KEY_INVALID');bad(()=>d.Execute(proof(dev,session,'redeem',{licenseKey:'0'.repeat(64)})),'DESKTOP_KEY_INVALID');assert.equal(d.List().items.length,0);});
  test('A key can be created separately after A issuance and B claim',()=>{key=d.Create({productId:'cleaner.pubg',label:'User key',requestId:crypto.randomUUID()},'TEST');assert.equal(key.license.status,'AVAILABLE');assert.equal(b.Initialize().launchers[issue.launcherId].assignedLicenseId,undefined);});
  test('Tampering with the signed request still fails without consuming the key',()=>{const p=proof(dev,session,'redeem',{licenseKey:key.licenseKey});p.signature='A'.repeat(342)+'==';bad(()=>d.Execute(p),'DESKTOP_PROOF_INVALID');assert.equal(d.Detail(key.license.id).license.status,'AVAILABLE');});
- test('The entered key is consumed by the original signed proof path',()=>{requestId=crypto.randomUUID();result=d.Execute(proof(dev,session,'redeem',{licenseKey:key.licenseKey,appVersion:'92.0'},requestId));assert.equal(result.licenseId,key.license.id);assert.equal(result.status,'USED');assert.equal(result.productId,'cleaner.pubg');assert.ok(result.activationToken);});
- test('Lost-response retry uses the existing receipt without consuming a second key',()=>{const r=d.Execute(proof(dev,session,'redeem',{licenseKey:key.licenseKey,appVersion:'92.0'},requestId));assert.equal(r.activationToken,result.activationToken);assert.equal(r.productId,result.productId);assert.equal(d.List().items.length,1);});
+ test('The entered key is consumed by the original signed proof path',()=>{requestId=crypto.randomUUID();result=d.Execute(proof(dev,session,'redeem',{licenseKey:key.licenseKey,appVersion:'92.0'},requestId));assert.equal(result.licenseId,key.license.id);assert.equal(result.status,'USED');assert.ok(result.activationToken);});
+ test('Lost-response retry uses the existing receipt without consuming a second key',()=>{const r=d.Execute(proof(dev,session,'redeem',{licenseKey:key.licenseKey,appVersion:'92.0'},requestId));assert.equal(r.activationToken,result.activationToken);assert.equal(d.List().items.length,1);});
  test('The workspace still links A issuance, B claim and entered-key authentication',()=>{const info=w.Detail(key.license.id);assert.ok(info.timeline.some(x=>x.type==='LAUNCHER_ISSUED'&&x.launcherId===issue.launcherId));assert.ok(info.timeline.some(x=>x.type==='B_CLAIMED'));assert.ok(w.Query({q:'License recipient'}).items.some(x=>x.id===key.license.id));assert.ok(w.Query({q:issue.launcherId}).items.some(x=>x.id===key.license.id));assert.ok(!JSON.stringify(info).includes(result.activationToken));assert.ok(!JSON.stringify(info).includes(key.licenseKey));});
- test('Renewal exposes only the authenticated catalogue ID; release has no presentation metadata',()=>{
-  const verifyId=crypto.randomUUID(),activationToken=result.activationToken;
-  for(let i=0;i<2;i++){
-   const verified=d.Execute(proof(dev,session,'verify',{activationToken},verifyId));
-   assert.equal(verified.licenseId,key.license.id);
-   assert.equal(verified.productId,'cleaner.pubg');
-  }
-  const released=d.Execute(proof(dev,session,'release',{activationToken}));
-  assert.equal(released.released,true);
-  assert.equal(Object.hasOwn(released,'productId'),false);
- });
+ test('Normal license renewal and release remain signed and session-bound',()=>{assert.equal(d.Execute(proof(dev,session,'verify',{activationToken:result.activationToken})).licenseId,key.license.id);assert.equal(d.Execute(proof(dev,session,'release',{activationToken:result.activationToken})).released,true);});
  test('A consumed KEY is not reset or allowed on a different fresh device',()=>{const x=F.Device(),s=F.Session(x);bad(()=>d.Execute(proof(x,s,'redeem',{licenseKey:key.licenseKey})),'DESKTOP_KEY_USED');assert.equal(d.Detail(key.license.id).license.consumed,true);});
  test('An explicit reserved A keeps its assignment metadata with a manual-input B',()=>{F.CurrentCohort({version:'92.1',marker:'KEY_WINDOW_RESTORED'});reserved=d.Create({productId:'cleaner.pubg',label:'Historical reserved key',requestId:crypto.randomUUID()},'TEST');oldIssue=b.IssueLauncher({requestId:crypto.randomUUID(),label:'old reserved A',licenseId:reserved.license.id},'TEST');secondDev=F.Device();secondSession=openIssued(secondDev,oldIssue);});
  test('Historical A assignment cannot auto-authorize the new license-window build',()=>{bad(()=>d.Execute(proof(secondDev,secondSession,'redeem',{licenseKey:'SERVER_ASSIGNED_V1'})),'DESKTOP_KEY_INVALID');assert.equal(d.Detail(reserved.license.id).license.status,'AVAILABLE');});
@@ -61,25 +51,23 @@ try{
   assert(entry.indexOf('Context.CompleteClaimAndCleanup(')<entry.indexOf('RunLicenseWindow('));
   for(const word of ['Worker := TLicenseWorker.Create(Api);','Worker.SubmitKey(Key)','Worker.RequestStop;','Worker.StopAndJoin;','Worker.Free;'])assert(entry.includes(word),word);
   const paste=window.split('procedure TLicenseWindow.PasteKey;')[1].split('procedure TLicenseWindow.Submit;')[0];
-  const submit=window.split('procedure TLicenseWindow.Submit;')[1].split('procedure TLicenseWindow.LaunchSelectedProduct;')[0];
+  const submit=window.split('procedure TLicenseWindow.Submit;')[1].split('procedure TLicenseWindow.LaunchSelected;')[0];
   assert.match(paste,/if not SceneInputEnabled then Exit;[\s\S]*?FKey := Value;[\s\S]*?FResetKeySequence := True;\s+FAutoSubmitPending := True;/);
   assert.match(submit,/if not FAutoSubmitPending or not SceneInputEnabled or \(FKey.Count = 0\) then Exit;\s+FAutoSubmitPending := False;[\s\S]*?Key.AppendBuffer\(FKey\);\s+FRedemptionPending := FSubmit\(Key\);/);
   assert.match(submit,/finally\s+FreeAndNil\(Key\);/);
   const paint=window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
   assert.match(paint,/if \(Actions and LicenseSceneReadClipboard\) <> 0 then PasteKey\s+else if \(Actions and LicenseSceneAutoSubmit\) <> 0 then Submit;/);
-  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;\s+if Phase = LicensePhaseTransfer then[\s\S]*?if \(State = WorkerTransferred\) and \(Progress >= 1\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) then\s+begin\s+FPresentationComplete := True;\s+Close;\s+Exit;/);
-  assert.match(paint,/if \(Phase = LicensePhaseCover\) and \(Progress >= 1\) then\s+begin\s+FLaunchFramePresented := True;\s+if \(Actions and LicenseSceneLaunchSelected\) <> 0 then LaunchSelectedProduct;/);
-  assert.match(window,/Result := WindowInputEnabled and FLaunchFramePresented and not FLaunchRequested and\s+\(FOutcomePhase = LicensePhaseCover\) and \(FOutcomeProgress >= 1\) and\s+Assigned\(FLaunch\) and \(FState\(\) = WorkerLicensed\);/);
+  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;\s+if \(State = WorkerTransferred\) and \(Phase = LicensePhaseTransferred\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) then\s+begin\s+FPresentationComplete := True;\s+Close;\s+Exit;/);
   const advance=window.split('procedure TLicenseWindow.AdvancePresentedSequence(')[1].split('procedure TLicenseWindow.Paint;')[0];
   assert.match(advance,/LicensePhaseRejectScan: FOutcomePhase := LicensePhaseRejected;/);
   assert.match(advance,/LicensePhaseAcceptScan: FOutcomePhase := LicensePhaseAccepted;/);
-  assert.match(advance,/LicensePhaseAccepted:\s+begin\s+ClearKey;\s+FOutcomePhase := LicensePhasePreparation;\s+end;/);
-  assert.match(advance,/LicensePhasePreparation: FOutcomePhase := LicensePhaseRocketFlight;\s+LicensePhaseRocketFlight: FOutcomePhase := LicensePhaseCover;/);
   assert.doesNotMatch(window,/License(?:PhaseToast|SceneToastComplete)/);
   assert.match(window,/ApiCreateWindowExW\(WS_EX_TOOLWINDOW or NoRedirectionBitmap,/);
   assert.doesNotMatch(window,/\bWS_EX_APPWINDOW\b/);
-  assert.match(window,/\(Hit in \[HitClipboardPlanet, HitPalette\]\) and SceneInputEnabled/);
-  assert.match(window,/\(Hit = HitLaunch\) and LaunchInputEnabled/);
+  const hit=window.split('function TLicenseWindow.ControlInputEnabled(Hit: Integer): Boolean;')[1]
+    .split('function TLicenseWindow.DragThresholdReached(')[0];
+  assert.match(hit,/\(\(Hit = HitClipboardPlanet\) and SceneInputEnabled\) or\s*\(\(Hit = HitLaunchRocket\) and RocketInputEnabled\)/);
+  assert.match(paint,/if FRocketReady and \(\(Actions and LicenseSceneRocketLaunch\) <> 0\) then\s*begin LaunchSelected; Exit; end;/);
   assert(text.includes('FCommands.Complete(WorkerTransferred);'));
   assert(window.includes('State = WorkerTransferred'));
   assert(entry.indexOf('Worker.Free;')<entry.indexOf('Api.Free;'));

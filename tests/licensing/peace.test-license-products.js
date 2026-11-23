@@ -5,7 +5,7 @@ const products=require('../../services/licensing/peace.licensed-products');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 function fixture(seed){
  const state={serviceEnabled:true,maintenanceMode:false},calls={writes:0};let persisted=seed&&structuredClone(seed);
- const api=Isolated('services/licensing/peace.desktop-licenses.js',[],{
+ const api=Isolated('services/licensing/peace.desktop-licenses.js',['Active'],{
   '../../core/peace.runtime-state':state,
   './peace.desktop-journal':{AssertHealthy(){},Load:()=>({exists:!!persisted,state:persisted}),Commit(_previous,next){calls.writes++;persisted=structuredClone(next);}},
   '../bootstrap/peace.desktop-bootstrap':{messages:{},LicenseActivity:()=>null},
@@ -15,15 +15,15 @@ function fixture(seed){
   '../../storage/audit/peace.audit.js':{AppendOperationEvent:()=>({ok:true,sequence:1,hash:'A'.repeat(64)})}
  });return {api,state,calls,persisted:()=>persisted};
 }
-test('18 stable products have six entries per category and callers cannot mutate the catalogue',()=>{
- const list=products.List();assert.equal(list.length,18);assert.equal(new Set(list.map(x=>x.id)).size,18);
- for(const category of ['cleaner','mobile','spoofer'])assert.equal(list.filter(x=>x.category===category).length,6);
+test('12 active products have six entries per category and callers cannot mutate the catalogue',()=>{
+ const list=products.List();assert.equal(list.length,12);assert.equal(new Set(list.map(x=>x.id)).size,12);
+ for(const category of ['cleaner','mobile'])assert.equal(list.filter(x=>x.category===category).length,6);
  list[0].id='all';assert.equal(products.Find('all'),null);assert.equal(products.Require('cleaner.pubg').id,'cleaner.pubg');
  assert.deepEqual(products.Projection({}),{productId:'',productName:'',productCategory:'',productAssigned:false});
 });
 test('new issuance requires one catalogue product and invalid input never commits a license',()=>{
  const f=fixture();
- for(const productId of [undefined,null,'','all','cleaner.*','pubg',['cleaner.pubg'],{},'constructor']){
+ for(const productId of [undefined,null,'','all','cleaner.*','pubg',['cleaner.pubg'],{},'constructor','spoofer','spoofer.battleye','spoofer.xigncode3','spoofer.easy-anti-cheat','spoofer.vanguard','spoofer.ricochet','spoofer.ace']){
   const before=JSON.stringify(f.api.DB()),writes=f.calls.writes;
   assert.throws(()=>f.api.Create({label:'synthetic',productId,requestId:crypto.randomUUID()},'TEST'),/DESKTOP_PRODUCT_REQUIRED|DESKTOP_PRODUCT_INVALID/);
   assert.equal(JSON.stringify(f.api.DB()),before);assert.equal(f.calls.writes,writes);
@@ -31,7 +31,7 @@ test('new issuance requires one catalogue product and invalid input never commit
  const result=f.api.Create({label:'PUBG only',productId:'cleaner.pubg',requestId:crypto.randomUUID()},'TEST');
  assert.equal(result.license.productId,'cleaner.pubg');assert.equal(result.license.productAssigned,true);
  assert.equal(result.license.productName,'PUBG: BATTLEGROUNDS');assert.equal(result.license.productCategory,'cleaner');
- assert.equal(f.api.List().products.length,18);assert.equal(f.api.Detail(result.license.id).license.productId,'cleaner.pubg');
+ assert.equal(f.api.List().products.length,12);assert.equal(f.api.Detail(result.license.id).license.productId,'cleaner.pubg');
  assert(!JSON.stringify(f.api.List()).includes(result.licenseKey));
 });
 test('receipt retry binds product and reissue changes scope only by issuing a new key',()=>{
@@ -59,6 +59,29 @@ test('legacy imports and exact old issuance receipts remain unassigned without w
  assert.throws(()=>f.api.Create({...body,requestId:'NEW_REQUEST_123'},actor),/DESKTOP_PRODUCT_REQUIRED/);
  const unknown=structuredClone(f.persisted());unknown.licenses[id].productId='all';
  assert.throws(()=>fixture(unknown).api.DB(),/DESKTOP_STORAGE_INVALID/);
+});
+test('retired products are preserved in storage and denied for authority or receipt recovery',()=>{
+ const actor='TEST',id='B'.repeat(24),signingSecret='1'.repeat(64),issuanceNonce='2'.repeat(48);
+ const body={label:'legacy',productId:'spoofer.battleye',requestId:'RETIRED_REQUEST_1'};
+ const key=crypto.createHmac('sha256',Buffer.from(signingSecret,'hex')).update('GAME-DESKTOP-KEY-V2|'+id+'|'+issuanceNonce).digest('hex').toUpperCase();
+ const row={id,label:body.label,productId:body.productId,keyVersion:2,issuanceNonce,keyHash:hash(key),status:'AVAILABLE',consumed:false,issuedAt:1,issuedBy:actor,expiresAt:0};
+ const receiptKey='ADMIN:'+hash(actor)+':'+body.requestId,receipt={fingerprint:hash(JSON.stringify({action:'create',id:'',body})),licenseId:id,action:'create',at:1};
+ const seed={schema:1,revision:1,signingSecret,licenses:{[id]:row},receipts:{[receiptKey]:receipt}},f=fixture(seed);
+ assert.deepEqual(f.api.DB(),seed);
+ assert.equal(f.api.Detail(id).license.productRetired,true);
+ assert.equal(f.api.Detail(id).license.productId,'');
+ assert.equal(f.api.Detail(id).license.status,'REVOKED');
+ assert.equal(f.api.List({status:'AVAILABLE'}).items.length,0);
+ assert.throws(()=>f.api.Create(body,actor),/DESKTOP_REVOKED/);
+ assert.throws(()=>f.api.CreateReference(body,actor),/DESKTOP_REVOKED/);
+ const used={...row,consumed:true,status:'USED'};
+ assert.throws(()=>f.api.__probe.Active(used),/DESKTOP_REVOKED/);
+ assert.doesNotThrow(()=>f.api.__probe.Active(used,true),'release remains available for old authority');
+ assert.equal(f.calls.writes,0);assert.deepEqual(f.persisted(),seed);
+ const replacement=f.api.Reissue(id,{reason:'New supported product',productId:'cleaner.apex',requestId:'RETIRED_REISSUE_1'},actor);
+ assert.notEqual(replacement.licenseKey,key);
+ assert.equal(replacement.license.productId,'cleaner.apex');
+ assert.equal(f.persisted().licenses[id].productId,row.productId);
 });
 test('journal replay rejects changing or retrofitting a license product',()=>{
  const journal=Isolated('services/licensing/peace.desktop-journal.js',['Apply']);

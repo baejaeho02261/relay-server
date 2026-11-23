@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "4a07fc4393f4a5c59bbf2b2d92712678cd6b2b2b7ce1524a806fb1f4b3ce96659356e915fd19602e8f67a45bcc2df96594fce639dce3580a397ff1945e1a1be9",
+  "schemaSha512": "b66e92773c4c112d64266674ff487e393ea57f27703a828df0d630aabef87e01a49009b1c7f630cdf5a381ab9e4702d04e321be77651af37c844e9f22758ca6f",
   "cases": [
     {
       "name": "overlayRelease",
@@ -276,6 +276,16 @@
         "version": 1,
         "status": "RECORDED",
         "terminate": false
+      }
+    },
+    {
+      "name": "overlayTheme",
+      "value": {
+        "version": 1,
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "requestId": "rrrrrrrr",
+        "sequence": 1,
+        "theme": 0
       }
     }
   ]

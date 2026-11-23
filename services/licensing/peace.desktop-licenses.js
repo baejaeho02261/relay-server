@@ -22,7 +22,7 @@ function Import(value){
  if(!Plain(value)||value.schema!==1||!Number.isSafeInteger(value.revision)||value.revision<0||!Plain(value.licenses)||!Plain(value.receipts)||typeof value.signingSecret!=='string'||value.signingSecret&&!/^[a-f0-9]{64}$/.test(value.signingSecret))throw Error('DESKTOP_STORAGE_INVALID');
  for(const [id,row]of Object.entries(value.licenses)){
   if(!/^(?:DL-)?[A-F0-9]{24}$/.test(id)||!Plain(row)||row.id!==id||!['AVAILABLE','ACTIVE','USED','REVOKED','RELEASED'].includes(row.status)||!/^[a-f0-9]{64}$/.test(row.keyHash)||typeof row.consumed!=='boolean'||!Number.isSafeInteger(row.expiresAt)||row.expiresAt<0)throw Error('DESKTOP_STORAGE_INVALID');
-  if(row.productId!==undefined&&!products.Find(row.productId))throw Error('DESKTOP_STORAGE_INVALID');
+  if(row.productId!==undefined&&!products.IsStoredProduct(row.productId))throw Error('DESKTOP_STORAGE_INVALID');
   if(row.keyVersion!==undefined&&row.keyVersion!==2||row.activationVersion!==undefined&&row.activationVersion!==2||row.status==='USED'&&!row.consumed||row.status==='AVAILABLE'&&row.consumed||!/^[a-f0-9]{48}$/.test(row.issuanceNonce))throw Error('DESKTOP_STORAGE_INVALID');
   if(row.machineId!==undefined&&(!/^[A-F0-9]{64}$/.test(row.machineId)||!(row.binarySha512!==undefined?/^[a-f0-9]{128}$/.test(row.binarySha512):/^[a-f0-9]{64}$/.test(row.binarySha256||''))||!/^[A-F0-9]{16}$/.test(row.binaryCrc64||'')||!Number.isSafeInteger(row.machinePolicyGeneration)||row.machinePolicyGeneration<0))throw Error('DESKTOP_STORAGE_INVALID');
   if(row.codeSha256!==undefined&&!/^[a-f0-9]{64}$/.test(row.codeSha256))throw Error('DESKTOP_STORAGE_INVALID');
@@ -79,7 +79,8 @@ function ReconcileCheckpoints(){
  }return repaired;
 }
 function Status(row){if(row.status==='REVOKED')return row.status;if(row.expiresAt&&row.expiresAt<=now())return 'EXPIRED';return row.consumed?'USED':'AVAILABLE';}
-function Public(row){const current=seen.get(row.id),durable=require("../bootstrap/peace.desktop-bootstrap").LicenseActivity(row.id),machine=row.machineId?machinePolicy.Public(row.machineId):null,machineSessionRevoked=!!machine&&(row.machinePolicyGeneration!==machine.generation||machine.blocked&&!(machine.source==='SINGLE_USE'&&machine.allowedSessionId===row.bootstrapSessionId)),active=Status(row)==='USED'&&!row.releasedAt&&row.status!=='RELEASED'&&!machineSessionRevoked;return {id:row.id,displayId:row.id.replace(/^DL-/,''),label:row.label,...products.Projection(row),status:Status(row),issuedAt:row.issuedAt,activatedAt:row.activatedAt||0,expiresAt:row.expiresAt,consumed:row.consumed,deviceId:row.deviceId||'',deviceName:row.deviceName||'',machineId:row.machineId||'',machineBlocked:!!machine?.blocked,machinePolicy:machine,machineSessionRevoked,binarySha512:row.binarySha512||'',binaryCrc64:row.binaryCrc64||'',codeSha512:row.codeSha512||'',codeCrc64:row.codeCrc64||'',appVersion:current?.appVersion||durable?.appVersion||row.appVersion||'',lastVerifiedAt:Math.max(current?.at||0,durable?.lastVerifiedAt||0,row.activatedAt||0),leaseExpiresAt:active?Math.max(current?.leaseExpiresAt||0,durable?.leaseExpiresAt||0):0,bootstrapSessionId:row.bootstrapSessionId||durable?.sessionId||'',revokedAt:row.revokedAt||0,releasedAt:row.releasedAt||0,reason:row.reason||''};}
+function AssertProductSupported(row){if(products.Retired(row.productId))Fail('DESKTOP_REVOKED',403);}
+function Public(row){const product=products.Projection(row),status=product.productRetired?'REVOKED':Status(row),current=seen.get(row.id),durable=require("../bootstrap/peace.desktop-bootstrap").LicenseActivity(row.id),machine=row.machineId?machinePolicy.Public(row.machineId):null,machineSessionRevoked=!!machine&&(row.machinePolicyGeneration!==machine.generation||machine.blocked&&!(machine.source==='SINGLE_USE'&&machine.allowedSessionId===row.bootstrapSessionId)),active=status==='USED'&&!row.releasedAt&&row.status!=='RELEASED'&&!machineSessionRevoked;return {id:row.id,displayId:row.id.replace(/^DL-/,''),label:row.label,...product,status,issuedAt:row.issuedAt,activatedAt:row.activatedAt||0,expiresAt:row.expiresAt,consumed:row.consumed,deviceId:row.deviceId||'',deviceName:row.deviceName||'',machineId:row.machineId||'',machineBlocked:!!machine?.blocked,machinePolicy:machine,machineSessionRevoked,binarySha512:row.binarySha512||'',binaryCrc64:row.binaryCrc64||'',codeSha512:row.codeSha512||'',codeCrc64:row.codeCrc64||'',appVersion:current?.appVersion||durable?.appVersion||row.appVersion||'',lastVerifiedAt:Math.max(current?.at||0,durable?.lastVerifiedAt||0,row.activatedAt||0),leaseExpiresAt:active?Math.max(current?.leaseExpiresAt||0,durable?.leaseExpiresAt||0):0,bootstrapSessionId:row.bootstrapSessionId||durable?.sessionId||'',revokedAt:row.revokedAt||0,releasedAt:row.releasedAt||0,reason:row.reason||''};}
 function Text(value,max,required=false){if(typeof value!=='string'||value.length>max||/[\u0000-\u001f\u007f]/.test(value)||required&&!value.trim())Fail('INPUT_INVALID');return value.trim();}
 function Expiry(body){
  // Purchase duration is not an authorization lease. FIX81 issues only a single
@@ -123,6 +124,7 @@ function AdminReceipt(action,id,body,actor,fn){
   if(old.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
   const row=DB().licenses[old.licenseId];if(!row)Fail('DESKTOP_KEY_INVALID',404);
   if(action==='revoke'){if(row.status!=='REVOKED')Fail('DESKTOP_REQUEST_REUSED',409);DrainAudit();return {license:Public(row)};}
+  AssertProductSupported(row);
   if(row.consumed||Status(row)!=='AVAILABLE')Fail('DESKTOP_KEY_USED',409);
   DrainAudit();return {license:Public(row),licenseKey:IssuedKey(row),...(old.replacedId?{replacedId:old.replacedId}:{})};
  }
@@ -137,7 +139,7 @@ function Create(body={},actor){if(!Plain(body))Fail('INPUT_INVALID');Expiry(body
 function CreateReference(body,actor){
  const key='ADMIN:'+hash(String(actor))+':'+body.requestId;
  const fingerprint=hash(JSON.stringify({action:'create',id:'',body})),receipt=DB().receipts[key];
- if(receipt){if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);DrainAudit();return {license:Detail(receipt.licenseId).license};}
+ if(receipt){if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);const {license}=Detail(receipt.licenseId);if(license.productRetired)Fail('DESKTOP_REVOKED',403);DrainAudit();return {license};}
  return {license:Create(body,actor).license};
 }
 function Reason(body){const reason=Text(body.reason,300,true);if(reason.length<3)Fail('INPUT_INVALID');return reason;}
@@ -174,7 +176,7 @@ function Payload(body){
  return {payload:p,payloadHash:crypto.createHash('sha512').update(Buffer.from(raw,'utf8')).digest('hex')};
 }
 function Token(row){const mac=crypto.createHmac('sha256',Buffer.from(DB().signingSecret,'hex')).update((row.activationVersion===2?'GAME-DESKTOP-ACTIVATION-V2|':legacyActivationDomain)+row.id+'|'+row.deviceId+'|'+row.activationNonce);return row.activationVersion===2?mac.digest('hex'):'DLA-'+mac.digest('base64url');}
-function Active(row){if(!row)Fail('DESKTOP_ACTIVATION_INVALID',401);const status=Status(row);if(status==='REVOKED')Fail('DESKTOP_REVOKED',403);if(row.status==='RELEASED'||row.releasedAt)Fail('DESKTOP_RELEASED',403);if(status==='EXPIRED')Fail('DESKTOP_EXPIRED',403);if(status!=='USED')Fail('DESKTOP_ACTIVATION_INVALID',401);}
+function Active(row,forRelease=false){if(!row)Fail('DESKTOP_ACTIVATION_INVALID',401);if(!forRelease)AssertProductSupported(row);const status=Status(row);if(status==='REVOKED')Fail('DESKTOP_REVOKED',403);if(row.status==='RELEASED'||row.releasedAt)Fail('DESKTOP_RELEASED',403);if(status==='EXPIRED')Fail('DESKTOP_EXPIRED',403);if(status!=='USED')Fail('DESKTOP_ACTIVATION_INVALID',401);}
 function Activation(p,deviceId){const digest=hash(p.activationToken),row=Object.values(DB().licenses).find(x=>x.tokenHash===digest);if(!row)Fail('DESKTOP_ACTIVATION_INVALID',401);if(row.deviceId!==deviceId)Fail('DESKTOP_DEVICE_MISMATCH',403);return row;}
 function SessionBinding(row,bootstrap){const expected=row.bootstrapSessionId||require("../bootstrap/peace.desktop-bootstrap").LicenseActivity(row.id)?.sessionId;if(!expected||expected!==bootstrap.sessionId)Fail('BOOTSTRAP_LICENSE_MISMATCH',403);}
 function Result(row,leaseExpiresAt=0){return {licenseId:row.id,status:Status(row),deviceId:row.deviceId,label:row.label,issuedAt:row.issuedAt,activatedAt:row.activatedAt||0,expiresAt:row.expiresAt,leaseExpiresAt,serverTime:now(),revision:DB().revision};}
@@ -212,7 +214,6 @@ function BootstrapResult(result,payload,deviceId,action,operation={}){
   if(!replay)try{require("../../web/events/peace.web-events").BroadcastEvent({time:now(),type:'DESKTOP_LICENSE_VERIFIED',detail:JSON.stringify({id:row.id,deviceId:row.deviceId,status:Status(row)})});}catch(_){}
  }
  if(operation.operationId)DrainAudit();
- // Display metadata belongs to the same verified license and bootstrap session.
  if(action==='redeem'||action==='verify')result.productId=products.Id(row);
  return result;
 }
@@ -232,7 +233,7 @@ function Execute(body){
   if(receipt.fingerprint!==fingerprint)Fail('DESKTOP_REQUEST_REUSED',409);
   const row=DB().licenses[receipt.licenseId];if(!row||row.deviceId!==body.deviceId)Fail('DESKTOP_ACTIVATION_INVALID',401);SessionBinding(row,bootstrap);
   if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
-  if(body.action==='release'){if(row.status!=='RELEASED'&&!row.releasedAt)Active(row);c.used=true;return BootstrapResult({...Result(row),released:true},payload,body.deviceId,body.action,receipt);}
+  if(body.action==='release'){if(row.status!=='RELEASED'&&!row.releasedAt)Active(row,true);c.used=true;return BootstrapResult({...Result(row),released:true},payload,body.deviceId,body.action,receipt);}
   Active(row);c.used=true;return BootstrapResult({...Result(row,receipt.leaseExpiresAt),...(body.action==='redeem'?{activationToken:Token(row)}:{})},payload,body.deviceId,body.action,receipt);
  }
  if(c.used)Fail('DESKTOP_REQUEST_REUSED',409);
@@ -250,6 +251,7 @@ function Execute(body){
    const digests=assigned?[]:KeyHashes(payload.licenseKey),row=assigned?DB().licenses[assignedId]:Object.values(DB().licenses).find(x=>digests.includes(x.keyHash));if(!row)Fail('DESKTOP_KEY_INVALID',404);
    if(legacyAssigned&&assignedId&&assignedId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
    if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
+   AssertProductSupported(row);
    if(Status(row)==='REVOKED')Fail('DESKTOP_REVOKED',403);if(Status(row)==='EXPIRED')Fail('DESKTOP_EXPIRED',403);if(row.consumed)Fail('DESKTOP_KEY_USED',409);
    // Re-check inside the same synchronous durable transaction. Even an already
    // claimed parallel A/B session cannot consume a second key on this PC.
@@ -260,7 +262,7 @@ function Execute(body){
    return {...Result(row,leaseExpiresAt),activationToken:Token(row)};
   });
  }else{
-  const row=Activation(payload,body.deviceId);Active(row);SessionBinding(row,bootstrap);
+  const row=Activation(payload,body.deviceId);Active(row,body.action==='release');SessionBinding(row,bootstrap);
   if(bootstrap.licenseId&&bootstrap.licenseId!==row.id)Fail('BOOTSTRAP_LICENSE_MISMATCH',409);
   if(body.action==='verify'){
    RequireChallenge(c);const leaseExpiresAt=Lease(row,payload.appVersion);result=Result(row,leaseExpiresAt);verifyReceipts.set(receiptKey,{fingerprint,licenseId:row.id,leaseExpiresAt,originalAt:now(),projected:false,...deadline.After(CHALLENGE_MS*2)});

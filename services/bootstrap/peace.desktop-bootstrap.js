@@ -137,6 +137,7 @@ function LauncherName(row){return row.downloadName||crypto.createHmac('sha256',B
 // expiry is retired durably by Prune; no client timestamp extends this lifetime.
 function LauncherExpired(row){if(!row)return true;if(row.status!=='AVAILABLE')return row.expiresAt<=now();return require('../runtime/peace.desktop-deadline').persistent.expired('A.launcher:'+row.id,row.issuedAt,row.expiresAt);}
 function RequireLauncherSelection(row){
+ if(row.assignedLicenseId&&require('../licensing/peace.licensed-products').Retired(require('../licensing/peace.desktop-licenses').DB().licenses[row.assignedLicenseId]?.productId))Fail('DESKTOP_REVOKED',403);
  const db=DB(),auth=require("../security/peace.desktop-security-authority");require("../artifacts/peace.desktop-release-safety").RequireSelection(db,row);
  require('./peace.issued-a-keyring').AssertLauncher(row,db);
  const a=db.artifacts[row.artifactId],b=db.artifacts[db.active.B],o=db.artifacts[db.active.O];
@@ -164,6 +165,7 @@ function IssueLauncher(body={},actor='ADMIN'){
  if(body.licenseId!==undefined){
   if(typeof body.licenseId!=='string'||!/^(?:DL-)?[A-F0-9]{24}$/.test(body.licenseId))Fail('BOOTSTRAP_INPUT_INVALID');
   const license=require("../licensing/peace.desktop-licenses").Detail(body.licenseId).license;
+  if(license.productRetired)Fail('DESKTOP_REVOKED',403);
   if(license.status!=='AVAILABLE'||license.consumed)Fail('DESKTOP_KEY_USED',409);
   if(Object.values(db.launchers).some(l=>l.assignedLicenseId===body.licenseId&&(l.status==='AVAILABLE'&&l.expiresAt>now()||l.status==='CONSUMED'&&db.flows[l.flowId]&&!['CLOSED','REVOKED','EXPIRED'].includes(ProjectStatus(db.flows[l.flowId])))))Fail('WORKSPACE_LICENSE_RESERVED',409);
  }else if(db.artifacts[db.active.B].backgroundVersion===1)Fail('WORKSPACE_LICENSE_REQUIRED',409);
@@ -269,17 +271,19 @@ function Finish(body){
 }
 function FinishResult(row){return {handoffToken:HandoffToken(row),claimCanonical:ClaimCanonical(row),expiresAt:row.handoffExpiresAt};}
 function Claim(body){
- Fields(body,['flowId','handoffToken','signature','binarySha512','crc64','bCodeSha512','bCodeCrc64',...delegation.FIELDS]);const row=DB().flows[body.flowId];FlowLive(row,true);
+ Fields(body,['flowId','handoffToken','signature','binarySha512','crc64','bCodeSha512','bCodeCrc64','themeVersion',...delegation.FIELDS]);
+ if(Object.hasOwn(body,'themeVersion')&&body.themeVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
+ const row=DB().flows[body.flowId];FlowLive(row,true);
  if(!['DOWNLOADED','CLAIMED'].includes(row.status)||!EqualHash(body.handoffToken,row.handoffHash))Fail('BOOTSTRAP_FLOW_INVALID',401);
  RequireFlowPair(row);
  const artifact=DB().artifacts[row.releaseId];CheckFile(artifact,Sha(body.binarySha512),Crc(body.crc64),{stage:'B',row});const child=delegation.Check(row,body,'B',ClaimCanonical(row)),fingerprint=child?delegation.Fingerprint(body):'';AssertFlowLifetime(row);CheckCode(artifact,Sha(body.bCodeSha512),Crc(body.bCodeCrc64),{stage:'B',row});Bytes(artifact);
  AssertFlowLifetime(row);
- if(row.status==='CLAIMED'){if(child&&(row.delegatedClaimFingerprint!==fingerprint||require("../runtime/peace.desktop-deadline").persistent.expired('B.claim-recovery:'+row.id,row.claimedAt,row.delegatedClaimRecoveryUntil)))Fail('BOOTSTRAP_REQUEST_REUSED',409);return ClaimResult(row);}
+ if(row.status==='CLAIMED'){if(child&&(row.delegatedClaimFingerprint!==fingerprint||require("../runtime/peace.desktop-deadline").persistent.expired('B.claim-recovery:'+row.id,row.claimedAt,row.delegatedClaimRecoveryUntil)))Fail('BOOTSTRAP_REQUEST_REUSED',409);return ClaimResult(row,body.themeVersion);}
  if(require("../runtime/peace.desktop-deadline").persistent.expired('B.claim:'+row.id,row.downloadedAt,row.handoffExpiresAt))Fail('BOOTSTRAP_EXPIRED',403);
  Atomic('BOOTSTRAP_CLAIM','SERVER',db=>{const item=db.flows[row.id];AssertFlowLifetime(item);item.bCodeSha512=artifact.codeSha512;item.bCodeCrc64=artifact.codeCrc64;item.codeIntegrityStatus='VERIFIED';item.lastCodeVerifiedAt=now();item.status='CLAIMED';item.claimedAt=now();if(child){item.publicKey=child.publicKey;item.deviceId=child.deviceId;item.childNonce=child.nonce;item.delegatedClaimFingerprint=fingerprint;item.delegatedClaimRecoveryUntil=Math.min(item.handoffExpiresAt,item.claimedAt+30000);}item.sessionNonce=Nonce();item.sessionHash=hash(SessionToken(item));item.sessionExpiresAt=now()+SESSION_MS;require("../devices/peace.desktop-device-registry").ObserveVerified(db,item,'B');require("../devices/peace.desktop-device-identity").RetireContext(item,'A');});
- const claimed=DB().flows[row.id];AssertFlowLifetime(claimed);Audit('DESKTOP_BOOTSTRAP_CLAIMED',{flowId:claimed.id,sessionId:claimed.sessionId,deviceId:claimed.deviceId,releaseId:claimed.releaseId});return ClaimResult(claimed);
+ const claimed=DB().flows[row.id];AssertFlowLifetime(claimed);Audit('DESKTOP_BOOTSTRAP_CLAIMED',{flowId:claimed.id,sessionId:claimed.sessionId,deviceId:claimed.deviceId,releaseId:claimed.releaseId});return ClaimResult(claimed,body.themeVersion);
 }
-function ClaimResult(row){return {sessionId:row.sessionId,sessionToken:SessionToken(row),expiresAt:row.sessionExpiresAt,release:Release(DB().artifacts[row.releaseId])};}
+function ClaimResult(row,themeVersion){return {sessionId:row.sessionId,sessionToken:SessionToken(row),expiresAt:row.sessionExpiresAt,release:Release(DB().artifacts[row.releaseId]),...require('../devices/peace.desktop-ui-theme').Projection(row,themeVersion)};}
 function FindSession(id){return Object.values(DB().flows).find(row=>row.sessionId===id);}
 function SessionAuthenticated(id,token){const row=FindSession(id);if(!row||!row.sessionHash||!EqualHash(token,row.sessionHash))Fail('BOOTSTRAP_SESSION_INVALID',401);return row;}
 function Gate(id,token,deviceId,options={}){

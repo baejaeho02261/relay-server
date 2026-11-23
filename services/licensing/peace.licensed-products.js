@@ -8,12 +8,6 @@ const rows=[
  ['cleaner.apex','Apex Legends','cleaner'],
  ['cleaner.overwatch','Overwatch','cleaner'],
  ['cleaner.counter-strike','Counter-Strike 2','cleaner'],
- ['spoofer.battleye','BattlEye','spoofer'],
- ['spoofer.xigncode3','XIGNCODE3','spoofer'],
- ['spoofer.easy-anti-cheat','Easy Anti-Cheat','spoofer'],
- ['spoofer.vanguard','Riot Vanguard','spoofer'],
- ['spoofer.ricochet','RICOCHET','spoofer'],
- ['spoofer.ace','Anti-Cheat Expert','spoofer'],
  ['mobile.roblox','Roblox','mobile'],
  ['mobile.brawl-stars','Brawl Stars','mobile'],
  ['mobile.pubg-mobile','PUBG MOBILE','mobile'],
@@ -22,7 +16,15 @@ const rows=[
  ['mobile.clash-royale','Clash Royale','mobile']
 ].map(([id,name,category])=>Object.freeze({id,name,category}));
 const catalog=new Map(rows.map(row=>[row.id,row]));
+// Legacy journal/receipt identifiers survive for storage validation and audit
+// only. They are neither available products nor equivalents of another product.
+const retired=new Set([
+ 'spoofer.battleye','spoofer.xigncode3','spoofer.easy-anti-cheat',
+ 'spoofer.vanguard','spoofer.ricochet','spoofer.ace'
+]);
 function Find(value){return typeof value==='string'?catalog.get(value)||null:null;}
+function Retired(value){return retired.has(value);}
+function IsStoredProduct(value){return Find(value)!==null||Retired(value);}
 function Require(value){
  const product=Find(value);if(product)return product;
  const error=Error(value===undefined||value===null||value===''?'DESKTOP_PRODUCT_REQUIRED':'DESKTOP_PRODUCT_INVALID');
@@ -30,5 +32,5 @@ function Require(value){
 }
 function List(){return rows.map(row=>({...row}));}
 function Id(row){return Find(row?.productId)?.id||'';}
-function Projection(row){const product=Find(row?.productId);return {productId:product?.id||'',productName:product?.name||'',productCategory:product?.category||'',productAssigned:!!product};}
-module.exports=Object.freeze({List,Find,Require,Id,Projection});
+function Projection(row){const product=Find(row?.productId),retired=!product&&(Retired(row?.productId)||row?.productRetired===true);return {productId:product?.id||'',productName:product?.name||'',productCategory:product?.category||'',productAssigned:!!product,...(retired?{productRetired:true}:{})};}
+module.exports=Object.freeze({List,Find,Retired,IsStoredProduct,Require,Id,Projection});

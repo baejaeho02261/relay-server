@@ -25,7 +25,7 @@ test('START admits the signed licensed product without extending any session or 
  const event=f.calls.events.find(x=>x.kind==='DESKTOP_OVERLAY_PRODUCT_STARTED');assert.equal(event.productId,'cleaner.pubg');
  assert(!JSON.stringify(event).includes('TOKEN'));assert(!JSON.stringify(event).includes(body.signature));
 });
-test('all 17 other valid cards are denied despite genuine device signatures',()=>{
+test('all other valid cards are denied despite genuine device signatures',()=>{
  const f=fixture(),before=JSON.stringify([f.row,f.parent,f.license]);
  for(const product of products.List())if(product.id!=='cleaner.pubg'){
   assert.throws(()=>f.api.__probe.Start(request(f,{productId:product.id})),/DESKTOP_PRODUCT_NOT_LICENSED/);
@@ -46,9 +46,10 @@ test('unsigned product, sequence, request and session tampering never grants STA
  assert.equal(f.calls.writes,0);
 });
 test('legacy, revoked, expired, untransferred and stale-observation sessions cannot start',()=>{
- for(const mode of ['UNASSIGNED','LICENSE_REVOKED','SESSION_REVOKED','EXPIRED','NOT_TRANSFERRED','STALE','ARTIFACT_REVOKED']){
+ for(const mode of ['UNASSIGNED','PRODUCT_RETIRED','LICENSE_REVOKED','SESSION_REVOKED','EXPIRED','NOT_TRANSFERRED','STALE','ARTIFACT_REVOKED']){
   const f=fixture();
   if(mode==='UNASSIGNED')delete f.license.productId;
+  if(mode==='PRODUCT_RETIRED')f.license.productId='spoofer.battleye';
   if(mode==='LICENSE_REVOKED')f.license.status='REVOKED';
   if(mode==='SESSION_REVOKED')f.row.status='REVOKED';
   if(mode==='EXPIRED')f.row.sessionExpiresAt=Date.now()-1;
@@ -58,6 +59,20 @@ test('legacy, revoked, expired, untransferred and stale-observation sessions can
   assert.throws(()=>f.api.__probe.Start(request(f)),/UNASSIGNED|ACTIVATION_INVALID|REVOKED|EXPIRED|NOT_READY|FRESH_OBSERVATION/,mode);
   assert.equal(f.calls.writes,0,mode);
  }
+});
+test('historical retired receipts stay readable but cannot renew or regrant an overlay',()=>{
+ const f=fixture({observationId:'a'.repeat(48)+':1'}),verify={...f.verify,productScopeVersion:1};
+ f.api.__probe.Start(request(f));
+ f.api.__probe.Verify(verify);
+ f.license.productId=f.row.startReceipt.productId=f.row.verifyReceipt.response.productId='spoofer.battleye';
+ assert.doesNotThrow(()=>f.api.__probe.ValidateStartReceipt(f.row));
+ assert.doesNotThrow(()=>f.api.__probe.ValidateVerifyReceipt(f.row));
+ const writes=f.calls.writes;
+ assert.throws(()=>f.api.__probe.Verify(verify),/DESKTOP_ACTIVATION_INVALID/);
+ const oldStart=request(f,{productId:'spoofer.battleye'});
+ assert.throws(()=>packet.ValidateRequest('bootstrap',oldStart),/PROTOCOL_SCHEMA_INVALID/);
+ assert.throws(()=>f.api.__probe.Start(oldStart),/BOOTSTRAP_INPUT_INVALID/);
+ assert.equal(f.calls.writes,writes);
 });
 test('exact retries retain original grant; older or conflicting sequences never replay',()=>{
  const f=fixture(),body=request(f),first=f.api.__probe.Start(body),writes=f.calls.writes;
@@ -110,9 +125,10 @@ test('native product identifiers and global card order agree with the server cat
  const fs=require('node:fs'),path=require('node:path'),file=path.resolve(__dirname,'../../../Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas');
  if(!fs.existsSync(file))return; // Relay-only deployments do not contain private native sources.
  const {ReadContractFile}=require('../fixtures/source/peace.native-string-contract'),source=ReadContractFile(file,'utf8');
- const body=source.slice(source.indexOf('function OverlayProductID(Card: Integer): string;',source.indexOf('implementation')));
- const mappings=[...body.matchAll(/\b(\d+):\s*Result\s*:=\s*'([^']+)'/g)].slice(0,18);
- assert.equal(mappings.length,18);assert.deepEqual(mappings.map(([_,index,id])=>[Number(index),id]),products.List().map((row,index)=>[index,row.id]));
+ const start=source.indexOf('function OverlayProductID(Card: Integer): string;',source.indexOf('implementation'));
+ const body=source.slice(start,source.indexOf('function OverlayProductCard',start));
+ const mappings=[...body.matchAll(/\b(\d+):\s*Result\s*:=\s*'([^']+)'/g)];
+ assert.equal(mappings.length,12);assert.deepEqual(mappings.map(([_,index,id])=>[Number(index),id]),products.List().map((row,index)=>[index<6?index:index+6,row.id]));
 });
 
 test('scope negotiation cannot be added after a legacy claim or removed after a scoped claim',()=>{

@@ -369,7 +369,7 @@ check('O prepares its unsigned PE exception table before publishing the release 
   assert(fs.existsSync(path.join(native, "Cozy.ImGui/Cozy.Tests/Cozy.Unwind/Cozy.Test-PE-Unwind.ps1")));
 });
 
-check('O theme selection owns its click and leaves window drag capture separate', () => {
+check('O workspace controls own their click and leave window drag capture separate', () => {
   const release = method('procedure TOverlayWindow.ReleaseOwnCapture;', 'procedure TOverlayWindow.CancelInteraction;');
   inOrder(release, ['ApiGetCapture <> FWindow', 'FReleasingCapture := True;', 'try', 'ApiReleaseCapture;', 'finally', 'FReleasingCapture := False;'], 'Release capture');
   const up = method('procedure TOverlayWindow.PointerUp(', 'function TOverlayWindow.Handle(');
@@ -385,7 +385,7 @@ check('O theme selection owns its click and leaves window drag capture separate'
   assert.match(handle, /WM_KILLFOCUS:\s*begin\s*CancelInteraction;/);
   assert.match(handle, /WM_ACTIVATE:\s*if LOWORD\(WParam\) = WA_INACTIVE then CancelInteraction;/);
   const down = method('procedure TOverlayWindow.PointerDown(', 'procedure TOverlayWindow.PointerMove(');
-  inOrder(down, ['not SurfaceHit(X, Y) then Exit;', 'ImGuiMousePos(FContext, X, Y);', 'if ThemeHit(X, Y) then',
+  inOrder(down, ['not SurfaceHit(X, Y) then Exit;', 'ImGuiMousePos(FContext, X, Y);', 'if ThemeHit(X, Y) in [ThemePaletteHit, ThemeDismissHit] then',
     'ApiSetCapture(FWindow);', 'FThemePressed := ApiGetCapture = FWindow;',
     'if FThemePressed then ImGuiMouseButton(FContext, 0, True);', 'Exit;', 'ApiGetCursorPos(FDragAnchor)',
     'ApiGetWindowRect(', 'ApiSetCapture(', 'if ApiGetCapture <> FWindow then Exit;', 'FDragging := True;'], 'Selector or rounded surface drag');
@@ -395,87 +395,103 @@ check('O theme selection owns its click and leaves window drag capture separate'
   assert.match(move, /FDragOrigin\.Y \+ Cursor\.Y - FDragAnchor\.Y/);
 });
 
-check('O draws game-specific artwork and title from a valid signed transfer, with a palette-only dropdown', () => {
+check('O displays the product only after a valid signed transfer and lease', () => {
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['not AuthorityValid then Exit;', 'FLicensedCard := -1;',
     'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
     'if (FLicensedCard < -1) or (FLicensedCard > 17) then FLicensedCard := -1;',
-    'ImGuiNewFrame(', 'SharedPaletteSceneFlag, FSceneSeconds,',
-    '0, FLicensedCard, 0) <> 0', 'ImGuiEndCanvas(',
-    'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified title plus local palette');
-  assert.match(renderer, /SharedPaletteSceneFlag = 128;/);
-  assert.doesNotMatch(renderer, /ApplySceneActions|FSceneKeyActions|FRequestProductRun|FProductRunState|ReadRunState|FCarouselPosition|FBusyCursor|FThemeRequested|FThemeCurrent|FThemePopup/);
+    'ImGuiNewFrame(', 'SceneAction := ImGuiProductScene(FContext, 0, Theme.Index, SceneFlags, FSceneSeconds,',
+    '0, FLicensedCard, 0)', 'ImGuiEndCanvas(',
+    'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified title and shared palette');
+  assert.match(renderer, /WorkspaceSceneFlag = \$1000;/);
+  assert.doesNotMatch(renderer, /FRequestProductRun|FProductRunState|ReadRunState|FCarouselPosition|FBusyCursor/);
 
   const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
-  const lease=controller.slice(controller.indexOf('procedure TOverlayWorker.RenewLease('),controller.indexOf('function TOverlayWorker.LicensedCard:'));
+  const lease=controller.slice(controller.indexOf('procedure TOverlayWorker.RenewLease('),
+    controller.indexOf('function TOverlayWorker.LicensedCard:'));
   inOrder(lease,['Lease := FClient.Verify(', 'ProductCard := FClient.ProductCard;', 'Deadline := FClient.LeaseDeadlineTick;',
     'TransferConfirmed := FClient.TransferConfirmed;', 'TMonitor.Enter(FLock);',
     'FDeadline := Deadline;', 'FProductCard := ProductCard;', 'if TransferConfirmed and not FTransferred then',
     'FTransferred := True;'], 'Verified entitlement publication');
-  const licensed = controller.slice(controller.indexOf('function TOverlayWorker.LicensedCard:'), controller.indexOf('function TOverlayWorker.RequestProductRun('));
+  const licensed=controller.slice(controller.indexOf('function TOverlayWorker.LicensedCard:'),
+    controller.indexOf('function TOverlayWorker.RequestProductRun('));
   inOrder(licensed,['TMonitor.Enter(FLock);', 'Result := -1;', 'not Terminated and not FFailed and FTransferred and',
     '(FDeadline > CozyTick) then Result := FProductCard;', 'TMonitor.Exit(FLock);'], 'Expiring read-only entitlement');
   assert.match(controller,/Result\s*:=\s*Worker\.LicensedCard;/);
+});
 
+check('O has three left tabs with passive product text, one toggle and a Settings-only palette', () => {
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
   const b=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h');
   const palette=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_palette.h');
-  const identity=scene.slice(scene.indexOf('static const char* cozy_game_identity('),scene.indexOf('static constexpr float CozyOverlayWidth'));
-  const title=scene.slice(scene.indexOf('static void cozy_overlay_title('),scene.indexOf('static void cozy_overlay_game_art('));
-  const art=scene.slice(scene.indexOf('static void cozy_overlay_game_art('),scene.indexOf('static int32_t cozy_scene_frame('));
-  const frame=scene.slice(scene.indexOf('static int32_t cozy_scene_frame('),scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v3('));
-  inOrder(identity,['card >= 0 && card < IM_ARRAYSIZE(CozyOverlayTitles)', 'CozyOverlayTitles[card]',
-    'cozy_game_identity(card)', 'draw->AddText('], 'Caption from a bounded, fixed native index');
-  inOrder(title,['if (licensed_card < 0 || opacity <= 0.f) return;', 'cozy_game_caption('], 'Entitlement title');
-  inOrder(art,['if (!cozy_game_identity(licensed_card)) return;', 'cozy_game_cover(', 'licensed_card'],
-    'The licensed identity selects passive artwork');
-  assert.equal(Array.from(art.matchAll(/\bcozy_game_cover\s*\(/g)).length,1);
-  assert.doesNotMatch(art,/draw->|license_hit_add|ImGui::|ButtonBehavior|\.Post\(/);
-  inOrder(frame,['licensed_card < -1 || licensed_card >= IM_ARRAYSIZE(CozyOverlayTitles)',
-    'previous>=IM_ARRAYSIZE(CozyOverlayPalettes)',
-    'if (shared_palette) {', 'license_hit_reset(c,0);', 'cozy_palette_current(c,reduced_motion);',
-    'cozy_palette_panel(draw,origin,scale,c->license_elapsed,opacity,palette);',
-    'cozy_overlay_game_art(draw,origin,scale,licensed_card,opacity,palette);',
-    'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity,palette.text);',
-    'cozy_palette_controls(c,draw,origin,scale,opacity,palette,444.f,c->input_focused);',
-    '} else if (styled) {',
-    'cozy_overlay_palette(previous,selected,reduced_motion?1.f:run_progress);',
-    'cozy_overlay_panel(draw,origin,scale,c->license_elapsed,opacity,palette);',
-    'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity,palette.text);',
-    'cozy_overlay_theme_selector(c,draw,origin,scale,opacity,palette,selected,open,keyboard);',
-    'license_glass_panel(draw,origin+ImVec2(20.f,20.f)*scale,scale,c->license_elapsed,opacity);',
-    'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity);',
-    'return game_imgui_runtime_failed ? -1 : 0;'], 'Styled or legacy read-only rendering');
+  const tabs=scene.slice(scene.indexOf('static const char* const CozyOverlayTabs'),scene.indexOf('static void cozy_workspace_identity('));
+  inOrder(tabs,['"General"', '"Market"', '"Settings"', 'v.box(35.f,y,117.f,y+32.f)', 'v.context->overlay_tab='],
+    'Three bounded left-side workspace tabs');
+  const identity=scene.slice(scene.indexOf('static void cozy_workspace_identity('),scene.indexOf('static void cozy_workspace_market('));
+  inOrder(identity,['if (licensed_card<0 || !CozyOverlayTitles[licensed_card])',
+    'static constexpr Placement placements[]=', 'placements[licensed_card]',
+    'CozyOverlayTitles[licensed_card]'], 'Authorized index chooses the presentation');
+  assert.doesNotMatch(identity,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
+  const settings=scene.slice(scene.indexOf('static int cozy_workspace_settings('),scene.indexOf('static int cozy_overlay_workspace('));
+  assert.equal((settings.match(/overlay_reduced_motion=!v\.context->overlay_reduced_motion/g)||[]).length,1);
+  inOrder(settings,['cozy_palette_item(selector,','CozyOverlayPaletteNames[selected]', 'motion.pressed',
+    'for (int i=0;i<CozyPalettePresetCount;++i)', 'if (i!=selected) requested=i+1;', 'return requested;'],
+    'One animation toggle and four approved theme requests');
+  const workspace=scene.slice(scene.indexOf('static int cozy_overlay_workspace('),scene.indexOf('static int32_t cozy_scene_frame('));
+  inOrder(workspace,['cozy_palette_apply_preset(c,selected,', 'cozy_palette_panel(', 'cozy_workspace_tabs(v,popover);',
+    'if (c->overlay_tab==0) cozy_workspace_identity(', 'if (c->overlay_tab==1) cozy_workspace_market(',
+    'if (c->overlay_tab==2)', 'return cozy_workspace_settings('], 'Only Settings offers appearance controls');
+  assert.match(scene,/if \(workspace\) \{\s*action=cozy_overlay_workspace\(/);
+  assert.doesNotMatch(scene,/AddImage|game_cover|game_mark/);
+  assert.doesNotMatch(workspace,/cozy_palette_controls\(/);
+  assert.match(b,/cozy_palette_apply_preset\(c,theme,true\);/);
+  assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette\);/);
+  assert.doesNotMatch(b,/cozy_palette_controls\(|cozy_palette_hsv\(|game_cover|game_mark/);
+  assert.match(palette,/CozyPalettePresetCount = 4;/);
+  assert.match(palette,/cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars\);/);
   assert.doesNotMatch(method('function TOverlayWindow.ThemeHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;'),
     /FLicensedCard|FGetLicensedCard|Authorize|\.Post\(/);
-  assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette\);/);
-  assert.match(b,/cozy_palette_controls\(c,v\.draw,origin,scale,opacity,v\.palette,65\.f,/);
-  assert.match(palette,/CozyPalettePresetCount = 4;/);
-  assert.match(palette,/columns=16,rows=22;/);
-  const names=palette.match(/static const char\* const CozyPaletteNames\[\] = \{([\s\S]*?)\};/)[1];
-  assert.deepEqual([...names.matchAll(/"([^"]+)"/g)].map(match=>match[1]),
-    ['Blue Starlink','Mint Orbit','Violet Nebula','Amber Nova']);
-  assert.match(palette,/state\.open && ImGui::IsMouseClicked\(ImGuiMouseButton_Left\)/);
-  assert.match(palette,/cozy_palette_choose\(state,state\.menu_selection\)/);
-  assert.match(palette,/for \(int i=0;i<CozyPalettePresetCount;\+\+i\)/);
-  assert.doesNotMatch(palette,/CozyPaletteCustom|cozy_palette_hsv|ColorPicker|Swatch/i);
-  assert.match(palette,/cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars\);/);
-  assert.doesNotMatch(b,/license_glass_(?:panel|shadow|button)\(/);
-  assert.doesNotMatch(scene,/license_flat_panel\(/);
-  assert.doesNotMatch(scene,/ImGui::(?:Button|InvisibleButton|InputText)|AddImage|license_planet|scene_run_progress|start_allowed/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
   assert.match(legacy,/cozy_scene_frame\(game_context\(handle\),phase,selected,flags,-1,\s*animation_seconds,carousel_position,0\.f\)/);
-  const gameNames=['PUBG','TALESRUNNER','LOST_SAGA','APEX_LEGENDS','OVERWATCH','COUNTER_STRIKE_2',
-    'BATTLEYE','XIGNCODE3','EASY_ANTI_CHEAT','RIOT_VANGUARD','RICOCHET','ACE',
+  const names=['PUBG','TALESRUNNER','LOST_SAGA','APEX_LEGENDS','OVERWATCH','COUNTER_STRIKE_2',
     'ROBLOX','BRAWL_STARS','PUBG_MOBILE','GENSHIN_IMPACT','POKEMON_GO','CLASH_ROYALE'];
   const rawScene=fs.readFileSync(path.join(native,'Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h'),'utf8');
-  const list=rawScene.match(/static const char\* const CozyOverlayTitles\[\] = \{([\s\S]*?)\};/)[1];
-  assert.deepEqual([...list.matchAll(/COZY_TEXT_GAME_IMGUI_SCENE_([A-Z_0-9]+)_[0-9A-F]{8}/g)].map(match=>match[1]), gameNames);
+  const titles=rawScene.match(/static const char\* const CozyOverlayTitles\[\] = \{([\s\S]*?)\};/)[1];
+  assert.deepEqual([...titles.matchAll(/COZY_TEXT_GAME_IMGUI_SCENE_([A-Z_0-9]+)_[0-9A-F]{8}/g)].map(match=>match[1]), names);
+  assert.match(titles,/nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,/,
+    'Retired indices do not shift the canonical product mapping');
+});
+
+check('B and O use the authenticated claim theme and only a visible O edit can commit a preference',()=>{
+  const bootstrap=read('Cozy.Source/Cozy.Application/Cozy.Bootstrap.pas');
+  const session=read('Cozy.Source/Cozy.License/Cozy.License.Session.pas');
+  const client=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas');
+  const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
+  assert.match(bootstrap,/Result\.ThemeIndex := BootstrapThemeIndex\(Data\);/);
+  assert.match(session,/RunLicenseWindow\([\s\S]*?Session\.ThemeIndex\);/);
+  assert.match(client,/FSession\.ThemeIndex := BootstrapThemeIndex\(Reply\);/);
+  assert.match(controller,/TOverlayWorker\.Create\(Context, Client, Image, Guard, Session\.ThemeIndex\)/);
+  const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
+  inOrder(paint,['Theme := FReadTheme()', 'ImGuiProductScene(FContext, 0, Theme.Index,',
+    'PresentResult := ImGuiPresent(FContext);', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE)',
+    'if FRendered and FSceneRevealComplete and (SceneAction > 0) and',
+    'Assigned(FQueueTheme) and AuthorityValid then FQueueTheme(SceneAction-1);'], 'Visible edit dispatch');
+  const worker=controller.slice(controller.indexOf('procedure TOverlayWorker.ProcessThemeSave('),
+    controller.indexOf('function TOverlayWorker.ShouldClose:'));
+  inOrder(worker,['Saved := FClient.SaveTheme(FContext.Security, Index, WriteDeadline)',
+    'if Saved and not Terminated and not FFailed and FTransferred and',
+    'FTheme.Index := Index;', 'FTheme.Status := otsIdle;', 'else FTheme.Status := otsFailed;'], 'Authenticated confirmation');
+  const save=client.slice(client.indexOf('function TOverlayClient.SaveTheme('),client.indexOf('function TOverlayClient.InvokeServerPolicy('));
+  inOrder(save,['not FTransferConfirmed', 'Security.Sign(Canonical)', "Reply := Post('overlayTheme', Body, Deadline)",
+    "BootstrapValidateObject(Reply, '|version|sessionId|requestId|sequence|theme|', 5)",
+    "BootstrapInteger(Reply, 'version') <> 1", "BootstrapString(Reply, 'sessionId', 24) <> FSession.SessionID",
+    "BootstrapString(Reply, 'requestId', 80) <> RequestID", "BootstrapInteger(Reply, 'sequence') <> FThemeSequence",
+    "BootstrapInteger(Reply, 'theme') <> Index", 'then InvalidResponse;'], 'Signed request and matching acknowledgement');
 });
 
 check('Existing worker product authorization still rejects denied, stale and mismatched grants',()=>{
   const productState=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas');
-  assert.match(productState,/if \(Card < 0\) or \(Card > 17\) then Exit\(0\);/);
+  assert.match(productState,/if OverlayProductID\(Card\) = '' then Exit\(0\);/);
   assert.match(productState,/Result := 2400 \+ \(\(Card \* 7\) mod 18\) \* 110;/);
   assert.match(productState,/OverlayRunSettleMilliseconds = 160;/);
   assert.match(productState,/OverlayRunGrantMarginMilliseconds = 250;/);
@@ -493,7 +509,7 @@ check('Existing worker product authorization still rejects denied, stale and mis
   assert.doesNotMatch(controller,/RequestCohortShutdown|FRunRequestedAt/,'START has no cohort-shutdown path');
 });
 
-check('O rounds the surface and uses native scene hit testing for its dropdown', () => {
+check('O rounds the surface and uses native scene hit testing for tabs, settings and dismissal', () => {
   const point = method('function TOverlayWindow.ScenePoint(', 'function TOverlayWindow.SurfaceHit(');
   inOrder(point, ['Scale := Area.Right / SceneWidth;', 'VerticalScale := Area.Bottom / SceneHeight;',
     'if VerticalScale < Scale then Scale := VerticalScale;', 'OriginX := (Area.Right-SceneWidth*Scale)/2;',
@@ -506,8 +522,8 @@ check('O rounds the surface and uses native scene hit testing for its dropdown',
     'Result := DX*DX + DY*DY <= Sqr(PanelRadius);'], 'Rounded hit geometry');
   const theme = method('function TOverlayWindow.ThemeHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;');
   inOrder(theme, ['(FContext <> nil) and FRendered and FSceneRevealComplete and',
-    'not FResizePending and not FSessionPaused and',
-    'ImGuiLicenseHit(FContext, X, Y) = ThemePaletteHit'], 'Theme controls share the rendered hit regions');
+    'not FResizePending and not FSessionPaused then',
+    'Result := ImGuiLicenseHit(FContext, X, Y);'], 'Theme controls share the rendered hit regions');
   assert.match(renderer,/ThemePaletteHit = 7;/);
   assert.match(renderer, /SceneWidth = 380;/);
   assert.match(renderer, /SceneHeight = 520;/);

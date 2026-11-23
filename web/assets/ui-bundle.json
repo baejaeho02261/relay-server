@@ -41,7 +41,7 @@
     "icons/icon-512.png": "4e9d6268e698ee01bad6370d9cae872e4fa0768afbd23c8994cb76c5f1f277a3",
     "manifest.json": "69eb076e2f36dbdffee5581f6c225aaf2f96d861742b35ac10098a8181136677",
     "scripts/interface/peace.admin-palette.js": "a3d76c47d56466c01334f1cd7fd7b1aa683ca2b2f5111fcd76aaf3ff6efc8c30",
-    "scripts/desktop/peace.admin-desktop-licenses.js": "bbdd4b53a74789b45bb819cd443e6d92f6c23ea8026bb9b49501cdc4ff82b0cc",
+    "scripts/desktop/peace.admin-desktop-licenses.js": "b288bc96a1857f81b81f5112b9241792f07138244d18cb3396605fc800337e96",
     "scripts/desktop/peace.admin-desktop-members.js": "dbb089a73011a7e0be0fd66b835f66b25a3cc46cfd2b04b335efe120d705582d",
     "scripts/desktop/peace.admin-desktop-security-center.js": "f928ffb6ca671d0bd5bd7e5309d25e6cf9af354eea31fa1f6b4de8ddaadf9fd4",
     "scripts/desktop/peace.admin-desktop-security.js": "f601c1a51ccd48023e9de9d5013b344bc1e0fe45acc8f02f7e2a85f446b105ed",

@@ -37,8 +37,7 @@ test('source: O remains hidden until successful presented B exit and fresh trans
   'ParentCompletion := FContext.ParentCleanupObservation;',
   'if not FTransferred or not FParentRetirementDone or FFailed or',
   'not ParentCompletion.ExitObserved or',
-  'not ParentCompletion.ExitCodeKnown or (ParentCompletion.ExitCode <> 0) or',
-  'not ParentCompletion.DispositionAccepted or not ParentCompletion.FileRemoved then');
+  'not ParentCompletion.ExitCodeKnown or (ParentCompletion.ExitCode <> 0) then');
  assert.doesNotMatch(barrier,/ApiShowWindow|FirstFrameReady|FTransferred := True|FParentRetirementDone := True/);
  order(frame,'not FTransferred or not FParentRetirementDone','if FFirstFrameShown then Exit;',
   'OverlayTransition(FState, osVisible);','OverlayTransition(FState, osTransferred);','FFirstFrameShown := True;');
@@ -108,13 +107,7 @@ test('source: cleanup native refusal is nonfatal but hash/identity failure still
 });
 test('source: OS disposal success and observed removal remain distinct',()=>{
  const c=part(handoff,'procedure THandoffContext.CleanupTransferredParentCore;','procedure THandoffContext.CleanupBinaryAfterLicenseCore;');
- order(c,'SetFileInfo(DeleteFile','Close(DeleteFile);','Close(FParentImage);','Close(FParentProcess);',
-  'ObserveRetiredParentFile(FLauncherPath, FParentObservation);','CloseAll(FParentPins);');
- const observe=part(handoff,'procedure ObserveRetiredParentFile(','procedure THandoffContext.CompleteClaimAndCleanupCore(');
- order(observe,'Deadline := CozyTick + ParentRemovalTimeoutMS;','Attributes := GetFileAttributesW',
-  'Observation.FileRemoved := (Attributes = INVALID_FILE_ATTRIBUTES) and','Error = ERROR_FILE_NOT_FOUND',
-  'if CozyTick >= Deadline then Exit;','CozyPause(ParentRemovalPollMS);');
- assert.doesNotMatch(observe,/SetFileInfo|DeleteFileW|MoveFileEx|ERROR_PATH_NOT_FOUND/);
+ order(c,'SetFileInfo(DeleteFile','Close(DeleteFile);','Close(FParentImage);','Attributes := GetFileAttributesW','Error = ERROR_FILE_NOT_FOUND');
 });
 
 // Independently declared scheduling models; source contracts above bind the

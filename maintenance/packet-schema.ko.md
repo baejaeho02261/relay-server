@@ -1,6 +1,6 @@
 # 공통 요청·응답·관측 규격 v1
 
-`contracts/protocol/peace.packet-schema-v1.json`이 GAME-CONNECT-4의 공개 요청 규격입니다. 7개 operation과 40개 action 조합의 허용·필수 필드, 자료형, 정수 범위, 문자열 길이·바이트 상한, 버전, 동시 존재·상호 배타 필드를 한곳에서 관리합니다. 비밀키나 세션 권한을 담은 파일이 아닙니다.
+`contracts/protocol/peace.packet-schema-v1.json`이 GAME-CONNECT-4의 공개 요청 규격입니다. 7개 operation과 46개 action 조합의 허용·필수 필드, 자료형, 정수 범위, 문자열 길이·바이트 상한, 버전, 동시 존재·상호 배타 필드를 한곳에서 관리합니다. 비밀키나 세션 권한을 담은 파일이 아닙니다.
 
 - `tools/build/peace.generate-packet-schema.js`가 JS 규격 상수와 Delphi `Cozy.ProtocolSchema.inc`를 생성합니다.
 - 전체 소스에서 `node tools/build/peace.generate-packet-schema.js --native-root ../Railway`로 재생성합니다.
@@ -19,7 +19,7 @@ Windows Delphi 실행 결과는 제공된 네이티브 probe를 실제 환경에
 
 ## O 응답과 서버 관측 자료
 
-동일한 JSON의 `documents`는 O 배포 파일 규격·준비·조각 다운로드·완료·claim·갱신·전달 확정·중단·종료 응답과 서버 관측 challenge·payload·판정 응답, 총 12개 문서를 정의합니다. 필수·선택 필드와 중첩된 CRC 역할별 구조, 자체 측정 묶음, 포인터 그래프 관측 및 완화 진단의 버전을 함께 관리합니다. `anyOf`의 각 분기도 알려진 필드만 허용합니다.
+동일한 JSON의 `documents`는 O 배포 파일 규격·준비·조각 다운로드·완료·claim·갱신·전달 확정·중단·종료 응답과 서버 관측 challenge·payload·판정 응답, 총 17개 문서를 정의합니다. 필수·선택 필드와 중첩된 CRC 역할별 구조, 자체 측정 묶음, 포인터 그래프 관측 및 완화 진단의 버전을 함께 관리합니다. `anyOf`의 각 분기도 알려진 필드만 허용합니다.
 
 - 실제 `Cozy.Overlay.Client`는 공통 응답 검증 뒤 기존 파일 해시·세션·부모 연결·원래 만료 시각·다운로드 위치 검증을 계속합니다.
 - `Cozy.ServerAuthority`는 challenge 수신, payload 직렬화 **이전**, 판정 수신 단계에서 같은 생성 규격을 검사합니다. payload 전체 문자열의 해시·서명과 정확히 같은 제출만 재시도하는 규칙은 유지합니다.
@@ -28,3 +28,7 @@ Windows Delphi 실행 결과는 제공된 네이티브 probe를 실제 환경에
 - `Cozy.JsonEnvelopeProbe`와 차등 검사 도구의 문서 모드는 실제 `ValidateProtocolDocument`를 호출합니다. 시험 EXE를 다시 빌드해야 새 문서 검사 모드를 사용할 수 있습니다. Linux의 하네스 검사는 Windows 실행 증거가 아닙니다.
 
 규격은 권한 토큰이나 서버 키가 아닙니다. 규격만 맞춘 입력은 라이선스·실행 권한을 얻지 못합니다.
+
+## B·O 테마
+
+B와 O의 인수 요청은 `themeVersion: 1`로 테마 응답을 요청합니다. 성공 응답의 `theme`은 등록된 설치의 서버 저장값입니다. 기존 요청은 이전 응답 형식을 받습니다. `overlayTheme`은 확정된 O 세션에서만 설치 단위 설정을 저장하며 현재 기기·라이선스·관측 검증을 거칩니다. 서명 문자열은 `COZY-OVERLAY-THEME-V1`, 세션 ID, 요청 ID, 순번, 테마 번호를 LF로 이어 붙인 값입니다. 저장은 세션 갱신과 독립적입니다.

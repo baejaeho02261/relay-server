@@ -366,6 +366,9 @@
         },
         "productId": {
           "$ref": "assignedProduct"
+        },
+        "theme": {
+          "$ref": "uiTheme"
         }
       },
       "required": [
@@ -3140,12 +3143,6 @@
         "cleaner.apex",
         "cleaner.overwatch",
         "cleaner.counter-strike",
-        "spoofer.battleye",
-        "spoofer.xigncode3",
-        "spoofer.easy-anti-cheat",
-        "spoofer.vanguard",
-        "spoofer.ricochet",
-        "spoofer.ace",
         "mobile.roblox",
         "mobile.brawl-stars",
         "mobile.pubg-mobile",
@@ -3163,12 +3160,6 @@
         "cleaner.apex",
         "cleaner.overwatch",
         "cleaner.counter-strike",
-        "spoofer.battleye",
-        "spoofer.xigncode3",
-        "spoofer.easy-anti-cheat",
-        "spoofer.vanguard",
-        "spoofer.ricochet",
-        "spoofer.ace",
         "mobile.roblox",
         "mobile.brawl-stars",
         "mobile.pubg-mobile",
@@ -3228,6 +3219,41 @@
         "durationMs",
         "serverTime",
         "expiresAt"
+      ],
+      "additionalProperties": false
+    },
+    "uiTheme": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "overlayTheme": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "version1"
+        },
+        "sessionId": {
+          "$ref": "id24"
+        },
+        "requestId": {
+          "$ref": "request"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "theme": {
+          "$ref": "uiTheme"
+        }
+      },
+      "required": [
+        "version",
+        "sessionId",
+        "requestId",
+        "sequence",
+        "theme"
       ],
       "additionalProperties": false
     }
@@ -3682,6 +3708,9 @@
           },
           "delegationSignature": {
             "$ref": "signature"
+          },
+          "themeVersion": {
+            "$ref": "version1"
           }
         },
         "required": [
@@ -3895,6 +3924,9 @@
             "$ref": "signature"
           },
           "productScopeVersion": {
+            "$ref": "version1"
+          },
+          "themeVersion": {
             "$ref": "version1"
           }
         },
@@ -5267,6 +5299,50 @@
     },
     {
       "operation": "bootstrap",
+      "action": "overlayTheme",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayTheme"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2147483647
+          },
+          "theme": {
+            "$ref": "uiTheme"
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken",
+          "requestId",
+          "sequence",
+          "theme",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
       "action": "nhwReport",
       "body": {
         "type": "object",
@@ -5397,6 +5473,9 @@
         "terminate"
       ],
       "additionalProperties": false
+    },
+    "overlayTheme": {
+      "$ref": "overlayTheme"
     }
   }
 }

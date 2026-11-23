@@ -232,19 +232,20 @@ async function renderDesktopLicenses(silent = false) {
   desktopRenderedQuery=desktopLicenseQuery;desktopRenderedStatus=desktopLicenseStatus;
   desktopMemberRenderedQuery=desktopMemberQuery;desktopMemberRenderedStatus=desktopMemberStatus;
 }
-const desktopProductCategories=Object.freeze({cleaner:'Cleanner',mobile:'Mobile',spoofer:'Spoofer'});
+const desktopProductCategories=Object.freeze({cleaner:'Cleanner',mobile:'Mobile'});
 function desktopProductProjection(row) {
+  if(row?.productRetired===true)return '지원 종료 · 사용 불가';
   return row?.productAssigned===true&&typeof row.productId==='string'&&typeof row.productName==='string'&&row.productName.length>0&&Object.hasOwn(desktopProductCategories,row.productCategory)&&row.productId.startsWith(row.productCategory+'.')
-    ?desktopProductCategories[row.productCategory]+' · '+row.productName:'제품 미지정 · START 사용 불가';
+    ?desktopProductCategories[row.productCategory]+' · '+row.productName:'제품 미지정';
 }
 function desktopProductMarkup(row) {return `<span class="desktop-product-scope">${esc(desktopProductProjection(row))}</span>`;}
 async function desktopLoadProducts(owner) {
   const data=await api('/api/desktop/products');
   if(!roleIsAdmin()||session?.csrf!==owner)return null;
-  const seen=new Set(),counts={cleaner:0,mobile:0,spoofer:0};
-  if(data?.version!==1||!Array.isArray(data.products)||data.products.length!==18)throw Error('발급 가능한 제품 목록을 확인하지 못했습니다. 다시 조회하세요.');
+  const seen=new Set(),counts={cleaner:0,mobile:0};
+  if(data?.version!==1||!Array.isArray(data.products)||data.products.length!==12)throw Error('발급 가능한 제품 목록을 확인하지 못했습니다. 다시 조회하세요.');
   const products=data.products.map(row=>{
-    if(!row||typeof row.id!=='string'||!/^(cleaner|mobile|spoofer)\.[a-z0-9-]{1,40}$/.test(row.id)||seen.has(row.id)||!Object.hasOwn(counts,row.category)||!row.id.startsWith(row.category+'.')||typeof row.name!=='string'||!row.name.trim()||row.name.length>80)throw Error('발급 가능한 제품 목록의 형식이 올바르지 않습니다.');
+    if(!row||typeof row.id!=='string'||!/^(cleaner|mobile)\.[a-z0-9-]{1,40}$/.test(row.id)||seen.has(row.id)||!Object.hasOwn(counts,row.category)||!row.id.startsWith(row.category+'.')||typeof row.name!=='string'||!row.name.trim()||row.name.length>80)throw Error('발급 가능한 제품 목록의 형식이 올바르지 않습니다.');
     seen.add(row.id);counts[row.category]++;return Object.freeze({id:row.id,name:row.name,category:row.category});
   });
   if(Object.values(counts).some(count=>count!==6))throw Error('카테고리별 제품 목록을 확인하지 못했습니다.');

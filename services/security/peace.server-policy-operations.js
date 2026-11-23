@@ -76,7 +76,7 @@ function Current(body, fresh) {
   const record = registry.InvocationRecord(db,row,body.stage,body.policyId,body.functionId,body.args);
   if (body.stage === 'B') {
     const license = require('../licensing/peace.desktop-licenses').DB().licenses[row.licenseId], now = Date.now();
-    if (!license || !license.consumed || license.status !== 'USED' || license.releasedAt ||
+    if (!license || require('../licensing/peace.licensed-products').Retired(license.productId) || !license.consumed || license.status !== 'USED' || license.releasedAt ||
         license.deviceId !== row.deviceId || license.bootstrapSessionId !== row.sessionId ||
         license.expiresAt && license.expiresAt <= now || now < license.activatedAt ||
         !Number.isSafeInteger(row.licenseLeaseExpiresAt) || row.licenseLeaseExpiresAt <= now || now < (row.lastVerifiedAt || 0)) Fail('LICENSE_REQUIRED');
