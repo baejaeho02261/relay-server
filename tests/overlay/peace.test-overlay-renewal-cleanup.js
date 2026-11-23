@@ -58,7 +58,7 @@ test('source: batch callback cannot manufacture a lease',()=>{
 });
 test('source: retries a loader-only generation race before signing any part of a fresh inventory',()=>{
  order(core,"StartupPhaseCore('MODULES_BEGIN')",'for ScanAttempt := 0 to ModuleGenerationRetryLimit do',
-  'MaintainLease(ScanAttempt = 0);','Snapshot := CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity);',
+  'MaintainLease(ScanAttempt = 0);','Snapshot := CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity, ServiceTheme);',
   '(ScanAttempt = ModuleGenerationRetryLimit) or','not ModuleInventoryGenerationRetryable(Snapshot) then Break;',
   'FreeAndNil(Snapshot);','SnapshotID := BootstrapRequestID;');
  assert.match(core,/ModuleGenerationRetryLimit = 2;/);
@@ -81,7 +81,7 @@ test('source: a single byte-bounded inventory is signed and each batch remains s
 });
 test('source: default nil callback preserves existing callers',()=>{
  assert.equal((client.match(/const MaintainLease: TProc<Boolean> = nil/g)||[]).length,2);
- assert.match(client,/ReportIntegrityCore\(Security, CodeIntegrity, Image, IncludeModules, Cancelled, FailureStatus, OwnImage, MaintainLease\)/);
+ assert.match(client,/ReportIntegrityCore\(Security, CodeIntegrity, Image, IncludeModules, Cancelled,\s*FailureStatus, OwnImage, MaintainLease, ServiceTheme\)/);
 });
 test('source: old grant/cancellation is checked before publication',()=>{
  const s=part(overlay,'procedure TOverlayWorker.RenewLease(','procedure TOverlayWorker.StartAuthorized;');

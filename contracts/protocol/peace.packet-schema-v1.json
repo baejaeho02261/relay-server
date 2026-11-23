@@ -3223,9 +3223,21 @@
       "additionalProperties": false
     },
     "uiTheme": {
-      "type": "integer",
-      "minimum": 0,
-      "maximum": 3
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        {
+          "type": "integer",
+          "minimum": 16777216,
+          "maximum": 33554431
+        }
+      ]
+    },
+    "uiThemeVersion": {
+      "enum": [1, 2]
     },
     "overlayTheme": {
       "type": "object",
@@ -3710,7 +3722,7 @@
             "$ref": "signature"
           },
           "themeVersion": {
-            "$ref": "version1"
+            "$ref": "uiThemeVersion"
           }
         },
         "required": [
@@ -3927,7 +3939,7 @@
             "$ref": "version1"
           },
           "themeVersion": {
-            "$ref": "version1"
+            "$ref": "uiThemeVersion"
           }
         },
         "required": [

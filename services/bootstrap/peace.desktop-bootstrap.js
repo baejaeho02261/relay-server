@@ -271,7 +271,7 @@ function Finish(body){
 function FinishResult(row){return {handoffToken:HandoffToken(row),claimCanonical:ClaimCanonical(row),expiresAt:row.handoffExpiresAt};}
 function Claim(body){
  Fields(body,['flowId','handoffToken','signature','binarySha512','crc64','bCodeSha512','bCodeCrc64','themeVersion',...delegation.FIELDS]);
- if(Object.hasOwn(body,'themeVersion')&&body.themeVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
+ if(Object.hasOwn(body,'themeVersion')&&!require('../devices/peace.desktop-ui-theme').ValidVersion(body.themeVersion))Fail('BOOTSTRAP_INPUT_INVALID',400);
  const row=DB().flows[body.flowId];FlowLive(row,true);
  if(!['DOWNLOADED','CLAIMED'].includes(row.status)||!EqualHash(body.handoffToken,row.handoffHash))Fail('BOOTSTRAP_FLOW_INVALID',401);
  RequireFlowPair(row);

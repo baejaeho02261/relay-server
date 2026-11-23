@@ -424,30 +424,45 @@ check('O draws the ordered Font Awesome tabs at the left edge and keeps the appe
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
   const b=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h');
   const palette=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_palette.h');
+  const icons=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_fontawesome.h');
   const tabs=scene.slice(scene.indexOf('static constexpr CozyWorkspaceTabControl CozyWorkspaceTabs'),scene.indexOf('static void cozy_workspace_usage_meter('));
   inOrder(tabs,['{CozyFaSkull, "General"}', '{CozyFaEye, "Market"}',
     '{CozyFaCrosshairs, "Usage"}', '{CozyFaGear, "Settings"}', 'CozyWorkspaceRailCenter=44.f',
-    'static void cozy_workspace_alien(', 'PathBezierCubicCurveTo(', 'AddEllipseFilled('],
-    'Four ordered Font Awesome workspace symbols and the drawn alien face');
-  const alien=tabs.slice(tabs.indexOf('static void cozy_workspace_alien('),tabs.indexOf('static void cozy_workspace_tabs('));
-  assert.doesNotMatch(alien,/AddCircle|PathArcTo/);
+    'static void cozy_workspace_tabs('], 'Four ordered Font Awesome workspace symbols');
+  assert.doesNotMatch(tabs,/cozy_workspace_alien/);
   const tabControls=tabs.slice(tabs.indexOf('static void cozy_workspace_tabs('));
-  inOrder(tabControls,['cozy_workspace_alien(v);', 'v.box(24.f,y,66.f,y+32.f)',
+  inOrder(tabControls,['const float center=CozyWorkspaceRailCenter+42.f*i;',
+    'v.box(24.f,center-18.f,64.f,center+18.f)',
     'cozy_palette_item(area,CozyWorkspaceTabs[i].label,', 'v.context->overlay_tab=',
-    'cozy_fontawesome_icon(v.draw,CozyWorkspaceTabs[i].icon,'],
-    'Only the drawn tab is visible and its named hit target stays keyboard-operable');
-  assert.doesNotMatch(tabControls,/\.text\(|AddText\(/);
+    'const bool selected=v.context->overlay_tab==i;', 'const float outline=selected?0.f:',
+    'cozy_fontawesome_icon(v.draw,CozyWorkspaceTabs[i].icon,',
+    'v.at(CozyWorkspaceRailCenter,center),optical_sizes[i]*v.scale,ink,outline);'],
+    'Edge alignment, keyboard targets, optical sizing and selected fill');
+  assert.doesNotMatch(tabControls,/\.text\(|AddText\(|AddRect|license_glass_contour/);
+  inOrder(icons,['static void cozy_fontawesome_icon(', 'if (outline>0.f)',
+    'PathStroke(ink,ImDrawFlags_Closed,outline);', 'return;', 'mesh.triangles[i]'],
+    'Inactive contour uses the same authored glyph geometry as active fill');
+  const workspaceView=scene.slice(scene.indexOf('struct CozyWorkspaceView'),scene.indexOf('enum CozyWorkspaceTab'));
+  inOrder(workspaceView,['cozy_scene_font_size(size*scale)', 'CalcTextSizeA(',
+    'ImFloor(start.x+.5f)', 'ImFloor(start.y+.5f)'], 'Text uses density-aware atlas sizing and pixel alignment');
   const checkbox=scene.slice(scene.indexOf('static void cozy_workspace_checkbox('),scene.indexOf('static int cozy_workspace_settings('));
   inOrder(checkbox,['cozy_palette_item(row,label,interactive)', 'disabled=!disabled;',
     'ImGuiItemStatusFlags_Checkable', 'ImGuiItemStatusFlags_Checked', 'license_glass_contour(v.draw,checkbox.Min,checkbox.Max,',
     'if (checked)', 'PathStroke('], 'Theme checkbox tracks an interactive boolean and draws a check mark');
   const settings=scene.slice(scene.indexOf('static int cozy_workspace_settings('),scene.indexOf('static int cozy_overlay_workspace('));
   assert.equal((settings.match(/cozy_workspace_checkbox\(/g)||[]).length,2);
-  inOrder(settings,['cozy_palette_item(selector,','CozyOverlayPaletteNames[selected]', 'if (saving)',
-    'PathArcTo(', 'if (failed)', 'cozy_workspace_checkbox(', 'overlay_stars_paused',
-    'cozy_workspace_checkbox(', 'overlay_stars_hidden',
-    'for (int i=0;i<CozyPalettePresetCount;++i)', 'if (i!=selected) requested=i+1;', 'return requested;'],
-    'Independent checkboxes, graphical save feedback and four approved theme requests');
+  inOrder(settings,['black_row=CozyPalettePresetCount,custom_row=black_row+1',
+    'cozy_palette_item(selector,','cozy_workspace_theme_name(selected,hex,name);', 'if (saving)',
+    'PathArcTo(', 'if(failed && !state.open)', 'cozy_workspace_checkbox(', 'overlay_stars_paused',
+    'cozy_workspace_checkbox(', 'overlay_stars_hidden', 'if(editing)return cozy_workspace_color_editor(v,selected);',
+    'for (int i=0;i<=custom_row;++i)', 'const int theme=i==black_row?CozyThemeRgbTag:i;',
+    'editing=true;', 'if (theme!=selected) requested=theme+1;', 'return requested;'],
+    'Independent checkboxes, graphical save feedback, presets, pure black and an RGB editor');
+  const editor=scene.slice(scene.indexOf('static void cozy_workspace_rgb_slider('),
+    scene.indexOf('static int cozy_workspace_settings('));
+  inOrder(editor,['const unsigned mask=255u<<shift;', 'channel=ImClamp(', 'rgb=minimum|',
+    'for(int i=0;i<3;++i)cozy_workspace_rgb_slider(', 'const int draft=CozyThemeRgbTag|',
+    'return draft!=selected?draft+1:0;'], 'All three 8-bit color channels commit only on Apply');
   assert.doesNotMatch(settings,/Saving theme|Shared theme|Appearance|\.rule\(/i);
   const usage=scene.slice(scene.indexOf('static void cozy_workspace_usage_meter('),scene.indexOf('static void cozy_workspace_checkbox('));
   inOrder(usage,['ImLerp(start,328.f,amount)', 'AddRectFilled(', 'static void cozy_workspace_usage(',
@@ -455,7 +470,7 @@ check('O draws the ordered Font Awesome tabs at the left edge and keeps the appe
     'Usage renders clearly labeled sample bars');
   assert.doesNotMatch(usage,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
   const workspace=scene.slice(scene.indexOf('static int cozy_overlay_workspace('),scene.indexOf('static int32_t cozy_scene_frame('));
-  inOrder(workspace,['cozy_palette_apply_preset(c,selected,', 'cozy_palette_panel(', '!c->overlay_stars_hidden',
+  inOrder(workspace,['cozy_palette_apply_theme(c,selected,', 'cozy_palette_panel(', '!c->overlay_stars_hidden',
     'cozy_workspace_tabs(v,popover);', 'if (c->overlay_tab==CozyWorkspaceSettings)',
     'return cozy_workspace_settings(', 'if (c->overlay_tab==CozyWorkspaceUsage)', 'cozy_workspace_usage('],
     'Settings and Usage alone add content to the shared workspace background');
@@ -464,7 +479,7 @@ check('O draws the ordered Font Awesome tabs at the left edge and keeps the appe
   assert.match(scene,/if \(workspace\) \{\s*action=cozy_overlay_workspace\(/);
   assert.doesNotMatch(scene,/AddImage|game_cover|game_mark/);
   assert.doesNotMatch(workspace,/cozy_palette_controls\(/);
-  assert.match(b,/cozy_palette_apply_preset\(c,theme,true\);/);
+  assert.match(b,/cozy_palette_apply_theme\(c,theme,true\);/);
   assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette\);/);
   assert.doesNotMatch(b,/cozy_palette_controls\(|cozy_palette_hsv\(|game_cover|game_mark/);
   assert.match(palette,/CozyPalettePresetCount = 4;/);
@@ -488,16 +503,26 @@ check('B and O use the authenticated claim theme and only a visible O edit can c
   const client=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas');
   const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
   assert.match(bootstrap,/Result\.ThemeIndex := BootstrapThemeIndex\(Data\);/);
+  assert.match(bootstrap,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(2\)\);/);
   assert.match(session,/RunLicenseWindow\([\s\S]*?Session\.ThemeIndex\);/);
   assert.match(client,/FSession\.ThemeIndex := BootstrapThemeIndex\(Reply\);/);
+  assert.match(client,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(2\)\);/);
   assert.match(controller,/TOverlayWorker\.Create\(Context, Client, Image, Guard, Session\.ThemeIndex\)/);
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['Theme := FReadTheme()', 'ImGuiProductScene(FContext, 0, Theme.Index,',
+    'not BootstrapThemeValid(Int64(SceneAction) - 1)',
     'PresentResult := ImGuiPresent(FContext);', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE)',
     'if FRendered and FSceneRevealComplete and (SceneAction > 0) and',
     'Assigned(FQueueTheme) and AuthorityValid then FQueueTheme(SceneAction-1);'], 'Visible edit dispatch');
-  const worker=controller.slice(controller.indexOf('procedure TOverlayWorker.ProcessThemeSave('),
+  const worker=controller.slice(controller.indexOf('function TOverlayWorker.ProcessThemeSave('),
     controller.indexOf('function TOverlayWorker.ShouldClose:'));
+  const execute=controller.slice(controller.indexOf('procedure TOverlayWorker.Execute;'));
+  inOrder(execute,['ProcessThemeSave(ThemeWriteBudgetMs);', 'Refresh;', 'ProcessThemeSave(ThemeWriteBudgetMs);'],
+    'Dispatch before long refresh and after lease renewal');
+  assert.match(worker,/FDeadline - At < RenewalReserve \+ ThemeMinimumWriteMs/);
+  assert.match(worker,/WriteDeadline := At \+ WriteBudget/);
+  assert.doesNotMatch(worker,/NextCheck/);
+  assert.match(controller,/not FThemeSaving and\s*\(CozyTick >= FThemeQueueDeadline\)/);
   inOrder(worker,['Saved := FClient.SaveTheme(FContext.Security, Index, WriteDeadline)',
     'if Saved and not Terminated and not FFailed and FTransferred and',
     'FTheme.Index := Index;', 'FTheme.Status := otsIdle;', 'else FTheme.Status := otsFailed;'], 'Authenticated confirmation');

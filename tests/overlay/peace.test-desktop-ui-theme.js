@@ -4,10 +4,13 @@ const assert=require('node:assert/strict'),crypto=require('node:crypto'),fs=requ
 const os=require('node:os'),path=require('node:path'),{spawnSync}=require('node:child_process');
 const test=require('node:test');
 
-test('a confirmed O persists a signed theme for later B/O launches on the same installation',()=>{
+const engine=process.argv.includes('--sqlite')?'sqlite':'json';
+const black=0x1000000,white=0x1ffffff;
+
+test(`a confirmed O persists a signed full-RGB theme for later B/O launches on ${engine}`,()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-native-ui-theme-'));
  Object.assign(process.env,{
-  DATA_DIR:temp,STORAGE_ENGINE:'json',HA_ENABLED:'0',
+  DATA_DIR:temp,STORAGE_ENGINE:engine,HA_ENABLED:'0',
   DESKTOP_PUBLIC_HOST:'127.0.0.1',DESKTOP_PUBLIC_PORT:'29131'
  });
  require('../../core/peace.utilities').EnsureDirs();
@@ -26,11 +29,11 @@ test('a confirmed O persists a signed theme for later B/O launches on the same i
   schema.ValidateEnvelope(packet);
   return dispatch.Execute(dispatch.Prepare(packet),packet,{bootstrap:bootstrap.Execute});
  }
- function StartB(device,withTheme=true){
+ function StartB(device,themeVersion=1){
   const child=fixture.Child(device),{begin}=fixture.Begin(device);
   fixture.Download(begin);
   const body=fixture.ClaimBody(device,begin,fixture.Finish(device,begin),child);
-  const session=Call(withTheme?{...body,themeVersion:1}:body);
+  const session=Call(themeVersion===null?body:{...body,themeVersion});
   fixture.Enroll(child,{stage:'B',sessionId:session.sessionId,sessionToken:session.sessionToken,machineId:child.machineId});
   return {child,session};
  }
@@ -45,7 +48,7 @@ test('a confirmed O persists a signed theme for later B/O launches on the same i
   return licenses.Execute({...request,challengeId:challenge.challengeId,payloadJSON,
    signature:fixture.Sign(client,challenge.canonical)});
  }
- function ClaimO({child,session}){
+ function ClaimO({child,session},themeVersion=1){
   const license=licenses.Create({productId:'cleaner.pubg',requestId:crypto.randomUUID(),label:'UI theme test'},'TEST');
   const activation=License('redeem',child,session,{licenseKey:license.licenseKey,deviceName:'Test B'});
   const {overlayId,overlayTicket,chunkSize,release,finishCanonical,claimCanonical}=
@@ -54,7 +57,8 @@ test('a confirmed O persists a signed theme for later B/O launches on the same i
   for(let offset=0;offset<release.size;offset+=chunkSize)Call({action:'overlayChunk',overlayId,overlayTicket,offset});
   Call({action:'overlayFinish',overlayId,overlayTicket,signature:fixture.Sign(child,finishCanonical)});
   const device=fixture.Child(child);
-  const body={action:'overlayClaim',overlayId,overlayTicket,productScopeVersion:1,themeVersion:1,
+  const body={action:'overlayClaim',overlayId,overlayTicket,productScopeVersion:1,
+   ...(themeVersion===null?{}:{themeVersion}),
    binarySha512:release.sha512,crc64:release.crc64,oCodeSha512:release.codeSha512,oCodeCrc64:release.codeCrc64,
    ...fixture.Delegated(child,device,'O',claimCanonical)};
   const live=Call(body);
@@ -92,7 +96,9 @@ test('a confirmed O persists a signed theme for later B/O launches on the same i
   const proof=bootstrap.ProofTasks(violet)[0];
   assert.ok(work.Verify(overlay.device.publicKey,proof.message.toString(),violet.signature));
   assert.throws(()=>Call({...violet,sessionToken:'a'.repeat(43)}),/BOOTSTRAP_SESSION_INVALID/);
-  assert.throws(()=>Call({...violet,theme:4}),/PROTOCOL_SCHEMA_INVALID/);
+  for(const invalid of [-1,4,0xffffff,black+0.5,white+1,String(black)]){
+   assert.throws(()=>Call({...violet,theme:invalid}),/PROTOCOL_SCHEMA_INVALID/);
+  }
   assert.throws(()=>Call({...violet,theme:3}),/BOOTSTRAP_PROOF_INVALID/);
   const saved=Call(violet),saveRevision=store.Load().revision;
   assert.deepEqual(saved,{version:1,sessionId:violet.sessionId,requestId:violet.requestId,sequence:1,theme:2});
@@ -103,7 +109,45 @@ test('a confirmed O persists a signed theme for later B/O launches on the same i
   const amber=SignedTheme(overlay,3,2);
   assert.equal(Call(amber).theme,3);
   assert.throws(()=>Call(violet),/BOOTSTRAP_REQUEST_REUSED/);
+  const binding=registry.BindingId(first.machineId,store.Load());
+  assert.equal(registry.State().bindings[binding].uiTheme,3);
+  const persistence=require('../../services/devices/peace.desktop-ui-theme');
+  assert.deepEqual(persistence.Projection(first,1),{theme:3});
+  assert.deepEqual(persistence.Projection(first,2),{theme:3});
+  const whiteRequest=SignedTheme(overlay,white,3);
+  assert.equal(Call(whiteRequest).theme,white);
+  const blackRequest=SignedTheme(overlay,black,4);
+  assert.throws(()=>Call({...blackRequest,theme:black+1}),/BOOTSTRAP_PROOF_INVALID/);
+  const blackReceipt=Call(blackRequest);
+  const rgbRevision=store.Load().revision;
+  assert.deepEqual(blackReceipt,{version:1,sessionId:blackRequest.sessionId,
+   requestId:blackRequest.requestId,sequence:4,theme:black});
+  assert.deepEqual(Call(blackRequest),blackReceipt);
+  assert.equal(store.Load().revision,rgbRevision);
+  assert.equal(store.Load().overlays[overlay.overlayId].themeReceipt.sequence,2);
+  assert.equal(store.Load().overlays[overlay.overlayId].themeRgbReceipt.sequence,4);
+  assert.throws(()=>Call(amber),/BOOTSTRAP_REQUEST_REUSED/);
+  assert.throws(()=>Call(whiteRequest),/BOOTSTRAP_REQUEST_REUSED/);
+  assert.equal(Call(SignedTheme(overlay,0,5)).theme,0);
+  assert.equal(registry.State().bindings[binding].uiTheme,0);
+  assert.equal(Object.hasOwn(registry.State().bindings[binding],'uiThemeRgb'),false);
+  assert.equal(Object.hasOwn(store.Load().overlays[overlay.overlayId],'themeRgbReceipt'),false);
+  assert.throws(()=>Call(blackRequest),/BOOTSTRAP_REQUEST_REUSED/);
+  assert.equal(Call(SignedTheme(overlay,black,6)).theme,black);
+  if(process.env.COZY_LEGACY_RELAY_ROOT){
+   const legacyCheck=spawnSync(process.execPath,['-e',`
+    const assert=require('node:assert/strict');
+    const store=require('./services/bootstrap/peace.desktop-bootstrap-store');
+    const persistence=require('./services/devices/peace.desktop-ui-theme');
+    const row=store.Load().overlays[process.argv[2]];
+    assert.equal(row.themeReceipt.theme,0);
+    assert.equal(row.themeRgbReceipt.sequence,6);
+    assert.deepEqual(persistence.Projection({machineId:process.argv[1]},1),{theme:0});
+   `,first.machineId,overlay.overlayId],{cwd:process.env.COZY_LEGACY_RELAY_ROOT,encoding:'utf8'});
+   assert.equal(legacyCheck.status,0,legacyCheck.stderr);
+  }
   assert.equal(Call({action:'overlayClose',sessionId:overlay.live.sessionId,sessionToken:overlay.live.sessionToken}).status,'CLOSED');
+  assert.equal(Object.hasOwn(store.Load().overlays[overlay.overlayId],'themeRgbReceipt'),false);
   assert.throws(()=>Call(amber),/BOOTSTRAP_SESSION_CLOSED/);
 
   // Fresh A/B/O still requires the existing single-use machine unlock and a
@@ -111,26 +155,42 @@ test('a confirmed O persists a signed theme for later B/O launches on the same i
   const machinePolicy=require('../../services/devices/peace.desktop-machine-policy');
   assert.equal(machinePolicy.Public(first.machineId).source,'SINGLE_USE');
   machinePolicy.Set(first.machineId,false,{requestId:crypto.randomUUID(),reason:'Approve a fresh test run'},'TEST');
-  const next=StartB(fixture.Child(first));
-  assert.equal(next.session.theme,3);
-  assert.equal(ClaimO(next).live.theme,3);
-  assert.equal(StartB(fixture.Device()).session.theme,0);
+  const next=StartB(fixture.Child(first),2);
+  assert.equal(next.session.theme,black);
+  assert.equal(ClaimO(next,2).live.theme,black);
+  assert.equal(StartB(fixture.Device(),2).session.theme,0);
   machinePolicy.Set(first.machineId,false,{requestId:crypto.randomUUID(),reason:'Approve a legacy test run'},'TEST');
-  assert.equal(Object.hasOwn(StartB(fixture.Child(first),false).session,'theme'),false);
+  const legacy=StartB(fixture.Child(first));
+  assert.equal(legacy.session.theme,0);
+  assert.equal(ClaimO(legacy).live.theme,0);
+  machinePolicy.Set(first.machineId,false,{requestId:crypto.randomUUID(),reason:'Approve a theme-free test run'},'TEST');
+  const withoutTheme=StartB(fixture.Child(first),null);
+  assert.equal(Object.hasOwn(withoutTheme.session,'theme'),false);
+  assert.equal(Object.hasOwn(ClaimO(withoutTheme,null).live,'theme'),false);
 
-  const binding=registry.BindingId(first.machineId,store.Load());
-  assert.equal(registry.State().bindings[binding].uiTheme,3);
+  assert.equal(Object.hasOwn(registry.State().bindings[binding],'uiTheme'),false);
+  assert.equal(registry.State().bindings[binding].uiThemeRgb,black);
   const check=spawnSync(process.execPath,['-e',`
    const assert=require('node:assert/strict');
    const registry=require('./services/devices/peace.desktop-device-registry');
    const persistence=require('./services/devices/peace.desktop-ui-theme');
-   assert.equal(registry.State().bindings[process.argv[1]].uiTheme,3);
-   assert.deepEqual(persistence.Projection({machineId:process.argv[2]},1),{theme:3});
+   const black=0x1000000,row={machineId:process.argv[2]};
+   assert.equal(registry.State().bindings[process.argv[1]].uiThemeRgb,black);
+   assert.deepEqual(persistence.Projection(row,1),{theme:0});
+   assert.deepEqual(persistence.Projection(row,2),{theme:black});
   `,binding,first.machineId],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8'});
   assert.equal(check.status,0,check.stderr);
   const invalid=structuredClone(registry.State());
   invalid.bindings[binding].uiTheme=4;
   assert.throws(()=>registry.Validate(invalid),/DEVICE_REGISTRY_INVALID/);
+  delete invalid.bindings[binding].uiTheme;
+  invalid.bindings[binding].uiThemeRgb=3;
+  assert.throws(()=>registry.Validate(invalid),/DEVICE_REGISTRY_INVALID/);
+
+  // An older server's write recreates the preset slot; the v2 reader must
+  // respect it even when its value matches the older server's default.
+  store.Atomic(db=>{registry.State(db).bindings[binding].uiTheme=0;});
+  assert.deepEqual(persistence.Projection(first,2),{theme:0});
  }finally{
   bootstrap.Stop();
   fs.rmSync(temp,{recursive:true,force:true});

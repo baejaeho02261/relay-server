@@ -33,7 +33,7 @@ function Live(row){if(row){require("../recovery/peace.desktop-recovery").Assert(
 function Retire(row,afterCommit=false){
  store.AfterCommit(()=>{for(const kind of ['O.session:','O.handoff:','O.claim-recovery:','O.verify-recovery:','O.start-recovery:'])require("../runtime/peace.desktop-deadline").persistent.forget(kind+row.id);});
  row.retiredAt||=now();
- for(const key of ['verifyReceipt','ticketNonce','sessionNonce','claimRecoveryUntil','claimFingerprint','themeReceipt'])delete row[key];
+ for(const key of ['verifyReceipt','ticketNonce','sessionNonce','claimRecoveryUntil','claimFingerprint','themeReceipt','themeRgbReceipt'])delete row[key];
  row.chunkOffsets=[];
  const clearVolatile=()=>{
   require("../devices/peace.desktop-device-identity").RetireContext(row,'O');
@@ -90,7 +90,7 @@ function Finish(body){Fields(body,['overlayId','overlayTicket','signature']);con
  }
  return {overlayId:row.id,overlayTicket:body.overlayTicket,claimCanonical:Canonical(row,'CLAIM'),expiresAt:row.expiresAt};
 }
-function Claim(body){Fields(body,['overlayId','overlayTicket','signature','binarySha512','crc64','oCodeSha512','oCodeCrc64','productScopeVersion','themeVersion',...delegation.FIELDS]);if(Object.hasOwn(body,'productScopeVersion')&&body.productScopeVersion!==1||Object.hasOwn(body,'themeVersion')&&body.themeVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);const row=TicketRow(body),child=delegation.Check(row,body,'O',Canonical(row,'CLAIM')),delegatedFingerprint=child?delegation.Fingerprint(body):'',fingerprint=sha(JSON.stringify([body.overlayId,body.overlayTicket,body.signature,body.binarySha512,body.crc64,body.oCodeSha512,body.oCodeCrc64,...(body.productScopeVersion===1?[1]:[]),...(body.themeVersion===1?['theme1']:[])]));Live(row);if(row.status==='CLAIMED'){if(require("../runtime/peace.desktop-deadline").persistent.expired('O.claim-recovery:'+row.id,row.claimedAt,row.claimRecoveryUntil)||!row.claimRecoveryUntil||row.claimFingerprint!==fingerprint||child&&row.delegatedClaimFingerprint!==delegatedFingerprint)Fail('BOOTSTRAP_LAUNCHER_USED',409);return ClaimResult(row,body);}if(row.status!=='READY')Fail('BOOTSTRAP_LAUNCHER_USED',409);const artifact=RequireArtifact(row),parent=store.Load().flows[row.parentFlowId];if(parent.status!=='CLAIMED'||parent.sessionExpiresAt<=now())Fail('BOOTSTRAP_FLOW_INVALID');CheckMeasurement(row,artifact,{binarySha512:body.binarySha512,binaryCrc64:body.crc64,codeSha512:body.oCodeSha512,codeCrc64:body.oCodeCrc64});Boot().ReadArtifactBytes(artifact);Live(row);const license=License(row);Boot().AssertFlowLifetime(parent);
+function Claim(body){Fields(body,['overlayId','overlayTicket','signature','binarySha512','crc64','oCodeSha512','oCodeCrc64','productScopeVersion','themeVersion',...delegation.FIELDS]);if(Object.hasOwn(body,'productScopeVersion')&&body.productScopeVersion!==1||Object.hasOwn(body,'themeVersion')&&!theme.ValidVersion(body.themeVersion))Fail('BOOTSTRAP_INPUT_INVALID',400);const row=TicketRow(body),child=delegation.Check(row,body,'O',Canonical(row,'CLAIM')),delegatedFingerprint=child?delegation.Fingerprint(body):'',fingerprint=sha(JSON.stringify([body.overlayId,body.overlayTicket,body.signature,body.binarySha512,body.crc64,body.oCodeSha512,body.oCodeCrc64,...(body.productScopeVersion===1?[1]:[]),...(theme.ValidVersion(body.themeVersion)?['theme'+body.themeVersion]:[])]));Live(row);if(row.status==='CLAIMED'){if(require("../runtime/peace.desktop-deadline").persistent.expired('O.claim-recovery:'+row.id,row.claimedAt,row.claimRecoveryUntil)||!row.claimRecoveryUntil||row.claimFingerprint!==fingerprint||child&&row.delegatedClaimFingerprint!==delegatedFingerprint)Fail('BOOTSTRAP_LAUNCHER_USED',409);return ClaimResult(row,body);}if(row.status!=='READY')Fail('BOOTSTRAP_LAUNCHER_USED',409);const artifact=RequireArtifact(row),parent=store.Load().flows[row.parentFlowId];if(parent.status!=='CLAIMED'||parent.sessionExpiresAt<=now())Fail('BOOTSTRAP_FLOW_INVALID');CheckMeasurement(row,artifact,{binarySha512:body.binarySha512,binaryCrc64:body.crc64,codeSha512:body.oCodeSha512,codeCrc64:body.oCodeCrc64});Boot().ReadArtifactBytes(artifact);Live(row);const license=License(row);Boot().AssertFlowLifetime(parent);
  Atomic('OVERLAY_CLAIM','SERVER',next=>{const item=next.overlays[row.id];if(item.status!=='READY')Fail('BOOTSTRAP_LAUNCHER_USED',409);AssertLifetime(item);Boot().AssertFlowLifetime(next.flows[item.parentFlowId]);item.status='CLAIMED';item.claimedAt=now();if(body.productScopeVersion===1)item.productScopeVersion=1;if(child){item.publicKey=child.publicKey;item.deviceId=child.deviceId;item.childNonce=child.nonce;item.delegatedClaimFingerprint=delegatedFingerprint;item.delegatedClaimRecoveryUntil=Math.min(item.expiresAt,item.claimedAt+30000);}item.claimRecoveryUntil=Math.min(row.expiresAt,item.claimedAt+30000);item.claimFingerprint=fingerprint;item.lastVerifiedAt=now();item.sessionExpiresAt=Math.min(now()+SESSION_MS,store.Load().flows[row.parentFlowId].sessionExpiresAt,license.expiresAt||Number.MAX_SAFE_INTEGER);item.sessionNonce=nonce();item.sessionHash=sha(SessionToken(item));delete item.ticketNonce;item.chunkOffsets=[];require("../devices/peace.desktop-device-registry").ObserveVerified(next,item,'O');});
  const claimed=Rows()[row.id];AssertLifetime(claimed);Audit('CLAIMED',claimed);return ClaimResult(claimed,body);
 }
@@ -174,12 +174,16 @@ function ThemeAuthority(row,parent){
  require('../integrity/peace.desktop-integrity-reports').RequireSnapshot(row,'O');
 }
 function ThemeResult(row,value){return {version:1,sessionId:row.sessionId,requestId:value.requestId,sequence:value.sequence,theme:value.theme};}
+function LatestThemeReceipt(row){
+ const {themeReceipt:preset,themeRgbReceipt:rgb}=row;
+ return (rgb?.sequence??0)>(preset?.sequence??0)?rgb:preset;
+}
 function SaveTheme(body){
  ThemeRequest(body);
  const row=Session(body.sessionId,body.sessionToken),db=store.Load();
  ThemeAuthority(row,db.flows[row.parentFlowId]);
  Boot().Verify(row,ThemeCanonical(body),body.signature);
- const fingerprint=require('../protocol/peace.desktop-request-protocol').Fingerprint('overlay.theme',body),prior=row.themeReceipt;
+ const fingerprint=require('../protocol/peace.desktop-request-protocol').Fingerprint('overlay.theme',body),prior=LatestThemeReceipt(row);
  if(prior&&body.sequence<=prior.sequence){
   if(body.sequence!==prior.sequence||fingerprint!==prior.fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);
   return ThemeResult(row,prior);
@@ -188,15 +192,20 @@ function SaveTheme(body){
  Atomic('OVERLAY_THEME','SERVER',next=>{
   Boot().AssertSecurityAvailable();const item=next.overlays[row.id];
   ThemeAuthority(item,next.flows[row.parentFlowId]);
-  if(item.themeReceipt&&body.sequence<=item.themeReceipt.sequence)Fail('BOOTSTRAP_REQUEST_REUSED',409);
+  if(body.sequence<=(LatestThemeReceipt(item)?.sequence??0))Fail('BOOTSTRAP_REQUEST_REUSED',409);
   theme.Write(next,item,body.theme);
-  item.themeReceipt=receipt;
+  if(theme.ValidPreset(body.theme)){
+   item.themeReceipt=receipt;
+   delete item.themeRgbReceipt;
+  }else item.themeRgbReceipt=receipt;
  });
  return ThemeResult(row,receipt);
 }
 function ValidateThemeReceipt(row){
- const value=row.themeReceipt;if(value===undefined)return;
- if(!plain(value)||Object.keys(value).sort().join(',')!=='fingerprint,requestId,sequence,theme'||!ThemeValues(value)||typeof value.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(value.fingerprint)||row.transferVersion!==1)throw Error('OVERLAY_STORE_INVALID');
+ for(const [value,validate] of [[row.themeReceipt,theme.ValidPreset],[row.themeRgbReceipt,theme.ValidRgb]]){
+  if(value===undefined)continue;
+  if(!plain(value)||Object.keys(value).sort().join(',')!=='fingerprint,requestId,sequence,theme'||!ThemeValues(value)||!validate(value.theme)||typeof value.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(value.fingerprint)||row.transferVersion!==1)throw Error('OVERLAY_STORE_INVALID');
+ }
 }
 function Verify(body){
  Fields(body,['sessionId','sessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64','capturePrivacyVersion','renewalBudgetVersion','productScopeVersion']);

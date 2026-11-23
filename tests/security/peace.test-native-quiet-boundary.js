@@ -35,7 +35,7 @@ test('B keeps the owned key private across focus changes and wipes its bounded f
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));
   const mailbox = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Commands.pas'));
   const paint = window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
-  assert.match(paint, /then KeyCharacters := FKey\.Count;\s+if \(KeyCharacters > 0\) and WindowInputEnabled then\s+begin[\s\S]*?RevealedKey := FKey\.CopyText;\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, Length\(RevealedKey\),\s+Progress, PWideChar\(RevealedKey\), Length\(RevealedKey\)\);\s+finally\s+WipeBoundaryText\(RevealedKey\);\s+end;\s+end\s+else\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, KeyCharacters, Progress, nil, 0\);/);
+  assert.match(paint, /if not FResetKeySequence and\s+\(Phase in \[0, 1, 2, LicensePhaseRejectScan, LicensePhaseRejected\]\) then\s+KeyCharacters := FKey\.Count;\s+if \(KeyCharacters > 0\) and WindowInputEnabled then\s+begin[\s\S]*?RevealedKey := FKey\.CopyText;\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, Length\(RevealedKey\),\s+Progress, PWideChar\(RevealedKey\), Length\(RevealedKey\)\);\s+finally\s+WipeBoundaryText\(RevealedKey\);\s+end;\s+end\s+else\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, KeyCharacters, Progress, nil, 0\);/);
   assert(paint.indexOf('WipeBoundaryText(RevealedKey);') < paint.indexOf('ImGuiEndCanvas(FContext);'));
   const cancel = window.split('procedure TLicenseWindow.CancelInput;')[1].split('procedure TLicenseWindow.ClearKey;')[0];
   assert.doesNotMatch(cancel, /FKey|ClearKey/);
@@ -49,7 +49,7 @@ test('B keeps the owned key private across focus changes and wipes its bounded f
   assert.match(window, /if Last = Limit then Exit;/);
   assert.match(window, /else if Count <> 64 then Exit;/);
   assert.match(worker, /BoundaryKey := Key\.CopyText;/);
-  assert.match(worker, /FreeAndNil\(Key\);\s+try LicenseState := FApi\.Redeem\(BoundaryKey\);\s+finally WipeText\(BoundaryKey\); end;/);
+  assert.match(worker, /FreeAndNil\(Key\);\s+try\s+LicenseState := FApi\.Redeem\(BoundaryKey,\s+procedure\(Value: Integer\) begin FCommands\.ReportProgress\(Value\); end\);\s+finally WipeText\(BoundaryKey\); end;/);
   assert.match(mailbox, /FPending := Key; Key := nil;/);
   assert.match(mailbox, /else if not FStopping then/);
   assert.match(mailbox, /FreeAndNil\(FPending\)/);
