@@ -427,14 +427,15 @@ check('O draws game-specific artwork and title from a valid signed transfer, wit
   inOrder(identity,['card >= 0 && card < IM_ARRAYSIZE(CozyOverlayTitles)', 'CozyOverlayTitles[card]',
     'cozy_game_identity(card)', 'draw->AddText('], 'Caption from a bounded, fixed native index');
   inOrder(title,['if (licensed_card < 0 || opacity <= 0.f) return;', 'cozy_game_caption('], 'Entitlement title');
-  inOrder(art,['if (!cozy_game_identity(licensed_card)) return;', 'if (licensed_card==4)',
-    'cozy_game_mark(', 'return;', 'cozy_game_cover(', 'if (licensed_card==0)'], 'Distinct passive PUBG and Overwatch artwork');
-  assert.doesNotMatch(art,/license_hit_add|ImGui::|ButtonBehavior|\.Post\(/);
+  inOrder(art,['if (!cozy_game_identity(licensed_card)) return;', 'cozy_game_cover(', 'licensed_card'],
+    'The licensed identity selects passive artwork');
+  assert.equal(Array.from(art.matchAll(/\bcozy_game_cover\s*\(/g)).length,1);
+  assert.doesNotMatch(art,/draw->|license_hit_add|ImGui::|ButtonBehavior|\.Post\(/);
   inOrder(frame,['licensed_card < -1 || licensed_card >= IM_ARRAYSIZE(CozyOverlayTitles)',
     'previous>=IM_ARRAYSIZE(CozyOverlayPalettes)',
     'if (shared_palette) {', 'license_hit_reset(c,0);', 'cozy_palette_current(c,reduced_motion);',
     'cozy_palette_panel(draw,origin,scale,c->license_elapsed,opacity,palette);',
-    'cozy_overlay_game_art(draw,origin,scale,licensed_card,opacity,c->license_elapsed,palette);',
+    'cozy_overlay_game_art(draw,origin,scale,licensed_card,opacity,palette);',
     'cozy_overlay_title(c,draw,origin,scale,licensed_card,opacity,palette.text);',
     'cozy_palette_controls(c,draw,origin,scale,opacity,palette,444.f,c->input_focused);',
     '} else if (styled) {',
