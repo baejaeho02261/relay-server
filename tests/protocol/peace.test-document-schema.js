@@ -19,7 +19,9 @@ function Cases(rule,value,at=[]){rule=Resolve(rule);if(rule.anyOf){const selecte
  return rows;
 }
 test('all generated response/evidence fixtures have strict recursive field, type and range rules',()=>{
- assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,16);let rejected=0;
+ assert.equal(fixtures.schemaSha512,contract.sha512);
+ assert.deepEqual(fixtures.cases.map(row=>row.name).sort(),Object.keys(schema.documents).sort());
+ let rejected=0;
  for(const row of fixtures.cases){assert.equal(contract.ValidateDocument(row.name,row.value),row.value);assert.deepEqual(contract.ParseDocument(row.name,JSON.stringify(row.value)),row.value);
   for(const mutation of Cases(schema.documents[row.name],row.value)){const body=clone(row.value);let candidate;if(mutation.at.length){Set(body,mutation.at,mutation.value);candidate=body;}else candidate=mutation.value;
    assert.throws(()=>contract.ValidateDocument(row.name,candidate),/PROTOCOL_SCHEMA_INVALID/,row.name+':'+mutation.at.join('.')+':'+mutation.reason);rejected++;
@@ -31,6 +33,9 @@ test('optional response fields and every version/status variant remain type chec
  const challenge=Sample(schema.documents.authorityChallenge);challenge.mitigationProfile=Sample(schema.definitions.mitigationProfile);challenge.deviceSignalsRequested=true;contract.ValidateDocument('authorityChallenge',challenge);
  for(const key of ['mitigationProfile','deviceSignalsRequested']){const bad=clone(challenge);bad[key]=key==='deviceSignalsRequested'?1:[];assert.throws(()=>contract.ValidateDocument('authorityChallenge',bad));}
  const verify=Sample(schema.documents.overlayVerify);verify.capturePrivacy=false;verify.renewalBudget=Sample(schema.definitions.overlayRenewalBudget);contract.ValidateDocument('overlayVerify',verify);verify.renewalBudget.version=2;assert.throws(()=>contract.ValidateDocument('overlayVerify',verify));
+ const claim=Sample(schema.documents.overlayClaim);
+ for(const theme of [0,1,2,3])contract.ValidateDocument('overlayClaim',{...claim,theme});
+ for(const theme of [-1,4,'0',null])assert.throws(()=>contract.ValidateDocument('overlayClaim',{...claim,theme}),/PROTOCOL_SCHEMA_INVALID/);
  for(const variant of schema.definitions.overlayAbort.anyOf)contract.ValidateDocument('overlayAbort',Sample(variant));
  const failure=Sample(schema.definitions.authorityPayload.anyOf[1]);contract.ValidateDocument('authorityPayload',failure);failure.measurement='MEASURED';assert.throws(()=>contract.ValidateDocument('authorityPayload',failure));
  for(const diagnostics of schema.definitions.mitigationDiagnostics.anyOf){const evidence=Sample(schema.documents.authorityPayload);evidence.mitigationDiagnostics=Sample(diagnostics);contract.ValidateDocument('authorityPayload',evidence);evidence.mitigationDiagnostics.setError=0x100000000;assert.throws(()=>contract.ValidateDocument('authorityPayload',evidence));}

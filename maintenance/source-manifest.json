@@ -1601,7 +1601,7 @@
     "Relay Server/tests/protocol/peace.test-completion-artifacts-6-10.js": "19eb9ecad3fc79d0fa59eb9864d0ff2e28bca42169f98ec3653d1a6d7e7789110a60f3de2cd240ebf1bb022daa97370c4a00b6ff4a529068c78e369945e68490",
     "Relay Server/tests/protocol/peace.test-completion-pin-6-10.js": "16185c5d1ef561603fb50d2504181c4403a109e0ecc894b81b1373a49719b3eee0b200c715339b19dddc711cb92f8fb219940b7b185b2d4b26b5a58fac1aa398",
     "Relay Server/tests/protocol/peace.test-completion-protocol-6-10.js": "c47ccbabbacd71444e25d2fb9473a067bd54f2e642c4c2b503c135b818c7383dccc9d203c562cbcafb16c1301bbb953d53884bc116a8c505426c9e1f45828dd7",
-    "Relay Server/tests/protocol/peace.test-document-schema.js": "bdf886268414b12b329fc2115203d0c12be2fd36756bf2cbd386a505bc44cdd75db2bd058549bb60a5f8de28c8021196cc967eba9d944ae277d5517281e350b9",
+    "Relay Server/tests/protocol/peace.test-document-schema.js": "76eda3016c4b87876368f358fc9ca61a978a430a06f3ac4354cdcdd91a974d8bedb32959d62c352578cc57a996e64a2b0ddf1d22e6a7e031698b187bb7d73302",
     "Relay Server/tests/protocol/peace.test-hardening-protocol.js": "b138ec10811eeb8b980e365d74ac9ece09676da63b3740cca2c919fb8dc215fe7046be33dc773b5367e323198a6728bce8a09628c63a8a9f1b9c3a78f2a04c79",
     "Relay Server/tests/protocol/peace.test-independent-contracts-14.js": "88a2a40e5b69e1f9a6d6015b6112c745d6783c627784906c359c83be22198d50e3760daea37e06202a7fc960b48d3db99057ad0567a0f898d3a8202f98fcbfb6",
     "Relay Server/tests/protocol/peace.test-native-json-differential.js": "0d49b2e85fb6f1fe8385695a930908512999137ccbba2a7ed3a728643ab972fe3f52862b087e6ddbcbe64591a75cc459704f3c5e13e07c0395dd0afcb49a133f",
