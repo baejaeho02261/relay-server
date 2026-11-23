@@ -57,7 +57,8 @@ try{
   assert.match(submit,/finally\s+FreeAndNil\(Key\);/);
   const paint=window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
   assert.match(paint,/if \(Actions and LicenseSceneReadClipboard\) <> 0 then PasteKey\s+else if \(Actions and LicenseSceneAutoSubmit\) <> 0 then Submit;/);
-  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;\s+if \(State = WorkerTransferred\) and \(Phase = LicensePhaseTransferred\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) then\s+begin\s+FPresentationComplete := True;\s+Close;\s+Exit;/);
+  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;[\s\S]*?if \(Actions and LicenseSceneDepartureMessage\) <> 0 then\s+FDepartureMessageSeconds := FDepartureMessageSeconds \+ PresentedDelta\s+else\s+FDepartureMessageSeconds := 0;/);
+  assert.match(paint,/FDepartureMessageSeconds := 0;\s+if \(State = WorkerTransferred\) and \(Phase = LicensePhaseTransferred\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) and\s+\(FDepartureMessageSeconds >= LicenseDepartureMessageSeconds\) then\s+begin\s+FPresentationComplete := True;\s+Close;\s+Exit;/);
   const advance=window.split('procedure TLicenseWindow.AdvancePresentedSequence(')[1].split('procedure TLicenseWindow.Paint;')[0];
   assert.match(advance,/LicensePhaseRejectScan: FOutcomePhase := LicensePhaseRejected;/);
   assert.match(advance,/LicensePhaseAcceptScan: FOutcomePhase := LicensePhaseAccepted;/);

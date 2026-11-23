@@ -420,18 +420,21 @@ check('O receives the entitlement and shared theme only after a valid signed tra
   assert.match(controller,/Result\s*:=\s*Worker\.LicensedCard;/);
 });
 
-check('O draws icon-only tabs, blank General and Market pages, and two Settings checkboxes', () => {
+check('O draws the ordered Font Awesome tabs at the left edge and keeps the appearance controls in Settings', () => {
   const scene=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_scene.h');
   const b=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h');
   const palette=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_palette.h');
-  const tabs=scene.slice(scene.indexOf('static const char* const CozyWorkspaceLabels'),scene.indexOf('static void cozy_workspace_usage_meter('));
-  inOrder(tabs,['"General"', '"Market"', '"Settings"', '"Usage"', 'static void cozy_workspace_icon(',
-    'case CozyWorkspaceLicense:', 'case CozyWorkspaceCatalog:', 'case CozyWorkspaceAppearance:', 'case CozyWorkspaceUsage:',
+  const tabs=scene.slice(scene.indexOf('static constexpr CozyWorkspaceTabControl CozyWorkspaceTabs'),scene.indexOf('static void cozy_workspace_usage_meter('));
+  inOrder(tabs,['{CozyFaSkull, "General"}', '{CozyFaEye, "Market"}',
+    '{CozyFaCrosshairs, "Usage"}', '{CozyFaGear, "Settings"}', 'CozyWorkspaceRailCenter=44.f',
     'static void cozy_workspace_alien(', 'PathBezierCubicCurveTo(', 'AddEllipseFilled('],
-    'Four bounded workspace symbols and the drawn alien insignia');
+    'Four ordered Font Awesome workspace symbols and the drawn alien face');
+  const alien=tabs.slice(tabs.indexOf('static void cozy_workspace_alien('),tabs.indexOf('static void cozy_workspace_tabs('));
+  assert.doesNotMatch(alien,/AddCircle|PathArcTo/);
   const tabControls=tabs.slice(tabs.indexOf('static void cozy_workspace_tabs('));
-  inOrder(tabControls,['cozy_workspace_alien(v);', 'v.box(35.f,y,117.f,y+32.f)',
-    'cozy_palette_item(area,CozyWorkspaceLabels[i],', 'v.context->overlay_tab=', 'cozy_workspace_icon(v,'],
+  inOrder(tabControls,['cozy_workspace_alien(v);', 'v.box(24.f,y,66.f,y+32.f)',
+    'cozy_palette_item(area,CozyWorkspaceTabs[i].label,', 'v.context->overlay_tab=',
+    'cozy_fontawesome_icon(v.draw,CozyWorkspaceTabs[i].icon,'],
     'Only the drawn tab is visible and its named hit target stays keyboard-operable');
   assert.doesNotMatch(tabControls,/\.text\(|AddText\(/);
   const checkbox=scene.slice(scene.indexOf('static void cozy_workspace_checkbox('),scene.indexOf('static int cozy_workspace_settings('));
@@ -453,7 +456,7 @@ check('O draws icon-only tabs, blank General and Market pages, and two Settings 
   assert.doesNotMatch(usage,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
   const workspace=scene.slice(scene.indexOf('static int cozy_overlay_workspace('),scene.indexOf('static int32_t cozy_scene_frame('));
   inOrder(workspace,['cozy_palette_apply_preset(c,selected,', 'cozy_palette_panel(', '!c->overlay_stars_hidden',
-    'cozy_workspace_tabs(v,popover);', 'if (c->overlay_tab==CozyWorkspaceAppearance)',
+    'cozy_workspace_tabs(v,popover);', 'if (c->overlay_tab==CozyWorkspaceSettings)',
     'return cozy_workspace_settings(', 'if (c->overlay_tab==CozyWorkspaceUsage)', 'cozy_workspace_usage('],
     'Settings and Usage alone add content to the shared workspace background');
   assert.doesNotMatch(workspace,/cozy_workspace_identity|cozy_workspace_market|headings|\.text\(|\.rule\(|->AddLine\(/);

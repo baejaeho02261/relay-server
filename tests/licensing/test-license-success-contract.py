@@ -17,7 +17,6 @@ api=read('Railway/Cozy.Source/Cozy.Platform/Cozy.Api.pas')
 overlay=read('Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas')
 module_inventory=read('Railway/Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas')
 license_scene=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h')
-lunar_scene=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license_lunar.h')
 count=0
 
 def check(name,condition):
@@ -91,33 +90,28 @@ check('Worker milestones are monotonic and cannot publish transfer completion',
       and 'FProgress := Value;' in progress
       and 'if Outcome = WorkerTransferred then' in completion
       and 'FState := WorkerTransferred; FProgress := 100; FStopping := True;' in completion)
-check('B maps circular handoff milestones from 0 and reserves 100 for transfer',
+check('Worker milestones stay available without driving the visible B handoff',
       'FCommands.ReportProgress(40);' in redeem
       and 'procedure(Value: Integer) begin FCommands.ReportProgress(Value); end)' in launch
-      and 'LicenseHandoffBaseline = 40;' in window
-      and 'Percent := FProgress() - LicenseHandoffBaseline;' in window
-      and 'if Percent < 0 then Percent := 0;' in window
-      and 'if Percent > 99 - LicenseHandoffBaseline then Percent := 99 - LicenseHandoffBaseline;' in window
-      and 'Progress := Percent / (100 - LicenseHandoffBaseline);' in window
+      and 'LicenseHandoffBaseline' not in window and 'FProgress' not in window
       and 'ImGuiLicenseSceneReveal(FContext, ScenePhase, KeyCharacters, Progress, nil, 0)' in window)
-orbit=license_scene.split('static void license_transfer_orbit(',1)[1].split('static bool license_key_valid(',1)[0]
-rocket_control=license_scene.split('static void license_rocket_control(',1)[1].split('static ImVec2 license_orbit_point(',1)[0]
-check('The handoff draws a themed orbit and the rocket keeps its invisible launch control',
-      all(token in orbit for token in ['v.palette.accent', 'AddCircle(', 'license_transfer_arc(',
-                                      'revolution*fill', 'license_percent_value(fill)'])
-      and 'AddRectFilled(' not in orbit
-      and 'if(transfer)license_transfer_orbit(v,fill);' in license_scene
-      and 'if(rocket&&full&&rocket_previously_full)license_rocket_control(' in license_scene
-      and 'InvisibleButton(' in rocket_control and 'LicenseRocketLaunchAction' in rocket_control
-      and all(text not in license_scene for text in ['Open O', 'license_rocket_hint']))
-earth_scene=license_scene.split('if(full)v.actions|=rocket?LicenseRocketReadyAction:CozyProgressCompleteAction;',1)[1]
-check('The passively drawn Moon and alien travel loop stay on the Earth scene',
-      license_scene.count('cozy_draw_moon(') == 1 and license_scene.count('cozy_draw_lunar_alien(') == 1
-      and earth_scene.index('cozy_draw_moon(') < earth_scene.index('cozy_draw_lunar_alien(') < earth_scene.index('license_form(')
-      and 'cozy_lunar_landing_x(cycle-1u)' in lunar_scene
-      and 'cozy_lunar_landing_x(cycle)' in lunar_scene and 'cozy_moon_surface_y(' in lunar_scene
-      and 'clockwise' in lunar_scene
-      and not any(text in lunar_scene for text in ['license_hit_add(', 'ImGui::InvisibleButton(', 'v.actions']))
+departure=license_scene.split('static void license_departure(',1)[1].split('static bool license_key_valid(',1)[0]
+check('The launch exits the panel before drawing the centered message',
+      'LicenseFlightSeconds = 1.38f' in license_scene
+      and '{347.f,-226.f}' in license_scene
+      and departure.index('if(seconds<LicenseFlightSeconds)') < departure.index('cozy_rocket_logo(')
+      < departure.index('v.draw->PopClipRect();') < departure.index('return;')
+      < departure.index('"Starting shortly"') < departure.index('v.point(190.f,260.f)')
+      < departure.index('v.actions|=LicenseDepartureMessageAction;')
+      < departure.index('if(confirmed&&fade>=1.f)v.actions|=CozyProgressCompleteAction;')
+      and not any(token in departure for token in ['AddRectFilled', 'license_progress_label', 'license_rocket_control'])
+      and not any(token in license_scene for token in ['"Open O"', 'license_transfer_bar', 'license_transfer_orbit', 'license_lunar']))
+check('Readiness uses a post-presentation click and gradual themed tint',
+      'const bool clickable=rocket&&full&&rocket_previously_full;' in license_scene
+      and 'license_rocket_control(v,center,radius,hover,focus);' in license_scene
+      and 'c->license_ready_blend+motion_step/.42f' in license_scene
+      and 'license_ease(c->license_ready_blend)' in license_scene
+      and 'license_rocket_tint(v.c)' in departure)
 check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
       and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem
@@ -161,12 +155,16 @@ check('A validated clipboard snapshot replaces the prior key only after a fresh 
       and 'if Last = Limit then Exit;' in window
       and 'if Count = 75 then' in window and 'else if Count <> 64 then Exit;' in window)
 transfer_close=paint.split('if (State = WorkerTransferred) and (Phase = LicensePhaseTransferred) and',1)[1].split('AdvancePresentedSequence(',1)[0]
-check('A verified transfer closes directly after the 100 percent frame presents',
+check('A verified transfer waits for a visibly presented message before closing B',
       'else if State = WorkerTransferred then Phase := LicensePhaseTransferred' in paint
-      and 'if Phase = LicensePhaseTransferred then Progress := 1;' in paint
       and paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if not FVisibleFrame then')
+      < paint.index('if (Actions and LicenseSceneDepartureMessage) <> 0 then')
+      < paint.index('FDepartureMessageSeconds := FDepartureMessageSeconds + PresentedDelta')
       < paint.index('if (State = WorkerTransferred) and (Phase = LicensePhaseTransferred) and')
-      and transfer_close.index('Actions and LicenseSceneComplete') < transfer_close.index('FPresentationComplete := True;')
+      and 'LicenseDepartureMessageSeconds = 0.40;' in window
+      and transfer_close.index('Actions and LicenseSceneComplete')
+      < transfer_close.index('FDepartureMessageSeconds >= LicenseDepartureMessageSeconds')
+      < transfer_close.index('FPresentationComplete := True;')
       < transfer_close.index('Close;') < transfer_close.index('Exit;')
       and 'if FPresentationComplete and (FState() = WorkerTransferred) then Result := 0;' in window_run
       and not re.search(r'License(?:PhaseToast|SceneToastComplete)',window))
@@ -205,12 +203,13 @@ check('A request with a retracted idle grant returns silently to the Earth',
       selected.index('Accepted := FLaunch();') < selected.index('State := FState();')
       < selected.index('else if State = WorkerIdle then') and 'FShowRetryFrame := True' in refused
       and all(token not in refused for token in ['Close;', 'FKey.Clear', 'FFocused := False', 'CancelInput', 'CopyText']))
-check('Rocket, in-flight loader and committed loader have distinct phases after the outcome',
+check('The ready rocket and both server handoff phases are distinct',
       'if FLaunchRequested then Phase := LicensePhaseTransfer else Phase := 1;' in paint
       and 'else if State = WorkerLicensed then Phase := LicensePhaseRocket' in paint
       and paint.index('if FOutcomePhase <> 0 then Phase := FOutcomePhase')
       < paint.index('else if State = WorkerTransferred then Phase := LicensePhaseTransferred')
-      and 'ScenePhase := Phase or (FThemeIndex shl 8);' in paint)
+      and 'ScenePhase := Phase or (FThemeIndex shl 8);' in paint
+      and 'license_departure(v,phase==LicenseTransferredPhase);' in license_scene)
 check('Automatic submission creates a separate sensitive key owner and consumes its one-shot latch',
       submit.index('if not FAutoSubmitPending or not SceneInputEnabled or (FKey.Count = 0) then Exit;')
       < submit.index('FAutoSubmitPending := False;') < submit.index('Key := TCozySensitiveText.Create(MaximumKeyCharacters);')
