@@ -10,6 +10,7 @@ const {OverlayFixture}=require("../fixtures/security/peace.security-state-test-f
 const root=process.env.GAME_TEST_NATIVE_ROOT||path.resolve(MODULE_RESOURCE_ROOT,'../../Railway');
 const read=n=>ReadContractFile(path.join(root,n),'utf8').replaceAll('\r','');
 const client=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas"),worker=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas"),state=read("Cozy.Source/Cozy.Overlay/Cozy.Overlay.State.pas"),licenseSource=fs.readFileSync(path.join(root,"Cozy.Source/Cozy.License/Cozy.License.Session.pas"),"utf8").replaceAll("\r","");
+const inventory=read("Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas");
 function part(s,a,b){const i=s.indexOf(a),j=s.indexOf(b,i+a.length);assert.ok(i>=0&&j>i,a);return s.slice(i,j);}
 function order(s,...markers){let i=-1;for(const m of markers){i=s.indexOf(m,i+1);assert.ok(i>=0,'missing/out of order: '+m);}}
 const identifier=n=>'a'.repeat(48)+':'+n;
@@ -24,6 +25,20 @@ test('server: privacy negotiation remains compatible with budget negotiation',()
 for(const value of [0,2,'1',null,true,{},[]])test('server: unsupported budget request '+JSON.stringify(value)+' is rejected',()=>timeline(t=>{const f=fixture(t);assert.throws(()=>f.api.__probe.Verify({...f.verify,renewalBudgetVersion:value}),/INPUT_INVALID/);assert.equal(f.calls.writes,0);}));
 test('server: fresh own proofs cannot move the previous complete snapshot ceiling',()=>timeline(t=>{const f=fixture(t),start=t.at(),ceiling=f.options.snapshotExpiry;grant(f);f.api.__probe.Commit(f.commit);let r;for(let seq=2;seq<=6;seq++){t.advance(20000);fresh(f,t,seq);r=grant(f);assert.equal(r.renewalBudget.snapshotExpiresAt,ceiling);assert.ok(r.expiresAt<=ceiling);}assert.equal(t.at(),start+100000);assert.equal(r.expiresAt,ceiling);const e=f.calls.events.filter(x=>x.kind==='DESKTOP_OVERLAY_LEASE_BOUND').at(-1);assert.equal(e.bound,'MODULE_SNAPSHOT');assert.equal(e.expiresAt,ceiling);}));
 test('server: only updated completed snapshot state allows a later snapshot ceiling',()=>timeline(t=>{const f=fixture(t),old=f.options.snapshotExpiry;grant(f);f.api.__probe.Commit(f.commit);t.advance(25000);fresh(f,t,2);grant(f);t.advance(25000);fresh(f,t,3);grant(f);t.advance(25000);fresh(f,t,4);grant(f);t.advance(25000);f.options.snapshotExpiry=t.at()+120000;fresh(f,t,5);const r=grant(f);assert.ok(r.expiresAt>old);assert.equal(r.renewalBudget.snapshotExpiresAt,t.at()+120000);}));
+test('server: a visible O with a one-minute-old snapshot can verify at a scan checkpoint and after the full replacement',()=>timeline(t=>{
+ const f=fixture(t),start=t.at(),old=f.options.snapshotExpiry;
+ grant(f);f.api.__probe.Commit(f.commit);
+ t.advance(30000);fresh(f,t,2);grant(f);
+ t.advance(30000);fresh(f,t,3);assert.equal(grant(f).expiresAt,start+105000);
+ t.advance(25000);fresh(f,t,4);
+ const checkpoint=grant(f);
+ assert.equal(checkpoint.expiresAt,old);
+ assert.equal(checkpoint.renewalBudget.snapshotExpiresAt,old);
+ t.advance(29000);f.options.snapshotExpiry=t.at()+120000;fresh(f,t,5);
+ const complete=grant(f);
+ assert.ok(complete.expiresAt>old);
+ assert.equal(complete.renewalBudget.snapshotExpiresAt,t.at()+120000);
+}));
 test('server: expired old snapshot cannot be rescued by metadata request',()=>timeline(t=>{const f=fixture(t,{snapshotExpiry:t.at()-1});assert.throws(()=>grant(f),/FRESH_OBSERVATION/);assert.equal(f.calls.writes,0);}));
 test('server: no new full snapshot eventually expires even with continuing own proofs',()=>timeline(t=>{const f=fixture(t);grant(f);f.api.__probe.Commit(f.commit);for(let i=2;i<7;i++){t.advance(20000);fresh(f,t,i);grant(f);}t.advance(20001);fresh(f,t,7);assert.throws(()=>grant(f),/EXPIRED/);}));
 test('server: identical receipt replay preserves both expiry and scheduling metadata',()=>timeline(t=>{const f=fixture(t),r=grant(f),writes=f.calls.writes;t.advance(1000);f.options.snapshotExpiry+=10000;assert.deepEqual(grant(f),r);assert.equal(f.calls.writes,writes);}));
@@ -42,7 +57,39 @@ const renewal=part(worker,'procedure TOverlayWorker.RenewLease(','procedure TOve
 const execution=part(worker,'procedure TOverlayWorker.Execute;','{$IFDEF GAME_OVERLAY_CONTRACT_TESTS}\nprocedure OverlayTestTerminalWorker');
 const maintenanceSource=part(worker,'procedure TOverlayWorker.MaintainLease(','procedure TOverlayWorker.RenewLease(');
 test('source: committed transfer is independent of physical B exit; cleanup still requires exit',()=>{order(renewal,'TransferConfirmed := FClient.TransferConfirmed','if TransferConfirmed and not FTransferred then','FTransferred := True','CleanupParent := ParentExited and FTransferred and not FParentRetirementDone','FContext.CleanupTransferredParent;','FParentRetirementDone := True;');assert.doesNotMatch(renewal,/if ParentExited and not FTransferred then/);} );
-test('source: slow B retirement cannot suppress periodic Refresh branch',()=>{assert.match(execution,/if not FParentRetirementDone and not FContext.ParentIsAlive then/);assert.match(execution,/else if CozyTick >= NextCheck then\s+begin\s+Refresh;/);assert.match(worker,/OverlaySnapshotDue\(CozyTick, FLastSnapshotAt, FTransferred,\s+FClient.SnapshotDeadlineTick, FLastSnapshotDuration\)/);} );
+test('source: due complete snapshots are dispatched without waiting for the normal renewal timer',()=>{
+ assert.match(execution,/if not FParentRetirementDone and not FContext.ParentIsAlive then/);
+ order(execution,'if not AwaitingTransfer then','else if (CozyTick >= NextCheck) or SnapshotDue then','Refresh;');
+ assert.match(worker,/OverlaySnapshotDue\(CozyTick, FLastSnapshotAt, FTransferred,\s+FClient.SnapshotDeadlineTick, FLastSnapshotDuration\)/);
+ const refresh=part(worker,'procedure TOverlayWorker.Refresh;','procedure TOverlayWorker.MaintainLease(');
+ order(refresh,'if RequestCancelled then','if FTransferred then MaintainLease(False);','Image := FImage.VerifyNow(Budget);','IncludeModules := SnapshotDue;');
+ assert.doesNotMatch(refresh,/ProcessThemeSave|ThemeInventoryBudgetMs/);
+ order(execution,'else if (CozyTick >= NextCheck) or SnapshotDue then','Refresh;',
+       'if not SnapshotDue then ProcessThemeSave(ThemeWriteBudgetMs);');
+ assert.equal((execution.match(/ProcessThemeSave\(/g)||[]).length,1);
+});
+test('source: only an authorized periodic O scan services fresh lease checks between completed rows',()=>{
+ const report=part(client,'procedure TOverlayClient.ReportIntegrityCore(','procedure TOverlayClient.CloseCore;');
+ order(report,'CheckpointAllowance := 0;','Checkpoint := nil;','if FTransferConfirmed and Assigned(MaintainLease) then',
+       'CheckpointAllowance := ModuleCheckpointAllowanceMs;','OwnedMaintainLease(False);',
+       'Snapshot := CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity,','Checkpoint, CheckpointAllowance);');
+ assert.match(report,/ModuleCheckpointAllowanceMs = 12000;/);
+ assert.doesNotMatch(report,/ServiceTheme|SaveTheme/);
+});
+test('source: renewal overhead is bounded and cannot hide cancellation, generation changes or elapsed scan time',()=>{
+ const scan=inventory.slice(inventory.lastIndexOf('function CollectModuleInventoryJSON('));
+ assert.match(inventory,/MaximumScanMilliseconds: UInt64 = 30000;/);
+ assert.match(inventory,/MaximumCheckpointAllowanceMilliseconds: UInt64 = 12000;/);
+ order(scan,'Budget.DeadlineTick := Started + MaximumScanMilliseconds;','AllowanceLeft := CheckpointAllowanceMilliseconds;',
+       'AllowanceLeft := MaximumCheckpointAllowanceMilliseconds;','Assigned(Cancelled)) and Cancelled()',
+       'Row := ModuleRow(','Rows.AddElement(Row);','BetweenModules();','CheckpointElapsed := CozyTick - CheckpointAt;',
+       'if CheckpointElapsed > AllowanceLeft then CheckpointElapsed := AllowanceLeft;',
+       'Inc(Budget.DeadlineTick, CheckpointElapsed);','Dec(AllowanceLeft, CheckpointElapsed);',
+       'GenerationStable := GenerationStable and (StartGeneration = EndGeneration);','Finished := CozyTick;',
+       'if (Finished >= Budget.DeadlineTick) or','(Assigned(Cancelled) and Cancelled()) then Truncated := True;',
+       'Complete := Complete and not Truncated and GenerationStable;',
+       'TJSONNumber.Create(Int64(Started))','TJSONNumber.Create(Int64(Finished))');
+});
 test('source: each accepted full transaction updates duration and completion timestamp',()=>{order(worker,'FClient.ReportIntegrity(FContext.Security','if IncludeModules then','FLastSnapshotAt := CozyTick;','FLastSnapshotDuration := FLastSnapshotAt - RefreshStarted;');});
 test('source: fresh lease publication precedes diagnostics and B cleanup',()=>{order(renewal,'CozyTick >= FDeadline','FDeadline := Deadline;','FClient.PrepareLifecycle(Deadline);','FContext.CleanupTransferredParent;');const c=part(client,'function TOverlayClient.VerifyCore(','function TOverlayClient.ChunkCore(');assert.doesNotMatch(c,/FLifecycle\.Prepare/);} );
 test('source: independent bounded permit deadlines for O and B; A and B too',()=>{const c=part(client,'procedure TOverlayClient.PrepareLifecycle(','function TOverlayClient.GetLeaseDeadlineTick:');order(c,"FLifecycle.Prepare('B'",'At := CozyTick; Limit := At + 1500;',"FLifecycle.Prepare('O'");assert.equal((c.match(/if DeadlineTick < Limit then Limit := DeadlineTick/g)||[]).length,2);assert.match(licenseSource,/Prepare\('B'[^\n]+\n\s+DiagnosticDeadline := TLifecycleReporter.Tick \+ 1500;\n\s+Lifecycle.Prepare\('A'/);} );
@@ -62,6 +109,21 @@ test('model: cap-bound own renewal is skipped but expired lease still fails clos
 test('model: old late full-report scheduling can starve the remaining batches',()=>{let now=45000,lease=90000,ceiling=120000,done=0,proofs=0;now+=30000;while(done<12&&now<lease){if(maintain(now,lease,6000)){now+=6000;lease=Math.min(now+45000,ceiling);proofs++;}now+=2200;if(now>=lease)break;done++;}assert.ok(done<12);assert.ok(proofs>=3);} );
 test('model: earlier transaction and no useless proofs finish all twelve batches before existing bounds',()=>{let now=15000,lease=60000,ceiling=120000,done=0,proofs=0;now+=30000;while(done<12&&now<lease){if(maintain(now,lease,6000,false,ceiling)){now+=6000;assert.ok(now<lease);lease=Math.min(now+45000,ceiling);proofs++;}now+=2200;assert.ok(now<lease&&now<ceiling);done++;}assert.equal(done,12);assert.ok(proofs>0);assert.ok(now<ceiling);} );
 test('model: unavailable bandwidth still fails instead of extending a partial snapshot',()=>{let now=110000,lease=120000,ceiling=120000;assert.equal(maintain(now,lease,4000,false,ceiling),false);now+=11000;assert.throws(()=>maintain(now,lease,4000,true,ceiling),/EXPIRED/);} );
+test('model: immediately starting a due first-visible snapshot fits a window the old timer could miss',()=>{
+ const visible=60000,nextRenewal=70000,oldSnapshotExpires=120000;
+ const ownAndPreflight=9500,completeScan=28500,uploads=15500;
+ assert.ok(due(visible,0,true,oldSnapshotExpires,53000));
+ assert.ok(nextRenewal+ownAndPreflight+completeScan+uploads>=oldSnapshotExpires);
+ assert.ok(visible+ownAndPreflight+completeScan+uploads<oldSnapshotExpires);
+});
+test('model: two timed checkpoints consume at most twelve seconds of a 30-second scan allowance',()=>{
+ const deadline=(checkpointMs)=>30000+Math.min(12000,checkpointMs.reduce((total,elapsed)=>total+elapsed,0));
+ assert.equal(deadline([]),30000);
+ assert.equal(deadline([4500,6000]),40500);
+ assert.equal(deadline([6000,8000]),42000);
+ assert.ok(29000+4500+6000<deadline([4500,6000]));
+ assert.ok(30000+6000+8000>=deadline([6000,8000]));
+});
 test('source: native timing probe contains new boundary and ceiling cases',()=>{const p=read("Cozy.Tests/Cozy.Overlay/Cozy.OverlayRenewalScheduleProbe.dpr");assert.match(p,/OverlaySnapshotDue\(63000, 48000, True\)/);assert.match(p,/OverlayLeaseNeedsMaintenance\(11000, 31000, 4000, False, 31000\)/);} );
 
 test('source: batch ceiling uses equal server expiries, not unequal RTT clock estimates',()=>{assert.match(client,/FLeaseSnapshotLimited := \(SnapshotExpiresAt <> 0\) and\s+\(SnapshotExpiresAt = ServerTime \+ Result\)/);assert.match(maintenanceSource,/SnapshotLimited := FClient.LeaseSnapshotLimited/);assert.match(maintenanceSource,/if SnapshotLimited then Ceiling := FDeadline/);assert.doesNotMatch(maintenanceSource,/FClient.SnapshotDeadlineTick/);});

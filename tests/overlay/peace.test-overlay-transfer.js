@@ -62,6 +62,27 @@ check('Capture privacy is optional, negotiated and default off without changing 
  assert.throws(()=>overlay.ValidateTransferRows(db),/OVERLAY_STORE_INVALID/);
  config.OVERLAY_CAPTURE_PRIVACY=false;observe(s);assert.equal(bootstrap.Execute(body).capturePrivacy,false);
 });
+check('A prepared O can refresh past the first click cutoff without transferring or starting another child',()=>{
+ const firstAuthorizedAt=child(s).authorizedAt, parentId=parent(s).id, parentSessionHash=parent(s).sessionHash;
+ let previous=firstAuthorizedAt;
+ for(let renewal=0;renewal<4;renewal++){
+  clock+=10500;
+  const verified=verify(s), row=child(s), launcher=parent(s);
+  assert.equal(verified.status,'ACTIVE');
+  assert.equal(verified.transferConfirmed,false);
+  assert.equal(row.sessionId,s.o.sessionId);
+  assert.equal(row.parentSessionId,s.b.sessionId);
+  assert.ok(row.authorizedAt>previous);
+  assert.equal(row.transferVersion,undefined);
+  assert.equal(launcher.status,'CLAIMED');
+  assert.equal(launcher.overlayTransferVersion,undefined);
+  assert.notEqual(launcher.closedByOverlay,true);
+  assert.equal(launcher.sessionHash,parentSessionHash);
+  assert.equal(Object.values(bootstrap.Initialize().overlays).filter(o=>o.parentFlowId===parentId).length,1);
+  previous=row.authorizedAt;
+ }
+ assert.ok(clock-firstAuthorizedAt>30000);
+});
 check('Transfer requires exact version, parent token and B RSA proof',()=>{reject(()=>bootstrap.Execute({...s.commit,handoffVersion:2}),'BOOTSTRAP_INPUT_INVALID');reject(()=>bootstrap.Execute({...s.commit,sessionToken:'invalid'}),'BOOTSTRAP_SESSION_INVALID');reject(()=>bootstrap.Execute({...s.commit,signature:fixture.Sign(fixture.Device(),'invalid')}),'BOOTSTRAP_PROOF_INVALID');assert.equal(parent(s).status,'CLAIMED');});
 check('Commit atomically transfers O and destroys the B session capability',()=>{receipt=bootstrap.Execute(s.commit);assert.deepEqual(receipt,{handoffVersion:1,status:'TRANSFERRED',parentSessionId:s.b.sessionId,overlayId:s.prepared.overlayId,overlaySessionId:s.o.sessionId});const row=parent(s);assert.equal(row.status,'CLOSED');assert.equal(row.sessionHash,undefined);assert.equal(row.sessionNonce,undefined);assert.equal(row.downloadNonce,undefined);assert.equal(row.handoffNonce,undefined);assert.equal(row.licenseLeaseExpiresAt,0);assert.match(row.transferReceiptHash,/^[a-f0-9]{128}$/);assert.equal(child(s).transferVersion,1);});
 check('Exact lost-response recovery is idempotent and cannot extend the lease',()=>{const revision=bootstrap.Initialize().revision,expiry=child(s).sessionExpiresAt;assert.deepEqual(bootstrap.Execute(s.commit),receipt);assert.equal(bootstrap.Initialize().revision,revision);assert.equal(child(s).sessionExpiresAt,expiry);reject(()=>bootstrap.Execute({...s.commit,signature:fixture.Sign(s.d,'different transcript')}),'BOOTSTRAP_REQUEST_REUSED');});

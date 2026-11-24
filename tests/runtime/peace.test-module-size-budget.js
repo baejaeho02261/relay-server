@@ -31,6 +31,29 @@ test('source: explicit-module plan passes the profile to reader and retained hea
 test('source: normalized-code allocation is bounded before allocation',()=>{const s=code.slice(code.indexOf('function TCodeIntegrity.BuildStream'),code.indexOf('function TCodeIntegrity.BuildExportStream'));assert.ok(s.indexOf('Total <= FMaximumCodeBytes')<s.indexOf('SetLength(Result'));assert.ok(s.indexOf('Budget.Check(0, Total)')<s.indexOf('SetLength(Result'));});
 test('source: larger header plan keeps validation and own default unchanged',()=>{for(const needle of ['InitializeBounded(FileBytes, OwnPeFileLimit, OwnPeImageLimit)','FileLimit <= InventoryPeFileLimit','ImageLimit <= InventoryPeImageLimit','HeaderSize <= FImageSize','DirectoryCount <= 16','SectionCount <= 96','FReady := False','FReady := True'])assert.ok(header.includes(needle),needle);});
 test('source: absolute scan deadline, 64 KiB I/O checks, file identity and cancellation retained',()=>{assert.ok(inventory.includes('MaximumScanMilliseconds: UInt64 = 30000'));assert.ok(inventory.includes('TMeasurementBudget.Start(InventoryPeFileLimit, Cardinal(MaximumScanMilliseconds)'));assert.ok(boundedReader.includes('Want := 65536'));for(const s of ['Budget.Check(Offset, 0)','FILE_METADATA_CHANGED','EARLY_EOF','CloseMeasurementHandle(Handle)'])assert.ok(boundedReader.includes(s));assert.ok(!boundedReader.includes('TMeasurementBudget.Start'));assert.ok(code.includes('TCodeIntegrity.Create(Handle: THandle; Module: HMODULE;\r\n  const Budget: TMeasurementBudget)')||code.includes('TCodeIntegrity.Create(Handle: THandle; Module: HMODULE;\n  const Budget: TMeasurementBudget)'));});
+test('source: module measurement time only credits actual renewal checkpoint work within one finite allowance',()=>{
+ assert.match(inventory,/MaximumCheckpointAllowanceMilliseconds: UInt64 = 12000;/);
+ assert.match(inventory,/CheckpointAllowanceMilliseconds: Cardinal = 0/);
+ const scan=inventory.slice(inventory.lastIndexOf('function CollectModuleInventoryJSON('));
+ const tokens=['Budget.DeadlineTick := Started + MaximumScanMilliseconds;',
+   'AllowanceLeft := CheckpointAllowanceMilliseconds;',
+   'if AllowanceLeft > MaximumCheckpointAllowanceMilliseconds then',
+   'AllowanceLeft := MaximumCheckpointAllowanceMilliseconds;',
+   'if AllowanceLeft > High(UInt64) - Budget.DeadlineTick then',
+   '(CozyTick >= Budget.DeadlineTick)', 'Row := ModuleRow(',
+   'CheckpointAt := CozyTick;', 'CheckpointAt < Budget.DeadlineTick',
+   'BetweenModules();', 'CheckpointElapsed := CozyTick - CheckpointAt;',
+   'if CheckpointElapsed > AllowanceLeft then CheckpointElapsed := AllowanceLeft;',
+   'Inc(Budget.DeadlineTick, CheckpointElapsed);', 'Dec(AllowanceLeft, CheckpointElapsed);',
+   'if (Finished >= Budget.DeadlineTick) or',
+   '(Assigned(Cancelled) and Cancelled()) then Truncated := True;',
+   'Complete := Complete and not Truncated and GenerationStable;'];
+ let position=-1;
+ for(const token of tokens){
+  position=scan.indexOf(token,position+1);
+  assert.ok(position>=0,token);
+ }
+});
 test('source: no driver-specific allowlist and no missing-row pass introduced',()=>{for(const s of [inventory,reader,code,header])assert.ok(!/nvwgf2umx\.dll/i.test(s));assert.ok(inventory.includes('Measured := False'));assert.ok(inventory.includes('if Complete and (MeasuredCount = Total)'));assert.ok(inventory.includes("Status := 'SKIPPED_LIMIT'"));assert.ok(inventory.includes('ReadProcessModules(GetCurrentProcess, @EndModules[0]'));});
 const report=require("../../services/integrity/peace.desktop-integrity-reports"),plan=require("../../services/integrity/peace.measurement-plan-contract"),summarize=require("../../services/runtime/peace.desktop-snapshot-diagnostics").Summarize;
 function validRow(name){return {name,status:'UNVERIFIED_BASELINE',codeStatus:'MATCH_LOCAL_FILE',fileSha512:'a'.repeat(128),fileCrc64:'A'.repeat(16),fileXxh3_128:'b'.repeat(32),fileBlake3:'c'.repeat(64),codeSha512:'d'.repeat(128),codeCrc64:'D'.repeat(16),codeXxh3_128:'e'.repeat(32),codeBlake3:'f'.repeat(64),exportTableStatus:'NO_EXPORTS',exportCoverage:'NO_EXPORTS',failurePhase:0};}

@@ -124,8 +124,8 @@ check('B retirement follows authorized hidden O readiness and keeps O parent ide
   assert(launch.includes('if not FApi.StartOverlay(False,'));
   assert(launch.indexOf('if not RenewActivatedLicense then Exit;') < launch.indexOf('if not FApi.StartOverlay(False,'));
   assert(launch.indexOf('if not FApi.StartOverlay(False,') < launch.indexOf('FCommands.Complete(WorkerTransferred)'));
-  assert(launch.indexOf('if not FApi.StartOverlay(False,') < launch.indexOf('WaitForCommit(ChildProcess, Deadline);'));
-  assert(launch.indexOf('WaitForCommit(ChildProcess, Deadline);') < launch.indexOf('FCommands.Complete(WorkerTransferred)'));
+  assert(launch.indexOf('if not FApi.StartOverlay(False,') < launch.indexOf('WaitForCommit(ChildProcess, HoldDeadline, ReadReleaseDeadline);'));
+  assert(launch.indexOf('WaitForCommit(ChildProcess, HoldDeadline, ReadReleaseDeadline);') < launch.indexOf('FCommands.Complete(WorkerTransferred)'));
   assert(execute.indexOf('if FCommands.TakePreparation then') < execute.indexOf('PrepareOverlay;'));
   assert.doesNotMatch(launch, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);
@@ -138,7 +138,7 @@ check('B retirement follows authorized hidden O readiness and keeps O parent ide
   assert.match(complete, /FParentPins := Pins;\s*Pins := nil;/);
   const barrier = overlay.slice(overlay.indexOf('procedure TOverlayWorker.PrepareTransferBeforeShow;'), overlay.indexOf('procedure TOverlayWorker.StartAuthorized;'));
   assert(barrier.indexOf('FContext.ConfirmOverlayReady') < barrier.indexOf('while FContext.ParentIsAlive do'));
-  assert(barrier.indexOf('while FContext.ParentIsAlive do') < barrier.indexOf('MaintainLease(True);'));
+  assert(barrier.indexOf('while FContext.ParentIsAlive do') < barrier.lastIndexOf('MaintainLease(True);'));
   assert.match(barrier, /not FTransferred or not FParentRetirementDone/);
   assert.match(barrier, /not ParentCompletion\.ExitObserved or\s*not ParentCompletion\.ExitCodeKnown or \(ParentCompletion\.ExitCode <> 0\) then/);
   const core=handoff.indexOf('procedure THandoffContext.CleanupTransferredParentCore;');

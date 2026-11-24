@@ -18,7 +18,10 @@ const execute=part(overlay,'procedure TOverlayWorker.Execute;','{$IFDEF GAME_OVE
 
 test('source: full-snapshot due time is completion-based and transfer-aware',()=>{
  assert.match(state,/Result := LastAcceptedTick = 0[\s\S]*not Transferred[\s\S]*NowTick - LastAcceptedTick >= 15000/);
- order(refresh,'OverlaySnapshotDue(CozyTick, FLastSnapshotAt, FTransferred,','FClient.ReportIntegrity(','FLastSnapshotAt := CozyTick;');
+ const due=part(overlay,'function TOverlayWorker.SnapshotDue: Boolean;','procedure TOverlayWorker.Refresh;');
+ order(due,'OverlaySnapshotDue(CozyTick, FLastSnapshotAt, FTransferred,','FClient.SnapshotDeadlineTick, FLastSnapshotDuration);');
+ order(refresh,'if FTransferred then MaintainLease(False);','Image := FImage.VerifyNow(Budget);',
+  'IncludeModules := SnapshotDue;','FClient.ReportIntegrity(','FLastSnapshotAt := CozyTick;');
  assert.doesNotMatch(refresh,/if IncludeModules then FLastSnapshotAt := CozyTick;\s*FClient.ReportIntegrity/);
 });
 test('source: first frame is not raced by another measurement',()=>{
@@ -45,8 +48,31 @@ test('source: O remains hidden until successful presented B exit and fresh trans
   'OverlayTransition(FState, osVisible);','OverlayTransition(FState, osTransferred);','FFirstFrameShown := True;');
  assert.doesNotMatch(frame,/ConfirmOverlayReady/);
 });
+test('source: only a new signed verification refreshes the same hidden O readiness',()=>{
+ const barrier=part(overlay,'procedure TOverlayWorker.PrepareTransferBeforeShow;','procedure TOverlayWorker.StartAuthorized;');
+ const cancel=part(overlay,'function TOverlayWorker.RequestCancelled: Boolean;','procedure TOverlayWorker.FirstFrameReady;');
+ assert.match(overlay,/RollingOverlayExitWindowMs = 75000;\s+RollingOverlayRefreshIntervalMs = 10000;/);
+ assert.match(cancel,/\(FHiddenTransferDeadline <> 0\) and \(CozyTick >= FHiddenTransferDeadline\)/);
+ order(barrier,'Rolling := FContext.RollingOverlayReady;',
+  'ExitDeadline := CozyTick + RollingOverlayExitWindowMs;',
+  'FHiddenTransferDeadline := ExitDeadline;', 'FContext.ConfirmOverlayReady(CommitDeadline);',
+  'while FContext.ParentIsAlive do','RequestCancelled or (CozyTick >= ExitDeadline)',
+  'if Rolling and FContext.RollingOverlayReady and not FTransferred then',
+  '(At >= NextReadyRefresh) and (At + RollingOverlayFinalReserveMs < ExitDeadline)',
+  'MaintainLease(True);','VerifyTick := FClient.LeaseRequestTick;',
+  'not FTransferred and (VerifyTick <> PublishedVerifyTick)',
+  'not Terminated and not FFailed and (FDeadline > At) and','(At < ExitDeadline) and FContext.ParentIsAlive',
+  'CommitDeadline := VerifyTick + 30000;', 'if FDeadline < CommitDeadline then CommitDeadline := FDeadline;',
+  'if ExitDeadline < CommitDeadline then CommitDeadline := ExitDeadline;','if CommitDeadline > At then',
+  'FContext.RefreshOverlayReady(CommitDeadline);','PublishedVerifyTick := VerifyTick;',
+  'ParentCompletion := FContext.ParentCleanupObservation;', 'not ParentCompletion.ExitObserved or',
+  'not ParentCompletion.ExitCodeKnown or (ParentCompletion.ExitCode <> 0) then',
+  'FHiddenTransferDeadline := 0;');
+ assert.doesNotMatch(barrier,/CommitTransfer|LaunchWithHandoff|ApiShowWindow|FDeadline\s*:=/);
+});
 test('source: parent exit confirmation takes the cheap path before full refresh',()=>{
- order(execute,'if not FParentRetirementDone and not FContext.ParentIsAlive then','MaintainLease(True);','else if CozyTick >= NextCheck then','Refresh;');
+ order(execute,'if not FParentRetirementDone and not FContext.ParentIsAlive then','MaintainLease(True);',
+  'else if (CozyTick >= NextCheck) or SnapshotDue then','Refresh;');
 });
 test('source: long initial/full-snapshot cost is not the cheap renewal estimate',()=>{
  order(refresh,'if IncludeModules then LeaseStarted := CozyTick;','RenewLease(Image, LeaseStarted);');
@@ -60,12 +86,23 @@ test('source: batch callback cannot manufacture a lease',()=>{
 });
 test('source: retries a loader-only generation race before signing any part of a fresh inventory',()=>{
  order(core,"StartupPhaseCore('MODULES_BEGIN')",'for ScanAttempt := 0 to ModuleGenerationRetryLimit do',
-  'MaintainLease(ScanAttempt = 0);','Snapshot := CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity, ServiceTheme);',
+  'MaintainLease(ScanAttempt = 0);','Snapshot := CollectModuleInventoryJSON(Cancelled, FOwnImage, CodeIntegrity,',
+  'Checkpoint, CheckpointAllowance);',
   '(ScanAttempt = ModuleGenerationRetryLimit) or','not ModuleInventoryGenerationRetryable(Snapshot) then Break;',
   'FreeAndNil(Snapshot);','SnapshotID := BootstrapRequestID;');
  assert.match(core,/ModuleGenerationRetryLimit = 2;/);
  assert.equal((core.match(/SnapshotID := BootstrapRequestID/g)||[]).length,1);
  assert.match(core,/Snapshot.Free/);
+});
+test('source: only transferred O can service independent signed renewal during a scan checkpoint',()=>{
+ order(core,'CheckpointAllowance := 0;','Checkpoint := nil;',
+  'if FTransferConfirmed and Assigned(MaintainLease) then','OwnedMaintainLease := MaintainLease;',
+  'CheckpointAllowance := ModuleCheckpointAllowanceMs;',
+  'Checkpoint := procedure','OwnedMaintainLease(False);',
+  'Snapshot := CollectModuleInventoryJSON(');
+ assert.match(client,/ModuleCheckpointAllowanceMs = 12000;/);
+ assert.doesNotMatch(core,/ServiceTheme|SaveTheme/);
+ assert.doesNotMatch(core,/FLeaseDeadlineTick\s*:=|FTransferConfirmed\s*:=\s*True/);
 });
 test('source: a single byte-bounded inventory is signed and each batch remains subject to the existing authority',()=>{
  const api=read('Cozy.Source/Cozy.Platform/Cozy.Api.pas'),inventory=read('Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas');
@@ -83,7 +120,7 @@ test('source: a single byte-bounded inventory is signed and each batch remains s
 });
 test('source: default nil callback preserves existing callers',()=>{
  assert.equal((client.match(/const MaintainLease: TProc<Boolean> = nil/g)||[]).length,2);
- assert.match(client,/ReportIntegrityCore\(Security, CodeIntegrity, Image, IncludeModules, Cancelled,\s*FailureStatus, OwnImage, MaintainLease, ServiceTheme\)/);
+ assert.match(client,/ReportIntegrityCore\(Security, CodeIntegrity, Image, IncludeModules, Cancelled,\s*FailureStatus, OwnImage, MaintainLease\)/);
 });
 test('source: old grant/cancellation is checked before publication',()=>{
  const s=part(overlay,'procedure TOverlayWorker.RenewLease(','procedure TOverlayWorker.StartAuthorized;');

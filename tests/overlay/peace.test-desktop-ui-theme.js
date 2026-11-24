@@ -6,8 +6,10 @@ const test=require('node:test');
 
 const engine=process.argv.includes('--sqlite')?'sqlite':'json';
 const black=0x1000000,white=0x1ffffff;
+const curated=[0x1131520,0x110211e,0x119152b,0x1091523,0x124131b];
+const finalPreset=curated.at(-1);
 
-test(`a confirmed O persists a signed full-RGB theme for later B/O launches on ${engine}`,()=>{
+test(`a confirmed O migrates a legacy RGB color to signed space presets on ${engine}`,()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'cozy-native-ui-theme-'));
  Object.assign(process.env,{
   DATA_DIR:temp,STORAGE_ENGINE:engine,HA_ENABLED:'0',
@@ -146,6 +148,25 @@ test(`a confirmed O persists a signed full-RGB theme for later B/O launches on $
    `,first.machineId,overlay.overlayId],{cwd:process.env.COZY_LEGACY_RELAY_ROOT,encoding:'utf8'});
    assert.equal(legacyCheck.status,0,legacyCheck.stderr);
   }
+  const legacyColor=SignedTheme(overlay,0x1f4ff91,7);
+  assert.equal(Call(legacyColor).theme,legacyColor.theme);
+  let nextSequence=8;
+  for(const theme of curated){
+   const choice=SignedTheme(overlay,theme,nextSequence++);
+   const receipt=Call(choice),revision=store.Load().revision;
+   assert.equal(receipt.theme,theme);
+   assert.deepEqual(Call(choice),receipt);
+   assert.equal(store.Load().revision,revision);
+   assert.deepEqual(persistence.Projection(first,2),{theme});
+   assert.deepEqual(persistence.Projection(first,1),{theme:0});
+  }
+  assert.throws(()=>Call(legacyColor),/BOOTSTRAP_REQUEST_REUSED/);
+  const orbit=SignedTheme(overlay,1,nextSequence++);
+  assert.equal(Call(orbit).theme,1);
+  assert.deepEqual(persistence.Projection(first,1),{theme:1});
+  assert.equal(Object.hasOwn(registry.State().bindings[binding],'uiThemeRgb'),false);
+  assert.equal(Call(SignedTheme(overlay,finalPreset,nextSequence)).theme,finalPreset);
+  assert.equal(store.Load().overlays[overlay.overlayId].sessionExpiresAt,previousExpiry);
   assert.equal(Call({action:'overlayClose',sessionId:overlay.live.sessionId,sessionToken:overlay.live.sessionToken}).status,'CLOSED');
   assert.equal(Object.hasOwn(store.Load().overlays[overlay.overlayId],'themeRgbReceipt'),false);
   assert.throws(()=>Call(amber),/BOOTSTRAP_SESSION_CLOSED/);
@@ -156,8 +177,8 @@ test(`a confirmed O persists a signed full-RGB theme for later B/O launches on $
   assert.equal(machinePolicy.Public(first.machineId).source,'SINGLE_USE');
   machinePolicy.Set(first.machineId,false,{requestId:crypto.randomUUID(),reason:'Approve a fresh test run'},'TEST');
   const next=StartB(fixture.Child(first),2);
-  assert.equal(next.session.theme,black);
-  assert.equal(ClaimO(next,2).live.theme,black);
+  assert.equal(next.session.theme,finalPreset);
+  assert.equal(ClaimO(next,2).live.theme,finalPreset);
   assert.equal(StartB(fixture.Device(),2).session.theme,0);
   machinePolicy.Set(first.machineId,false,{requestId:crypto.randomUUID(),reason:'Approve a legacy test run'},'TEST');
   const legacy=StartB(fixture.Child(first));
@@ -169,16 +190,16 @@ test(`a confirmed O persists a signed full-RGB theme for later B/O launches on $
   assert.equal(Object.hasOwn(ClaimO(withoutTheme,null).live,'theme'),false);
 
   assert.equal(Object.hasOwn(registry.State().bindings[binding],'uiTheme'),false);
-  assert.equal(registry.State().bindings[binding].uiThemeRgb,black);
+  assert.equal(registry.State().bindings[binding].uiThemeRgb,finalPreset);
   const check=spawnSync(process.execPath,['-e',`
    const assert=require('node:assert/strict');
    const registry=require('./services/devices/peace.desktop-device-registry');
    const persistence=require('./services/devices/peace.desktop-ui-theme');
-   const black=0x1000000,row={machineId:process.argv[2]};
-   assert.equal(registry.State().bindings[process.argv[1]].uiThemeRgb,black);
+   const expected=Number(process.argv[3]),row={machineId:process.argv[2]};
+   assert.equal(registry.State().bindings[process.argv[1]].uiThemeRgb,expected);
    assert.deepEqual(persistence.Projection(row,1),{theme:0});
-   assert.deepEqual(persistence.Projection(row,2),{theme:black});
-  `,binding,first.machineId],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8'});
+   assert.deepEqual(persistence.Projection(row,2),{theme:expected});
+  `,binding,first.machineId,String(finalPreset)],{cwd:path.resolve(__dirname,'../..'),encoding:'utf8'});
   assert.equal(check.status,0,check.stderr);
   const invalid=structuredClone(registry.State());
   invalid.bindings[binding].uiTheme=4;

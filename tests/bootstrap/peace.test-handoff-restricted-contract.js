@@ -87,7 +87,7 @@ check('token readback rejects elevation, service accounts, operator groups and r
 });
 
 check('public opt-in reaches the real O launch path and keeps the compatibility default', () => {
-  assert.match(api, /function StartOverlay\(RestrictedPrivileges: Boolean = False;\s+const Progress: TProc<Integer> = nil;\s+const AwaitRelease: TProc<NativeUInt, UInt64> = nil\): Boolean/);
+  assert.match(api, /function StartOverlay\(RestrictedPrivileges: Boolean = False;\s+const Progress: TProc<Integer> = nil;\s+const AwaitRelease: TOverlayReleaseGate = nil\): Boolean/);
   assert.match(api, /Result := StartOverlayCore\(RestrictedPrivileges, Progress, AwaitRelease\)/);
   assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, FailedChild, RestrictedPrivileges,\s+MaintainParent, Progress, PrepareGate\)/);
   assert.match(overlay, /if RestrictedPrivileges then LaunchProfile := hlpOverlayRestricted/);
@@ -95,33 +95,58 @@ check('public opt-in reaches the real O launch path and keeps the compatibility 
   assert.match(api, /RestrictedPrivileges <> FOverlayRestrictedPrivileges/);
 });
 
-check('hidden O publishes one bounded ready deadline only to the gated parent', () => {
+check('hidden O publishes bounded ready deadlines only to its gated parent', () => {
   const actual = body(handoff, 'function LaunchWithHandoff(', '\nconstructor THandoffContext.Create;');
-  const payload = body(handoff, 'function BuildPayload(', 'procedure WaitHandoffReadiness(');
+  const payload = body(handoff, 'function BuildPayload(', 'procedure RequireReadyChild(');
+  const writer = body(handoff, 'procedure THandoffContext.PublishReadyDeadlineCore(',
+    'procedure THandoffContext.ConfirmOverlayReadyCore(');
   const confirm = body(handoff, 'procedure THandoffContext.ConfirmOverlayReadyCore(',
     'procedure THandoffContext.CleanupTransferredParentCore;');
+  const poll = body(handoff, 'function PollReadyDeadline(', 'procedure WaitHandoffReadiness(');
+  const validate = body(handoff, 'procedure ValidateReadyDeadline(', 'function PollReadyDeadline(');
+  const receive = body(handoff, 'class function THandoffContext.ReceiveRole(', 'procedure THandoffContext.CompleteClaimAndCleanupCore(');
+  assert.match(handoff, /HandoffReadyDeadlineFlag = \$100;\s+HandoffRollingReadyDeadlineFlag = \$200;/);
+  assert.match(handoff, /ReadyDeadlineWindowMS = 30000;\s+ReadyDeadlineFrameLimit = 32;\s+ReadyDeadlinePipeBytes = 4096;/);
+  order(receive, ['Cipher.Decrypt(Envelope, AAD,',
+    'RollingReadyDeadline := OverlayRole and', 'or HandoffRollingReadyDeadlineFlag',
+    'ReadyDeadlineExtension := RollingReadyDeadline or (OverlayRole and', 'or HandoffReadyDeadlineFlag',
+    'Result.FRollingReadyDeadline := RollingReadyDeadline;', 'if ReadyDeadlineExtension then',
+    'ValidateInherited(THandle(ReadyDeadlineHandle));', 'GetFileType(THandle(ReadyDeadlineHandle)) = FILE_TYPE_PIPE',
+    'Result.FReadyDeadlinePipe := THandle(ReadyDeadlineHandle);']);
   order(payload, ['HandoffRoleName(Header.ComponentRole = 1)', 'if ReadyDeadlineHandle <> 0 then',
-    'Header.ComponentRole := Header.ComponentRole or HandoffReadyDeadlineFlag;',
+    'Header.ComponentRole := Header.ComponentRole or HandoffRollingReadyDeadlineFlag;',
     'Move(ReadyDeadlineHandle, Result[Offset], SizeOf(ReadyDeadlineHandle));']);
   order(actual, ['InheritedCount := 4;', 'if Assigned(AfterReady) then', 'Check(PreserveParent,',
     'CreatePipe(ReadyDeadlineRead, ReadyDeadlineWrite,', 'InheritedHandles[4] := ReadyDeadlineWrite;',
     'InheritedCount * SizeOf(THandle)', 'ChildKeyID, ChildNonce, UInt64(ReadyDeadlineWrite));',
     'Close(ReadyDeadlineWrite);', 'THandoffCipher.Encrypt(Wrapping, Payload, AAD,', 'WaitHandoffReadiness(',
-    'ReadExact(ReadyDeadlineRead, ReadyBytes, 0, Length(ReadyBytes),', 'RequirePipeEnd(ReadyDeadlineRead,',
-    'ChildCommitDeadline > ReadyAt', 'AfterReady(NativeUInt(Process.hProcess), ChildCommitDeadline);',
-    'WaitResult := WaitForSingleObject(Process.hProcess, 0);', 'Result := True;']);
-  order(confirm, ['ParentIsAliveCore', 'if FReadyDeadlinePipe <> 0 then', 'CommitDeadline > CozyTick',
-    'WritePublicFrame(FReadyDeadlinePipe, DeadlineBytes);', 'Close(FReadyDeadlinePipe);', 'SetEvent(FReadyEvent)']);
-  order(api, ['CommitRequestDeadline := ChildCommitDeadline;', 'ReleaseDeadline := CommitRequestDeadline - 3500;',
-    'OwnedRelease(ChildProcess, ReleaseDeadline);', 'Result := LaunchOverlay(',
-    'if CommitRequestDeadline > At + 5000 then CommitRequestDeadline := At + 5000;',
-    'TransferClient.CommitTransfer(FSecurity, FBootstrapSessionID,']);
+    'if Deadline < ReadyReadDeadline then ReadyReadDeadline := Deadline;',
+    'ReadExact(ReadyDeadlineRead, ReadyBytes, 0, Length(ReadyBytes),', 'RequireReadyChild(Process.hProcess,',
+    'ValidateReadyDeadline(ChildCommitDeadline);', 'PollReadyDeadline(ReadyDeadlineRead,',
+    'AfterReady(NativeUInt(Process.hProcess), ReadReadyDeadline);', 'Close(ReadyDeadlineRead);',
+    'RequireReadyChild(Process.hProcess,', 'Result := True;']);
+  assert.doesNotMatch(actual, /RequirePipeEnd\(ReadyDeadlineRead,/);
+  order(confirm, ['ParentIsAliveCore', 'if FReadyDeadlinePipe <> 0 then',
+    'PublishReadyDeadlineCore(CommitDeadline, False);',
+    'if not FRollingReadyDeadline then Close(FReadyDeadlinePipe);', 'SetEvent(FReadyEvent)']);
+  order(writer, ['CommitDeadline > At', 'CommitDeadline <= At + ReadyDeadlineWindowMS',
+    'if CommitDeadline = FLastReadyDeadline then Exit;', 'FReadyDeadlineFrames < ReadyDeadlineFrameLimit',
+    'WriteFile(FReadyDeadlinePipe, CommitDeadline, SizeOf(CommitDeadline),',
+    'AllowReaderClosed and', 'ERROR_BROKEN_PIPE', 'Close(FReadyDeadlinePipe);',
+    'Written = SizeOf(CommitDeadline)', 'Inc(FReadyDeadlineFrames);']);
+  order(poll, ['RequireReadyChild(ChildProcess,', 'Result := Previous;',
+    'for I := 1 to ReadyDeadlineFrameLimit do', 'PeekNamedPipe(Pipe,', 'if Available < SizeOf(Candidate) then Break;',
+    'ReadFile(Pipe, Candidate, SizeOf(Candidate),', 'ReadCount = SizeOf(Candidate)', 'ValidateReadyDeadline(Candidate);',
+    'Result := Candidate;', 'RequireReadyChild(ChildProcess,']);
+  assert.match(validate, /Candidate > 0\) and \(Candidate <= CozyTick \+ ReadyDeadlineWindowMS\)/);
 });
 
 check('ready acceptance rechecks cancellation and process death and retains the original deadline', () => {
   const wait = body(handoff, 'procedure WaitHandoffReadiness(', 'function LaunchWithHandoff(');
-  order(wait, ['Status := WaitForSingleObject(CancelEvent, 0)', 'HANDOFF_CANCELLED',
+  const pending = body(handoff, 'procedure RequireReadyChild(', 'procedure ValidateReadyDeadline(');
+  order(pending, ['Status := WaitForSingleObject(CancelEvent, 0)', 'HANDOFF_CANCELLED',
     'Status := WaitForSingleObject(ChildProcess, 0)', 'HANDOFF_CHILD_EXITED']);
+  assert.match(wait, /procedure RequirePending;\s*begin\s*RequireReadyChild\(ChildProcess, CancelEvent, NativeError\);/);
   order(wait.slice(wait.indexOf('repeat')), [
     'RequirePending;', "Check(Remaining(Deadline) > 0, 'HANDOFF_READY_TIMEOUT')",
     'WaitResult := WaitForSingleObject(ReadyEvent, 0)', 'if WaitResult = WAIT_OBJECT_0 then',
@@ -145,6 +170,17 @@ check('real Windows probe includes owned process, stale file identity and restri
     'PROBE_RESTRICTED_CHILD_EXIT_CODE', 'PROBE_FIXTURE_DACL_RESTORE']) assert.ok(probe.includes(code), code);
   assert.match(probe, /Observation.ExitObserved and not Observation.CleanupAttempted and\s+not Observation.DispositionAccepted and not Observation.FileRemoved/);
   assert.doesNotMatch(probe, /OpenProcess\(/);
+  const rolling = probe.slice(probe.indexOf('function RunHandoffReadyDeadlineContracts('),
+    probe.indexOf('function RunHandoffReadinessAndIdentityContracts:'));
+  order(rolling, ['Context.ConfirmOverlayReady(Initial);', 'Context.RefreshOverlayReady(Initial);',
+    'Context.FReadyDeadlineFrames = 1', 'Context.RefreshOverlayReady(Later);',
+    'Context.RefreshOverlayReady(Shorter);', 'SetEvent(CancelEvent)', 'PROBE_READY_CANCEL_ACCEPTED',
+    'ResetEvent(CancelEvent)', 'Seen = Shorter', 'Close(Reader);',
+    'Context.RefreshOverlayReady(Later);', 'not Context.RollingOverlayReady',
+    'Context.FRollingReadyDeadline := False;', 'Context.ConfirmOverlayReady(Initial);',
+    'RequirePipeEnd(Reader, CozyTick + 1000);',
+    '(Seen = Initial) and (Context.FReadyDeadlinePipe = 0)']);
+  assert.ok(probe.includes('Inc(Result, RunHandoffReadyDeadlineContracts(Child, CancelEvent));'));
 });
 
 console.log(`Handoff restricted-profile source contracts: ${checks} passed; Windows/Delphi/graphics/TPM/TLS runtime NOT_RUN.`);
