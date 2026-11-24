@@ -35,7 +35,7 @@ test('B keeps the owned key private across focus changes and wipes its bounded f
   const window = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Window.pas'));
   const mailbox = stripComments(read('Cozy.Source/Cozy.License/Cozy.License.Commands.pas'));
   const paint = window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
-  assert.match(paint, /if not FResetKeySequence and\s+\(Phase in \[0, 1, 2, LicensePhaseRejectScan, LicensePhaseRejected\]\) then\s+KeyCharacters := FKey\.Count;\s+if \(KeyCharacters > 0\) and WindowInputEnabled then\s+begin[\s\S]*?RevealedKey := FKey\.CopyText;\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, Length\(RevealedKey\),\s+Progress, PWideChar\(RevealedKey\), Length\(RevealedKey\)\);\s+finally\s+WipeBoundaryText\(RevealedKey\);\s+end;\s+end\s+else\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, KeyCharacters, Progress, nil, 0\);/);
+  assert.match(paint, /if not FResetKeySequence and\s+\(Phase in \[0, 1, 2, LicensePhaseRejectScan, LicensePhaseAcceptScan,\s+LicensePhaseRejected, LicensePhaseAccepted\]\) then\s+KeyCharacters := FKey\.Count;\s+if \(KeyCharacters > 0\) and WindowInputEnabled then\s+begin[\s\S]*?RevealedKey := FKey\.CopyText;\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, Length\(RevealedKey\),\s+Progress, PWideChar\(RevealedKey\), Length\(RevealedKey\)\);\s+finally\s+WipeBoundaryText\(RevealedKey\);\s+end;\s+end\s+else\s+Actions := ImGuiLicenseSceneReveal\(FContext, ScenePhase, KeyCharacters, Progress, nil, 0\);/);
   assert(paint.indexOf('WipeBoundaryText(RevealedKey);') < paint.indexOf('ImGuiEndCanvas(FContext);'));
   const cancel = window.split('procedure TLicenseWindow.CancelInput;')[1].split('procedure TLicenseWindow.ClearKey;')[0];
   assert.doesNotMatch(cancel, /FKey|ClearKey/);
@@ -151,7 +151,7 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   assert(destroy.indexOf('ApiShowWindow(FWindow, SW_HIDE)') < destroy.indexOf('FJoinWorker()'));
   assert(destroy.indexOf('FJoinWorker()') < destroy.indexOf('ImGuiDestroy(FContext)'));
   assert.match(entry, /begin Worker\.RequestStop; end,/);
-  assert.match(entry, /begin Worker\.StopAndJoin; end,\s+function: Boolean\s+begin Result := Worker\.RequestLaunch; end,\s+Session\.ThemeIndex\)/);
+  assert.match(entry, /begin Worker\.StopAndJoin; end,\s+function: Boolean\s+begin Result := Worker\.RequestLaunch; end,\s+Session\.ThemeIndex,\s+function: Boolean\s+begin Result := Worker\.RequestPreparation; end,\s+function: Boolean\s+begin Result := Worker\.RequestCommit; end\)/);
   assert.match(run, /if FPresentationComplete and \(FState\(\) = WorkerTransferred\) then Result := 0/);
   assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if \(Result = 0\) and not Transferred then Result := 1;/);
   assert.doesNotMatch(entry, /if Transferred then Result := 0;/);

@@ -87,12 +87,35 @@ check('token readback rejects elevation, service accounts, operator groups and r
 });
 
 check('public opt-in reaches the real O launch path and keeps the compatibility default', () => {
-  assert.match(api, /function StartOverlay\(RestrictedPrivileges: Boolean = False;\s+const Progress: TProc<Integer> = nil\): Boolean/);
-  assert.match(api, /Result := StartOverlayCore\(RestrictedPrivileges, Progress\)/);
-  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, FailedChild, RestrictedPrivileges,\s+MaintainParent, Progress\)/);
+  assert.match(api, /function StartOverlay\(RestrictedPrivileges: Boolean = False;\s+const Progress: TProc<Integer> = nil;\s+const AwaitRelease: TProc<NativeUInt, UInt64> = nil\): Boolean/);
+  assert.match(api, /Result := StartOverlayCore\(RestrictedPrivileges, Progress, AwaitRelease\)/);
+  assert.match(api, /FBoundImage.SHA512, FBootstrapSessionID, FailedChild, RestrictedPrivileges,\s+MaintainParent, Progress, PrepareGate\)/);
   assert.match(overlay, /if RestrictedPrivileges then LaunchProfile := hlpOverlayRestricted/);
   assert.match(overlay, /Flow.Release.SHA512, True,\s+LaunchProfile, WaitMaintenance,\s+procedure\(const Observation: THandoffCleanupObservation\)/);
   assert.match(api, /RestrictedPrivileges <> FOverlayRestrictedPrivileges/);
+});
+
+check('hidden O publishes one bounded ready deadline only to the gated parent', () => {
+  const actual = body(handoff, 'function LaunchWithHandoff(', '\nconstructor THandoffContext.Create;');
+  const payload = body(handoff, 'function BuildPayload(', 'procedure WaitHandoffReadiness(');
+  const confirm = body(handoff, 'procedure THandoffContext.ConfirmOverlayReadyCore(',
+    'procedure THandoffContext.CleanupTransferredParentCore;');
+  order(payload, ['HandoffRoleName(Header.ComponentRole = 1)', 'if ReadyDeadlineHandle <> 0 then',
+    'Header.ComponentRole := Header.ComponentRole or HandoffReadyDeadlineFlag;',
+    'Move(ReadyDeadlineHandle, Result[Offset], SizeOf(ReadyDeadlineHandle));']);
+  order(actual, ['InheritedCount := 4;', 'if Assigned(AfterReady) then', 'Check(PreserveParent,',
+    'CreatePipe(ReadyDeadlineRead, ReadyDeadlineWrite,', 'InheritedHandles[4] := ReadyDeadlineWrite;',
+    'InheritedCount * SizeOf(THandle)', 'ChildKeyID, ChildNonce, UInt64(ReadyDeadlineWrite));',
+    'Close(ReadyDeadlineWrite);', 'THandoffCipher.Encrypt(Wrapping, Payload, AAD,', 'WaitHandoffReadiness(',
+    'ReadExact(ReadyDeadlineRead, ReadyBytes, 0, Length(ReadyBytes),', 'RequirePipeEnd(ReadyDeadlineRead,',
+    'ChildCommitDeadline > ReadyAt', 'AfterReady(NativeUInt(Process.hProcess), ChildCommitDeadline);',
+    'WaitResult := WaitForSingleObject(Process.hProcess, 0);', 'Result := True;']);
+  order(confirm, ['ParentIsAliveCore', 'if FReadyDeadlinePipe <> 0 then', 'CommitDeadline > CozyTick',
+    'WritePublicFrame(FReadyDeadlinePipe, DeadlineBytes);', 'Close(FReadyDeadlinePipe);', 'SetEvent(FReadyEvent)']);
+  order(api, ['CommitRequestDeadline := ChildCommitDeadline;', 'ReleaseDeadline := CommitRequestDeadline - 3500;',
+    'OwnedRelease(ChildProcess, ReleaseDeadline);', 'Result := LaunchOverlay(',
+    'if CommitRequestDeadline > At + 5000 then CommitRequestDeadline := At + 5000;',
+    'TransferClient.CommitTransfer(FSecurity, FBootstrapSessionID,']);
 });
 
 check('ready acceptance rechecks cancellation and process death and retains the original deadline', () => {

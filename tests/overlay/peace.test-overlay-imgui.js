@@ -425,30 +425,37 @@ check('O draws the ordered Font Awesome tabs at the left edge and keeps the appe
   const b=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h');
   const palette=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_palette.h');
   const icons=read('Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_fontawesome.h');
-  const tabs=scene.slice(scene.indexOf('static constexpr CozyWorkspaceTabControl CozyWorkspaceTabs'),scene.indexOf('static void cozy_workspace_usage_meter('));
+  const tabs=scene.slice(scene.indexOf('static constexpr CozyWorkspaceTabControl CozyWorkspaceTabs'),scene.indexOf('static void cozy_workspace_general('));
   inOrder(tabs,['{CozyFaSkull, "General"}', '{CozyFaEye, "Market"}',
-    '{CozyFaCrosshairs, "Usage"}', '{CozyFaGear, "Settings"}', 'CozyWorkspaceRailCenter=44.f',
-    'static void cozy_workspace_tabs('], 'Four ordered Font Awesome workspace symbols');
+    '{CozyFaBullseye, "Usage"}', '{CozyFaGear, "Settings"}', 'CozyWorkspaceRailCenter=44.f',
+    'static void cozy_workspace_tabs('], 'Four ordered Font Awesome workspace symbols, including a concentric target');
   assert.doesNotMatch(tabs,/cozy_workspace_alien/);
   const tabControls=tabs.slice(tabs.indexOf('static void cozy_workspace_tabs('));
   inOrder(tabControls,['const float center=CozyWorkspaceRailCenter+42.f*i;',
     'v.box(24.f,center-18.f,64.f,center+18.f)',
     'cozy_palette_item(area,CozyWorkspaceTabs[i].label,', 'v.context->overlay_tab=',
-    'const bool selected=v.context->overlay_tab==i;', 'const float outline=selected?0.f:',
+    'if (previous!=v.context->overlay_tab) v.context->overlay_tab_reveal=0.f;',
+    'cozy_workspace_border_ink(v.palette,2.8f)', 'cozy_workspace_border_ink(v.palette,4.15f)',
+    'const bool selected=v.context->overlay_tab==i;', 'motion=cozy_workspace_motion(',
+    'const float outline=selected?0.f:',
     'cozy_fontawesome_icon(v.draw,CozyWorkspaceTabs[i].icon,',
-    'v.at(CozyWorkspaceRailCenter,center),optical_sizes[i]*v.scale,ink,outline);'],
-    'Edge alignment, keyboard targets, optical sizing and selected fill');
+    'v.at(CozyWorkspaceRailCenter,center-.65f*amount)',
+    'optical_sizes[i]*v.scale*(1.f+.0625f*amount)*press,ink,outline);'],
+    'Edge alignment, keyboard targets, border-colored icon animation and one selected fill');
   assert.doesNotMatch(tabControls,/\.text\(|AddText\(|AddRect|license_glass_contour/);
   inOrder(icons,['static void cozy_fontawesome_icon(', 'if (outline>0.f)',
     'PathStroke(ink,ImDrawFlags_Closed,outline);', 'return;', 'mesh.triangles[i]'],
     'Inactive contour uses the same authored glyph geometry as active fill');
+  assert.match(icons,/static void cozy_fontawesome_bullseye[\s\S]*?\.5f,\.375f,\.28125f,\.15625f,\.0625f/);
   const workspaceView=scene.slice(scene.indexOf('struct CozyWorkspaceView'),scene.indexOf('enum CozyWorkspaceTab'));
   inOrder(workspaceView,['cozy_scene_font_size(size*scale)', 'CalcTextSizeA(',
     'ImFloor(start.x+.5f)', 'ImFloor(start.y+.5f)'], 'Text uses density-aware atlas sizing and pixel alignment');
   const checkbox=scene.slice(scene.indexOf('static void cozy_workspace_checkbox('),scene.indexOf('static int cozy_workspace_settings('));
   inOrder(checkbox,['cozy_palette_item(row,label,interactive)', 'disabled=!disabled;',
-    'ImGuiItemStatusFlags_Checkable', 'ImGuiItemStatusFlags_Checked', 'license_glass_contour(v.draw,checkbox.Min,checkbox.Max,',
-    'if (checked)', 'PathStroke('], 'Theme checkbox tracks an interactive boolean and draws a check mark');
+    'ImGuiItemStatusFlags_Checkable', 'ImGuiItemStatusFlags_Checked', 'motion=cozy_workspace_motion(',
+    'v.box(324.f,center-8.f,340.f,center+8.f)', 'license_glass_contour(v.draw,checkbox.Min,checkbox.Max,',
+    'if (amount>0.f)', 'PathStroke(mark,0,stroke);', 'AddCircleFilled(left,', 'AddCircleFilled(right,'],
+    'Theme checkbox keeps the full row target with a smaller filled box and round checkmark caps');
   const settings=scene.slice(scene.indexOf('static int cozy_workspace_settings('),scene.indexOf('static int cozy_overlay_workspace('));
   assert.equal((settings.match(/cozy_workspace_checkbox\(/g)||[]).length,2);
   inOrder(settings,['black_row=CozyPalettePresetCount,custom_row=black_row+1',
@@ -471,16 +478,23 @@ check('O draws the ordered Font Awesome tabs at the left edge and keeps the appe
   assert.doesNotMatch(usage,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
   const workspace=scene.slice(scene.indexOf('static int cozy_overlay_workspace('),scene.indexOf('static int32_t cozy_scene_frame('));
   inOrder(workspace,['cozy_palette_apply_theme(c,selected,', 'cozy_palette_panel(', '!c->overlay_stars_hidden',
-    'cozy_workspace_tabs(v,popover);', 'if (c->overlay_tab==CozyWorkspaceSettings)',
-    'return cozy_workspace_settings(', 'if (c->overlay_tab==CozyWorkspaceUsage)', 'cozy_workspace_usage('],
-    'Settings and Usage alone add content to the shared workspace background');
-  assert.doesNotMatch(workspace,/cozy_workspace_identity|cozy_workspace_market|headings|\.text\(|\.rule\(|->AddLine\(/);
+    'cozy_workspace_tabs(v,popover,reduced_motion);', 'content.opacity*=',
+    'if (c->overlay_tab==CozyWorkspaceSettings)', 'return cozy_workspace_settings(',
+    'if (c->overlay_tab==CozyWorkspaceUsage)', 'cozy_workspace_usage(',
+    'if (c->overlay_tab==CozyWorkspaceGeneral) cozy_workspace_general(content,licensed_card);'],
+    'Tab content eases in and General receives the authenticated identity');
+  assert.doesNotMatch(workspace,/cozy_workspace_market|CozyWorkspaceMarket|headings|\.text\(|\.rule\(|->AddLine\(/);
+  const general=scene.slice(scene.indexOf('static void cozy_workspace_general('),scene.indexOf('static void cozy_workspace_usage_meter('));
+  inOrder(general,['if (licensed_card<0 || !CozyOverlayTitles[licensed_card]) return;', 'const unsigned seed=',
+    'const float center_x=', 'const ImRect area=', 'AddLine(stars[i-1],stars[i],',
+    'CozyOverlayTitles[licensed_card]'], 'General renders a product-specific chart and the entitled name');
+  assert.doesNotMatch(general,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
   assert.match(scene,/if \(!reduced_motion && \(!workspace \|\| !c->overlay_stars_paused\)\) c->license_elapsed \+= io\.DeltaTime;/);
-  assert.match(scene,/if \(workspace\) \{\s*action=cozy_overlay_workspace\(/);
+  assert.match(scene,/if \(workspace\) \{\s*action=cozy_overlay_workspace\(c,draw,origin,scale,opacity,selected,licensed_card,flags,reduced_motion\);/);
   assert.doesNotMatch(scene,/AddImage|game_cover|game_mark/);
   assert.doesNotMatch(workspace,/cozy_palette_controls\(/);
   assert.match(b,/cozy_palette_apply_theme\(c,theme,true\);/);
-  assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette\);/);
+  assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette,true,true\);/);
   assert.doesNotMatch(b,/cozy_palette_controls\(|cozy_palette_hsv\(|game_cover|game_mark/);
   assert.match(palette,/CozyPalettePresetCount = 4;/);
   assert.match(palette,/if\s*\(show_stars\)\s*cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars\);/);
@@ -504,7 +518,7 @@ check('B and O use the authenticated claim theme and only a visible O edit can c
   const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
   assert.match(bootstrap,/Result\.ThemeIndex := BootstrapThemeIndex\(Data\);/);
   assert.match(bootstrap,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(2\)\);/);
-  assert.match(session,/RunLicenseWindow\([\s\S]*?Session\.ThemeIndex\);/);
+  assert.match(session,/RunLicenseWindow\([\s\S]*?Session\.ThemeIndex,\s*function: Boolean\s*begin Result := Worker\.RequestPreparation; end,\s*function: Boolean\s*begin Result := Worker\.RequestCommit; end\);/);
   assert.match(client,/FSession\.ThemeIndex := BootstrapThemeIndex\(Reply\);/);
   assert.match(client,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(2\)\);/);
   assert.match(controller,/TOverlayWorker\.Create\(Context, Client, Image, Guard, Session\.ThemeIndex\)/);

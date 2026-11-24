@@ -113,7 +113,9 @@ check('A to B normal path and OS read-only fallback retain compatible strict pin
 
 check('B retirement follows authorized hidden O readiness and keeps O parent identity pinned', () => {
   const redeem = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.RedeemPending'), licenseSource.indexOf('procedure TLicenseWorker.ScheduleLicenseRenewal'));
-  const launch = licenseSource.slice(licenseSource.indexOf('procedure TLicenseWorker.LaunchOverlay;'), licenseSource.indexOf('procedure TLicenseWorker.Execute'));
+  const launchStart = licenseSource.indexOf('procedure TLicenseWorker.PrepareOverlay;');
+  assert(launchStart>=0);
+  const launch = licenseSource.slice(launchStart, licenseSource.indexOf('procedure TLicenseWorker.Execute', launchStart));
   const executeStart = licenseSource.indexOf('procedure TLicenseWorker.Execute');
   const execute = licenseSource.slice(executeStart, licenseSource.indexOf('function RunLicenseClient(', executeStart));
   assert(redeem.indexOf('if not LicenseState.IsActive then') < redeem.indexOf('FCommands.Complete(WorkerLicensed)'));
@@ -122,7 +124,9 @@ check('B retirement follows authorized hidden O readiness and keeps O parent ide
   assert(launch.includes('if not FApi.StartOverlay(False,'));
   assert(launch.indexOf('if not RenewActivatedLicense then Exit;') < launch.indexOf('if not FApi.StartOverlay(False,'));
   assert(launch.indexOf('if not FApi.StartOverlay(False,') < launch.indexOf('FCommands.Complete(WorkerTransferred)'));
-  assert(execute.indexOf('if FCommands.TakeLaunch then') < execute.indexOf('LaunchOverlay;'));
+  assert(launch.indexOf('if not FApi.StartOverlay(False,') < launch.indexOf('WaitForCommit(ChildProcess, Deadline);'));
+  assert(launch.indexOf('WaitForCommit(ChildProcess, Deadline);') < launch.indexOf('FCommands.Complete(WorkerTransferred)'));
+  assert(execute.indexOf('if FCommands.TakePreparation then') < execute.indexOf('PrepareOverlay;'));
   assert.doesNotMatch(launch, /CleanupBinaryAfterLicense/);
   assert.match(handoff, /UnlinkVerifiedOwnImage\(FBinaryCleanupFile, FBinaryPath, BinarySHA512,\s*FBinaryCleanupInfo, False\)/);
   const complete = handoff.slice(handoff.indexOf('procedure THandoffContext.CompleteOverlayClaimCore'), handoff.indexOf('procedure THandoffContext.ConfirmOverlayReadyCore'));
@@ -133,7 +137,7 @@ check('B retirement follows authorized hidden O readiness and keeps O parent ide
   assert.match(complete, /FParentImage := ParentFile;\s*ParentFile := 0;/);
   assert.match(complete, /FParentPins := Pins;\s*Pins := nil;/);
   const barrier = overlay.slice(overlay.indexOf('procedure TOverlayWorker.PrepareTransferBeforeShow;'), overlay.indexOf('procedure TOverlayWorker.StartAuthorized;'));
-  assert(barrier.indexOf('FContext.ConfirmOverlayReady;') < barrier.indexOf('while FContext.ParentIsAlive do'));
+  assert(barrier.indexOf('FContext.ConfirmOverlayReady') < barrier.indexOf('while FContext.ParentIsAlive do'));
   assert(barrier.indexOf('while FContext.ParentIsAlive do') < barrier.indexOf('MaintainLease(True);'));
   assert.match(barrier, /not FTransferred or not FParentRetirementDone/);
   assert.match(barrier, /not ParentCompletion\.ExitObserved or\s*not ParentCompletion\.ExitCodeKnown or \(ParentCompletion\.ExitCode <> 0\) then/);

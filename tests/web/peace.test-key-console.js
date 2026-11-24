@@ -57,11 +57,12 @@ try{
   assert.match(submit,/finally\s+FreeAndNil\(Key\);/);
   const paint=window.split('procedure TLicenseWindow.Paint;')[1].split('function TLicenseWindow.Message(')[0];
   assert.match(paint,/if \(Actions and LicenseSceneReadClipboard\) <> 0 then PasteKey\s+else if \(Actions and LicenseSceneAutoSubmit\) <> 0 then Submit;/);
-  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;[\s\S]*?if \(Actions and LicenseSceneDepartureMessage\) <> 0 then\s+FDepartureMessageSeconds := FDepartureMessageSeconds \+ PresentedDelta\s+else\s+FDepartureMessageSeconds := 0;/);
+  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?Exit;\s+end;[\s\S]*?if \(Actions and LicenseSceneDepartureMessage\) <> 0 then\s+begin\s+FDepartureMessageSeconds := FDepartureMessageSeconds \+ PresentedDelta;[\s\S]*?if \(Phase = LicensePhaseTransfer\) and not FCommitRequested then[\s\S]*?FCommit\(\)[\s\S]*?FCommitRequested := True;\s+end;\s+end\s+else FDepartureMessageSeconds := 0;/);
   assert.match(paint,/FDepartureMessageSeconds := 0;\s+if \(State = WorkerTransferred\) and \(Phase = LicensePhaseTransferred\) and\s+\(\(Actions and LicenseSceneComplete\) <> 0\) and\s+\(FDepartureMessageSeconds >= LicenseDepartureMessageSeconds\) then\s+begin\s+FPresentationComplete := True;\s+Close;\s+Exit;/);
   const advance=window.split('procedure TLicenseWindow.AdvancePresentedSequence(')[1].split('procedure TLicenseWindow.Paint;')[0];
   assert.match(advance,/LicensePhaseRejectScan: FOutcomePhase := LicensePhaseRejected;/);
-  assert.match(paint,/else if State = WorkerLicensed then Phase := LicensePhaseRocket[\s\S]*?else if FRedemptionPending then Phase := LicensePhasePreparing/);
+  assert.match(advance,/LicensePhaseAcceptScan: FOutcomePhase := LicensePhaseAccepted;[\s\S]*?if not Assigned\(FPrepare\) or not FPrepare\(\) then Close;/);
+  assert.match(paint,/else if State = WorkerLaunching then Phase := LicensePhaseTransfer\s+else if State = WorkerReady then Phase := LicensePhaseRocket\s+else if State = WorkerPreparing then Phase := LicensePhasePreparing\s+else if \(State = WorkerBusy\) or \(State = WorkerLicensed\) then Phase := 1/);
   assert.doesNotMatch(window,/License(?:PhaseToast|SceneToastComplete)/);
   assert.match(window,/ApiCreateWindowExW\(WS_EX_TOOLWINDOW or NoRedirectionBitmap,/);
   assert.doesNotMatch(window,/\bWS_EX_APPWINDOW\b/);

@@ -31,7 +31,9 @@ test('source: O remains hidden until successful presented B exit and fresh trans
  order(start,'Refresh;','PrepareTransferBeforeShow;','FStarted := True;','Start;');
  order(barrier,'CozyTick >= FDeadline','ExitDeadline := CozyTick + 30000;',
   'if FDeadline < ExitDeadline then ExitDeadline := FDeadline;',
-  'FContext.ConfirmOverlayReady;','FReadyForTransfer := True;',
+  'CommitDeadline := FClient.LeaseRequestTick + 30000;',
+  'if ExitDeadline < CommitDeadline then CommitDeadline := ExitDeadline;',
+  'FContext.ConfirmOverlayReady(CommitDeadline);','FReadyForTransfer := True;',
   'while FContext.ParentIsAlive do','RequestCancelled or (CozyTick >= ExitDeadline)',
   'MaintainLease(False);','CozyWaitForDelay(100,','MaintainLease(True);',
   'ParentCompletion := FContext.ParentCleanupObservation;',
