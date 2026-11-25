@@ -5,10 +5,11 @@ const state=require("../../core/peace.runtime-state");
 // One-use server-only capability; never serialized to a browser or stored as an approval.
 const singleAuthorizations=new WeakMap();
 const TTL=5*60000;
+const UI_DESIGN_PATH='/api/desktop/workspace/ui-design';
 const NHW_POLICY_PATH='/api/desktop/members/nhw-policy';
 function SecurityCenterMutation(pathname){return /^\/api\/desktop\/bootstrap\/security-center\/(?:parser-tests|artifact-scan|respond)$/.test(pathname||'');}
 function IsMutation(pathname) {
-  if(pathname===NHW_POLICY_PATH)return true;
+  if(pathname===NHW_POLICY_PATH||pathname===UI_DESIGN_PATH)return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/web-reset')return true;
   if(pathname==='/api/desktop/bootstrap/security-operations/issued-a-keys')return true;
   if(/^\/api\/desktop\/bootstrap\/security-operations\/keyless-approvals\/[a-f0-9]{48}\/approve$/.test(pathname||''))return true;

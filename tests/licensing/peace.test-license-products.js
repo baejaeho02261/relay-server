@@ -15,38 +15,46 @@ function fixture(seed){
   '../../storage/audit/peace.audit.js':{AppendOperationEvent:()=>({ok:true,sequence:1,hash:'A'.repeat(64)})}
  });return {api,state,calls,persisted:()=>persisted};
 }
-test('12 active products have six entries per category and callers cannot mutate the catalogue',()=>{
- const list=products.List();assert.equal(list.length,12);assert.equal(new Set(list.map(x=>x.id)).size,12);
- for(const category of ['cleaner','mobile'])assert.equal(list.filter(x=>x.category===category).length,6);
- list[0].id='all';assert.equal(products.Find('all'),null);assert.equal(products.Require('cleaner.pubg').id,'cleaner.pubg');
+test('six game IDs have verified channels and callers cannot mutate the catalogue',()=>{
+ const list=products.List(),channels=products.ListChannels(),channelIds=new Set(channels.map(row=>row.id));
+ assert.equal(list.length,6);assert.equal(new Set(list.map(x=>x.id)).size,6);
+ assert.ok(list.every(row=>row.channels.includes(row.category)&&row.channels.every(id=>channelIds.has(id))));
+ assert.ok(channels.some(row=>row.id==='nexon'));assert.equal(list.some(row=>row.channels.includes('nexon')),false);
+ const pubg=list.find(row=>row.id==='cleaner.pubg');
+ assert.deepEqual(pubg.channels,['steam','epic-games','kakao-games']);
+ assert.deepEqual(list.find(row=>row.id==='cleaner.apex').channels,['ea-app','steam','epic-games']);
+ pubg.id='all';pubg.channels.push('nexon');channels[0].name='Unknown';
+ assert.equal(products.Find('all'),null);assert.deepEqual(products.Require('cleaner.pubg').channels,['steam','epic-games','kakao-games']);
+ assert.equal(products.ListChannels()[0].name,'Steam');
  assert.deepEqual(products.Projection({}),{productId:'',productName:'',productCategory:'',productAssigned:false});
 });
 test('new issuance requires one catalogue product and invalid input never commits a license',()=>{
  const f=fixture();
- for(const productId of [undefined,null,'','all','cleaner.*','pubg',['cleaner.pubg'],{},'constructor','spoofer','spoofer.battleye','spoofer.xigncode3','spoofer.easy-anti-cheat','spoofer.vanguard','spoofer.ricochet','spoofer.ace']){
+ for(const productId of [undefined,null,'','all','cleaner.*','pubg',['cleaner.pubg'],{},'constructor','spoofer','spoofer.battleye','spoofer.xigncode3','spoofer.easy-anti-cheat','spoofer.vanguard','spoofer.ricochet','spoofer.ace','mobile.roblox','mobile.brawl-stars','mobile.pubg-mobile','mobile.genshin-impact','mobile.pokemon-go','mobile.clash-royale','steam.pubg','nexon.maplestory']){
   const before=JSON.stringify(f.api.DB()),writes=f.calls.writes;
   assert.throws(()=>f.api.Create({label:'synthetic',productId,requestId:crypto.randomUUID()},'TEST'),/DESKTOP_PRODUCT_REQUIRED|DESKTOP_PRODUCT_INVALID/);
   assert.equal(JSON.stringify(f.api.DB()),before);assert.equal(f.calls.writes,writes);
  }
  const result=f.api.Create({label:'PUBG only',productId:'cleaner.pubg',requestId:crypto.randomUUID()},'TEST');
  assert.equal(result.license.productId,'cleaner.pubg');assert.equal(result.license.productAssigned,true);
- assert.equal(result.license.productName,'PUBG: BATTLEGROUNDS');assert.equal(result.license.productCategory,'cleaner');
- assert.equal(f.api.List().products.length,12);assert.equal(f.api.Detail(result.license.id).license.productId,'cleaner.pubg');
+ assert.equal(result.license.productName,'PUBG: BATTLEGROUNDS');assert.equal(result.license.productCategory,'steam');
+ assert.deepEqual(result.license.productChannelNames,['Steam','Epic Games Store','Kakao Games']);
+ assert.equal(f.api.List().products.length,6);assert.equal(f.api.Detail(result.license.id).license.productId,'cleaner.pubg');
  assert(!JSON.stringify(f.api.List()).includes(result.licenseKey));
 });
 test('receipt retry binds product and reissue changes scope only by issuing a new key',()=>{
  const f=fixture(),body={label:'one',productId:'cleaner.pubg',requestId:crypto.randomUUID()},first=f.api.Create(body,'TEST');
  assert.equal(f.api.Create(body,'TEST').licenseKey,first.licenseKey);
- assert.throws(()=>f.api.Create({...body,productId:'mobile.pubg-mobile'},'TEST'),/DESKTOP_REQUEST_REUSED/);
+ assert.throws(()=>f.api.Create({...body,productId:'cleaner.overwatch'},'TEST'),/DESKTOP_REQUEST_REUSED/);
  const before=JSON.stringify(f.api.DB());
  assert.throws(()=>f.api.Reissue(first.license.id,{reason:'New game',requestId:crypto.randomUUID()},'TEST'),/DESKTOP_PRODUCT_REQUIRED/);
  assert.equal(JSON.stringify(f.api.DB()),before);
- const next=f.api.Reissue(first.license.id,{reason:'New game',productId:'mobile.pubg-mobile',requestId:crypto.randomUUID()},'TEST');
+ const next=f.api.Reissue(first.license.id,{reason:'New game',productId:'cleaner.overwatch',requestId:crypto.randomUUID()},'TEST');
  assert.notEqual(next.licenseKey,first.licenseKey);assert.notEqual(next.license.id,first.license.id);
- assert.equal(next.license.productId,'mobile.pubg-mobile');
+ assert.equal(next.license.productId,'cleaner.overwatch');
  assert.equal(f.api.Detail(first.license.id).license.productId,'cleaner.pubg');
  assert.equal(f.api.Detail(first.license.id).license.status,'REVOKED');
- f.api.Import();assert.equal(f.api.Detail(next.license.id).license.productId,'mobile.pubg-mobile');
+ f.api.Import();assert.equal(f.api.Detail(next.license.id).license.productId,'cleaner.overwatch');
 });
 test('legacy imports and exact old issuance receipts remain unassigned without widening scope',()=>{
  const actor='TEST',id='A'.repeat(24),signingSecret='1'.repeat(64),issuanceNonce='2'.repeat(48);
@@ -60,9 +68,9 @@ test('legacy imports and exact old issuance receipts remain unassigned without w
  const unknown=structuredClone(f.persisted());unknown.licenses[id].productId='all';
  assert.throws(()=>fixture(unknown).api.DB(),/DESKTOP_STORAGE_INVALID/);
 });
-test('retired products are absent from live license administration and still denied for authority',()=>{
+for(const productId of ['spoofer.battleye','mobile.pubg-mobile'])test(`${productId} is retained in storage and rejected for live authority`,()=>{
  const actor='TEST',id='B'.repeat(24),signingSecret='1'.repeat(64),issuanceNonce='2'.repeat(48);
- const body={label:'legacy',productId:'spoofer.battleye',requestId:'RETIRED_REQUEST_1'};
+ const body={label:'legacy',productId,requestId:'RETIRED_REQUEST_1'};
  const key=crypto.createHmac('sha256',Buffer.from(signingSecret,'hex')).update('GAME-DESKTOP-KEY-V2|'+id+'|'+issuanceNonce).digest('hex').toUpperCase();
  const row={id,label:body.label,productId:body.productId,keyVersion:2,issuanceNonce,keyHash:hash(key),status:'AVAILABLE',consumed:false,issuedAt:1,issuedBy:actor,expiresAt:0};
  const receiptKey='ADMIN:'+hash(actor)+':'+body.requestId,receipt={fingerprint:hash(JSON.stringify({action:'create',id:'',body})),licenseId:id,action:'create',at:1};

@@ -251,7 +251,7 @@ B/O는 가득 찬 로고를 먼저 표시하고 좌우가 닫혀 사각형이 �
 1. 전체 소스를 **새 폴더**에 풉니다. 이전 `.o`, `.dcu`, EXE를 가져오지 않습니다. 서버 등록 데이터·개인키·ACTIVE 상태는 초기화하지 않습니다. 기존 A 공개키 리소스가 운영 ACTIVE 발급키와 일치하는지 확인하되, 이번 UI 적용 때문에 키를 새로 만들거나 철회할 필요는 없습니다.
 2. RAD Studio 명령 프롬프트에서 `Relay Server/tools/overlay/Prepare_ImGui.bat`를 먼저 실행해 성공을 확인합니다. 설치된 classic Win64 `bcc64.exe`와 Node.js가 필요합니다. 실패한 오브젝트를 이전 파일로 대체하지 않습니다.
 3. RAD Studio 13에서 `Railway/Cozy.Tests/Cozy.Overlay/Cozy.OverlayGraphicsProbe.dproj`를 엽니다. **Build Configurations → Release**, **Target Platforms → Windows 64-bit(Win64)**를 활성화하고 **Rebuild**합니다. 최신 `.dproj`에는 Release/Win64 선택 메타데이터가 포함돼 있습니다. Base만 보이면 이전 프로젝트를 닫고 새 폴더의 이 `.dproj`를 다시 여세요. 필수 구성 오류를 끄거나 Base/Win32로 진행하지 않습니다.
-4. 생성된 `Railway/build/tests/manual-ide/Cozy.OverlayGraphicsProbe.exe`를 실행합니다. 실제 카드 표시가 약 3.5초 이어진 뒤 정상 종료하고 `PASS_REAL_WINDOWS_GRAPHICS`가 나오는지 확인합니다. FAIL이면 단계와 숫자 코드를 확인하고 제품 라이선스를 사용하기 전에 해결합니다.
+4. 생성된 `Railway/Cozy.Tests/Cozy.Build/Cozy.Outputs/manual-ide/Cozy.OverlayGraphicsProbe.exe`를 실행합니다. 실제 카드 표시가 약 3.5초 이어진 뒤 정상 종료하고 `PASS_REAL_WINDOWS_GRAPHICS`가 나오는지 확인합니다. FAIL이면 단계와 숫자 코드를 확인하고 제품 라이선스를 사용하기 전에 해결합니다.
 
 GraphicsProbe는 서버에 접속하거나 라이선스를 소모하지 않습니다. 진단용 콘솔은 PASS/FAIL 출력용이며 B 제품의 콘솔 UI와 별개입니다. 이 사전 검사는 O 렌더링 경로를 확인하며 B GUI 인증·실제 A/B/O 인계·제품별 권한까지 검증하지 않습니다.
 

@@ -2,14 +2,14 @@
   "version": 1,
   "releaseVersion": "1.0.0",
   "artifacts": {
-    "A": "C:\\cozy.Client\\Railway\\bin\\cozy.Launcher.exe",
-    "B": "C:\\cozy.Client\\Railway\\bin\\cozy.Client.exe",
-    "O": "C:\\cozy.Client\\Railway\\bin\\cozy.Overlay.exe"
+    "A": "C:\\cozy-peace\\Railway\\Cozy.Projects\\Cozy.Launcher\\Cozy.Launcher.exe",
+    "B": "C:\\cozy-peace\\Railway\\Cozy.Projects\\Cozy.Client\\Cozy.Client.exe",
+    "O": "C:\\cozy-peace\\Railway\\Cozy.Projects\\Cozy.Overlay\\Cozy.Overlay.exe"
   },
   "faultArtifacts": {
-    "A": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.product-faults\\bin\\cozy.LauncherFaultTest.exe",
-    "B": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.product-faults\\bin\\cozy.ClientFaultTest.exe",
-    "O": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.product-faults\\bin\\cozy.OverlayFaultTest.exe"
+    "A": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.FaultInjection\\Cozy.Outputs\\product-faults\\Cozy.LauncherFaultTest.exe",
+    "B": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.FaultInjection\\Cozy.Outputs\\product-faults\\Cozy.ClientFaultTest.exe",
+    "O": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.FaultInjection\\Cozy.Outputs\\product-faults\\Cozy.OverlayFaultTest.exe"
   },
-  "nativeReceiveProbe": "C:\\cozy.Client\\Railway\\cozy.tests\\cozy.manual-ide\\bin\\cozy.TlsReceiveProbe.exe"
+  "nativeReceiveProbe": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.Build\\Cozy.Outputs\\manual-ide\\Cozy.TlsReceiveProbe.exe"
 }

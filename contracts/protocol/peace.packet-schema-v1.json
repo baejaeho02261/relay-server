@@ -369,6 +369,12 @@
         },
         "theme": {
           "$ref": "uiTheme"
+        },
+        "font": {
+          "$ref": "uiFont"
+        },
+        "desktopDesign": {
+          "$ref": "desktopDesign"
         }
       },
       "required": [
@@ -3142,13 +3148,7 @@
         "cleaner.lost-saga",
         "cleaner.apex",
         "cleaner.overwatch",
-        "cleaner.counter-strike",
-        "mobile.roblox",
-        "mobile.brawl-stars",
-        "mobile.pubg-mobile",
-        "mobile.genshin-impact",
-        "mobile.pokemon-go",
-        "mobile.clash-royale"
+        "cleaner.counter-strike"
       ]
     },
     "assignedProduct": {
@@ -3159,13 +3159,7 @@
         "cleaner.lost-saga",
         "cleaner.apex",
         "cleaner.overwatch",
-        "cleaner.counter-strike",
-        "mobile.roblox",
-        "mobile.brawl-stars",
-        "mobile.pubg-mobile",
-        "mobile.genshin-impact",
-        "mobile.pokemon-go",
-        "mobile.clash-royale"
+        "cleaner.counter-strike"
       ]
     },
     "overlayStart": {
@@ -3237,7 +3231,92 @@
       ]
     },
     "uiThemeVersion": {
-      "enum": [1, 2]
+      "enum": [1, 2, 3]
+    },
+    "uiFont": {
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "desktopDesignStage": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "minimum": -32,
+          "maximum": 32
+        },
+        "y": {
+          "type": "integer",
+          "minimum": -32,
+          "maximum": 32
+        },
+        "scale": {
+          "type": "integer",
+          "minimum": 85,
+          "maximum": 115
+        },
+        "stars": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "labelX": {
+          "type": "integer",
+          "minimum": -32,
+          "maximum": 32
+        },
+        "labelY": {
+          "type": "integer",
+          "minimum": -32,
+          "maximum": 32
+        },
+        "labelScale": {
+          "type": "integer",
+          "minimum": 80,
+          "maximum": 125
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "scale",
+        "stars",
+        "labelX",
+        "labelY",
+        "labelScale"
+      ],
+      "additionalProperties": false
+    },
+    "desktopDesign": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "version1"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "b": {
+          "$ref": "desktopDesignStage"
+        },
+        "o": {
+          "$ref": "desktopDesignStage"
+        }
+      },
+      "required": [
+        "version",
+        "revision",
+        "b",
+        "o"
+      ],
+      "additionalProperties": false
     },
     "overlayTheme": {
       "type": "object",
@@ -3258,6 +3337,9 @@
         },
         "theme": {
           "$ref": "uiTheme"
+        },
+        "font": {
+          "$ref": "uiFont"
         }
       },
       "required": [
@@ -5337,6 +5419,9 @@
           "theme": {
             "$ref": "uiTheme"
           },
+          "font": {
+            "$ref": "uiFont"
+          },
           "signature": {
             "$ref": "signature"
           }
@@ -5414,6 +5499,9 @@
   ],
   "scope": "Command envelopes and command body field/type/version/range rules. Signed nested JSON payloads, TPM evidence, shutdown summaries and mitigation environments remain subject to existing domain validators; this schema grants no authorization.",
   "documents": {
+    "desktopDesign": {
+      "$ref": "desktopDesign"
+    },
     "overlayRelease": {
       "$ref": "overlayRelease"
     },

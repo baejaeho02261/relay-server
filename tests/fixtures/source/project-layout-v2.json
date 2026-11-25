@@ -2208,17 +2208,17 @@
     "Overlay": "Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dproj"
   },
   "nativeGeneratedOutputDirectories": {
-    "cozy.tests/native_probe_build": "build/tests/native-probes",
-    "cozy.tests/native_sdk_build": "build/tests/native-sdk",
-    "cozy.tests/overlay_contract_build": "build/tests/overlay-contracts",
-    "cozy.tests/cozy.product-faults/bin": "build/tests/product-faults",
-    "cozy.tests/cozy.manual-ide/bin": "build/tests/manual-ide",
-    "cozy.tests/device_identity_probe_build": "build/tests/device-identity",
-    "cozy.tests/api_probe_build": "build/tests/api-probe",
-    "cozy.tests/pointer_probe_build": "build/tests/pointer-probe",
-    "cozy.tests/metadata_probe_build": "build/tests/metadata-probe",
-    "cozy.tests/self_integrity_probe_build": "build/tests/self-integrity-probe",
-    "cozy.tests/server_policy_probe_build": "build/tests/server-policy-probe",
-    "cozy.tests/crc_probe_build": "build/tests/crc-probe"
+    "cozy.tests/native_probe_build": "Cozy.Tests/Cozy.Build/Cozy.Outputs/native-probes",
+    "cozy.tests/native_sdk_build": "Cozy.Tests/Cozy.Platform/Cozy.Outputs/native-sdk",
+    "cozy.tests/overlay_contract_build": "Cozy.Tests/Cozy.Overlay/Cozy.Outputs/overlay-contracts",
+    "cozy.tests/cozy.product-faults/bin": "Cozy.Tests/Cozy.FaultInjection/Cozy.Outputs/product-faults",
+    "cozy.tests/cozy.manual-ide/bin": "Cozy.Tests/Cozy.Build/Cozy.Outputs/manual-ide",
+    "cozy.tests/device_identity_probe_build": "Cozy.Tests/Cozy.Identity/Cozy.Outputs/device-identity",
+    "cozy.tests/api_probe_build": "Cozy.Tests/Cozy.Platform/Cozy.Outputs/api-probe",
+    "cozy.tests/pointer_probe_build": "Cozy.Tests/Cozy.Platform/Cozy.Outputs/pointer-probe",
+    "cozy.tests/metadata_probe_build": "Cozy.Tests/Cozy.Configuration/Cozy.Outputs/metadata-probe",
+    "cozy.tests/self_integrity_probe_build": "Cozy.Tests/Cozy.Integrity/Cozy.Outputs/self-integrity-probe",
+    "cozy.tests/server_policy_probe_build": "Cozy.Tests/Cozy.Security/Cozy.Outputs/server-policy-probe",
+    "cozy.tests/crc_probe_build": "Cozy.Tests/Cozy.Integrity/Cozy.Outputs/crc-probe"
   }
 }

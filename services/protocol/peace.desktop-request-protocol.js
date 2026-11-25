@@ -28,7 +28,7 @@ Add('overlay.progress', 'GAME-OVERLAY-PROGRESS-V1', 'O', 'session + increasing s
 Add('overlay.verify', 'OVERLAY_SESSION_CAPABILITY', 'O', 'server authority epoch + sequence', 'same observed renewal returns original bounded lease; current session, license, policy');
 Add('overlay.commit', 'GAME-OVERLAY-TRANSFER-V1', 'B', 'parentSessionId + overlayId', 'bounded same transfer; no new authority');
 Add('overlay.start', 'COZY-OVERLAY-START-V1', 'O', 'session + product + requestId + increasing sequence', 'exact bounded acknowledgement; current license, device, artifact and observation; no lease renewal');
-Add('overlay.theme', 'COZY-OVERLAY-THEME-V1', 'O', 'session + requestId + increasing sequence + theme', 'save the current installation preference; exact latest acknowledgement while live; no lease renewal');
+Add('overlay.theme', 'COZY-OVERLAY-THEME-V1', 'O', 'session + requestId + increasing sequence + theme (+ font in V2)', 'save the current installation preference; exact latest acknowledgement while live; no lease renewal');
 Add('overlay.shutdown', 'OVERLAY_SESSION_CAPABILITY', 'O', 'exact transferred caller cohort + requestId', 'end own A/B/O authority only; exact acknowledgement 30 seconds; client cleanup remains pending');
 Add('overlay.close', 'OVERLAY_SESSION_CAPABILITY', 'O', 'sessionId', 'terminal acknowledgement only; V3 30 seconds');
 Add('overlay.abort', 'GAME-OVERLAY-ABORT-V3', 'B', 'parentSessionId + scope + identifier', 'terminal cancellation only; 30 seconds');

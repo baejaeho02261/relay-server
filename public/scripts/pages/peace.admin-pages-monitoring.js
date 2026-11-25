@@ -9,10 +9,14 @@ async function renderDashboard() {
   const [{ dashboard: d }, { statistics: stats }, licenses] = await Promise.all([api('/api/dashboard'), api(`/api/statistics?range=${encodeURIComponent(statsRange)}`),roleIsAdmin()?api('/api/desktop/licenses'):Promise.resolve(null)]);
   const rows=licenses?.items||[];
   guardAdminViewCommit('dashboard');
+  const successRate = Math.max(0, Math.min(100, Number(d.ack.successRate) || 0));
   adminViewContent.html = `<div class="cards overview-primary">
     <div class="card"><div class="stat-label">서버 연결</div><div class="stat-value">${d.servers.online} / ${d.servers.total}</div><div class="stat-sub">비활성 ${d.servers.disabled} · 연결 정리 중 ${d.servers.draining}</div></div>
     ${licenses?`<div class="card"><div class="stat-label">Windows 라이선스</div><div class="stat-value">${rows.filter(x=>x.status==='ACTIVE').length}</div><div class="stat-sub">사용 중 · 전체 ${rows.length}</div></div>`:''}
-    <div class="card"><div class="stat-label">처리 성공률</div><div class="stat-value">${d.ack.successRate}%</div><div class="stat-sub">대기 중 ${d.ack.pending} · 시간 초과 ${d.ack.timeout}</div></div>
+    <div class="card overview-success">
+      <div class="overview-circle" aria-hidden="true"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="18"/><circle cx="22" cy="22" r="18" pathLength="100" stroke-dasharray="${successRate} 100" transform="rotate(-90 22 22)"/></svg></div>
+      <div class="stat-label">처리 성공률</div><div class="stat-value">${successRate}%</div><div class="stat-sub">대기 중 ${d.ack.pending} · 시간 초과 ${d.ack.timeout}</div>
+    </div>
     <div class="card"><div class="stat-label">확인할 알림</div><div class="stat-value">${d.notifications.unread}</div><div class="stat-sub">긴급 ${d.notifications.critical} · 주의 ${d.notifications.warning}</div></div>
   </div>${renderStatsPanel(stats)}<details class="metric-details section-card" id="dashboard-additional-metrics"><summary>상세 운영 지표 <span class="small-note">서비스 · 가동 시간 · 프로토콜 · 복구 · 이중화</span></summary><div class="section-body"><div class="cards overview-secondary">    <div class="card"><div class="stat-label">서비스 상태</div><div class="stat-value">${d.serviceEnabled?'온라인':'오프라인'}</div><div class="stat-sub">점검 ${d.maintenanceMode?'켜짐':'꺼짐'}</div></div>
     <div class="card"><div class="stat-label">연속 운영 시간</div><div class="stat-value">${esc(fmtDuration(d.uptimeMs))}</div><div class="stat-sub">접속 수 ${d.totalConnections}</div></div>

@@ -12,8 +12,13 @@ function Open({reduce=false,blocked=false}={}){
 test('appearance controls remain operable when preferences cannot be stored',()=>{
  const dom=Open({blocked:true}),w=dom.window,d=w.document;
  try{
-  assert.equal(d.documentElement.dataset.theme,'light');
-  d.getElementById('theme-toggle').click();assert.equal(d.documentElement.dataset.theme,'dark');assert.match(d.getElementById('theme-toggle').textContent,/라이트 모드/);
+  assert.equal(d.documentElement.dataset.theme,'dark');
+  assert.equal(d.documentElement.dataset.spacePalette,'pure-black');
+  const palette=d.getElementById('space-palette');
+  assert.equal(palette.options.length,10);
+  palette.value='pulsar';palette.dispatchEvent(new w.Event('change',{bubbles:true}));
+  assert.equal(d.documentElement.dataset.spacePalette,'pulsar');
+  d.getElementById('theme-toggle').click();assert.equal(d.documentElement.dataset.theme,'light');assert.match(d.getElementById('theme-toggle').textContent,/다크 모드/);
   d.querySelector('[data-motion-toggle]').click();assert.equal(d.documentElement.dataset.motion,'paused');
   const controls=[...d.querySelectorAll('[data-motion-toggle]')];assert.ok(controls.every(x=>x.getAttribute('aria-pressed')==='true'));
   controls[1].click();assert.equal(d.documentElement.dataset.motion,'running');
@@ -33,18 +38,22 @@ test('new shell retains every supported route and loads only existing local appl
  const dom=Open(),w=dom.window,d=w.document;
  try{
   const routes=[...d.querySelectorAll('#nav button[data-view]')].map(x=>x.dataset.view);
-  assert.equal(routes.length,26);assert.equal(new Set(routes).size,routes.length);
-  for(const route of ['desktop-licenses','dashboard','security','production','audit','sessions','backups','danger'])assert.ok(routes.includes(route));
+  assert.equal(routes.length,27);assert.equal(new Set(routes).size,routes.length);
+  for(const route of ['desktop-licenses','dashboard','security','production','audit','sessions','backups','danger','simulator'])assert.ok(routes.includes(route));
   for(const retired of ['clients','licenses','qrauth','support','releases'])assert.ok(!routes.includes(retired));
   for(const node of d.querySelectorAll('link[rel="stylesheet"],script[src],img[src]')){
    const url=new URL(node.getAttribute('href')||node.getAttribute('src'),w.location.href);assert.equal(url.origin,w.location.origin);assert.ok(fs.existsSync(path.join(root,url.pathname)),url.pathname);
   }
   assert.equal(d.querySelectorAll('#modal [aria-modal="true"]').length,1);
+  assert.ok(d.querySelector('#nav button[data-view="simulator"]').hasAttribute('data-admin-only'));
+  assert.equal(d.querySelector('#login-screen .login-planet img').getAttribute('src'),'/icons/earth.svg');
+  assert.equal(d.getElementById('rail-toggle').getAttribute('aria-controls'),'main-menu');
+  assert.equal(d.getElementById('menu-toggle').getAttribute('aria-controls'),'main-menu');
  }finally{w.close();}
 });
 
 test('shared layout keeps caption emphasis inline, metadata on separate lines and grid panels aligned',()=>{
- const styles=['admin-appearance.css','admin.css','admin-theme.css','admin-navigation.css','admin-controls.css','admin-workspace.css','admin-desktop.css','admin-members.css'].map(file=>fs.readFileSync(path.join(root,'styles',file),'utf8')).join('\n');
+ const styles=['admin-appearance.css','admin.css','admin-theme.css','admin-navigation.css','admin-controls.css','admin-workspace.css','admin-desktop.css','admin-members.css','spacex.css'].map(file=>fs.readFileSync(path.join(root,'styles',file),'utf8')).join('\n');
  const dom=new JSDOM('<!doctype html><style>'+styles+'</style><div class="main"><main class="content"><div class="cards production-summary"></div><div class="production-grid" id="groups"><section class="section-card"></section><section class="section-card" id="second"></section></div><div class="section-body"><label id="caption">확인한 뒤 <strong>전체 초기화</strong> 입력<input id="field"></label><div class="actions" id="submit"><button>실행</button></div></div><table><tbody><tr><td><span>ON</span><small class="list-secondary" id="first-line">최근 123 · 누락 2</small><small class="list-secondary" id="second-line">중복 3 · 순서 어긋남 4</small></td></tr></tbody></table></main></div>');
  const {window:w}=dom,style=id=>w.getComputedStyle(w.document.getElementById(id));
  try{

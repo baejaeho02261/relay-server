@@ -62,7 +62,7 @@ try{
  // Source mutation between hooks, including newly shadowing candidates, fails.
  observation.before(run,'B','Release',properties('B'));put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'generated resource B');
  assert.throws(()=>observation.ready(run,'B','Release',properties('B')),/GENERATED_REFERENCE_MISSING/);
- put(path.join(native,'Cozy.BuildOutputs/Cozy.ImGui/Cozy.game_imgui_bridge.o'),'generated B reference');
+ put(path.join(native,'Cozy.ImGui/Cozy.Objects/Cozy.game_imgui_bridge.o'),'generated B reference');
  observation.ready(run,'B','Release',properties('B'));put(observation.stagePath(session,'B','Release'),pe);put(path.join(native,'shadow.pas'),'unit shadow;');assert.throws(()=>observation.after(run,'B'),/INPUTS_CHANGED/);fs.unlinkSync(path.join(native,'shadow.pas'));
  put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'changed during compiler');assert.throws(()=>observation.after(run,'B'),/GENERATED_REFERENCES_CHANGED/);put(path.join(native,"Cozy.Projects/Cozy.Client/Cozy.ClientResources.res"),'generated resource B');
  const newDcu=path.join(native,'Cozy.Projects','Cozy.Client','dcu','Cozy.New.dcu');put(newDcu,'new generated dcu');observation.after(run,'B');
@@ -70,7 +70,7 @@ try{
  assert.equal(Object.values(observation.corroborate(run,'B',bTrace,pid).observedInputs).find(x=>x.path===newDcu).inputClass,'GENERATED_DCU_WITH_PRIOR_RECORDED_WRITE');put(bTrace,csv(bRows.filter(x=>!(x[2]==='WriteFile'&&x[3]===newDcu))));assert.throws(()=>observation.corroborate(run,'B',bTrace,pid),/TRACE_DCU_READ_WITHOUT_PRIOR_WRITE/);
  // Clean O trees acquire their exact generated reference set in prebuild.
  observation.before(run,'O','Release',properties('O'));assert.throws(()=>observation.ready(run,'O','Release',properties('O')),/GENERATED_REFERENCE_MISSING/);
- for(const file of ["Cozy.Projects/Cozy.Overlay/Cozy.OverlayResources.res",'Cozy.BuildOutputs/Cozy.ImGui/Cozy.game_imgui_bridge.o'])put(path.join(native,file),'generated O reference');
+ for(const file of ["Cozy.Projects/Cozy.Overlay/Cozy.OverlayResources.res",'Cozy.ImGui/Cozy.Objects/Cozy.game_imgui_bridge.o'])put(path.join(native,file),'generated O reference');
  const oReady=observation.ready(run,'O','Release',properties('O'));assert.equal(Object.keys(oReady.generated.files).length,4);put(observation.stagePath(session,'O','Release'),pe);assert.equal(observation.after(run,'O').role,'O');
  // Strict B/O relation: exact record sort only, no code/resource changes; a
  // nonzero checksum must be recomputed, not arbitrarily zeroed or forged.

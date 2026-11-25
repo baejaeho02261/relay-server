@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'cozy-peace-v20-storage-headroom';
+const WEB_UI_REVISION = 'spacex-v40';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -72,6 +72,7 @@ let terminalHistory = [];
 let terminalHistoryIndex = -1;
 let deferredInstallPrompt = null;
 const titles = {
+  simulator: ['B/O 시뮬레이션', 'B와 O 화면의 배치를 편집하고 게시합니다.'],
   'desktop-licenses': ['회원 · 프로그램', '회원별 운영 기록과 라이선스, A/B/O 배포를 관리합니다.'],
   dashboard: ['운영 개요', '지금 필요한 서버 현황과 최근 활동을 확인하세요.'],
   console: ['실시간 이벤트', "중계 서버 이벤트가 실시간으로 스트리밍됩니다."],
@@ -543,6 +544,7 @@ async function renderCurrent(silent = false) {
   if (!silent && !keepDesktop && (adminMountedState.get(content)?.view!==view||adminMountedState.get(content)?.owner!==session.csrf)) content.innerHTML = '<div class="empty">불러오는 중...</div>';
   try {
     if (currentView === 'desktop-licenses') await renderDesktopLicenses(silent);
+    else if (currentView === 'simulator') await renderDesktopUiDesign(silent);
     else if (currentView === 'dashboard') await renderDashboard();
     else if (currentView === 'console') await renderConsole();
     else if (currentView === 'trace') await renderTrace();

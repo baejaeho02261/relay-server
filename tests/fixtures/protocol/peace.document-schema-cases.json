@@ -1,6 +1,31 @@
 {
-  "schemaSha512": "adcbabc854da5135f176a51b8ca0374bd355ffba598b6da6b83768a7e7d90e3b021c50f2c944e070e0175c0dc644b5e61561967f7aa955f8b4526180e97ccf85",
+  "schemaSha512": "6b407f68277bbb0adaf94f96b02aa2b2fecbef4effde4ba35a3a3a371d8c8dee77e0857d5c07811f128850bc888e729062d90de4deae36ada90c25c02261b4e6",
   "cases": [
+    {
+      "name": "desktopDesign",
+      "value": {
+        "version": 1,
+        "revision": 0,
+        "b": {
+          "x": -32,
+          "y": -32,
+          "scale": 85,
+          "stars": 0,
+          "labelX": -32,
+          "labelY": -32,
+          "labelScale": 80
+        },
+        "o": {
+          "x": -32,
+          "y": -32,
+          "scale": 85,
+          "stars": 0,
+          "labelX": -32,
+          "labelY": -32,
+          "labelScale": 80
+        }
+      }
+    },
     {
       "name": "overlayRelease",
       "value": {

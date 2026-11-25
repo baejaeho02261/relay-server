@@ -6,7 +6,7 @@
   "enrollmentId": "REPLACE_WITH_EXISTING_ACTIVE_ENROLLMENT_64_LOWER_HEX",
   "machineId": "REPLACE_WITH_ORIGINAL_PC_FINGERPRINT_64_UPPER_HEX",
   "provider": "SOFTWARE",
-  "nativeProbe": "C:\\Railway\\cozy.tests\\cozy.manual-ide\\bin\\cozy.RecoveryDeviceProbe.exe",
+  "nativeProbe": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.Build\\Cozy.Outputs\\manual-ide\\Cozy.RecoveryDeviceProbe.exe",
   "artifacts": {
     "A": "C:\\ApprovedRelease\\cozy.Launcher.exe",
     "B": "C:\\ApprovedRelease\\cozy.Client.exe",

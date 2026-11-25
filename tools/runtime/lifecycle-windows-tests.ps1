@@ -14,14 +14,14 @@ try {
   $config=[IO.File]::ReadAllText($InputFile)|ConvertFrom-Json -AsHashtable -Depth 12
   if($config.version -ne 1 -or @($config.Keys|Where-Object{$_ -notin @('version','releaseVersion','artifacts','faultArtifacts','scenarios','nativeReceiveProbe','verificationContext')}).Count -gt 0){throw 'LIFECYCLE_INPUT_INVALID'}
  } else {
-  Write-Host 'Build normal Release A\B\O and the three tests\product-faults IDE projects first.'
+  Write-Host 'Build Release A\B\O and the three Cozy.Tests\Cozy.FaultInjection IDE projects first.'
   Write-Host 'This runs existing files on a NEW isolated localhost server. No command-line Delphi compiler, production key or server reset is required.'
   $version=(Read-Host 'Actual numeric A/B/O release version [Enter: 1.0.0]').Trim();if(-not $version){$version='1.0.0'}
   $config=@{version=1;releaseVersion=$version;artifacts=@{};faultArtifacts=@{}}
   $names=@{A='Cozy.Launcher';B='Cozy.Client';O='Cozy.Overlay'}
   foreach($group in @('artifacts','faultArtifacts')){
    foreach($role in @('A','B','O')){
-    $relative=if($group -eq 'artifacts'){'Railway\bin\'+$names[$role]+'.exe'}else{'Railway\build\tests\product-faults\'+$names[$role]+'FaultTest.exe'}
+    $relative=if($group -eq 'artifacts'){'Railway\Cozy.Projects\'+$names[$role]+'\'+$names[$role]+'.exe'}else{'Railway\Cozy.Tests\Cozy.FaultInjection\Cozy.Outputs\product-faults\'+$names[$role]+'FaultTest.exe'}
     $default=Join-Path $root $relative
     $answer=(Read-Host ($group+' '+$role+' absolute EXE path [Enter: '+$default+']')).Trim().Trim('"')
     if(-not $answer){$answer=$default};$config[$group][$role]=[IO.Path]::GetFullPath($answer)

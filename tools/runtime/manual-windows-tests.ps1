@@ -50,19 +50,19 @@ try {
  Write-Host 'No command-line Delphi build, production key or production server is used.'
  Write-Host ('IDE group: '+(Join-Path $root 'Railway\Cozy.Tests\Cozy.Build\Cozy.ManualNativeTests.groupproj'))
  if(-not $InputFile){
-  $defaultBin=Join-Path $root 'Railway\build\tests\manual-ide'
+  $defaultBin=Join-Path $root 'Railway\Cozy.Tests\Cozy.Build\Cozy.Outputs\manual-ide'
   $probeDirectory=Read-PathAnswer "Prebuilt probe folder [Enter: $defaultBin]" $defaultBin
   $answer=(Read-Host 'Also execute final Release A/B/O against a NEW isolated localhost test server? YES / NO [NO]').Trim()
   $integration=$answer -ceq 'YES';$artifacts=@{};$releaseVersion='1.0.0'
   if($integration){
-   Write-Host ('Final Release EXE folder: '+(Join-Path $root 'Railway\bin'))
+   Write-Host ('Final Release EXEs are in their own project folders under '+(Join-Path $root 'Railway\Cozy.Projects'))
    foreach($role in @('A','B','O')){$artifacts[$role]=Read-PathAnswer ($role+' final Release EXE full path')}
    $releaseVersion=(Read-Host 'Actual numeric A/B/O version [Enter: 1.0.0]').Trim();if(-not $releaseVersion){$releaseVersion='1.0.0'}
   }
   $leaseAnswer=(Read-Host 'Also run the real 120-second O lease expiry using dedicated ProductFaults A/B/O builds? YES / NO [NO]').Trim()
   $faultArtifacts=@{}
   if($leaseAnswer -ceq 'YES'){
-   Write-Host 'Use Railway\build\tests\product-faults test builds. They are never publishable final EXEs. The runner waits for a genuine lease; no clock is changed.'
+   Write-Host 'Use Railway\Cozy.Tests\Cozy.FaultInjection\Cozy.Outputs\product-faults test builds. They are never publishable final EXEs. The runner waits for a genuine lease; no clock is changed.'
    foreach($role in @('A','B','O')){$faultArtifacts[$role]=Read-PathAnswer ($role+' dedicated fault-test EXE full path')}
    if(-not $integration){$releaseVersion=(Read-Host 'Actual numeric fault-test A/B/O version [Enter: 1.0.0]').Trim();if(-not $releaseVersion){$releaseVersion='1.0.0'}}
   }

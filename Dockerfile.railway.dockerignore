@@ -18,6 +18,10 @@
 cozy-peace/Railway/build
 cozy-peace/Railway/bin
 cozy-peace/Railway/Cozy.BuildOutputs
+cozy-peace/Railway/Cozy.ImGui/Cozy.Objects
+cozy-peace/Railway/Cozy.Tests/*/Cozy.Outputs
+cozy-peace/Railway/Cozy.Projects/*/dcu
+cozy-peace/Railway/Cozy.Projects/*/*.exe
 
 # Runtime directories only; nested storage/audit is application source.
 /audit/

@@ -4,7 +4,7 @@ Requires an operator test environment with Playwright and Chromium; no productio
 import json, os, pathlib, subprocess
 from playwright.sync_api import sync_playwright
 ROOT=pathlib.Path(__file__).resolve().parents[2]
-PRODUCTS_JSON=subprocess.check_output(['node','-e',"process.stdout.write(JSON.stringify(require('./services/licensing/peace.licensed-products').List()))"],cwd=ROOT,text=True)
+PRODUCTS_JSON=subprocess.check_output(['node','-e',"const c=require('./services/licensing/peace.licensed-products'); process.stdout.write(JSON.stringify({version:2,products:c.List(),channels:c.ListChannels()}))"],cwd=ROOT,text=True)
 HTML='''<!doctype html><meta charset="utf-8"><style>.hidden,[hidden]{display:none!important}label{display:block}textarea,input{display:block}#modal{position:absolute;inset:0;background:white;overflow:auto}</style><main id="content"></main><div id="modal" class="hidden"><h1 id="modal-title"></h1><div id="modal-body"></div><button id="modal-confirm">확인</button><button id="modal-cancel">취소</button></div>'''
 SETUP=r'''
 window.calls=[];window.errors=[];window.toasts=[];window.rejectUpload=true;
@@ -21,7 +21,7 @@ function setViewLoading(){}
 let aid='A'.repeat(24),bid='B'.repeat(24);
 window.listing={active:{A:aid,B:bid},candidates:[{id:aid,component:'A',version:'1.0.0',hashVersion:3,sha512:'1'.repeat(128),active:true},{id:bid,component:'B',version:'1.0.0',hashVersion:3,sha512:'2'.repeat(128),active:true}],operations:{revision:1}};
 window.mock=async(p,o={})=>{
- if(p==='/api/desktop/products')return{version:1,products:structuredClone(window.licensedProducts)};
+ if(p==='/api/desktop/products')return structuredClone(window.licensedProducts);
  if(p==='/api/desktop/bootstrap/security-operations')return structuredClone(listing);
  if(p.startsWith('/api/desktop/bootstrap/artifacts?')){if(rejectUpload){rejectUpload=false;throw Object.assign(Error('서버 승인 서명을 확인하세요.'),{code:'TEST_SIGNATURE_REJECTED'});}return{artifact:{id:'A_candidate'},disposition:'CANDIDATE',activeUnchanged:true};}
  if(p.endsWith('/preview-pair'))return{preview:{eligible:true,aId:aid,bId:bid,operationsRevision:1,policyRevision:2,reasons:[]}};
@@ -119,8 +119,8 @@ with sync_playwright() as p:
     test('A failed quality panel does not block the job panel',independent)
     def jobs():
         assert page.locator('#desktop-job-product').is_disabled()
-        page.select_option('#desktop-job-product-category','mobile')
-        page.select_option('#desktop-job-product','mobile.roblox')
+        page.select_option('#desktop-job-product-category','epic-games')
+        page.select_option('#desktop-job-product','cleaner.pubg')
         page.click('#desktop-job-preview');page.wait_for_function("!document.getElementById('desktop-job-commit').disabled")
         assert not page.evaluate("calls.some(x=>x.path==='/api/desktop/workspace/jobs'&&x.method==='POST')")
         page.locator('#desktop-job-count').fill('2');assert page.locator('#desktop-job-commit').is_disabled()

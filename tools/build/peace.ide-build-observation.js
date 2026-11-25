@@ -34,7 +34,7 @@ function environment(){
 }
 function roleProject(native,role,extension){if(!ROLES[role])fail('RELEASE_ROLE_REQUIRED');const name=ROLES[role][0];return path.join(native,'Cozy.Projects',name,name+extension);}
 function roleDcuDirectory(native,role){return path.join(path.dirname(roleProject(native,role,'.dproj')),'dcu');}
-const IMGUI_OBJECT='Cozy.BuildOutputs/Cozy.ImGui/Cozy.game_imgui_bridge.o';
+const IMGUI_OBJECT='Cozy.ImGui/Cozy.Objects/Cozy.game_imgui_bridge.o';
 function generatedNames(native){return [...Object.keys(ROLES).map(role=>roleProject(native,role,'Resources.res')),path.join(native,...IMGUI_OBJECT.split('/'))];}
 function generatedSnapshot(s){const files={};for(const f of generatedNames(s.native))if(fs.existsSync(f))files[key(f)]=fileRecord(f);return{files,sha512:hash(Buffer.from(canonical(files))),scope:'GENERATED_REFERENCES_SNAPSHOTTED_BEFORE_COMPILER_TARGET'};}
 function snapshot(native,bds){

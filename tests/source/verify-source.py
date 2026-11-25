@@ -32,9 +32,10 @@ def verify(root: Path) -> list[str]:
         if p.is_symlink() or getattr(p, 'is_junction', lambda: False)():
             problems.append('Native source/output link is forbidden: '+p.relative_to(root).as_posix())
             continue
-        if rel_native.parts[0] in {'build', 'bin', 'Cozy.BuildOutputs'}:
-            continue
         parts = rel_native.parts
+        if (parts[:2] == ('Cozy.ImGui', 'Cozy.Objects') or
+                (len(parts) >= 3 and parts[0] == 'Cozy.Tests' and parts[2] == 'Cozy.Outputs')):
+            continue
         project_output = (len(parts) >= 3 and parts[0] == 'Cozy.Projects' and
                           parts[1] in {'Cozy.Launcher', 'Cozy.Client', 'Cozy.Overlay'})
         if project_output and (parts[2].lower() == 'dcu' or

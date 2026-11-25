@@ -21,9 +21,9 @@ async function run(argv=process.argv.slice(2)){
   options.out ||= path.join(MODULE_RESOURCE_ROOT,'crc-pe-comparison-result.json');
   assert(!options.portable,'Use the comparator directly for --portable-only');
   assert(!(corpusOnly&&Object.keys(options.artifacts).length),'CRC_CORPUS_ARTIFACT_CONFLICT');
-  options.probe ||= path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/build/tests/manual-ide/Cozy.CrcPeProbe.exe");
+  options.probe ||= path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Tests/Cozy.Build/Cozy.Outputs/manual-ide/Cozy.CrcPeProbe.exe");
   if(!fs.existsSync(options.probe)){
-   console.log('Build Railway\\cozy.tests\\cozy.manual-ide\\cozy.CrcPeProbe.dproj in the RAD Studio IDE as Win64 Release.');
+   console.log('Build Railway\\Cozy.Tests\\Cozy.Integrity\\Cozy.CrcPeProbe.dproj in the RAD Studio IDE as Win64 Release.');
    options.probe=await ask('cozy.CrcPeProbe.exe absolute path: ');
   }
   if(!corpusOnly)for(const role of comparison.ARTIFACT_ROLES)if(!options.artifacts[role]){
@@ -36,7 +36,7 @@ async function run(argv=process.argv.slice(2)){
   if(result.finalArtifactComparison!=='PASS')console.log('Corpus/self-image checks do not complete the final A/B/O comparison.');
   return result;
  }catch(error){
-  options ||= comparison.rejectedArguments(args,path.join(MODULE_RESOURCE_ROOT,'crc-pe-comparison-result.json'),path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/build/tests/manual-ide/Cozy.CrcPeProbe.exe"));
+  options ||= comparison.rejectedArguments(args,path.join(MODULE_RESOURCE_ROOT,'crc-pe-comparison-result.json'),path.resolve(MODULE_RESOURCE_ROOT,"../../Railway/Cozy.Tests/Cozy.Build/Cozy.Outputs/manual-ide/Cozy.CrcPeProbe.exe"));
   if(options?.out)try{comparison.saveReport(options,error.crcReport||{status:'FAIL',error:String(error.message).slice(0,1000),nativeMappedImageComparison:'NOT_RUN',finalArtifactComparison:'NOT_RUN',approvalCreated:false});}catch{}
   console.error(error.message);error.reported=true;throw error;
  }finally{

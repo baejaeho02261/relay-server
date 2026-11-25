@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="2" y="2" width="60" height="60" rx="19" fill="#087f68"/><path d="M44 20a17 17 0 1 0 0 24" fill="none" stroke="#f3fff8" stroke-width="8" stroke-linecap="round"/><path d="m36 27 7 5-7 5" fill="none" stroke="#a8f0cd" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <defs>
+    <linearGradient id="base" x2="1" y2="1"><stop stop-color="#202944"/><stop offset="1" stop-color="#090a10"/></linearGradient>
+    <linearGradient id="orbit" x2="1" y2="1"><stop stop-color="#f5f5ff"/><stop offset="1" stop-color="#8292f4"/></linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="42" fill="url(#base)"/>
+  <rect x="2" y="2" width="188" height="188" rx="40" fill="none" stroke="#6d7ca8" stroke-opacity=".48" stroke-width="4"/>
+  <circle cx="96" cy="98" r="31" fill="none" stroke="url(#orbit)" stroke-width="6"/>
+  <path d="M151 68C152 86 119 116 83 130S29 133 38 116C42 108 49 100 58 92M107 65C118 59 132 56 141 58" fill="none" stroke="url(#orbit)" stroke-width="6" stroke-linecap="round"/>
+  <path d="m144 47 4 11 11 4-11 4-4 11-4-11-11-4 11-4z" fill="#e6e9ff"/>
+</svg>

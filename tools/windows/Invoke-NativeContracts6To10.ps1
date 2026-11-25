@@ -65,8 +65,8 @@ try{
  # full existing probe set, but only the named 6-10 probes below are executed.
  Invoke-ContractCommand 'compile-probes' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Build_NativeProbes_Win64.bat')+'" /build-only')) $native 900
  Invoke-ContractCommand 'sdk-probe' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Build_NativeAbi_SDK_Win64.bat')+'"')) $native 180
- $built=Join-Path $native 'build\tests\native-probes'
- Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.compare-native-abi.js'),(Join-Path $built 'Cozy.NativeAbiProbe.exe'),(Join-Path $native 'build\tests\native-sdk\Cozy.NativeAbiSdkProbe.exe')) $native 60
+ $built=Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Outputs\native-probes'
+ Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.compare-native-abi.js'),(Join-Path $built 'Cozy.NativeAbiProbe.exe'),(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Outputs\native-sdk\Cozy.NativeAbiSdkProbe.exe')) $native 60
  foreach($name in $names[4..($names.Count-3)]){Invoke-ContractCommand $name (Join-Path $built ($name+'.exe')) @() $native 120}
  Invoke-ContractCommand 'native-hash-compare' $node @((Join-Path $work 'Relay Server\tests\cryptography\peace.compare-native-hashes.js'),'--hash-probe',(Join-Path $built 'Cozy.IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $built 'Cozy.CrcProbe.exe'),'--mode-probe',(Join-Path $built 'Cozy.HashProbe.exe'),'--pe-probe',(Join-Path $built 'Cozy.PeCorpusProbe.exe'),'--crc-pe-probe',(Join-Path $built 'Cozy.CrcPeProbe.exe')) $native 900
  Invoke-ContractCommand 'pe-corpus' $node @((Join-Path $work 'Relay Server\tests\artifacts\peace.test-hardening-pe-corpus.js'),'--native',(Join-Path $built 'Cozy.PeCorpusProbe.exe')) $native 180

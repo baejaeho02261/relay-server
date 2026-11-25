@@ -33,7 +33,7 @@ function Live(row){if(row){require("../recovery/peace.desktop-recovery").Assert(
 function Retire(row,afterCommit=false){
  store.AfterCommit(()=>{for(const kind of ['O.session:','O.handoff:','O.claim-recovery:','O.verify-recovery:','O.start-recovery:'])require("../runtime/peace.desktop-deadline").persistent.forget(kind+row.id);});
  row.retiredAt||=now();
- for(const key of ['verifyReceipt','ticketNonce','sessionNonce','claimRecoveryUntil','claimFingerprint','themeReceipt','themeRgbReceipt'])delete row[key];
+ for(const key of ['verifyReceipt','ticketNonce','sessionNonce','claimRecoveryUntil','claimFingerprint','themeReceipt','themeRgbReceipt','appearanceReceipt'])delete row[key];
  row.chunkOffsets=[];
  const clearVolatile=()=>{
   require("../devices/peace.desktop-device-identity").RetireContext(row,'O');
@@ -158,13 +158,18 @@ function ValidateStartReceipt(row){
  if(!plain(value)||Object.keys(value).sort().join(',')!=='at,fingerprint,productId,requestId,sequence,until'||!products.IsStoredProduct(value.productId)||typeof value.requestId!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(value.requestId)||!Number.isSafeInteger(value.sequence)||value.sequence<1||value.sequence>2147483647||!/^[a-f0-9]{128}$/.test(value.fingerprint)||!Number.isSafeInteger(value.at)||value.at<row.claimedAt||!Number.isSafeInteger(value.until)||value.until<value.at+5000||value.until>value.at+TRANSFER_RECOVERY_MS||row.transferVersion!==1||row.productScopeVersion!==1)throw Error('OVERLAY_STORE_INVALID');
 }
 function ThemeRequest(body){
- Fields(body,['sessionId','sessionToken','requestId','sequence','theme','signature']);
+ Fields(body,['sessionId','sessionToken','requestId','sequence','theme','font','signature']);
  if(!/^[A-F0-9]{24}$/.test(body.sessionId||'')||typeof body.sessionToken!=='string'||body.sessionToken.length>200||typeof body.signature!=='string'||body.signature.length>1000||!ThemeValues(body))Fail('BOOTSTRAP_INPUT_INVALID',400);
 }
 function ThemeValues(value){
- return typeof value.requestId==='string'&&/^[-A-Za-z0-9_]{8,80}$/.test(value.requestId)&&Number.isSafeInteger(value.sequence)&&value.sequence>=1&&value.sequence<=2147483647&&theme.Valid(value.theme);
+ return typeof value.requestId==='string'&&/^[-A-Za-z0-9_]{8,80}$/.test(value.requestId)&&Number.isSafeInteger(value.sequence)&&value.sequence>=1&&value.sequence<=2147483647&&theme.Valid(value.theme)&&(!Object.hasOwn(value,'font')||theme.ValidFont(value.font));
 }
-function ThemeCanonical(body){return ['COZY-OVERLAY-THEME-V1',body.sessionId,body.requestId,String(body.sequence),String(body.theme)].join('\n');}
+function ThemeCanonical(body){
+ const version=Object.hasOwn(body,'font')?2:1;
+ const lines=['COZY-OVERLAY-THEME-V'+version,body.sessionId,body.requestId,String(body.sequence),String(body.theme)];
+ if(version===2)lines.push(String(body.font));
+ return lines.join('\n');
+}
 function ThemeAuthority(row,parent){
  const artifact=Live(row);
  if(row.status!=='CLAIMED'||!Transferred(row,parent))Fail('BOOTSTRAP_OVERLAY_NOT_READY',409);
@@ -173,10 +178,13 @@ function ThemeAuthority(row,parent){
  authority.RequireFresh(row,'O','verify',authority.Binding(row.sessionId,artifact.sha512));
  require('../integrity/peace.desktop-integrity-reports').RequireSnapshot(row,'O');
 }
-function ThemeResult(row,value){return {version:1,sessionId:row.sessionId,requestId:value.requestId,sequence:value.sequence,theme:value.theme};}
+function ThemeResult(row,value){
+ return {version:1,sessionId:row.sessionId,requestId:value.requestId,sequence:value.sequence,theme:value.theme,
+  ...(Object.hasOwn(value,'font')?{font:value.font}:{})};
+}
 function LatestThemeReceipt(row){
- const {themeReceipt:preset,themeRgbReceipt:rgb}=row;
- return (rgb?.sequence??0)>(preset?.sequence??0)?rgb:preset;
+ return [row.appearanceReceipt,row.themeReceipt,row.themeRgbReceipt].reduce((latest, value)=>
+  (value?.sequence??0)>(latest?.sequence??0)?value:latest,undefined);
 }
 function SaveTheme(body){
  ThemeRequest(body);
@@ -188,23 +196,42 @@ function SaveTheme(body){
   if(body.sequence!==prior.sequence||fingerprint!==prior.fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);
   return ThemeResult(row,prior);
  }
- const receipt={requestId:body.requestId,sequence:body.sequence,theme:body.theme,fingerprint};
+ const receipt={requestId:body.requestId,sequence:body.sequence,theme:body.theme,fingerprint,
+  ...(Object.hasOwn(body,'font')?{font:body.font}:{})};
  Atomic('OVERLAY_THEME','SERVER',next=>{
   Boot().AssertSecurityAvailable();const item=next.overlays[row.id];
   ThemeAuthority(item,next.flows[row.parentFlowId]);
   if(body.sequence<=(LatestThemeReceipt(item)?.sequence??0))Fail('BOOTSTRAP_REQUEST_REUSED',409);
-  theme.Write(next,item,body.theme);
-  if(theme.ValidPreset(body.theme)){
-   item.themeReceipt=receipt;
-   delete item.themeRgbReceipt;
-  }else item.themeRgbReceipt=receipt;
+  theme.Write(next,item,body.theme,body.font);
+  if(Object.hasOwn(receipt,'font')){
+   // Retain a v1-shaped sequence floor so older relays can read the row.
+   item.appearanceReceipt=receipt;
+   const {font,...legacy}=receipt;
+   StoreThemeReceipt(item,legacy);
+  }else{
+   delete item.appearanceReceipt;
+   StoreThemeReceipt(item,receipt);
+  }
  });
  return ThemeResult(row,receipt);
+}
+function StoreThemeReceipt(row,receipt){
+ if(theme.ValidPreset(receipt.theme)){
+  row.themeReceipt=receipt;
+  delete row.themeRgbReceipt;
+ }else row.themeRgbReceipt=receipt;
 }
 function ValidateThemeReceipt(row){
  for(const [value,validate] of [[row.themeReceipt,theme.ValidPreset],[row.themeRgbReceipt,theme.ValidRgb]]){
   if(value===undefined)continue;
   if(!plain(value)||Object.keys(value).sort().join(',')!=='fingerprint,requestId,sequence,theme'||!ThemeValues(value)||!validate(value.theme)||typeof value.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(value.fingerprint)||row.transferVersion!==1)throw Error('OVERLAY_STORE_INVALID');
+ }
+ const value=row.appearanceReceipt;
+ if(value!==undefined){
+  const legacy=theme.ValidPreset(value?.theme)?row.themeReceipt:row.themeRgbReceipt;
+  // An older relay may advance the legacy receipt, retire the session or
+  // clear legacy receipts during recovery without touching the new field.
+  if(!plain(value)||Object.keys(value).sort().join(',')!=='fingerprint,font,requestId,sequence,theme'||!ThemeValues(value)||typeof value.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(value.fingerprint)||row.transferVersion!==1||legacy&&legacy.sequence===value.sequence&&(legacy.fingerprint!==value.fingerprint||legacy.theme!==value.theme||legacy.requestId!==value.requestId))throw Error('OVERLAY_STORE_INVALID');
  }
 }
 function Verify(body){

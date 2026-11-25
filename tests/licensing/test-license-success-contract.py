@@ -18,7 +18,7 @@ bridge=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.cpp
 overlay=read('Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas')
 module_inventory=read('Railway/Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas')
 license_scene=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h')
-rocket_art=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license_art.h')
+license_art=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license_art.h')
 count=0
 
 def check(name,condition):
@@ -133,7 +133,7 @@ check('Worker milestones are monotonic and cannot publish transfer completion',
       and 'if Outcome = WorkerTransferred then' in completion
       and 'FState := WorkerTransferred; FProgress := 100; FStopping := True;' in completion)
 pending_receipt=api.split('function TGameApi.ResumePending(',1)[1].split('end;',1)[0]
-check('The Earth waits for redemption and the rocket shows real hidden startup milestones below 100',
+check('The Earth waits for redemption and the loader shows real hidden startup milestones below 100',
       redeem.index('FCommands.ReportProgress(14);') < redeem.index('LicenseState := FApi.Redeem(BoundaryKey,')
       < redeem.index('if not LicenseState.IsActive then') < redeem.index('FCommands.ReportProgress(40);')
       < redeem.index('FCommands.Complete(WorkerLicensed);')
@@ -148,66 +148,39 @@ check('The Earth waits for redemption and the rocket shows real hidden startup m
       and 'Progress := FProgress() / 100;' in window
       and 'if Progress > 0.99 then Progress := 0.99;' in window
       and 'ImGuiLicenseSceneReveal(FContext, ScenePhase, KeyCharacters, Progress, nil, 0)' in window)
-departure=license_scene.split('static void license_departure(',1)[1].split('static bool license_key_valid(',1)[0]
-trajectory=license_scene.split('static ImVec2 license_departure_position(',1)[1].split('static float license_message_fade(',1)[0]
-docking=license_scene.split('static LicenseDockingFrame license_docking_frame(',1)[1].split('static float license_vehicle(',1)[0]
-arrival=license_scene.split('static void license_arrival(',1)[1].split('static ImVec2 license_departure_position(',1)[0]
-check('The rocket emerges from a white hole, follows a curved outbound path and comes back to a rising catch tower',
-      docking.index('state.portal=license_timing(') < docking.index('state.tower=license_timing(')
-      < docking.index('state.grip=license_timing(') < docking.index('state.docked=seconds>=LicenseArrivalSeconds;')
-      < docking.index('cozy_rocket_curve(arc,t)') < docking.index('state.flying=seconds>.21f&&t<1.f;')
-      < docking.index('ImLerp(-185.f,LicenseDockY,t)') < docking.index('state.thrust=1.f-license_timing(')
-      and arrival.index('PushClipRect(') < arrival.index('license_white_hole(v,state.portal);')
-      < arrival.index('license_tower(v,state.tower,state.grip);') < arrival.index('if(state.flying)')
-      < arrival.index('state.thrust,0.f,outline);') < arrival.index('PopClipRect();'))
-check('The docked craft starts progress with the engines off and cannot launch during the arrival',
-      'const bool was_arriving=previous_phase==LicenseRocketPhase||previous_phase==LicensePreparingPhase;' in license_scene
-      and license_scene.index('else if(arrival&&c->license_arrival_seconds<LicenseArrivalSeconds)')
-      < license_scene.index('const LicenseDockingFrame docking=license_docking_frame(c->license_arrival_seconds);')
-      < license_scene.index('c->scene_run_progress=0.f;',license_scene.index('const LicenseDockingFrame docking='))
-      < license_scene.index('license_arrival(v,docking);')
-      < license_scene.index('bool hover=false,focus=false;',license_scene.index('license_arrival(v,docking);'))
-      < license_scene.index('if(arrival)license_tower(v,1.f,1.f);')
-      < license_scene.index('arrival?0.f:1.f);') < license_scene.index('license_progress_label(v,center,'))
-check('The rocket leaves on a vertical path, the tower bursts and the centered message follows the fully clipped departure',
-      re.search(r'return ImVec2\(190\.f,LicenseDockY-.*\);',trajectory) is not None
-      and trajectory.index('static void license_tower_burst(')
-      < trajectory.index('license_tower(v,1.f-collapse,') < trajectory.index('AddCircle(origin,')
-      < trajectory.index('AddLine(position-trail,position,')
-      and departure.index('if(seconds<LicenseFlightSeconds)') < departure.index('license_tower_burst(v,seconds);')
-      < departure.index('license_vehicle(v,position,LicenseDockRadius,0.f,')
-      < departure.index('v.c->license_test_flight_bottom=bottom;')
-      < departure.index('v.draw->PopClipRect();') < departure.index('return;')
-      < departure.index('"Starting shortly"') < departure.index('v.point(190.f,260.f)')
-      < departure.index('v.actions|=LicenseDepartureMessageAction;')
-      < departure.index('if(confirmed&&fade>=1.f)v.actions|=CozyProgressCompleteAction;')
-      and not any(token in departure for token in ['AddRectFilled', 'license_progress_label', 'license_rocket_control'])
-      and not any(token in license_scene for token in ['"Open O"', 'license_transfer_bar', 'license_transfer_orbit', 'license_lunar']))
-rocket_logo=rocket_art.split('static void cozy_rocket_logo(',1)[1]
-waterline=rocket_art.split('static void cozy_rocket_waterline(',1)[1].split('static void cozy_rocket_smoke(',1)[0]
-check('The rocket draws a detailed engine and skin with a hull-clipped waterline',
-      'cozy_rocket_fire(draw,nozzle' in rocket_logo
-      and 'cozy_rocket_engine_bell(draw,center,radius,side*.151f' in rocket_logo
-      and rocket_logo.index('cozy_rocket_profile(hull);') < rocket_logo.index('cozy_rocket_stage_detail(')
-      < rocket_logo.index('cozy_rocket_outline(') < rocket_logo.index('cozy_rocket_waterline(')
-      and 'cozy_rocket_clip_wave(last_upper,upper,start,end)' in waterline
-      and 'cozy_rocket_clip_wave(last_lower,lower,start,end)' in waterline
-      and 'AddConvexPolyFilled' not in waterline)
-check('Readiness uses a post-presentation click and gradual themed tint',
-      'const bool clickable=rocket&&full&&rocket_previously_full;' in license_scene
-      and 'license_rocket_control(v,center,radius,hover,focus);' in license_scene
-      and 'c->license_ready_blend+motion_step/.42f' in license_scene
-      and 'license_ease(c->license_ready_blend)' in license_scene
-      and 'license_rocket_tint(v.c)' in departure)
-check('The preparation wave continues after authorization and stays below 100 before it',
-      'const bool preparing=phase==LicensePreparingPhase;' in license_scene
-      and 'const bool can_finish=phase==3||rocket;' in license_scene
-      and 'const float ceiling=can_finish?1.f:.99f;' in license_scene
-      and 'const bool full=can_finish&&fill>=1.f;' in license_scene
-      and 'const bool rocket_previously_full=previous_phase==LicenseRocketPhase&&c->scene_run_progress>=1.f;' in license_scene
-      and 'const bool continue_progress=' in license_scene
-      and 'c->license_progress_target=continue_progress?ImMax(target,c->license_progress_target):target;' in license_scene
-      and 'if(clickable)license_rocket_control' in license_scene)
+loader=license_scene.split('static void license_loader(',1)[1].split('static bool license_key_valid(',1)[0]
+loader_earth=license_scene.split('static void license_loader_earth(',1)[1].split('static void license_loader_arc(',1)[0]
+loader_arc=license_scene.split('static void license_loader_arc(',1)[1].split('static void license_completion_mark(',1)[0]
+loader_stage=license_scene.split('static int license_loading_stage(',1)[1].split('static void license_loader(',1)[0]
+check('The loader preserves a dim Earth and draws an animated feathered copper arc',
+      loader.index('license_loader_earth(v,earth,earth_radius);')
+      < loader.index('license_loader_arc(v,layout,c->scene_run_progress);')
+      and 'const float dim=ImLerp(.54f,.19f,blend)*v.alpha;' in loader_earth
+      and 'CozyEarthProjection view(cozy_earth_camera(v.c->license_earth_seconds));' in loader_earth
+      and 'cozy_earth_countries(' in loader_earth
+      and 'license_elapsed*3.65' in loader_arc
+      and 'const float sweep=ImLerp(.38f,.73f,fill)' in loader_arc
+      and 'cozy_scene_mix(IM_COL32(194,72,32,255),IM_COL32(255,162,91,255),t)' in loader_arc
+      and loader_arc.count('color&~IM_COL32_A_MASK') == 2
+      and not any(token in license_scene+license_art for token in
+          ['cozy_rocket_', 'license_white_hole', 'license_tower(', 'Starting shortly', 'Open O']))
+check('Stage text is driven by worker milestones and pending progress excludes completion',
+      all(token in loader for token in ['Checking license', 'Verifying session',
+          'Preparing transfer', 'Downloading workspace', 'Verifying download', 'Preparing workspace'])
+      and all(f'if(progress<{threshold}f)return {index};' in loader_stage
+              for index, threshold in enumerate(['.12', '.40', '.60', '.89', '.93']))
+      and 'verified||transfer?1.f:' in loader
+      and 'ImMin(ImClamp(progress,0.f,.99f),c->scene_run_progress+dt*1.85f);' in loader
+      and 'license_loading_stage(progress)' in loader
+      and 'license_loader_text(v,layout,labels[stage]' in loader)
+check('The completion mark animates before it becomes interactive and only a later frame can click',
+      'const bool prior_ready=c->license_ready_blend>=1.f&&prior_phase==LicenseRocketPhase;' in loader
+      and loader.index('c->license_ready_blend=ImMin(1.f,') < loader.index('license_completion_mark(v,layout,reveal);')
+      < loader.index('if(phase==LicenseRocketPhase&&reveal>=1.f)')
+      < loader.index('if(prior_ready&&license_completion_control(v,layout))')
+      and 'if(transfer&&reveal>=1.f)v.actions|=LicenseDepartureMessageAction;' in loader
+      and '(phase==LicenseTransferredPhase||phase==3)&&reveal>=1.f' in loader
+      and all(token in loader for token in ['"Opening workspace"', '"Complete"']))
 check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
       and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem
@@ -254,17 +227,18 @@ transfer_close=paint.split('if (State = WorkerTransferred) and (Phase = LicenseP
 check('A verified transfer waits for a visibly presented message before closing B',
       'else if State = WorkerTransferred then Phase := LicensePhaseTransferred' in paint
       and paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if not FVisibleFrame then')
-      < paint.index('if (Actions and LicenseSceneDepartureMessage) <> 0 then')
-      < paint.index('FDepartureMessageSeconds := FDepartureMessageSeconds + PresentedDelta')
       < paint.index('if (State = WorkerTransferred) and (Phase = LicensePhaseTransferred) and')
+      < paint.index('FDepartureMessageSeconds := FDepartureMessageSeconds + PresentedDelta')
       and 'LicenseDepartureMessageSeconds = 0.40;' in window
       and transfer_close.index('Actions and LicenseSceneComplete')
+      < transfer_close.index('FDepartureMessageSeconds := FDepartureMessageSeconds + PresentedDelta')
       < transfer_close.index('FDepartureMessageSeconds >= LicenseDepartureMessageSeconds')
       < transfer_close.index('FPresentationComplete := True;')
       < transfer_close.index('Close;') < transfer_close.index('Exit;')
+      < transfer_close.index('else FDepartureMessageSeconds := 0;')
       and 'if FPresentationComplete and (FState() = WorkerTransferred) then Result := 0;' in window_run
       and not re.search(r'License(?:PhaseToast|SceneToastComplete)',window))
-unpresented=paint.split('if not FVisibleFrame then',1)[1].split('if (Actions and LicenseSceneDepartureMessage)',1)[0]
+unpresented=paint.split('if not FVisibleFrame then',1)[1].split('if (Phase = LicensePhaseTransfer) and not FCommitRequested',1)[0]
 check('A temporarily unavailable surface preserves the result and its timeout exits unsuccessfully',
       window_run.index('if State = WorkerTransferred then') < window_run.index('FTransferVisualDeadline := CozyTick + LicensePresentationTimeoutMs;')
       < window_run.index('if CozyTick >= FTransferVisualDeadline then')
@@ -278,7 +252,7 @@ check('A temporarily unavailable surface preserves the result and its timeout ex
       and all(token not in unpresented for token in ['Close;', 'FOutcomePhase :=', 'FOutcomeProgress :=', 'AdvancePresentedSequence', 'FCommit()'])
       and 'if FMinimized or FClosing or not FShown or not FVisibleFrame then' in window_run
       and paint.index('if FResizePending then Resize;') < paint.index('Presented := ImGuiPresent(FContext);'))
-check('Only a later present after the full rocket frame can deliver a launch action',
+check('Only a later present after the full ready frame can deliver a launch action',
       paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if not FVisibleFrame then')
       < paint.index('if Phase = LicensePhaseRocket then')
       < paint.index('if FRocketReady and ((Actions and LicenseSceneRocketLaunch) <> 0) then')
@@ -286,7 +260,7 @@ check('Only a later present after the full rocket frame can deliver a launch act
       < paint.index('FRocketReady := (Actions and LicenseSceneRocketReady) <> 0;')
       and 'LaunchSelected' not in window_run and 'AdvanceAutomaticLaunch' not in window
       and window.count('LaunchSelected;') == 3)
-check('A ready visible rocket may queue one handoff while the authorized worker is still live',
+check('A visible completion mark may queue one handoff while the authorized worker is still live',
       all(token in rocket_input for token in ['WindowInputEnabled and FRocketReady and not FLaunchRequested',
           'not FRedemptionPending and (FOutcomePhase = 0)', '(FState() = WorkerReady)'])
       and selected.index('if not RocketInputEnabled then Exit;') < selected.index('FRocketReady := False;')
@@ -300,7 +274,7 @@ check('A request with a retracted idle grant returns silently to the Earth',
       selected.index('Accepted := FLaunch();') < selected.index('State := FState();')
       < selected.index('else if State = WorkerIdle then') and 'FShowRetryFrame := True' in refused
       and all(token not in refused for token in ['Close;', 'FKey.Clear', 'FFocused := False', 'CancelInput', 'CopyText']))
-check('The preparation and ready rocket are distinct from both server handoff phases',
+check('The preparation and completion mark are distinct from both server handoff phases',
       'else if State = WorkerLaunching then Phase := LicensePhaseTransfer' in paint
       and 'else if State = WorkerReady then Phase := LicensePhaseRocket' in paint
       and 'else if State = WorkerPreparing then Phase := LicensePhasePreparing' in paint
@@ -309,12 +283,12 @@ check('The preparation and ready rocket are distinct from both server handoff ph
       < paint.index('else if State = WorkerTransferred then Phase := LicensePhaseTransferred')
       and 'ScenePhase := LicenseCustomThemePhase or ((FThemeIndex and $FFFFFF) shl 4) or Phase' in paint
       and 'ScenePhase := Phase or (FThemeIndex shl 8);' in paint
-      and 'license_departure(v,phase==LicenseTransferredPhase);' in license_scene)
-check('The first visibly presented post-departure banner releases commit once',
+      and 'license_loader(v,phase,run_progress' in license_scene)
+check('The first visibly presented opening state releases commit once',
       paint.index('Presented := ImGuiPresent(FContext);')
       < paint.index('if not FVisibleFrame then')
-      < paint.index('if (Actions and LicenseSceneDepartureMessage) <> 0 then')
-      < paint.index('if (Phase = LicensePhaseTransfer) and not FCommitRequested then')
+      < paint.index('if (Phase = LicensePhaseTransfer) and not FCommitRequested and')
+      < paint.index('((Actions and LicenseSceneDepartureMessage) <> 0) then')
       < paint.index('if not Assigned(FCommit) or not FCommit() then')
       < paint.index('FCommitRequested := True;')
       and paint.count('FCommit()') == 1
@@ -374,7 +348,7 @@ check('B uses a taskbar-free tool window and retains normal OS close handling',
       and not any(token in window for token in ['LicenseSceneMinimize', 'LicenseSceneClose', 'ApiShowWindow(FWindow, SW_MINIMIZE)']))
 press=window.split('    WM_LBUTTONDOWN:',1)[1].split('    WM_LBUTTONUP:',1)[0]
 release=window.split('    WM_LBUTTONUP:',1)[1].split('    WM_MOUSEWHEEL',1)[0]
-check('A background drag is thresholded and only native Earth or a ready rocket receive a press',
+check('A background drag is thresholded and only native Earth or a ready completion mark receive a press',
       press.index('Hit := ImGuiLicenseHit(FContext, X, Y);') < press.index('if Hit = HitBackground then')
       and press.index('if Hit = HitOutsideCorner then Exit;') < press.index('if Hit = HitBackground then')
       < press.index('FGesture := lgBackground;')
@@ -404,15 +378,15 @@ check('Keys activate controls only through the focused native scene',
 cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
 client_project=root/'Railway/Cozy.Projects/Cozy.Client'
 cursor_rc=(client_project/'Cozy.Client.rc').read_text(encoding='utf-8-sig')
-check('B loads the custom action cursor only on an interactive Earth or ready rocket',
-      'LicensePointerResource = 411;' in window
-      and 'LicenseActionPointerResource = 412;' in window
-      and 'FNormalCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(LicensePointerResource)));' in window
-      and 'FHandCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(LicenseActionPointerResource)));' in window
+cursor_pairs=[(411,412,'')]+[(base,base+1,str(base)) for base in range(420,438,2)]
+check('B loads the custom action cursor only on an interactive Earth or completion mark',
+      'CursorResource := BootstrapCursorResource(FThemeIndex);' in window
+      and 'FNormalCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(CursorResource)));' in window
+      and 'FHandCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(CursorResource + 1)));' in window
       and 'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
-      and all(re.search(r'^'+str(number)+r' CURSOR "Cozy\.'+kind+r'Pointer\.cur"\s*$', cursor_rc, re.M)
-              and (client_project/f'Cozy.{kind}Pointer.cur').read_bytes()[:4] == b'\x00\x00\x02\x00'
-              for number,kind in [(411,'Window'),(412,'Action')])
+      and all(re.search(r'^'+str(number)+r' CURSOR "Cozy\.'+kind+r'Pointer'+suffix+r'\.cur"\s*$', cursor_rc, re.M)
+              and (client_project/f'Cozy.{kind}Pointer{suffix}.cur').read_bytes()[:4] == b'\x00\x00\x02\x00'
+              for normal,action,suffix in cursor_pairs for number,kind in [(normal,'Window'),(action,'Action')])
       and 'FBusyCursor' not in window and 'NativeUInt(32648)' not in window
       and cursor.index('Cursor := FNormalCursor;') < cursor.index('if FVisibleFrame and not FResizePending')
       < cursor.index('Hit := ImGuiLicenseHit(FContext, Position.X - Bounds.Left, Position.Y - Bounds.Top);')

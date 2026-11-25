@@ -1,6 +1,8 @@
 { Generated document shapes only; no authorization or Windows test evidence. }
 const
-  ProtocolDocumentSchemaCases: array[0..16] of string = (
+  ProtocolDocumentSchemaCases: array[0..17] of string = (
+    '{"name":"desktopDesign","value":{"version":1,"revision":0,"b":{"x":-32,"y":-32,"scale":85,"stars":0,"labelX":-32,"labelY":-32,"labelScale":80},"o":{"x":-32,"y":-32,"scale":85,"star' +
+    's":0,"labelX":-32,"labelY":-32,"labelScale":80}}}',
     '{"name":"overlayRelease","value":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","crc64":"AAAAAAAAAAAAAAAA","xxh3_128":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","blake3":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
     'aaaaaaaaaaaaaaaaaaaaaaa","size":1,"codeSha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","c' +

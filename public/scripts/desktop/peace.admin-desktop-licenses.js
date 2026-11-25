@@ -232,46 +232,64 @@ async function renderDesktopLicenses(silent = false) {
   desktopRenderedQuery=desktopLicenseQuery;desktopRenderedStatus=desktopLicenseStatus;
   desktopMemberRenderedQuery=desktopMemberQuery;desktopMemberRenderedStatus=desktopMemberStatus;
 }
-const desktopProductCategories=Object.freeze({cleaner:'Cleanner',mobile:'Mobile'});
 function desktopProductProjection(row) {
-  return row?.productAssigned===true&&typeof row.productId==='string'&&typeof row.productName==='string'&&row.productName.length>0&&Object.hasOwn(desktopProductCategories,row.productCategory)&&row.productId.startsWith(row.productCategory+'.')
-    ?desktopProductCategories[row.productCategory]+' · '+row.productName:'제품 미지정';
+  if(row?.productAssigned!==true||typeof row.productName!=='string'||!row.productName.trim())return '제품 미지정';
+  const channels=Array.isArray(row.productChannelNames)?row.productChannelNames.filter(name=>typeof name==='string'&&name.trim()):[];
+  return channels.length?row.productName+' · '+channels.join(', '):row.productName;
 }
 function desktopProductMarkup(row) {return `<span class="desktop-product-scope">${esc(desktopProductProjection(row))}</span>`;}
 async function desktopLoadProducts(owner) {
   const data=await api('/api/desktop/products');
   if(!roleIsAdmin()||session?.csrf!==owner)return null;
-  const seen=new Set(),counts={cleaner:0,mobile:0};
-  if(data?.version!==1||!Array.isArray(data.products)||data.products.length!==12)throw Error('발급 가능한 제품 목록을 확인하지 못했습니다. 다시 조회하세요.');
-  const products=data.products.map(row=>{
-    if(!row||typeof row.id!=='string'||!/^(cleaner|mobile)\.[a-z0-9-]{1,40}$/.test(row.id)||seen.has(row.id)||!Object.hasOwn(counts,row.category)||!row.id.startsWith(row.category+'.')||typeof row.name!=='string'||!row.name.trim()||row.name.length>80)throw Error('발급 가능한 제품 목록의 형식이 올바르지 않습니다.');
-    seen.add(row.id);counts[row.category]++;return Object.freeze({id:row.id,name:row.name,category:row.category});
+  if(data?.version!==2||!Array.isArray(data.products)||data.products.length===0||!Array.isArray(data.channels))throw Error('발급 가능한 제품 목록을 확인하지 못했습니다. 다시 조회하세요.');
+  const seenProducts=new Set(),seenChannels=new Set();
+  const invalid=()=>Error('발급 가능한 제품 목록의 형식이 올바르지 않습니다.');
+  const channels=data.channels.map(row=>{
+    if(!row||typeof row.id!=='string'||!/^[a-z][a-z0-9-]{0,39}$/.test(row.id)||seenChannels.has(row.id)||typeof row.name!=='string'||!row.name.trim()||row.name.length>80||typeof row.url!=='string')throw invalid();
+    let url;try{url=new URL(row.url);}catch(_){throw invalid();}
+    if(url.protocol!=='https:'||url.username||url.password)throw invalid();
+    seenChannels.add(row.id);
+    return {id:row.id,name:row.name,url:url.href};
   });
-  if(Object.values(counts).some(count=>count!==6))throw Error('카테고리별 제품 목록을 확인하지 못했습니다.');
-  return Object.freeze(products);
+  const products=data.products.map(row=>{
+    if(!row||typeof row.id!=='string'||!/^[a-z][a-z0-9-]{0,39}\.[a-z0-9-]{1,40}$/.test(row.id)||seenProducts.has(row.id)||typeof row.name!=='string'||!row.name.trim()||row.name.length>80||!Array.isArray(row.channels)||!row.channels.includes(row.category)||new Set(row.channels).size!==row.channels.length||row.channels.some(channel=>!seenChannels.has(channel)))throw invalid();
+    seenProducts.add(row.id);
+    return {id:row.id,name:row.name,category:row.category,channels:[...row.channels]};
+  });
+  return {products,channels};
 }
-function desktopProductOptions(products,category) {return [{value:'',label:category?'제품을 선택하세요':'카테고리를 먼저 선택하세요'},...products.filter(row=>row.category===category).map(row=>({value:row.id,label:row.name}))];}
+function desktopProductChannelOptions({products,channels}) {
+  const available=new Set(products.flatMap(row=>row.channels));
+  return [{value:'',label:'스토어 · 퍼블리셔를 선택하세요'},...channels.filter(row=>available.has(row.id)).map(row=>({value:row.id,label:row.name}))];
+}
+function desktopProductDirectory({channels}) {
+  return `<details class="desktop-game-directory"><summary>공식 스토어 · 퍼블리셔 게임 목록</summary><p class="small-note">키는 아래 선택 목록에 표시되는 지원 게임에 발급할 수 있습니다.</p><ul>${channels.map(row=>`<li><a href="${esc(row.url)}" target="_blank" rel="noopener noreferrer">${esc(row.name)}</a></li>`).join('')}</ul></details>`;
+}
+function desktopProductOptions(products,category) {return [{value:'',label:category?'게임을 선택하세요':'스토어 · 퍼블리셔를 먼저 선택하세요'},...products.filter(row=>row.channels.includes(category)).map(row=>({value:row.id,label:row.name}))];}
 function desktopBindProductPicker(products,category,product,confirm) {
-  const valid=()=>products.some(row=>row.id===product.value&&row.category===category.value);
-  const controls=()=>{product.disabled=!Object.hasOwn(desktopProductCategories,category.value);if(confirm)confirm.disabled=!valid();};
+  const valid=()=>products.some(row=>row.id===product.value&&row.channels.includes(category.value));
+  const controls=()=>{product.disabled=!products.some(row=>row.channels.includes(category.value));if(confirm)confirm.disabled=!valid();};
   const changed=()=>{
+    const selection=product.value,options=desktopProductOptions(products,category.value);
     product.replaceChildren();
-    for(const row of desktopProductOptions(products,category.value)){const option=document.createElement('option');option.value=row.value;option.textContent=row.label;product.append(option);}
+    for(const row of options){const option=document.createElement('option');option.value=row.value;option.textContent=row.label;product.append(option);}
+    if(options.some(row=>row.value===selection))product.value=selection;
     controls();
   };
   category.addEventListener('change',changed);product.addEventListener('change',controls);controls();
   return ()=>{category.removeEventListener('change',changed);product.removeEventListener('change',controls);};
 }
-function desktopIssueFields(label='',replacement=false,products=[],productId='') {
+function desktopIssueFields(label,replacement,catalog,productId) {
+  const {products}=catalog;
   const current=products.find(row=>row.id===productId),category=current?.category||'';
-  return [{name:'productCategory',label:'카테고리',type:'select',value:category,options:[{value:'',label:'카테고리를 선택하세요'},...Object.entries(desktopProductCategories).map(([value,label])=>({value,label}))]},
-    {name:'productId',label:'허용할 게임 · 제품 (1개)',type:'select',value:current?.id||'',options:desktopProductOptions(products,category)},
+  return [{name:'productCategory',label:'스토어 · 퍼블리셔',type:'select',value:category,options:desktopProductChannelOptions(catalog)},
+    {name:'productId',label:'허용할 게임 (1개)',type:'select',value:current?.id||'',options:desktopProductOptions(products,category)},
     {name:'label',label:'라이선스 이름 (선택, 최대 120자)',value:label},
     ...(replacement?[{name:'reason',label:'교체 사유 (3~300자)',type:'textarea',value:''}]:[])];
 }
 function desktopIssueBody(values,products) {
-  const product=products.find(row=>row.id===values.productId&&row.category===values.productCategory);
-  if(!product)throw Error('카테고리와 허용할 제품 1개를 선택해주세요.');
+  const product=products.find(row=>row.id===values.productId&&row.channels.includes(values.productCategory));
+  if(!product)throw Error('스토어 · 퍼블리셔와 허용할 게임 1개를 선택해주세요.');
   const label=String(values.label||'').trim();if(label.length>120)throw Error('라이선스 이름은 120자 이하로 입력해주세요.');
   return {label,productId:product.id};
 }
@@ -494,8 +512,9 @@ async function handleDesktopLicenseAction(event) {
         let data;try{data=await api(pending.url,{method:'POST',body:pending.body});}catch(error){if(error.status&&error.status<500&&desktopPendingIssue===pending)desktopPendingIssue=null;throw error;}desktopPendingIssue=null;if(!session||session.csrf!==pending.owner)return true;await showDesktopLicenseReceipt(data);await renderCurrent();return true;
       }
       const replacement=action==='reissue';
-      const products=await desktopLoadProducts(actionOwner);if(!products)return true;
-      const prompt=openModal({title:replacement?'기존 키를 폐기하고 새 제품 키 발급':'게임 · 제품 라이선스 발급',message:replacement?'기존 라이선스는 즉시 폐기됩니다. 아래에서 확인한 제품 1개만 허용하는 새 키를 발급합니다.':'제품 1개를 선택하세요. 이 키로 인증한 O에서는 선택한 제품의 START만 사용할 수 있습니다. 키는 1회 등록 후 재사용할 수 없습니다.',fields:desktopIssueFields(row?.label||'',replacement,products,row?.productId||''),danger:replacement,confirmLabel:replacement?'교체 발급':'발급'});
+      const catalog=await desktopLoadProducts(actionOwner);if(!catalog)return true;
+      const {products}=catalog;
+      const prompt=openModal({title:replacement?'기존 키를 폐기하고 새 게임 키 발급':'게임 라이선스 발급',message:replacement?'기존 라이선스는 즉시 폐기됩니다. 선택한 게임 1개를 허용하는 새 키를 발급합니다.':'선택한 게임을 허용하는 키를 발급합니다. 키는 1회 등록 후 재사용할 수 없습니다.',html:desktopProductDirectory(catalog),fields:desktopIssueFields(row?.label||'',replacement,catalog,row?.productId||''),danger:replacement,confirmLabel:replacement?'교체 발급':'발급'});
       const unbind=desktopBindProductPicker(products,modalBody.querySelector('[data-modal-field="productCategory"]'),modalBody.querySelector('[data-modal-field="productId"]'),modalConfirm);
       let values;try{values=await prompt;}finally{unbind();}
       if(!values||!roleIsAdmin()||session?.csrf!==actionOwner)return true;const body=desktopIssueBody(values,products);if(replacement)body.reason=desktopReason(values.reason);

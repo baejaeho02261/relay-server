@@ -1,4 +1,13 @@
 'use strict';
+const adminSpacePalettes = new Set(['pure-black', 'blue-starlink', 'mint-orbit', 'violet-nebula',
+  'amber-nova', 'eclipse', 'aurora', 'pulsar', 'deep-space', 'supernova']);
+function setAdminPalette(value) {
+  const selected = adminSpacePalettes.has(value) ? value : 'pure-black';
+  document.documentElement.dataset.spacePalette = selected;
+  const palette = document.getElementById('space-palette');
+  if (palette) palette.value = selected;
+  try { localStorage.setItem('spacex-palette', selected); } catch (_) {}
+}
 // Display preferences contain no account, license or operational data.
 function setAdminTheme(theme){
  const selected=theme==='dark'?'dark':'light';
@@ -13,7 +22,7 @@ function setAdminTheme(theme){
   button.setAttribute('aria-label',label+'로 전환');button.setAttribute('aria-pressed',String(selected==='dark'));
  }
  const meta=document.querySelector('meta[name="theme-color"]');
- if(meta)meta.content=selected==='dark'?'#131c19':'#f5f6f3';
+ if(meta)meta.content=selected==='dark'?'#000000':'#e9edf7';
 }
 function setAdminMotion(paused){
  document.documentElement.dataset.motion=paused?'paused':'running';
@@ -25,12 +34,16 @@ function setAdminMotion(paused){
   button.setAttribute('aria-label',label);button.title=label;button.setAttribute('aria-pressed',String(paused));
  });
 }
-let initialAdminTheme='light',initialAdminMotion=false;
-try{initialAdminTheme=localStorage.getItem('relay-admin-theme')||'light';initialAdminMotion=localStorage.getItem('cozy-admin-motion')==='paused';}catch(_){}
+let initialAdminTheme='dark',initialAdminMotion=false,initialAdminPalette='pure-black';
+try{initialAdminTheme=localStorage.getItem('relay-admin-theme')||'dark';initialAdminMotion=localStorage.getItem('cozy-admin-motion')==='paused';initialAdminPalette=localStorage.getItem('spacex-palette');}catch(_){}
 if(typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)initialAdminMotion=true;
-setAdminTheme(initialAdminTheme);setAdminMotion(initialAdminMotion);
-document.addEventListener('DOMContentLoaded',()=>{setAdminTheme(document.documentElement.dataset.theme);setAdminMotion(document.documentElement.dataset.motion==='paused');});
+setAdminTheme(initialAdminTheme);setAdminMotion(initialAdminMotion);setAdminPalette(initialAdminPalette);
+document.addEventListener('DOMContentLoaded',()=>{setAdminTheme(document.documentElement.dataset.theme);setAdminMotion(document.documentElement.dataset.motion==='paused');setAdminPalette(document.documentElement.dataset.spacePalette);});
 document.addEventListener('click',event=>{
  if(event.target.closest('#theme-toggle'))setAdminTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
  if(event.target.closest('[data-motion-toggle]'))setAdminMotion(document.documentElement.dataset.motion!=='paused');
+});
+
+document.addEventListener('change', event => {
+ if (event.target.id === 'space-palette') setAdminPalette(event.target.value);
 });

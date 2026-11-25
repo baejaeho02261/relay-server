@@ -33,7 +33,7 @@ async function Select(args,home){
  // readline's callback is a value rather than an error-first callback.
  const question=text=>new Promise(resolve=>rl.question(text,resolve));
  try{
-  console.log('IDE probe folder: '+path.resolve(home,"../../Railway/build/tests/manual-ide"));
+  console.log('IDE probe folder: '+path.resolve(home,"../../Railway/Cozy.Tests/Cozy.Build/Cozy.Outputs/manual-ide"));
   const selections=[];for(const label of ['A final EXE','B final EXE','O final EXE','cozy.ProcessMitigationProfileProbe.exe','cozy.OverlayMitigationProbe.exe']){const value=(await question(label+' absolute path: ')).trim().replace(/^"(.*)"$/,'$1');if(!value||!path.isAbsolute(value))throw Error('MITIGATION_ABSOLUTE_PATH_REQUIRED');selections.push(value);}return selections;
  }finally{rl.close();}
 }

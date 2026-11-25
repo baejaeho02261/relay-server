@@ -20,8 +20,8 @@ goto verify_object
 call "Cozy.ImGui\Cozy.Build\Cozy.Build_ImGui_Win64.bat" /nopause
 if errorlevel 1 goto build_failed
 :verify_object
-if not exist "Cozy.BuildOutputs\Cozy.ImGui\Cozy.game_imgui_bridge.o" goto build_failed
-echo SUCCESS: the audited object is available at Cozy.BuildOutputs\Cozy.ImGui.
+if not exist "Cozy.ImGui\Cozy.Objects\Cozy.game_imgui_bridge.o" goto build_failed
+echo SUCCESS: the audited object is available at Cozy.ImGui\Cozy.Objects.
 echo Rebuild A/B/O in Win64 Release and review the final EXEs.
 set "GCIM_EXIT=0"
 goto finish

@@ -43,7 +43,7 @@ function method(name, next) {
 check('Every C export has an exact cdecl Pascal declaration and matching Win64 primitive ABI', () => {
   const abi = require(path.join(native, 'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js'));
   const schema = JSON.parse(ReadContractFile(abi.schemaPath, 'utf8'));
-  assert.equal(abi.check(abi.loadSources(), schema).exports, 34);
+  assert.equal(abi.check(abi.loadSources(), schema).exports, 35);
   abi.verifyProbes(schema);
   const cTypes = {
     void: 'void', int32_t: 'i32', uint32_t: 'u32', float: 'f32',
@@ -79,7 +79,7 @@ check('Every C export has an exact cdecl Pascal declaration and matching Win64 p
     assert(!pExports.has(name), 'Duplicate Pascal export ' + name);
     pExports.set(name, { result: kind === 'procedure' ? 'void' : pTypes[result], args });
   }
-  assert.equal(cExports.size, 34, 'Both B scene entry points share the existing callback layout');
+  assert.equal(cExports.size, 35, 'The single desktop settings entry extends the existing scene ABI');
   assert.deepEqual(cExports.get('game_imgui_scene_v2'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32']});
   assert.deepEqual(cExports.get('game_imgui_scene_v3'), {result:'i32',args:['ptr','i32','i32','u32','f32','f32','i32','f32']});
   assert.deepEqual(cExports.get('game_imgui_license_hit_v1'), {result:'i32',args:['ptr','i32','i32']});
@@ -148,7 +148,7 @@ check('Host callback layout is versioned and checked before static-object creati
       'Native object must be registered before external declarations; moving $L into initialization causes dcc64 E2065');
   }
   const productionLink = pascal.match(/\{\$ELSE\}\s*\{\$L\s+'([^']+)'\}/)?.[1];
-  assert.equal(productionLink, '..\\..\\Cozy.BuildOutputs\\Cozy.ImGui\\Cozy.game_imgui_bridge.o',
+  assert.equal(productionLink, '..\\..\\Cozy.ImGui\\Cozy.Objects\\Cozy.game_imgui_bridge.o',
     'Production object link must work when IDE object-search options are absent');
   assert.match(pascal, /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}\s*\{\$L 'Cozy.game_imgui_fault_test\.o'\}\s*\{\$ELSE\}\s*\{\$L '[^']+'\}\s*\{\$ENDIF\}/);
   assert.match(read("Cozy.Source/Cozy.Configuration/Cozy.Metadata.inc"), /\{\$IFDEF GAME_IMGUI_FAULT_TESTS\}[\s\S]*?\{\$MESSAGE FATAL/);
@@ -293,19 +293,19 @@ check('Project generates one central object before Delphi and propagates all aud
   const objectName=path.win32.basename(objectLink);
   // Resolve the actual $L argument without using DCC_ObjPath. The source and
   // project directory bases must both lead to the producer's one audited file.
-  const producer=path.resolve(native,'Cozy.ImGui/Cozy.Build','../../Cozy.BuildOutputs/Cozy.ImGui',objectName);
+  const producer=path.resolve(native,'Cozy.ImGui/Cozy.Build','../Cozy.Objects',objectName);
   for(const relative of ['Cozy.Source/Cozy.Overlay','Cozy.Projects/Cozy.Overlay']){
     assert.equal(path.resolve(native,relative,...objectLink.split('\\')),producer);
   }
   for(const root of ['C:\\Source Tree\\Railway','D:\\한글 폴더\\cozy-peace\\Railway','\\\\build-host\\source share\\Railway']){
-    const expected=path.win32.join(root,'Cozy.BuildOutputs','Cozy.ImGui',objectName);
+    const expected=path.win32.join(root,'Cozy.ImGui','Cozy.Objects',objectName);
     for(const relative of ['Cozy.Source\\Cozy.Overlay','Cozy.Projects\\Cozy.Overlay']){
       assert.equal(path.win32.resolve(root,relative,objectLink),expected);
     }
   }
   const objectDir=project.match(/<DCC_ObjPath>([^;<]+);\$\(DCC_ObjPath\)<\/DCC_ObjPath>/)[1];
-  assert.equal(objectDir,'$(CozyNativeRoot)\\Cozy.BuildOutputs\\Cozy.ImGui');
-  assert(build.includes('set "COZY_IMGUI_OBJECT_DIR=%~dp0..\\..\\Cozy.BuildOutputs\\Cozy.ImGui"'));
+  assert.equal(objectDir,'$(CozyNativeRoot)\\Cozy.ImGui\\Cozy.Objects');
+  assert(build.includes('set "COZY_IMGUI_OBJECT_DIR=%~dp0..\\Cozy.Objects"'));
   const nativeTarget=project.match(/<Target Name="PrepareOverlayNative"[\s\S]*?<\/Target>/)?.[0];
   assert(nativeTarget,'Native preparation is an explicit build target');
   assert.match(project,/<BuildDependsOn>PrepareOverlayNative;/);assert.match(project,/<RebuildDependsOn>PrepareOverlayNative;/);
@@ -433,11 +433,12 @@ check('O draws four text tabs and keeps fixed space palettes in Settings', () =>
     'v.box(24.f,center-18.f,95.f,center+18.f)',
     'cozy_palette_item(area,CozyWorkspaceTabs[i],', 'v.context->overlay_tab=',
     'if (previous!=v.context->overlay_tab) v.context->overlay_tab_reveal=0.f;',
-    'cozy_workspace_border_ink(v.palette,4.7f)',
+    'cozy_workspace_border_ink(v.palette,6.f)',
     'const bool selected=v.context->overlay_tab==i;', 'motion=cozy_workspace_motion(',
-    'v.text(29.f,center-.5f*amount,13.f,63.f,CozyWorkspaceTabs[i],ink);'],
-    'Edge alignment, keyboard targets and border-colored text animation');
-  assert.doesNotMatch(tabControls,/AddImage|AddRect|license_glass_contour/);
+    'license_glass_contour(v.draw,v.at(25.f,center-15.f),v.at(94.f,center+15.f),',
+    '7.f*v.scale,fill,fill,rim);', 'v.text(59.5f,center,16.25f,63.f,CozyWorkspaceTabs[i],ink,.5f);'],
+    'Edge alignment, keyboard targets and an animated rounded selection');
+  assert.doesNotMatch(tabControls,/AddImage|AddRect/);
   const workspaceView=scene.slice(scene.indexOf('struct CozyWorkspaceView'),scene.indexOf('enum CozyWorkspaceTab'));
   inOrder(workspaceView,['cozy_scene_font_size(size*scale)', 'CalcTextSizeA(',
     'ImFloor(start.x+.5f)', 'ImFloor(start.y+.5f)'], 'Text uses density-aware atlas sizing and pixel alignment');
@@ -449,16 +450,15 @@ check('O draws four text tabs and keeps fixed space palettes in Settings', () =>
     'Theme checkbox keeps the full row target with a smaller filled box and round checkmark caps');
   const settings=scene.slice(scene.indexOf('static int cozy_workspace_settings('),scene.indexOf('static int cozy_overlay_workspace('));
   assert.equal((settings.match(/cozy_workspace_checkbox\(/g)||[]).length,2);
-  inOrder(settings,['cozy_palette_item(selector,','cozy_workspace_theme_name(selected)', 'if (saving)',
-    'PathArcTo(', 'cozy_workspace_checkbox(', 'overlay_stars_paused',
-    'cozy_workspace_checkbox(', 'overlay_stars_hidden', 'if (!state.open)',
-    'failed && cozy_palette_valid_theme(previous) && previous!=selected',
-    'retry_box', 'if (button.pressed) return previous+1;',
-    'int requested=0;', 'for (int i=0;i<CozyWorkspaceThemeCount;++i)',
-    'const int theme=cozy_workspace_theme_at(i);', 'if (item.pressed)',
-    'if (theme!=selected)', 'v.context->overlay_last_theme_request=theme;',
-    'requested=theme+1;', 'return requested;'],
-    'Independent checkboxes and a retry control keep the existing theme actionable');
+  inOrder(settings,['cozy_palette_item(selector,','cozy_workspace_theme_name(selected)', 'if(saving&&!is_font)',
+    'PathArcTo(', 'render_selector(theme_selector', 'render_selector(font_selector',
+    'cozy_workspace_checkbox(', 'overlay_stars_paused', 'cozy_workspace_checkbox(', 'overlay_stars_hidden',
+    'if(!open)', 'if(!saving&&failed&&previous>0)', 'retry_box', 'if(button.pressed)return previous;',
+    'const bool font_menu=c->overlay_font_open;', 'int requested=0;', 'for(int i=0;i<rows;++i)',
+    'const int value=font_menu?i:cozy_workspace_theme_at(i);', 'if(item.pressed)',
+    'if(!chosen)', 'requested=(value+1)|(font_menu?CozyWorkspaceFontAction:0);',
+    'c->overlay_last_preference_action=requested;', 'return requested;'],
+    'Independent selectors, checkboxes and a bounded retry preserve the preference action');
   const choices=scene.slice(scene.indexOf('static const char* const CozyWorkspaceCuratedNames[]'),
     scene.indexOf('static ImU32 cozy_workspace_theme_swatch('));
   inOrder(choices,['"Pure Black"', '"Eclipse"', '"Aurora"', '"Pulsar"', '"Deep Space"', '"Supernova"',
@@ -491,10 +491,10 @@ check('O draws four text tabs and keeps fixed space palettes in Settings', () =>
   assert.doesNotMatch(scene,/AddImage|game_cover|game_mark/);
   assert.doesNotMatch(workspace,/cozy_palette_controls\(/);
   assert.match(b,/cozy_palette_apply_theme\(c,theme,true\);/);
-  assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette,true,true\);/);
+  assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette,true,true,\s*c->desktop_star_percent\);/);
   assert.doesNotMatch(b,/cozy_palette_controls\(|cozy_palette_hsv\(|game_cover|game_mark/);
   assert.match(palette,/CozyPalettePresetCount = 4;/);
-  assert.match(palette,/if\s*\(show_stars\)\s*cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars\);/);
+  assert.match(palette,/if\s*\(show_stars\)\s*cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars,density\);/);
   assert.doesNotMatch(method('function TOverlayWindow.ThemeHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;'),
     /FLicensedCard|FGetLicensedCard|Authorize|\.Post\(/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
@@ -513,18 +513,18 @@ check('B and O use the authenticated claim theme and only a visible O edit can c
   const session=read('Cozy.Source/Cozy.License/Cozy.License.Session.pas');
   const client=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.Client.pas');
   const controller=read('Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas');
-  assert.match(bootstrap,/Result\.ThemeIndex := BootstrapThemeIndex\(Data\);/);
-  assert.match(bootstrap,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(2\)\);/);
-  assert.match(session,/RunLicenseWindow\([\s\S]*?Session\.ThemeIndex,\s*function: Boolean\s*begin Result := Worker\.RequestPreparation; end,\s*function: Boolean\s*begin Result := Worker\.RequestCommit; end\);/);
-  assert.match(client,/FSession\.ThemeIndex := BootstrapThemeIndex\(Reply\);/);
-  assert.match(client,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(2\)\);/);
-  assert.match(controller,/TOverlayWorker\.Create\(Context, Client, Image, Guard, Session\.ThemeIndex\)/);
+  assert.match(bootstrap,/BootstrapDesktopSettings\(Data, False, Result\);/);
+  assert.match(bootstrap,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(3\)\);/);
+  assert.match(session,/RunLicenseWindow\([\s\S]*?Session\.ThemeIndex,\s*function: Boolean\s*begin Result := Worker\.RequestPreparation; end,\s*function: Boolean\s*begin Result := Worker\.RequestCommit; end,\s*@Session\.DesktopStage, Session\.FontIndex\);/);
+  assert.match(client,/BootstrapDesktopSettings\(Reply, True, FSession\);/);
+  assert.match(client,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(3\)\);/);
+  assert.match(controller,/TOverlayWorker\.Create\(Context, Client, Image, Guard,\s*@Session\.DesktopStage, Session\.ThemeIndex, Session\.FontIndex\)/);
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['Theme := FReadTheme()', 'ImGuiProductScene(FContext, 0, Theme.Index,',
-    'not BootstrapThemeValid(Int64(SceneAction) - 1)',
+    'not BootstrapThemeValid(ChosenTheme) or (ChosenFont < 0)',
     'PresentResult := ImGuiPresent(FContext);', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE)',
     'if FRendered and FSceneRevealComplete and (SceneAction > 0) and',
-    'Assigned(FQueueTheme) and AuthorityValid then FQueueTheme(SceneAction-1);'], 'Visible edit dispatch');
+    'Assigned(FQueueTheme) and AuthorityValid then FQueueTheme(ChosenTheme, ChosenFont);'], 'Visible edit dispatch');
   const worker=controller.slice(controller.indexOf('function TOverlayWorker.ProcessThemeSave('),
     controller.indexOf('function TOverlayWorker.ShouldClose:'));
   const execute=controller.slice(controller.indexOf('procedure TOverlayWorker.Execute;'));
@@ -536,19 +536,21 @@ check('B and O use the authenticated claim theme and only a visible O edit can c
   assert.match(worker,/WriteDeadline := At \+ WriteBudget/);
   assert.doesNotMatch(worker,/NextCheck/);
   assert.match(controller,/not FThemeSaving and\s*\(CozyTick >= FThemeQueueDeadline\)/);
-  inOrder(worker,['Saved := FClient.SaveTheme(FContext.Security, Index, WriteDeadline, Retryable)',
+  inOrder(worker,['Saved := FClient.SaveTheme(FContext.Security, Index, Font, WriteDeadline, Retryable)',
     'if not Terminated and not FFailed and FTransferred and (FDeadline > At) then',
-    'if Saved then', 'FTheme.Index := Index;', 'FTheme.Status := otsIdle;',
+    'if Saved then', 'FTheme.Index := Index;', 'FTheme.FontIndex := Font;', 'FTheme.Status := otsIdle;',
     'if Retryable and not FThemeRetried', 'FThemeRetried := True;', 'FTheme.Status := otsFailed;'],
     'Confirmation and one bounded retry are both subordinate to the existing grant');
   const save=client.slice(client.indexOf('function TOverlayClient.SaveTheme('),client.indexOf('function TOverlayClient.InvokeServerPolicy('));
-  inOrder(save,['not FTransferConfirmed', "if (FThemePendingRequestID = '') or (FThemePendingIndex <> Index) then",
+  inOrder(save,['not FTransferConfirmed', "if (FThemePendingRequestID = '') or (FThemePendingIndex <> Index) or",
+    '(FThemePendingFont <> Font) then', "'COZY-OVERLAY-THEME-V2'", '#10 + IntToStr(Font);',
     'Security.Sign(Canonical)', 'FThemePendingRequestID := RequestID;',
     "Body.AddPair('requestId', FThemePendingRequestID);", "Reply := Post('overlayTheme', Body, Deadline)",
-    "BootstrapValidateObject(Reply, '|version|sessionId|requestId|sequence|theme|', 5)",
+    "BootstrapValidateObject(Reply, '|version|sessionId|requestId|sequence|theme|font|', 6)",
     "BootstrapInteger(Reply, 'version') <> 1", "BootstrapString(Reply, 'sessionId', 24) <> FSession.SessionID",
     "BootstrapString(Reply, 'requestId', 80) <> FThemePendingRequestID", "BootstrapInteger(Reply, 'sequence') <> FThemeSequence",
-    "BootstrapInteger(Reply, 'theme') <> Index", 'then InvalidResponse;', 'ClearThemeRequest;',
+    "BootstrapInteger(Reply, 'theme') <> Index", "BootstrapInteger(Reply, 'font') <> Font",
+    'then InvalidResponse;', 'ClearThemeRequest;',
     'on E: EConnectTransport do', 'if not Retryable then ClearThemeRequest;'],
     'An uncertain transport result preserves the exact signed request for an idempotent retry');
 });
@@ -608,8 +610,7 @@ check('O rounds the surface and uses native scene hit testing for tabs, settings
     'Opening uses the monitor work-area midpoint and ordinary fitting keeps the current location');
   const run = method('function TOverlayWindow.Run(', 'function RunOverlayUI(');
   inOrder(run, ['FSystemCursor := ApiLoadCursorW(0, IDC_ARROW);',
-    'FNormalCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(OverlayPointerResource)));',
-    'FThemeCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(OverlayActionPointerResource)));',
+    'LoadThemeCursors(BootstrapPureBlack);',
     'ApiGetCursorPos(StartPoint)', 'StartPoint.X, StartPoint.Y, 1, 1,',
     'SetDpi(DpiProc(FWindow), nil, True);', 'ImGuiCreate('],
     'Hidden pointer-monitor anchor centers O before GPU creation and loads the paired cursor resources');
@@ -617,8 +618,13 @@ check('O rounds the surface and uses native scene hit testing for tabs, settings
   inOrder(cursor, ['not SurfaceHit(X, Y) then ApiSetCursor(FSystemCursor)',
     'ThemeHit(X, Y) = ThemePaletteHit', 'ApiSetCursor(FThemeCursor)', 'ApiSetCursor(FNormalCursor)'],
     'Cursor selection follows the same rounded hit mask and actual controls');
-  assert.match(renderer, /OverlayPointerResource = 411;/);
-  assert.match(renderer, /OverlayActionPointerResource = 412;/);
+  const cursorLoad = method('procedure TOverlayWindow.LoadThemeCursors(', 'procedure TOverlayWindow.UpdateCursor(');
+  inOrder(cursorLoad, ['ResourceID := BootstrapCursorResource(Theme);',
+    'if ResourceID = FCursorResource then Exit;',
+    'FNormalCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(ResourceID)));',
+    'FThemeCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(ResourceID + 1)));'],
+    'The acknowledged palette selects the matching pointer pair');
+  assert.match(renderer, /if FRendered then LoadThemeCursors\(Theme.Index\);/);
   const handle = method('function TOverlayWindow.Handle(', 'function TOverlayWindow.AuthorityValid:');
   assert.match(handle,/WM_NCHITTEST:[\s\S]*?SurfaceHit\([\s\S]*?Exit\(HTTRANSPARENT\)/);
   inOrder(handle, ['DpiChangedMessage:', 'SetDpi(LOWORD(WParam), PRect(LParam));',

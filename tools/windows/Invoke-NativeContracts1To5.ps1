@@ -62,8 +62,8 @@ try{
  # full existing probe set, but only the named 1-5 probes below are executed.
  Invoke-ContractCommand 'compile-probes' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Build_NativeProbes_Win64.bat')+'" /build-only')) $native 900
  Invoke-ContractCommand 'sdk-probe' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Build_NativeAbi_SDK_Win64.bat')+'"')) $native 180
- $built=Join-Path $native 'build\tests\native-probes'
- Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.compare-native-abi.js'),(Join-Path $built 'Cozy.NativeAbiProbe.exe'),(Join-Path $native 'build\tests\native-sdk\Cozy.NativeAbiSdkProbe.exe')) $native 60
+ $built=Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Outputs\native-probes'
+ Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.compare-native-abi.js'),(Join-Path $built 'Cozy.NativeAbiProbe.exe'),(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Outputs\native-sdk\Cozy.NativeAbiSdkProbe.exe')) $native 60
  foreach($name in $names[4..($names.Count-1)]){Invoke-ContractCommand $name (Join-Path $built ($name+'.exe')) @() $native 120}
  if(@($result.stages.Values | Where-Object {$_.outcome -ne 'PASS'}).Count -ne 0){throw 'NATIVE_CONTRACT_RESULTS_INCOMPLETE'}
  $result.outcome='PASS';$exit=0

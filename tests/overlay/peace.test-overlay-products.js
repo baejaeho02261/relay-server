@@ -34,7 +34,7 @@ test('all other valid cards are denied despite genuine device signatures',()=>{
 });
 test('unsigned product, sequence, request and session tampering never grants START',()=>{
  const f=fixture(),body=request(f);
- for(const change of [{productId:'mobile.pubg-mobile'},{requestId:'CHANGED_REQUEST'},{sequence:2},{signature:Buffer.alloc(256).toString('base64')}]){
+ for(const change of [{productId:'cleaner.overwatch'},{requestId:'CHANGED_REQUEST'},{sequence:2},{signature:Buffer.alloc(256).toString('base64')}]){
   assert.throws(()=>f.api.__probe.Start({...body,...change}),/BOOTSTRAP_PROOF_INVALID/);
  }
  assert.throws(()=>f.api.__probe.Start({...body,sessionToken:'WRONG'}),/BOOTSTRAP_SESSION_INVALID/);
@@ -60,16 +60,16 @@ test('legacy, revoked, expired, untransferred and stale-observation sessions can
   assert.equal(f.calls.writes,0,mode);
  }
 });
-test('historical retired receipts stay readable but cannot renew or regrant an overlay',()=>{
+for(const productId of ['spoofer.battleye','mobile.pubg-mobile'])test(`historical ${productId} receipts stay readable but cannot renew or regrant an overlay`,()=>{
  const f=fixture({observationId:'a'.repeat(48)+':1'}),verify={...f.verify,productScopeVersion:1};
  f.api.__probe.Start(request(f));
  f.api.__probe.Verify(verify);
- f.license.productId=f.row.startReceipt.productId=f.row.verifyReceipt.response.productId='spoofer.battleye';
+ f.license.productId=f.row.startReceipt.productId=f.row.verifyReceipt.response.productId=productId;
  assert.doesNotThrow(()=>f.api.__probe.ValidateStartReceipt(f.row));
  assert.doesNotThrow(()=>f.api.__probe.ValidateVerifyReceipt(f.row));
  const writes=f.calls.writes;
  assert.throws(()=>f.api.__probe.Verify(verify),/DESKTOP_ACTIVATION_INVALID/);
- const oldStart=request(f,{productId:'spoofer.battleye'});
+ const oldStart=request(f,{productId});
  assert.throws(()=>packet.ValidateRequest('bootstrap',oldStart),/PROTOCOL_SCHEMA_INVALID/);
  assert.throws(()=>f.api.__probe.Start(oldStart),/BOOTSTRAP_INPUT_INVALID/);
  assert.equal(f.calls.writes,writes);
@@ -111,10 +111,10 @@ test('persisted START receipt validation rejects arbitrary product and unbounded
  }
 });
 test('claim negotiation is fixed by its recovery fingerprint and cannot accept a caller product',()=>{
- const f=OverlayFixture();f.row.status='READY';f.license.productId='mobile.roblox';
+ const f=OverlayFixture();f.row.status='READY';f.license.productId='cleaner.talesrunner';
  const body={action:'overlayClaim',overlayId:f.row.id,overlayTicket:'TICKET',binarySha512:f.db.artifacts.O.sha512,crc64:f.db.artifacts.O.crc64,oCodeSha512:f.db.artifacts.O.codeSha512,oCodeCrc64:f.db.artifacts.O.codeCrc64,productScopeVersion:1};
  body.signature=crypto.sign('sha256',Buffer.from(f.api.__probe.Canonical(f.row,'CLAIM')),f.keys.privateKey).toString('base64');
- const first=f.api.__probe.Claim(body);assert.equal(first.productScopeVersion,1);assert.equal(first.productId,'mobile.roblox');assert.equal(f.row.productScopeVersion,1);
+ const first=f.api.__probe.Claim(body);assert.equal(first.productScopeVersion,1);assert.equal(first.productId,'cleaner.talesrunner');assert.equal(f.row.productScopeVersion,1);
  assert.deepEqual(f.api.__probe.Claim(body),first);
  const downgrade={...body};delete downgrade.productScopeVersion;
  assert.throws(()=>f.api.__probe.Claim(downgrade),/BOOTSTRAP_LAUNCHER_USED/);
@@ -128,7 +128,7 @@ test('native product identifiers and global card order agree with the server cat
  const start=source.indexOf('function OverlayProductID(Card: Integer): string;',source.indexOf('implementation'));
  const body=source.slice(start,source.indexOf('function OverlayProductCard',start));
  const mappings=[...body.matchAll(/\b(\d+):\s*Result\s*:=\s*'([^']+)'/g)];
- assert.equal(mappings.length,12);assert.deepEqual(mappings.map(([_,index,id])=>[Number(index),id]),products.List().map((row,index)=>[index<6?index:index+6,row.id]));
+ assert.deepEqual(mappings.map(([_,index,id])=>[Number(index),id]),products.List().map((row,index)=>[index,row.id]));
 });
 
 test('scope negotiation cannot be added after a legacy claim or removed after a scoped claim',()=>{

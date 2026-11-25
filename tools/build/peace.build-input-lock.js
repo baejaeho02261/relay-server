@@ -64,8 +64,8 @@ function collect(native,web,bds,node=process.execPath,tools){
   const stat=fs.lstatSync(dir);if(!stat.isDirectory()||stat.isSymbolicLink())throw Error('WINDOWS_TEST_BUILD_INPUT_DIRECTORY');
   for(const entry of fs.readdirSync(dir,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))){
    if(entry.isSymbolicLink()||!entry.isFile()&&!entry.isDirectory())throw Error('WINDOWS_TEST_BUILD_INPUT_LINK');
-   if(!relative&&entry.isDirectory()&&['build','bin','Cozy.BuildOutputs'].includes(entry.name))continue;
    const name=relative?relative+'/'+entry.name:entry.name,file=path.join(dir,entry.name);
+   if(entry.isDirectory()&&(name==='Cozy.ImGui/Cozy.Objects'||/^Cozy\.Tests\/[^/]+\/Cozy\.Outputs$/.test(name)))continue;
    if(entry.isDirectory())nativeRecipes(file,name,depth+1);
    else if(/\.(?:targets|cs|dproj|props|groupproj|bat|ps1|rc|manifest)$/i.test(entry.name))add('recipes/native/'+name,file);
   }

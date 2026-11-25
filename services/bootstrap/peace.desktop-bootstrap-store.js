@@ -55,6 +55,9 @@ function Load(){
   if(value.registrationResetAuthorization!==undefined)require('../operations/peace.registration-reset-authorization').Validate(value.registrationResetAuthorization);
   if(value.webResetAuthorization!==undefined)require('../operations/peace.web-reset').ValidateAuthorization(value.webResetAuthorization);
   if(value.serverAuditOutbox!==undefined)require("../storage/peace.desktop-operation-audit").Validate(value.serverAuditOutbox);
+  if(value.desktopDesign!==undefined){
+   try{require('../devices/peace.desktop-ui-design').Validate(value.desktopDesign);}catch(_){Invalid();}
+  }
   if(value.deviceRegistry!==undefined)require("../devices/peace.desktop-device-registry").Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require("../devices/peace.desktop-device-identity").Validate(value.deviceIdentity);
   if(value.nhwReports!==undefined||value.nhwPolicy!==undefined||value.nhwPolicyModeVersion!==undefined)

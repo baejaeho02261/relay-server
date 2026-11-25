@@ -77,7 +77,7 @@ for (const [name, role] of [["Cozy.Client", 'B'], ["Cozy.Launcher", 'A'], ["Cozy
     assert.deepEqual(listed.slice(0,-1),sourceDirectories.map(x=>'$(CozyNativeRoot)\\'+x.replaceAll('/','\\')));
     assert.equal(listed.at(-1),'$('+property+')');
   }
-  if(role==='O'||role==='B')assert(project.includes('<DCC_ObjPath>$(CozyNativeRoot)\\Cozy.BuildOutputs\\Cozy.ImGui;$(DCC_ObjPath)</DCC_ObjPath>'));
+  if(role==='O'||role==='B')assert(project.includes('<DCC_ObjPath>$(CozyNativeRoot)\\Cozy.ImGui\\Cozy.Objects;$(DCC_ObjPath)</DCC_ObjPath>'));
   for(const entry of fs.readdirSync(directory))assert(!/\.(?:pas|inc)$/i.test(entry),'Product project must not shadow functional source units');
   assert.match(project, /<Icon_MainIcon\s*\/>/);
   assert.ok(!/\.ico\b/i.test(project));
@@ -200,7 +200,11 @@ const sources=[];
 function collect(directory){
   for(const entry of fs.readdirSync(directory,{withFileTypes:true})){
     const file=path.join(directory,entry.name);assert(!entry.isSymbolicLink(),'Native source paths must not be symbolic links');
-    if(entry.isDirectory()){if(directory===root&&['build','bin','Cozy.BuildOutputs'].includes(entry.name))continue;collect(file);}
+    if(entry.isDirectory()){
+      const relative=path.relative(root,file).split(path.sep).join('/');
+      if(relative==='Cozy.ImGui/Cozy.Objects'||/^Cozy\.Tests\/[^/]+\/Cozy\.Outputs$/.test(relative))continue;
+      collect(file);
+    }
     else if(entry.isFile())sources.push(path.relative(root,file));
   }
 }

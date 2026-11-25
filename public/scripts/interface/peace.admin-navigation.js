@@ -37,11 +37,12 @@ nav.querySelectorAll('.nav-group').forEach(group => {
 
 // Contextual navigation uses the existing view switch and role restrictions.
 const navigationIcons = {
- dashboard:'M5 5h5v8H5z M14 5h5v4h-5z M5 17h5v2H5z M14 13h5v6h-5z',
+ dashboard:'M12 3v3m0 12v3M3 12h3m12 0h3 M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z',
  notifications:'M8 18h8 M10 21h4 M6 15l1-2V9a5 5 0 0 1 10 0v4l1 2H6 M12 3V2',
  monitor:'M6 5h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2 M9 21h6 M12 18v3 M7 12h2l2-3 2 6 2-3h2',
  console:'M5 5h14v14H5z M5 9h14 M8 12l2 2-2 2 M13 16h3',
  servers:'M5 5h14v6H5z M5 15h14v4H5z M8 8h.01 M11 8h5 M8 17h.01 M11 17h5',
+ simulator:'M12 3l3 6 6 3-6 3-3 6-3-6-6-3 6-3z M12 10v4m-2-2h4',
  'desktop-licenses':'M7 4h8l3 3v13H6V4h1 M14 4v4h4 M9 12h6 M9 16h3',
  security:'M12 3l7 3v5c0 5-7 9-7 9s-7-4-7-9V6z M9 11l2 2 4-4',
  settings:'M5 7h14 M5 17h14 M8 5v4 M16 15v4 M5 12h14 M13 10v4',
@@ -80,6 +81,7 @@ function updateNavigationWorkspace(){
  const selected=[...nav.querySelectorAll('button[data-view]')].find(button=>button.dataset.view===currentView);
  nav.querySelectorAll('button[data-view]').forEach(button=>{if(button===selected)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});
  const group=selected?.closest('.nav-group');
+ if(group&&!navFilter?.value.trim())group.open=true;
  const category=document.getElementById('page-category');
  if(category)category.textContent=group?.querySelector('summary')?.textContent||'운영 콘솔';
  if(!workspaceTabs)return;
@@ -107,3 +109,21 @@ navFilter?.addEventListener('input',()=>{
  const visible=[...nav.querySelectorAll('button[data-view]')].some(button=>!button.classList.contains('nav-filter-hidden')&&!button.classList.contains('hidden')&&!button.hidden);
  document.getElementById('nav-empty')?.classList.toggle('hidden',visible||!navFilter.value.trim());
 });
+
+// Keep the expanded desktop navigation preference separate from the mobile drawer.
+const railToggle = document.getElementById('rail-toggle');
+if (railToggle) {
+  function updateRailVisibility(collapsed) {
+    app.classList.toggle('rail-collapsed', collapsed);
+    const label = collapsed ? '사이드바 열기' : '사이드바 닫기';
+    railToggle.setAttribute('aria-expanded', String(!collapsed));
+    railToggle.setAttribute('aria-label', label);
+    railToggle.title = label;
+  }
+  try { updateRailVisibility(localStorage.getItem('spacex-sidebar') === 'collapsed'); } catch (_) {}
+  railToggle.addEventListener('click', () => {
+    const collapsed = !app.classList.contains('rail-collapsed');
+    updateRailVisibility(collapsed);
+    try { localStorage.setItem('spacex-sidebar', collapsed ? 'collapsed' : 'expanded'); } catch (_) {}
+  });
+}

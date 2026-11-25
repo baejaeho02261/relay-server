@@ -22,7 +22,7 @@ if errorlevel 1 (
   goto failed
 )
 if defined GAME_OVERLAY_ENV_PROBE goto run
-set "GAME_OVERLAY_ENV_PROBE=%~dp0..\..\..\Railway\build\tests\manual-ide\Cozy.OverlayEnvironmentProbe.exe"
+set "GAME_OVERLAY_ENV_PROBE=%~dp0..\..\..\Railway\Cozy.Tests\Cozy.Build\Cozy.Outputs\manual-ide\Cozy.OverlayEnvironmentProbe.exe"
 if exist "%GAME_OVERLAY_ENV_PROBE%" goto run
 echo Build tests\cozy.manual-ide\cozy.OverlayEnvironmentProbe.dproj in the RAD Studio IDE: Win64 Release.
 set /p "GAME_OVERLAY_ENV_PROBE=Full path to cozy.OverlayEnvironmentProbe.exe: "

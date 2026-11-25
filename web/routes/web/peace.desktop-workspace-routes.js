@@ -6,7 +6,7 @@ const prefix='/api/desktop/workspace';
 async function Handle({method,pathname,url,body,req,res,session}){
  if(pathname!==prefix&&!pathname.startsWith(prefix+'/'))return false;
  if(!RequireAdmin(res,session))return true;
- const check=require("../../../services/authentication/peace.desktop-admin-guard").CheckSession(session,pathname);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
+ const check=require("../../../services/authentication/peace.desktop-admin-guard").CheckSession(session,pathname,method);if(!check.ok){ApiError(res,check.status||403,check.reason);return true;}
  if(!['GET','HEAD'].includes(method)){
   if(!require("../../authentication/peace.web-auth").ValidateCsrf(req,session)){ApiError(res,403,'CSRF_FAILED');return true;}
   if(!require("../../../services/network/peace.ha-coordinator").CanAcceptTraffic()){ApiError(res,409,'RELAY_STANDBY_READ_ONLY');return true;}
@@ -18,6 +18,8 @@ async function Handle({method,pathname,url,body,req,res,session}){
   const job=/^\/api\/desktop\/workspace\/jobs\/([a-f0-9]{32})\/(retry|cancel|export)$/.exec(pathname);
   let data;
   if(method==='GET'&&pathname===prefix+'/licenses')data=workspace.Query(Object.fromEntries(url.searchParams));
+  else if(method==='GET'&&pathname===prefix+'/ui-design')data={design:require('../../../services/devices/peace.desktop-ui-design').Read()};
+  else if(method==='POST'&&pathname===prefix+'/ui-design')data={design:require('../../../services/devices/peace.desktop-ui-design').Publish(body,actor)};
   else if(method==='GET'&&pathname===prefix+'/summary')data=workspace.Summary();
   else if(method==='GET'&&pathname===prefix+'/jobs')data=workspace.Jobs();
   else if(method==='GET'&&pathname===prefix+'/storage'){const s=require("../../../services/storage/peace.desktop-storage-space");if(!s.Snapshot().asOf)s.Scan().catch(()=>{});data=s.Snapshot();}

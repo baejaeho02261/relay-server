@@ -4,6 +4,7 @@
   "description": "Cozy Peace authenticated relay and administrator service",
   "main": "peace.relay-server.js",
   "scripts": {
+    "build": "npm run schema:check && npm run ui:manifest",
     "schema:generate": "node tools/build/peace.generate-packet-schema.js --native-root ../Railway",
     "schema:check": "node tools/build/peace.generate-packet-schema.js --check",
     "schema:check:native": "node tools/build/peace.generate-packet-schema.js --check --native-root ../Railway",
