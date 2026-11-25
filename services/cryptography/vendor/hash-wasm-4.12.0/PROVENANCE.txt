@@ -17,8 +17,8 @@ The production adapter requires SHA-512 validation before instantiation.
 The obsolete XXH64 WASM asset is removed; no alias reports XXH64 as XXH3-128.
 
 Reproduce/verify after npm ci --ignore-scripts:
-node tests/cryptography/peace.check-extended-hash-assets.js
-node tests/cryptography/peace.check-extended-hash-assets.js --write
+node tests/cryptography/spacex.check-extended-hash-assets.js
+node tests/cryptography/spacex.check-extended-hash-assets.js --write
 --write reproduces only the exact pinned bytes. An upstream upgrade requires
 review of source, licenses, checksums and vectors.
 

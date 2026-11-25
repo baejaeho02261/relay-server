@@ -5,7 +5,7 @@
     "crcIndependentSelectedPeStreams": {
       "roles": 9,
       "portableMutationCases": 46,
-      "nativeProbe": "cozy.CrcPeProbe",
+      "nativeProbe": "spacex.CrcPeProbe",
       "manualReportVersion": 2
     },
     "overlaySessionTransitions": {
@@ -16,7 +16,7 @@
       "resumeDpiAndPositionReconcile": true
     },
     "physicalOverlayTest": {
-      "probe": "cozy.OverlayEnvironmentProbe",
+      "probe": "spacex.OverlayEnvironmentProbe",
       "realTelemetryAndOperatorConfirmation": true
     },
     "mitigationCompatibility": {

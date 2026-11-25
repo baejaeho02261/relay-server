@@ -21,9 +21,9 @@ try {
  if (-not [Environment]::UserInteractive -or [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0) { throw 'WINDOWS_TEST_INTERACTIVE_WINDOWS_SESSION_REQUIRED' }
  $cohort=if($MitigationMode){'integration-profile-'+$MitigationMode}else{'integration'}
  $run=Join-Path $PrivateRoot $cohort;New-TestPrivateDirectory $run
- $environment=Get-TestEnvironment $run;$node=(Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source;$web=Join-Path $WorkRoot 'Relay Server'
+ $environment=Get-TestEnvironment $run;$node=(Get-Command node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source;$web=Join-Path $WorkRoot 'Server'
  if($MitigationMode){$null=Assert-TestOwnedPath $FixtureProfileKey $PrivateRoot}
- $server=[GameWindowsTests.WindowsJob]::Start($node,@((Join-Path $web 'tools\fixtures\peace.windows-fixture.js'),$run,$Output,$Version,$MitigationMode,$FixtureProfileKey),$web,$environment,(Join-Path $run 'server.log'))
+ $server=[GameWindowsTests.WindowsJob]::Start($node,@((Join-Path $web 'tools\fixtures\spacex.windows-fixture.js'),$run,$Output,$Version,$MitigationMode,$FixtureProfileKey),$web,$environment,(Join-Path $run 'server.log'))
  $clock=[Diagnostics.Stopwatch]::StartNew()
  do {
   Assert-FixtureRunning

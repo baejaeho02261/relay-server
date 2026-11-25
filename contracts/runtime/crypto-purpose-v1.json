@@ -13,8 +13,8 @@
       ],
       "authority": "public measurements; signatures/MAC/server authorization remain required",
       "implementation": [
-        "cozy.Hashes",
-        "cozy.CrcLayers",
+        "spacex.Hashes",
+        "spacex.CrcLayers",
         "extendedHashes",
         "crcLayers"
       ],
@@ -103,7 +103,7 @@
       "input": "Exactly 32 fresh CNG random seed bytes, followed by exact authenticated transcript (1..8192 bytes); streamed without concatenated secret copy.",
       "wire": "Existing V3 RSA-OAEP wraps final derived key; AES-256-GCM/AAD/envelope layout/decrypt remain unchanged. No entropy amplification or extra authentication strength is claimed.",
       "lifetime": "Seed wiped immediately after derivation and on all failure paths; key wiped after CNG key creation and on cleanup; hasher state wiped on destruction.",
-      "validation": "Pinned upstream independent deterministic vector, seed/transcript separation and input bounds via portable compiled cozy.HandoffKdfProbe. Actual Windows CNG round-trip remains a Windows test."
+      "validation": "Pinned upstream independent deterministic vector, seed/transcript separation and input bounds via portable compiled spacex.HandoffKdfProbe. Actual Windows CNG round-trip remains a Windows test."
     }
   ]
 }

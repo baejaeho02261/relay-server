@@ -10,7 +10,7 @@
 
 헤더는 16바이트 도메인 `COZY-ISSUED-A-V1`(NUL 없음), 템플릿 크기, 설정 크기, 발급 공개키 ID, 템플릿 전체 SHA-512, 설정 전체 SHA-512를 담습니다. 서버는 이 헤더에 RSA-2048 PKCS#1/SHA-256 서명을 생성합니다. A는 CNG `BCryptVerifySignature`로 서명을 검증하고, 실제 읽은 템플릿·설정의 SHA-512를 비교합니다. 이름만 바꾼 해시 확인을 서명 검증으로 표시하지 않습니다.
 
-A의 신뢰 기준은 `Railway/Cozy.Source/Cozy.Configuration/Cozy.IssuedA.Trust.inc`에 컴파일한 **공개** 확인 키입니다. 파일 안의 서명이나 설정에서 새 신뢰 키를 받아들이지 않습니다. 공개 키는 비밀이 아니며, 개인키는 서버의 발급 키 설정에만 있어야 합니다. 서버 키와 다른 공개키를 넣어 빌드한 A는 발급에 사용할 수 없습니다. 키를 바꾸면 해당 공개키로 A를 다시 빌드하고 승인·배포 자료를 다시 만들어야 합니다.
+A의 신뢰 기준은 `Desktop/SpaceX.Source/SpaceX.Configuration/SpaceX.IssuedA.Trust.inc`에 컴파일한 **공개** 확인 키입니다. 파일 안의 서명이나 설정에서 새 신뢰 키를 받아들이지 않습니다. 공개 키는 비밀이 아니며, 개인키는 서버의 발급 키 설정에만 있어야 합니다. 서버 키와 다른 공개키를 넣어 빌드한 A는 발급에 사용할 수 없습니다. 키를 바꾸면 해당 공개키로 A를 다시 빌드하고 승인·배포 자료를 다시 만들어야 합니다.
 
 공개 확인 키 생성·적용 방법과 서버 키 설정은 `issued-a-signing.ko.md`를 함께 확인합니다. 서버 키 설정이 없는 배포에서는 `ISSUED_A_SIGNING_KEY_NOT_CONFIGURED`로 거절합니다. 공개 include가 있다고 서버 키 설정까지 완료된 것은 아닙니다.
 
@@ -28,14 +28,14 @@ A의 신뢰 기준은 `Railway/Cozy.Source/Cozy.Configuration/Cozy.IssuedA.Trust
 
 RAD Studio IDE에서 다음 프로젝트를 **Win64 / Release**로 빌드합니다.
 
-`cozy-peace\Railway\Cozy.Tests\Cozy.Security\Cozy.IssuedASignatureProbe.dproj`
+`SpaceX\Desktop\SpaceX.Tests\SpaceX.Security\SpaceX.IssuedASignatureProbe.dproj`
 
 EXE는 같은 프로젝트 폴더에, DCU는 해당 폴더의 `dcu` 아래에 생성됩니다. 프로젝트 자체에 `GAME_ISSUED_A_TESTS`가 설정되어 있습니다. 이 시험용 임의 공개키 입력은 A/B/O 애플리케이션 빌드에서는 컴파일 오류로 차단됩니다.
 
 전체 소스의 최상위 폴더에서 실행합니다.
 
 ```bat
-"cozy-peace\Railway\Cozy.Tests\Cozy.Security\Cozy.IssuedASignatureProbe.exe" "cozy-peace\Relay Server\tests\fixtures\bootstrap\issued-a-native-v1.json"
+"SpaceX\Desktop\SpaceX.Tests\SpaceX.Security\SpaceX.IssuedASignatureProbe.exe" "SpaceX\Server\tests\fixtures\bootstrap\issued-a-native-v1.json"
 ```
 
 시험 파일은 공개키와 합성 서명 자료만 담고 있습니다. 개인키와 운영 발급 데이터는 포함하지 않습니다. 실제 CNG 성공 벡터, 코드·설정·헤더·서명·끝 표식 변조, 453가지 꼬리 잘림, 뒤에 붙인 미서명 바이트, 잘못된 키, 미설정 키, 크기 불일치와 파일 위치 복원을 검사합니다. 실패는 종료 코드 1이며 예외를 무시해 PASS로 바꾸지 않습니다.

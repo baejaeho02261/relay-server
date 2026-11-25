@@ -14,14 +14,14 @@ try {
   $config=[IO.File]::ReadAllText($InputFile)|ConvertFrom-Json -AsHashtable -Depth 12
   if($config.version -ne 1 -or @($config.Keys|Where-Object{$_ -notin @('version','releaseVersion','artifacts','faultArtifacts','scenarios','nativeReceiveProbe','verificationContext')}).Count -gt 0){throw 'LIFECYCLE_INPUT_INVALID'}
  } else {
-  Write-Host 'Build Release A\B\O and the three Cozy.Tests\Cozy.FaultInjection IDE projects first.'
+  Write-Host 'Build Release A\B\O and the three SpaceX.Tests\SpaceX.FaultInjection IDE projects first.'
   Write-Host 'This runs existing files on a NEW isolated localhost server. No command-line Delphi compiler, production key or server reset is required.'
   $version=(Read-Host 'Actual numeric A/B/O release version [Enter: 1.0.0]').Trim();if(-not $version){$version='1.0.0'}
   $config=@{version=1;releaseVersion=$version;artifacts=@{};faultArtifacts=@{}}
-  $names=@{A='Cozy.Launcher';B='Cozy.Client';O='Cozy.Overlay'}
+  $names=@{A='SpaceX.Launcher';B='SpaceX.Client';O='SpaceX.Overlay'}
   foreach($group in @('artifacts','faultArtifacts')){
    foreach($role in @('A','B','O')){
-    $relative=if($group -eq 'artifacts'){'Railway\Cozy.Projects\'+$names[$role]+'\'+$names[$role]+'.exe'}else{'Railway\Cozy.Tests\Cozy.FaultInjection\Cozy.Outputs\product-faults\'+$names[$role]+'FaultTest.exe'}
+    $relative=if($group -eq 'artifacts'){'Desktop\SpaceX.Projects\'+$names[$role]+'\'+$names[$role]+'.exe'}else{'Desktop\SpaceX.Tests\SpaceX.FaultInjection\SpaceX.Outputs\product-faults\'+$names[$role]+'FaultTest.exe'}
     $default=Join-Path $root $relative
     $answer=(Read-Host ($group+' '+$role+' absolute EXE path [Enter: '+$default+']')).Trim().Trim('"')
     if(-not $answer){$answer=$default};$config[$group][$role]=[IO.Path]::GetFullPath($answer)
@@ -47,7 +47,7 @@ try {
  Write-Host ('ERROR: '+$code);$exitCode=1
 } finally {
  if($selectedRoot -and $node -and (Test-Path -LiteralPath $selectedRoot)){
-  & $node (Join-Path $PSScriptRoot 'peace.test-evidence-cleanup.js') cleanup $selectedRoot
+  & $node (Join-Path $PSScriptRoot 'spacex.test-evidence-cleanup.js') cleanup $selectedRoot
   if($LASTEXITCODE -ne 0){Write-Host 'ERROR: LIFECYCLE_SELECTED_INPUT_CLEANUP_FAILED';$exitCode=1}
  }
 }

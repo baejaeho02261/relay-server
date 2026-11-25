@@ -17,7 +17,7 @@
 
 ## 2. 서버 연산의 결과만 재조회
 
-공통 `Cozy.ServerOperations` 호출 경로에 `policy/result` 동작을 연결했습니다. 서버 연산을 다시 실행하는 요청과 구분합니다. 기존 challenge/invoke 규격은 유지하며 result 규격을 추가했습니다.
+공통 `SpaceX.ServerOperations` 호출 경로에 `policy/result` 동작을 연결했습니다. 서버 연산을 다시 실행하는 요청과 구분합니다. 기존 challenge/invoke 규격은 유지하며 result 규격을 추가했습니다.
 
 - 실행 전에 제한된 결과 보관 공간을 예약합니다. 공간이 없으면 연산을 시작하지 않습니다.
 - 결과는 최대 30초 동안 메모리에 보관합니다. 동일 요청 ID의 재사용을 막는 시도 기록은 최대 5분, 전체 최대 2,048개입니다.
@@ -30,7 +30,7 @@
 
 ## 3. A/B/O 민감 데이터 사본과 수명 축소
 
-`Cozy.Api.Contracts`, `Cozy.JsonEnvelope`, `Cozy.Transport`의 공통 경로를 변경했습니다.
+`SpaceX.Api.Contracts`, `SpaceX.JsonEnvelope`, `SpaceX.Transport`의 공통 경로를 변경했습니다.
 
 - UTF-8 변환 결과를 최종 소유 바이트 배열에 직접 기록하고 내부적으로 소유권을 넘깁니다. 임시 바이트 배열을 별도 할당 영역으로 다시 복사하는 단계를 제거했습니다.
 - JSON 봉투 조립 시 본문 전체를 위한 두 번째 소유 버퍼를 없앴습니다.

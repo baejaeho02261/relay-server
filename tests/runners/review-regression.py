@@ -1,7 +1,7 @@
 """Run every registered regression independently, retaining nonzero exit evidence.
 Unlike npm test (the fail-fast release gate), this diagnostic runner continues.
 A blocked test is NEVER a PASS. Uses only temporary non-operating DATA_DIRs.
-Usage: python Relay Server/tests/runners/review-regression.py --output OUTPUT_DIRECTORY
+Usage: python Server/tests/runners/review-regression.py --output OUTPUT_DIRECTORY
 """
 from __future__ import annotations
 import argparse, collections, json, os, pathlib, shutil, subprocess, tempfile, time
@@ -10,7 +10,7 @@ import argparse, collections, json, os, pathlib, shutil, subprocess, tempfile, t
 def registered_checks(root: pathlib.Path) -> list[list[str]]:
     """Read the registry's public export without invoking its main-only runner."""
     result = subprocess.run(
-        ['node', '-e', "process.stdout.write(JSON.stringify(require('./cozy.tests/runners/peace.regression.js')))"],
+        ['node', '-e', "process.stdout.write(JSON.stringify(require('./spacex.tests/runners/spacex.regression.js')))"],
         cwd=root, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         timeout=10, check=True)
     checks = json.loads(result.stdout)

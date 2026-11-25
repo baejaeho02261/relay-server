@@ -7,7 +7,7 @@ RUN node -e "require('fs').writeFileSync('/tmp/peace-bootstrap-ca.pem',require('
  && apt-get -o Acquire::https::CaInfo=/tmp/peace-bootstrap-ca.pem -o APT::Update::Error-Mode=any update \
  && apt-get -o Acquire::https::CaInfo=/tmp/peace-bootstrap-ca.pem install -y --no-install-recommends openssl ca-certificates \
  && rm -rf /var/lib/apt/lists/* /tmp/peace-bootstrap-ca.pem
-WORKDIR /app/cozy-peace/Relay Server
+WORKDIR /app/SpaceX/Server
 COPY ["package.json", "package-lock.json", "./"]
 # better-sqlite3 13 ships N-API prebuilds for linux-x64/arm64; no
 # runtime compiler or install-time GitHub binary download is needed.
@@ -16,17 +16,17 @@ COPY ["package.json", "package-lock.json", "./"]
 RUN npm ci --include=dev --ignore-scripts && node -e "const D=require('better-sqlite3');const d=new D(':memory:');d.prepare('SELECT 1').get();d.close();"
 # The GitHub repository contains the contents of Relay Server at its root.
 # Native Delphi sources and whole-package tooling are validated separately.
-COPY ["./", "/app/cozy-peace/Relay Server/"]
-RUN node tools/build/peace.generate-packet-schema.js --check \
- && node --test tests/runtime/peace.test-runtime-environment.js tests/storage/peace.test-audit-redaction.js \
- && node tests/storage/peace.test-server-storage-11-14.js legacy-audit-category-replays-without-rewriting \
- && node tests/security/peace.test-railway-web-security.js \
- && node tests/runtime/peace.test-railway-process-lifecycle.js \
- && node --test tests/authentication/peace.test-protected-operation-security.js tests/bootstrap/peace.test-keyless-bootstrap.js \
- && node --test tests/overlay/peace.test-cohort-retirement.js tests/protocol/peace.test-document-schema.js tests/licensing/peace.test-desktop-members.js tests/web/peace.test-desktop-member-ui.js \
- && node --test tests/observability/peace.test-lifecycle-trace.js \
- && node tests/web/peace.check-web-ui.js
+COPY ["./", "/app/SpaceX/Server/"]
+RUN node tools/build/spacex.generate-packet-schema.js --check \
+ && node --test tests/runtime/spacex.test-runtime-environment.js tests/storage/spacex.test-audit-redaction.js \
+ && node tests/storage/spacex.test-server-storage-11-14.js legacy-audit-category-replays-without-rewriting \
+ && node tests/security/spacex.test-railway-web-security.js \
+ && node tests/runtime/spacex.test-railway-process-lifecycle.js \
+ && node --test tests/authentication/spacex.test-protected-operation-security.js tests/bootstrap/spacex.test-keyless-bootstrap.js \
+ && node --test tests/overlay/spacex.test-cohort-retirement.js tests/protocol/spacex.test-document-schema.js tests/licensing/spacex.test-desktop-members.js tests/web/spacex.test-desktop-member-ui.js \
+ && node --test tests/observability/spacex.test-lifecycle-trace.js \
+ && node tests/web/spacex.check-web-ui.js
 # Validate the UI with pinned test dependencies, then retain production dependencies only.
 RUN npm prune --omit=dev --ignore-scripts && node -e "const D=require('better-sqlite3');const d=new D(':memory:');d.prepare('SELECT 1').get();d.close();"
 ENV NODE_ENV=production
-CMD ["node", "peace.relay-server.js"]
+CMD ["node", "spacex.relay-server.js"]

@@ -58,14 +58,14 @@ try {
     $link = Join-Path ([IO.Path]::GetDirectoryName($cl)) 'link.exe'
     if (-not (Test-Path -LiteralPath $link -PathType Leaf)) { throw 'CFG_MSVC_LINKER_MISSING' }
     $node = [string](Get-Command -Name node.exe -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
-    $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\Railway\Cozy.Tests\Cozy.Security\Cozy.CfgEnforcementProbe.cpp'))
-    $validator = Join-Path $PSScriptRoot 'peace.cfg-enforcement-report.js'
+    $source = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\Desktop\SpaceX.Tests\SpaceX.Security\SpaceX.CfgEnforcementProbe.cpp'))
+    $validator = Join-Path $PSScriptRoot 'spacex.cfg-enforcement-report.js'
     if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or
         -not (Test-Path -LiteralPath $validator -PathType Leaf)) { throw 'CFG_SOURCE_PACKAGE_INCOMPLETE' }
     $sourcePin = File-Binding $source
     $compilerPin = File-Binding $cl
     $linkerPin = File-Binding $link
-    $compiledSource = Join-Path $run 'Cozy.CfgEnforcementProbe.cpp'
+    $compiledSource = Join-Path $run 'SpaceX.CfgEnforcementProbe.cpp'
     [IO.File]::Copy($source, $compiledSource, $false)
     if ((File-Binding $compiledSource).sha512 -cne $sourcePin.sha512) { throw 'CFG_SOURCE_COPY_CHANGED' }
     Write-Host 'Standalone MSVC/Windows CFG test; A/B/O and server policy are not changed.'

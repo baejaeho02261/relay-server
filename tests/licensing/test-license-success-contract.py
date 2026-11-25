@@ -6,19 +6,19 @@ root=Path(__file__).resolve().parents[3]
 def read(relative):
     # Reuse the strict semantic source loader used by the JS contract tests;
     # it reads actual current constants and verifies map/import ownership.
-    loader=root/'Relay Server/tests/fixtures/source/peace.native-string-contract.js'
+    loader=root/'Server/tests/fixtures/source/spacex.native-string-contract.js'
     code="process.stdout.write(require(process.argv[1]).ReadContractFile(process.argv[2], 'utf8'))"
     return subprocess.check_output(['node','-e',code,str(loader),str(root/relative)],text=True).replace('\r','')
-handoff=read('Railway/Cozy.Source/Cozy.Handoff/Cozy.Handoff.pas')
-license_session=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Session.pas')
-window=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Window.pas')
-commands=read('Railway/Cozy.Source/Cozy.License/Cozy.License.Commands.pas')
-api=read('Railway/Cozy.Source/Cozy.Platform/Cozy.Api.pas')
-bridge=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_bridge.cpp')
-overlay=read('Railway/Cozy.Source/Cozy.Overlay/Cozy.Overlay.pas')
-module_inventory=read('Railway/Cozy.Source/Cozy.Integrity/Cozy.ModuleInventory.pas')
-license_scene=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license.h')
-license_art=read('Railway/Cozy.ImGui/Cozy.Bridge/Cozy.Core/Cozy.game_imgui_license_art.h')
+handoff=read('Desktop/SpaceX.Source/SpaceX.Handoff/SpaceX.Handoff.pas')
+license_session=read('Desktop/SpaceX.Source/SpaceX.License/SpaceX.License.Session.pas')
+window=read('Desktop/SpaceX.Source/SpaceX.License/SpaceX.License.Window.pas')
+commands=read('Desktop/SpaceX.Source/SpaceX.License/SpaceX.License.Commands.pas')
+api=read('Desktop/SpaceX.Source/SpaceX.Platform/SpaceX.Api.pas')
+bridge=read('Desktop/SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_bridge.cpp')
+overlay=read('Desktop/SpaceX.Source/SpaceX.Overlay/SpaceX.Overlay.pas')
+module_inventory=read('Desktop/SpaceX.Source/SpaceX.Integrity/SpaceX.ModuleInventory.pas')
+license_scene=read('Desktop/SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_license.h')
+license_art=read('Desktop/SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_license_art.h')
 count=0
 
 def check(name,condition):
@@ -376,16 +376,16 @@ check('Keys activate controls only through the focused native scene',
       and all(token not in keys for token in ['FKey.', 'PasteKey', 'Submit', 'VK_RETURN'])
       and 'WM_CHAR: Exit;' in window)
 cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
-client_project=root/'Railway/Cozy.Projects/Cozy.Client'
-cursor_rc=(client_project/'Cozy.Client.rc').read_text(encoding='utf-8-sig')
+client_project=root/'Desktop/SpaceX.Projects/SpaceX.Client'
+cursor_rc=(client_project/'SpaceX.Client.rc').read_text(encoding='utf-8-sig')
 cursor_pairs=[(411,412,'')]+[(base,base+1,str(base)) for base in range(420,438,2)]
 check('B loads the custom action cursor only on an interactive Earth or completion mark',
       'CursorResource := BootstrapCursorResource(FThemeIndex);' in window
       and 'FNormalCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(CursorResource)));' in window
       and 'FHandCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(CursorResource + 1)));' in window
       and 'FHandCursor := ApiLoadCursorW(0, PWideChar(NativeUInt(32649)))' in window
-      and all(re.search(r'^'+str(number)+r' CURSOR "Cozy\.'+kind+r'Pointer'+suffix+r'\.cur"\s*$', cursor_rc, re.M)
-              and (client_project/f'Cozy.{kind}Pointer{suffix}.cur').read_bytes()[:4] == b'\x00\x00\x02\x00'
+      and all(re.search(r'^'+str(number)+r' CURSOR "SpaceX\.'+kind+r'Pointer'+suffix+r'\.cur"\s*$', cursor_rc, re.M)
+              and (client_project/f'SpaceX.{kind}Pointer{suffix}.cur').read_bytes()[:4] == b'\x00\x00\x02\x00'
               for normal,action,suffix in cursor_pairs for number,kind in [(normal,'Window'),(action,'Action')])
       and 'FBusyCursor' not in window and 'NativeUInt(32648)' not in window
       and cursor.index('Cursor := FNormalCursor;') < cursor.index('if FVisibleFrame and not FResizePending')

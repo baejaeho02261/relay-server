@@ -6,14 +6,14 @@
 
 ## 배포 때 자동 실행하는 서버 시험
 
-Docker 빌드는 소스 일관성·실제 서버 시작/종료 검사 뒤 `node --test tests/security/peace.test-server-authority-bypass.js`를 실행합니다. 실패하면 이미지 빌드가 실패합니다. 임시 DATA_DIR, 루프백 TLS, 실제 암호화 요청·검증 워커·SQLite를 사용하며 운영 등록 데이터나 실제 고객 PC에 요청하지 않습니다. 사용한 소켓·워커·시험용 키와 데이터를 정리합니다.
+Docker 빌드는 소스 일관성·실제 서버 시작/종료 검사 뒤 `node --test tests/security/spacex.test-server-authority-bypass.js`를 실행합니다. 실패하면 이미지 빌드가 실패합니다. 임시 DATA_DIR, 루프백 TLS, 실제 암호화 요청·검증 워커·SQLite를 사용하며 운영 등록 데이터나 실제 고객 PC에 요청하지 않습니다. 사용한 소켓·워커·시험용 키와 데이터를 정리합니다.
 
 시험 범위는 잘못된 파일 해시·기기·역할·서명, 권한 확인 생략, 재전송, 라이선스·세션 폐기와 인증 만료입니다. 클라이언트가 보고하는 해시는 하드웨어 증명이 아닙니다. 아직 사용하지 않은 A를 복사한 소지자를 원래 수신자와 구분한다는 보장도 하지 않습니다.
 
 ## 최종 EXE의 내장 키 검사
 
 ```text
-node tools/security/peace.audit-client-secrets.js A.exe B.exe O.exe
+node tools/security/spacex.audit-client-secrets.js A.exe B.exe O.exe
 ```
 
 종료 코드 0은 검사 대상 항목에서 PASS, 1은 BLOCKED, 2는 검사 오류입니다. JSON에는 규칙 코드·역할·해시를 기록하며 키 값, 매칭한 비밀 문자열 또는 입력 경로를 출력하지 않습니다. EXE 실행·서버 접속·파일 변경은 없습니다. 공개키·인증서 지문·파일 해시는 비밀로 분류하지 않습니다. 임의 인코딩까지 포함한 모든 비밀의 부재를 증명하지 않습니다.
@@ -27,8 +27,8 @@ Windows x64, PowerShell 7, 소스에서 고정한 Node 버전, npm, OpenSSL 및 
 전체 소스 ZIP을 새 폴더에 풀고, 동일한 패킹 작업에서 받은 최종 A/B/O 템플릿, 웹에서 내보낸 세 패킹 기록의 JSON 배열, 현재 공개 보안 정책 JSON을 준비합니다. 시험 정책은 mode=enforce이고 requireReadonlyApi, requireCompleteCrcLayers, requireReleaseSignature가 모두 true여야 합니다. 개인키나 운영 DATA_DIR는 입력하지 않습니다. 이미 고객용으로 발급한 A는 템플릿으로 사용할 수 없습니다.
 
 ```powershell
-pwsh -NoProfile -File '.\cozy-peace\Relay Server\tools\windows\Invoke-FinalWindowsTests.ps1' `
-  -SourceRoot '.\cozy-peace' `
+pwsh -NoProfile -File '.\SpaceX\Server\tools\windows\Invoke-FinalWindowsTests.ps1' `
+  -SourceRoot '.\SpaceX' `
   -AFile 'C:\CozyTestInputs\A.exe' `
   -BFile 'C:\CozyTestInputs\B.exe' `
   -OFile 'C:\CozyTestInputs\O.exe' `

@@ -3,7 +3,7 @@
   "supportedRuntime": false,
   "results": [
     {
-      "script": "peace.test-admin-https-security.js",
+      "script": "spacex.test-admin-https-security.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.598,
@@ -15,7 +15,7 @@
       ]
     },
     {
-      "script": "peace.test-passkey-validation-security.js",
+      "script": "spacex.test-passkey-validation-security.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.237,
@@ -27,7 +27,7 @@
       ]
     },
     {
-      "script": "peace.test-tcp-admission-security.js",
+      "script": "spacex.test-tcp-admission-security.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.352,
@@ -39,7 +39,7 @@
       ]
     },
     {
-      "script": "peace.test-passkey-lifetime.js",
+      "script": "spacex.test-passkey-lifetime.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.673,
@@ -51,7 +51,7 @@
       ]
     },
     {
-      "script": "peace.test-web-auth-hardening.js",
+      "script": "spacex.test-web-auth-hardening.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.447,
@@ -63,7 +63,7 @@
       ]
     },
     {
-      "script": "peace.test-completion-protocol-6-10.js",
+      "script": "spacex.test-completion-protocol-6-10.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.811,
@@ -75,7 +75,7 @@
       ]
     },
     {
-      "script": "peace.test-security-admin.js",
+      "script": "spacex.test-security-admin.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.125,
@@ -87,7 +87,7 @@
       ]
     },
     {
-      "script": "peace.test-hardening-protocol.js",
+      "script": "spacex.test-hardening-protocol.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.058,
@@ -99,7 +99,7 @@
       ]
     },
     {
-      "script": "peace.test-production-boundaries-1-5.js",
+      "script": "spacex.test-production-boundaries-1-5.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 1.073,
@@ -110,7 +110,7 @@
       ]
     },
     {
-      "script": "peace.test-network-lifecycle-upgrade.js",
+      "script": "spacex.test-network-lifecycle-upgrade.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.131,
@@ -122,7 +122,7 @@
       ]
     },
     {
-      "script": "peace.test-connect-tls.js",
+      "script": "spacex.test-connect-tls.js",
       "status": "BLOCKED_DEPENDENCY",
       "exitCode": 1,
       "seconds": 0.374,
@@ -134,7 +134,7 @@
       ]
     },
     {
-      "script": "peace.test-desktop-connect.js",
+      "script": "spacex.test-desktop-connect.js",
       "status": "BLOCKED_DEPENDENCY",
       "exitCode": 1,
       "seconds": 0.671,
@@ -146,7 +146,7 @@
       ]
     },
     {
-      "script": "peace.test-desktop-http.js",
+      "script": "spacex.test-desktop-http.js",
       "status": "BLOCKED_ENVIRONMENT",
       "exitCode": 1,
       "seconds": 0.284,
@@ -157,10 +157,10 @@
         ""
       ],
       "initialClassification": "FAIL",
-      "blocker": "DESKTOP_WRITER_LOCK_UNAVAILABLE: peace.desktop-single-writer.js:29 requires absent better-sqlite3 (confirmed by peace.test-connect-tls.js and module resolution)."
+      "blocker": "DESKTOP_WRITER_LOCK_UNAVAILABLE: spacex.desktop-single-writer.js:29 requires absent better-sqlite3 (confirmed by spacex.test-connect-tls.js and module resolution)."
     },
     {
-      "script": "peace.test-workspace-http.js",
+      "script": "spacex.test-workspace-http.js",
       "status": "BLOCKED_ENVIRONMENT",
       "exitCode": 1,
       "seconds": 0.19,
@@ -171,10 +171,10 @@
         ""
       ],
       "initialClassification": "FAIL",
-      "blocker": "DESKTOP_WRITER_LOCK_UNAVAILABLE: peace.desktop-single-writer.js:29 requires absent better-sqlite3 (confirmed by peace.test-connect-tls.js and module resolution)."
+      "blocker": "DESKTOP_WRITER_LOCK_UNAVAILABLE: spacex.desktop-single-writer.js:29 requires absent better-sqlite3 (confirmed by spacex.test-connect-tls.js and module resolution)."
     },
     {
-      "script": "peace.check-web-ui.js",
+      "script": "spacex.check-web-ui.js",
       "status": "PASS",
       "exitCode": 0,
       "seconds": 0.078,
@@ -188,11 +188,11 @@
   "runtimeRequired": "^22.22.2 || ^24.15.0 || >=26.0.0",
   "primaryCasesPassed": 85,
   "primarySuites": [
-    "peace.test-admin-https-security.js",
-    "peace.test-passkey-validation-security.js",
-    "peace.test-tcp-admission-security.js",
-    "peace.test-passkey-lifetime.js",
-    "peace.test-web-auth-hardening.js"
+    "spacex.test-admin-https-security.js",
+    "spacex.test-passkey-validation-security.js",
+    "spacex.test-tcp-admission-security.js",
+    "spacex.test-passkey-lifetime.js",
+    "spacex.test-web-auth-hardening.js"
   ],
   "physicalAuthenticatorTested": false,
   "browserWebAuthnTested": false,
@@ -203,157 +203,157 @@
   "dependencyInstallBlocker": "Container DNS could not resolve nodejs.org or registry.npmjs.org; no package dependency versions changed.",
   "changedJavaScriptSyntax": [
     {
-      "file": "Relay Server/peace.relay-server.js",
+      "file": "Server/spacex.relay-server.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/security/peace.test-security-activation.js",
+      "file": "Server/spacex.tests/security/spacex.test-security-activation.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/web/peace.test-workspace-http.js",
+      "file": "Server/spacex.tests/web/spacex.test-workspace-http.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/protocol/peace.test-completion-protocol-6-10.js",
+      "file": "Server/spacex.tests/protocol/spacex.test-completion-protocol-6-10.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/authentication/peace.test-admin-https-security.js",
+      "file": "Server/spacex.tests/authentication/spacex.test-admin-https-security.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/runtime/peace.test-desktop-http.js",
+      "file": "Server/spacex.tests/runtime/spacex.test-desktop-http.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/fixtures/authentication/peace.passkey-wire-fixture.js",
+      "file": "Server/spacex.tests/fixtures/authentication/spacex.passkey-wire-fixture.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/artifacts/peace.test-server-capabilities.js",
+      "file": "Server/spacex.tests/artifacts/spacex.test-server-capabilities.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/authentication/peace.test-passkey-lifetime.js",
+      "file": "Server/spacex.tests/authentication/spacex.test-passkey-lifetime.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/runtime/peace.test-manual-verification.js",
+      "file": "Server/spacex.tests/runtime/spacex.test-manual-verification.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/web/peace.test-server-state-read-routes.js",
+      "file": "Server/spacex.tests/web/spacex.test-server-state-read-routes.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/runners/peace.regression.js",
+      "file": "Server/spacex.tests/runners/spacex.regression.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/licensing/peace.test-desktop-retirement.js",
+      "file": "Server/spacex.tests/licensing/spacex.test-desktop-retirement.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/security/peace.test-mitigation-compatibility.js",
+      "file": "Server/spacex.tests/security/spacex.test-mitigation-compatibility.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/network/peace.test-connect-deployment.js",
+      "file": "Server/spacex.tests/network/spacex.test-connect-deployment.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/network/peace.test-tcp-admission-security.js",
+      "file": "Server/spacex.tests/network/spacex.test-tcp-admission-security.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/authentication/peace.test-passkey-validation-security.js",
+      "file": "Server/spacex.tests/authentication/spacex.test-passkey-validation-security.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/authentication/peace.test-web-auth-hardening.js",
+      "file": "Server/spacex.tests/authentication/spacex.test-web-auth-hardening.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/cozy.tests/runtime/peace.test-production-boundaries-1-5.js",
+      "file": "Server/spacex.tests/runtime/spacex.test-production-boundaries-1-5.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/public/scripts/pages/peace.admin-pages-production.js",
+      "file": "Server/public/scripts/pages/spacex.admin-pages-production.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/web/http/peace.web-server.js",
+      "file": "Server/web/http/spacex.web-server.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/web/authentication/peace.web-auth-policy.js",
+      "file": "Server/web/authentication/spacex.web-auth-policy.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/web/authentication/peace.web-auth.js",
+      "file": "Server/web/authentication/spacex.web-auth.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/web/transport/peace.web-transport.js",
+      "file": "Server/web/transport/spacex.web-transport.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/config/peace.runtime-configuration.js",
+      "file": "Server/config/spacex.runtime-configuration.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/services/authentication/peace.passkey-context.js",
+      "file": "Server/services/authentication/spacex.passkey-context.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/services/network/peace.desktop-connect.js",
+      "file": "Server/services/network/spacex.desktop-connect.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/services/authentication/peace.passkey-auth.js",
+      "file": "Server/services/authentication/spacex.passkey-auth.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/services/network/peace.desktop-connection-admission.js",
+      "file": "Server/services/network/spacex.desktop-connection-admission.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/services/authentication/peace.passkey-auth-data.js",
+      "file": "Server/services/authentication/spacex.passkey-auth-data.js",
       "ok": true,
       "error": ""
     },
     {
-      "file": "Relay Server/tools/security/peace.check-admin-security.js",
+      "file": "Server/tools/security/spacex.check-admin-security.js",
       "ok": true,
       "error": ""
     }

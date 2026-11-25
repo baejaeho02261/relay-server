@@ -15,8 +15,8 @@
 ## 전체 소스 적용
 
 1. 전체 ZIP을 새 폴더에 풉니다. 기존 빌드의 `.o`·`.dcu`·EXE를 복사하지 않습니다.
-2. RAD Studio 13 IDE에서 `Railway/Cozy.Tests/Cozy.Overlay/Cozy.OverlayGraphicsProbe.dproj`를 Win64 Release로 Rebuild하고 실행합니다. 사전 빌드가 수정한 C++ 브리지를 다시 생성합니다. 카드 표시와 PASS를 확인합니다. 이 검사는 라이선스를 사용하지 않습니다.
-3. B `Cozy.Client.dproj`, O `Cozy.Overlay.dproj`를 Win64 Release로 Rebuild합니다. 새 파일로 승인·후보 등록·새 명세·조합 검증 후 게시합니다. 이미 같은 전체 소스의 B를 빌드했더라도 이번 배포 조합의 파일 해시를 확인합니다.
+2. RAD Studio 13 IDE에서 `Desktop/SpaceX.Tests/SpaceX.Overlay/SpaceX.OverlayGraphicsProbe.dproj`를 Win64 Release로 Rebuild하고 실행합니다. 사전 빌드가 수정한 C++ 브리지를 다시 생성합니다. 카드 표시와 PASS를 확인합니다. 이 검사는 라이선스를 사용하지 않습니다.
+3. B `SpaceX.Client.dproj`, O `SpaceX.Overlay.dproj`를 Win64 Release로 Rebuild합니다. 새 파일로 승인·후보 등록·새 명세·조합 검증 후 게시합니다. 이미 같은 전체 소스의 B를 빌드했더라도 이번 배포 조합의 파일 해시를 확인합니다.
 4. 기존 A 빌드 후보는 그대로 사용할 수 있습니다. 실행용 A는 새 조합에서 다시 발급합니다. 1회용 라이선스 사용으로 차단된 테스트 PC는 관리자에서 해제한 뒤 새 라이선스를 사용합니다. 기존 키 철회 상태를 바꾸거나 사용된 세션을 되살리지는 않습니다.
 
 GitHub·Railway 서버 반영은 Windows에 배포된 O 실행 파일을 교체하지 않습니다. 이 수정은 O를 다시 빌드하고 등록해야 적용됩니다.

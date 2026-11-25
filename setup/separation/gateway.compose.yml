@@ -37,7 +37,7 @@ services:
     - ./gateway.env
     command:
     - node
-    - tools/web/peace.admin-gateway.js
+    - tools/web/spacex.admin-gateway.js
     ports:
     - "${GATEWAY_BIND_IP:?set bind address}:${PORT:?set listener port}:${PORT:?set listener port}"
     volumes:

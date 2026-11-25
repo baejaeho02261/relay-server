@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 set "GAME_APPROVAL_CHECK_BAT=%~f0"
-echo [cozy.Client] Check_Approval launcher v2
+echo [spacex.Client] Check_Approval launcher v2
 set "_GC_PS=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 if exist "%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe" set "_GC_PS=%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\powershell.exe"
 if not exist "%_GC_PS%" (
@@ -13,7 +13,7 @@ rem Fixed UTF-16LE bootstrap avoids CMD quoting of PowerShell expressions.
 rem The input path is passed through GAME_APPROVAL_CHECK_BAT, never executable text.
 "%_GC_PS%" -NoLogo -NoProfile -STA -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQA9ACcAUwB0AG8AcAAnADsAIAB0AHIAeQAgAHsAIABXAHIAaQB0AGUALQBIAG8AcwB0ACAAJwBbAEcAYQBtAGUAQwBvAG4AbgBlAGMAdABdACAATABvAGEAZABpAG4AZwAgAGEAcABwAHIAbwB2AGEAbAAgAGMAaABlAGMAawBlAHIALgAuAC4AJwA7ACAAJAB0AGUAeAB0AD0AWwBJAE8ALgBGAGkAbABlAF0AOgA6AFIAZQBhAGQAQQBsAGwAVABlAHgAdAAoACQAZQBuAHYAOgBHAEEATQBFAF8AQQBQAFAAUgBPAFYAQQBMAF8AQwBIAEUAQwBLAF8AQgBBAFQALABbAFQAZQB4AHQALgBFAG4AYwBvAGQAaQBuAGcAXQA6ADoAVQBUAEYAOAApADsAIAAkAG0AYQByAGsAPQAnACMAJwArACcAXwBfAEcAQQBNAEUAXwBBAFAAUABSAE8AVgBBAEwAXwBDAEgARQBDAEsAXwBQAE8AVwBFAFIAUwBIAEUATABMAF8AXwAnADsAIAAkAGEAdAA9ACQAdABlAHgAdAAuAEkAbgBkAGUAeABPAGYAKAAkAG0AYQByAGsALABbAFMAdAByAGkAbgBnAEMAbwBtAHAAYQByAGkAcwBvAG4AXQA6ADoATwByAGQAaQBuAGEAbAApADsAIABpAGYAKAAkAGEAdAAgAC0AbAB0ACAAMAApAHsAdABoAHIAbwB3ACAAJwBCAGEAdABjAGgAIABwAGEAeQBsAG8AYQBkACAAbQBpAHMAcwBpAG4AZwAuACcAfQA7ACAAJABwAGEAeQBsAG8AYQBkAD0AJAB0AGUAeAB0AC4AUwB1AGIAcwB0AHIAaQBuAGcAKAAkAGEAdAArACQAbQBhAHIAawAuAEwAZQBuAGcAdABoACkAOwAgAGkAZgAoAFsAcwB0AHIAaQBuAGcAXQA6ADoASQBzAE4AdQBsAGwATwByAFcAaABpAHQAZQBTAHAAYQBjAGUAKAAkAHAAYQB5AGwAbwBhAGQAKQApAHsAdABoAHIAbwB3ACAAJwBCAGEAdABjAGgAIABwAGEAeQBsAG8AYQBkACAAZQBtAHAAdAB5AC4AJwB9ADsAIAAmACAAKABbAFMAYwByAGkAcAB0AEIAbABvAGMAawBdADoAOgBDAHIAZQBhAHQAZQAoACQAcABhAHkAbABvAGEAZAApACkAOwAgAGUAeABpAHQAIAAwACAAfQAgAGMAYQB0AGMAaAAgAHsAIABbAEMAbwBuAHMAbwBsAGUAXQA6ADoARQByAHIAbwByAC4AVwByAGkAdABlAEwAaQBuAGUAKAAnAFsAUwBUAEEAUgBUAFUAUAAgAEYAQQBJAEwARQBEAF0AIAAnACsAJABfAC4ARQB4AGMAZQBwAHQAaQBvAG4ALgBNAGUAcwBzAGEAZwBlACkAOwAgAGUAeABpAHQAIAAxACAAfQA=
 set "_GC_EXIT=%ERRORLEVEL%"
-if not "%_GC_EXIT%"=="0" echo [cozy.Client] Approval check stopped. Exit code: %_GC_EXIT%
+if not "%_GC_EXIT%"=="0" echo [spacex.Client] Approval check stopped. Exit code: %_GC_EXIT%
 echo.
 pause
 exit /b %_GC_EXIT%
@@ -278,7 +278,7 @@ function Test-Node {
 
 function Find-ExistingNode {
     param([string]$Base)
-    $homeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'cozy.ClientReleaseTools'
+    $homeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'spacex.ClientReleaseTools'
     $runtime = Join-Path $homeDirectory 'runtime'
     $candidates = New-Object 'System.Collections.Generic.List[string]'
     # Prefer the previously downloaded runtime. Check its local receipt first.
@@ -311,7 +311,7 @@ function Main {
     if ($PSVersionTable.PSVersion -lt [version]'5.1') { throw 'Windows PowerShell 5.1 이상이 필요합니다.' }
     $base = Split-Path -Parent $env:GAME_APPROVAL_CHECK_BAT
     Write-Host ''
-    Write-Host '=== cozy.Client 공개 배포 승인 점검 ==='
+    Write-Host '=== spacex.Client 공개 배포 승인 점검 ==='
     Write-Host 'EXE와 approval.json을 읽기만 합니다. 개인키는 필요하지 않습니다.'
     Write-Host '네트워크 접속, 서버 신뢰 등록, 소스 변경, 새 파일 저장은 하지 않습니다.'
     Write-Host '실행 버전: FIX5 / B·O ImGui 승인 점검'
@@ -323,7 +323,7 @@ function Main {
     if (-not $exe) { throw 'EXE 선택이 취소되었습니다.' }
     $approval = Choose-File '함께 업로드했던 .approval.json 선택' '공개 승인 JSON (*.json)|*.json' $base
     if (-not $approval) { throw '승인 파일 선택이 취소되었습니다.' }
-    $component = (Read-Host '웹에서 등록한 구분 [A=cozy.Launcher / B=cozy.Client / O=Overlay]').Trim().ToUpperInvariant()
+    $component = (Read-Host '웹에서 등록한 구분 [A=spacex.Launcher / B=spacex.Client / O=Overlay]').Trim().ToUpperInvariant()
     if ($component -notin @('A','B','O')) { throw 'A, B 또는 O를 입력하세요.' }
     $version = (Read-Host '웹 업로드 창의 버전 (예: 1.0.0)').Trim()
     if ($version.Length -gt 40 -or $version -notmatch '^\d+(\.\d+){0,3}$') { throw '웹에 입력한 숫자 버전을 확인하세요.' }

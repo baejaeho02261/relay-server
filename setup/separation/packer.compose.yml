@@ -36,7 +36,7 @@ services:
     - ./packer.env
     command:
     - node
-    - tools/artifacts/peace.packing-worker.js
+    - tools/artifacts/spacex.packing-worker.js
     ports:
     - "${PACKER_BIND_IP:?set bind address}:${PACKER_PORT:?set listener port}:${PACKER_PORT:?set listener port}"
     volumes:

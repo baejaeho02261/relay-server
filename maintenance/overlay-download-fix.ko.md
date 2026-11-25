@@ -12,8 +12,8 @@
 ## 적용
 
 1. 제공된 수정 파일을 최신 소스에 같은 경로로 덮어씁니다.
-2. RAD Studio IDE에서 B `Cozy.Client.dproj`와 O `Cozy.Overlay.dproj`를 각각 Win64 Release로 Rebuild합니다. O 프로젝트의 사전 빌드가 C++ 오브젝트를 다시 만듭니다. 예전 `.o`를 복사하지 마세요.
-3. 라이선스 사용 전 `Railway/Cozy.Tests/Cozy.Overlay/Cozy.OverlayGraphicsProbe.dproj`를 IDE에서 Win64 Release로 Rebuild하고 실행해 카드 표시와 PASS를 확인합니다. 이 검사는 서버 다운로드 성공까지 검증하지는 않습니다.
+2. RAD Studio IDE에서 B `SpaceX.Client.dproj`와 O `SpaceX.Overlay.dproj`를 각각 Win64 Release로 Rebuild합니다. O 프로젝트의 사전 빌드가 C++ 오브젝트를 다시 만듭니다. 예전 `.o`를 복사하지 마세요.
+3. 라이선스 사용 전 `Desktop/SpaceX.Tests/SpaceX.Overlay/SpaceX.OverlayGraphicsProbe.dproj`를 IDE에서 Win64 Release로 Rebuild하고 실행해 카드 표시와 PASS를 확인합니다. 이 검사는 서버 다운로드 성공까지 검증하지는 않습니다.
 4. 새 B/O를 승인·후보 등록하고, 새 명세로 조합 검증 후 게시합니다. 기존 A 빌드 후보를 사용할 수 있지만, 실행용 A는 새 조합에서 다시 발급해야 합니다.
 5. 이번 실패로 사용된 라이선스는 복구되지 않습니다. 테스트 PC의 기존 1회 사용 차단이 있으면 관리자에서 해제하고 새 라이선스와 새 발급 A를 사용합니다.
 

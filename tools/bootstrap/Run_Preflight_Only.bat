@@ -1,16 +1,16 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
-title cozy.Client - Optional source/server checks
+title spacex.Client - Optional source/server checks
 where node.exe >nul 2>&1
 if errorlevel 1 goto :no_node
 if not exist "%~dp0peace.release-openssl-bootstrap.js" goto :wrong_folder
-if not exist "%~dp0..\artifacts\peace.release-preflight.js" goto :wrong_folder
+if not exist "%~dp0..\artifacts\spacex.release-preflight.js" goto :wrong_folder
 cd /d "%~dp0..\.."
 if errorlevel 1 goto :wrong_folder
 set "NODE_OPTIONS="
 set "NODE_PATH="
 echo ============================================================
-echo  cozy.Client - Optional source/server checks. No report is required for publication.
+echo  spacex.Client - Optional source/server checks. No report is required for publication.
 echo ============================================================
 echo Existing reports are preserved. No software is installed.
 echo Real Windows A/B/O products are NOT executed.

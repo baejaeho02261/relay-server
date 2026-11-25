@@ -4,7 +4,7 @@ Requires an operator test environment with Playwright and Chromium; no productio
 import json, os, pathlib, subprocess
 from playwright.sync_api import sync_playwright
 ROOT=pathlib.Path(__file__).resolve().parents[2]
-PRODUCTS_JSON=subprocess.check_output(['node','-e',"const c=require('./services/licensing/peace.licensed-products'); process.stdout.write(JSON.stringify({version:2,products:c.List(),channels:c.ListChannels()}))"],cwd=ROOT,text=True)
+PRODUCTS_JSON=subprocess.check_output(['node','-e',"const c=require('./services/licensing/spacex.licensed-products'); process.stdout.write(JSON.stringify({version:2,products:c.List(),channels:c.ListChannels()}))"],cwd=ROOT,text=True)
 HTML='''<!doctype html><meta charset="utf-8"><style>.hidden,[hidden]{display:none!important}label{display:block}textarea,input{display:block}#modal{position:absolute;inset:0;background:white;overflow:auto}</style><main id="content"></main><div id="modal" class="hidden"><h1 id="modal-title"></h1><div id="modal-body"></div><button id="modal-confirm">확인</button><button id="modal-cancel">취소</button></div>'''
 SETUP=r'''
 window.calls=[];window.errors=[];window.toasts=[];window.rejectUpload=true;
@@ -54,7 +54,7 @@ with sync_playwright() as p:
         # about:blank may lack randomUUID; use browser randomness for request
         # IDs. These UI tests do not replace the real server signature tests.
         page.add_script_tag(content="if(!crypto.randomUUID)crypto.randomUUID=()=>[...crypto.getRandomValues(new Uint8Array(16))].map(x=>x.toString(16).padStart(2,'0')).join('');")
-        for f in ['scripts/interface/peace.admin-modal.js','scripts/desktop/peace.admin-desktop-licenses.js','scripts/desktop/peace.admin-desktop-workflow.js']:
+        for f in ['scripts/interface/spacex.admin-modal.js','scripts/desktop/spacex.admin-desktop-licenses.js','scripts/desktop/spacex.admin-desktop-workflow.js']:
             page.add_script_tag(content=(ROOT/'public'/f).read_text())
     def openfn(code,selector):
         page.evaluate('(code)=>{window.testPending=eval(code).catch(e=>errors.push(String(e)));}',code)

@@ -37,32 +37,32 @@ try {
  $node=[string](Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $pwsh=[string](Get-Process -Id $PID).Path
  $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
- $cleanupTool=Join-Path $PSScriptRoot 'peace.test-evidence-cleanup.js'
+ $cleanupTool=Join-Path $PSScriptRoot 'spacex.test-evidence-cleanup.js'
  $id='manual-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
  $run=Join-Path ([IO.Path]::GetTempPath()) ('GameManualResults-'+[Guid]::NewGuid().ToString('N'));$private=Join-Path ([IO.Path]::GetTempPath()) ('GameManual-'+[Guid]::NewGuid().ToString('N'))
  $report=Join-Path $PSScriptRoot ($id+'-results.json')
  New-TestPrivateDirectory $run;New-TestPrivateDirectory $private
- if(-not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $root 'Relay Server\tools\fixtures\LifecycleFileObserver.cs')}
+ if(-not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $root 'Server\tools\fixtures\LifecycleFileObserver.cs')}
  $run=[GameWindowsTests.LifecycleFileObserver]::CanonicalDirectory($run)
  $private=[GameWindowsTests.LifecycleFileObserver]::CanonicalDirectory($private)
  [IO.Directory]::CreateDirectory((Join-Path $run 'logs'))|Out-Null
  Write-Host 'Execution only: build the test projects in the RAD Studio IDE first.'
  Write-Host 'No command-line Delphi build, production key or production server is used.'
- Write-Host ('IDE group: '+(Join-Path $root 'Railway\Cozy.Tests\Cozy.Build\Cozy.ManualNativeTests.groupproj'))
+ Write-Host ('IDE group: '+(Join-Path $root 'Desktop\SpaceX.Tests\SpaceX.Build\SpaceX.ManualNativeTests.groupproj'))
  if(-not $InputFile){
-  $defaultBin=Join-Path $root 'Railway\Cozy.Tests\Cozy.Build\Cozy.Outputs\manual-ide'
+  $defaultBin=Join-Path $root 'Desktop\SpaceX.Tests\SpaceX.Build\SpaceX.Outputs\manual-ide'
   $probeDirectory=Read-PathAnswer "Prebuilt probe folder [Enter: $defaultBin]" $defaultBin
   $answer=(Read-Host 'Also execute final Release A/B/O against a NEW isolated localhost test server? YES / NO [NO]').Trim()
   $integration=$answer -ceq 'YES';$artifacts=@{};$releaseVersion='1.0.0'
   if($integration){
-   Write-Host ('Final Release EXEs are in their own project folders under '+(Join-Path $root 'Railway\Cozy.Projects'))
+   Write-Host ('Final Release EXEs are in their own project folders under '+(Join-Path $root 'Desktop\SpaceX.Projects'))
    foreach($role in @('A','B','O')){$artifacts[$role]=Read-PathAnswer ($role+' final Release EXE full path')}
    $releaseVersion=(Read-Host 'Actual numeric A/B/O version [Enter: 1.0.0]').Trim();if(-not $releaseVersion){$releaseVersion='1.0.0'}
   }
   $leaseAnswer=(Read-Host 'Also run the real 120-second O lease expiry using dedicated ProductFaults A/B/O builds? YES / NO [NO]').Trim()
   $faultArtifacts=@{}
   if($leaseAnswer -ceq 'YES'){
-   Write-Host 'Use Railway\Cozy.Tests\Cozy.FaultInjection\Cozy.Outputs\product-faults test builds. They are never publishable final EXEs. The runner waits for a genuine lease; no clock is changed.'
+   Write-Host 'Use Desktop\SpaceX.Tests\SpaceX.FaultInjection\SpaceX.Outputs\product-faults test builds. They are never publishable final EXEs. The runner waits for a genuine lease; no clock is changed.'
    foreach($role in @('A','B','O')){$faultArtifacts[$role]=Read-PathAnswer ($role+' dedicated fault-test EXE full path')}
    if(-not $integration){$releaseVersion=(Read-Host 'Actual numeric fault-test A/B/O version [Enter: 1.0.0]').Trim();if(-not $releaseVersion){$releaseVersion='1.0.0'}}
   }
@@ -77,7 +77,7 @@ try {
  } else {$InputFile=[IO.Path]::GetFullPath($InputFile)}
  $execution=@{version=1;startedAt=[DateTime]::UtcNow.ToString('o');environment=@{os=[Environment]::OSVersion.VersionString;powerShell=$PSVersionTable.PSVersion.ToString();processBits=64;interactive=[Environment]::UserInteractive;sessionId=[Diagnostics.Process]::GetCurrentProcess().SessionId;nodePath=$node};stages=@()}
  $openssl=if(Get-Command openssl.exe -CommandType Application -ErrorAction SilentlyContinue){'true'}else{'false'}
- $prepare=Run-Owned $node @((Join-Path $PSScriptRoot 'peace.manual-windows-tests.js'),'prepare',$InputFile,$run,$private,$node,$pwsh,$openssl) (Join-Path $run 'prepare.log') 90
+ $prepare=Run-Owned $node @((Join-Path $PSScriptRoot 'spacex.manual-windows-tests.js'),'prepare',$InputFile,$run,$private,$node,$pwsh,$openssl) (Join-Path $run 'prepare.log') 90
  if($prepare.exitCode -ne 0 -or $prepare.ContainsKey('error')){throw 'MANUAL_PREPARATION_FAILED_SEE_PREPARE_LOG'}
  $plan=Read-TestJson (Join-Path $run 'plan.json')
  foreach($stage in $plan.stages){
@@ -103,7 +103,7 @@ try {
  # Keep pending diagnostics private until cleanup succeeds; exact bytes move
  # to public outputs afterwards, so no stale PASS or evidence hash can escape.
  $pending=Join-Path $run ([IO.Path]::GetFileName($report))
- $finish=Run-Owned $node @((Join-Path $PSScriptRoot 'peace.manual-windows-tests.js'),'finalize',$run,$pending,$report) (Join-Path $run 'finalize.log') 90
+ $finish=Run-Owned $node @((Join-Path $PSScriptRoot 'spacex.manual-windows-tests.js'),'finalize',$run,$pending,$report) (Join-Path $run 'finalize.log') 90
  if($finish.ContainsKey('error') -or -not(Test-Path -LiteralPath $pending)){throw 'MANUAL_RESULT_FINALIZATION_FAILED'}
  & $node $cleanupTool publish $run $private $pending $report
  if($LASTEXITCODE -ne 0){throw 'MANUAL_PRIVATE_CLEANUP_OR_PUBLICATION_FAILED'}

@@ -2,14 +2,14 @@
   "version": 1,
   "releaseVersion": "1.0.0",
   "artifacts": {
-    "A": "C:\\cozy-peace\\Railway\\Cozy.Projects\\Cozy.Launcher\\Cozy.Launcher.exe",
-    "B": "C:\\cozy-peace\\Railway\\Cozy.Projects\\Cozy.Client\\Cozy.Client.exe",
-    "O": "C:\\cozy-peace\\Railway\\Cozy.Projects\\Cozy.Overlay\\Cozy.Overlay.exe"
+    "A": "C:\\SpaceX\\Desktop\\SpaceX.Projects\\SpaceX.Launcher\\SpaceX.Launcher.exe",
+    "B": "C:\\SpaceX\\Desktop\\SpaceX.Projects\\SpaceX.Client\\SpaceX.Client.exe",
+    "O": "C:\\SpaceX\\Desktop\\SpaceX.Projects\\SpaceX.Overlay\\SpaceX.Overlay.exe"
   },
   "faultArtifacts": {
-    "A": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.FaultInjection\\Cozy.Outputs\\product-faults\\Cozy.LauncherFaultTest.exe",
-    "B": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.FaultInjection\\Cozy.Outputs\\product-faults\\Cozy.ClientFaultTest.exe",
-    "O": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.FaultInjection\\Cozy.Outputs\\product-faults\\Cozy.OverlayFaultTest.exe"
+    "A": "C:\\SpaceX\\Desktop\\SpaceX.Tests\\SpaceX.FaultInjection\\SpaceX.Outputs\\product-faults\\SpaceX.LauncherFaultTest.exe",
+    "B": "C:\\SpaceX\\Desktop\\SpaceX.Tests\\SpaceX.FaultInjection\\SpaceX.Outputs\\product-faults\\SpaceX.ClientFaultTest.exe",
+    "O": "C:\\SpaceX\\Desktop\\SpaceX.Tests\\SpaceX.FaultInjection\\SpaceX.Outputs\\product-faults\\SpaceX.OverlayFaultTest.exe"
   },
-  "nativeReceiveProbe": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.Build\\Cozy.Outputs\\manual-ide\\Cozy.TlsReceiveProbe.exe"
+  "nativeReceiveProbe": "C:\\SpaceX\\Desktop\\SpaceX.Tests\\SpaceX.Build\\SpaceX.Outputs\\manual-ide\\SpaceX.TlsReceiveProbe.exe"
 }

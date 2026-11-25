@@ -1,21 +1,21 @@
 # 실제 Delphi JSON 파서 차등 검사
 
-개발용 합성 입력을 실제 `Cozy.ProtocolJson.pas`와 서버의 `peace.strict-json` 파서에 함께 넣습니다. 명령 봉투 입력과 O 응답·서버 관측 문서는 공통 패킷 규격 검증도 함께 비교합니다. A/B/O 운영 프로그램에 시험 출력·임의 입력 엔진을 넣지 않습니다.
+개발용 합성 입력을 실제 `SpaceX.ProtocolJson.pas`와 서버의 `spacex.strict-json` 파서에 함께 넣습니다. 명령 봉투 입력과 O 응답·서버 관측 문서는 공통 패킷 규격 검증도 함께 비교합니다. A/B/O 운영 프로그램에 시험 출력·임의 입력 엔진을 넣지 않습니다.
 
 ## 1. IDE에서 시험 EXE 빌드
 
 풀 소스의 다음 프로젝트를 RAD Studio에서 열고 **Win64 / Release**로 빌드합니다.
 
-`cozy-peace\Railway\Cozy.Tests\Cozy.Protocol\Cozy.ProtocolJsonDifferentialProbe.dproj`
+`SpaceX\Desktop\SpaceX.Tests\SpaceX.Protocol\SpaceX.ProtocolJsonDifferentialProbe.dproj`
 
-출력은 같은 프로젝트 폴더의 `Cozy.ProtocolJsonDifferentialProbe.exe`입니다. DCU는 그 폴더 아래 `dcu\Win64\Release`에 들어갑니다. 이 시험에는 `Cozy.Build-All-Win64.bat`이 필요하지 않습니다. RAD Studio 사용권의 명령행 컴파일 제한을 우회하지 않습니다.
+출력은 같은 프로젝트 폴더의 `SpaceX.ProtocolJsonDifferentialProbe.exe`입니다. DCU는 그 폴더 아래 `dcu\Win64\Release`에 들어갑니다. 이 시험에는 `SpaceX.Build-All-Win64.bat`이 필요하지 않습니다. RAD Studio 사용권의 명령행 컴파일 제한을 우회하지 않습니다.
 
 ## 2. Windows에서 실행
 
 Node.js가 설치된 Windows 명령 프롬프트에서 풀 소스 최상위 폴더로 이동합니다. 실제 EXE 절대 경로와 **아직 없는** 결과 파일 경로를 넣습니다.
 
 ```bat
-call "cozy-peace\Relay Server\tools\runtime\Run_Native_Json_Differential.bat" "C:\Cozy\cozy-peace\Railway\Cozy.Tests\Cozy.Protocol\Cozy.ProtocolJsonDifferentialProbe.exe" "C:\Cozy\json-differential-result.json"
+call "SpaceX\Server\tools\runtime\Run_Native_Json_Differential.bat" "C:\Cozy\SpaceX\Desktop\SpaceX.Tests\SpaceX.Protocol\SpaceX.ProtocolJsonDifferentialProbe.exe" "C:\Cozy\json-differential-result.json"
 ```
 
 기본 시드 `1129339441`과 256개 변이 입력을 사용합니다. 마지막에 시드와 변이 개수(0~2000)를 지정할 수도 있습니다. EXE는 별도 상주 프로그램 없이 한 번 생성되고, 여러 입력을 처리한 뒤 stdin을 닫고 종료를 기다립니다. 요청당 2초, 전체 기본 60초, 입력당 128 KiB, 출력·오류 출력 상한을 적용합니다. 검사는 서버 연결·라이선스·실제 사용자 데이터를 요구하지 않습니다.
@@ -33,9 +33,9 @@ call "cozy-peace\Relay Server\tools\runtime\Run_Native_Json_Differential.bat" "C
 실패 파일을 같은 EXE로 다시 검사하려면 새 보고서 이름을 사용합니다.
 
 ```bat
-node "cozy-peace\Relay Server\tools\security\peace.native-json-differential.js" "C:\Cozy\cozy-peace\Railway\Cozy.Tests\Cozy.Protocol\Cozy.ProtocolJsonDifferentialProbe.exe" "C:\Cozy\json-differential-replay.json" 1129339441 0 "C:\Cozy\json-differential-result.json"
+node "SpaceX\Server\tools\security\spacex.native-json-differential.js" "C:\Cozy\SpaceX\Desktop\SpaceX.Tests\SpaceX.Protocol\SpaceX.ProtocolJsonDifferentialProbe.exe" "C:\Cozy\json-differential-replay.json" 1129339441 0 "C:\Cozy\json-differential-result.json"
 ```
 
 실제 운영 입력에는 토큰이 포함될 수 있으므로 이 도구에는 제공된 합성 코퍼스와 개발용 재현 입력만 넣으세요. 생성한 보고서는 공개 저장소·배포 파일에 자동 업로드하지 않습니다.
 
-문서 모드(프레임 모드 2)는 `{name,value}` 합성 입력으로 `ValidateProtocolDocument`를 실행합니다. 12개 응답·관측 문서의 정상 형식과 잘못된 역할 필드·추가 필드·null 치환을 기본 코퍼스에 포함합니다. 이 모드를 사용하려면 최신 `Cozy.ProtocolJsonDifferentialProbe.dproj`를 다시 빌드하세요.
+문서 모드(프레임 모드 2)는 `{name,value}` 합성 입력으로 `ValidateProtocolDocument`를 실행합니다. 12개 응답·관측 문서의 정상 형식과 잘못된 역할 필드·추가 필드·null 치환을 기본 코퍼스에 포함합니다. 이 모드를 사용하려면 최신 `SpaceX.ProtocolJsonDifferentialProbe.dproj`를 다시 빌드하세요.

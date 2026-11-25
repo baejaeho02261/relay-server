@@ -10,7 +10,7 @@
     "EXE approval signatures and exact REGISTERED release manifest",
     "Default hardware collection off",
     "Existing PC fingerprint and license binding",
-    "Common Railway/bin EXE outputs with isolated intermediate units"
+    "Common Desktop/bin EXE outputs with isolated intermediate units"
   ],
   "work": [
     {
@@ -134,8 +134,8 @@
       "upstream BLAKE3 hash/keyed/derive XOF",
       "pure Python SHA-512 and bitwise CRC, independent PE parser"
     ],
-    "manualWindowsEntry": "Relay Server/tools/runtime/Run_Manual_Windows_Tests.bat",
-    "ideProbeGroup": "Railway/cozy.tests/cozy.manual-ide/cozy.ManualNativeTests.groupproj",
+    "manualWindowsEntry": "Server/tools/runtime/Run_Manual_Windows_Tests.bat",
+    "ideProbeGroup": "Desktop/spacex.tests/cozy.manual-ide/spacex.ManualNativeTests.groupproj",
     "partialIsNotPass": true,
     "hardwareCollectionDefault": false
   },

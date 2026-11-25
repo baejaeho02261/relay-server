@@ -44,20 +44,20 @@ try {
  if($env:GAME_RELEASE_APPROVAL_KEY_B64){throw 'WINDOWS_TEST_FINAL_PRODUCTION_KEYS_FORBIDDEN'}
  $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $private=Join-Path ([IO.Path]::GetTempPath()) ('CozyFinalWindows-'+[Guid]::NewGuid().ToString('N'));New-TestPrivateDirectory $private
- $work=Join-Path $private 'source';$web=Join-Path $work 'Relay Server';$bundle=Join-Path $private 'final-files'
- $null=Run-Observed 'snapshot' $node @((Join-Path $source 'Relay Server\tools\build\peace.source-snapshot.js'),'snapshot',$source,$work) $source 120
+ $work=Join-Path $private 'source';$web=Join-Path $work 'Server';$bundle=Join-Path $private 'final-files'
+ $null=Run-Observed 'snapshot' $node @((Join-Path $source 'Server\tools\build\spacex.source-snapshot.js'),'snapshot',$source,$work) $source 120
  $npm=(Get-Command npm.cmd -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $null=Run-Observed 'dependencies' $env:ComSpec @('/d','/c',('"'+$npm+'" ci --engine-strict --ignore-scripts --no-audit --no-fund')) $web 900
  $inputFile=Join-Path $private 'selected-inputs.json'
  $selectedInputs=@{version=1;releaseVersion=$Version;artifacts=@{A=[IO.Path]::GetFullPath($AFile);B=[IO.Path]::GetFullPath($BFile);O=[IO.Path]::GetFullPath($OFile)};packingReceiptsFile=[IO.Path]::GetFullPath($PackingReceiptsFile);policyFile=[IO.Path]::GetFullPath($PolicyFile)}
  if($ServerPoliciesFile){$selectedInputs.serverPoliciesFile=[IO.Path]::GetFullPath($ServerPoliciesFile)}
  Write-TestJson $inputFile $selectedInputs
- $helper=Join-Path $web 'tools\windows\peace.final-windows-inputs.js'
+ $helper=Join-Path $web 'tools\windows\spacex.final-windows-inputs.js'
  $null=Run-Observed 'prepare' $node @($helper,'prepare',$inputFile,$work,$bundle) $web 120
  $input=Read-TestJson (Join-Path $bundle 'final-execution-inputs.json')
  $result.artifacts=$input.artifacts;$result.sourceManifestSha512=$input.sourceManifestSha512;$result.reviewedPolicySha512=$input.reviewedPolicySha512
  if($input.ContainsKey('protectionEngine')){$result.protectionEngine=$input.protectionEngine;$result.fixtureEnrollmentApproval=$input.fixtureEnrollmentApproval;$result.serverPolicyAuthenticity=$input.serverPolicyAuthenticity}
- $secretExit=Run-Observed 'client-secrets' $node @((Join-Path $web 'tools\security\peace.audit-client-secrets.js'),(Join-Path $bundle 'A.exe'),(Join-Path $bundle 'B.exe'),(Join-Path $bundle 'O.exe')) $web 120 @(0,1)
+ $secretExit=Run-Observed 'client-secrets' $node @((Join-Path $web 'tools\security\spacex.audit-client-secrets.js'),(Join-Path $bundle 'A.exe'),(Join-Path $bundle 'B.exe'),(Join-Path $bundle 'O.exe')) $web 120 @(0,1)
  $secret=Read-TestJson (Join-Path $private 'client-secrets.log')
  if($secret.kind -ne 'CLIENT_STATIC_SECRET_CHECK' -or ($secretExit -eq 0 -and $secret.status -ne 'PASS') -or ($secretExit -eq 1 -and $secret.status -ne 'BLOCKED')){throw 'WINDOWS_TEST_FINAL_SECRET_REPORT_INVALID'}
  if(@($secret.artifacts).Count -ne 3 -or $secret.guaranteesAbsenceOfSecrets -ne $false){throw 'WINDOWS_TEST_FINAL_SECRET_REPORT_INVALID'}

@@ -1,6 +1,6 @@
 # 선택형 소유 포인터 그래프 V2
 
-`Cozy.PointerGraph.pas`의 기존 `CozyPointerGraphBytes`는 V1 DAG 검증과 기존 골든 바이트를 유지합니다. 기존 `SEALED_API_ARENA` 측정과 서버 승인 계약도 V1 그대로입니다.
+`SpaceX.PointerGraph.pas`의 기존 `CozyPointerGraphBytes`는 V1 DAG 검증과 기존 골든 바이트를 유지합니다. 기존 `SEALED_API_ARENA` 측정과 서버 승인 계약도 V1 그대로입니다.
 
 새 V2는 프로그램이 직접 소유하고 명시적으로 등록한 업무 구조를 위한 별도 계약입니다. 실제 주소를 따라가거나 다른 프로세스를 읽지 않습니다. 배열 순서에 관계없이 안정 ID와 포인터 슬롯 오프셋으로 정렬하며 프로세스 주소는 입력 필드가 아닙니다. 포인터를 이동했다고 ID가 변하면 안 됩니다.
 
@@ -29,10 +29,10 @@
 
 기존 API 측정은 변경하지 않습니다. 업무 객체 쪽에서 소유 컨텍스트를 만들고 안정 ID를 부여한 다음, 실제 객체·콜백 연결을 바꾸는 지점과 같은 잠금 안에서 다음 스냅샷 및 변경 목록을 구성합니다. `Accept`가 반환한 정규 바이트를 해당 업무 계약의 암호학적 해시에 사용합니다. 일반 CRC만으로 인증하지 않습니다.
 
-Relay의 `services/integrity/peace.pointer-graph-lifecycle.js`는 동일한 계약을 검증하는 별도 모듈이며 `History`, `transition`, `bytes`를 제공합니다. 기존 측정 API가 V2를 자동 신뢰하도록 변경하지 않았습니다. 구체적인 업무 객체의 허용 규격과 서버 승인 범위는 호출자가 명시해야 합니다.
+Relay의 `services/integrity/spacex.pointer-graph-lifecycle.js`는 동일한 계약을 검증하는 별도 모듈이며 `History`, `transition`, `bytes`를 제공합니다. 기존 측정 API가 V2를 자동 신뢰하도록 변경하지 않았습니다. 구체적인 업무 객체의 허용 규격과 서버 승인 범위는 호출자가 명시해야 합니다.
 
 ## 검증
 
-- `node --test tests/integrity/peace.test-pointer-graph-lifecycle.js`: 순서 독립 골든 벡터, 기존 V1 유지, 순환·소유 트리 구분, 묘비·세대·명시 변경·복사본 격리·4,096개 상한을 검증합니다.
-- Windows IDE에서 기존 `Railway/Cozy.Tests/Cozy.Platform/Cozy.PointerGraphProbe.dproj`를 Win64/Release로 빌드·실행하면 추가 `Cozy.PointerGraphLifecycleContracts.inc`도 실행합니다. 기존 테스트 전용 define은 유지합니다.
+- `node --test tests/integrity/spacex.test-pointer-graph-lifecycle.js`: 순서 독립 골든 벡터, 기존 V1 유지, 순환·소유 트리 구분, 묘비·세대·명시 변경·복사본 격리·4,096개 상한을 검증합니다.
+- Windows IDE에서 기존 `Desktop/SpaceX.Tests/SpaceX.Platform/SpaceX.PointerGraphProbe.dproj`를 Win64/Release로 빌드·실행하면 추가 `SpaceX.PointerGraphLifecycleContracts.inc`도 실행합니다. 기존 테스트 전용 define은 유지합니다.
 - 실제 Delphi/Windows 빌드 및 실행 결과: **NOT_RUN**. Node 검사나 소스 정합성 검사는 실제 Native 실행 PASS를 대신하지 않습니다.

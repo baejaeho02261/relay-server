@@ -47,7 +47,7 @@ services:
     - ./authority.env
     command:
     - node
-    - peace.relay-server.js
+    - spacex.relay-server.js
     ports:
     - "${AUTHORITY_PRIVATE_IP:?set private bind address}:${WEB_ADMIN_PORT:?set HTTPS listener port}:${WEB_ADMIN_PORT:?set HTTPS listener port}"
     - "${NATIVE_BIND_IP:?set native bind address}:${CONNECT_TCP_PORT:?set native listener port}:${CONNECT_TCP_PORT:?set native listener port}"

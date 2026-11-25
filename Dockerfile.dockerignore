@@ -15,33 +15,33 @@
 **/*.db-wal
 **/*.db-shm
 **/*.db-journal
-cozy-peace/Railway/build
-cozy-peace/Railway/bin
-cozy-peace/Railway/Cozy.BuildOutputs
-cozy-peace/Railway/Cozy.ImGui/Cozy.Objects
-cozy-peace/Railway/Cozy.Tests/*/Cozy.Outputs
-cozy-peace/Railway/Cozy.Projects/*/dcu
-cozy-peace/Railway/Cozy.Projects/*/*.exe
+SpaceX/Desktop/build
+SpaceX/Desktop/bin
+SpaceX/Desktop/Cozy.BuildOutputs
+SpaceX/Desktop/SpaceX.ImGui/SpaceX.Objects
+SpaceX/Desktop/SpaceX.Tests/*/SpaceX.Outputs
+SpaceX/Desktop/SpaceX.Projects/*/dcu
+SpaceX/Desktop/SpaceX.Projects/*/*.exe
 
 # Runtime directories only; nested storage/audit is application source.
 /audit/
-/cozy-peace/Relay Server/audit/
+/SpaceX/Server/audit/
 /backups/
-/cozy-peace/Relay Server/backups/
+/SpaceX/Server/backups/
 /data/
-/cozy-peace/Relay Server/data/
+/SpaceX/Server/data/
 /releases/
-/cozy-peace/Relay Server/releases/
+/SpaceX/Server/releases/
 /connect-tls/
-/cozy-peace/Relay Server/connect-tls/
+/SpaceX/Server/connect-tls/
 /desktop-bootstrap/
-/cozy-peace/Relay Server/desktop-bootstrap/
+/SpaceX/Server/desktop-bootstrap/
 /desktop-integrity-reports/
-/cozy-peace/Relay Server/desktop-integrity-reports/
+/SpaceX/Server/desktop-integrity-reports/
 /desktop-machine-policy/
-/cozy-peace/Relay Server/desktop-machine-policy/
+/SpaceX/Server/desktop-machine-policy/
 /desktop-performance/
-/cozy-peace/Relay Server/desktop-performance/
+/SpaceX/Server/desktop-performance/
 **/connect-transport-key.pem
 **/connect-transport-key.id
 **/desktop-license-journal.key

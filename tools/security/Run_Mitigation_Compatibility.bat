@@ -12,7 +12,7 @@ node.exe "%~dp0peace.mitigation-compatibility.js" %*
 set "GCMC_EXIT=%ERRORLEVEL%"
 goto finish
 :missing_helper
-echo ERROR: Restore the matching peace.mitigation-compatibility.js beside this BAT.
+echo ERROR: Restore the matching spacex.mitigation-compatibility.js beside this BAT.
 goto finish
 :missing_node
 echo ERROR: node.exe was not found in PATH.

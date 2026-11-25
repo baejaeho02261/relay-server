@@ -1,6 +1,6 @@
 # O 실행의 선택형 제한 권한 프로필
 
-`Cozy.Handoff.pas`의 인계 경합 검사와 선택형 O 제한 토큰 실행 경로를 구현했습니다.
+`SpaceX.Handoff.pas`의 인계 경합 검사와 선택형 O 제한 토큰 실행 경로를 구현했습니다.
 
 ## 적용
 
@@ -31,9 +31,9 @@ Api.StartOverlay(True); // 선택형 제한 권한 프로필
 
 RAD Studio IDE에서 다음 프로젝트를 열어 Win64 Release로 빌드합니다.
 
-`cozy-peace\Railway\Cozy.Tests\Cozy.Handoff\Cozy.HandoffProcessProbe.dproj`
+`SpaceX\Desktop\SpaceX.Tests\SpaceX.Handoff\SpaceX.HandoffProcessProbe.dproj`
 
-이 프로젝트는 `GAME_HANDOFF_CONTRACT_TESTS`를 자체 설정합니다. 기존 실패한 전체 BAT 빌드를 다시 실행할 필요가 없습니다. 빌드된 `Cozy.HandoffProcessProbe.exe`는 이 테스트 프로젝트 폴더에서 직접 실행합니다.
+이 프로젝트는 `GAME_HANDOFF_CONTRACT_TESTS`를 자체 설정합니다. 기존 실패한 전체 BAT 빌드를 다시 실행할 필요가 없습니다. 빌드된 `SpaceX.HandoffProcessProbe.exe`는 이 테스트 프로젝트 폴더에서 직접 실행합니다.
 
 시험에는 총 9개 묶음이 있습니다. 실제 생성한 부모·자식의 종료, 부분 프레임, 준비·취소·종료 경합, 미승인 컨텍스트의 정리 거부, 파일 고정 중 교체 차단, 같은 바이트라도 다른 파일 ID인 대체 파일의 삭제 거부, 제한 자식 토큰·개인 파이프·이벤트·CNG 서명·관리자 전용 쓰기 거부·종료를 검사합니다. 임시 파일의 ACL은 `finally`에서 복원하고 이 시험이 만든 파일만 정리합니다.
 

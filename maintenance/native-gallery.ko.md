@@ -1,4 +1,4 @@
-> 이 문서는 이전 두 탭·START 알림 버전의 이력입니다. 현재 세 탭·B GUI·제품별 라이선스·5초 카운트다운과 재빌드 순서는 [최신 적용 안내](Cozy.product-license-ui.ko.md)를 따르세요.
+> 이 문서는 이전 두 탭·START 알림 버전의 이력입니다. 현재 세 탭·B GUI·제품별 라이선스·5초 카운트다운과 재빌드 순서는 [최신 적용 안내](SpaceX.product-license-ui.ko.md)를 따르세요.
 
 # 네이티브 카드 UI · 2026-11-03 중앙 정렬·등장 효과
 
@@ -26,10 +26,10 @@ O의 680×440 카드 화면과 표시 루프를 개선한 전체 소스입니다
 
 ## 적용과 검증 범위
 
-전체 소스를 새 폴더에 풀고 `Relay Server/tools/overlay/Prepare_ImGui.bat`로 최신 오브젝트를 생성·검사합니다. 성공 후 RAD Studio에서 `Cozy.Projects/Cozy.Overlay/Cozy.Overlay.dproj`를 Win64 Release로 **Rebuild**합니다. 최종 새 O로 기존 승인·명세·후보 등록·조합 검증·게시를 진행합니다. 기존 승인 자료를 변경된 실행 파일에 재사용하지 않습니다. Build-All BAT는 필수가 아닙니다.
+전체 소스를 새 폴더에 풀고 `Server/tools/overlay/Prepare_ImGui.bat`로 최신 오브젝트를 생성·검사합니다. 성공 후 RAD Studio에서 `SpaceX.Projects/SpaceX.Overlay/SpaceX.Overlay.dproj`를 Win64 Release로 **Rebuild**합니다. 최종 새 O로 기존 승인·명세·후보 등록·조합 검증·게시를 진행합니다. 기존 승인 자료를 변경된 실행 파일에 재사용하지 않습니다. Build-All BAT는 필수가 아닙니다.
 
-그래픽 합성 경로의 API 계약이 바뀌므로 묶음에 포함된 최신 `tools/Cozy.Check-ApiSlots.bat`를 사용합니다. 서버 GitHub·Railway 배포만으로 PC의 기존 실행 파일이 교체되지는 않습니다. 키와 운영 등록 데이터는 초기화하지 않습니다.
+그래픽 합성 경로의 API 계약이 바뀌므로 묶음에 포함된 최신 `tools/SpaceX.Check-ApiSlots.bat`를 사용합니다. 서버 GitHub·Railway 배포만으로 PC의 기존 실행 파일이 교체되지는 않습니다. 키와 운영 등록 데이터는 초기화하지 않습니다.
 
-실제 Dear ImGui 코어·입력·메모리·소스 계약 검사는 Windows/Delphi 빌드와 실제 GPU 실행을 대신하지 않습니다. 라이선스 없이 표시 경로를 확인하려면 `Cozy.Tests/Cozy.Overlay/Cozy.OverlayGraphicsProbe.dproj`를 Win64 Release로 Rebuild·실행할 수 있습니다.
+실제 Dear ImGui 코어·입력·메모리·소스 계약 검사는 Windows/Delphi 빌드와 실제 GPU 실행을 대신하지 않습니다. 라이선스 없이 표시 경로를 확인하려면 `SpaceX.Tests/SpaceX.Overlay/SpaceX.OverlayGraphicsProbe.dproj`를 Win64 Release로 Rebuild·실행할 수 있습니다.
 
-공식 이미지 출처와 변환은 `Cozy.ImGui/Cozy.Assets/Cozy.Cards/Cozy.Cards.Provenance.md`를 참고하세요.
+공식 이미지 출처와 변환은 `SpaceX.ImGui/SpaceX.Assets/SpaceX.Cards/SpaceX.Cards.Provenance.md`를 참고하세요.

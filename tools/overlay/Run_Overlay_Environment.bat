@@ -22,10 +22,10 @@ if errorlevel 1 (
   goto failed
 )
 if defined GAME_OVERLAY_ENV_PROBE goto run
-set "GAME_OVERLAY_ENV_PROBE=%~dp0..\..\..\Railway\Cozy.Tests\Cozy.Build\Cozy.Outputs\manual-ide\Cozy.OverlayEnvironmentProbe.exe"
+set "GAME_OVERLAY_ENV_PROBE=%~dp0..\..\..\Desktop\SpaceX.Tests\SpaceX.Build\SpaceX.Outputs\manual-ide\SpaceX.OverlayEnvironmentProbe.exe"
 if exist "%GAME_OVERLAY_ENV_PROBE%" goto run
-echo Build tests\cozy.manual-ide\cozy.OverlayEnvironmentProbe.dproj in the RAD Studio IDE: Win64 Release.
-set /p "GAME_OVERLAY_ENV_PROBE=Full path to cozy.OverlayEnvironmentProbe.exe: "
+echo Build tests\spacex.manual-ide\spacex.OverlayEnvironmentProbe.dproj in the RAD Studio IDE: Win64 Release.
+set /p "GAME_OVERLAY_ENV_PROBE=Full path to spacex.OverlayEnvironmentProbe.exe: "
 :run
 set "GAME_OVERLAY_ENV_PROBE=%GAME_OVERLAY_ENV_PROBE:"=%"
 node "%~dp0peace.overlay-environment.js" run "%GAME_OVERLAY_ENV_PROBE%"

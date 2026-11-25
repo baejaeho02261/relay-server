@@ -47,6 +47,6 @@ services:
         create_host_path: false
     entrypoint:
     - node
-    - tools/artifacts/peace.separated-signing.js
+    - tools/artifacts/spacex.separated-signing.js
     command:
     - --help

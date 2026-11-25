@@ -13,7 +13,7 @@ with tempfile.TemporaryDirectory(prefix='game-review-registry-') as tmp:
     scripts = root / 'tests'
     scripts.mkdir()
     (scripts / 'sample.js').write_text("throw Error('MUST_NOT_RUN');\n")
-    registry = scripts / 'peace.regression.js'
+    registry = scripts / 'spacex.regression.js'
     registry.write_text("module.exports = [['sample.js', '--sqlite']];\n"
                         "if (require.main === module) throw Error('MUST_NOT_RUN');\n")
     assert runner.registered_checks(root) == [['sample.js', '--sqlite']]

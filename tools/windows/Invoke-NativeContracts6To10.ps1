@@ -6,7 +6,7 @@ param(
 # Compiled TEST probes only. No product A/B/O build, GPU acceptance or production signing.
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 $private=$null;$output=$null;$logs=$null;$exit=1;$active=$null;$createdResult=$false
-$names=@('snapshot','compile-probes','sdk-probe','abi-compare','Cozy.HardeningContractsProbe','Cozy.TlsPinWindowProbe','Cozy.TlsContractProbe','Cozy.HashContracts','Cozy.IntegrityHashProbe','Cozy.CrcProbe','Cozy.ServerPolicyLocalProbe','Cozy.ProcessMitigationProfileProbe','Cozy.NativeApiContractsProbe','Cozy.MeasurementLifetimeProbe','Cozy.JsonEnvelopeProbe','Cozy.ThreadInventoryProbe','Cozy.Blake3ParallelProbe','Cozy.HandoffKdfProbe','Cozy.ServerOperationsProtocolProbe','Cozy.PointerGraphProbe','pe-corpus','native-hash-compare')
+$names=@('snapshot','compile-probes','sdk-probe','abi-compare','SpaceX.HardeningContractsProbe','SpaceX.TlsPinWindowProbe','SpaceX.TlsContractProbe','SpaceX.HashContracts','SpaceX.IntegrityHashProbe','SpaceX.CrcProbe','SpaceX.ServerPolicyLocalProbe','SpaceX.ProcessMitigationProfileProbe','SpaceX.NativeApiContractsProbe','SpaceX.MeasurementLifetimeProbe','SpaceX.JsonEnvelopeProbe','SpaceX.ThreadInventoryProbe','SpaceX.Blake3ParallelProbe','SpaceX.HandoffKdfProbe','SpaceX.ServerOperationsProtocolProbe','SpaceX.PointerGraphProbe','pe-corpus','native-hash-compare')
 $result=[ordered]@{version=1;scope='NATIVE_TEST_CONTRACTS_6_TO_10';windowsExecuted=$false;outcome='NOT_RUN';productBuild='NOT_RUN';productIntegration='NOT_RUN';stages=[ordered]@{}}
 foreach($name in $names){$result.stages[$name]=[ordered]@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
 function Save-ContractResults {
@@ -59,18 +59,18 @@ try{
  $private=Join-Path ([IO.Path]::GetTempPath()) ('GameNativeContracts6To10-'+[Guid]::NewGuid().ToString('N'));New-TestPrivateDirectory $private
  if($private -match '[%&|<>^!"\r\n]'){throw 'NATIVE_CONTRACT_PATH_INVALID'}
  $work=Join-Path $private 'source'
- Invoke-ContractCommand 'snapshot' $node @((Join-Path $source 'Relay Server\tools\build\peace.source-snapshot.js'),'snapshot',$source,$work) $source 120
- $native=Join-Path $work 'Railway'
+ Invoke-ContractCommand 'snapshot' $node @((Join-Path $source 'Server\tools\build\spacex.source-snapshot.js'),'snapshot',$source,$work) $source 120
+ $native=Join-Path $work 'Desktop'
  # Existing per-probe DCU isolation is kept. The build-only step compiles the
  # full existing probe set, but only the named 6-10 probes below are executed.
- Invoke-ContractCommand 'compile-probes' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Build_NativeProbes_Win64.bat')+'" /build-only')) $native 900
- Invoke-ContractCommand 'sdk-probe' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Build_NativeAbi_SDK_Win64.bat')+'"')) $native 180
- $built=Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Outputs\native-probes'
- Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.compare-native-abi.js'),(Join-Path $built 'Cozy.NativeAbiProbe.exe'),(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Outputs\native-sdk\Cozy.NativeAbiSdkProbe.exe')) $native 60
+ Invoke-ContractCommand 'compile-probes' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'SpaceX.Tests\SpaceX.Build\SpaceX.Build_NativeProbes_Win64.bat')+'" /build-only')) $native 900
+ Invoke-ContractCommand 'sdk-probe' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'SpaceX.Tests\SpaceX.Platform\SpaceX.Build_NativeAbi_SDK_Win64.bat')+'"')) $native 180
+ $built=Join-Path $native 'SpaceX.Tests\SpaceX.Build\SpaceX.Outputs\native-probes'
+ Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'SpaceX.Tests\SpaceX.Platform\SpaceX.compare-native-abi.js'),(Join-Path $built 'SpaceX.NativeAbiProbe.exe'),(Join-Path $native 'SpaceX.Tests\SpaceX.Platform\SpaceX.Outputs\native-sdk\SpaceX.NativeAbiSdkProbe.exe')) $native 60
  foreach($name in $names[4..($names.Count-3)]){Invoke-ContractCommand $name (Join-Path $built ($name+'.exe')) @() $native 120}
- Invoke-ContractCommand 'native-hash-compare' $node @((Join-Path $work 'Relay Server\tests\cryptography\peace.compare-native-hashes.js'),'--hash-probe',(Join-Path $built 'Cozy.IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $built 'Cozy.CrcProbe.exe'),'--mode-probe',(Join-Path $built 'Cozy.HashProbe.exe'),'--pe-probe',(Join-Path $built 'Cozy.PeCorpusProbe.exe'),'--crc-pe-probe',(Join-Path $built 'Cozy.CrcPeProbe.exe')) $native 900
- Invoke-ContractCommand 'pe-corpus' $node @((Join-Path $work 'Relay Server\tests\artifacts\peace.test-hardening-pe-corpus.js'),'--native',(Join-Path $built 'Cozy.PeCorpusProbe.exe')) $native 180
- if(Select-String -LiteralPath (Join-Path $logs 'Cozy.HardeningContractsProbe.log') -Pattern '(?i)\bSKIP\b' -Quiet){$result.stages['Cozy.HardeningContractsProbe'].outcome='PARTIAL_PRIVILEGE_SKIP';throw 'NATIVE_CONTRACT_REQUIRED_BRANCH_SKIPPED'}
+ Invoke-ContractCommand 'native-hash-compare' $node @((Join-Path $work 'Server\tests\cryptography\spacex.compare-native-hashes.js'),'--hash-probe',(Join-Path $built 'SpaceX.IntegrityHashProbe.exe'),'--crc-probe',(Join-Path $built 'SpaceX.CrcProbe.exe'),'--mode-probe',(Join-Path $built 'SpaceX.HashProbe.exe'),'--pe-probe',(Join-Path $built 'SpaceX.PeCorpusProbe.exe'),'--crc-pe-probe',(Join-Path $built 'SpaceX.CrcPeProbe.exe')) $native 900
+ Invoke-ContractCommand 'pe-corpus' $node @((Join-Path $work 'Server\tests\artifacts\spacex.test-hardening-pe-corpus.js'),'--native',(Join-Path $built 'SpaceX.PeCorpusProbe.exe')) $native 180
+ if(Select-String -LiteralPath (Join-Path $logs 'SpaceX.HardeningContractsProbe.log') -Pattern '(?i)\bSKIP\b' -Quiet){$result.stages['SpaceX.HardeningContractsProbe'].outcome='PARTIAL_PRIVILEGE_SKIP';throw 'NATIVE_CONTRACT_REQUIRED_BRANCH_SKIPPED'}
  if(@($result.stages.Values | Where-Object {$_.outcome -ne 'PASS'}).Count -ne 0){throw 'NATIVE_CONTRACT_RESULTS_INCOMPLETE'}
  $result.outcome='PASS';$exit=0
 }catch{

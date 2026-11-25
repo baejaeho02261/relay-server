@@ -11,7 +11,7 @@
 - 모든 패킹·보호 처리와 O 정규화는 서명 전에 끝내야 합니다. 현재 알려진 내장 VM 키가 있는 입력은 거부합니다. 제한된 비밀 검사 PASS는 모든 숨겨진 비밀의 부재를 증명하지 않습니다.
 
 ```powershell
-pwsh -NoProfile -File '.\cozy-peace\Relay Server\tools\windows\Invoke-AuthenticodePreparation.ps1' `
+pwsh -NoProfile -File '.\SpaceX\Server\tools\windows\Invoke-AuthenticodePreparation.ps1' `
   -AFile 'C:\ReleaseInputs\A.exe' -BFile 'C:\ReleaseInputs\B.exe' -OFile 'C:\ReleaseInputs\O.exe' `
   -SignTool $ReviewedSignToolPath -SignToolSha512 $ReviewedSignToolSha512 -NodeSha512 $ReviewedNodeSha512 `
   -CertificateSha256 $CodeSigningCertificateSha256 -CertificateStore CurrentUser `
@@ -24,7 +24,7 @@ pwsh -NoProfile -File '.\cozy-peace\Relay Server\tools\windows\Invoke-Authentico
 
 서명 명령에 `/fd SHA256`, `/tr`, `/td SHA256`를 명시합니다. 이후 `verify /pa /all /tw`와 `Get-AuthenticodeSignature`를 모두 검사하고, 선택한 인증서 및 타임스탬프를 확인합니다. 검증하는 동안 결과 파일에 읽기 핸들을 유지해 변경을 막고, 검증 전 해시와 변환 비교 해시·최종 해시가 모두 같아야 합니다. 각 자식 프로세스에 시간·로그 제한을 두고 작업 종료 시 해당 작업의 프로세스와 임시 입력 복사본·로그만 정리합니다. 인증서 공급자가 별도로 관리하는 서비스는 종료하지 않습니다.
 
-`peace.authenticode-plan.js`는 서명 전후 PE의 체크섬·인증서 디렉터리·정렬된 인증서 테이블 외의 바이트가 바뀌지 않았는지 검사합니다. 코드·데이터 변조와 설명되지 않은 뒤쪽 데이터 추가를 거부합니다. 이 검사는 서명 구조만 비교합니다. 가짜 인증서 바이트도 구조는 맞을 수 있으므로 이 도구 단독의 `signatureCryptographicallyVerified`는 항상 false입니다. Windows 검증을 실제 통과한 서명 래퍼만 별도 결과에 true를 기록합니다.
+`spacex.authenticode-plan.js`는 서명 전후 PE의 체크섬·인증서 디렉터리·정렬된 인증서 테이블 외의 바이트가 바뀌지 않았는지 검사합니다. 코드·데이터 변조와 설명되지 않은 뒤쪽 데이터 추가를 거부합니다. 이 검사는 서명 구조만 비교합니다. 가짜 인증서 바이트도 구조는 맞을 수 있으므로 이 도구 단독의 `signatureCryptographicallyVerified`는 항상 false입니다. Windows 검증을 실제 통과한 서명 래퍼만 별도 결과에 true를 기록합니다.
 
 새 출력에는 A.exe, B.exe, O.exe와 `authenticode-preparation.json`이 들어갑니다. 출력 JSON은 독립적으로 서명된 증명이나 운영 승인 자료가 아닙니다. `productionApproved=false`, `publicationPerformed=false`, `windowsProductExecuted=false`를 유지합니다. 최종 stdout에 정리 결과와 종료 코드를 확인하세요. 파일에 보관한 준비 기록은 최종 임시 폴더 정리 전에 작성되므로 정리 완료를 보증하지 않습니다.
 

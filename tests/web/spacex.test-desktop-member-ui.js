@@ -1,0 +1,232 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {JSDOM,VirtualConsole}=require('jsdom');
+const root=path.resolve(__dirname,'../..'),errors=[],requests=[],now=Date.now();
+const vc=new VirtualConsole();vc.on('jsdomError',error=>errors.push(error.message));
+const dom=new JSDOM('<!doctype html><main><div id="content"></div></main><div id="modal" class="hidden"><div role="dialog"><h3 id="modal-title"></h3><div id="modal-body"></div><button id="modal-cancel"></button><button id="modal-confirm"></button></div></div>',{url:'https://fixture.invalid',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc});
+const w=dom.window;w.eval=code=>vm.runInContext(code,dom.getInternalVMContext());
+const clone=value=>JSON.parse(JSON.stringify(value));
+const memberId='A'.repeat(24),otherId='B'.repeat(24),targetId='C'.repeat(24);
+let revision=3,failWrite=false,dialog=null,mutationCount=0,licenseOwner=memberId;
+const observationIds=[1,2,4,5,7];
+let nhwRevision=0,nhwDisabledIds=[...observationIds],canManageNhwPolicy=true;
+const members=[{id:memberId,identitySource:'OPERATOR_CONTACT',displayName:'<img src=x onerror=bad()>',note:'고객 메모 <script>bad()</script>',status:'ACTIVE',createdAt:now,updatedAt:now,counts:{licenses:25,launchers:1,flows:1,devices:1,integrity:1,incidents:1}},{id:otherId,identitySource:'VERIFIED_PC_BINDING',memberCode:otherId,nickname:'PC-'+otherId,contactId:memberId,contactDisplayName:'두 번째 회원',displayName:'PC-'+otherId,note:'',status:'ACTIVE',createdAt:now,updatedAt:now,counts:{licenses:0,launchers:0,flows:0,devices:0,integrity:0,incidents:0}}];
+const nhwCatalog=Array.from({length:204},(_,id)=>({id,label:'Fixture '+id,legacyLabel:null}));
+nhwCatalog[0]={id:0,label:'Process Detect',legacyLabel:'Process Detect',symbol:'dkProcess'};
+nhwCatalog[1]={id:1,label:'Waring Detect',legacyLabel:'Waring Detect',symbol:'dkETWLoss'};
+nhwCatalog[2]={id:2,label:'Waring Detect',legacyLabel:'Waring Detect',symbol:'dkObservationUncertain'};
+nhwCatalog[3]={id:3,label:'Silent Kind',legacyLabel:null,symbol:'dkSilentKind'};
+nhwCatalog[203]={id:203,label:'Session Trust Detect',legacyLabel:'Session Trust Detect',symbol:'dkSessionTrust'};
+nhwCatalog[6].mode='corroborated';
+for(const id of observationIds)nhwCatalog[id].mode='observation';
+const receipts=new Map();
+const nhwPolicyResponse=()=>({ok:true,canManageNhwPolicy,nhwPolicy:{version:1,revision:nhwRevision,disabledIds:nhwDisabledIds}});
+function category(items,totalCount=items.length,page=1){return {items,totalCount,page,pageSize:20};}
+function detail(id,categoryName,page){
+ const owner=id,person=members.find(row=>row.id===id);
+ const assignment={assignmentKind:'LICENSE',assignmentTargetId:targetId,assignedMemberId:owner,memberId:owner,memberDisplayName:person?.displayName||'',assignmentOrigin:'DIRECT'};
+ const linked={assignmentKind:'FLOW',assignmentTargetId:'F'.repeat(24),assignedMemberId:'',memberId:owner,assignmentOrigin:'LINKED'};
+ const reason=id===memberId?'MEMBER_A_FAILURE':'MEMBER_B_FAILURE';
+ const categories={
+  licenses:category(owner===licenseOwner?[{id:assignment.assignmentTargetId,label:page===2?'두 번째 페이지':'라이선스 <svg onload=bad()>',status:'USED',consumed:true,issuedAt:now,...assignment}]:[],owner===licenseOwner?25:0,page),
+  launchers:category([{id:'D'.repeat(24),label:'A 발급',status:'ISSUED',issuedAt:now,...linked,assignmentKind:'LAUNCHER',assignmentTargetId:'D'.repeat(24)}]),
+  flows:category([{id:'F'.repeat(24),status:'EXPIRED',createdAt:now,lifecycle:{roles:{A:{role:'A',status:'HANDED_OFF',authorityEnded:true,processExit:'CLIENT_REPORTED',fileCleanup:'REMOVED'},B:{role:'B',status:'EXPIRED',authorityEnded:true,processExit:'NOT_REPORTED',fileCleanup:'NOT_REPORTED'}},events:[{at:now,role:'B',event:'LEASE_EXPIRED',status:'EXPIRED',source:'SERVER_CONFIRMED'},{at:now,role:'B',event:'FILE_CLEANUP',status:'FAILED',source:'CLIENT_REPORTED',pid:12345,exitCode:31028,win32Error:5,elapsedMs:732}],bResidual:{code:'B_EXIT_NOT_REPORTED',summary:'종료 관측 보고가 없습니다.'}},...linked}]),
+  devices:category([{id:'e'.repeat(64),status:'ACTIVE',blocked:true,blockSource:'SINGLE_USE',assurance:'APP_KEY_POSSESSION',firstSeenAt:now,...assignment,assignmentKind:'DEVICE',assignmentTargetId:'e'.repeat(64)}]),
+  integrity:category([{id:'report-'+id[0],at:now,stage:'B',check:'OWN_CODE',status:'REJECTED',reason,machineId:'5'.repeat(64),expectedSha512:'ab'.repeat(64),observedSha512:'cd'.repeat(64),expectedCrc64:'123456789ABCDEF0',observedCrc64:'1111111111111111',...linked}]),
+  incidents:category([{id:'incident1',at:now,kind:'INTEGRITY_REJECTION',source:'SERVER_INTEGRITY',stage:'B',status:'REJECTED',reason,flowId:'F'.repeat(24),...linked}]),
+  nhw:category(owner===otherId?[
+   {id:'nhw-fixture-a',at:now,flowId:linked.assignmentTargetId,memberId:owner,stage:'A',detectionIds:[0,1,2,3,203,500],enforcedIds:[0,1,203]},
+   {id:'nhw-fixture-b',at:now,flowId:linked.assignmentTargetId,memberId:owner,stage:'B',detectionIds:[0],enforcedIds:[0]},
+   {id:'nhw-fixture-o',at:now,flowId:linked.assignmentTargetId,memberId:owner,stage:'O',detectionIds:[1,2],enforcedIds:[]}
+  ]:[])
+ };
+ return {version:1,revision,member:person,nhwCatalog,counts:Object.fromEntries(Object.entries(categories).map(([key,value])=>[key,value.totalCount])),categories:categoryName==='all'?categories:{[categoryName]:categories[categoryName]}};
+}
+w.content=w.document.getElementById('content');w.modalEl=w.document.getElementById('modal');w.modalBody=w.document.getElementById('modal-body');w.modalConfirm=w.document.getElementById('modal-confirm');w.modalCancel=w.document.getElementById('modal-cancel');w.modalTitle=w.document.getElementById('modal-title');
+w.session={csrf:'OWNER1'};w.currentView='desktop-licenses';w.roleIsAdmin=()=>true;w.esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));w.fmtTime=value=>new Date(value).toISOString();w.toast=(message,isError)=>{if(isError)errors.push(message);};w.showDesktopFirstDeviceApproval=async()=>{};w.detailCalls=[];w.showDesktopUnifiedDetail=async(id,options)=>{w.detailCalls.push({id,options:clone(options)});};
+w.api=async(url,options={})=>{
+ const body=options.body&&clone(options.body),method=options.method||'GET';requests.push({url,method,body});const u=new URL(url,'https://fixture.invalid');
+ if(u.pathname==='/api/desktop/members/nhw-policy'){
+  if(method==='POST'){
+   if(!canManageNhwPolicy){const error=Error('NHW_POLICY_FORBIDDEN');error.status=403;throw error;}
+   if(body.expectedRevision!==nhwRevision){const error=Error('NHW_POLICY_CONFLICT');error.code='NHW_POLICY_CONFLICT';error.status=409;throw error;}
+   nhwRevision++;nhwDisabledIds=body.disabledIds;
+  }
+  return clone(nhwPolicyResponse());
+ }
+ if(method==='GET'){
+  if(u.pathname==='/api/desktop/members'){
+   const q=u.searchParams.get('q')||'',status=u.searchParams.get('status')||'ACTIVE',filtered=members.filter(row=>(status==='ALL'||row.status===status)&&(!q||row.displayName.includes(q)||row.id.includes(q)));
+   return clone({version:1,revision,items:filtered,totalCount:filtered.length,page:Number(u.searchParams.get('page')||1),pageSize:Number(u.searchParams.get('pageSize')||20),unassigned:{counts:{licenses:1,launchers:0,flows:0,devices:0,integrity:0,incidents:0}}});
+  }
+  if(u.pathname.startsWith('/api/desktop/members/record/')){
+   const id=u.pathname.split('/').at(-1);
+   return id===targetId?{match:{state:'MATCHED',memberId:otherId,memberCode:otherId,nickname:'PC-'+otherId,identitySource:'VERIFIED_PC_BINDING',assignmentKind:'LICENSE',assignmentTargetId:id}}:
+    {match:{state:'AWAITING_PC',memberId:'',assignmentKind:'FLOW',assignmentTargetId:id}};
+  }
+  if(!u.searchParams.has('scope'))assert.equal(u.pathname,'/api/desktop/members/'+memberId);else assert.equal(u.searchParams.get('scope'),'MATCH');
+  const id=u.pathname.split('/').at(-1);return clone(detail(id,u.searchParams.get('category')||'all',Number(u.searchParams.get('page')||1)));
+ }
+ if(receipts.has(body.requestId)){assert.deepEqual(receipts.get(body.requestId).body,body);return clone(receipts.get(body.requestId).response);}
+ if(body.expectedRevision!==revision){const error=Error('MEMBER_REVISION_CONFLICT');error.code='MEMBER_REVISION_CONFLICT';error.status=409;throw error;}revision++;mutationCount++;
+ if(u.pathname==='/api/desktop/members'){members.push({id:'E'.repeat(24),displayName:body.displayName,note:body.note,status:'ACTIVE',counts:{},createdAt:now,updatedAt:now});}
+ if(u.pathname==='/api/desktop/members/assignment'&&body.kind==='LICENSE'&&body.targetId===targetId)licenseOwner=body.memberId;
+ if(u.pathname.endsWith('/archive'))members.find(row=>row.id===u.pathname.split('/').at(-2)).status=body.archived?'ARCHIVED':'ACTIVE';
+ const response={revision};receipts.set(body.requestId,{body,response});
+ if(failWrite){failWrite=false;const error=Error('응답 유실');error.status=503;throw error;}
+ return clone(response);
+};
+w.eval(fs.readFileSync(path.join(root,'public/scripts/interface/spacex.admin-modal.js'),'utf8'));
+const openModal=w.openModal;
+w.openModal=options=>{
+ const promise=openModal(options);
+ const state={options,resolve(value){if(value===null){w.modalCancel.click();return;}for(const [name,fieldValue] of Object.entries(value)){const field=w.modalBody.querySelector('[data-modal-field="'+name+'"]');if(field)field.value=fieldValue;}w.modalConfirm.click();}};
+ dialog=state;
+ promise.finally(()=>{if(dialog===state)dialog=null;});
+ return promise;
+};
+for(const file of ['spacex.admin-desktop-licenses.js','spacex.admin-desktop-members.js'])w.eval(fs.readFileSync(path.join(root,'public/scripts/desktop',file),'utf8'));
+assert.equal(w.eval("desktopLicenseTab"),'members');w.eval("desktopMemberResetOwner(session.csrf);");
+w.renderCurrent=async()=>{
+ w.eval('desktopMemberResetOwner(session.csrf);desktopMemberRequestPanels(session.csrf);');
+ const next=w.document.createElement('template');next.innerHTML=w.desktopMembersMarkup();
+ const previous=w.content.firstElementChild;if(previous)w.desktopPatchNode(previous,next.content.firstElementChild,true);else w.content.append(next.content.firstElementChild);
+ w.eval('desktopMemberRenderedQuery=desktopMemberQuery;desktopMemberRenderedStatus=desktopMemberStatus;');
+};
+w.content.addEventListener('click',event=>{w.handleDesktopLicenseAction(event).catch(error=>errors.push(error.message));});
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function until(test,label){for(let i=0;i<150;i++){if(test())return;await delay(15);}throw Error('Timed out: '+label);}
+const query=selector=>w.document.querySelector(selector),click=selector=>{const node=query(selector);assert.ok(node,selector);node.click();};
+// Native buttons emit a zero-detail click for keyboard activation; jsdom does
+// not synthesize that browser default from an Enter/Space key event itself.
+function keyboardActivate(selector){const node=query(selector);assert.ok(node,selector);assert.equal(node.tagName,'BUTTON');node.focus();node.dispatchEvent(new w.MouseEvent('click',{bubbles:true,detail:0}));}
+async function idle(){await until(()=>w.eval('!desktopLicenseActionPending'),'action idle');}
+(async()=>{try{
+ await w.renderCurrent();await until(()=>query('[data-member-record="'+memberId+'"]'),'member table');
+ assert.ok(query('.desktop-match-list'));assert.equal(query('details[data-desktop-member-id]'),null);
+ assert.doesNotMatch(w.content.textContent,/미배정/);assert.match(w.content.textContent,new RegExp('PC-'+otherId));assert.match(w.content.textContent,/<img src=x onerror=bad\(\)>/);assert.equal(query('#content img,#content script,#content svg'),null);
+ assert.equal(requests.some(row=>new URL(row.url,'https://fixture.invalid').pathname==='/api/desktop/members/'+memberId),false,'member details are fetched only after explicit selection');
+ assert.equal(query('[data-member-captures],[data-capture-action]'),null);assert.doesNotMatch(w.content.textContent,/지원 화면|사용자 동의 자료|최초 기기 승인 1회 사용/);
+ const viewSettings=w.desktopIntegrityMarkup({items:[{id:'FOREIGN',stage:'B',check:'OWN_CODE',reason:'GLOBAL_PRIVATE_RECORD'}]},{items:[]},null);assert.ok(!viewSettings.includes('GLOBAL_PRIVATE_RECORD'));assert.ok(!viewSettings.includes('desktop-integrity-record'));
+ click('[data-member-action="create"]');await until(()=>dialog?.options.title==='운영 연락처 등록','member registration');dialog.resolve(null);await idle();assert.equal(requests.some(row=>row.url.includes('/captures')),false);
+ const filter=query('#desktop-member-filter');filter.value='ALL';filter.dispatchEvent(new w.Event('change',{bubbles:true}));await delay(130);assert.equal(w.eval('desktopMemberStatus'),'ALL');
+ const search=query('#desktop-member-search');search.value='아직 보내지 않은 검색';search.focus();await w.renderCurrent();assert.equal(query('#desktop-member-search'),search);assert.equal(search.value,'아직 보내지 않은 검색');assert.equal(w.document.activeElement,search);
+ w.content.scrollTop=700;keyboardActivate('[data-member-action="open-detail"][data-member-id="'+memberId+'"]');await idle();await until(()=>query('#desktop-member-workspace')?.textContent.includes('라이선스 <svg'),'member workspace');
+ assert.equal(w.content.scrollTop,700);assert.ok(query('#desktop-match-dialog #desktop-member-workspace-title'));assert.equal(query('#modal [role="dialog"]').getAttribute('role'),'dialog');
+ await until(()=>w.document.activeElement===w.modalConfirm,'matching modal keyboard focus');
+ click('[data-member-action="license-detail"]');await idle();assert.deepEqual(w.detailCalls.at(-1),{id:targetId,options:{memberId}});
+ assert.ok(query('#desktop-members-panel'));assert.equal(query('.desktop-member-category'),null);assert.equal(query('[data-member-action="category"]').tagName,'BUTTON');assert.equal(query('[data-member-action="category"][aria-current="page"]').dataset.memberCategory,'licenses');
+ const choose=async name=>{click('[data-member-action="category"][data-member-category="'+name+'"]');await idle();};
+ await choose('integrity');assert.match(w.modalBody.textContent,/MEMBER_A_FAILURE/);assert.doesNotMatch(w.modalBody.textContent,/MEMBER_B_FAILURE/);assert.match(w.modalBody.textContent,/CRC64/);assert.match(w.modalBody.textContent,/123456789ABCDEF0/);assert.match(w.modalBody.textContent,/하드웨어 인증이 아닙니다/);
+ await choose('flows');assert.match(w.modalBody.textContent,/B_EXIT_NOT_REPORTED/);assert.match(w.modalBody.textContent,/FILE_CLEANUP · 정리 실패 보고 · PID 12345 · 종료 코드 31028 · Windows 오류 5 · 경과 732 ms/);
+ assert.equal(w.desktopMemberLifecycleNumbers({}),'');for(const value of [null,undefined,'5','<img src=x onerror=bad()>',NaN,Infinity,-1,0.5,0x100000000])assert.equal(w.desktopMemberLifecycleNumbers({pid:value,exitCode:value,win32Error:value,elapsedMs:value}),'');
+ assert.match(w.desktopMemberLifecycleMarkup({roles:{},events:[{at:now,role:'A',event:'STARTUP_FAILURE',status:'FAILED',source:'CLIENT_REPORTED',exitCode:31107,childExitCode:31006,startupStage:{label:'자식 초기 응답 대기 <img src=x>'},childStartupStage:{label:'자식 역할 API 준비'}}]}),/시작 실패/);assert.equal(w.desktopMemberLifecycleNumbers({event:'STARTUP_FAILURE',exitCode:31107,childExitCode:0,startupStage:{label:'<img src=x>'}}),' · 단계 &lt;img src=x&gt; · 시작 단계 코드 31107 · 자식 실제 종료 코드 0');
+ assert.equal(w.desktopMemberLifecycleNumbers({elapsedMs:600001}),'');assert.equal(w.desktopMemberLifecycleNumbers({pid:0xffffffff,exitCode:0xffffffff,win32Error:0xffffffff,elapsedMs:600000}),' · PID 4294967295 · 종료 코드 4294967295 · Windows 오류 4294967295 · 경과 600000 ms');assert.equal(w.desktopMemberLifecycleNumbers({exitCode:0}),' · 종료 코드 0');
+ assert.doesNotMatch(w.desktopMemberLifecycleMarkup({roles:{},events:[{at:now,role:'B',event:'FILE_CLEANUP',status:'FAILED',source:'CLIENT_REPORTED'}]}),/Windows 오류|종료 코드|PID |경과 /);
+ await choose('licenses');click('[data-member-action="detail-page"][data-member-page="2"]');await idle();await until(()=>w.modalBody.textContent.includes('두 번째 페이지'),'category pagination');assert.ok(requests.some(row=>row.url.includes('category=licenses&page=2')));
+ const workspace=query('#desktop-member-workspace'),scroller=query('.desktop-member-workspace-content .table-wrap'),nav=query('[data-member-action="category"][data-member-category="licenses"]');
+ for(let round=0;round<2;round++){
+  const api=w.api,pending=[];w.api=(url,options)=>url.startsWith('/api/desktop/members')&&!options?.method?new Promise((resolve,reject)=>pending.push(()=>api(url,options).then(resolve,reject))):api(url,options);
+  w.eval('desktopMemberLoadMatching(desktopMemberMatch,true)');assert.ok(pending.length);nav.focus();w.content.scrollTop=331;scroller.scrollLeft=77;for(const finish of pending)finish();w.api=api;
+  await until(()=>w.eval('[...desktopPanels.values()].every(e=>!e.pending)'),'refresh settlement');await delay(130);assert.equal(query('#desktop-member-workspace'),workspace);assert.equal(query('.desktop-member-workspace-content .table-wrap'),scroller);assert.equal(w.document.activeElement,nav);assert.equal(w.content.scrollTop,331);assert.equal(scroller.scrollLeft,77);
+ }
+ // Reject mismatched top-level identity and per-record identity even when a PC
+ // fingerprint is the same; no global report list is used as a fallback.
+ await choose('integrity');const detailKey='member:'+memberId+':all:1',base=w.eval('desktopPanels.get('+JSON.stringify(detailKey)+').data'),saved=clone(base);
+ base.categories.integrity.items.push({...base.categories.integrity.items[0],id:'cross-member',memberId:otherId,reason:'FOREIGN_MEMBER_RECORD'});w.eval('desktopMemberPaintMatching()');assert.match(w.modalBody.textContent,/기록의 연결 범위를 확인하지 못했습니다/);assert.doesNotMatch(w.modalBody.textContent,/FOREIGN_MEMBER_RECORD|MEMBER_A_FAILURE/);
+ w.eval('desktopPanels.get('+JSON.stringify(detailKey)+').data='+JSON.stringify(saved));w.eval('desktopPanels.get('+JSON.stringify(detailKey)+').data.member='+JSON.stringify(members[1]));w.eval('desktopMemberPaintMatching()');assert.match(w.modalBody.textContent,/상세 응답을 확인하지 못했습니다/);assert.doesNotMatch(w.modalBody.textContent,/두 번째 회원|MEMBER_B_FAILURE/);
+ w.eval('desktopPanels.get('+JSON.stringify(detailKey)+').data='+JSON.stringify(saved));w.eval('desktopMemberPaintMatching()');await choose('licenses');
+ click('[data-member-action="assign"]');await until(()=>dialog?.options.title==='운영 연락처 연결','assignment');assert.equal(query('[data-modal-field="memberId"]').value,memberId);dialog.resolve({memberId:otherId});await idle();
+ const assignment=requests.find(row=>row.url==='/api/desktop/members/assignment');assert.equal(assignment.body.memberId,otherId);assert.equal(assignment.body.expectedMemberId,memberId);assert.equal(assignment.body.kind,'LICENSE');assert.equal(assignment.body.targetId,targetId);assert.match(assignment.body.requestId,/^[a-z0-9-]{16,80}$/i);
+ await until(()=>query('#desktop-member-workspace')&&!query('.desktop-member-workspace-content [data-member-action="assign"]'),'old attribution removed');
+ w.modalEl.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await idle();assert.equal(query('#desktop-member-search').value,'아직 보내지 않은 검색');assert.equal(query('#desktop-member-filter').value,'ALL');assert.equal(w.content.scrollTop,331);assert.equal(w.document.activeElement,query('[data-member-action="open-detail"][data-member-id="'+memberId+'"]'));
+ // A delayed response from the previously selected member must not populate
+ // the next member's workspace. Both fixtures deliberately use the same PC.
+ const api=w.api,pendingA=[];w.eval('desktopMemberInvalidate(true)');w.api=(url,options)=>!options?.method&&new URL(url,'https://fixture.invalid').pathname==='/api/desktop/members/'+memberId?new Promise((resolve,reject)=>pendingA.push(()=>api(url,options).then(resolve,reject))):api(url,options);
+ click('[data-member-action="open-detail"][data-member-id="'+memberId+'"]');await idle();await until(()=>pendingA.length,'held old member');
+ w.modalCancel.click();await until(()=>!query('#desktop-member-workspace'),'old dialog closed');
+ click('[data-member-action="open-detail"][data-member-id="'+otherId+'"]');await idle();
+ await until(()=>query('#desktop-member-workspace')?.textContent.includes('PC-'+otherId),'other member selected');
+ await choose('integrity');await until(()=>w.modalBody.textContent.includes('MEMBER_B_FAILURE'),'other member records');
+ for(const finish of pendingA)finish();w.api=api;await delay(130);
+ assert.match(w.modalBody.textContent,/MEMBER_B_FAILURE/);assert.doesNotMatch(w.modalBody.textContent,/MEMBER_A_FAILURE/);
+ assert.equal(query('#desktop-member-workspace').dataset.memberWorkspaceId,otherId);
+ assert.equal(query('[data-member-action="edit"]'),null);assert.equal(query('[data-member-action="archive"]'),null);
+ click('[data-member-action="edit-contact"]');await until(()=>dialog?.options.title==='운영 연락처 수정','linked operator contact edit');
+ assert.equal(query('[data-modal-field="displayName"]').value,members[0].displayName);dialog.resolve(null);await idle();
+ await until(()=>query('#desktop-member-workspace')?.dataset.memberWorkspaceId===otherId,'return to verified PC match');
+ await choose('nhw');
+ const nhwMessages=()=>[...w.document.querySelectorAll('.desktop-member-nhw-feed>li')].map(node=>[node.querySelector('span').textContent,node.querySelector('small').textContent,node.className]);
+ const nhwOptions=()=>[...w.document.querySelectorAll('input[data-nhw-detection-id]')];
+ const savePolicy='[data-member-action="nhw-policy-save"]',resetPolicy='[data-member-action="nhw-policy-reset"]';
+ const policyWrites=()=>requests.filter(request=>request.method==='POST'&&request.url==='/api/desktop/members/nhw-policy');
+ const isObservationOnly=input=>observationIds.includes(Number(input.dataset.nhwDetectionId));
+ await until(()=>nhwOptions().length===204&&nhwOptions().every(input=>input.checked!==isObservationOnly(input)&&input.disabled===isObservationOnly(input)),'default termination policy');
+ assert.equal(nhwOptions().length,204);
+ assert.match(query('[data-desktop-key="nhw-option-1"] .desktop-member-nhw-text').textContent,/관측 전용/);
+ assert.match(query('[data-desktop-key="nhw-option-6"] .desktop-member-nhw-text').textContent,/교차 확인 후 종료/);
+ for(const input of nhwOptions()){
+  assert.equal(input.tabIndex,0);
+  assert.ok(input.parentElement.matches('.desktop-member-nhw-check'));
+  assert.ok(input.labels[0].querySelector('.desktop-member-nhw-text').textContent.trim());
+ }
+ assert.ok(query(savePolicy).disabled);
+ const history=[['Process Detect / A','종료 확정','nhw-ended'],['Waring Detect / A','종료 확정','nhw-ended'],['Waring Detect / A','관측','nhw-observed'],['Silent Kind Detect / A','관측','nhw-observed'],['Session Trust Detect / A','종료 확정','nhw-ended'],['Process Detect / B','종료 확정','nhw-ended'],['Waring Detect / O','관측','nhw-observed']];
+ assert.deepEqual(nhwMessages(),history);
+ const toggleNhW=id=>click('input[data-nhw-detection-id="'+id+'"]');
+ const controlsStyle=w.document.createElement('style');
+ controlsStyle.textContent=['admin-controls.css','admin-members.css'].map(file=>fs.readFileSync(path.join(root,'public/styles',file),'utf8')).join('\n');
+ w.document.head.append(controlsStyle);
+ const corroboratedNhw=query('input[data-nhw-detection-id="6"]');
+ const style=w.getComputedStyle(corroboratedNhw);
+ assert.equal(w.getComputedStyle(corroboratedNhw.labels[0]).display,'grid');
+ assert.equal(style.width,'17px');assert.equal(style.height,'17px');assert.notEqual(style.position,'absolute');
+ click('.desktop-member-nhw-option[data-desktop-key="nhw-option-1"] .desktop-member-nhw-text');
+ assert.equal(query('input[data-nhw-detection-id="1"]').checked,false);
+ assert.ok(query(savePolicy).disabled);
+ corroboratedNhw.focus();
+ click('.desktop-member-nhw-option[data-desktop-key="nhw-option-6"] .desktop-member-nhw-text');
+ await until(()=>!corroboratedNhw.checked,'checkbox label click');
+ assert.equal(query('input[data-nhw-detection-id="6"]'),corroboratedNhw);
+ assert.equal(w.document.activeElement,corroboratedNhw);
+ toggleNhW(0);await until(()=>!query(savePolicy).disabled,'unsaved policy selection');
+ assert.deepEqual(nhwMessages(),history);assert.deepEqual(policyWrites(),[]);
+ click(savePolicy);await idle();assert.deepEqual(policyWrites().at(-1).body,{expectedRevision:0,disabledIds:[0,1,2,4,5,6,7]});
+ assert.deepEqual(nhwMessages(),history);assert.equal(query(savePolicy).disabled,true);
+ assert.ok(nhwOptions().every(input=>input.checked===![0,1,2,4,5,6,7].includes(Number(input.dataset.nhwDetectionId))));
+ const nhwQuery=query('#desktop-member-nhw-filter');nhwQuery.value='ObservationUncertain';nhwQuery.dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.equal(w.document.querySelectorAll('.desktop-member-nhw-option:not([hidden])').length,1);
+ assert.equal(query('.desktop-member-nhw-option:not([hidden]) input').dataset.nhwDetectionId,'2');
+ click('[data-member-action="nhw-policy-none"]');await idle();assert.deepEqual(nhwMessages(),history);assert.ok(nhwOptions().every(input=>!input.checked));
+ click('[data-member-action="nhw-policy-all"]');await idle();assert.deepEqual(nhwMessages(),history);assert.ok(nhwOptions().every(input=>input.checked!==isObservationOnly(input)));
+ nhwRevision++;nhwDisabledIds=[1,2,3,4,5,7];click(savePolicy);await idle();
+ await until(()=>w.modalBody.textContent.includes('다른 관리자가 종료 정책을 변경했습니다.')&&!query('input[data-nhw-detection-id="3"]').checked,'server policy conflict refresh');
+ assert.deepEqual(policyWrites().at(-1).body,{expectedRevision:1,disabledIds:observationIds});assert.deepEqual(nhwMessages(),history);
+ canManageNhwPolicy=false;click(resetPolicy);await idle();
+ await until(()=>nhwOptions().every(input=>input.disabled)&&w.modalBody.textContent.includes('종료 정책 조회 권한만 있습니다.'),'read-only policy');
+ assert.equal(nhwOptions().length,204);assert.equal(query(savePolicy).disabled,true);
+ canManageNhwPolicy=true;click(resetPolicy);await idle();await until(()=>nhwOptions().every(input=>input.disabled===isObservationOnly(input)),'admin policy restored');
+ const otherKey='member:'+otherId+':all:1',currentNhw=w.eval('desktopPanels.get('+JSON.stringify(otherKey)+').data.categories.nhw');
+ currentNhw.items.push({...currentNhw.items[0],id:'foreign-nhw',memberId:memberId});
+ w.eval('desktopMemberPaintMatching()');assert.deepEqual(nhwMessages(),[]);
+ assert.match(query('.desktop-member-workspace-content').textContent,/기록의 연결 범위를 확인하지 못했습니다/);
+ currentNhw.items.pop();w.eval('desktopMemberPaintMatching()');
+ w.modalCancel.click();await idle();await until(()=>query('[data-member-action="create"]')?.disabled===false,'member list available');
+ failWrite=true;click('[data-member-action="create"]');await until(()=>dialog?.options.title==='운영 연락처 등록','create');dialog.resolve({displayName:'새 회원',note:'운영 메모'});await idle();assert.ok(errors.includes('응답 유실'));errors.splice(errors.indexOf('응답 유실'),1);await w.renderCurrent();await until(()=>query('[data-member-action="retry"]'),'pending receipt');
+ const first=requests.filter(row=>row.method==='POST'&&row.url==='/api/desktop/members').at(-1),count=mutationCount;click('[data-member-action="retry"]');await until(()=>dialog?.options.title==='이전 회원 관리 결과 확인','retry confirmation');dialog.resolve({});await idle();const retried=requests.filter(row=>row.method==='POST'&&row.url==='/api/desktop/members').at(-1);assert.deepEqual(retried.body,first.body);assert.equal(mutationCount,count);assert.equal(w.eval('desktopMemberPending'),null);
+ await until(()=>query('[data-member-action="create"]')?.disabled===false,'members current');click('[data-member-action="open-detail"][data-member-id="'+memberId+'"]');await idle();await until(()=>query('[data-member-action="edit"]'),'edit available');click('[data-member-action="edit"]');await until(()=>dialog?.options.title==='운영 연락처 수정','edit revision');const originalRevision=revision,beforeConflict=mutationCount;revision++;w.eval('desktopPanels.get("members").data.revision='+revision);dialog.resolve({displayName:'오래된 양식 변경',note:''});await idle();const conflict=requests.filter(row=>row.method==='POST'&&row.url==='/api/desktop/members/'+memberId).at(-1);assert.equal(conflict.body.expectedRevision,originalRevision);assert.equal(mutationCount,beforeConflict);assert.equal(w.eval('desktopMemberPending'),null);const conflictError=errors.findIndex(text=>text.includes('다른 관리 작업으로 회원 정보가 변경'));assert.ok(conflictError>=0);errors.splice(conflictError,1);await w.renderCurrent();await delay(130);
+ click('[data-member-action="archive"]');await until(()=>dialog?.options.title==='회원 보관','archive');dialog.resolve({});await idle();assert.equal(members[0].status,'ARCHIVED');await until(()=>query('[data-member-action="archive"]')?.textContent==='보관 해제','archive state');click('[data-member-action="archive"]');await until(()=>dialog?.options.title==='회원 보관 해제','unarchive');dialog.resolve({});await idle();assert.equal(members[0].status,'ACTIVE');
+ await until(()=>query('[data-member-action="edit"]'),'unarchive refresh');click('[data-member-action="edit"]');await until(()=>dialog,'owner replacement');const before=requests.filter(row=>row.method==='POST').length;w.session={csrf:'OWNER2'};dialog.resolve({displayName:'보내지 않을 회원',note:''});await idle();assert.equal(requests.filter(row=>row.method==='POST').length,before);await w.renderCurrent();assert.equal(w.eval('desktopMemberPending'),null);assert.equal(w.eval('desktopMemberQuery'),'');assert.equal(w.eval('desktopMemberSelectedId'),'');assert.equal(query('#desktop-member-workspace'),null);
+ const pendingLookup=w.showDesktopRecordMatching('FLOW','F'.repeat(24));
+ await until(()=>query('#desktop-record-match-dialog'),'record-only PC waiting result');
+ assert.match(query('#desktop-record-match-dialog').textContent,/PC 인증 대기/);
+ assert.equal(query('#desktop-record-match-dialog .desktop-member-name .code'),null);
+ w.modalConfirm.click();await pendingLookup;
+ const matchedLookup=w.showDesktopRecordMatching('LICENSE',targetId);
+ await until(()=>query('#desktop-record-match-dialog strong')?.textContent==='PC-'+otherId,'record-only matched result');
+ assert.match(query('#desktop-record-match-dialog').textContent,new RegExp('PC-'+otherId));
+ w.modalCancel.click();await matchedLookup;
+ assert.equal(requests.some(entry=>new URL(entry.url,'https://fixture.invalid').pathname.endsWith('/unassigned')),false);
+ assert.ok(requests.some(entry=>entry.url.includes('/api/desktop/members?scope=MATCH')));
+ assert.equal(errors.length,0,errors.join('\n'));console.log('MEMBER UI PASS: scoped records, NHW checkbox layout/accessibility, policy modes, draft/save and conflicts, exact labels with stage and historical outcome, delayed-response isolation, category paging, keyboard focus and scroll preservation, safe diagnostics, explicit assignment, CRUD/archive, exact retry and stale revision.');
+ }finally{w.close();}})().catch(error=>{console.error(error.stack);process.exitCode=1;});

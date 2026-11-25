@@ -6,7 +6,7 @@ param(
 # Compiled TEST probes only. No product A/B/O build, GPU acceptance or production signing.
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
 $private=$null;$output=$null;$logs=$null;$exit=1;$active=$null;$createdResult=$false
-$names=@('snapshot','compile-probes','sdk-probe','abi-compare','Cozy.ApiPointerCodecProbe','Cozy.ApiResolverProbe','Cozy.StartupProbe','Cozy.DeviceSecurityHandoffProbe','Cozy.HandoffCryptoProbe','Cozy.HandoffPipeProbe','Cozy.HandoffProcessProbe','Cozy.LifetimeProbe','Cozy.ProtocolSchemaProbe','Cozy.LicenseStateProbe','Cozy.TlsContractProbe')
+$names=@('snapshot','compile-probes','sdk-probe','abi-compare','SpaceX.ApiPointerCodecProbe','SpaceX.ApiResolverProbe','SpaceX.StartupProbe','SpaceX.DeviceSecurityHandoffProbe','SpaceX.HandoffCryptoProbe','SpaceX.HandoffPipeProbe','SpaceX.HandoffProcessProbe','SpaceX.LifetimeProbe','SpaceX.ProtocolSchemaProbe','SpaceX.LicenseStateProbe','SpaceX.TlsContractProbe')
 $result=[ordered]@{version=1;scope='NATIVE_TEST_CONTRACTS_1_TO_5';windowsExecuted=$false;outcome='NOT_RUN';productBuild='NOT_RUN';productIntegration='NOT_RUN';stages=[ordered]@{}}
 foreach($name in $names){$result.stages[$name]=[ordered]@{outcome='NOT_RUN';exitCode=$null;elapsedMs=0}}
 function Save-ContractResults {
@@ -56,14 +56,14 @@ try{
  $private=Join-Path ([IO.Path]::GetTempPath()) ('GameNativeContracts1To5-'+[Guid]::NewGuid().ToString('N'));New-TestPrivateDirectory $private
  if($private -match '[%&|<>^!"\r\n]'){throw 'NATIVE_CONTRACT_PATH_INVALID'}
  $work=Join-Path $private 'source'
- Invoke-ContractCommand 'snapshot' $node @((Join-Path $source 'Relay Server\tools\build\peace.source-snapshot.js'),'snapshot',$source,$work) $source 120
- $native=Join-Path $work 'Railway'
+ Invoke-ContractCommand 'snapshot' $node @((Join-Path $source 'Server\tools\build\spacex.source-snapshot.js'),'snapshot',$source,$work) $source 120
+ $native=Join-Path $work 'Desktop'
  # Existing per-probe DCU isolation is kept. The build-only step compiles the
  # full existing probe set, but only the named 1-5 probes below are executed.
- Invoke-ContractCommand 'compile-probes' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Build_NativeProbes_Win64.bat')+'" /build-only')) $native 900
- Invoke-ContractCommand 'sdk-probe' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Build_NativeAbi_SDK_Win64.bat')+'"')) $native 180
- $built=Join-Path $native 'Cozy.Tests\Cozy.Build\Cozy.Outputs\native-probes'
- Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.compare-native-abi.js'),(Join-Path $built 'Cozy.NativeAbiProbe.exe'),(Join-Path $native 'Cozy.Tests\Cozy.Platform\Cozy.Outputs\native-sdk\Cozy.NativeAbiSdkProbe.exe')) $native 60
+ Invoke-ContractCommand 'compile-probes' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'SpaceX.Tests\SpaceX.Build\SpaceX.Build_NativeProbes_Win64.bat')+'" /build-only')) $native 900
+ Invoke-ContractCommand 'sdk-probe' $env:ComSpec @('/d','/c',('call "'+(Join-Path $native 'SpaceX.Tests\SpaceX.Platform\SpaceX.Build_NativeAbi_SDK_Win64.bat')+'"')) $native 180
+ $built=Join-Path $native 'SpaceX.Tests\SpaceX.Build\SpaceX.Outputs\native-probes'
+ Invoke-ContractCommand 'abi-compare' $node @((Join-Path $native 'SpaceX.Tests\SpaceX.Platform\SpaceX.compare-native-abi.js'),(Join-Path $built 'SpaceX.NativeAbiProbe.exe'),(Join-Path $native 'SpaceX.Tests\SpaceX.Platform\SpaceX.Outputs\native-sdk\SpaceX.NativeAbiSdkProbe.exe')) $native 60
  foreach($name in $names[4..($names.Count-1)]){Invoke-ContractCommand $name (Join-Path $built ($name+'.exe')) @() $native 120}
  if(@($result.stages.Values | Where-Object {$_.outcome -ne 'PASS'}).Count -ne 0){throw 'NATIVE_CONTRACT_RESULTS_INCOMPLETE'}
  $result.outcome='PASS';$exit=0

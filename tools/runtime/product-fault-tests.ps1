@@ -11,13 +11,13 @@ function Run-Case($Case,[string]$CaseRoot,[string]$Node,[string]$WorkRoot,[strin
  $result=@{scenario=$Case.id;runId=$RunId;nativeExecuted=$false;ownedProcessesVerified=$true;noOwnedProcessesRemain=$false;serverStopped=$false;privateFilesRemoved=$false;overlayObserved=$false;ownedChildTerminated=$false;parentExitObserved=$false;verifiedPids=@();nativeEvents=@()}
  try{
   # Compile the observer before the product reaches its bounded cleanup pause.
-  if($Case.id -in @('lifecycle-cleanup-refused','lifecycle-cleanup-scheduled') -and -not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $WorkRoot 'Relay Server\tools\fixtures\LifecycleFileObserver.cs')}
+  if($Case.id -in @('lifecycle-cleanup-refused','lifecycle-cleanup-scheduled') -and -not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $WorkRoot 'Server\tools\fixtures\LifecycleFileObserver.cs')}
   New-TestPrivateDirectory $CaseRoot
   [IO.File]::WriteAllText((Join-Path $CaseRoot 'product-fault-marker'),'GAME_PRODUCT_FAULT_V1')
   Write-TestJson (Join-Path $CaseRoot 'product-fault-control.json') @{version=1;runId=$RunId;scenario=$Case.id}
   $environment=Get-TestEnvironment $CaseRoot
   if($Case.testBuild){$environment['GAME_PRODUCT_FAULT_ROOT']=$CaseRoot}
-  $server=[GameWindowsTests.WindowsJob]::Start($Node,@((Join-Path $WorkRoot 'Relay Server\tools\fixtures\peace.product-fault-fixture.js'),$CaseRoot,$Case.artifacts,$Version,$Case.id,$RunId),(Join-Path $WorkRoot 'Relay Server'),$environment,(Join-Path $CaseRoot 'server.log'))
+  $server=[GameWindowsTests.WindowsJob]::Start($Node,@((Join-Path $WorkRoot 'Server\tools\fixtures\spacex.product-fault-fixture.js'),$CaseRoot,$Case.artifacts,$Version,$Case.id,$RunId),(Join-Path $WorkRoot 'Server'),$environment,(Join-Path $CaseRoot 'server.log'))
   $clock=[Diagnostics.Stopwatch]::StartNew()
   while($true){
    if($server.HasExited){throw 'PRODUCT_FAULT_SERVER_EARLY_EXIT'}
@@ -47,7 +47,7 @@ function Run-Case($Case,[string]$CaseRoot,[string]$Node,[string]$WorkRoot,[strin
    if($oId -ne 0){$result.overlayPid=[int]$oId}
    if($bId -ne 0){$result.parentPids=@{A=[int]$apps.RootId;B=[int]$bId}}
    if($Case.id -eq 'overlay-lease-expiry' -and $oId -ne 0 -and $null -eq $leaseObserver -and $processes.ContainsKey([string]$oId)){
-    if(-not ('GameWindowsTests.OverlayLeaseObserver' -as [type])){Add-Type -Path (Join-Path $WorkRoot 'Relay Server\tools\fixtures\OverlayLeaseObserver.cs')}
+    if(-not ('GameWindowsTests.OverlayLeaseObserver' -as [type])){Add-Type -Path (Join-Path $WorkRoot 'Server\tools\fixtures\OverlayLeaseObserver.cs')}
     $leaseObserver=[GameWindowsTests.OverlayLeaseObserver]::new($oId,$processes[[string]$oId].Handle);$result.overlayPid=[int]$oId
    }
    if($oId -ne 0 -and [GameWindowsTests.DesktopControl]::Window($oId,$false)){$result.overlayObserved=$true}
@@ -75,7 +75,7 @@ function Run-Case($Case,[string]$CaseRoot,[string]$Node,[string]$WorkRoot,[strin
     }
     if($event.event -eq 'lifecycle-cleanup-ready'){
      if($Case.id -notin @('lifecycle-cleanup-refused','lifecycle-cleanup-scheduled') -or $event.stage -ne 'lifecycle-parent-cleanup' -or $event.pid -ne $oId -or $event.childPid -ne $bId -or $null -ne $fileObserver -or -not $processes.ContainsKey([string]$bId) -or -not $processes[[string]$bId].HasExited){throw 'LIFECYCLE_PARENT_PAUSE_BINDING_INVALID'}
-     if(-not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $WorkRoot 'Relay Server\tools\fixtures\LifecycleFileObserver.cs')}
+     if(-not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $WorkRoot 'Server\tools\fixtures\LifecycleFileObserver.cs')}
      $mode=if($Case.id -eq 'lifecycle-cleanup-refused'){'REFUSED'}else{'SCHEDULED'}
      $fileObserver=[GameWindowsTests.LifecycleFileObserver]::new([string]$verified[[string]$bId],[string]$result.expectedBHash,$mode,(Join-Path $CaseRoot 'execution'))
      [IO.File]::WriteAllText((Join-Path $CaseRoot ('release-'+[string]$event.pid)),'continue')
@@ -166,7 +166,7 @@ function Run-Case($Case,[string]$CaseRoot,[string]$Node,[string]$WorkRoot,[strin
   $alive=$false;foreach($process in $processes.Values){try{if(-not $process.HasExited){$alive=$true}}catch{$alive=$true}finally{$process.Dispose()}}
   $result.noOwnedProcessesRemain=(-not $alive -and $jobsCleaned)
   $result.productFilesRemainingBeforeCleanup=@(Get-ChildItem -LiteralPath (Join-Path $CaseRoot 'execution') -Filter '*.exe' -File -ErrorAction SilentlyContinue).Count
-  if(Test-Path -LiteralPath (Join-Path $CaseRoot 'product-fault-marker')){try{& $Node (Join-Path $WorkRoot 'Relay Server\tools\runtime\peace.test-evidence-cleanup.js') cleanup $CaseRoot;if($LASTEXITCODE -ne 0){throw 'PRODUCT_FAULT_PRIVATE_CLEANUP_FAILED'};$result.privateFilesRemoved=-not(Test-Path -LiteralPath $CaseRoot)}catch{$result.error='PRODUCT_FAULT_PRIVATE_CLEANUP_FAILED'}}
+  if(Test-Path -LiteralPath (Join-Path $CaseRoot 'product-fault-marker')){try{& $Node (Join-Path $WorkRoot 'Server\tools\runtime\spacex.test-evidence-cleanup.js') cleanup $CaseRoot;if($LASTEXITCODE -ne 0){throw 'PRODUCT_FAULT_PRIVATE_CLEANUP_FAILED'};$result.privateFilesRemoved=-not(Test-Path -LiteralPath $CaseRoot)}catch{$result.error='PRODUCT_FAULT_PRIVATE_CLEANUP_FAILED'}}
  }
  return $result
 }
@@ -176,20 +176,20 @@ try{
  . (Join-Path $PSScriptRoot '..\..\tools\windows\WindowsCommon.ps1')
  $node=[string](Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..'))
- $cleanupTool=Join-Path $PSScriptRoot 'peace.test-evidence-cleanup.js'
+ $cleanupTool=Join-Path $PSScriptRoot 'spacex.test-evidence-cleanup.js'
  if(-not $InputFile){$InputFile=(Read-Host 'Absolute product fault inputs JSON path').Trim().Trim('"')}
  $InputFile=[IO.Path]::GetFullPath($InputFile)
  $id='product-fault-'+(Get-Date -Format 'yyyyMMdd-HHmmss')+'-'+[Guid]::NewGuid().ToString('N').Substring(0,8)
  $run=Join-Path ([IO.Path]::GetTempPath()) ('GameProductFaultResults-'+[Guid]::NewGuid().ToString('N'));$private=Join-Path ([IO.Path]::GetTempPath()) ('GameProductFault-'+[Guid]::NewGuid().ToString('N'));$report=if($ResultFile){[IO.Path]::GetFullPath($ResultFile)}else{Join-Path $PSScriptRoot ($id+'-results.json')}
  if(Test-Path -LiteralPath $report){throw 'PRODUCT_FAULT_RESULT_MUST_BE_NEW'}
  New-TestPrivateDirectory $run;New-TestPrivateDirectory $private
- if(-not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $root 'Relay Server\tools\fixtures\LifecycleFileObserver.cs')}
+ if(-not ('GameWindowsTests.LifecycleFileObserver' -as [type])){Add-Type -Path (Join-Path $root 'Server\tools\fixtures\LifecycleFileObserver.cs')}
  # TEMP may contain ADMINI~1. Canonicalize validated directories before the
  # server and exact process-image comparisons see them, without relaxing pins.
  $run=[GameWindowsTests.LifecycleFileObserver]::CanonicalDirectory($run)
  $private=[GameWindowsTests.LifecycleFileObserver]::CanonicalDirectory($private)
  Write-Host 'Execution only. Final release and dedicated fault test builds have separate scopes. No build evidence is created.'
- Run-Tool $node @((Join-Path $PSScriptRoot 'peace.product-fault-tests.js'),'prepare',$InputFile,$run,$private) $private (Join-Path $run 'prepare.log')
+ Run-Tool $node @((Join-Path $PSScriptRoot 'spacex.product-fault-tests.js'),'prepare',$InputFile,$run,$private) $private (Join-Path $run 'prepare.log')
  if($GeneratedInputRoot){
   $null=Assert-TestOwnedPath $InputFile $GeneratedInputRoot
   & $node $cleanupTool cleanup $GeneratedInputRoot
@@ -204,11 +204,11 @@ try{
  }
  if($plan.ContainsKey('nativeReceiveProbe')){
   $tlsResult=Join-Path $run 'native-receive.json'
-  try{Run-Tool $node @((Join-Path $PSScriptRoot '..\integrity\peace.native-receive-fault-tests.js'),'--probe',$plan.nativeReceiveProbe,'--output',$tlsResult) $private (Join-Path $run 'native-receive.log') 180;$execution.nativeReceive=Read-TestJson $tlsResult}catch{if(Test-Path -LiteralPath $tlsResult){$execution.nativeReceive=Read-TestJson $tlsResult}else{$execution.nativeReceive=@{outcome='FAIL';reason='PRODUCT_FAULT_NATIVE_RECEIVE_FAILED'}}}
+  try{Run-Tool $node @((Join-Path $PSScriptRoot '..\integrity\spacex.native-receive-fault-tests.js'),'--probe',$plan.nativeReceiveProbe,'--output',$tlsResult) $private (Join-Path $run 'native-receive.log') 180;$execution.nativeReceive=Read-TestJson $tlsResult}catch{if(Test-Path -LiteralPath $tlsResult){$execution.nativeReceive=Read-TestJson $tlsResult}else{$execution.nativeReceive=@{outcome='FAIL';reason='PRODUCT_FAULT_NATIVE_RECEIVE_FAILED'}}}
  }
  Write-TestJson (Join-Path $run 'execution.json') $execution
  $pending=Join-Path $run ([IO.Path]::GetFileName($report))
- try{Run-Tool $node @((Join-Path $PSScriptRoot 'peace.product-fault-tests.js'),'finalize',$run,$pending,$report) $private (Join-Path $run 'finalize.log')}catch{if(-not(Test-Path -LiteralPath $pending)){throw}}
+ try{Run-Tool $node @((Join-Path $PSScriptRoot 'spacex.product-fault-tests.js'),'finalize',$run,$pending,$report) $private (Join-Path $run 'finalize.log')}catch{if(-not(Test-Path -LiteralPath $pending)){throw}}
  # Public files are created only after all private copies/logs are removed.
  # The helper retains exact bytes: companion evidence hashes cannot go stale.
  & $node $cleanupTool publish $run $private $pending $report

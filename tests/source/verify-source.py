@@ -1,5 +1,5 @@
 """Read-only verification of this delivery. No operating data is modified.
-Usage: python Relay Server/tests/source/verify-source.py [--root EXTRACTED_ROOT]
+Usage: python Server/tests/source/verify-source.py [--root EXTRACTED_ROOT]
 A matching manifest is a consistency check, not a cryptographic publisher trust root.
 """
 from __future__ import annotations
@@ -7,7 +7,7 @@ import argparse, hashlib, json
 from pathlib import Path
 
 def verify(root: Path) -> list[str]:
-    root=root.resolve(); manifest_path=root/'Relay Server/maintenance/source-manifest.json'
+    root=root.resolve(); manifest_path=root/'Server/maintenance/source-manifest.json'
     manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
     problems=[]
     if manifest.get('version') != 2 or manifest.get('algorithm') != 'sha512':
@@ -25,41 +25,41 @@ def verify(root: Path) -> list[str]:
             problems.append('Changed: '+name)
     for name in manifest.get('retiredExecutableSources',[]):
         if (root/name).exists(): problems.append('Old retired source remains: '+name)
-    native_root = root/'Railway'
-    test_root = native_root/'Cozy.Tests'
+    native_root = root/'Desktop'
+    test_root = native_root/'SpaceX.Tests'
     for p in native_root.rglob('*'):
         rel_native = p.relative_to(native_root)
         if p.is_symlink() or getattr(p, 'is_junction', lambda: False)():
             problems.append('Native source/output link is forbidden: '+p.relative_to(root).as_posix())
             continue
         parts = rel_native.parts
-        if (parts[:2] == ('Cozy.ImGui', 'Cozy.Objects') or
-                (len(parts) >= 3 and parts[0] == 'Cozy.Tests' and parts[2] == 'Cozy.Outputs')):
+        if (parts[:2] == ('SpaceX.ImGui', 'SpaceX.Objects') or
+                (len(parts) >= 3 and parts[0] == 'SpaceX.Tests' and parts[2] == 'SpaceX.Outputs')):
             continue
-        project_output = (len(parts) >= 3 and parts[0] == 'Cozy.Projects' and
-                          parts[1] in {'Cozy.Launcher', 'Cozy.Client', 'Cozy.Overlay'})
+        project_output = (len(parts) >= 3 and parts[0] == 'SpaceX.Projects' and
+                          parts[1] in {'SpaceX.Launcher', 'SpaceX.Client', 'SpaceX.Overlay'})
         if project_output and (parts[2].lower() == 'dcu' or
                                (len(parts) == 3 and p.is_file() and
                                 parts[2].lower() == (parts[1]+'.exe').lower())):
             continue
-        if not p.name.startswith('Cozy.'):
-            problems.append('Native source name must start Cozy.: '+p.relative_to(root).as_posix())
+        if not p.name.startswith('SpaceX.'):
+            problems.append('Native source name must start SpaceX.: '+p.relative_to(root).as_posix())
         if not p.is_file() or p.suffix.lower() not in {'.json','.js'}:
             continue
         name = p.relative_to(root).as_posix()
         native_test_contract = (p.is_relative_to(test_root) and
-                                (p.suffix.lower() == '.json' or p.name == 'Cozy.compare-native-abi.js'))
+                                (p.suffix.lower() == '.json' or p.name == 'SpaceX.compare-native-abi.js'))
         native_build_contract = rel_native.as_posix() in {
-            'Cozy.Source/Cozy.Configuration/Cozy.ReleaseMetadata.json',
-            'Cozy.Source/Cozy.Configuration/Cozy.StringCatalog.json',
-            'Cozy.ImGui/Cozy.Build/Cozy.ImGui.Abi.json',
-            'Cozy.ImGui/Cozy.Build/Cozy.Check-ImGui-Abi.js',
-            'Cozy.ImGui/Cozy.Tests/Cozy.Abi/Cozy.test_imgui_abi.js',
-            'Cozy.Build/Cozy.Prepare-LauncherResource.js',
-            'Cozy.Tests/Cozy.Security/Cozy.test-launcher-resource.js',
-            'Cozy.ImGui/Cozy.Strings/Cozy.NativeStrings.map.json',
-            'Cozy.ImGui/Cozy.Assets/Cozy.LicenseGallery/Cozy.LicenseGallery.Reference.json',
-            'Cozy.Source/Cozy.Configuration/Cozy.StringUnits.map.json',
+            'SpaceX.Source/SpaceX.Configuration/SpaceX.ReleaseMetadata.json',
+            'SpaceX.Source/SpaceX.Configuration/SpaceX.StringCatalog.json',
+            'SpaceX.ImGui/SpaceX.Build/SpaceX.ImGui.Abi.json',
+            'SpaceX.ImGui/SpaceX.Build/SpaceX.Check-ImGui-Abi.js',
+            'SpaceX.ImGui/SpaceX.Tests/SpaceX.Abi/SpaceX.test_imgui_abi.js',
+            'SpaceX.Build/SpaceX.Prepare-LauncherResource.js',
+            'SpaceX.Tests/SpaceX.Security/SpaceX.test-launcher-resource.js',
+            'SpaceX.ImGui/SpaceX.Strings/SpaceX.NativeStrings.map.json',
+            'SpaceX.ImGui/SpaceX.Assets/SpaceX.LicenseGallery/SpaceX.LicenseGallery.Reference.json',
+            'SpaceX.Source/SpaceX.Configuration/SpaceX.StringUnits.map.json',
         }
         if not ((native_test_contract or native_build_contract) and name in manifest['files']):
             problems.append('JSON/JS belongs under Relay Server: '+name)

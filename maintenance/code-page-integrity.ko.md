@@ -2,7 +2,7 @@
 
 ## 적용 범위
 
-`Cozy.CodeIntegrity.pas`의 코드 측정은 기존 전체 정규화 코드의 SHA-512·CRC64·XXH3-128·BLAKE3와 `CRC-LAYERS-V1`을 유지합니다. 여기에 검증된 디스크 이미지에서 만든 페이지별 SHA-512 기준을 추가했습니다. 운영 보고서의 기존 필드나 서버 CRC 비교 형식을 바꾸지 않습니다.
+`SpaceX.CodeIntegrity.pas`의 코드 측정은 기존 전체 정규화 코드의 SHA-512·CRC64·XXH3-128·BLAKE3와 `CRC-LAYERS-V1`을 유지합니다. 여기에 검증된 디스크 이미지에서 만든 페이지별 SHA-512 기준을 추가했습니다. 운영 보고서의 기존 필드나 서버 CRC 비교 형식을 바꾸지 않습니다.
 
 각 페이지의 SHA-512 입력은 `COZY-CODE-PAGE-SHA512-V1`와 NUL, little-endian 32비트 RVA, little-endian 32비트 바이트 수, ASLR 재배치를 검증하고 정규화한 실제 코드 바이트입니다. 페이지 CRC를 해시하는 방식과 독립적입니다. 전체 manifest는 `COZY-CODE-PAGES-SHA512-V1`와 NUL, 페이지 크기 4096, 페이지 수, 각 RVA·길이·64바이트 해시를 포함합니다. 최초 디스크 기준을 현재 메모리 결과로 덮어쓰지 않습니다.
 
@@ -20,7 +20,7 @@ A/B/O의 코드 상한 64 MiB, 최대 96개 섹션을 적용한 보수적 배열
 
 이 값은 운영 측정의 코드 스냅샷·역할 입력·페이지 기준 배열 payload 상한입니다. 초기 생성자에서 읽는 디스크 파일, 유지하는 재배치/범위 계획, 해시 객체 내부 상태, JSON·메모리 할당기 오버헤드, 일반 프로세스 메모리, 시험 전용 복사본을 포함한 RSS 상한이라는 의미는 아닙니다. 생성자 입력·정규화 스트림은 각각 기존 파일·코드 상한에 의해 제한됩니다. 명시적 모듈 목록 측정은 기존 더 큰 별도 상한을 유지합니다.
 
-`Cozy.CrcProbe --maximum-pages`는 최대 64 MiB 코드에 대한 페이지 수·manifest 크기를 실제로 계산하고 Windows에서는 해당 시험 프로세스의 peak working set·peak pagefile 수치를 출력합니다. 이 프로세스 수치는 시험 자료 생성 비용도 포함합니다. Linux에서 숫자를 대신 만들어 Windows 결과로 보고하지 않습니다.
+`SpaceX.CrcProbe --maximum-pages`는 최대 64 MiB 코드에 대한 페이지 수·manifest 크기를 실제로 계산하고 Windows에서는 해당 시험 프로세스의 peak working set·peak pagefile 수치를 출력합니다. 이 프로세스 수치는 시험 자료 생성 비용도 포함합니다. Linux에서 숫자를 대신 만들어 Windows 결과로 보고하지 않습니다.
 
 ## CRC 충돌 시험
 
@@ -34,11 +34,11 @@ A/B/O의 코드 상한 64 MiB, 최대 96개 섹션을 적용한 보수적 배열
 
 ## 검증 방법과 현재 확인 범위
 
-RAD Studio IDE에서 `cozy-peace\Railway\Cozy.Tests\Cozy.Integrity\Cozy.CrcProbe.dproj`를 Win64/Release로 빌드합니다. 이때 기존 `Cozy.Build-All-Win64.bat`은 필요하지 않습니다.
+RAD Studio IDE에서 `SpaceX\Desktop\SpaceX.Tests\SpaceX.Integrity\SpaceX.CrcProbe.dproj`를 Win64/Release로 빌드합니다. 이때 기존 `SpaceX.Build-All-Win64.bat`은 필요하지 않습니다.
 
 ```bat
-"cozy-peace\Railway\Cozy.Tests\Cozy.Integrity\Cozy.CrcProbe.exe"
-"cozy-peace\Railway\Cozy.Tests\Cozy.Integrity\Cozy.CrcProbe.exe" --maximum-pages
+"SpaceX\Desktop\SpaceX.Tests\SpaceX.Integrity\SpaceX.CrcProbe.exe"
+"SpaceX\Desktop\SpaceX.Tests\SpaceX.Integrity\SpaceX.CrcProbe.exe" --maximum-pages
 ```
 
 기본 실행은 16개 주소 정렬·19개 길이·분할/빈 입력에서 기준/가속 결과의 일치를 확인하고 CRC 충돌 경계와 페이지 SHA-512 결합을 검사합니다. reference-only 빌드로 같은 시험을 반복할 수 있습니다.
@@ -46,8 +46,8 @@ RAD Studio IDE에서 `cozy-peace\Railway\Cozy.Tests\Cozy.Integrity\Cozy.CrcProbe
 Relay Server에서:
 
 ```text
-node --test tests/cryptography/peace.test-code-page-sha512.js
-node tests/cryptography/peace.test-crc-layers.js
+node --test tests/cryptography/spacex.test-code-page-sha512.js
+node tests/cryptography/spacex.test-crc-layers.js
 ```
 
 `CRC_PROBE` 환경 변수에 실제 빌드한 probe 경로를 지정하면 `--pages-sha512` 출력과 서버의 독립 SHA-512 결과도 비교합니다. 경로를 지정하지 않은 시험은 실제 Native 비교를 SKIP으로 표시합니다. 소스 계약 시험과 JavaScript 시험 통과는 실제 Delphi 컴파일·Windows 실행을 대신하지 않습니다. 이 변경을 작성한 환경에서 실제 Windows 실행과 peak working set 관측은 **NOT_RUN**입니다.

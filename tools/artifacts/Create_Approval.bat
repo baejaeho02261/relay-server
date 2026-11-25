@@ -30,8 +30,8 @@ const crypto = require('node:crypto');
 const env = process.env;
 function stop(code) { const e = new Error(code); e.safeCode = code; throw e; }
 
-// Standalone, built-in modules only. Do not load Relay Server/services, config,
-// vendor, node_modules, or peace.sign-release-approval.js on an operator's PC.
+// Standalone, built-in modules only. Do not load Server/services, config,
+// vendor, node_modules, or spacex.sign-release-approval.js on an operator's PC.
 // PE validation rules and metadata fields match SERVER_OPERATIONS sources.
 function ReadBoundedInput(file, min, max, code) {
   const fd = fs.openSync(file, 'r');
@@ -794,9 +794,9 @@ function Choose-Key {
 function Main {
     if ($PSVersionTable.PSVersion -lt [version]'5.1') { throw 'Windows PowerShell 5.1 이상이 필요합니다.' }
     $base = Split-Path -Parent $env:GAME_APPROVAL_BAT
-    $homeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'cozy.ClientReleaseTools'
+    $homeDirectory = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'spacex.ClientReleaseTools'
     Write-Host ''
-    Write-Host '=== cozy.Client 공개 배포 승인 파일 생성 ==='
+    Write-Host '=== spacex.Client 공개 배포 승인 파일 생성 ==='
     Write-Host 'B/O는 선택한 EXE의 예외 테이블을 검사·정렬한 뒤 승인 JSON을 생성합니다.'
     Write-Host 'A EXE와 기존 승인 JSON은 변경하지 않습니다.'
     Write-Host '승인 JSON은 EXE 폴더가 아니라 이 BAT와 같은 폴더에 저장합니다.'
@@ -872,7 +872,7 @@ catch {
         Write-Host ('다시 이 도구에서 ' + $script:PreparationComponent + '와 같은 EXE를 선택해 새 승인 JSON 생성을 완료하세요.')
     }
     Write-Host '기존 개인키와 기존 승인 JSON은 덮어쓰지 않았습니다.'
-    Write-Host '이 버전은 peace.sign-release-approval.js, services, vendor, npm 설치가 필요하지 않습니다.'
+    Write-Host '이 버전은 spacex.sign-release-approval.js, services, vendor, npm 설치가 필요하지 않습니다.'
     Write-Host 'BOOTSTRAP_PE_INVALID / RELEASE_FILE_INVALID: 실제 Win64 EXE인지 확인하세요.'
     Write-Host 'SECURITY_DEBUG_BUILD_NOT_PUBLISHABLE: Debug EXE는 배포 승인할 수 없습니다. Release로 빌드한 최종 EXE를 선택하세요.'
     Write-Host 'SECURITY_BUILD_CONFIGURATION_INVALID: EXE의 빌드 구성 표식이 잘못되었습니다. 정상 프로젝트에서 다시 빌드하세요.'

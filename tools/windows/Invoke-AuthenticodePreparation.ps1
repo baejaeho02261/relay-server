@@ -101,7 +101,7 @@ namespace CozySigning { public static class AtomicDirectory {
  $unsigned=Join-Path $private 'unsigned';$signed=Join-Path $private 'signed'
  $null=[IO.Directory]::CreateDirectory($unsigned);$null=[IO.Directory]::CreateDirectory($signed)
  $files=@{A=$AFile;B=$BFile;O=$OFile};$inputs=@{};$seen=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
- $helper=Join-Path $PSScriptRoot 'peace.authenticode-plan.js'
+ $helper=Join-Path $PSScriptRoot 'spacex.authenticode-plan.js'
  foreach($role in @('A','B','O')){
   $source=Assert-LocalPath $files[$role] $false
   if(-not $seen.Add($source)){throw 'WINDOWS_TEST_AUTHENTICODE_DISTINCT_INPUTS_REQUIRED'}

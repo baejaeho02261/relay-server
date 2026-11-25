@@ -35,7 +35,7 @@ services:
     - ./witness.env
     command:
     - node
-    - tools/recovery/peace.recovery-witness-server.js
+    - tools/recovery/spacex.recovery-witness-server.js
     ports:
     - "${WITNESS_PRIVATE_IP:?set bind address}:${WITNESS_PORT:?set listener port}:${WITNESS_PORT:?set listener port}"
     volumes:

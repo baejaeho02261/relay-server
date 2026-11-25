@@ -2,7 +2,7 @@ Upstream: https://github.com/paulmillr/noble-hashes/tree/1.8.0
 Package: @noble/hashes 1.8.0 (exact package-lock dependency)
 License: MIT (see LICENSE).
 
-Redistribution changes in cozy-peace: CommonJS filenames use peace.* names;
+Redistribution changes in cozy-peace: CommonJS filenames use spacex.* names;
 relative require targets and package export targets were relocated accordingly.
 The cryptographic implementation bodies were retained. These relocated text
 files are not byte-for-byte copies of the upstream package. The package API

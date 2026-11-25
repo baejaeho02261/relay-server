@@ -19,7 +19,7 @@ node.exe "%~dp0peace.manual-release-check.js" %*
 set "GCMR_EXIT=%ERRORLEVEL%"
 goto finish
 :missing_helper
-echo ERROR: peace.manual-release-check.js is missing beside this BAT. Restore the complete matching tools folder.
+echo ERROR: spacex.manual-release-check.js is missing beside this BAT. Restore the complete matching tools folder.
 goto finish
 :missing_node
 echo ERROR: node.exe was not found in PATH. Use the installed Relay Server Node.js runtime.

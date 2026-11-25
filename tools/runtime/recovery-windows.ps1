@@ -12,7 +12,7 @@ try{
  if(-not $IsWindows -or [IntPtr]::Size -ne 8 -or $PSVersionTable.PSVersion.Major -lt 7){throw 'RECOVERY_WINDOWS_POWERSHELL7_X64_REQUIRED'}
  if(-not [Environment]::UserInteractive -or [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0){throw 'RECOVERY_WINDOWS_INTERACTIVE_DESKTOP_REQUIRED'}
  . (Join-Path $PSScriptRoot '..\..\tools\windows\WindowsCommon.ps1')
- $cleanupTool=Join-Path $PSScriptRoot 'peace.test-evidence-cleanup.js'
+ $cleanupTool=Join-Path $PSScriptRoot 'spacex.test-evidence-cleanup.js'
  $node=[string](Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
  if(-not $InputFile){$InputFile=(Read-Host 'Absolute recovery-windows input JSON path').Trim().Trim('"')}
  $InputFile=[IO.Path]::GetFullPath($InputFile)
@@ -24,11 +24,11 @@ try{
  $private=Join-Path ([IO.Path]::GetTempPath()) ('game-recovery-drill-'+[Guid]::NewGuid().ToString('N'));New-TestPrivateDirectory $private
  Write-Host 'Isolated recovery of a read-only backup. Original device key is opened only; a new exclusive namespace is removed after the drill.'
  Write-Host 'The selected original Windows user/device, copied witness and already approved active A/B/O are required.'
- Tool @((Join-Path $PSScriptRoot '..\recovery\peace.recovery-windows.js'),'prepare',$InputFile,$private) (Join-Path $private 'prepare.log')
+ Tool @((Join-Path $PSScriptRoot '..\recovery\spacex.recovery-windows.js'),'prepare',$InputFile,$private) (Join-Path $private 'prepare.log')
  $plan=Read-TestJson (Join-Path $private 'plan.json');$private=[IO.Path]::GetDirectoryName([string]$plan.data);$result.runId=[string]$plan.runId
  if(-not(Test-Path -LiteralPath (Join-Path $private 'test-owned-marker'))){throw 'RECOVERY_WINDOWS_PRIVATE_ROOT_REQUIRED'}
  $environment=Get-TestEnvironment $private
- $server=[GameWindowsTests.WindowsJob]::Start($node,@((Join-Path $PSScriptRoot '..\recovery\peace.recovery-windows-fixture.js'),$private),([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))),$environment,(Join-Path $private 'server.log'))
+ $server=[GameWindowsTests.WindowsJob]::Start($node,@((Join-Path $PSScriptRoot '..\recovery\spacex.recovery-windows-fixture.js'),$private),([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))),$environment,(Join-Path $private 'server.log'))
  $watch=[Diagnostics.Stopwatch]::StartNew();$lastPhase=''
  do{
   if(Test-Path -LiteralPath (Join-Path $private 'status.json')){$status=Read-TestJson (Join-Path $private 'status.json');if($status.ContainsKey('error')){throw ([string]$status.error)};if($status.phase -ne $lastPhase){$lastPhase=[string]$status.phase;Write-Host ('Recovery phase: '+$lastPhase)};if($status.ready -and (Test-Path -LiteralPath (Join-Path $private 'input.json'))){break}}
@@ -88,7 +88,7 @@ try{
    $stage=Join-Path ([IO.Path]::GetTempPath()) ('game-recovery-report-'+[Guid]::NewGuid().ToString('N'));New-TestPrivateDirectory $stage
    $stage=[GameWindowsTests.LifecycleFileObserver]::CanonicalDirectory($stage)
    $pending=Join-Path $stage ([IO.Path]::GetFileName($report))
-   try{Tool @((Join-Path $PSScriptRoot '..\recovery\peace.recovery-windows.js'),'finalize',$private,$pending,$report) (Join-Path $stage 'finalize.log')}catch{if(-not(Test-Path -LiteralPath $pending)){throw};$partial=Read-TestJson $pending;if($partial.outcome -ne 'FAIL'){throw}}
+   try{Tool @((Join-Path $PSScriptRoot '..\recovery\spacex.recovery-windows.js'),'finalize',$private,$pending,$report) (Join-Path $stage 'finalize.log')}catch{if(-not(Test-Path -LiteralPath $pending)){throw};$partial=Read-TestJson $pending;if($partial.outcome -ne 'FAIL'){throw}}
    $pendingResult=Read-TestJson $pending
    if($pendingResult.ContainsKey('checks') -and $pendingResult.checks.ContainsKey('replacementCleanup')){$failureIdentity=$pendingResult.checks.replacementCleanup}
    # Reads exact report/companion bytes, removes the stage and every helper log,

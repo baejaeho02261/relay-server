@@ -3,7 +3,7 @@
   "endpoint": "GET /api/desktop/bootstrap/server-state/capabilities",
   "alsoIncludedIn": "GET /api/desktop/bootstrap/server-state",
   "authorization": "Current authenticated administrator session; access is audited; no policy mutation.",
-  "source": "services/runtime/peace.desktop-capabilities.js",
+  "source": "services/runtime/spacex.desktop-capabilities.js",
   "fields": {
     "implementation": "IMPLEMENTED / PARTIAL / NOT_IMPLEMENTED describes source capability, not activation or test execution.",
     "configured": "Current validated server policy and metadata; no secret keys, session tokens, raw hardware identifiers or certificates.",
@@ -29,26 +29,26 @@
     "administrator authentication and critical-operation reauthentication"
   ],
   "testPaths": [
-    "tests/artifacts/peace.test-server-capabilities.js",
-    "tests/web/peace.test-server-state-ui.js",
-    "tests/runtime/peace.test-manual-verification-v3.js",
-    "tests/observability/peace.test-server-state-dashboard-ui.js",
-    "tests/web/peace.test-server-state-service-ui.js",
-    "tests/web/peace.test-server-state-read-routes.js",
-    "tests/observability/peace.test-lifecycle-trace.js",
-    "tests/runtime/peace.test-native-lifecycle-contract.js",
-    "tests/overlay/peace.test-overlay-lease-expiry.js",
-    "tests/observability/peace.test-performance-metrics.js",
-    "tests/observability/peace.test-performance-dashboard-ui.js",
-    "tests/runtime/peace.test-lifecycle-windows.js",
-    "tests/recovery/peace.test-recovery-device-probe.js",
-    "tests/recovery/peace.test-recovery-windows.js"
+    "tests/artifacts/spacex.test-server-capabilities.js",
+    "tests/web/spacex.test-server-state-ui.js",
+    "tests/runtime/spacex.test-manual-verification-v3.js",
+    "tests/observability/spacex.test-server-state-dashboard-ui.js",
+    "tests/web/spacex.test-server-state-service-ui.js",
+    "tests/web/spacex.test-server-state-read-routes.js",
+    "tests/observability/spacex.test-lifecycle-trace.js",
+    "tests/runtime/spacex.test-native-lifecycle-contract.js",
+    "tests/overlay/spacex.test-overlay-lease-expiry.js",
+    "tests/observability/spacex.test-performance-metrics.js",
+    "tests/observability/spacex.test-performance-dashboard-ui.js",
+    "tests/runtime/spacex.test-lifecycle-windows.js",
+    "tests/recovery/spacex.test-recovery-device-probe.js",
+    "tests/recovery/spacex.test-recovery-windows.js"
   ],
   "manualVerification": {
     "endpoint": "POST /api/desktop/bootstrap/server-state/manual-verification",
     "authorization": "Administrator, current session, CSRF, recent reauthentication; audited mutation.",
     "usedForPublicationAuthorization": false,
-    "source": "services/runtime/peace.desktop-manual-verification.js",
+    "source": "services/runtime/spacex.desktop-manual-verification.js",
     "limit": 64,
     "reportSchema": 3,
     "acceptedReportSchemas": [
@@ -67,7 +67,7 @@
   },
   "lifecycle": {
     "endpoint": "GET /api/desktop/bootstrap/server-state/lifecycle",
-    "source": "services/observability/peace.desktop-lifecycle-trace.js",
+    "source": "services/observability/spacex.desktop-lifecycle-trace.js",
     "authorization": "Current administrator session; read access audited. Query filters are strict and bounded.",
     "sources": [
       "SERVER_CONFIRMED",
@@ -84,7 +84,7 @@
   "operationalPerformance": {
     "endpoint": "GET /api/desktop/bootstrap/server-state/performance?resolution=hour|day&limit=<bounded integer>",
     "authorization": "Current administrator session; read access audited. Unknown or duplicate parameters rejected.",
-    "source": "services/observability/peace.desktop-performance-metrics.js",
+    "source": "services/observability/spacex.desktop-performance-metrics.js",
     "persistence": "DATA_DIR/desktop-performance/metrics.json; atomic replacement under server OS single-writer lock; aggregate diagnostics only.",
     "retention": {
       "hourBuckets": 720,

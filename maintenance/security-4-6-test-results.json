@@ -36,7 +36,7 @@
     },
     {
       "name": "protocol",
-      "command": "node tests/protocol/peace.test-hardening-protocol.js",
+      "command": "node tests/protocol/spacex.test-hardening-protocol.js",
       "status": "PASS",
       "exit_code": 0,
       "scope": "3 existing protocol groups",
@@ -45,7 +45,7 @@
     },
     {
       "name": "native_lifecycle",
-      "command": "node tests/runtime/peace.test-native-lifecycle-contract.js",
+      "command": "node tests/runtime/spacex.test-native-lifecycle-contract.js",
       "status": "PASS",
       "exit_code": 0,
       "scope": "8 existing source contracts, NOT Windows execution",
@@ -54,7 +54,7 @@
     },
     {
       "name": "deadlines_integration",
-      "command": "node tests/runtime/peace.test-desktop-deadlines.js",
+      "command": "node tests/runtime/spacex.test-desktop-deadlines.js",
       "status": "BLOCKED_DEPENDENCY",
       "exit_code": 1,
       "scope": "requires actual better-sqlite3",
@@ -63,7 +63,7 @@
     },
     {
       "name": "authority_integration",
-      "command": "node tests/security/peace.test-security-authority.js",
+      "command": "node tests/security/spacex.test-security-authority.js",
       "status": "BLOCKED_DEPENDENCY",
       "exit_code": 1,
       "scope": "requires actual better-sqlite3",
@@ -73,75 +73,75 @@
   ],
   "js_syntax_checks": [
     {
-      "file": "Relay Server/services/overlay/peace.desktop-overlay.js",
+      "file": "Server/services/overlay/spacex.desktop-overlay.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/network/peace.push-manager.js",
+      "file": "Server/services/network/spacex.push-manager.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/security/peace.desktop-security-authority.js",
+      "file": "Server/services/security/spacex.desktop-security-authority.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/bootstrap/peace.desktop-bootstrap.js",
+      "file": "Server/services/bootstrap/spacex.desktop-bootstrap.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/integrity/peace.measurement-plan-contract.js",
+      "file": "Server/services/integrity/spacex.measurement-plan-contract.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/devices/peace.desktop-device-identity.js",
+      "file": "Server/services/devices/spacex.desktop-device-identity.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/network/peace.desktop-connect.js",
+      "file": "Server/services/network/spacex.desktop-connect.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/integrity/peace.measurement-status.js",
+      "file": "Server/services/integrity/spacex.measurement-status.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/artifacts/peace.release-manager.js",
+      "file": "Server/services/artifacts/spacex.release-manager.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/web/http/peace.web-server.js",
+      "file": "Server/web/http/spacex.web-server.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/runtime/peace.desktop-request-rate.js",
+      "file": "Server/services/runtime/spacex.desktop-request-rate.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/network/peace.push-transport.js",
+      "file": "Server/services/network/spacex.push-transport.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/services/network/peace.push-destination.js",
+      "file": "Server/services/network/spacex.push-destination.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/cozy.tests/network/peace.test-push-destination-security.js",
+      "file": "Server/spacex.tests/network/spacex.test-push-destination-security.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/cozy.tests/authentication/peace.test-protected-operation-security.js",
+      "file": "Server/spacex.tests/authentication/spacex.test-protected-operation-security.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/cozy.tests/integrity/peace.test-authority-measurement-security.js",
+      "file": "Server/spacex.tests/integrity/spacex.test-authority-measurement-security.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/cozy.tests/network/peace.test-push-transport-tls.js",
+      "file": "Server/spacex.tests/network/spacex.test-push-transport-tls.js",
       "exit_code": 0
     },
     {
-      "file": "Relay Server/cozy.tests/integrity/peace.test-native-measurement-security.js",
+      "file": "Server/spacex.tests/integrity/spacex.test-native-measurement-security.js",
       "exit_code": 0
     }
   ],

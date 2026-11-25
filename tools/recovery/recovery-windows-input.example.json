@@ -6,11 +6,11 @@
   "enrollmentId": "REPLACE_WITH_EXISTING_ACTIVE_ENROLLMENT_64_LOWER_HEX",
   "machineId": "REPLACE_WITH_ORIGINAL_PC_FINGERPRINT_64_UPPER_HEX",
   "provider": "SOFTWARE",
-  "nativeProbe": "C:\\cozy-peace\\Railway\\Cozy.Tests\\Cozy.Build\\Cozy.Outputs\\manual-ide\\Cozy.RecoveryDeviceProbe.exe",
+  "nativeProbe": "C:\\SpaceX\\Desktop\\SpaceX.Tests\\SpaceX.Build\\SpaceX.Outputs\\manual-ide\\SpaceX.RecoveryDeviceProbe.exe",
   "artifacts": {
-    "A": "C:\\ApprovedRelease\\cozy.Launcher.exe",
-    "B": "C:\\ApprovedRelease\\cozy.Client.exe",
-    "O": "C:\\ApprovedRelease\\cozy.Overlay.exe"
+    "A": "C:\\ApprovedRelease\\spacex.Launcher.exe",
+    "B": "C:\\ApprovedRelease\\spacex.Client.exe",
+    "O": "C:\\ApprovedRelease\\spacex.Overlay.exe"
   },
   "allowIsolatedPcUnlock": true,
   "issuedASigningKeyFile": "C:\\Users\\Operator\\AppData\\Local\\Cozy.ServerKeys\\issued-a-private.pem",
