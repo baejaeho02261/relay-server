@@ -151,7 +151,7 @@ test('B authorizes after hidden GPU initialization, presents before input and jo
   assert(destroy.indexOf('ApiShowWindow(FWindow, SW_HIDE)') < destroy.indexOf('FJoinWorker()'));
   assert(destroy.indexOf('FJoinWorker()') < destroy.indexOf('ImGuiDestroy(FContext)'));
   assert.match(entry, /begin Worker\.RequestStop; end,/);
-  assert.match(entry, /begin Worker\.StopAndJoin; end,\s+function: Boolean\s+begin Result := Worker\.RequestLaunch; end,\s+Session\.ThemeIndex,\s+function: Boolean\s+begin Result := Worker\.RequestPreparation; end,\s+function: Boolean\s+begin Result := Worker\.RequestCommit; end\)/);
+  assert.match(entry, /begin Worker\.StopAndJoin; end,\s+function: Boolean\s+begin Result := Worker\.RequestLaunch; end,\s+Session\.ThemeIndex,\s+function: Boolean\s+begin Result := Worker\.RequestPreparation; end,\s+function: Boolean\s+begin Result := Worker\.RequestCommit; end,\s+@Session\.DesktopStage, Session\.FontIndex\)/);
   assert.match(run, /if FPresentationComplete and \(FState\(\) = WorkerTransferred\) then Result := 0/);
   assert.match(entry, /if Api <> nil then Transferred := Api\.OverlayTransferred;\s+if \(Result = 0\) and not Transferred then Result := 1;/);
   assert.doesNotMatch(entry, /if Transferred then Result := 0;/);
