@@ -138,8 +138,12 @@ check('Workspace state is negotiated and requires complete O transfer',()=>{
  assert.equal(pre.transferConfirmed,false);
  assert.equal(pre.workspaceState,undefined);
  assert.equal(Object.keys(pre).length,7);
- reject(()=>bootstrap.Execute({...verificationBody(metered),workspaceStateVersion:2}),'BOOTSTRAP_INPUT_INVALID');
+ const preview=verify(metered,{workspaceStateVersion:2});
+ assert.equal(preview.transferConfirmed,false);
+ assert.equal(preview.workspaceState,undefined);
+ reject(()=>bootstrap.Execute({...verificationBody(metered),workspaceStateVersion:3}),'BOOTSTRAP_INPUT_INVALID');
  reject(()=>bootstrap.Execute({...verificationBody(metered),workspaceStateVersion:1,sessionToken:'invalid'}),'BOOTSTRAP_SESSION_INVALID');
+ reject(()=>bootstrap.Execute({...verificationBody(metered),workspaceStateVersion:2,sessionToken:'invalid'}),'BOOTSTRAP_SESSION_INVALID');
 });
 check('Usage requires the exact O device, a committed transfer, and current signed evidence',()=>{
  const read=usageRequest(metered,'read',0);
@@ -168,6 +172,29 @@ check('Authenticated workspace has its starting balance and masked key suffix be
  overlay.ValidateTransferRows(db);
  db.overlays[metered.prepared.overlayId].verifyReceipt.response.workspaceState.licenseKeySuffix=metered.licenseKey;
  assert.throws(()=>overlay.ValidateTransferRows(db),/OVERLAY_STORE_INVALID/);
+});
+check('The transferred v2 workspace sends only verified key edges and leaves the legacy recovery record intact',()=>{
+ observe(metered);
+ const body={...verificationBody(metered),workspaceStateVersion:2};
+ const first=protectedCall(body),workspace=first.workspaceState;
+ const licenseKeyPrefix=metered.licenseKey.slice(0,6),licenseKeySuffix=metered.licenseKey.slice(-6);
+ assert.deepEqual(workspace,{version:2,limit:100,remaining:100,sequence:0,licenseKeyPrefix,licenseKeySuffix});
+ assert.equal(JSON.stringify(first).includes(metered.licenseKey),false);
+ const {ValidateDocument}=require('../../services/protocol/spacex.packet-schema');
+ ValidateDocument('overlayVerify',first);
+ for(const invalid of [undefined,metered.licenseKey,'abcde0','12345',' ABCDE']){
+  assert.throws(()=>ValidateDocument('overlayVerify',{...first,workspaceState:{...workspace,licenseKeyPrefix:invalid}}),/PROTOCOL_SCHEMA_INVALID/);
+ }
+ const {revision}=bootstrap.Initialize(),expiry=child(metered).sessionExpiresAt;
+ const stored=child(metered).verifyReceipt.response.workspaceState;
+ assert.deepEqual(stored,{version:1,limit:100,remaining:100,sequence:0,licenseKeySuffix});
+ overlay.ValidateTransferRows(bootstrap.Initialize());
+ assert.deepEqual(protectedCall(body),first);
+ assert.equal(bootstrap.Initialize().revision,revision);
+ assert.equal(child(metered).sessionExpiresAt,expiry);
+ reject(()=>bootstrap.Execute({...body,workspaceStateVersion:1}),'BOOTSTRAP_REQUEST_REUSED');
+ const row=licenses.DB().licenses[metered.activation.licenseId];
+ assert.deepEqual(licenses.DisplayKeyPreview({...row,keyHash:''}),{licenseKeyPrefix:'',licenseKeySuffix:''});
 });
 check('Usage debit can be retried exactly without spending or renewing the lease twice',()=>{
  const debit=usageRequest(metered,'consume',1),expiry=child(metered).sessionExpiresAt;

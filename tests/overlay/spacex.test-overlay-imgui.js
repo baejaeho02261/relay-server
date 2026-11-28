@@ -400,7 +400,9 @@ check('O receives the entitlement and shared theme only after a valid signed tra
   inOrder(paint,['not AuthorityValid then Exit;', 'FLicensedCard := -1;',
     'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
     'if (FLicensedCard < -1) or (FLicensedCard > 17) then FLicensedCard := -1;',
-    'ImGuiNewFrame(', 'SceneAction := ImGuiProductScene(FContext, 0, Theme.Index, SceneFlags, FSceneSeconds,',
+    'ImGuiNewFrame(', 'if Usage.LicensePrefixReference <> 0 then',
+    'SceneFlags := SceneFlags or WorkspaceLicensePrefixFlag;', 'SceneValue := Usage.LicensePrefixReference;',
+    'SceneAction := ImGuiProductScene(FContext, 0, Theme.Index, SceneFlags, SceneValue,',
     'Usage.LicenseReference, FLicensedCard, Usage.RemainingFraction)', 'ImGuiEndCanvas(',
     'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified entitlement and shared palette');
   assert.match(renderer, /WorkspaceSceneFlag = \$1000;/);
@@ -427,22 +429,24 @@ check('O has icon navigation, passive views and receipt-gated workspace interact
   const flight=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_spaceflight.h');
   const tabs=scene.slice(scene.indexOf('static constexpr SpaceXWorkspaceTabItem SpaceXWorkspaceTabs[]'),
     scene.indexOf('static void spacex_workspace_product('));
-  inOrder(tabs,['{SpaceXWorkspacePlayer, SpaceXFaPixelAlienMesh, SpaceXWorkspaceRailX, 44.f}',
-    '{SpaceXWorkspaceRage, SpaceXFaSkullMesh, SpaceXWorkspaceRailX, 82.f}',
-    '{SpaceXWorkspaceAim, SpaceXFaSimpleReticleMesh, SpaceXWorkspaceRailX, 120.f}',
-    '{SpaceXWorkspaceVirtuals, SpaceXFaEyeMesh, SpaceXWorkspaceRailX, 158.f}',
-    '{SpaceXWorkspacePacket, SpaceXFaGlobeMesh, SpaceXWorkspaceRailX, 211.f}',
-    '{SpaceXWorkspaceCodeAndMacros, SpaceXFaCurlyBracesMesh, SpaceXWorkspaceRailX, 264.f}',
-    '{SpaceXWorkspaceSettings, SpaceXFaGearMesh, SpaceXWorkspaceRailX, 474.f}',
-    '{SpaceXWorkspaceUsage, SpaceXFaBoltMesh, 284.f, 44.f}',
-    '{SpaceXWorkspaceGames, SpaceXFaShuttleSpaceMesh, 332.f, 44.f}',
+  inOrder(tabs,['{SpaceXWorkspacePlayer, SpaceXPixelGeneral, SpaceXWorkspaceRailX, 44.f}',
+    '{SpaceXWorkspaceRage, SpaceXPixelRage, SpaceXWorkspaceRailX, 82.f}',
+    '{SpaceXWorkspaceAim, SpaceXPixelAim, SpaceXWorkspaceRailX, 120.f}',
+    '{SpaceXWorkspaceVirtuals, SpaceXPixelVirtuals, SpaceXWorkspaceRailX, 158.f}',
+    '{SpaceXWorkspacePacket, SpaceXPixelPacket, SpaceXWorkspaceRailX, 196.f}',
+    '{SpaceXWorkspaceCodeAndMacros, SpaceXPixelCode, SpaceXWorkspaceRailX, 234.f}',
+    '{SpaceXWorkspaceSettings, SpaceXPixelSettings, SpaceXWorkspaceRailX, 474.f}',
+    '{SpaceXWorkspaceUsage, SpaceXPixelUsage, 284.f, 44.f}',
+    '{SpaceXWorkspaceGames, SpaceXPixelGames, 332.f, 44.f}',
     'static void spacex_workspace_tabs('],
-    'Filled icons with Settings at the bottom and Usage directly left of Shooting Game');
+    'Evenly spaced dot icons with Usage to the left of Shooting Game');
   const rail=tabs.slice(tabs.indexOf('static void spacex_workspace_tabs('));
   inOrder(rail,['spacex_palette_item(area,0x4800+tab.id,','v.context->overlay_tab=',
-    'overlay_tab_reveal=0.f',
-    'spacex_workspace_motion(', 'spacex_fontawesome_mesh(v.draw,tab.icon,v.at(tab.x,tab.y)'],
-    'Keyboard targets and animated icon selection');
+    'overlay_tab_reveal=0.f','spacex_workspace_motion(',
+    'spacex_workspace_pixel_icon(v.draw,tab.icon,v.at(tab.x,tab.y)',
+    'const bool top=tab.id==SpaceXWorkspaceUsage||tab.id==SpaceXWorkspaceGames',
+    'top?v.at(tab.x-half_length,tab.y+13.f)', 'top?v.at(tab.x+half_length,tab.y+13.f)'],
+    'Animated selection underline for both top buttons');
   assert.doesNotMatch(rail,/separator|AddImage|AddRect|v\.text\(|SetTooltip|PushFont/);
   assert.doesNotMatch(scene,/SpaceXWorkspaceProfile|spacex_workspace_profile\(/);
 
@@ -483,7 +487,7 @@ check('O has icon navigation, passive views and receipt-gated workspace interact
 
   const usage=scene.slice(scene.indexOf('static void spacex_workspace_usage('),
     scene.indexOf('static bool spacex_workspace_checkbox('));
-  inOrder(usage,['spacex_workspace_product(v,licensed_card);','spacex_workspace_license_key(v,license_suffix_hint);',
+  inOrder(usage,['spacex_workspace_product(v,licensed_card);','spacex_workspace_license_key(v,license_prefix_hint,license_suffix_hint);',
     'if(amount<0.f)','"Usage unavailable"','static_cast<unsigned>(amount*100.f+.5f)',
     '"Remaining"','AddRectFilled(track.Min','ImLerp(112.f,337.f,amount)'],
     'One authenticated usage value with an explicit unavailable state');
@@ -494,10 +498,12 @@ check('O has icon navigation, passive views and receipt-gated workspace interact
   assert.doesNotMatch(product,/AddLine|AddCircle|AddImage|\.hit\(/);
   const key=scene.slice(scene.indexOf('static void spacex_workspace_license_key('),
     scene.indexOf('static void spacex_workspace_usage('));
-  inOrder(key,['if(!license_suffix_hint)return','key_length=64','suffix_length=6',
-    'game_memset(masked,\'*\',key_length-suffix_length);','license_suffix_hint-1',
-    'CalcTextSizeA(', 'ink,masked,masked+line_length)', 'ink,masked+line_length,masked+key_length)'],
-    'The usage view draws the 64-position masked display from an authorized suffix');
+  inOrder(key,['if(!license_suffix_hint)return','key_length=64','edge_length=6',
+    'start=v.at(96.f,303.f)', 'for(unsigned i=0;i<key_length;++i)',
+    'const bool leading=i<edge_length&&license_prefix_hint!=0',
+    'const bool trailing=i>=suffix_start','AddCircleFilled(center,cell*.22f,ink,8)',
+    'hint=leading?license_prefix_hint:license_suffix_hint','FindGlyphNoFallback(letter)','PrimRectUV(center-half,center+half,'],
+    'The usage view masks a single 64-position line with read-only approved edges');
   assert.doesNotMatch(key,/Clipboard|license_form|\.hit\(|spacex_palette_item/);
   const scroll=scene.slice(scene.indexOf('static void spacex_workspace_scroll('),
     scene.indexOf('static int spacex_overlay_workspace('));
@@ -522,7 +528,7 @@ check('O has icon navigation, passive views and receipt-gated workspace interact
   inOrder(workspace,['spacex_palette_apply_theme(c,selected,','spacex_workspace_usage_receipt(c,flags);',
     'spacex_palette_panel(','!c->overlay_stars_hidden','spacex_workspace_tabs(v,popover,reduced_motion);',
     'spacex_workspace_scroll(v,content,tab,popover);','ImGui::PushClipRect(content.clip.Min',
-    'spacex_workspace_settings(content,selected','spacex_workspace_usage(content,remaining,licensed_card,license_suffix_hint)',
+    'spacex_workspace_settings(content,selected','spacex_workspace_usage(content,remaining,licensed_card,license_prefix_hint,license_suffix_hint)',
     'spacex_workspace_flight(content,usage_ready','ImGui::PopClipRect();','c->overlay_usage_requested=true;'],
     'Scroll, usage, and flight remain within the existing authorized scene');
   assert.doesNotMatch(settings,/rgb_slider|color_editor|Custom color|Saving theme/i);

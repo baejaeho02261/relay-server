@@ -237,11 +237,16 @@ function ValidateThemeReceipt(row){
  const extended=row.appearanceV3Receipt;
  if(extended!==undefined&&(!plain(extended)||Object.keys(extended).sort().join(',')!=='appearance,fingerprint,font,requestId,sequence,theme'||!ThemeValues(extended)||typeof extended.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(extended.fingerprint)||row.transferVersion!==1||value?.sequence===extended.sequence&&(value.fingerprint!==extended.fingerprint||value.theme!==extended.theme||value.font!==extended.font||value.requestId!==extended.requestId)))throw Error('OVERLAY_STORE_INVALID');
 }
+function PreviewWorkspace(response,license){
+ const edges=require('../licensing/spacex.desktop-licenses').DisplayKeyPreview(license);
+ return {...response,workspaceState:{...response.workspaceState,version:2,...edges}};
+}
 function Verify(body){
  Fields(body,['sessionId','sessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64','capturePrivacyVersion','renewalBudgetVersion','productScopeVersion','workspaceStateVersion']);
  if(Object.hasOwn(body,'capturePrivacyVersion')&&body.capturePrivacyVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
  if(Object.hasOwn(body,'renewalBudgetVersion')&&body.renewalBudgetVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
- if(Object.hasOwn(body,'workspaceStateVersion')&&body.workspaceStateVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
+ const workspaceVersion=body.workspaceStateVersion;
+ if(Object.hasOwn(body,'workspaceStateVersion')&&workspaceVersion!==1&&workspaceVersion!==2)Fail('BOOTSTRAP_INPUT_INVALID',400);
  if(Object.hasOwn(body,'productScopeVersion')&&body.productScopeVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
  const row=Session(body.sessionId,body.sessionToken),artifact=Live(row);
  if(body.productScopeVersion!==row.productScopeVersion)Fail('BOOTSTRAP_INPUT_INVALID',400);
@@ -253,7 +258,8 @@ function Verify(body){
  if(prior&&prior.observation===observation.id){
   if(prior.fingerprint!==fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);
   if(require("../runtime/spacex.desktop-deadline").persistent.expired('O.verify-recovery:'+row.id,prior.at,prior.until))Fail('BOOTSTRAP_EXPIRED');
-  return structuredClone(prior.response);
+  const replay=structuredClone(prior.response);
+  return workspaceVersion===2&&replay.workspaceState?PreviewWorkspace(replay,License(row)):replay;
  }
  const license=License(row),parent=store.Load().flows[row.parentFlowId],transferConfirmed=Transferred(row,parent),at=now(),expiresAt=Math.min(at+SESSION_MS,observation.expiresAt,snapshot?.expiresAt??Number.MAX_SAFE_INTEGER,transferConfirmed?Number.MAX_SAFE_INTEGER:parent.sessionExpiresAt,license.expiresAt||Number.MAX_SAFE_INTEGER);
  const response={status:'ACTIVE',leaseExpiresAt:expiresAt,serverTime:at,expiresAt,handoffVersion:1,transferConfirmed,parentSessionId:row.parentSessionId};
@@ -262,12 +268,14 @@ function Verify(body){
  if(body.capturePrivacyVersion===1)response.capturePrivacy=config.OVERLAY_CAPTURE_PRIVACY===true;
  // Scheduling information, never a separate capability or an expiry extension.
  if(body.renewalBudgetVersion===1)response.renewalBudget={version:1,snapshotExpiresAt:snapshot?.expiresAt??0,observationExpiresAt:observation.expiresAt};
- if(body.workspaceStateVersion===1&&transferConfirmed){
+ if(workspaceVersion!==undefined&&transferConfirmed){
   const db=store.Load();
   const {limit,remaining}=usage.Snapshot(db,row.licenseId);
   const licenseKeySuffix=require('../licensing/spacex.desktop-licenses').DisplayKeySuffix(license);
   response.workspaceState={version:1,limit,remaining,sequence:row.usageReceipt?.sequence??0,licenseKeySuffix};
  }
+ // The durable recovery record uses the legacy shape. The leading credential
+ // fragment is reconstructed only for an authenticated v2 wire response.
  const receipt={observation:observation.id,fingerprint,at,until:Math.min(at+TRANSFER_RECOVERY_MS,observation.expiresAt,expiresAt),response};
  if(receipt.until<=at)Fail('SECURITY_FRESH_OBSERVATION_REQUIRED');
  Atomic('OVERLAY_VERIFY','SERVER',next=>{Boot().AssertSecurityAvailable();const item=next.overlays[row.id];Live(item);if(item.status!=='CLAIMED')Fail('BOOTSTRAP_SESSION_CLOSED');const committedObservation=authority.RenewalIdentity(item,'O','verify',authority.Binding(item.sessionId,artifact.sha512)),committedSnapshot=require("../integrity/spacex.desktop-integrity-reports").RequireSnapshot(item,'O');if(committedObservation.id!==observation.id||expiresAt>committedObservation.expiresAt||committedSnapshot&&expiresAt>committedSnapshot.expiresAt)Fail('SECURITY_FRESH_OBSERVATION_REQUIRED');item.sessionExpiresAt=expiresAt;item.lastVerifiedAt=at;item.authorizedAt=at;item.verifyReceipt=receipt;delete item.claimRecoveryUntil;delete item.claimFingerprint;});
@@ -275,7 +283,7 @@ function Verify(body){
  // Record the actual bound, so repeated successful own-image checks cannot be
  // mistaken for a newly completed module snapshot. No tokens/keys/file paths.
  try{require("../../storage/audit/spacex.audit.js").LogEvent('DESKTOP_OVERLAY_LEASE_BOUND',JSON.stringify({sessionId:row.sessionId,overlayId:row.id,serverTime:at,expiresAt,snapshotExpiresAt:snapshot?.expiresAt??0,observationExpiresAt:observation.expiresAt,transferConfirmed,bound:snapshot&&expiresAt===snapshot.expiresAt?'MODULE_SNAPSHOT':expiresAt===observation.expiresAt?'OWN_OBSERVATION':license.expiresAt&&expiresAt===license.expiresAt?'LICENSE':!transferConfirmed&&expiresAt===parent.sessionExpiresAt?'PARENT':'SESSION_CAP'}));}catch(_){console.error('OVERLAY_LEASE_AUDIT_FAILED');}
- return response;
+ return workspaceVersion===2&&response.workspaceState?PreviewWorkspace(response,license):response;
 }
 function TransferCanonical(parentId,overlayId){return ['GAME-OVERLAY-TRANSFER-V1',parentId,overlayId].join('\n');}
 function EqualStrong(value,expected){return typeof value==='string'&&typeof expected==='string'&&/^[a-f0-9]{128}$/.test(expected)&&crypto.timingSafeEqual(Buffer.from(sha512(value),'hex'),Buffer.from(expected,'hex'));}

@@ -109,11 +109,16 @@ function StoredKey(row){
  return row.keyVersion===2?digest:LegacyFormattedKey(digest);
 }
 function IssuedKey(row){const key=StoredKey(row);if(hash(key)!==row.keyHash)Fail('DESKTOP_KEY_INVALID',409);return NormalizeKey(key);}
-function DisplayKeySuffix(row){
+function VerifiedDisplayKey(row){
  if(typeof row.issuanceNonce!=='string'||!DB().signingSecret)return '';
  const key=StoredKey(row);
- return hash(key)===row.keyHash?NormalizeKey(key).slice(-6):'';
+ return hash(key)===row.keyHash?NormalizeKey(key):'';
 }
+function DisplayKeyPreview(row){
+ const key=VerifiedDisplayKey(row);
+ return {licenseKeyPrefix:key.slice(0,6),licenseKeySuffix:key.slice(-6)};
+}
+function DisplayKeySuffix(row){return VerifiedDisplayKey(row).slice(-6);}
 function NewRow(body,actor){
  const label=Text(body.label||'',120),expiresAt=Expiry(body),productId=products.Require(body.productId).id,id=crypto.randomBytes(12).toString('hex').toUpperCase();
  DB().signingSecret||=crypto.randomBytes(32).toString('hex');
@@ -286,7 +291,7 @@ function RetireRuntime(row,{sessionOnly=false}={}){
  for(const [id,value]of verifyReceipts)if(value.licenseId===row.licenseId)verifyReceipts.delete(id);
  if(row.licenseId)seen.delete(row.licenseId);
 }
-module.exports={DisplayKeySuffix,DrainAudit,ReconcileOperations,RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,IsOperational,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
+module.exports={DisplayKeyPreview,DisplayKeySuffix,DrainAudit,ReconcileOperations,RetireRuntime,CHALLENGE_MS,LEASE_MS,messages,Empty,Import,DB,Public,IsOperational,Detail,Create,CreateReference,Revoke,Reissue,List,Challenge,Execute,ParseKey,Canonical,Fail};
 
 module.exports.InvalidateVolatile=function(){challenges.clear();seen.clear();verifyReceipts.clear();};
 module.exports.CreateCheckpoint=CreateCheckpoint;
