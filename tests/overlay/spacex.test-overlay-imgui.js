@@ -427,23 +427,23 @@ check('O has icon navigation, passive views and receipt-gated workspace interact
   const flight=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_spaceflight.h');
   const tabs=scene.slice(scene.indexOf('static constexpr SpaceXWorkspaceTabItem SpaceXWorkspaceTabs[]'),
     scene.indexOf('static void spacex_workspace_product('));
-  inOrder(tabs,['{SpaceXWorkspacePlayer, SpaceXPixelGeneral, SpaceXWorkspaceRailX, 44.f}',
-    '{SpaceXWorkspaceRage, SpaceXPixelRage, SpaceXWorkspaceRailX, 82.f}',
-    '{SpaceXWorkspaceAim, SpaceXPixelAim, SpaceXWorkspaceRailX, 120.f}',
-    '{SpaceXWorkspaceVirtuals, SpaceXPixelVirtuals, SpaceXWorkspaceRailX, 158.f}',
-    '{SpaceXWorkspacePacket, SpaceXPixelPacket, SpaceXWorkspaceRailX, 211.f}',
-    '{SpaceXWorkspaceCodeAndMacros, SpaceXPixelCode, SpaceXWorkspaceRailX, 264.f}',
-    '{SpaceXWorkspaceUsage, SpaceXPixelUsage, SpaceXWorkspaceRailX, 317.f}',
-    '{SpaceXWorkspaceSettings, SpaceXPixelSettings, SpaceXWorkspaceRailX, 474.f}',
-    '{SpaceXWorkspaceGames, SpaceXPixelGames, 332.f, 44.f}',
+  inOrder(tabs,['{SpaceXWorkspacePlayer, SpaceXFaPixelAlienMesh, SpaceXWorkspaceRailX, 44.f}',
+    '{SpaceXWorkspaceRage, SpaceXFaSkullMesh, SpaceXWorkspaceRailX, 82.f}',
+    '{SpaceXWorkspaceAim, SpaceXFaSimpleReticleMesh, SpaceXWorkspaceRailX, 120.f}',
+    '{SpaceXWorkspaceVirtuals, SpaceXFaEyeMesh, SpaceXWorkspaceRailX, 158.f}',
+    '{SpaceXWorkspacePacket, SpaceXFaGlobeMesh, SpaceXWorkspaceRailX, 211.f}',
+    '{SpaceXWorkspaceCodeAndMacros, SpaceXFaCurlyBracesMesh, SpaceXWorkspaceRailX, 264.f}',
+    '{SpaceXWorkspaceSettings, SpaceXFaGearMesh, SpaceXWorkspaceRailX, 474.f}',
+    '{SpaceXWorkspaceUsage, SpaceXFaBoltMesh, 284.f, 44.f}',
+    '{SpaceXWorkspaceGames, SpaceXFaShuttleSpaceMesh, 332.f, 44.f}',
     'static void spacex_workspace_tabs('],
-    'Ordered pixel rail with Settings at the bottom and Shooting Game at the upper right');
+    'Filled icons with Settings at the bottom and Usage directly left of Shooting Game');
   const rail=tabs.slice(tabs.indexOf('static void spacex_workspace_tabs('));
   inOrder(rail,['spacex_palette_item(area,0x4800+tab.id,','v.context->overlay_tab=',
-    'overlay_tab_reveal=0.f','separator_y[]={184.f,237.f,290.f}',
-    'spacex_workspace_motion(', 'spacex_workspace_pixel_icon(v.draw,tab.icon,v.at(tab.x,tab.y)'],
+    'overlay_tab_reveal=0.f',
+    'spacex_workspace_motion(', 'spacex_fontawesome_mesh(v.draw,tab.icon,v.at(tab.x,tab.y)'],
     'Keyboard targets and animated icon selection');
-  assert.doesNotMatch(rail,/AddImage|AddRect|v\.text\(|SetTooltip|PushFont/);
+  assert.doesNotMatch(rail,/separator|AddImage|AddRect|v\.text\(|SetTooltip|PushFont/);
   assert.doesNotMatch(scene,/SpaceXWorkspaceProfile|spacex_workspace_profile\(/);
 
   const workspaceView=scene.slice(scene.indexOf('struct SpaceXWorkspaceView'),scene.indexOf('enum SpaceXWorkspaceTab'));
@@ -501,6 +501,7 @@ check('O has icon navigation, passive views and receipt-gated workspace interact
   assert.doesNotMatch(key,/Clipboard|license_form|\.hit\(|spacex_palette_item/);
   const scroll=scene.slice(scene.indexOf('static void spacex_workspace_scroll('),
     scene.indexOf('static int spacex_overlay_workspace('));
+  assert.match(scroll,/main_top=60\.f/);
   inOrder(scroll,['overlay_tab_scroll[tab]', 'content.clip.Contains(io.MousePos)', 'io.MouseWheel',
     'content.origin.y-=offset*outer.scale'], 'Viewport scrolling remains active');
   assert.doesNotMatch(scroll,/AddRect|AddLine|spacex_palette_item/);
