@@ -425,15 +425,19 @@ check('O has icon navigation, passive views and receipt-gated workspace interact
   const b=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_license.h');
   const palette=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_palette.h');
   const flight=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_spaceflight.h');
-  const tabs=scene.slice(scene.indexOf('static const char* const SpaceXWorkspaceTabs[]'),
+  const tabs=scene.slice(scene.indexOf('static constexpr SpaceXWorkspaceTabItem SpaceXWorkspaceTabs[]'),
     scene.indexOf('static void spacex_workspace_product('));
-  inOrder(tabs,['"Local Player"', '"Aim"', '"Rage"', '"Packet"', '"Usage"', '"Settings"', '"Profile"', '"Games"',
-    'SpaceXWorkspaceRailCenters[]', 'SpaceX.game_imgui_fontawesome.h', 'static void spacex_workspace_tabs('],
-    'Ordered workspace icons with Games last');
+  inOrder(tabs,['"General"', 'SpaceXFaPixelAlienMesh', '"Aim"', 'SpaceXFaSimpleReticleMesh',
+    '"Rage"', 'SpaceXFaSkullMesh', '"Virtuals"', 'SpaceXFaEyeMesh', '"Packet"', 'SpaceXFaGlobeMesh',
+    '"Code Editor and Macros"', 'SpaceXFaCurlyBracesMesh', '"Usage"', 'SpaceXFaBoltMesh',
+    '"Settings"', 'SpaceXFaGearMesh', '"Profile"', 'SpaceXFaIdCardMesh', '"Shooting Game"',
+    'SpaceXFaShuttleSpaceMesh', 'static void spacex_workspace_tabs('],
+    'Ordered filled workspace icons with Shooting Game last');
   const rail=tabs.slice(tabs.indexOf('static void spacex_workspace_tabs('));
-  inOrder(rail,['spacex_palette_item(area,SpaceXWorkspaceTabs[i],','v.context->overlay_tab=',
-    'overlay_tab_reveal=0.f','spacex_workspace_motion(','spacex_fontawesome_workspace_icon(v.draw,i,v.at(SpaceXWorkspaceRailX,center)',
-    'const float separators[]'], 'Keyboard targets and animated icon selection');
+  inOrder(rail,['spacex_palette_item(area,tab.label,','v.context->overlay_tab=',
+    'ImGui::PushFont(v.context->overlay_pixel_font', 'overlay_tab_reveal=0.f','spacex_workspace_motion(',
+    'spacex_fontawesome_mesh(v.draw,tab.icon,v.at(SpaceXWorkspaceRailX,tab.center)'],
+    'Keyboard targets and animated icon selection');
   assert.doesNotMatch(rail,/AddImage|AddRect|v\.text\(/);
 
   const workspaceView=scene.slice(scene.indexOf('struct SpaceXWorkspaceView'),scene.indexOf('enum SpaceXWorkspaceTab'));

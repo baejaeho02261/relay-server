@@ -107,9 +107,16 @@ test('Earth opens the masked editor, animates the native map, and clears the pas
   assert.equal(d.activeElement,password);
   assert.equal(password.type,'password');
   const maskDots=operations=>operations.filter(([name,value])=>name==='fillStyle'&&value==='#e4f1ff').length;
+  const firstSatellite=hovered.find(([name])=>name==='transform');
+  screen.dispatchEvent(new w.MouseEvent('pointermove',{clientX:firstSatellite[5],clientY:firstSatellite[6]}));
   password.value='A';
   password.dispatchEvent(new w.Event('input',{bubbles:true}));
-  assert.equal(maskDots(frame(110)),1,'the first ordinary key is visible on the next frame');
+  const moving=frame(110);
+  assert.equal(maskDots(moving),1,'the first ordinary key is visible on the next frame');
+  const satelliteColors=moving.flatMap(([name],index)=>name==='transform'?[moving[index+1][1]]:[]);
+  assert.notEqual(satelliteColors[0],'rgb(48, 50, 57)','the hovered satellite highlights');
+  assert.deepEqual(satelliteColors.slice(1),['rgb(48, 50, 57)','rgb(48, 50, 57)'],'the other satellites keep the border color');
+  screen.dispatchEvent(new w.Event('pointerleave'));
   const secret='LOCAL-SYNTHETIC-TEST-ONLY'.repeat(3).slice(0,64);
   password.value=secret;
   password.dispatchEvent(new w.InputEvent('input',{bubbles:true,inputType:'insertFromPaste'}));
@@ -163,6 +170,65 @@ test('Earth opens the masked editor, animates the native map, and clears the pas
   await new Promise(resolve=>w.setTimeout(resolve,0));
   assert.equal(password.value,'');
   assert.equal(form.hidden,true);
+ }finally{w.close();}
+});
+
+test('Earth submits a clipboard password only after a deliberate click and preserves manual entry',async()=>{
+ const dom=Open(),w=dom.window,d=w.document;
+ try{
+  const earth=d.getElementById('login-earth'),password=d.getElementById('login-password');
+  const form=d.getElementById('login-form'),submissions=[];
+  const register=earth.addEventListener.bind(earth);
+  let earthClick,readClipboard,reads=0;
+  earth.addEventListener=(type,listener,options)=>{
+   if(type==='click')earthClick=listener;
+   register(type,listener,options);
+  };
+  Object.defineProperty(w,'isSecureContext',{value:true});
+  Object.defineProperty(w.navigator,'clipboard',{value:{readText(){reads++;return readClipboard();}}});
+  d.getElementById('login-space').getContext=()=>null;
+  w.eval(orbit);
+  form.addEventListener('submit',event=>{
+   assert.ok(event.defaultPrevented,'credentials must never fall through to native form navigation');
+   submissions.push(password.value);
+  });
+  const close=()=>password.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  const click=()=>earthClick({isTrusted:true});
+  const clipboard='LOCAL-TEST-CLIPBOARD',typed='LOCAL-TEST-TYPED';
+  readClipboard=async()=>clipboard;
+  earth.click();
+  assert.equal(reads,0,'scripted clicks must not access the clipboard');
+  close();
+  await click();
+  assert.equal(reads,1);
+  assert.deepEqual(submissions,[clipboard]);
+  close();
+
+  readClipboard=async()=>{throw new w.DOMException('Denied','NotAllowedError');};
+  await click();
+  assert.equal(d.activeElement,password);
+  assert.deepEqual(submissions,[clipboard],'refused clipboard access leaves the editor open for typing');
+  close();
+
+  let resolveClipboard;
+  readClipboard=()=>new Promise(resolve=>{resolveClipboard=resolve;});
+  const pending=click();
+  password.value=typed;
+  password.dispatchEvent(new w.Event('input',{bubbles:true}));
+  resolveClipboard(clipboard);
+  await pending;
+  assert.equal(password.value,typed);
+  assert.deepEqual(submissions,[clipboard]);
+  password.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  assert.deepEqual(submissions,[clipboard,typed]);
+  close();
+
+  const cancelled=click();
+  close();
+  resolveClipboard(clipboard);
+  await cancelled;
+  assert.equal(password.value,'');
+  assert.deepEqual(submissions,[clipboard,typed]);
  }finally{w.close();}
 });
 

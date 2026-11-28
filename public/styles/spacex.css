@@ -137,7 +137,7 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
   filter: grayscale(1) brightness(.5);
   pointer-events: none;
 }
-.login-orb-controls:has(.login-earth:hover) .login-earth-fallback { filter: grayscale(1) brightness(.85); }
+.login-orb-controls:has(.login-earth:hover) .login-earth-fallback { filter: grayscale(1) brightness(.56); }
 .login-atlas-ready .login-earth-fallback { visibility: hidden; }
 #login-screen .login-earth {
   position: absolute;
@@ -154,7 +154,7 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
 }
 #login-screen .login-earth:focus-visible { box-shadow: inset 0 0 0 2px var(--login-orbit-ink); outline: none; }
 #login-screen:not([aria-busy]) .login-orb-controls:has(#login-password:focus) .login-earth {
-  box-shadow: inset 0 0 0 1px #9baccc;
+  box-shadow: inset 0 0 0 1px #40424a;
 }
 #login-screen[aria-busy='true'] .login-earth { cursor: var(--space-pointer); }
 .login-orb-form {
@@ -162,6 +162,20 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
   inset: 0;
   pointer-events: none;
 }
+.login-orb-hint {
+  position: absolute;
+  top: calc(100% + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(310px, 92vw);
+  color: var(--login-orbit-ink);
+  text-align: center;
+  font-size: 12px;
+}
+.login-orb-hint span:last-child,
+.login-orb-form:not([hidden]) + .login-orb-hint span:first-child,
+#login-screen[aria-busy] .login-orb-hint { display: none; }
+.login-orb-form:not([hidden]) + .login-orb-hint span:last-child { display: inline; }
 #login-screen #login-password {
   position: absolute;
   top: 50%;
@@ -179,7 +193,7 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
 }
 #login-screen #login-error {
   position: absolute;
-  top: calc(100% + 20px);
+  top: calc(100% + 39px);
   left: 50%;
   transform: translateX(-50%);
   width: min(310px, 92vw);

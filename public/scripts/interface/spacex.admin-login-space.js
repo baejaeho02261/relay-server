@@ -13,7 +13,7 @@
   const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const scanDuration = 660, collapseDuration = 580, maxMaskDots = 80;
   const scene = {scanAt: 0, collapseAt: 0, count: 0, phase: 'idle'};
-  let hover = false, highlight = 0;
+  let earthHovered = false, earthHighlight = 0, clipboardAttempt = 0;
   function clearAnimation() {
     scene.phase = 'idle';
     scene.count = 0;
@@ -23,15 +23,18 @@
   }
   function closeEditor(restoreFocus) {
     if (form.hidden) return;
+    clipboardAttempt++;
     clearAnimation();
     password.value = '';
     error.textContent = '';
     form.hidden = true;
     earth.setAttribute('aria-expanded', 'false');
-    earth.setAttribute('aria-label', '관리자 로그인 열기');
+    earth.setAttribute('aria-label', '클립보드 비밀번호로 관리자 로그인');
     if (restoreFocus) earth.focus();
   }
-  earth.addEventListener('click', () => {
+  // Credentials can only be sent by the administrator application's API handler.
+  form.addEventListener('submit', event => event.preventDefault());
+  earth.addEventListener('click', async event => {
     if (scene.phase !== 'idle') return;
     if (!form.hidden) {
       if (password.value) form.requestSubmit();
@@ -42,9 +45,34 @@
     earth.setAttribute('aria-expanded', 'true');
     earth.setAttribute('aria-label', '관리자 비밀번호 제출');
     password.focus({preventScroll:true});
+    if (!event.isTrusted || !window.isSecureContext || !navigator.clipboard?.readText) return;
+
+    const attempt = ++clipboardAttempt;
+    let value;
+    try {
+      value = (await navigator.clipboard.readText()).trim();
+    } catch (_) {
+      return;
+    }
+    // A clipboard prompt can outlive the editor or overlap manual entry.
+    if (attempt !== clipboardAttempt || form.hidden || password.value || document.hidden ||
+        screen.classList.contains('hidden') || scene.phase !== 'idle') return;
+    if (!value || value.length > 4096 || /[\r\n]/.test(value)) return;
+    password.value = value;
+    form.requestSubmit();
   });
-  earth.addEventListener('pointerenter', () => { hover = true; if (ctx) requestFrame(); });
-  earth.addEventListener('pointerleave', () => { hover = false; if (ctx) requestFrame(); });
+  earth.addEventListener('pointerenter', event => {
+    earthHovered = event.pointerType !== 'touch';
+    if (ctx) requestFrame();
+  });
+  earth.addEventListener('pointerleave', () => {
+    earthHovered = false;
+    if (ctx) requestFrame();
+  });
+  password.addEventListener('input', () => {
+    clipboardAttempt++;
+    if (ctx) requestFrame();
+  });
   password.addEventListener('keydown', event => {
     if (event.key !== 'Enter' || event.isComposing || scene.phase !== 'idle') return;
     event.preventDefault();
@@ -57,6 +85,7 @@
   });
   window.spacexLoginOrbit = Object.freeze({
     begin() {
+      clipboardAttempt++;
       scene.count = Math.min(maxMaskDots, password.value.length);
       scene.scanAt = window.performance.now();
       scene.phase = 'scan';
@@ -88,13 +117,16 @@
 
   if (!ctx) return;
   const tau = 2 * Math.PI;
-  const borderInk = '#303239';
+  const borderInk = [48, 50, 57];
+  const hoverBorderInk = [64, 66, 74];
   const starInk = '#a7b6cd';
   const satellites = [
     {period: 12, offset: -.56, distance: 1.22},
     {period: 16.1, offset: 1.68, distance: 1.32},
     {period: 20.4, offset: 3.63, distance: 1.42}
   ];
+  const satelliteHighlights = satellites.map(() => 0);
+  let pointer = null, surfaceLeft = 0, surfaceTop = 0;
   let width = 0, height = 0, centerX = 0, centerY = 0, radius = 0, pixelScale = 0;
   let stars = [], atlas, projected, places, landPath, tinyPath, mappedLongitude = NaN;
   let frame = 0, lastTime = 0, elapsed = 0, earthTime = 0;
@@ -120,6 +152,8 @@
     if (!nextWidth || !nextHeight) return;
     const scale = Math.min(2, window.devicePixelRatio || 1);
     const surface = canvas.getBoundingClientRect();
+    surfaceLeft = surface.left;
+    surfaceTop = surface.top;
     const planet = earth.getBoundingClientRect();
     const nextX = planet.left - surface.left + planet.width / 2;
     const nextY = planet.top - surface.top + planet.height / 2;
@@ -271,14 +305,30 @@
     return {sine: Math.sin(angle), cosine: Math.cos(angle), distance};
   }
 
-  function drawSatellite({sine, cosine, distance}, fade) {
+  function outlineColor(highlight) {
+    const channels = borderInk.map((value, index) =>
+      Math.round(value + (hoverBorderInk[index] - value) * highlight));
+    return `rgb(${channels.join(', ')})`;
+  }
+
+  function satelliteHovered({sine, cosine, distance}) {
+    if (!pointer || !radius || scene.phase !== 'idle') return false;
+    const size = radius * .084;
+    const dx = (pointer.x - surfaceLeft - centerX - cosine * radius * distance) / size;
+    const dy = (pointer.y - surfaceTop - centerY - sine * radius * distance) / size;
+    const along = -sine * dx + cosine * dy;
+    const across = cosine * dx + sine * dy;
+    return Math.abs(along) <= 1.80 && across >= -.94 && across <= .65;
+  }
+
+  function drawSatellite({sine, cosine, distance}, color, fade) {
     const size = radius * .084;
     ctx.save();
     ctx.transform(-sine * size, cosine * size, cosine * size, sine * size,
       centerX + cosine * radius * distance, centerY + sine * radius * distance);
-    ctx.strokeStyle = borderInk;
+    ctx.strokeStyle = color;
     ctx.lineWidth = Math.max(.13, .77 / size);
-    ctx.globalAlpha = .85 * fade;
+    ctx.globalAlpha = fade;
     ctx.strokeRect(-.35, -.32, .7, .64);
     ctx.strokeRect(-1.46, -.26, 1, .52);
     ctx.strokeRect(.46, -.26, 1, .52);
@@ -289,11 +339,11 @@
     ctx.moveTo(-.96, -.26); ctx.lineTo(-.96, .26);
     ctx.moveTo(.96, -.26); ctx.lineTo(.96, .26);
     ctx.stroke();
-    dot(0, 0, .081, .65 * fade);
-    dot(0, -.61, .081, (.55 + .45 * Math.max(0, Math.cos(elapsed * tau / 2.6))) * fade);
+    dot(0, 0, .081, .65 * fade, color);
+    dot(0, -.61, .081, (.55 + .45 * Math.max(0, Math.cos(elapsed * tau / 2.6))) * fade, color);
     for (const side of [-1, 1]) {
-      dot(side * .69, .03, .071, .59 * fade);
-      dot(side * 1.22, -.04, .055, .46 * fade);
+      dot(side * .69, .03, .071, .59 * fade, color);
+      dot(side * 1.22, -.04, .055, .46 * fade, color);
     }
     ctx.restore();
   }
@@ -403,7 +453,7 @@
     }
   }
 
-  function draw(now) {
+  function draw(now, hoverStep) {
     const collapse = scene.phase === 'collapse' ? clamp((now - scene.collapseAt) / collapseDuration) : 0;
     const scan = scene.phase === 'scan' ? clamp((now - scene.scanAt) / scanDuration) : 0;
     const opacity = 1 - ease(collapse);
@@ -414,18 +464,24 @@
     const longitude = .48 + 1.32 * Math.sin(.33 + (earthTime % 54) * tau / 54);
     const count = scene.phase !== 'idle' ? scene.count : form.hidden ? 0 : Math.min(maxMaskDots, password.value.length);
     if (atlas && radius > 0) {
-      const blend = highlight * .63;
-      const color = `rgb(${Math.round(48 + 119 * blend)}, ${Math.round(50 + 132 * blend)}, ${Math.round(57 + 148 * blend)})`;
+      const editing = document.activeElement === password;
+      const hoverTarget = scene.phase === 'idle' && (earthHovered || editing || earth.matches(':focus-visible')) ? 1 : 0;
+      earthHighlight += (hoverTarget - earthHighlight) * hoverStep;
+      const color = outlineColor(earthHighlight);
       drawCountries(longitude, color, opacity);
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = color;
-      ctx.lineWidth = Math.max(.83, radius * (.016 + .002 * highlight));
+      ctx.lineWidth = Math.max(.83, radius * .016);
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius - ctx.lineWidth / 2, 0, tau);
       ctx.stroke();
     }
     const positions = satellites.map(satellitePosition);
-    for (const position of positions) drawSatellite(position, opacity);
+    for (const [index, position] of positions.entries()) {
+      const target = satelliteHovered(position) ? 1 : 0;
+      satelliteHighlights[index] += (target - satelliteHighlights[index]) * hoverStep;
+      drawSatellite(position, outlineColor(satelliteHighlights[index]), opacity);
+    }
     drawMask(count, longitude, collapse);
     if (scan > 0 && !reducedMotion?.matches) drawScan(positions, scan);
     if (collapse > 0) drawBlackHole(collapse);
@@ -445,10 +501,7 @@
         lastTime = now;
         elapsed += delta;
         if (scene.phase === 'idle' && !password.value.length) earthTime += delta;
-        const editing = document.activeElement === password;
-        const target = scene.phase === 'idle' && (hover || editing || earth.matches(':focus-visible')) ? 1 : 0;
-        highlight += (target - highlight) * (resting || !delta ? 1 : Math.min(1, delta * 11));
-        draw(now);
+        draw(now, resting || !delta ? 1 : Math.min(1, delta * 11));
       }
       if (!resting) requestFrame();
     });
@@ -478,7 +531,15 @@
     // The local static globe remains available when the atlas cannot load.
   });
 
-  password.addEventListener('input', requestFrame);
+  screen.addEventListener('pointermove', event => {
+    if (event.pointerType === 'touch') return;
+    pointer = {x: event.clientX, y: event.clientY};
+    requestFrame();
+  });
+  screen.addEventListener('pointerleave', () => {
+    pointer = null;
+    requestFrame();
+  });
   screen.addEventListener('focusin', requestFrame);
   screen.addEventListener('focusout', requestFrame);
   window.addEventListener('resize', resize);

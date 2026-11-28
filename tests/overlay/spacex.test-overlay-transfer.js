@@ -85,6 +85,21 @@ check('A prepared O can refresh past the first click cutoff without transferring
  assert.ok(clock-firstAuthorizedAt>30000);
 });
 check('Transfer requires exact version, parent token and B RSA proof',()=>{reject(()=>bootstrap.Execute({...s.commit,handoffVersion:2}),'BOOTSTRAP_INPUT_INVALID');reject(()=>bootstrap.Execute({...s.commit,sessionToken:'invalid'}),'BOOTSTRAP_SESSION_INVALID');reject(()=>bootstrap.Execute({...s.commit,signature:fixture.Sign(fixture.Device(),'invalid')}),'BOOTSTRAP_PROOF_INVALID');assert.equal(parent(s).status,'CLAIMED');});
+check('The same signed commit can succeed after an overlapping O observation is renewed',()=>{
+ const racing=setup();
+ assert.equal(verify(racing).transferConfirmed,false);
+ const renewal={...racing.context,intent:'verify',binding:authority.Binding(racing.o.sessionId,racing.prepared.release.sha512)};
+ authority.Execute({...renewal,action:'challenge'});
+ reject(()=>bootstrap.Execute(racing.commit),'SECURITY_FRESH_OBSERVATION_REQUIRED');
+ assert.equal(parent(racing).status,'CLAIMED');
+ assert.equal(child(racing).transferVersion,undefined);
+ const renewed=verify(racing);
+ assert.equal(renewed.transferConfirmed,false);
+ assert.equal(bootstrap.Execute(racing.commit).status,'TRANSFERRED');
+ assert.equal(parent(racing).status,'CLOSED');
+ assert.equal(child(racing).transferVersion,1);
+ assert.equal(child(racing).sessionExpiresAt,renewed.expiresAt);
+});
 check('Commit atomically transfers O and destroys the B session capability',()=>{receipt=bootstrap.Execute(s.commit);assert.deepEqual(receipt,{handoffVersion:1,status:'TRANSFERRED',parentSessionId:s.b.sessionId,overlayId:s.prepared.overlayId,overlaySessionId:s.o.sessionId});const row=parent(s);assert.equal(row.status,'CLOSED');assert.equal(row.sessionHash,undefined);assert.equal(row.sessionNonce,undefined);assert.equal(row.downloadNonce,undefined);assert.equal(row.handoffNonce,undefined);assert.equal(row.licenseLeaseExpiresAt,0);assert.match(row.transferReceiptHash,/^[a-f0-9]{128}$/);assert.equal(child(s).transferVersion,1);});
 check('Exact lost-response recovery is idempotent and cannot extend the lease',()=>{const revision=bootstrap.Initialize().revision,expiry=child(s).sessionExpiresAt;assert.deepEqual(bootstrap.Execute(s.commit),receipt);assert.equal(bootstrap.Initialize().revision,revision);assert.equal(child(s).sessionExpiresAt,expiry);reject(()=>bootstrap.Execute({...s.commit,signature:fixture.Sign(s.d,'different transcript')}),'BOOTSTRAP_REQUEST_REUSED');});
 check('Retired B cannot report, challenge security, verify its license or query session status',()=>{const context={stage:'B',sessionId:s.b.sessionId,sessionToken:s.b.sessionToken,machineId:s.d.machineId};reject(()=>bootstrap.SessionAuthenticated(s.b.sessionId,s.b.sessionToken),'BOOTSTRAP_SESSION_INVALID');reject(()=>reports.Execute({...context,action:'challenge'}),'BOOTSTRAP_SESSION_INVALID');reject(()=>authority.Execute({...context,intent:'verify',binding:authority.Binding(s.b.sessionId,s.b.release.sha512),action:'challenge'}),'BOOTSTRAP_SESSION_INVALID');reject(()=>proof(s.d,'verify',{...s.common,activationToken:s.activation.activationToken}),'BOOTSTRAP_SESSION_INVALID');reject(()=>bootstrap.Execute({action:'status',sessionId:s.b.sessionId,sessionToken:s.b.sessionToken}),'BOOTSTRAP_SESSION_INVALID');});
