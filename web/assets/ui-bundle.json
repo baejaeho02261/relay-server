@@ -1,10 +1,10 @@
 {
   "webAdminVersion": "5.0.2",
-  "uiRevision": "spacex-v47",
+  "uiRevision": "spacex-v47-login1",
   "files": {
-    "index.html": "9a463e1495fb1e237879b886a6be39d8fdf6ddd6b0593b4e71c7f423a5ca5042",
+    "index.html": "0f94e89353a215316a3cdf459faab2c161a54b908d1d879c7b1cab612895585c",
     "styles/admin.css": "27dc1283e35b2d3549c7d4067c1ea09e7efaf3412ff4c521e80a21c90f52bc6b",
-    "styles/spacex.css": "692fed054eba5c7cfb9e3cea477b9ad5b91d9d2f3069a2b996c353d409c3f23e",
+    "styles/spacex.css": "e64e480b9351b053da29e9d64e483677262a57edf94e57590f65e97a7679946a",
     "styles/admin-ui-design.css": "5f9795d79cb4d3251e5720fe59bca212be223b8e963f50ba0da7ec2e8fcda7eb",
     "styles/admin-theme.css": "e7e9de4a5b62b257211c445bc2a3a22ec3857709b1cab4f66913ac210534cd78",
     "styles/admin-appearance.css": "8a1d0eae350294a56e79a9d1a563d2971051aefca799e5e45ebccc029a9d6c30",
@@ -16,7 +16,7 @@
     "scripts/interface/spacex.admin-controls.js": "c2425b2f3808f940c3a78244c9631ab3b2065ae5a168d2aeca8f094a3d972986",
     "styles/admin-navigation.css": "f98fb7c62ac5db673ddf8b446a62e1d6ce25e438a13f6e4e8975c123241cc843",
     "scripts/interface/spacex.admin-i18n.js": "f1c8e482ab6449d39a751aa3ac049d2d1d0d414e5c40476fabd757155c3fa99c",
-    "scripts/application/spacex.admin.js": "67d625a2743f4390baa05eff8f0f61125dd4e3c0ee784a2ffa0114b519372496",
+    "scripts/application/spacex.admin.js": "9b11fa3ab6bc655424246e79be9da28054204e5e1c9da66d9c1f7a84c727ea13",
     "scripts/interface/spacex.admin-navigation.js": "3527efd6f8cb9357d09f4cbe29be0ac02dab741f575f9c07c071923f97e6973c",
     "scripts/pages/spacex.admin-pages-monitoring.js": "6d7712536268213fc45fa4a4c21ff61a473290308285f57c28074c4f77fc8758",
     "scripts/application/spacex.admin-terminal.js": "796f769653da32d79adad017a7a9f9f36a01daa6b5e1816e1da73669b2acd1aa",
@@ -42,7 +42,7 @@
     "icons/space-action.png": "54c849018876a37b635f9caa8b6507392ebabacebe5dcf8d78741646d3e0c274",
     "icons/earth.svg": "f146c95c76280d72ad726934da0e4a12c6cb9748c63454994e6fb167c7669d7f",
     "icons/login-atlas.json": "d1052eecddbe0ddf9818e3a579caf99efdeaf7daeb42bd5b9130a56e7a8a6d01",
-    "scripts/interface/spacex.admin-login-space.js": "3f5e2f6aa2de0ead733c8a91e9c07cb9cc5402934544bb1b9f46d0a6f82bfc97",
+    "scripts/interface/spacex.admin-login-space.js": "c290e2f4b9d6aa7177a08b009010be702483debdbd71b1cc1803e4ad8205b89a",
     "icons/icon-192.png": "fd178ed712e2a70238ca7de93d7c57decaeae76c188682e994e699b6e44bdd9b",
     "icons/icon-512.png": "7004dcb8bcd13aa3ce1d94c05bd83a3f9581316c789ad69df330decddcb57201",
     "fonts/orbitron.ttf": "f42db2dd16e642258e35782916eceb1dcdbea06fb958d77ad71dc5963587e8fd",
@@ -66,8 +66,8 @@
     "styles/admin-desktop.css": "fd4e34fd6c503ed391768a2e6b0027e7b30e473de4f3610ea7edd7a81148905c",
     "styles/admin-members.css": "a0d7d1292da3955498d52c13c09d04c1011172313aa14a8568f0eb617f30bb7e",
     "scripts/pages/spacex.admin-pages-production.js": "9c989ddea42de0ec049027c4dcd42ecf5fd0c48422cb8157313bf1b5515e4967",
-    "spacex.service-worker.js": "5ceb295d73f172516d6cd51e7ee9781bad7d29cbc0bca924174de3a9873b1ffb",
-    "ui-refresh.html": "06f7f5daff44adc61841f7873a62f8340ebd00a2c6ebd09c923107f68e1dd6ad",
+    "spacex.service-worker.js": "09d3dcbbf20ae252894cfc50e2bc012a03817581fc63d13e94acf3b0adc17ee8",
+    "ui-refresh.html": "340b21366c85ac235be8cf9bdd105d7d07b321f1ede80a71caf6ba66d0916d0a",
     "scripts/application/spacex.ui-refresh.js": "7da27422647e367157854bc3f96c18e532a13a2d644f8c49750158f37f14f226"
   }
 }

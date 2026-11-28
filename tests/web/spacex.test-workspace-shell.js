@@ -106,10 +106,15 @@ test('Earth opens the masked editor, animates the native map, and clears the pas
   assert.equal(form.hidden,false);
   assert.equal(d.activeElement,password);
   assert.equal(password.type,'password');
-  const secret='LOCAL-SYNTHETIC-TEST-ONLY';
-  password.value=secret;
+  const maskDots=operations=>operations.filter(([name,value])=>name==='fillStyle'&&value==='#e4f1ff').length;
+  password.value='A';
   password.dispatchEvent(new w.Event('input',{bubbles:true}));
-  for(let now=110;now<=950;now+=50)frame(now);
+  assert.equal(maskDots(frame(110)),1,'the first ordinary key is visible on the next frame');
+  const secret='LOCAL-SYNTHETIC-TEST-ONLY'.repeat(3).slice(0,64);
+  password.value=secret;
+  password.dispatchEvent(new w.InputEvent('input',{bubbles:true,inputType:'insertFromPaste'}));
+  assert.equal(maskDots(frame(130)),64,'a long paste makes every mark visible immediately');
+  for(let now=180;now<=950;now+=50)frame(now);
   const masked=frame(1000);
   assert.ok(masked.filter(([name])=>name==='arc').length>=animated.filter(([name])=>name==='arc').length+secret.length);
   assert.ok(!JSON.stringify(masked).includes(secret),'canvas must receive masks only');

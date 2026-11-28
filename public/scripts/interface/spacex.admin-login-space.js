@@ -11,7 +11,7 @@
 
   const ctx = canvas.getContext('2d', {alpha: false});
   const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-  const scanDuration = 660, collapseDuration = 580;
+  const scanDuration = 660, collapseDuration = 580, maxMaskDots = 80;
   const scene = {scanAt: 0, collapseAt: 0, count: 0, phase: 'idle'};
   let hover = false, highlight = 0;
   function clearAnimation() {
@@ -57,7 +57,7 @@
   });
   window.spacexLoginOrbit = Object.freeze({
     begin() {
-      scene.count = Math.min(48, password.value.length);
+      scene.count = Math.min(maxMaskDots, password.value.length);
       scene.scanAt = window.performance.now();
       scene.phase = 'scan';
       password.readOnly = true;
@@ -299,7 +299,11 @@
   }
 
   function buildMaskLayout(longitude) {
-    if (!atlas) return detailStars.map(({x, y}) => ({x, y})).slice(0, 48);
+    if (!atlas) return Array.from({length: maxMaskDots}, (_, index) => {
+      const distance = .86 * Math.sqrt(index / maxMaskDots);
+      const angle = index * Math.PI * (3 - Math.sqrt(5));
+      return {x: distance * Math.cos(angle), y: distance * Math.sin(angle)};
+    });
     const coordinates = new Float32Array(atlas.slots.length);
     project(atlas.slots, coordinates, longitude);
     const candidates = [];
@@ -309,7 +313,7 @@
       candidates.push({x, y, distance: 1 - .70 * (x * x + y * y)});
     }
     const selected = [];
-    for (let count = 0; count < 48 && candidates.length; count++) {
+    for (let count = 0; count < maxMaskDots && candidates.length; count++) {
       let best = 0;
       for (let index = 1; index < candidates.length; index++) {
         if (candidates[index].distance > candidates[best].distance) best = index;
@@ -338,15 +342,20 @@
     }
     for (let index = 0; index < Math.min(count, maskPoints.length); index++) {
       let {x, y} = maskPoints[index];
+      const delay = Math.min(index - maskFrom, 15) * .006;
       const reveal = scene.phase !== 'idle' || reducedMotion?.matches || index < maskFrom
-        ? 1 : clamp((elapsed - maskStarted - (index - maskFrom) * .023) / .22);
+        ? 1 : .72 + .28 * ease(clamp((elapsed - maskStarted - delay) / .13));
       const pull = ease(clamp(collapse * 1.29 - .18 * seed(index + 19)));
       const angle = pull * 4.8;
       const nextX = (x * Math.cos(angle) - y * Math.sin(angle)) * (1 - pull);
       y = (x * Math.sin(angle) + y * Math.cos(angle)) * (1 - pull);
       x = nextX;
-      if (reveal > 0 && pull < 1) dot(centerX + x * radius, centerY + y * radius,
-        Math.max(1.65, radius * .014) * (.55 + .45 * reveal) * (1 - .68 * pull), reveal * .94 * (1 - pull));
+      if (pull < 1) {
+        const px = centerX + x * radius, py = centerY + y * radius;
+        const size = Math.max(2.15, radius * .016) * (.75 + .25 * reveal) * (1 - .68 * pull);
+        dot(px, py, size + .8, .94 * (1 - pull), '#000');
+        dot(px, py, size, reveal * (1 - pull), '#e4f1ff');
+      }
     }
   }
 
@@ -403,7 +412,7 @@
     ctx.fillRect(0, 0, width, height);
     drawStars();
     const longitude = .48 + 1.32 * Math.sin(.33 + (earthTime % 54) * tau / 54);
-    const count = scene.phase !== 'idle' ? scene.count : form.hidden ? 0 : Math.min(48, password.value.length);
+    const count = scene.phase !== 'idle' ? scene.count : form.hidden ? 0 : Math.min(maxMaskDots, password.value.length);
     if (atlas && radius > 0) {
       const blend = highlight * .63;
       const color = `rgb(${Math.round(48 + 119 * blend)}, ${Math.round(50 + 132 * blend)}, ${Math.round(57 + 148 * blend)})`;
@@ -436,7 +445,8 @@
         lastTime = now;
         elapsed += delta;
         if (scene.phase === 'idle' && !password.value.length) earthTime += delta;
-        const target = scene.phase === 'idle' && (hover || earth.matches(':focus-visible')) ? 1 : 0;
+        const editing = document.activeElement === password;
+        const target = scene.phase === 'idle' && (hover || editing || earth.matches(':focus-visible')) ? 1 : 0;
         highlight += (target - highlight) * (resting || !delta ? 1 : Math.min(1, delta * 11));
         draw(now);
       }

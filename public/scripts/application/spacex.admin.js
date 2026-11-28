@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'spacex-v47';
+const WEB_UI_REVISION = 'spacex-v47-login1';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -265,7 +265,7 @@ async function api(url, options = {}) {
     return api(url, {...options, reauthRetried:true});
   }
   if (response.status === 401 && !(url === '/api/login' && method === 'POST')) {
-    showLogin();
+    if (requestSession && session?.csrf === requestSession) showLogin();
     throw new Error('로그인이 만료되었습니다.');
   }
   if (!response.ok || (data && data.ok === false)) {
@@ -392,20 +392,23 @@ function startEvents() {
   eventSource.onerror = disconnected;
 }
 
+let loginPasswordStarted = false;
+let loginPasswordPending = false;
 async function restoreSession() {
   try {
     const data = await api('/api/session');
+    if (loginPasswordStarted) return;
     session = { role: data.role, csrf: data.csrf, expiresAt: data.expiresAt };
     showApp();
   } catch (_) {
-    showLogin();
+    // The initial login screen is already open. Keep any password being edited.
   }
 }
 
-let loginPasswordPending = false;
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   if (loginPasswordPending || !loginPassword.value) return;
+  loginPasswordStarted = true;
   loginPasswordPending = true;
   loginError.textContent = '';
   const scene = window.spacexLoginOrbit;
