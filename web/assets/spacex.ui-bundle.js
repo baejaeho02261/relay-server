@@ -13,6 +13,8 @@ const FILES = [
   "styles/admin-ui-design.css",
   "styles/admin-theme.css",
   "styles/admin-appearance.css",
+  "styles/admin-cursors.css",
+  "scripts/interface/spacex.admin-appearance-catalog.js",
   "scripts/interface/spacex.admin-appearance.js",
   "styles/admin-controls.css",
   "styles/admin-workspace.css",
@@ -40,15 +42,22 @@ const FILES = [
   "scripts/interface/spacex.admin-modal.js",
   "scripts/actions/spacex.admin-device-actions.js",
   "scripts/actions/spacex.admin-actions.js",
-  "icons/game.svg",
+  "icons/spacex.svg",
+  "icons/space-pointer.png",
+  "icons/space-action.png",
   "icons/earth.svg",
   "icons/login-atlas.json",
   "scripts/interface/spacex.admin-login-space.js",
-  "icons/icon.svg",
-  "icons/favicon.svg",
-  "icons/favicon.ico",
   "icons/icon-192.png",
   "icons/icon-512.png",
+  "fonts/orbitron.ttf",
+  "fonts/orbitron-OFL.txt",
+  "fonts/oxanium.ttf",
+  "fonts/oxanium-OFL.txt",
+  "fonts/sora.ttf",
+  "fonts/sora-OFL.txt",
+  "fonts/spacemono.ttf",
+  "fonts/spacemono-OFL.txt",
   "manifest.json",
   "scripts/interface/spacex.admin-palette.js",
   "scripts/desktop/spacex.admin-desktop-licenses.js",
@@ -69,7 +78,7 @@ const FILES = [
 const ManifestPath = path.join(MODULE_RESOURCE_ROOT, "assets/ui-bundle.json");
 function Hash(name, directory = PUBLIC_DIR) {
   // Git on Windows may convert text line endings without changing the UI.
-  const source = /\.(?:png|ico)$/i.test(name)
+  const source = /\.(?:png|ico|ttf)$/i.test(name)
     ? fs.readFileSync(path.join(directory, name))
     : fs.readFileSync(path.join(directory, name), 'utf8').replace(/\r\n/g, '\n');
   return crypto.createHash('sha256').update(source).digest('hex');

@@ -28,7 +28,7 @@ function setup(){
  const context={stage:'O',sessionId:o.sessionId,sessionToken:o.sessionToken,machineId:d.machineId};
  fixture.Enroll(overlayDevice,context);
  const commit={action:'overlayCommit',handoffVersion:1,sessionId:b.sessionId,sessionToken:b.sessionToken,overlayId:prepared.overlayId,signature:fixture.Sign(d,['GAME-OVERLAY-TRANSFER-V1',b.sessionId,prepared.overlayId].join('\n'))};
- return {d,overlayDevice,b,o,prepared,context,commit,common,activation,claim};
+ return {d,overlayDevice,b,o,prepared,context,commit,common,activation,claim,licenseKey:issue.licenseKey};
 }
 function observe(s){
  clock++;
@@ -38,7 +38,8 @@ function observe(s){
  assert.equal(reports.Execute({...s.context,action:'submit',reportId:challenge.reportId,payload,signature:fixture.Sign(s.overlayDevice,reports.Canonical(s.o.sessionId,challenge,payload))}).status,'VERIFIED');
  fixture.Observe(s.overlayDevice,{...s.context,intent:'verify',binding:authority.Binding(s.o.sessionId,base.sha512)});
 }
-function verify(s){observe(s);return bootstrap.Execute({action:'overlayVerify',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,...fixture.Evidence(s.overlayDevice,s.o)});}
+function verificationBody(s){return {action:'overlayVerify',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,...fixture.Evidence(s.overlayDevice,s.o)};}
+function verify(s,extra={}){observe(s);return bootstrap.Execute({...verificationBody(s),...extra});}
 function parent(s){return Object.values(bootstrap.Initialize().flows).find(r=>r.sessionId===s.b.sessionId);}
 function child(s){return bootstrap.Initialize().overlays[s.prepared.overlayId];}
 fixture.CurrentCohort({version:'89.0.0'});
@@ -116,7 +117,15 @@ function usagePreference(s,appearance,sequence){
   String(body.theme),String(body.font),String(body.appearance)].join('\n'));
  return body;
 }
-const metered=setup();verify(metered);
+const metered=setup();
+check('Workspace state is negotiated and requires complete O transfer',()=>{
+ const pre=verify(metered,{workspaceStateVersion:1});
+ assert.equal(pre.transferConfirmed,false);
+ assert.equal(pre.workspaceState,undefined);
+ assert.equal(Object.keys(pre).length,7);
+ reject(()=>bootstrap.Execute({...verificationBody(metered),workspaceStateVersion:2}),'BOOTSTRAP_INPUT_INVALID');
+ reject(()=>bootstrap.Execute({...verificationBody(metered),workspaceStateVersion:1,sessionToken:'invalid'}),'BOOTSTRAP_SESSION_INVALID');
+});
 check('Usage requires the exact O device, a committed transfer, and current signed evidence',()=>{
  const read=usageRequest(metered,'read',0);
  reject(()=>bootstrap.Execute(read),'BOOTSTRAP_OVERLAY_NOT_READY');
@@ -132,6 +141,19 @@ check('Usage requires the exact O device, a committed transfer, and current sign
  assert.equal(balance.remaining,100);assert.equal(balance.sequence,0);
  assert.equal(bootstrap.Initialize().revision,revision);assert.equal(child(metered).sessionExpiresAt,expiry);
 });
+check('Authenticated workspace has its starting balance and masked key suffix before any usage read',()=>{
+ assert.equal(verify(metered).workspaceState,undefined);
+ observe(metered);
+ const body={...verificationBody(metered),workspaceStateVersion:1};
+ const first=protectedCall(body);
+ assert.deepEqual(first.workspaceState,{version:1,limit:100,remaining:100,sequence:0,licenseKeySuffix:metered.licenseKey.slice(-6)});
+ assert.equal(JSON.stringify(first).includes(metered.licenseKey),false);
+ assert.deepEqual(bootstrap.Execute(body),first);
+ const db=structuredClone(bootstrap.Initialize());
+ overlay.ValidateTransferRows(db);
+ db.overlays[metered.prepared.overlayId].verifyReceipt.response.workspaceState.licenseKeySuffix=metered.licenseKey;
+ assert.throws(()=>overlay.ValidateTransferRows(db),/OVERLAY_STORE_INVALID/);
+});
 check('Usage debit can be retried exactly without spending or renewing the lease twice',()=>{
  const debit=usageRequest(metered,'consume',1),expiry=child(metered).sessionExpiresAt;
  const result=bootstrap.Execute(debit);assert.equal(result.remaining,99);assert.equal(result.sequence,1);
@@ -141,6 +163,12 @@ check('Usage debit can be retried exactly without spending or renewing the lease
  reject(()=>bootstrap.Execute(usageRequest(metered,'consume',1)),'BOOTSTRAP_REQUEST_REUSED');
  const read=bootstrap.Execute(usageRequest(metered,'read',0));assert.equal(read.remaining,99);assert.equal(read.sequence,1);
 });
+check('Fresh workspace state reflects the exact completed debit sequence',()=>{
+ const ws=verify(metered,{workspaceStateVersion:1}).workspaceState;
+ assert.equal(ws.remaining,99);
+ assert.equal(ws.sequence,1);
+});
+
 check('New appearance saves charge a changed setting once and do not charge a no-op',()=>{
  const first=usagePreference(metered,1,1),result=protectedCall(first);
  assert.deepEqual(protectedCall(first),result);

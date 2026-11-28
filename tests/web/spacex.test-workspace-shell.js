@@ -2,6 +2,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'../../public'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const appearanceCatalog=fs.readFileSync(path.join(root,'scripts/interface/spacex.admin-appearance-catalog.js'),'utf8');
 const appearance=fs.readFileSync(path.join(root,'scripts/interface/spacex.admin-appearance.js'),'utf8');
 const orbit=fs.readFileSync(path.join(root,'scripts/interface/spacex.admin-login-space.js'),'utf8');
 const atlas=JSON.parse(fs.readFileSync(path.join(root,'icons/login-atlas.json'),'utf8'));
@@ -9,7 +10,7 @@ function Open({reduce=false,blocked=false}={}){
  const dom=new JSDOM(html,{url:'https://admin.example.test/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
  w.matchMedia=()=>({matches:reduce});
  if(blocked)Object.defineProperty(w,'localStorage',{get(){throw Error('STORAGE_BLOCKED');}});
- w.eval(appearance);return dom;
+ w.eval(appearanceCatalog+'\n'+appearance);return dom;
 }
 test('appearance controls remain operable when preferences cannot be stored',()=>{
  const dom=Open({blocked:true}),w=dom.window,d=w.document;
@@ -25,7 +26,9 @@ test('appearance controls remain operable when preferences cannot be stored',()=
   const controls=[...d.querySelectorAll('[data-motion-toggle]')];assert.ok(controls.every(x=>x.getAttribute('aria-pressed')==='true'));
   assert.equal(controls.length,1);
   controls[0].click();assert.equal(d.documentElement.dataset.motion,'running');
-  assert.ok(d.getElementById('login-password').required);assert.equal(d.getElementById('passkey-login-btn').type,'button');
+  assert.ok(d.getElementById('login-password').required);
+  assert.equal(d.getElementById('passkey-login-btn'),null);
+  assert.equal(d.querySelector('#login-form button[type="submit"]'),null);
  }finally{w.close();}
 });
 test('reduced motion is honored and administrator login has no role or pause selector',()=>{
@@ -69,18 +72,22 @@ test('Earth opens the masked editor, animates the native map, and clears the pas
   const earth=d.getElementById('login-earth'),screen=d.getElementById('login-screen');
   const canvas=d.getElementById('login-space'),password=d.getElementById('login-password');
   const form=d.getElementById('login-form'),calls=[];
-  const ctx=new Proxy({}, {get(target,key){return target[key]||((...args)=>{calls.push([key,...args]);});}});
+  const ctx=new Proxy({}, {
+   get(target,key){return target[key]??((...args)=>{calls.push([key,...args]);});},
+   set(target,key,value){target[key]=value;calls.push([key,value]);return true;}
+  });
   canvas.getContext=()=>ctx;
   canvas.getBoundingClientRect=()=>({left:0,top:0});
   earth.getBoundingClientRect=()=>({left:450,top:200,width:300,height:300});
   Object.defineProperties(canvas,{clientWidth:{value:1200},clientHeight:{value:700}});
-  let nextFrame=null;
+  let nextFrame=null,clock=0;
+  w.performance.now=()=>clock;
   w.requestAnimationFrame=callback=>{nextFrame=callback;return 1;};
   w.fetch=async url=>{
    assert.equal(url,'/icons/login-atlas.json');
    return {ok:true,json:async()=>atlas};
   };
-  const frame=now=>{const run=nextFrame;nextFrame=null;calls.length=0;assert.ok(run);run(now);return calls.slice();};
+  const frame=now=>{const run=nextFrame;nextFrame=null;calls.length=0;assert.ok(run);clock=now;run(now);return calls.slice();};
   w.eval(orbit);
   await new Promise(resolve=>w.setTimeout(resolve,0));
   assert.ok(screen.classList.contains('login-atlas-ready'));
@@ -89,6 +96,11 @@ test('Earth opens the masked editor, animates the native map, and clears the pas
   assert.ok(initial.filter(([name])=>name==='lineTo').length>2000);
   const animated=frame(75);
   assert.notDeepEqual(initial.find(([name])=>name==='arc'),animated.find(([name])=>name==='arc'));
+  earth.dispatchEvent(new w.Event('pointerenter'));
+  const hovered=frame(92);
+  const mapColor=operations=>operations.find(([name,value])=>name==='strokeStyle'&&value.startsWith('rgb('))[1];
+  assert.notEqual(mapColor(animated),mapColor(hovered),'Earth hover also changes every territory outline');
+  earth.dispatchEvent(new w.Event('pointerleave'));
   earth.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
   assert.equal(earth.getAttribute('aria-expanded'),'true');
   assert.equal(form.hidden,false);
@@ -101,6 +113,41 @@ test('Earth opens the masked editor, animates the native map, and clears the pas
   const masked=frame(1000);
   assert.ok(masked.filter(([name])=>name==='arc').length>=animated.filter(([name])=>name==='arc').length+secret.length);
   assert.ok(!JSON.stringify(masked).includes(secret),'canvas must receive masks only');
+  let submissions=0;
+  form.addEventListener('submit',event=>{event.preventDefault();submissions++;});
+  password.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  earth.click();
+  assert.equal(submissions,2,'Enter and a second Earth click both submit');
+  const orbitControl=w.spacexLoginOrbit;
+  orbitControl.begin();password.value='';
+  assert.equal(password.readOnly,true);
+  assert.equal(screen.getAttribute('aria-busy'),'true');
+  const scanning=frame(1310);
+  assert.ok(scanning.filter(([name])=>name==='lineTo').length>masked.filter(([name])=>name==='lineTo').length);
+  assert.ok(!scanning.some(([name])=>name==='ellipse'),'a scan alone cannot enter the black hole');
+  orbitControl.reject();
+  assert.equal(password.readOnly,false);
+  assert.equal(screen.getAttribute('aria-busy'),null);
+  assert.equal(d.activeElement,password,'failed authentication permits immediate retry');
+  password.value=secret;
+  orbitControl.begin();password.value='';
+  const timers=[];
+  const realSetTimeout=w.setTimeout;
+  w.setTimeout=(callback,ms)=>timers.push({callback,ms});
+  const accepted=orbitControl.accept();
+  assert.equal(timers[0].ms,660);
+  clock+=timers[0].ms;
+  timers.shift().callback();
+  await Promise.resolve();
+  assert.equal(timers[0].ms,580);
+  assert.ok(frame(2210).some(([name])=>name==='ellipse'),'black hole follows the authenticated scan');
+  timers.shift().callback();
+  await accepted;
+  w.setTimeout=realSetTimeout;
+  screen.classList.add('hidden');
+  await new Promise(resolve=>w.setTimeout(resolve,0));
+  screen.classList.remove('hidden');
+  earth.click();password.value=secret;
   password.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
   assert.equal(earth.getAttribute('aria-expanded'),'false');
   assert.equal(d.activeElement,earth);
@@ -146,4 +193,44 @@ test('mobile metric typography leaves room for full nine-digit formatted counts 
    assert.ok(min<=20&&fontAt380<=21,'full 987,654,321 must fit the measured mobile card width');
   }
  }finally{dom.window.close();}
+});
+
+test('desktop appearance presets apply immediately and survive a workspace reload', async () => {
+ const dom=Open(),w=dom.window,d=w.document;
+ try{
+  if(d.readyState==='loading')await new Promise(resolve=>d.addEventListener('DOMContentLoaded',resolve,{once:true}));
+  assert.equal(d.documentElement.dataset.appearanceFont,'orbitron');
+  assert.equal(d.getElementById('appearance-font').options.length,5);
+  assert.equal(d.getElementById('appearance-language').options.length,250);
+  assert.equal(d.getElementById('appearance-checkbox').options.length,8);
+  const change=(id,value)=>{
+   const select=d.getElementById(id);
+   select.value=value;
+   select.dispatchEvent(new w.Event('change',{bubbles:true}));
+  };
+  change('appearance-font','oxanium');
+  change('appearance-checkbox','aurora-green');
+  change('appearance-text','ion-cyan');
+  change('appearance-language','ja-JP');
+  assert.equal(d.documentElement.lang,'ja-JP');
+  assert.equal(d.querySelector('[data-appearance-caption="2"]').textContent,'書体');
+  assert.equal(d.documentElement.dataset.appearanceFont,'oxanium');
+  assert.equal(d.documentElement.style.getPropertyValue('--admin-checkbox'),'#91ecbd');
+  assert.equal(d.documentElement.style.getPropertyValue('--admin-ink'),'#7be7f1');
+  const stars=d.getElementById('appearance-stars');
+  stars.click();
+  assert.equal(d.documentElement.dataset.stars,'hidden');
+  for(const [key,value] of [['font','oxanium'],['checkbox','aurora-green'],['text','ion-cyan'],['language','ja-JP'],['stars','hidden']]){
+   assert.equal(w.localStorage.getItem('spacex-admin-'+key),value);
+  }
+  const fresh=new JSDOM(html,{url:w.location.href,runScripts:'outside-only'});
+  try{
+   const restored=fresh.window;
+   for(const key of Object.keys(w.localStorage))restored.localStorage.setItem(key,w.localStorage.getItem(key));
+   restored.eval(appearanceCatalog+'\n'+appearance);
+   assert.equal(restored.document.documentElement.dataset.appearanceFont,'oxanium');
+   assert.equal(restored.document.documentElement.dataset.stars,'hidden');
+   assert.equal(restored.document.documentElement.lang,'ja-JP');
+  }finally{fresh.window.close();}
+ }finally{w.close();}
 });

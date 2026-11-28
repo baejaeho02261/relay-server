@@ -38,7 +38,7 @@ async function showDesktopFirstDeviceApproval(){
  function details(){
   q('desktop-first-device-confirm').checked=false;q('desktop-first-device-recovery-confirm').checked=false;const row=selected(),area=q('desktop-first-device-details');area.replaceChildren();
   q('desktop-first-device-recovery-label').hidden=!row?.recovery;q('desktop-first-device-recovery-note').hidden=!row?.recovery;
-  const pairs=row?[['요청 ID',row.id],['A 발급 ID',row.launcherId],['발급 A SHA-512',row.launcherSha512],['공개 기기키 지문',row.persistentKeyId],['현재 앱 키 지문',row.appKeyId],['증명 범위',row.hardwareAttested?'TPM 키 인증·활성화 증명 확인 · 고객·물리 PC는 별도 확인':'일반 키 소유 증명 · TPM 증명 없음'],['승인 만료 (한국 시간)',new Date(row.expiresAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})]]:[];
+  const pairs=row?[['요청 ID',row.id],['A 발급 ID',row.launcherId],['발급 A SHA-512',row.launcherSha512],['공개 기기키 지문',row.persistentKeyId],['현재 앱 키 지문',row.appKeyId],['증명 범위',row.hardwareAttested?'TPM 키 인증·활성화 증명 확인 · 고객·물리 PC는 별도 확인':'일반 키 소유 증명 · TPM 증명 없음'],['승인 만료 (한국 시간)',new Date(row.expiresAt).toLocaleString(document.documentElement.lang || 'ko-KR',{timeZone:'Asia/Seoul'})]]:[];
   if(row?.recovery){const r=row.recovery;pairs.push(['TPM 요청 종류',{ENROLL:'최초 등록',RENEW:'같은 키 증명 갱신',REPLACE:'분실·교체 키 재등록'}[r.kind]],['기기 연결 ID',r.bindingId],['기존 등록 ID',r.oldEnrollmentId||'기존 등록 없음'],['기존 키 지문',r.oldKeyId||'기존 키 없음'],['요청한 새 키 지문',r.newKeyId],['기기 정책 개정',String(r.identityRevision)]);}
   for(const [label,value]of pairs){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;area.append(dt,dd);}
   controls();

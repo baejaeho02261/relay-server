@@ -35,7 +35,9 @@ const MIME = {
     '.json': 'application/json; charset=utf-8',
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
-    '.ico': 'image/x-icon'
+    '.ico': 'image/x-icon',
+    '.ttf': 'font/ttf',
+    '.txt': 'text/plain; charset=utf-8'
 };
 
 function SecurityHeaders(req, res) {
@@ -123,9 +125,18 @@ function ServeUpdateArtifact(req, res, pathname, url) {
     return true;
 }
 
+const staticAssetAliases = new Map([
+    ['/peace.service-worker.js', '/spacex.service-worker.js'],
+    ['/favicon.ico', '/icons/spacex.svg'],
+    ['/icons/favicon.ico', '/icons/spacex.svg'],
+    ['/icons/favicon.svg', '/icons/spacex.svg'],
+    ['/icons/game.svg', '/icons/spacex.svg'],
+    ['/icons/icon.svg', '/icons/spacex.svg'],
+]);
+
 function ServeFile(req, res, fileName) {
-    // Installed v40 browsers must be able to update their old worker URL.
-    const requested = fileName === '/peace.service-worker.js' ? '/spacex.service-worker.js' : fileName;
+    // Old service worker and branding URLs can remain in installed PWA caches.
+    const requested = staticAssetAliases.get(fileName) || fileName;
     const safeName = requested === '/' ? 'index.html' : requested.replace(/^\/+/, '');
     const full = path.resolve(PUBLIC_DIR, safeName);
     if (!full.startsWith(PUBLIC_DIR + path.sep) && full !== path.join(PUBLIC_DIR, 'index.html')) {

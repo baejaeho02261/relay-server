@@ -24,7 +24,7 @@
   --panel: color-mix(in srgb, var(--space-panel), var(--space-border) 32%);
   --panel-2: color-mix(in srgb, var(--space-panel), var(--space-border) 46%);
   --panel-3: color-mix(in srgb, var(--space-panel), var(--space-border) 61%);
-  --text: var(--space-text);
+  --text: var(--admin-ink, var(--space-text));
   --line: color-mix(in srgb, var(--space-panel), var(--space-border) 73%);
   --line-strong: var(--space-border);
   --accent: var(--space-accent);
@@ -92,6 +92,10 @@
 @keyframes star-drift { to { transform: translate3d(44px, -37px, 0); } }
 
 /* The opening scene has its own Pure Black palette, independent of the dashboard. */
+:root {
+  --space-pointer: url('/icons/space-pointer.png') 4 4, auto;
+  --space-action: url('/icons/space-action.png') 4 4, pointer;
+}
 body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
 #login-screen {
   --login-diameter: min(62vw, 47svh, 400px);
@@ -107,6 +111,7 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
   background: #000;
   color: #f2f5fb;
   color-scheme: dark;
+  cursor: var(--space-pointer);
 }
 #login-screen .login-space {
   position: absolute;
@@ -132,6 +137,7 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
   filter: grayscale(1) brightness(.5);
   pointer-events: none;
 }
+.login-orb-controls:has(.login-earth:hover) .login-earth-fallback { filter: grayscale(1) brightness(.85); }
 .login-atlas-ready .login-earth-fallback { visibility: hidden; }
 #login-screen .login-earth {
   position: absolute;
@@ -143,60 +149,37 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
   background: none;
   color: inherit;
   box-shadow: none;
-  cursor: pointer;
+  cursor: var(--space-action);
   clip-path: circle(50%);
 }
-#login-screen .login-earth:hover { box-shadow: inset 0 0 0 2px #444954; }
 #login-screen .login-earth:focus-visible { box-shadow: inset 0 0 0 2px var(--login-orbit-ink); outline: none; }
+#login-screen[aria-busy='true'] .login-earth { cursor: var(--space-pointer); }
 .login-orb-form {
   position: absolute;
-  top: calc(100% + 18px);
+  inset: 0;
+  pointer-events: none;
+}
+#login-screen #login-password {
+  position: absolute;
+  top: 50%;
   left: 50%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 8px;
-  width: min(270px, calc(100vw - 34px));
-  transform: translateX(-50%);
-  animation: enter-login-orbit .24s ease-out both;
-}
-@keyframes enter-login-orbit {
-  from { opacity: 0; transform: translate(-50%, -7px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
-}
-#login-screen #login-password,
-#login-screen .login-orb-action {
-  width: 100%;
-  min-height: 44px;
-  margin: 0;
-  padding: 0 12px;
-  border: 1px solid #303239;
-  border-radius: 24px;
-  background: #000;
-  color: #f2f5fb;
-  box-shadow: none;
-  outline-offset: 3px;
-  animation: none;
-}
-#login-screen #login-password { font-size: 16px; letter-spacing: .2em; }
-#login-screen #login-password:focus-visible,
-#login-screen .login-orb-action:focus-visible { outline: 2px solid var(--login-orbit-ink); }
-#login-screen .login-orb-action {
-  display: grid;
-  width: 44px;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  margin: -1px;
   padding: 0;
-  place-items: center;
-}
-#login-screen .login-orb-action:hover { border-color: var(--login-orbit-ink); }
-.login-orb-action svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.55;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  clip-path: inset(50%);
+  opacity: 0;
+  border: 0;
+  font-size: 16px;
 }
 #login-screen #login-error {
-  grid-column: 1 / -1;
+  position: absolute;
+  top: calc(100% + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(310px, 92vw);
   min-height: 0;
   margin: 0;
   color: #ffc0c0;
@@ -204,7 +187,6 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
   font-size: 12px;
 }
 #login-screen #login-error:empty { display: none; }
-@media (prefers-reduced-motion: reduce) { .login-orb-form { animation: none; } }
 
 /* Responsive raised rail and a separate workspace with an action bar first. */
 .app {
@@ -308,9 +290,6 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
 .topbar-actions { max-width: none; justify-content: flex-end; }
 #rail-toggle { margin-right: auto; border: 1px solid var(--line); background: var(--panel); }
 .topbar-actions button { font-size: 11px; }
-.space-palette-select { margin: 0; }
-.space-palette-select select { min-height: 34px; padding: 5px 25px 5px 9px; background-color: var(--panel); font-size: 11px; }
-:root[data-theme="light"] .space-palette-select { display: none; }
 .topbar-actions .live-pill {
   background: var(--good-bg);
   border: 1px solid var(--good-line);

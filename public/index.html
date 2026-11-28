@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko" data-theme="dark">
+<html lang="ko-KR" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -10,22 +10,24 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="description" content="SpaceX 회원, 라이선스, 프로그램 배포와 서버 운영을 위한 워크스페이스">
   <link rel="manifest" href="/manifest.json">
-  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg">
-  <link rel="alternate icon" type="image/x-icon" href="/icons/favicon.ico">
+  <link rel="icon" type="image/svg+xml" href="/icons/spacex.svg">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <title>SpaceX · 운영 워크스페이스</title>
-  <link rel="stylesheet" href="/styles/admin.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-theme.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-navigation.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-appearance.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-controls.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-workspace.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-desktop.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-ui-design.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/admin-members.css?v=5.0.2-spacex-v46">
-  <link rel="stylesheet" href="/styles/spacex.css?v=5.0.2-spacex-v46">
-  <script src="/scripts/interface/spacex.admin-controls.js?v=5.0.2-spacex-v46"></script>
-  <script src="/scripts/interface/spacex.admin-appearance.js?v=5.0.2-spacex-v46"></script>
+  <link rel="stylesheet" href="/styles/admin.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-theme.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-navigation.css?v=5.0.2-spacex-v47">
+  <link rel="preload" href="/fonts/orbitron.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="stylesheet" href="/styles/admin-cursors.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-appearance.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-controls.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-workspace.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-desktop.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-ui-design.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/admin-members.css?v=5.0.2-spacex-v47">
+  <link rel="stylesheet" href="/styles/spacex.css?v=5.0.2-spacex-v47">
+  <script src="/scripts/interface/spacex.admin-controls.js?v=5.0.2-spacex-v47"></script>
+  <script src="/scripts/interface/spacex.admin-appearance-catalog.js?v=5.0.2-spacex-v47"></script>
+  <script src="/scripts/interface/spacex.admin-appearance.js?v=5.0.2-spacex-v47"></script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">본문으로 이동</a>
@@ -38,13 +40,9 @@
       <form id="login-form" class="login-orb-form" hidden>
         <input id="login-role" type="hidden" value="admin">
         <input id="login-password" type="password" name="password" aria-label="관리자 비밀번호"
-          autocomplete="current-password" autocapitalize="none" spellcheck="false" required>
-        <button class="login-orb-action" type="submit" aria-label="로그인">
-          <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg>
-        </button>
-        <button id="passkey-login-btn" class="login-orb-action" type="button" aria-label="패스키로 로그인">
-          <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><circle cx="8" cy="10" r="4"/><path d="m11 13 8 0m-3 0v3m3-3v2"/></svg>
-        </button>
+          aria-describedby="login-instructions" autocomplete="current-password" enterkeyhint="go"
+          autocapitalize="none" spellcheck="false" required>
+        <span id="login-instructions" class="sr-only">비밀번호를 입력한 뒤 Enter 키를 누르거나 지구를 다시 선택하세요.</span>
         <div id="login-error" class="form-error" role="alert" aria-live="polite"></div>
       </form>
     </div>
@@ -52,7 +50,7 @@
   <div id="app" class="app hidden">
     <aside class="sidebar" id="main-menu">
       <header class="sidebar-brand">
-        <img class="brand-symbol" src="/icons/game.svg" alt="" width="42" height="42">
+        <img class="brand-symbol" src="/icons/spacex.svg" alt="" width="42" height="42">
         <div><strong class="brand-name">SpaceX</strong><span class="brand-caption">운영 워크스페이스</span></div>
         <button id="rail-close" class="icon-btn" type="button" aria-controls="main-menu" aria-label="사이드바 접기" title="사이드바 접기"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9 5v14m7-10-3 3 3 3"/></svg></button>
       </header>
@@ -143,69 +141,93 @@
           <button id="rail-toggle" class="icon-btn" type="button" aria-controls="main-menu" aria-expanded="true" aria-label="사이드바 닫기" title="사이드바 닫기">
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9 5v14m6-10-3 3 3 3"/></svg>
           </button>
-          <div class="page-heading"><span id="page-category" class="page-category">워크스페이스</span><h2 id="page-title">운영 개요</h2><p id="page-subtitle" class="muted">서버와 프로그램의 운영 상태를 확인합니다.</p></div>
+          <div class="page-heading"><span id="page-category" class="page-category">워크스페이스</span><h2 id="page-title">운영 개요</h2><p id="page-subtitle" lang="ko" class="muted">서버와 프로그램의 운영 상태를 확인합니다.</p></div>
           <div class="topbar-actions">
             <span id="live-state" class="live-pill">실시간 연결</span>
             <button id="global-search-btn" class="icon-btn" type="button" aria-label="전체 검색 열기" title="전체 검색 · Ctrl+K"><svg viewBox="0 0 24 24" aria-hidden="true" width="19" height="19"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></button>
-            <label class="space-palette-select">
-              <span class="sr-only">우주 색상 테마</span>
-              <select id="space-palette" aria-label="우주 색상 테마">
-                <option value="pure-black">Pure Black</option>
-                <option value="blue-starlink">Blue Starlink</option>
-                <option value="mint-orbit">Mint Orbit</option>
-                <option value="violet-nebula">Violet Nebula</option>
-                <option value="amber-nova">Amber Nova</option>
-                <option value="eclipse">Eclipse</option>
-                <option value="aurora">Aurora</option>
-                <option value="pulsar">Pulsar</option>
-                <option value="deep-space">Deep Space</option>
-                <option value="supernova">Supernova</option>
-              </select>
-            </label>
-            <button id="theme-toggle" class="ghost" type="button" aria-label="화면 모드 전환" aria-pressed="false"><span data-theme-label>다크 모드</span></button>
-            <button type="button" class="icon-btn motion-toggle" data-motion-toggle aria-pressed="false" aria-label="애니메이션 끄기" title="애니메이션 끄기"><svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="M8 5v14M16 5v14"/></svg><span class="sr-only" data-motion-label>애니메이션 끄기</span></button>
+            <details id="appearance-settings" class="appearance-settings">
+              <summary class="ghost">
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="17" height="17"><path d="M4 6h16M4 12h16M4 18h16M8 4v4m8 2v4m-6 2v4"/></svg>
+                <span data-appearance-caption="0">설정</span>
+              </summary>
+              <div class="appearance-options">
+                <label>
+                  <span data-appearance-caption="1">테마</span>
+                  <select id="space-palette">
+                    <option value="pure-black">Pure Black</option>
+                    <option value="blue-starlink">Blue Starlink</option>
+                    <option value="mint-orbit">Mint Orbit</option>
+                    <option value="violet-nebula">Violet Nebula</option>
+                    <option value="amber-nova">Amber Nova</option>
+                    <option value="eclipse">Eclipse</option>
+                    <option value="aurora">Aurora</option>
+                    <option value="pulsar">Pulsar</option>
+                    <option value="deep-space">Deep Space</option>
+                    <option value="supernova">Supernova</option>
+                  </select>
+                </label>
+                <label>
+                  <span data-appearance-caption="2">글꼴</span>
+                  <select id="appearance-font">
+                    <option value="orbitron">Orbitron</option>
+                    <option value="consolas">Consolas</option>
+                    <option value="spacemono">Space Mono</option>
+                    <option value="sora">Sora</option>
+                    <option value="oxanium">Oxanium</option>
+                  </select>
+                </label>
+                <label><span data-appearance-caption="3">체크박스 색상</span><select id="appearance-checkbox"></select></label>
+                <label><span data-appearance-caption="4">글자 색상</span><select id="appearance-text"></select></label>
+                <label><span data-appearance-caption="5">언어</span><select id="appearance-language"></select></label>
+                <div class="appearance-actions">
+                  <button id="theme-toggle" class="ghost" type="button" aria-pressed="false"><span data-theme-label>다크 모드</span></button>
+                  <button type="button" class="ghost" data-motion-toggle aria-pressed="false"><span data-motion-label>애니메이션 끄기</span></button>
+                  <label class="appearance-stars"><input id="appearance-stars" type="checkbox"><span data-appearance-caption="7">별 숨기기</span></label>
+                </div>
+              </div>
+            </details>
             <button id="install-pwa-btn" class="ghost hidden" type="button">앱 설치</button>
             <button id="refresh-btn" class="ghost" type="button"><svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M19 8a8 8 0 1 0 1 6M19 3v5h-5"/></svg><span>새로고침</span></button>
           </div>
         </div>
       </header>
-      <section id="content" class="content" aria-live="off"></section>
+      <section id="content" class="content" lang="ko" aria-live="off"></section>
     </main>
   </div>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <div id="modal" class="modal hidden" aria-hidden="true"><div class="modal-backdrop" data-modal-close></div><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-head"><h3 id="modal-title">확인</h3><button class="icon-btn" aria-label="닫기" type="button" data-modal-close>×</button></div><div id="modal-body" class="modal-body"></div><div class="modal-actions"><button id="modal-cancel" class="ghost" type="button">취소</button><button id="modal-confirm" class="primary" type="button">확인</button></div></div></div>
-  <script src="/scripts/interface/spacex.admin-i18n.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/interface/spacex.admin-login-space.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/application/spacex.admin.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/interface/spacex.admin-navigation.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-monitoring.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/application/spacex.admin-terminal.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-traffic.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-danger.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-access.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-reports.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-pages-devices.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-deployment.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-security.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-operations.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-actions-access.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-actions-operations.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-actions-traffic.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-actions-devices.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-actions-policy.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-actions-system.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/interface/spacex.admin-modal.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-device-actions.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-desktop-licenses.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-ui-design.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-desktop-members.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-desktop-security.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-desktop-security-center.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-desktop-server-state.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-desktop-workflow.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/desktop/spacex.admin-desktop-packed-release.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/actions/spacex.admin-actions.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/interface/spacex.admin-palette.js?v=5.0.2-spacex-v46" defer></script>
-  <script src="/scripts/pages/spacex.admin-pages-production.js?v=5.0.2-spacex-v46" defer></script>
+  <script src="/scripts/interface/spacex.admin-i18n.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/interface/spacex.admin-login-space.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/application/spacex.admin.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/interface/spacex.admin-navigation.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-monitoring.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/application/spacex.admin-terminal.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-traffic.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-danger.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-access.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-reports.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-pages-devices.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-deployment.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-security.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-operations.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-actions-access.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-actions-operations.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-actions-traffic.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-actions-devices.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-actions-policy.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-actions-system.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/interface/spacex.admin-modal.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-device-actions.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-desktop-licenses.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-ui-design.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-desktop-members.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-desktop-security.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-desktop-security-center.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-desktop-server-state.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-desktop-workflow.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/desktop/spacex.admin-desktop-packed-release.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/actions/spacex.admin-actions.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/interface/spacex.admin-palette.js?v=5.0.2-spacex-v47" defer></script>
+  <script src="/scripts/pages/spacex.admin-pages-production.js?v=5.0.2-spacex-v47" defer></script>
 </body>
 </html>

@@ -37,3 +37,96 @@
 }
 #qr-auth-preview,.license-qr { background:#fff; object-fit:contain; }
 #theme-toggle { white-space:nowrap; }
+
+@font-face { font-family: Orbitron; src: url('/fonts/orbitron.ttf') format('truetype'); font-weight: 400 900; font-display: swap; }
+@font-face { font-family: "Space Mono"; src: url('/fonts/spacemono.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: Sora; src: url('/fonts/sora.ttf') format('truetype'); font-weight: 100 800; font-display: swap; }
+@font-face { font-family: Oxanium; src: url('/fonts/oxanium.ttf') format('truetype'); font-weight: 200 800; font-display: swap; }
+
+:root {
+  --admin-typeface: Orbitron;
+  --sans: var(--admin-typeface),"Segoe UI","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+}
+:root[data-appearance-font="consolas"] { --admin-typeface: Consolas,"Liberation Mono",monospace; }
+:root[data-appearance-font="spacemono"] { --admin-typeface: "Space Mono"; }
+:root[data-appearance-font="sora"] { --admin-typeface: Sora; }
+:root[data-appearance-font="oxanium"] { --admin-typeface: Oxanium; }
+
+:root[data-stars="hidden"] .space-sky::before,
+:root[data-stars="hidden"] .space-sky::after { display: none; }
+
+:root :is(#app,#modal,#command-palette) {
+  cursor: var(--admin-space-pointer,var(--space-pointer,auto));
+}
+:root :is(#app,#modal,#command-palette) :is(button,summary,a[href],select,input[type="checkbox"],input[type="radio"]):not(:disabled):not([aria-disabled="true"]) {
+  cursor: var(--admin-space-action,var(--space-action,pointer));
+}
+:root :is(#app,#modal) input:is([type="checkbox"],[type="radio"]):is(:checked,:indeterminate) {
+  border-color: var(--admin-checkbox,var(--accent));
+  background-color: var(--admin-checkbox,var(--accent));
+}
+:root:root[data-theme="light"] :is(#app,#modal,#command-palette) {
+  --text: color-mix(in srgb,var(--admin-ink,#15192b),#15192b 66%);
+}
+
+.main .topbar:has(.appearance-settings[open]) { position: relative; z-index: 10; }
+.main .topbar-actions .appearance-settings { position: relative; }
+.main .topbar-actions .appearance-settings > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  list-style: none;
+}
+.appearance-settings > summary::-webkit-details-marker { display: none; }
+.main .topbar-actions .appearance-settings:is(:hover,[open]) > summary {
+  background: var(--panel-2);
+  border-color: var(--line-strong);
+}
+.appearance-settings > summary svg {
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.appearance-options {
+  position: absolute;
+  z-index: 35;
+  inset-block-start: calc(100% + 10px);
+  inset-inline-end: 0;
+  display: grid;
+  width: min(270px,calc(100vw - 44px));
+  max-height: min(440px,70dvh);
+  gap: 8px;
+  padding: 14px;
+  overflow-y: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--bg-2);
+  box-shadow: var(--shadow-float);
+}
+.appearance-options > label {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+}
+.appearance-options > label select { min-height: 33px; margin: 0; padding: 4px 32px 4px 9px; font-size: 12px; }
+.appearance-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-block-start: 4px; }
+.appearance-actions .appearance-stars { flex: 1 0 100%; margin: 5px 0 0; }
+@media(max-width: 520px) {
+  .main .topbar-actions .appearance-settings { position: static; }
+  .appearance-options { inset-inline-end: 10px; inset-block-start: calc(100% + 6px); }
+}
+@media (pointer: coarse) {
+  .main .topbar-actions .appearance-settings > summary,
+  .appearance-options > label select { min-height: 44px; }
+}

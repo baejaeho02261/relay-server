@@ -238,9 +238,10 @@ function ValidateThemeReceipt(row){
  if(extended!==undefined&&(!plain(extended)||Object.keys(extended).sort().join(',')!=='appearance,fingerprint,font,requestId,sequence,theme'||!ThemeValues(extended)||typeof extended.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(extended.fingerprint)||row.transferVersion!==1||value?.sequence===extended.sequence&&(value.fingerprint!==extended.fingerprint||value.theme!==extended.theme||value.font!==extended.font||value.requestId!==extended.requestId)))throw Error('OVERLAY_STORE_INVALID');
 }
 function Verify(body){
- Fields(body,['sessionId','sessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64','capturePrivacyVersion','renewalBudgetVersion','productScopeVersion']);
+ Fields(body,['sessionId','sessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64','capturePrivacyVersion','renewalBudgetVersion','productScopeVersion','workspaceStateVersion']);
  if(Object.hasOwn(body,'capturePrivacyVersion')&&body.capturePrivacyVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
  if(Object.hasOwn(body,'renewalBudgetVersion')&&body.renewalBudgetVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
+ if(Object.hasOwn(body,'workspaceStateVersion')&&body.workspaceStateVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
  if(Object.hasOwn(body,'productScopeVersion')&&body.productScopeVersion!==1)Fail('BOOTSTRAP_INPUT_INVALID',400);
  const row=Session(body.sessionId,body.sessionToken),artifact=Live(row);
  if(body.productScopeVersion!==row.productScopeVersion)Fail('BOOTSTRAP_INPUT_INVALID',400);
@@ -261,6 +262,12 @@ function Verify(body){
  if(body.capturePrivacyVersion===1)response.capturePrivacy=config.OVERLAY_CAPTURE_PRIVACY===true;
  // Scheduling information, never a separate capability or an expiry extension.
  if(body.renewalBudgetVersion===1)response.renewalBudget={version:1,snapshotExpiresAt:snapshot?.expiresAt??0,observationExpiresAt:observation.expiresAt};
+ if(body.workspaceStateVersion===1&&transferConfirmed){
+  const db=store.Load();
+  const {limit,remaining}=usage.Snapshot(db,row.licenseId);
+  const licenseKeySuffix=require('../licensing/spacex.desktop-licenses').DisplayKeySuffix(license);
+  response.workspaceState={version:1,limit,remaining,sequence:row.usageReceipt?.sequence??0,licenseKeySuffix};
+ }
  const receipt={observation:observation.id,fingerprint,at,until:Math.min(at+TRANSFER_RECOVERY_MS,observation.expiresAt,expiresAt),response};
  if(receipt.until<=at)Fail('SECURITY_FRESH_OBSERVATION_REQUIRED');
  Atomic('OVERLAY_VERIFY','SERVER',next=>{Boot().AssertSecurityAvailable();const item=next.overlays[row.id];Live(item);if(item.status!=='CLAIMED')Fail('BOOTSTRAP_SESSION_CLOSED');const committedObservation=authority.RenewalIdentity(item,'O','verify',authority.Binding(item.sessionId,artifact.sha512)),committedSnapshot=require("../integrity/spacex.desktop-integrity-reports").RequireSnapshot(item,'O');if(committedObservation.id!==observation.id||expiresAt>committedObservation.expiresAt||committedSnapshot&&expiresAt>committedSnapshot.expiresAt)Fail('SECURITY_FRESH_OBSERVATION_REQUIRED');item.sessionExpiresAt=expiresAt;item.lastVerifiedAt=at;item.authorizedAt=at;item.verifyReceipt=receipt;delete item.claimRecoveryUntil;delete item.claimFingerprint;});
@@ -418,9 +425,17 @@ function ValidateParentTransfer(db,parent){
 function ValidateVerifyReceipt(row){
  const v=row.verifyReceipt;if(v===undefined)return;
  if(!plain(v)||Object.keys(v).sort().join(',')!=='at,fingerprint,observation,response,until'||!/^[a-f0-9]{48}:[1-9][0-9]*$/.test(v.observation)||!/^[a-f0-9]{128}$/.test(v.fingerprint)||!Number.isSafeInteger(v.at)||v.at<row.claimedAt||!Number.isSafeInteger(v.until)||v.until<=v.at||v.until>v.at+TRANSFER_RECOVERY_MS||!plain(v.response))throw Error('OVERLAY_STORE_INVALID');
- const q=v.response,fields=Object.keys(q).filter(k=>!['renewalBudget','productScopeVersion','productId'].includes(k)).sort().join(',');if(!['expiresAt,handoffVersion,leaseExpiresAt,parentSessionId,serverTime,status,transferConfirmed','capturePrivacy,expiresAt,handoffVersion,leaseExpiresAt,parentSessionId,serverTime,status,transferConfirmed'].includes(fields)||(Object.hasOwn(q,'capturePrivacy')&&typeof q.capturePrivacy!=='boolean')||q.status!=='ACTIVE'||q.serverTime!==v.at||q.handoffVersion!==1||q.parentSessionId!==row.parentSessionId||typeof q.transferConfirmed!=='boolean'||!Number.isSafeInteger(q.expiresAt)||q.expiresAt<=v.at||q.expiresAt>v.at+SESSION_MS||q.leaseExpiresAt!==q.expiresAt||v.until>q.expiresAt)throw Error('OVERLAY_STORE_INVALID');
+ const q=v.response,fields=Object.keys(q).filter(k=>!['renewalBudget','productScopeVersion','productId','workspaceState'].includes(k)).sort().join(',');if(!['expiresAt,handoffVersion,leaseExpiresAt,parentSessionId,serverTime,status,transferConfirmed','capturePrivacy,expiresAt,handoffVersion,leaseExpiresAt,parentSessionId,serverTime,status,transferConfirmed'].includes(fields)||(Object.hasOwn(q,'capturePrivacy')&&typeof q.capturePrivacy!=='boolean')||q.status!=='ACTIVE'||q.serverTime!==v.at||q.handoffVersion!==1||q.parentSessionId!==row.parentSessionId||typeof q.transferConfirmed!=='boolean'||!Number.isSafeInteger(q.expiresAt)||q.expiresAt<=v.at||q.expiresAt>v.at+SESSION_MS||q.leaseExpiresAt!==q.expiresAt||v.until>q.expiresAt)throw Error('OVERLAY_STORE_INVALID');
  if(Object.hasOwn(q,'productScopeVersion')!==Object.hasOwn(q,'productId')||Object.hasOwn(q,'productId')&&(q.productScopeVersion!==1||row.productScopeVersion!==1||typeof q.productId!=='string'||q.productId!==''&&!products.IsStoredProduct(q.productId)))throw Error('OVERLAY_STORE_INVALID');
  if(Object.hasOwn(q,'renewalBudget')){const b=q.renewalBudget;if(!plain(b)||Object.keys(b).sort().join(',')!=='observationExpiresAt,snapshotExpiresAt,version'||b.version!==1||!Number.isSafeInteger(b.snapshotExpiresAt)||b.snapshotExpiresAt<0||b.snapshotExpiresAt>q.serverTime+120000||(b.snapshotExpiresAt!==0&&b.snapshotExpiresAt<q.expiresAt)||!Number.isSafeInteger(b.observationExpiresAt)||b.observationExpiresAt<q.expiresAt)throw Error('OVERLAY_STORE_INVALID');}
+ if(Object.hasOwn(q,'workspaceState')){
+  const w=q.workspaceState;
+  if(!q.transferConfirmed||row.transferVersion!==1||!plain(w)||Object.keys(w).sort().join(',')!=='licenseKeySuffix,limit,remaining,sequence,version'||
+     w.version!==1||!Number.isSafeInteger(w.limit)||w.limit<1||w.limit>usage.DEFAULT_LIMIT||
+     !Number.isSafeInteger(w.remaining)||w.remaining<1||w.remaining>w.limit||
+     !Number.isSafeInteger(w.sequence)||w.sequence<0||w.sequence>2147483647||
+     typeof w.licenseKeySuffix!=='string'||!/^(?:[A-F0-9]{6})?$/.test(w.licenseKeySuffix))throw Error('OVERLAY_STORE_INVALID');
+ }
 }
 function ParseUsage(body){
  Fields(body,['sessionId','sessionToken','operation','requestId','sequence','signature']);

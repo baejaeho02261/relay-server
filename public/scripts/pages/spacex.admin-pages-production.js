@@ -24,15 +24,6 @@ async function registerAdminPasskey(recovery=false){
   toast('관리자 패스키가 등록되었습니다.');await renderProductionHardening();
 }
 
-async function loginWithPasskey(){
-  if(!window.PublicKeyCredential||!navigator.credentials)throw new Error('이 브라우저는 WebAuthn 패스키를 지원하지 않습니다.');
-  const begin=await api('/api/passkey/login/begin',{method:'POST',body:{role:loginRole.value}});
-  const credential=await navigator.credentials.get({publicKey:normalizePublicKeyOptions(begin.publicKey)});
-  const response=credential.response;
-  const done=await api('/api/passkey/login/finish',{method:'POST',body:{challengeId:begin.challengeId,credentialId:pkEncode(credential.rawId),clientDataJSON:pkEncode(response.clientDataJSON),authenticatorData:pkEncode(response.authenticatorData),signature:pkEncode(response.signature)}});
-  session={role:done.role,csrf:done.csrf,expiresAt:done.expiresAt};showApp();
-}
-
 async function reauthenticateWithPasskey(actionId=''){
   if(!window.PublicKeyCredential||!navigator.credentials)throw new Error('이 브라우저는 WebAuthn 패스키를 지원하지 않습니다.');
   const begin=await api('/api/session/reauthenticate/passkey/begin',{method:'POST',body:actionId?{actionId}:{},reauthRetried:true});
@@ -75,7 +66,6 @@ async function renderProductionHardening(){
   </div>`;
 }
 
-document.getElementById('passkey-login-btn')?.addEventListener('click',()=>loginWithPasskey().catch(e=>{loginError.textContent=e.message;}));
 document.addEventListener('click',async event=>{try{
   if(event.target.closest('[data-prod-passkey-recover]'))return await registerAdminPasskey(true);
   if(event.target.closest('[data-prod-passkey-register]'))return await registerAdminPasskey();

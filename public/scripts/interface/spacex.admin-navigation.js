@@ -75,6 +75,41 @@ for (const button of nav.querySelectorAll('button[data-view]')) {
  svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.classList.add('nav-icon');
  const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',navigationIcons[key]||navigationIcons[family]);svg.append(path);button.prepend(svg);
 }
+// Operational forms keep their authored copy. Localized navigation changes
+// only labels and never triggers a view reload or discards an in-flight edit.
+const englishNavigation = {
+ dashboard:'Overview', 'desktop-licenses':'Members and programs', simulator:'B/O design editor',
+ notifications:'Notifications', servers:'Servers', monitor:'Connections', console:'Live events',
+ trace:'Request tracing', recovery:'Request recovery', reports:'Push and reports', security:'Security status',
+ production:'Production security', enrollment:'Server enrollment', protocol:'Protocol',
+ processors:'Processing policy', features:'Features', audit:'Audit log', confighistory:'Configuration history',
+ activity:'Administrator activity', sessions:'Sign-in sessions', health:'System health', storage:'Storage',
+ backups:'Backup and restore', ha:'High availability', system:'System administration',
+ terminal:'Administrative commands', danger:'Sensitive operations'
+};
+const navGroupNames = ['Workspace', 'Servers and traffic', 'Security and policy', 'History and access', 'Infrastructure'];
+const managedNavGroups = [...nav.querySelectorAll('.nav-group')].map((group, index) => {
+ const summary=group.querySelector('summary');
+ const label=[...summary.childNodes].find(node=>node.nodeType===Node.TEXT_NODE && node.textContent.trim());
+ return { label, korean:label?.textContent, english:navGroupNames[index], items:group.querySelector('.nav-items') };
+});
+const managedNavLabels = [...nav.querySelectorAll('button[data-view]')].map(button => {
+ const label=button.querySelector('.nav-label');
+ return { label, korean:label.textContent, english:englishNavigation[button.dataset.view] };
+});
+function localizeNavigationWorkspace() {
+ const korean=document.documentElement.lang.startsWith('ko');
+ for (const {label,korean:original,english,items} of managedNavGroups) {
+  if (label) label.textContent=korean?original:english;
+  items.setAttribute('aria-label',korean?original+' 메뉴':english);
+ }
+ for (const {label,korean:original,english} of managedNavLabels) label.textContent=korean?original:english;
+ nav.setAttribute('aria-label',korean?'관리 메뉴':'Administration menu');
+ updateNavigationWorkspace();
+}
+document.addEventListener('spacex:appearance-language',localizeNavigationWorkspace);
+localizeNavigationWorkspace();
+
 function updateNavigationWorkspace(){
  document.documentElement.dataset.view=currentView;
  const selected=[...nav.querySelectorAll('button[data-view]')].find(button=>button.dataset.view===currentView);
@@ -85,6 +120,10 @@ function updateNavigationWorkspace(){
  if(category)category.textContent=group?.querySelector('summary')?.textContent||'운영 콘솔';
  const activeLabel=document.getElementById('aurora-active-nav');
  if(activeLabel)activeLabel.textContent=selected?.querySelector('.nav-label')?.textContent||'운영 개요';
+ if(typeof pageTitle!=='undefined' && typeof titles!=='undefined') {
+  pageTitle.textContent=document.documentElement.lang.startsWith('ko')
+   ? (titles[currentView]||titles.dashboard)[0] : (englishNavigation[currentView]||englishNavigation.dashboard);
+ }
 }
 
 function updateAuroraRail(dashboard, statistics) {
@@ -93,7 +132,7 @@ function updateAuroraRail(dashboard, statistics) {
  section.hidden = !dashboard?.ack;
  if (section.hidden) return;
  const rate = Math.max(0, Math.min(100, Number(dashboard.ack.successRate) || 0));
- const count = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString() : '—';
+ const count = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString(document.documentElement.lang || 'ko-KR') : '—';
  document.getElementById('aurora-rail-rate').textContent = `${rate}%`;
  document.getElementById('aurora-rail-ring').setAttribute('stroke-dasharray', `${rate} 100`);
  document.getElementById('aurora-rail-requests').textContent = `대기 ${count(dashboard.ack.pending)} · 시간 초과 ${count(dashboard.ack.timeout)}`;

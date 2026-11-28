@@ -24,7 +24,7 @@ const notificationBadge = document.getElementById('notification-badge');
 const navFilter = document.getElementById('nav-filter');
 const installPwaBtn = document.getElementById('install-pwa-btn');
 const webVersionLabel = document.getElementById('web-version-label');
-const WEB_UI_REVISION = 'spacex-v46';
+const WEB_UI_REVISION = 'spacex-v47';
 const menuToggle = document.getElementById('menu-toggle');
 function closeMobileMenu() {
   app.classList.remove('menu-open');
@@ -117,7 +117,7 @@ function esc(value) {
 function fmtTime(value) {
   const n = Number(value || 0);
   if (!n) return '-';
-  return new Date(n).toLocaleString('ko-KR', { hour12: false });
+  return new Date(n).toLocaleString(document.documentElement.lang || 'ko-KR', { hour12: false });
 }
 
 function fmtDuration(ms) {
@@ -264,7 +264,7 @@ async function api(url, options = {}) {
     if (session?.csrf !== requestSession || requestModalAlive && !requestModalAlive()) throw new Error('작업 화면 또는 로그인 상태가 변경되어 작업을 취소했습니다.');
     return api(url, {...options, reauthRetried:true});
   }
-  if (response.status === 401) {
+  if (response.status === 401 && !(url === '/api/login' && method === 'POST')) {
     showLogin();
     throw new Error('로그인이 만료되었습니다.');
   }
@@ -402,20 +402,32 @@ async function restoreSession() {
   }
 }
 
+let loginPasswordPending = false;
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
+  if (loginPasswordPending || !loginPassword.value) return;
+  loginPasswordPending = true;
   loginError.textContent = '';
+  const scene = window.spacexLoginOrbit;
+  scene?.begin();
   try {
-    const data = await api('/api/login', {
+    const request = api('/api/login', {
       method: 'POST',
       body: { role: loginRole.value, password: loginPassword.value }
     });
-    session = { role: data.role, csrf: data.csrf, expiresAt: data.expiresAt };
     loginPassword.value = '';
+    const data = await request;
+    if (data.role !== 'admin' || typeof data.csrf !== 'string' || !data.csrf) throw Error('로그인 응답을 확인하세요.');
+    session = { role: data.role, csrf: data.csrf, expiresAt: data.expiresAt };
+    const owner = session;
+    await scene?.accept();
+    if (session !== owner) return;
+    currentView = 'dashboard';
     showApp();
   } catch (error) {
+    scene?.reject();
     loginError.textContent = error.message;
-  }
+  } finally { loginPasswordPending = false; }
 });
 
 logoutBtn.addEventListener('click', async () => {

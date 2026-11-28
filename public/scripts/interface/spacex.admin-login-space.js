@@ -9,36 +9,84 @@
   const canvas = document.getElementById('login-space');
   if (!screen || !earth || !form || !password || !error || !canvas) return;
 
+  const ctx = canvas.getContext('2d', {alpha: false});
+  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  const scanDuration = 660, collapseDuration = 580;
+  const scene = {scanAt: 0, collapseAt: 0, count: 0, phase: 'idle'};
+  let hover = false, highlight = 0;
+  function clearAnimation() {
+    scene.phase = 'idle';
+    scene.count = 0;
+    password.readOnly = false;
+    screen.removeAttribute('aria-busy');
+    earth.removeAttribute('aria-disabled');
+  }
   function closeEditor(restoreFocus) {
     if (form.hidden) return;
+    clearAnimation();
     password.value = '';
     error.textContent = '';
     form.hidden = true;
     earth.setAttribute('aria-expanded', 'false');
+    earth.setAttribute('aria-label', '관리자 로그인 열기');
     if (restoreFocus) earth.focus();
   }
   earth.addEventListener('click', () => {
+    if (scene.phase !== 'idle') return;
     if (!form.hidden) {
-      password.focus();
+      if (password.value) form.requestSubmit();
+      else password.focus({preventScroll:true});
       return;
     }
     form.hidden = false;
     earth.setAttribute('aria-expanded', 'true');
-    password.focus();
+    earth.setAttribute('aria-label', '관리자 비밀번호 제출');
+    password.focus({preventScroll:true});
+  });
+  earth.addEventListener('pointerenter', () => { hover = true; if (ctx) requestFrame(); });
+  earth.addEventListener('pointerleave', () => { hover = false; if (ctx) requestFrame(); });
+  password.addEventListener('keydown', event => {
+    if (event.key !== 'Enter' || event.isComposing || scene.phase !== 'idle') return;
+    event.preventDefault();
+    if (password.value) form.requestSubmit();
   });
   screen.addEventListener('keydown', event => {
-    if (event.key !== 'Escape' || form.hidden || event.isComposing) return;
+    if (event.key !== 'Escape' || form.hidden || event.isComposing || scene.phase !== 'idle') return;
     event.preventDefault();
     closeEditor(true);
   });
-  const ctx = canvas.getContext('2d', {alpha: false});
+  window.spacexLoginOrbit = Object.freeze({
+    begin() {
+      scene.count = Math.min(48, password.value.length);
+      scene.scanAt = window.performance.now();
+      scene.phase = 'scan';
+      password.readOnly = true;
+      screen.setAttribute('aria-busy', 'true');
+      earth.setAttribute('aria-disabled', 'true');
+      if (ctx) requestFrame();
+    },
+    async accept() {
+      if (!ctx || reducedMotion?.matches || document.hidden || scene.phase !== 'scan') return;
+      const remainingScan = Math.max(0, scanDuration - (window.performance.now() - scene.scanAt));
+      if (remainingScan) await new Promise(resolve => window.setTimeout(resolve, remainingScan));
+      if (scene.phase !== 'scan' || document.hidden || screen.classList.contains('hidden')) return;
+      scene.phase = 'collapse';
+      scene.collapseAt = window.performance.now();
+      requestFrame();
+      await new Promise(resolve => window.setTimeout(resolve, collapseDuration));
+    },
+    reject() {
+      clearAnimation();
+      if (!form.hidden) password.focus({preventScroll:true});
+      if (ctx) requestFrame();
+    }
+  });
   new MutationObserver(() => {
     if (screen.classList.contains('hidden')) closeEditor(false);
     if (ctx) requestFrame();
   }).observe(screen, {attributeFilter: ['class']});
 
   if (!ctx) return;
-  const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const tau = 2 * Math.PI;
   const borderInk = '#303239';
   const starInk = '#a7b6cd';
@@ -47,8 +95,8 @@
     {period: 16.1, offset: 1.68, distance: 1.32},
     {period: 20.4, offset: 3.63, distance: 1.42}
   ];
-  let width = 0, height = 0, centerX = 0, centerY = 0, radius = 0;
-  let stars = [], atlas, projected, places;
+  let width = 0, height = 0, centerX = 0, centerY = 0, radius = 0, pixelScale = 0;
+  let stars = [], atlas, projected, places, landPath, tinyPath, mappedLongitude = NaN;
   let frame = 0, lastTime = 0, elapsed = 0, earthTime = 0;
   let maskCount = 0, maskPoints = [], maskStarted = -1, maskFrom = 0;
 
@@ -57,6 +105,8 @@
     value = Math.imul(value ^ (value >>> 15), 0x846ca68b);
     return ((value ^ (value >>> 16)) & 65535) / 65535;
   }
+  const clamp = value => Math.min(1, Math.max(0, value));
+  function ease(value) { return value * value * (3 - 2 * value); }
   const detailStars = Array.from({length: 99}, (_, index) => {
     const id = 131 + index * 7;
     return { x: ((index % 9) + .14 + .72 * seed(id)) / 4.5 - 1,
@@ -66,18 +116,25 @@
 
   function resize() {
     if (screen.classList.contains('hidden')) return;
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-    if (!width || !height) return;
+    const nextWidth = canvas.clientWidth, nextHeight = canvas.clientHeight;
+    if (!nextWidth || !nextHeight) return;
     const scale = Math.min(2, window.devicePixelRatio || 1);
     const surface = canvas.getBoundingClientRect();
     const planet = earth.getBoundingClientRect();
-    centerX = planet.left - surface.left + planet.width / 2;
-    centerY = planet.top - surface.top + planet.height / 2;
+    const nextX = planet.left - surface.left + planet.width / 2;
+    const nextY = planet.top - surface.top + planet.height / 2;
+    if (nextWidth === width && nextHeight === height && scale === pixelScale &&
+        nextX === centerX && nextY === centerY && planet.width === radius * 2) return;
+    width = nextWidth;
+    height = nextHeight;
+    pixelScale = scale;
+    centerX = nextX;
+    centerY = nextY;
     radius = planet.width / 2;
     canvas.width = Math.round(width * scale);
     canvas.height = Math.round(height * scale);
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    mappedLongitude = NaN;
     const columns = Math.max(12, Math.min(34, Math.round(width / 40)));
     const rows = Math.max(12, Math.min(26, Math.round(height / 32)));
     stars = Array.from({length: columns * rows}, (_, index) => {
@@ -146,50 +203,82 @@
     }
   }
 
-  function shoreline(x, y, depth, otherX, otherY, otherDepth) {
-    const t = depth / (depth - otherDepth);
-    const horizonX = x + (otherX - x) * t;
-    const horizonY = y + (otherY - y) * t;
-    const inverse = 1 / (Math.hypot(horizonX, horizonY) || 1);
-    return [horizonX * inverse, horizonY * inverse];
-  }
-
-  function drawCountries(longitude) {
-    project(atlas.points, projected, longitude);
-    ctx.globalAlpha = .92;
-    ctx.strokeStyle = borderInk;
-    ctx.lineWidth = Math.max(.65, radius * .0083);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
+  function traceCountries(path) {
     for (let index = 0; index < atlas.lines.length; index += 2) {
       const a = atlas.lines[index] * 3, b = atlas.lines[index + 1] * 3;
       let ax = projected[a], ay = projected[a + 1], bx = projected[b], by = projected[b + 1];
       const az = projected[a + 2], bz = projected[b + 2];
       if (az < 0 && bz < 0) continue;
-      if (az < 0) [ax, ay] = shoreline(ax, ay, az, bx, by, bz);
-      if (bz < 0) [bx, by] = shoreline(bx, by, bz, ax, ay, az);
-      ctx.moveTo(centerX + ax * radius, centerY + ay * radius);
-      ctx.lineTo(centerX + bx * radius, centerY + by * radius);
-    }
-    ctx.stroke();
-    project(atlas.places, places, longitude);
-    for (let index = 0; index < places.length; index += 3) {
-      if (places[index + 2] < .12) continue;
-      dot(centerX + places[index] * radius, centerY + places[index + 1] * radius,
-        Math.max(.65, Math.min(2, radius * .0085)), .9, borderInk);
+      if (az < 0) {
+        const t = az / (az - bz), x = ax + (bx - ax) * t, y = ay + (by - ay) * t;
+        const length = Math.hypot(x, y) || 1;
+        ax = x / length;
+        ay = y / length;
+      } else if (bz < 0) {
+        const t = bz / (bz - az), x = bx + (ax - bx) * t, y = by + (ay - by) * t;
+        const length = Math.hypot(x, y) || 1;
+        bx = x / length;
+        by = y / length;
+      }
+      path.moveTo(centerX + ax * radius, centerY + ay * radius);
+      path.lineTo(centerX + bx * radius, centerY + by * radius);
     }
   }
 
-  function drawSatellite({period, offset, distance}) {
+  function traceTinyCountries(path) {
+    const size = Math.max(.65, Math.min(2, radius * .0085));
+    for (let index = 0; index < places.length; index += 3) {
+      if (places[index + 2] < .12) continue;
+      const x = centerX + places[index] * radius, y = centerY + places[index + 1] * radius;
+      path.moveTo(x + size, y);
+      path.arc(x, y, size, 0, tau);
+    }
+  }
+
+  function drawCountries(longitude, color, opacity) {
+    if (Number.isNaN(mappedLongitude) || Math.abs(mappedLongitude - longitude) * radius > .72) {
+      mappedLongitude = longitude;
+      project(atlas.points, projected, longitude);
+      project(atlas.places, places, longitude);
+      if (window.Path2D) {
+        landPath = new Path2D();
+        tinyPath = new Path2D();
+        traceCountries(landPath);
+        traceTinyCountries(tinyPath);
+      }
+    }
+    ctx.globalAlpha = opacity * .92;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(.65, radius * .0083);
+    ctx.lineCap = 'round';
+    if (landPath) ctx.stroke(landPath);
+    else {
+      ctx.beginPath();
+      traceCountries(ctx);
+      ctx.stroke();
+    }
+    ctx.fillStyle = color;
+    if (tinyPath) ctx.fill(tinyPath);
+    else {
+      ctx.beginPath();
+      traceTinyCountries(ctx);
+      ctx.fill();
+    }
+  }
+
+  function satellitePosition({period, offset, distance}) {
     const angle = offset + (elapsed % period) * tau / period;
-    const sine = Math.sin(angle), cosine = Math.cos(angle);
+    return {sine: Math.sin(angle), cosine: Math.cos(angle), distance};
+  }
+
+  function drawSatellite({sine, cosine, distance}, fade) {
     const size = radius * .084;
     ctx.save();
     ctx.transform(-sine * size, cosine * size, cosine * size, sine * size,
       centerX + cosine * radius * distance, centerY + sine * radius * distance);
     ctx.strokeStyle = borderInk;
     ctx.lineWidth = Math.max(.13, .77 / size);
-    ctx.globalAlpha = .85;
+    ctx.globalAlpha = .85 * fade;
     ctx.strokeRect(-.35, -.32, .7, .64);
     ctx.strokeRect(-1.46, -.26, 1, .52);
     ctx.strokeRect(.46, -.26, 1, .52);
@@ -200,16 +289,17 @@
     ctx.moveTo(-.96, -.26); ctx.lineTo(-.96, .26);
     ctx.moveTo(.96, -.26); ctx.lineTo(.96, .26);
     ctx.stroke();
-    dot(0, 0, .081, .65);
-    dot(0, -.61, .081, .55 + .45 * Math.max(0, Math.cos(elapsed * tau / 2.6)));
+    dot(0, 0, .081, .65 * fade);
+    dot(0, -.61, .081, (.55 + .45 * Math.max(0, Math.cos(elapsed * tau / 2.6))) * fade);
     for (const side of [-1, 1]) {
-      dot(side * .69, .03, .071, .59);
-      dot(side * 1.22, -.04, .055, .46);
+      dot(side * .69, .03, .071, .59 * fade);
+      dot(side * 1.22, -.04, .055, .46 * fade);
     }
     ctx.restore();
   }
 
   function buildMaskLayout(longitude) {
+    if (!atlas) return detailStars.map(({x, y}) => ({x, y})).slice(0, 48);
     const coordinates = new Float32Array(atlas.slots.length);
     project(atlas.slots, coordinates, longitude);
     const candidates = [];
@@ -234,7 +324,7 @@
     return selected;
   }
 
-  function drawMask(count, longitude) {
+  function drawMask(count, longitude, collapse) {
     if (!count) {
       if (maskCount) maskPoints = [];
       maskCount = 0;
@@ -246,32 +336,90 @@
       maskFrom = Math.min(maskCount, count);
       maskCount = count;
     }
-    const visible = Math.min(count, maskPoints.length);
-    for (let index = 0; index < visible; index++) {
-      const {x, y} = maskPoints[index];
-      const fade = reducedMotion?.matches || index < maskFrom
-        ? 1 : Math.max(0, Math.min(1, (elapsed - maskStarted - (index - maskFrom) * .023) / .22));
-      if (fade > 0) dot(centerX + x * radius, centerY + y * radius,
-        Math.max(1.65, radius * .014) * (.55 + .45 * fade), fade * .94);
+    for (let index = 0; index < Math.min(count, maskPoints.length); index++) {
+      let {x, y} = maskPoints[index];
+      const reveal = scene.phase !== 'idle' || reducedMotion?.matches || index < maskFrom
+        ? 1 : clamp((elapsed - maskStarted - (index - maskFrom) * .023) / .22);
+      const pull = ease(clamp(collapse * 1.29 - .18 * seed(index + 19)));
+      const angle = pull * 4.8;
+      const nextX = (x * Math.cos(angle) - y * Math.sin(angle)) * (1 - pull);
+      y = (x * Math.sin(angle) + y * Math.cos(angle)) * (1 - pull);
+      x = nextX;
+      if (reveal > 0 && pull < 1) dot(centerX + x * radius, centerY + y * radius,
+        Math.max(1.65, radius * .014) * (.55 + .45 * reveal) * (1 - .68 * pull), reveal * .94 * (1 - pull));
     }
   }
 
-  function draw() {
+  function drawScan(positions, progress) {
+    const count = Math.min(scene.count, maskPoints.length);
+    for (const [index, {sine, cosine, distance}] of positions.entries()) {
+      const step = clamp(progress * 1.22 - index * .08) * Math.ceil(count / positions.length);
+      const first = Math.max(0, Math.floor(step - 2));
+      for (let hit = first; hit <= step; hit++) {
+        const pointIndex = hit * positions.length + index;
+        if (pointIndex >= count) continue;
+        const {x, y} = maskPoints[pointIndex];
+        const sx = centerX + cosine * radius * distance, sy = centerY + sine * radius * distance;
+        const px = centerX + x * radius, py = centerY + y * radius;
+        const fade = clamp(1 - Math.abs(step - hit - .30) / 2);
+        ctx.strokeStyle = starInk;
+        ctx.globalAlpha = .60 * fade;
+        ctx.lineWidth = Math.max(.7, radius * .0065);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(px, py);
+        ctx.stroke();
+        dot(px, py, Math.max(2, radius * .018), .52 * fade);
+      }
+    }
+  }
+
+  function drawBlackHole(progress) {
+    const horizon = radius * (.02 + .16 * ease(clamp(progress * 2)));
+    const fade = Math.sin(progress * Math.PI) ** .68;
+    ctx.fillStyle = '#000';
+    ctx.globalAlpha = fade;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, horizon, 0, tau);
+    ctx.fill();
+    ctx.strokeStyle = starInk;
+    for (let index = 0; index < 4; index++) {
+      const ring = horizon + radius * index * .086 * (1 - progress);
+      ctx.globalAlpha = fade * (.62 - index * .12);
+      ctx.lineWidth = Math.max(.8, radius * (.009 - index * .0016));
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, ring, ring * (.49 + .08 * index),
+        progress * 3.8 + index * .96, index * .9, tau - .45 + index * .9);
+      ctx.stroke();
+    }
+  }
+
+  function draw(now) {
+    const collapse = scene.phase === 'collapse' ? clamp((now - scene.collapseAt) / collapseDuration) : 0;
+    const scan = scene.phase === 'scan' ? clamp((now - scene.scanAt) / scanDuration) : 0;
+    const opacity = 1 - ease(collapse);
     ctx.globalAlpha = 1;
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, width, height);
     drawStars();
-    if (!atlas) return;
     const longitude = .48 + 1.32 * Math.sin(.33 + (earthTime % 54) * tau / 54);
-    drawCountries(longitude);
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = borderInk;
-    ctx.lineWidth = Math.max(.83, radius * .016);
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius - ctx.lineWidth / 2, 0, tau);
-    ctx.stroke();
-    for (const satellite of satellites) drawSatellite(satellite);
-    drawMask(form.hidden ? 0 : Math.min(48, password.value.length), longitude);
+    const count = scene.phase !== 'idle' ? scene.count : form.hidden ? 0 : Math.min(48, password.value.length);
+    if (atlas && radius > 0) {
+      const blend = highlight * .63;
+      const color = `rgb(${Math.round(48 + 119 * blend)}, ${Math.round(50 + 132 * blend)}, ${Math.round(57 + 148 * blend)})`;
+      drawCountries(longitude, color, opacity);
+      ctx.globalAlpha = opacity;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(.83, radius * (.016 + .002 * highlight));
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius - ctx.lineWidth / 2, 0, tau);
+      ctx.stroke();
+    }
+    const positions = satellites.map(satellitePosition);
+    for (const position of positions) drawSatellite(position, opacity);
+    drawMask(count, longitude, collapse);
+    if (scan > 0 && !reducedMotion?.matches) drawScan(positions, scan);
+    if (collapse > 0) drawBlackHole(collapse);
   }
 
   function requestFrame() {
@@ -283,12 +431,14 @@
         return;
       }
       const resting = reducedMotion?.matches;
-      if (resting || !lastTime || now - lastTime >= 31) {
+      if (resting || !lastTime || now - lastTime >= 15) {
         const delta = !resting && lastTime ? Math.min(.075, (now - lastTime) / 1000) : 0;
         lastTime = now;
         elapsed += delta;
-        if (form.hidden || !password.value.length) earthTime += delta;
-        draw();
+        if (scene.phase === 'idle' && !password.value.length) earthTime += delta;
+        const target = scene.phase === 'idle' && (hover || earth.matches(':focus-visible')) ? 1 : 0;
+        highlight += (target - highlight) * (resting || !delta ? 1 : Math.min(1, delta * 11));
+        draw(now);
       }
       if (!resting) requestFrame();
     });
@@ -320,6 +470,7 @@
 
   password.addEventListener('input', requestFrame);
   screen.addEventListener('focusin', requestFrame);
+  screen.addEventListener('focusout', requestFrame);
   window.addEventListener('resize', resize);
   document.addEventListener('visibilitychange', () => {
     lastTime = 0;

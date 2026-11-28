@@ -17,7 +17,7 @@ async function showDesktopServerState(){
  const eventLabels={FLOW_STARTED:'실행 흐름 시작',HANDOFF_COMPLETED:'인수인계 완료',SESSION_CLAIMED:'세션 인수 완료',LEASE_EXPIRED:'서버 lease 만료',AUTHORITY_ENDED:'서버 권한 종료',TRANSFER_COMMITTED:'인계 확정',CLOSE_REQUEST:'종료 요청',CLOSE_RESPONSE_PREPARED:'종료 응답 준비',CLOSE_ACK:'종료 응답 수신 보고',CLOSE_RESPONSE:'종료 응답 결과',CLOSE_REQUEST_ACCEPTED:'종료 요청 수락',SHUTDOWN_BEGIN:'종료 시작',UI_HIDDEN:'오버레이 비표시',PROCESS_EXIT:'프로세스 종료 관측',FILE_CLEANUP:'파일 정리 결과',WINDOW_HIDDEN:'오버레이 비표시',SHUTDOWN_REQUESTED:'종료 시작',RENEWAL_FAILED:'오버레이 갱신 실패',UI_RUNTIME_FAILURE:'오버레이 화면 오류',STARTUP_FAILURE:'시작 실패'};
  const textLabel=value=>labels[value]||String(value??'확인되지 않음');
  const short=value=>typeof value==='string'&&value.length>28?value.slice(0,12)+'…'+value.slice(-10):String(value??'없음');
- const date=value=>{const d=new Date(value);return value&&Number.isFinite(d.getTime())?d.toLocaleString('ko-KR'):'기록 없음';};
+ const date=value=>{const d=new Date(value);return value&&Number.isFinite(d.getTime())?d.toLocaleString(document.documentElement.lang || 'ko-KR'):'기록 없음';};
  const badge=(value,implementation=false)=>`<span class="server-state-badge" data-outcome="${esc(value||'NOT_RECORDED')}">${esc(value==='PARTIAL'?(implementation?'부분 구현':'부분 결과'):textLabel(value))}</span>`;
  const manual=()=>status.capabilities?.manualVerification||{};
  const builds=()=>Array.isArray(manual().builds)?manual().builds:[];
@@ -67,8 +67,8 @@ async function showDesktopServerState(){
   finally{if(alive()&&request===lifecycleRequest){lifecycleLoading=false;refreshLifecycle();}}
  }
  const performanceWindows=[['hour:24','최근 24시간 · 1시간 묶음'],['hour:168','최근 7일 · 1시간 묶음'],['hour:720','최근 30일 · 1시간 묶음'],['day:90','최근 90일 · 1일 묶음'],['day:365','최근 365일 · 1일 묶음']];
- const performanceNumber=value=>Number.isFinite(value)&&value>=0?value.toLocaleString('ko-KR',{maximumFractionDigits:2}):'미측정';
- const performanceDate=value=>Number.isFinite(value)&&value>0?new Date(value).toLocaleString('ko-KR',{timeZone:'UTC'})+' UTC':'기록 없음';
+ const performanceNumber=value=>Number.isFinite(value)&&value>=0?value.toLocaleString(document.documentElement.lang || 'ko-KR',{maximumFractionDigits:2}):'미측정';
+ const performanceDate=value=>Number.isFinite(value)&&value>0?new Date(value).toLocaleString(document.documentElement.lang || 'ko-KR',{timeZone:'UTC'})+' UTC':'기록 없음';
  const performanceDuration=value=>Number.isFinite(value)&&value>=0?performanceNumber(value)+' ms':'표본 없음';
  function percentile(hist,key){
   const bounds=hist?.[key+'Bounds'],value=hist?.[key+'Ms'];
