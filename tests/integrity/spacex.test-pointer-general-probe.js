@@ -100,7 +100,7 @@ test('native companion uses production serializer and the same independent golde
   const include = ReadContractFile(path.join(nativeRoot, 'SpaceX.Tests/SpaceX.Platform/SpaceX.PointerGraphGeneralContracts.inc'), 'utf8');
   const main = ReadContractFile(path.join(nativeRoot, 'SpaceX.Tests/SpaceX.Platform/SpaceX.PointerGraphProbe.dpr'), 'utf8');
   assert(include.includes(vector.sha512)); assert(include.includes(vector.crc64));
-  assert(include.includes('CozyPointerGraphBytes(N, E, D)'));
+  assert(include.includes('SpaceXPointerGraphBytes(N, E, D)'));
   assert(main.includes('RunGeneralPointerGraphContracts'));
   assert(main.includes('RunPointerLifecycleContracts'));
   assert(main.includes('ProbeApiPointerGraphRejects(I)'));

@@ -42,6 +42,8 @@ const FILES = [
   "scripts/actions/spacex.admin-actions.js",
   "icons/game.svg",
   "icons/earth.svg",
+  "icons/login-atlas.json",
+  "scripts/interface/spacex.admin-login-space.js",
   "icons/icon.svg",
   "icons/favicon.svg",
   "icons/favicon.ico",

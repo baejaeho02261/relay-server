@@ -1,6 +1,6 @@
 # 최종 발급 A 읽기·서명 검증
 
-`Cozy.Launcher.ReadConfig`는 이미 열어 둔 동일 파일 핸들로 `Cozy.IssuedA.ReadVerifiedIssuedAConfig`를 먼저 호출합니다. 검증을 통과한 바이트만 `ParsePublicConfig`에 전달하므로 호스트·포트·TLS 핀·서버 공개키를 인증 전에 사용하지 않습니다. 만료 시각은 프로필을 읽은 직후 검사하고, 전체 최종 파일 해시와 실행 코드 무결성도 기존대로 검사합니다.
+`SpaceX.Launcher.ReadConfig`는 이미 열어 둔 동일 파일 핸들로 `SpaceX.IssuedA.ReadVerifiedIssuedAConfig`를 먼저 호출합니다. 검증을 통과한 바이트만 `ParsePublicConfig`에 전달하므로 호스트·포트·TLS 핀·서버 공개키를 인증 전에 사용하지 않습니다. 만료 시각은 프로필을 읽은 직후 검사하고, 전체 최종 파일 해시와 실행 코드 무결성도 기존대로 검사합니다.
 
 이 서명은 애플리케이션에서 확인하는 발급 서명입니다. Windows Authenticode 게시자 서명·SmartScreen 평판·실제 Windows 실행 시험을 대신하지 않습니다. 공격자가 프로그램 검증 코드 자체를 수정할 수 있는 환경까지 자체 검사만으로 방어한다고 보장하지 않습니다.
 

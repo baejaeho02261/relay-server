@@ -23,7 +23,7 @@ test('Production A/B/O reject invalid invocation shapes before startup work and 
     assert.match(body, /ExitCode := 31000;/);
     const gate = body.search(shape), seal = body.indexOf('SealApiPointerStorage;');
     const diagnostic = name === 'Client' ? ', @ExitCode' : '';
-    const startup = body.indexOf(`RequireNativeStartup(${role}, @ExitCode);`), application = body.indexOf(`ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope})${diagnostic});`);
+    const startup = body.indexOf(`RequireNativeStartup(${role}, @ExitCode);`), application = body.indexOf(`ExitCode := ${run}(TSpaceXMonitorMonitor.Create(${traceScope})${diagnostic});`);
     assert(gate >= 0 && gate < seal && seal < startup && startup < application, name);
     assert.match(body, /except\s+end;/);
     assert.doesNotMatch(body, /MessageBox|ShowMessage|WriteLn|OutputDebugString|WriteConsole/i);
@@ -54,7 +54,7 @@ test('B keeps the owned key private across focus changes and wipes its bounded f
   assert.match(mailbox, /else if not FStopping then/);
   assert.match(mailbox, /FreeAndNil\(FPending\)/);
   for (const source of [worker, window, mailbox]) {
-    assert.doesNotMatch(source, /AllocConsole|FreeConsole|SetConsole|ReadConsole|WriteConsole|WriteLn|OutputDebugString|MessageBox|ShowMessage|CozyUserErrorText/i);
+    assert.doesNotMatch(source, /AllocConsole|FreeConsole|SetConsole|ReadConsole|WriteConsole|WriteLn|OutputDebugString|MessageBox|ShowMessage|SpaceXUserErrorText/i);
     assert.doesNotMatch(source, /WriteAllText|SaveToFile|SetClipboardData|EmptyClipboard|FPendingKey: string|QueuedKey: string/i);
   }
   for (const name of ['SpaceX.Console.pas', 'SpaceX.Console.Commands.pas'])
@@ -65,24 +65,24 @@ test('B keeps the owned key private across focus changes and wipes its bounded f
 
 test('Legacy error formatter returns no visible text, including unknown errors', () => {
   const source = stripComments(read('SpaceX.Source/SpaceX.Application/SpaceX.UserErrors.pas'));
-  const format = source.slice(source.lastIndexOf('function CozyUserErrorText('));
+  const format = source.slice(source.lastIndexOf('function SpaceXUserErrorText('));
   assert.match(format, /begin\s+Result := '';\s+end;\s+end\./);
   assert.doesNotMatch(format, /case\s|CP-\d|\.Message/);
 });
 
 test('NHW enforces only an authenticated and schema-valid Relay termination receipt', () => {
   const source = stripComments(read('SpaceX.Source/SpaceX.Protection/SpaceX.Monitor.Monitor.pas'));
-  const capture = source.split('procedure TCozyNHWMonitor.Capture(')[1].split('procedure TCozyNHWMonitor.LatchTermination;')[0];
+  const capture = source.split('procedure TSpaceXMonitorMonitor.Capture(')[1].split('procedure TSpaceXMonitorMonitor.LatchTermination;')[0];
   assert.match(capture, /FPending := FPending \+ NewKinds;/);
   assert.match(capture, /FPendingConfirmed := FPendingConfirmed \+ \(Confirmed \* FPending\);/);
   assert.match(capture, /NowTick >= FReportAgainAt\[Kind\]/);
   assert.doesNotMatch(capture, /LatchTermination|FProtectiveStop|StopMonitoring|FStopHandler/);
-  const report = source.split('procedure TCozyNHWMonitor.ReportInBackground;')[1];
+  const report = source.split('procedure TSpaceXMonitorMonitor.ReportInBackground;')[1];
   assert.match(report, /for Attempt := 1 to 2 do[\s\S]*?Transport\.PostJSON\('bootstrap', Body, AttemptBudget\)/);
   assert(report.indexOf('RequestID := BootstrapRequestID;') < report.indexOf('for Attempt := 1 to 2 do'));
   assert.match(report, /if not TJSONBool\(OK\)\.AsBoolean then Break;[\s\S]*?ValidateProtocolDocument\('nhwReport', Data\);\s+if TJSONBool\(Data\.GetValue\('terminate'\)\)\.AsBoolean then\s+begin\s+LatchTermination;/);
   assert.equal((source.match(/\bLatchTermination;/g) || []).length, 3);
-  const latch = source.split('procedure TCozyNHWMonitor.LatchTermination;')[1].split('procedure TCozyNHWMonitor.ReportInBackground;')[0];
+  const latch = source.split('procedure TSpaceXMonitorMonitor.LatchTermination;')[1].split('procedure TSpaceXMonitorMonitor.ReportInBackground;')[0];
   assert.match(latch, /TInterlocked\.CompareExchange\(FProtectiveStop, 1, 0\) <> 0 then Exit;/);
   assert.match(latch, /StopMonitoring;\s+if Assigned\(StopHandler\) then/);
   assert.doesNotMatch(source, /WriteConsole|WriteLn|OutputDebugString|MessageBox|ShowMessage/i);
@@ -98,14 +98,14 @@ test('NHW corroborates only the scoped kinds in a fresh complete own-process fra
   const affected = new Set(declarations.match(/\bdk\w+/g));
   assert.deepEqual(catalog.filter(({symbol}) => affected.has(symbol)).map(({id}) => id),
     [1, 9, 10, 13, 14, 15, 38, 58, 65, 66, 69, 70, 79, 80, 150, 167]);
-  const rule = control.slice(control.lastIndexOf('function CorroborateNHWObservations(')).split('function IsV60Signal(')[0];
+  const rule = control.slice(control.lastIndexOf('function CorroborateSpaceXMonitorObservations(')).split('function IsV60Signal(')[0];
   assert.match(rule, /if not OwnCompleteFrame then Exit;[\s\S]*?if not ExecutionImpact and not \(dkWriteIntegrity in VerifiedImpact\) then Exit;/);
-  assert.match(rule, /if ExecutionImpact then Result := Result \+ \(Observed \* NHWCorroboratedThreadKinds\);/);
-  assert.match(rule, /if \(Observed \* \[dkTokenChange, dkDacl\]\) <> \[\] then\s+Result := Result \+ \(Observed \* NHWCorroboratedTokenKinds\);/);
+  assert.match(rule, /if ExecutionImpact then Result := Result \+ \(Observed \* SpaceXMonitorCorroboratedThreadKinds\);/);
+  assert.match(rule, /if \(Observed \* \[dkTokenChange, dkDacl\]\) <> \[\] then\s+Result := Result \+ \(Observed \* SpaceXMonitorCorroboratedTokenKinds\);/);
   const cycle = engine.split('procedure RecordCycleEvidence;')[1].split('procedure FinalizeSamplingAndReport;')[0];
-  assert.match(cycle, /Confirmed := \[\];\s+if Embedded and \(not NewMonitorBaseline\) and StableTarget and\s+\(LivePID = WinCurrentProcessId\) then[\s\S]*?\(dkWriteIntegrity in Detected\) and not WriteGuard\.ObservationFailed[\s\S]*?SensorConsensus\.Last\.Corroborated[\s\S]*?if CorrelationCoverageValid and Unified\.CurrentComplete and\s+\(Unified\.PrimaryRootCount >= 2\) then\s+Confirmed := Confirmed \+ CorroborateNHWObservations\(True, Detected, Confirmed\);/);
-  const capture = monitor.split('procedure TCozyNHWMonitor.Capture(')[1].split('procedure TCozyNHWMonitor.LatchTermination;')[0];
-  assert.match(capture, /Kind in \(Confirmed \* NHWCorroborationKinds\)\) and\s+\(NowTick >= FConfirmedAgainAt\[Kind\]\) then\s+begin\s+Include\(NewKinds, Kind\);/);
+  assert.match(cycle, /Confirmed := \[\];\s+if Embedded and \(not NewMonitorBaseline\) and StableTarget and\s+\(LivePID = WinCurrentProcessId\) then[\s\S]*?\(dkWriteIntegrity in Detected\) and not WriteGuard\.ObservationFailed[\s\S]*?SensorConsensus\.Last\.Corroborated[\s\S]*?if CorrelationCoverageValid and Unified\.CurrentComplete and\s+\(Unified\.PrimaryRootCount >= 2\) then\s+Confirmed := Confirmed \+ CorroborateSpaceXMonitorObservations\(True, Detected, Confirmed\);/);
+  const capture = monitor.split('procedure TSpaceXMonitorMonitor.Capture(')[1].split('procedure TSpaceXMonitorMonitor.LatchTermination;')[0];
+  assert.match(capture, /Kind in \(Confirmed \* SpaceXMonitorCorroborationKinds\)\) and\s+\(NowTick >= FConfirmedAgainAt\[Kind\]\) then\s+begin\s+Include\(NewKinds, Kind\);/);
   assert(capture.indexOf('FConfirmedAgainAt[Kind]') < capture.indexOf('NowTick >= FReportAgainAt[Kind]'));
 });
 
@@ -116,7 +116,7 @@ test('each role owns a distinct bounded optional NHW kernel logger during handof
   const monitor = stripComments(read(directory + 'SpaceX.Monitor.Monitor.pas'));
   assert.match(monitor, /RunEmbedded\(FSensorStop, TraceScope,/);
   assert.match(engine, /KernelTrace := TETWMonitor\.Create\(TraceScope\);/);
-  const names = etw.match(/TRACE_NAMES: array\[TNHWTraceScope\] of string = \(([\s\S]*?)\);/)[1];
+  const names = etw.match(/TRACE_NAMES: array\[TSpaceXMonitorTraceScope\] of string = \(([\s\S]*?)\);/)[1];
   assert.equal(new Set(names.match(/'[^']+'/g)).size, 4);
   const roleGuids = ['LAUNCHER', 'CLIENT', 'OVERLAY'].map(role => {
     const scope = role[0] + role.slice(1).toLowerCase();
@@ -133,7 +133,7 @@ test('each role owns a distinct bounded optional NHW kernel logger during handof
 test('B authorizes after hidden GPU initialization, presents before input and joins before GPU/API retirement', () => {
   const source = stripComments(read('SpaceX.Source/SpaceX.License/SpaceX.License.Session.pas'));
   const window = stripComments(read('SpaceX.Source/SpaceX.License/SpaceX.License.Window.pas'));
-  const entry = source.slice(source.lastIndexOf('function RunLicenseClient(const Monitor: ICozyProtectionSession;'));
+  const entry = source.slice(source.lastIndexOf('function RunLicenseClient(const Monitor: ISpaceXProtectionSession;'));
   assert(entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('RunLicenseWindow('));
   assert(entry.indexOf('Api.CheckIntegrity;') < entry.indexOf('Worker.StartChecks;'));
   const create = window.split('constructor TLicenseWindow.Create(')[1].split('destructor TLicenseWindow.Destroy;')[0];

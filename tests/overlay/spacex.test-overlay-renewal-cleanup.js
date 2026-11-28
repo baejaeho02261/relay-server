@@ -19,26 +19,26 @@ const execute=part(overlay,'procedure TOverlayWorker.Execute;','{$IFDEF GAME_OVE
 test('source: full-snapshot due time is completion-based and transfer-aware',()=>{
  assert.match(state,/Result := LastAcceptedTick = 0[\s\S]*not Transferred[\s\S]*NowTick - LastAcceptedTick >= 15000/);
  const due=part(overlay,'function TOverlayWorker.SnapshotDue: Boolean;','procedure TOverlayWorker.Refresh;');
- order(due,'OverlaySnapshotDue(CozyTick, FLastSnapshotAt, FTransferred,','FClient.SnapshotDeadlineTick, FLastSnapshotDuration);');
+ order(due,'OverlaySnapshotDue(SpaceXTick, FLastSnapshotAt, FTransferred,','FClient.SnapshotDeadlineTick, FLastSnapshotDuration);');
  order(refresh,'if FTransferred then MaintainLease(False);','Image := FImage.VerifyNow(Budget);',
-  'IncludeModules := SnapshotDue;','FClient.ReportIntegrity(','FLastSnapshotAt := CozyTick;');
- assert.doesNotMatch(refresh,/if IncludeModules then FLastSnapshotAt := CozyTick;\s*FClient.ReportIntegrity/);
+  'IncludeModules := SnapshotDue;','FClient.ReportIntegrity(','FLastSnapshotAt := SpaceXTick;');
+ assert.doesNotMatch(refresh,/if IncludeModules then FLastSnapshotAt := SpaceXTick;\s*FClient.ReportIntegrity/);
 });
 test('source: first frame is not raced by another measurement',()=>{
- order(execute,'if ShouldClose then','if not AwaitingTransfer then','CozyWaitForDelay(100, function: Boolean begin Result := Terminated; end);','Continue;','ReportVisible := FVisibleReportPending;','StartupPhase(\'VISIBLE\')');
+ order(execute,'if ShouldClose then','if not AwaitingTransfer then','SpaceXWaitForDelay(100, function: Boolean begin Result := Terminated; end);','Continue;','ReportVisible := FVisibleReportPending;','StartupPhase(\'VISIBLE\')');
 });
 test('source: O remains hidden until successful presented B exit and fresh transfer confirmation',()=>{
  const start=part(overlay,'procedure TOverlayWorker.StartAuthorized;','function TOverlayWorker.CapturePrivacyRequested:');
  const barrier=part(overlay,'procedure TOverlayWorker.PrepareTransferBeforeShow;','procedure TOverlayWorker.StartAuthorized;');
  const frame=part(overlay,'procedure TOverlayWorker.FirstFrameReady;','procedure TOverlayWorker.Refresh;');
  order(start,'Refresh;','PrepareTransferBeforeShow;','FStarted := True;','Start;');
- order(barrier,'CozyTick >= FDeadline','ExitDeadline := CozyTick + 30000;',
+ order(barrier,'SpaceXTick >= FDeadline','ExitDeadline := SpaceXTick + 30000;',
   'if FDeadline < ExitDeadline then ExitDeadline := FDeadline;',
   'CommitDeadline := FClient.LeaseRequestTick + 30000;',
   'if ExitDeadline < CommitDeadline then CommitDeadline := ExitDeadline;',
   'FContext.ConfirmOverlayReady(CommitDeadline);','FReadyForTransfer := True;',
-  'while FContext.ParentIsAlive do','RequestCancelled or (CozyTick >= ExitDeadline)',
-  'MaintainLease(False);','CozyWaitForDelay(100,','MaintainLease(True);',
+  'while FContext.ParentIsAlive do','RequestCancelled or (SpaceXTick >= ExitDeadline)',
+  'MaintainLease(False);','SpaceXWaitForDelay(100,','MaintainLease(True);',
   'ParentCompletion := FContext.ParentCleanupObservation;',
   'if not FTransferred or not FParentRetirementDone or FFailed or',
   'not ParentCompletion.ExitObserved or',
@@ -52,11 +52,11 @@ test('source: only a new signed verification refreshes the same hidden O readine
  const barrier=part(overlay,'procedure TOverlayWorker.PrepareTransferBeforeShow;','procedure TOverlayWorker.StartAuthorized;');
  const cancel=part(overlay,'function TOverlayWorker.RequestCancelled: Boolean;','procedure TOverlayWorker.FirstFrameReady;');
  assert.match(overlay,/RollingOverlayExitWindowMs = 75000;\s+RollingOverlayRefreshIntervalMs = 10000;/);
- assert.match(cancel,/\(FHiddenTransferDeadline <> 0\) and \(CozyTick >= FHiddenTransferDeadline\)/);
+ assert.match(cancel,/\(FHiddenTransferDeadline <> 0\) and \(SpaceXTick >= FHiddenTransferDeadline\)/);
  order(barrier,'Rolling := FContext.RollingOverlayReady;',
-  'ExitDeadline := CozyTick + RollingOverlayExitWindowMs;',
+  'ExitDeadline := SpaceXTick + RollingOverlayExitWindowMs;',
   'FHiddenTransferDeadline := ExitDeadline;', 'FContext.ConfirmOverlayReady(CommitDeadline);',
-  'while FContext.ParentIsAlive do','RequestCancelled or (CozyTick >= ExitDeadline)',
+  'while FContext.ParentIsAlive do','RequestCancelled or (SpaceXTick >= ExitDeadline)',
   'if Rolling and FContext.RollingOverlayReady and not FTransferred then',
   '(At >= NextReadyRefresh) and (At + RollingOverlayFinalReserveMs < ExitDeadline)',
   'MaintainLease(True);','VerifyTick := FClient.LeaseRequestTick;',
@@ -72,17 +72,17 @@ test('source: only a new signed verification refreshes the same hidden O readine
 });
 test('source: parent exit confirmation takes the cheap path before full refresh',()=>{
  order(execute,'if not FParentRetirementDone and not FContext.ParentIsAlive then','MaintainLease(True);',
-  'else if (CozyTick >= NextCheck) or SnapshotDue then','Refresh;');
+  'else if (SpaceXTick >= NextCheck) or SnapshotDue then','Refresh;');
 });
 test('source: long initial/full-snapshot cost is not the cheap renewal estimate',()=>{
- order(refresh,'if IncludeModules then LeaseStarted := CozyTick;','RenewLease(Image, LeaseStarted);');
- assert.match(refresh,/FLastRefreshDuration := CozyTick - RefreshStarted/);
+ order(refresh,'if IncludeModules then LeaseStarted := SpaceXTick;','RenewLease(Image, LeaseStarted);');
+ assert.match(refresh,/FLastRefreshDuration := SpaceXTick - RefreshStarted/);
 });
 test('source: batch callback cannot manufacture a lease',()=>{
  order(refresh,'procedure TOverlayWorker.MaintainLease','RequestCancelled','OverlayLeaseNeedsMaintenance','FImage.VerifyNow','RenewLease(Image, Started)');
  assert.match(refresh,/Lease := FClient.Verify/);assert.match(client,/RequireServerObservation\(/);
  assert.match(client,/FLeaseDeadlineTick := VerifyRequestTick \+ UInt64\(Result\)/);
- assert.doesNotMatch(refresh,/FDeadline := CozyTick \+/);
+ assert.doesNotMatch(refresh,/FDeadline := SpaceXTick \+/);
 });
 test('source: retries a loader-only generation race before signing any part of a fresh inventory',()=>{
  order(core,"StartupPhaseCore('MODULES_BEGIN')",'for ScanAttempt := 0 to ModuleGenerationRetryLimit do',
@@ -124,7 +124,25 @@ test('source: default nil callback preserves existing callers',()=>{
 });
 test('source: old grant/cancellation is checked before publication',()=>{
  const s=part(overlay,'procedure TOverlayWorker.RenewLease(','procedure TOverlayWorker.StartAuthorized;');
- order(s,'if Terminated or FFailed or','CozyTick >= FDeadline','FFailed := True;','FDeadline := 0;','FDeadline := Deadline;','FContext.CleanupTransferredParent;');
+ order(s,'if Terminated or FFailed or','SpaceXTick >= FDeadline','FFailed := True;','FDeadline := 0;','FDeadline := Deadline;','FContext.CleanupTransferredParent;');
+});
+test('source: metered UI actions are signed, drawn from bounded receipts, and cannot renew the lease',()=>{
+ const renderer=read('SpaceX.Source/SpaceX.Overlay/SpaceX.Overlay.Renderer.pas');
+ const request=part(client,'function TOverlayClient.Usage(','procedure TOverlayClient.ClearThemeRequest;');
+ order(request,'RequireCurrent;','RequestID := BootstrapRequestID;',"Canonical := 'SPACEX-OVERLAY-USAGE-V1'",
+  'Security.Sign(Canonical)',"Reply := Post('overlayUsage', Body, Deadline);",'RequireCurrent;',
+  'ReturnedSequence <> Sequence','FUsageSequence := Integer(ReturnedSequence);');
+ assert.doesNotMatch(request,/FLeaseDeadlineTick\s*:=|FTransferConfirmed\s*:=|clipboard/i);
+ const readUsage=part(overlay,'function TOverlayWorker.ReadUsage:','procedure TOverlayWorker.QueueUsage(');
+ order(readUsage,'Result := FUsage;','if FUsage.Status in [ousApproved, ousRejected] then FUsage.Status := ousIdle;');
+ const process=part(overlay,'function TOverlayWorker.ProcessUsage(','function TOverlayWorker.ShouldClose:');
+ order(process,'not FTransferred or not FFirstFrameShown','FClient.Usage(FContext.Security, Consume, Deadline)',
+  'if Accepted and Snapshot.Exhausted then','Stop;','if Terminated or FFailed or not FTransferred',
+  'if Consume then FUsage.Status := ousApproved;');
+ assert.doesNotMatch(process,/FDeadline\s*:=|FTransferred\s*:=|TrySetProduct/i);
+ const paint=part(renderer,'procedure TOverlayWindow.Paint;','procedure TOverlayWindow.Resize;');
+ order(paint,'Usage.LicenseReference, FLicensedCard, Usage.RemainingFraction','ImGuiPresent(FContext)',
+  'FRendered and FSceneRevealComplete and (SceneAction > 0) and AuthorityValid','FQueueUsage(SceneAction)');
 });
 test('source: transfer race has only two fresh attempts, no local flag spoofing',()=>{
  const s=part(overlay,'procedure TOverlayWorker.RenewLease(','procedure TOverlayWorker.StartAuthorized;');
@@ -257,13 +275,13 @@ test('recovery model: cancellation, invalid authority and exhausted time never b
 });
 test('source: renewal retry preserves the live grant and cancellation generation',()=>{
  const recover=part(overlay,'function TOverlayWorker.RecoverTransientRenewal(', 'procedure TOverlayWorker.NoteRenewalFailure(');
- order(recover,'not Terminated and not FFailed and FReadyForTransfer','OverlayTransientRetryAllowed(CozyTick, FDeadline,','if Allowed then Retried := True;','CozyWaitForDelay(250,','if RequestCancelled then Exit;','MaintainLease(True);','Result := not RequestCancelled;');
+ order(recover,'not Terminated and not FFailed and FReadyForTransfer','OverlayTransientRetryAllowed(SpaceXTick, FDeadline,','if Allowed then Retried := True;','SpaceXWaitForDelay(250,','if RequestCancelled then Exit;','MaintainLease(True);','Result := not RequestCancelled;');
  assert.doesNotMatch(recover,/FDeadline\s*:=|FFailed\s*:=|ResetCancellation|CancelPending|FRunState|RequestCohortShutdown/);
  const predicate=part(state,'function OverlayTransientRetryAllowed(NowTick, Deadline, LastDuration: UInt64;\n  AlreadyRetried: Boolean; const TransportCode: string): Boolean;\nvar Reserve:', 'function OverlayGraphicsFailure(');
  for(const code of transientCodes)assert(predicate.includes("'"+code+"'"));
  assert.match(predicate,/AlreadyRetried or \(Deadline <= NowTick\)/);assert.match(predicate,/Reserve < 12000/);assert.match(predicate,/Deadline - NowTick > Reserve/);
  assert.doesNotMatch(predicate,/SessionToken|FDeadline\s*:=|osAuthorized/);
- order(execute,'on E: EConnectTransport do','RecoverTransientRenewal(E.Code, Retried)','NextCheck := CozyTick;','Continue;');
+ order(execute,'on E: EConnectTransport do','RecoverTransientRenewal(E.Code, Retried)','NextCheck := SpaceXTick;','Continue;');
 });
 test('source: failed renewal and runtime UI causes use closed optional diagnostic events',()=>{
  const note=part(overlay,'procedure TOverlayWorker.NoteRenewalFailure(', 'procedure TOverlayWorker.Execute;');

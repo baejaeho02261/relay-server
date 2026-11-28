@@ -140,7 +140,7 @@ B가 열리면 Please sign in에서 키를 입력하고 Confirm을 누릅니다.
 
 기본 창은 96 DPI에서 380×520입니다. 검은 바탕에 회색 로고와 얇은 선을 사용합니다. License key에 SpaceX 라이선스 키를 입력하고 Sign in을 누르면 B가 기존 라이선스 서버에 인증을 요청합니다. 입력한 키 문자는 마스킹되며, 거부 응답을 받으면 같은 입력 화면에서 다시 시도할 수 있습니다.
 
-서버에서 승인하면 B가 기존 Cozy 세션을 O에 자동으로 인계합니다. 진행 상태는 처음에 보이던 OllyDbg 로고 안에 차오르는 물결로 표시됩니다.
+서버에서 승인하면 B가 기존 SpaceX 세션을 O에 자동으로 인계합니다. 진행 상태는 처음에 보이던 OllyDbg 로고 안에 차오르는 물결로 표시됩니다.
 
 화면의 로고는 Papirus 프로젝트의 OllyDbg 아이콘을 회색으로 가공한 것입니다. 원본 SVG, 배포 라이선스, 화면용 이미지와 변경 내역은 `SpaceX.ImGui/SpaceX.Assets/SpaceX.LicenseGallery`에 들어 있습니다. UI에 사용한 Prompt Regular의 라이선스는 `SpaceX.Source/SpaceX.Overlay/SpaceX.License.Prompt-OFL.txt`에서 확인할 수 있습니다.
 
@@ -162,9 +162,9 @@ Please sign in 화면에서 SpaceX 라이선스 키를 입력하고 Confirm을 �
 
 # B 라이선스 화면 v15 · 2026-11-21
 
-B의 Access 화면에서 Continue를 누르거나 License key 탭을 열어 키를 입력합니다. Activate license를 누르면 기존 Cozy 서버가 키를 검증합니다. 승인이 끝나면 Your library에서 Counter-Strike 2, VALORANT, Apex Legends, Rust, Minecraft, Grand Theft Auto V의 여섯 테마를 선택할 수 있습니다.
+B의 Access 화면에서 Continue를 누르거나 License key 탭을 열어 키를 입력합니다. Activate license를 누르면 기존 SpaceX 서버가 키를 검증합니다. 승인이 끝나면 Your library에서 Counter-Strike 2, VALORANT, Apex Legends, Rust, Minecraft, Grand Theft Auto V의 여섯 테마를 선택할 수 있습니다.
 
-라이브러리 목록에서 항목을 선택하면 오른쪽 포스터가 바뀝니다. Continue로 상세 화면을 열면 Overview에서 게임 소개, Updates에서 런처 변경 내역을 볼 수 있습니다. Settings의 Reduce motion과 High contrast는 열려 있는 B 창에 적용됩니다. Open SpaceX session은 서버에서 승인한 현재 Cozy 세션을 O로 넘깁니다.
+라이브러리 목록에서 항목을 선택하면 오른쪽 포스터가 바뀝니다. Continue로 상세 화면을 열면 Overview에서 게임 소개, Updates에서 런처 변경 내역을 볼 수 있습니다. Settings의 Reduce motion과 High contrast는 열려 있는 B 창에 적용됩니다. Open SpaceX session은 서버에서 승인한 현재 SpaceX 세션을 O로 넘깁니다.
 
 화면 왼쪽에는 은색 SpaceX 심벌과 움직이는 입자가 보입니다. 우측 상단에서 창을 최소화하거나 닫을 수 있고, 최소화하면 Windows 작업 표시줄의 Cozy에서 복원할 수 있습니다. 게임별 포스터·배지의 원본과 제작 정보는 `SpaceX.ImGui/SpaceX.Assets/SpaceX.LicenseGallery/SpaceX.LicenseGallery.Reference.json`에 있습니다.
 
@@ -218,7 +218,7 @@ GitHub 저장소와 Railway 서비스에는 서버 소스와 전체 소스 해�
 
 ---
 
-# Cozy · 제품별 라이선스와 B/O UI 적용 안내
+# SpaceX · 제품별 라이선스와 B/O UI 적용 안내
 
 v7 기준으로 B 종료 후 O 표시 순서를 적용했습니다. O는 숨겨진 상태에서 검증과 인계 준비를 마치고, 보유 중인 B 프로세스 핸들의 실제 종료와 새로운 서버 인계 확인을 거친 뒤 표시됩니다.
 

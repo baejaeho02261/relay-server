@@ -6,7 +6,7 @@
 
 ## 입력 폴더
 
-소스 폴더 밖에 검토용 폴더를 새로 만들고 다음 **8개 파일만** 넣습니다. 아래 예시는 `C:\CozyRelease\reviewed-input`을 사용합니다.
+소스 폴더 밖에 검토용 폴더를 새로 만들고 다음 **8개 파일만** 넣습니다. 아래 예시는 `C:\SpaceXRelease\reviewed-input`을 사용합니다.
 
 | 파일명 | 넣을 내용 |
 | --- | --- |
@@ -30,7 +30,7 @@
 1. 입력 묶음을 고정합니다.
 
    ```bat
-   node "SpaceX\Server\tools\artifacts\spacex.separated-signing.js" seal "C:\CozyRelease\reviewed-input"
+   node "SpaceX\Server\tools\artifacts\spacex.separated-signing.js" seal "C:\SpaceXRelease\reviewed-input"
    ```
 
    입력 폴더에 `bundle-index.json`과 `bundle-review-sha512.txt`가 생성됩니다. 고정 이후에는 내용을 바꾸지 않습니다. 다음 명령의 `검토한_SHA512`에는 검토한 `bundle-review-sha512.txt`의 128자리 값을 넣습니다.
@@ -38,7 +38,7 @@
 2. 기존 릴리스 승인 개인키로 승인합니다.
 
    ```bat
-   node "SpaceX\Server\tools\artifacts\spacex.separated-signing.js" release "C:\CozyRelease\reviewed-input" "검토한_SHA512" "C:\CozyRelease\approved-output" "C:\PrivateKeys\release-private.pem" "C:\CozyRelease\deployment-policy.json"
+   node "SpaceX\Server\tools\artifacts\spacex.separated-signing.js" release "C:\SpaceXRelease\reviewed-input" "검토한_SHA512" "C:\SpaceXRelease\approved-output" "C:\PrivateKeys\release-private.pem" "C:\SpaceXRelease\deployment-policy.json"
    ```
 
    `approved-output`은 아직 존재하지 않는 새 경로여야 합니다. `deployment-policy.json`은 해당 개인키의 공개키를 `trustedReleaseKeys`로 신뢰하는 배포 정책입니다. 다른 정책 항목은 시험한 정책과 같아야 합니다. 개인키는 소스·입력·출력 폴더 밖에 보관하고 웹에 업로드하거나 실행 파일에 포함하지 않습니다.
@@ -46,7 +46,7 @@
 3. 신뢰하는 릴리스 공개키로 결과를 검증합니다.
 
    ```bat
-   node "SpaceX\Server\tools\artifacts\spacex.separated-signing.js" verify "C:\CozyRelease\approved-output" "C:\CozyRelease\release-public-key.pem"
+   node "SpaceX\Server\tools\artifacts\spacex.separated-signing.js" verify "C:\SpaceXRelease\approved-output" "C:\SpaceXRelease\release-public-key.pem"
    ```
 
    공개키 PEM 또는 `publicKey` 필드를 가진 공개 JSON을 사용할 수 있습니다. 검증에는 서명할 때 선택한 키와 대응하는 공개키를 사용합니다.

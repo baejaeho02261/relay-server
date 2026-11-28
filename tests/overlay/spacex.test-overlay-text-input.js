@@ -19,16 +19,19 @@ function section(source,startMarker,endMarker){
 
 test('The passive O host neither enables a native editor nor invokes legacy text callbacks',()=>{
   assert.doesNotMatch(renderer,/ImGuiTextInput|SyncTextInput|NotifyTextInput|FTextInputActive|FOnTextInput/);
-  assert.match(bridge,/CozyTextInput\* text_input/);
+  assert.match(bridge,/SpaceXTextInput\* text_input/);
   const create=section(bridge,'static int32_t game_create(','extern "C" int32_t GAME_IMGUI_CALL game_imgui_create(');
-  assert(!create.includes('sizeof(CozyTextInput)'),'display-only creation must not allocate input state');
+  assert(!create.includes('sizeof(SpaceXTextInput)'),'display-only creation must not allocate input state');
 });
 
-test('O consumes character, wheel and IME messages while its native color controls handle bounded keys',()=>{
+test('O forwards only the vertical wheel inside its authorized surface and consumes text/IME messages',()=>{
   const handler=section(renderer,'function TOverlayWindow.Handle(','function TOverlayWindow.AuthorityValid:');
-  assert.match(handler,/WM_MOUSEWHEEL, WM_MOUSEHWHEEL, WM_CHAR,\s*WM_IME_STARTCOMPOSITION, WM_IME_COMPOSITION,\s*WM_IME_ENDCOMPOSITION, WM_IME_CHAR: Exit\(0\);/);
+  const wheel=section(handler,'    WM_MOUSEWHEEL:\n','    WM_MOUSEHWHEEL, WM_CHAR,');
+  assert.match(wheel,/FSessionPaused or FMinimized or FDragging or\s*not FWindowShown or not AuthorityValid/);
+  assert.match(wheel,/if SurfaceHit\(X, Y\) then\s*begin\s*ImGuiMousePos\(FContext, X, Y\);\s*ImGuiMouseWheel\(FContext, 0, SmallInt\(HIWORD\(WParam\)\) \/ WHEEL_DELTA\);/);
+  assert.match(handler,/WM_MOUSEHWHEEL, WM_CHAR,\s*WM_IME_STARTCOMPOSITION, WM_IME_COMPOSITION,\s*WM_IME_ENDCOMPOSITION, WM_IME_CHAR: Exit\(0\);/);
   assert.match(handler,/WM_KEYDOWN:\s*begin\s*if FSessionPaused or not AuthorityValid then Exit;\s*if WParam = VK_ESCAPE then/);
-  assert.match(handler,/if ThemePickerOpen then ImGuiKey\(FContext, VK_ESCAPE, True\)\s*else\s*begin\s*BeginClosing;/);
+  assert.match(handler,/if ThemePickerOpen then ImGuiKey\(FContext, VK_ESCAPE, True\)\s*else RequestUserClose;/);
   assert.match(handler,/VK_TAB, VK_RETURN, VK_SPACE, VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_SHIFT:\s*ImGuiKey\(FContext, Integer\(WParam\), True\);/);
   assert.match(handler,/WM_KEYUP:[\s\S]*?VK_ESCAPE, VK_TAB, VK_RETURN, VK_SPACE, VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN, VK_SHIFT:\s*ImGuiKey\(FContext, Integer\(WParam\), False\);/);
   assert.doesNotMatch(renderer,/ImmGetCompositionString|SetWindowsHook|GetAsyncKeyState|GetKeyboardState/);
@@ -39,13 +42,13 @@ test('Focus loss retires owned input and the explicit native editor still wipes 
   assert.match(loss,/CancelInteraction;[\s\S]*ImGuiFocus\(FContext, False\);/);
   const cancel=section(renderer,'procedure TOverlayWindow.CancelInteraction;','procedure TOverlayWindow.PointerDown(');
   assert.match(cancel,/FDragging := False;[\s\S]*ImGuiClearInput\(FContext\);[\s\S]*ReleaseOwnCapture;/);
-  assert.match(bridge,/game_destroy_context[\s\S]*?cozy_text_wipe\(c->text_input,sizeof\(\*c->text_input\)\)/);
+  assert.match(bridge,/game_destroy_context[\s\S]*?spacex_text_wipe\(c->text_input,sizeof\(\*c->text_input\)\)/);
   assert.match(state,/volatile unsigned char\*/);
   assert.match(wrapper,/finally\s*FillChar\(Bytes, SizeOf\(Bytes\), 0\)/);
 });
 
 test('Bounded UTF8, UTF16 and glyph admission remain available through the separate native ABI',()=>{
-  assert.match(state,/CozyTextBytes = 512/);
+  assert.match(state,/SpaceXTextBytes = 512/);
   assert.match(state,/s->high_surrogate=0/);
   assert.match(state,/cp>0x10FFFF/);
   assert.match(state,/cp>=0xD800 && cp<=0xDFFF/);

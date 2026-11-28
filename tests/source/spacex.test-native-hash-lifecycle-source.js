@@ -58,7 +58,7 @@ assert.match(method(impl, 'JoinWorker'), /if Status = WAIT_OBJECT_0 then Break;/
 assert.doesNotMatch(impl, /TerminateThread\s*\(/, 'cooperative cancellation must not kill threads');
 assert.match(integrity, /Hasher\.UpdateParallelCancellable\(Buffer\[0\], Count,\s+ExecuteBlake3WorkersCancellable, Cancellation\)/);
 assert.match(integrity, /raise EMeasurement\.Create\(CancellationState\.Failure, 'HASH_STOPPED'\)/);
-assert.match(metadata, /\{\$IFDEF GAME_APPLICATION_BUILD\}[\s\S]*?\{\$IFDEF COZY_HASH_WORKER_TESTS\}\s+\{\$MESSAGE FATAL/);
+assert.match(metadata, /\{\$IFDEF GAME_APPLICATION_BUILD\}[\s\S]*?\{\$IFDEF SPACEX_HASH_WORKER_TESTS\}\s+\{\$MESSAGE FATAL/);
 assert.match(probe, /Created = Joined/);
 assert.match(probe, /Created = Closed/);
 assert.match(probe, /PendingClose = 0/);

@@ -4,11 +4,11 @@ where node.exe >nul 2>&1
 if errorlevel 1 goto missing_node
 if not "%~2"=="" goto usage
 if "%~1"=="" goto interactive
-node.exe "%~dp0peace.verification-report.js" finalize "%~f1"
+node.exe "%~dp0spacex.verification-report.js" finalize "%~f1"
 set "GAME_VERIFICATION_EXIT=%errorlevel%"
 goto done
 :interactive
-node.exe "%~dp0peace.verification-report.js" finalize
+node.exe "%~dp0spacex.verification-report.js" finalize
 set "GAME_VERIFICATION_EXIT=%errorlevel%"
 goto done
 :missing_node

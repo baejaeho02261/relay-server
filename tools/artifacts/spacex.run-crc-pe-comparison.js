@@ -24,7 +24,7 @@ async function run(argv=process.argv.slice(2)){
   options.probe ||= path.resolve(MODULE_RESOURCE_ROOT,"../../Desktop/SpaceX.Tests/SpaceX.Build/SpaceX.Outputs/manual-ide/SpaceX.CrcPeProbe.exe");
   if(!fs.existsSync(options.probe)){
    console.log('Build Desktop\\SpaceX.Tests\\SpaceX.Integrity\\SpaceX.CrcPeProbe.dproj in the RAD Studio IDE as Win64 Release.');
-   options.probe=await ask('spacex.CrcPeProbe.exe absolute path: ');
+   options.probe=await ask('SpaceX.CrcPeProbe.exe absolute path: ');
   }
   if(!corpusOnly)for(const role of comparison.ARTIFACT_ROLES)if(!options.artifacts[role]){
    options.artifacts[role]=await ask('Final '+role+' EXE absolute path: ');

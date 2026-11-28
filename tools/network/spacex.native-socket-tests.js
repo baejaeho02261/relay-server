@@ -8,7 +8,7 @@ async function Run(probe,openssl='openssl'){
  if(process.platform!=='win32'||process.arch!=='x64')return {version:1,outcome:'NOT_RUN',nativeExecuted:false,reason:'WINDOWS_X64_REQUIRED'};
  if(!path.isAbsolute(probe))throw Error('SOCKET_ABSOLUTE_PROBE_PATH_REQUIRED');
  const original=fs.readFileSync(probe);require('../runtime/spacex.manual-windows-tests').Pe64(original);
- const digest=hash(original),root=fs.mkdtempSync(path.join(os.tmpdir(),'Cozy-Socket-')),rows=[];
+ const digest=hash(original),root=fs.mkdtempSync(path.join(os.tmpdir(),'SpaceX-Socket-')),rows=[];
  try{
   const copy=path.join(root,'SpaceX.RelaySocketProbe.exe');fs.writeFileSync(copy,original,{flag:'wx'});
   const contracts=await Execute(copy,['--contracts']);

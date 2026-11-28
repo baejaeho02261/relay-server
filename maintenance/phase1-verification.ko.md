@@ -18,7 +18,7 @@ node tools/security/spacex.audit-client-secrets.js A.exe B.exe O.exe
 
 종료 코드 0은 검사 대상 항목에서 PASS, 1은 BLOCKED, 2는 검사 오류입니다. JSON에는 규칙 코드·역할·해시를 기록하며 키 값, 매칭한 비밀 문자열 또는 입력 경로를 출력하지 않습니다. EXE 실행·서버 접속·파일 변경은 없습니다. 공개키·인증서 지문·파일 해시는 비밀로 분류하지 않습니다. 임의 인코딩까지 포함한 모든 비밀의 부재를 증명하지 않습니다.
 
-현재 Cozy VM v1이 생성한 SEALED 파일에는 복호화 키가 들어 있으므로 `COZY_VM_V1_EMBEDDED_KEY`로 차단됩니다. 이 변경은 키 탐지이며 키 제거가 아닙니다. 기존 발급·운영 형식은 자동으로 전환하거나 폐기하지 않습니다.
+이전 VM v1이 생성한 SEALED 파일에는 복호화 키가 들어 있으므로 `COZY_VM_V1_EMBEDDED_KEY`로 차단됩니다. 이 변경은 키 탐지이며 키 제거가 아닙니다. 기존 발급·운영 형식은 자동으로 전환하거나 폐기하지 않습니다.
 
 ## 별도 Windows 환경에서 실행할 최종 파일 시험
 
@@ -29,13 +29,13 @@ Windows x64, PowerShell 7, 소스에서 고정한 Node 버전, npm, OpenSSL 및 
 ```powershell
 pwsh -NoProfile -File '.\SpaceX\Server\tools\windows\Invoke-FinalWindowsTests.ps1' `
   -SourceRoot '.\SpaceX' `
-  -AFile 'C:\CozyTestInputs\A.exe' `
-  -BFile 'C:\CozyTestInputs\B.exe' `
-  -OFile 'C:\CozyTestInputs\O.exe' `
-  -PackingReceiptsFile 'C:\CozyTestInputs\packing-receipts.json' `
-  -PolicyFile 'C:\CozyTestInputs\policy.json' `
+  -AFile 'C:\SpaceXTestInputs\A.exe' `
+  -BFile 'C:\SpaceXTestInputs\B.exe' `
+  -OFile 'C:\SpaceXTestInputs\O.exe' `
+  -PackingReceiptsFile 'C:\SpaceXTestInputs\packing-receipts.json' `
+  -PolicyFile 'C:\SpaceXTestInputs\policy.json' `
   -Version '1.0.0' `
-  -ResultFile 'C:\CozyTestResults\run-001.json'
+  -ResultFile 'C:\SpaceXTestResults\run-001.json'
 ```
 
 경로와 Version은 실제 선택한 파일·버전에 맞춰야 합니다. 결과 파일의 부모 폴더는 미리 만들고, 결과 파일은 새 이름을 사용합니다. 원본 EXE를 변경하지 않으며 시험에 복사한 바이트를 전후로 확인합니다. 임시 승인 키는 시험 프로세스에서만 생성하고 운영 승인·서명으로 사용하지 않습니다.

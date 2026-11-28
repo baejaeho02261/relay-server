@@ -60,6 +60,7 @@ function Load(){
   }
   if(value.deviceRegistry!==undefined)require("../devices/spacex.desktop-device-registry").Validate(value.deviceRegistry);
   if(value.deviceIdentity!==undefined)require("../devices/spacex.desktop-device-identity").Validate(value.deviceIdentity);
+  require('../licensing/spacex.desktop-usage').Validate(value);
   if(value.nhwReports!==undefined||value.nhwPolicy!==undefined||value.nhwPolicyModeVersion!==undefined)
    require('../observability/spacex.monitor-reports').ValidateState(value);
   if(value.members!==undefined)require("../members/spacex.desktop-members").Validate(value.members);

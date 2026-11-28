@@ -138,7 +138,7 @@ check('hidden O publishes bounded ready deadlines only to its gated parent', () 
     'for I := 1 to ReadyDeadlineFrameLimit do', 'PeekNamedPipe(Pipe,', 'if Available < SizeOf(Candidate) then Break;',
     'ReadFile(Pipe, Candidate, SizeOf(Candidate),', 'ReadCount = SizeOf(Candidate)', 'ValidateReadyDeadline(Candidate);',
     'Result := Candidate;', 'RequireReadyChild(ChildProcess,']);
-  assert.match(validate, /Candidate > 0\) and \(Candidate <= CozyTick \+ ReadyDeadlineWindowMS\)/);
+  assert.match(validate, /Candidate > 0\) and \(Candidate <= SpaceXTick \+ ReadyDeadlineWindowMS\)/);
 });
 
 check('ready acceptance rechecks cancellation and process death and retains the original deadline', () => {
@@ -178,7 +178,7 @@ check('real Windows probe includes owned process, stale file identity and restri
     'ResetEvent(CancelEvent)', 'Seen = Shorter', 'Close(Reader);',
     'Context.RefreshOverlayReady(Later);', 'not Context.RollingOverlayReady',
     'Context.FRollingReadyDeadline := False;', 'Context.ConfirmOverlayReady(Initial);',
-    'RequirePipeEnd(Reader, CozyTick + 1000);',
+    'RequirePipeEnd(Reader, SpaceXTick + 1000);',
     '(Seen = Initial) and (Context.FReadyDeadlinePipe = 0)']);
   assert.ok(probe.includes('Inc(Result, RunHandoffReadyDeadlineContracts(Child, CancelEvent));'));
 });

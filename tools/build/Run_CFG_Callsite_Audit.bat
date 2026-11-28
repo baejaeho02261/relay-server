@@ -5,7 +5,7 @@ set "NODE_OPTIONS="
 set "NODE_REPL_EXTERNAL_MODULE="
 "%SystemRoot%\System32\where.exe" node.exe >nul 2>&1
 if errorlevel 1 goto missing_node
-node.exe "%~dp0peace.cfg-callsite-console.js" %*
+node.exe "%~dp0spacex.cfg-callsite-console.js" %*
 set "GAME_CFG_EXIT=%ERRORLEVEL%"
 goto finish
 :missing_node

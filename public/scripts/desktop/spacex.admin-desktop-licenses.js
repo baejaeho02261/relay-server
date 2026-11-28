@@ -50,7 +50,7 @@ function desktopPatchNode(previous,next,silent,mode='desktop') {
   const control=previous.matches('input,textarea,select');
   if(control){
     if(mode==='desktop'){
-      if(previous.matches('input[data-nhw-detection-id]')){
+      if(previous.matches('input[data-monitor-detection-id]')){
         previous.disabled=next.disabled;
         previous.checked=next.checked;
         return;

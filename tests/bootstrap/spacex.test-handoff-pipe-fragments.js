@@ -95,7 +95,7 @@ check('Windows negative cases cover delayed overflow, truncation, EOF and shared
   assert.match(cases, /25, 0, 80, False, True/);
   assert.match(cases, /0, 500, 80, False, True/);
   assert.match(cases, /30, 0, 3000, False, True/);
-  assert.match(cases, /RequirePipeEnd\(ReadPipe, CozyTick\)/);
+  assert.match(cases, /RequirePipeEnd\(ReadPipe, SpaceXTick\)/);
   assert.match(cases, /Copy\(Hello, 0, SizeOf\(TChildHelloHeader\) - 1\)/);
   assert.match(cases, /Copy\(Hello, 0, Length\(Hello\) - 1\)/);
   assert.match(cases, /60, 0, 80, True, True/);

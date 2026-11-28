@@ -13,10 +13,10 @@ if not "%~2"=="" if /i not "%~2"=="/nopause" goto usage
 if not "%~3"=="" goto usage
 set "INPUT_FILE=%~f1"
 if not exist "%INPUT_FILE%" goto missing_input
-if not exist "%~dp0peace.storage-acl.js" goto missing_helper
+if not exist "%~dp0spacex.storage-acl.js" goto missing_helper
 "%SystemRoot%\System32\where.exe" node.exe >nul 2>&1
 if errorlevel 1 goto missing_node
-node.exe "%~dp0peace.storage-acl.js" check "%INPUT_FILE%"
+node.exe "%~dp0spacex.storage-acl.js" check "%INPUT_FILE%"
 set "GAME_TOOL_RESULT=%errorlevel%"
 goto finish
 :missing_input

@@ -21,6 +21,8 @@ const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
 const dom=new JSDOM(html.replace(/<script[^>]*>[\s\S]*?<\/script>/g,'').replace(/<link[^>]*>/g,''),{url:'https://fixture.invalid/?view=desktop-licenses',runScripts:'outside-only',virtualConsole:vc,pretendToBeVisual:true});
 const eventSources=[],intervals=new Map();
 const w=dom.window;
+// This fixture exercises the admin DOM in a browser without a drawing context.
+w.document.querySelector('#login-space').getContext=()=>null;
 const nativeSetInterval=w.setInterval.bind(w),nativeClearInterval=w.clearInterval.bind(w);
 w.setInterval=(fn,delay)=>{const id=nativeSetInterval(fn,delay);intervals.set(id,{fn,delay});return id;};
 w.clearInterval=id=>{intervals.delete(id);nativeClearInterval(id);};

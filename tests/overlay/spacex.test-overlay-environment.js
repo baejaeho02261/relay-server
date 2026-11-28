@@ -34,7 +34,7 @@ assert.match(renderer,/SessionRegistrationLimit = 30/);assert.match(renderer,/Se
 // batch and again before Present. Registration retries run once per batch;
 // neither an unbounded input flood nor a second fixed timer may starve frames.
 const pump=renderer.slice(renderer.indexOf('    while not QuitSeen do'),renderer.indexOf('    if not FFailed then Result := 0;'));
-assert.match(pump,/if FClosing or not AuthorityValid then Break;\s*TryRegisterSession;\s*MessageCount:=0;/);
+assert.match(pump,/if FClosing or not AuthorityValid then Break;\s*if \(FThemeCloseDeadline <> 0\) and\s*\(\(\w+Tick >= FThemeCloseDeadline\) or not ThemeSavePending\) then\s*begin\s*RequestUserClose;\s*Break;\s*end;\s*TryRegisterSession;\s*MessageCount:=0;/);
 assert.match(pump,/while \(MessageCount<128\) and ApiPeekMessageW\(Msg,0,0,0,PM_REMOVE\) do/);
 assert.match(pump,/if Msg\.message=WM_QUIT then[\s\S]*?QuitSeen:=True; Break;/);
 assert.match(pump,/ApiTranslateMessage\(Msg\); ApiDispatchMessageW\(Msg\);\s*Inc\(MessageCount\);\s*if FClosing then Break;/);
@@ -53,7 +53,7 @@ function RunHarness({measurement=Measurement(),afterSpawn,onConfirmation,error}=
   const inputs=['Server/maintenance/source-manifest.json',"Desktop/SpaceX.Source/SpaceX.Overlay/SpaceX.Overlay.Renderer.pas","Desktop/SpaceX.Tests/SpaceX.Overlay/SpaceX.OverlayEnvironmentProbe.dpr","Desktop/SpaceX.Projects/SpaceX.Overlay/SpaceX.Overlay.manifest"];
   for(const file of inputs){fs.mkdirSync(path.dirname(path.join(root,file)),{recursive:true});fs.writeFileSync(path.join(root,file),'original '+file);}
   const sourceHashes=Object.fromEntries(inputs.map(file=>[file,crypto.createHash('sha512').update(fs.readFileSync(path.join(root,file))).digest('hex')]));
-  const probe=path.join(root,'spacex.OverlayEnvironmentProbe.exe'),pe=Buffer.alloc(512);
+  const probe=path.join(root,'SpaceX.OverlayEnvironmentProbe.exe'),pe=Buffer.alloc(512);
   pe.writeUInt16LE(0x5a4d,0);pe.writeUInt32LE(128,0x3c);pe.writeUInt32LE(0x4550,128);pe.writeUInt16LE(0x8664,132);pe.writeUInt16LE(0x20b,152);fs.writeFileSync(probe,pe);
   let input=Buffer.from('YES\nYES\nYES\n'),confirmed=false,spawned=0,copy;
   const fakeFs={...fs,readSync(fd,buffer,offset,length,position){

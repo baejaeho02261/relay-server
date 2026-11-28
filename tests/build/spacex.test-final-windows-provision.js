@@ -127,7 +127,7 @@ function Scenario(name,run){
     assert.equal(view.eligible,true);assert.equal(view.packing.receiptsVerified,true);
     assert.equal(view.packing.windowsVerified,false);assert.equal(Object.hasOwn(view.release,'ciVerification'),false);
     assert.equal(view.testEvidence,null);assert.equal(ops.State().requirePackingEvidence,true);
-    assert.equal(ops.State().requireCozyProtection,true);
+    assert.equal(ops.State().RequireSpaceXProtection,true);
     const manifest=JSON.parse(fs.readFileSync(path.join(f.out,'manifest.json')));
     assert.equal(view.release.manifestId,manifest.manifestId);
     assert.deepEqual(manifest.manifest.artifacts,Object.fromEntries(ROLES.map(role=>[role,f.expected[role].sha512])));

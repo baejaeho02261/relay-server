@@ -5,8 +5,8 @@
 const fs = require('node:fs'), path = require('node:path');
 const MAP = 'SpaceX.Source/SpaceX.Configuration/SpaceX.StringUnits.map.json';
 const CPP_MAP = 'SpaceX.ImGui/SpaceX.Strings/SpaceX.NativeStrings.map.json';
-const NAME = /^CozyText_[A-Za-z0-9_]+_[a-fA-F0-9]{8}$/;
-const CPP_NAME = /^COZY_TEXT_[A-Za-z0-9_]+_[a-fA-F0-9]{8}$/;
+const NAME = /^SpaceXText_[A-Za-z0-9_]+_[a-fA-F0-9]{8}$/;
+const CPP_NAME = /^SPACEX_TEXT_[A-Za-z0-9_]+_[a-fA-F0-9]{8}$/;
 function Fail(code) { throw Error('NATIVE_STRING_CONTRACT_' + code); }
 function Tokens(text, collectDirectives=false) {
  const result=[];let i=0;

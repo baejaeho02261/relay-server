@@ -1,6 +1,7 @@
 'use strict';
 const adminSpacePalettes = new Set(['pure-black', 'blue-starlink', 'mint-orbit', 'violet-nebula',
   'amber-nova', 'eclipse', 'aurora', 'pulsar', 'deep-space', 'supernova']);
+const adminMotionStorageKey = 'spacex-admin-motion';
 function setAdminPalette(value) {
   const selected = adminSpacePalettes.has(value) ? value : 'pure-black';
   document.documentElement.dataset.spacePalette = selected;
@@ -26,7 +27,7 @@ function setAdminTheme(theme){
 }
 function setAdminMotion(paused){
  document.documentElement.dataset.motion=paused?'paused':'running';
- try{localStorage.setItem('cozy-admin-motion',paused?'paused':'running');}catch(_){}
+ try{localStorage.setItem(adminMotionStorageKey,paused?'paused':'running');}catch(_){}
  document.querySelectorAll('[data-motion-toggle]').forEach(button=>{
   const label=paused?'애니메이션 켜기':'애니메이션 끄기';
   const text=button.querySelector('[data-motion-label]');
@@ -35,7 +36,7 @@ function setAdminMotion(paused){
  });
 }
 let initialAdminTheme='dark',initialAdminMotion=false,initialAdminPalette='pure-black';
-try{initialAdminTheme=localStorage.getItem('relay-admin-theme')||'dark';initialAdminMotion=localStorage.getItem('cozy-admin-motion')==='paused';initialAdminPalette=localStorage.getItem('spacex-palette');}catch(_){}
+try{initialAdminTheme=localStorage.getItem('relay-admin-theme')||'dark';initialAdminMotion=(localStorage.getItem(adminMotionStorageKey)??localStorage.getItem('cozy-admin-motion'))==='paused';initialAdminPalette=localStorage.getItem('spacex-palette');}catch(_){}
 if(typeof window.matchMedia==='function'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)initialAdminMotion=true;
 setAdminTheme(initialAdminTheme);setAdminMotion(initialAdminMotion);setAdminPalette(initialAdminPalette);
 document.addEventListener('DOMContentLoaded',()=>{setAdminTheme(document.documentElement.dataset.theme);setAdminMotion(document.documentElement.dataset.motion==='paused');setAdminPalette(document.documentElement.dataset.spacePalette);});

@@ -1,6 +1,6 @@
 { Generated document shapes only; no authorization or Windows test evidence. }
 const
-  ProtocolDocumentSchemaCases: array[0..17] of string = (
+  ProtocolDocumentSchemaCases: array[0..18] of string = (
     '{"name":"desktopDesign","value":{"version":1,"revision":0,"b":{"x":-32,"y":-32,"scale":85,"stars":0,"labelX":-32,"labelY":-32,"labelScale":80},"o":{"x":-32,"y":-32,"scale":85,"star' +
     's":0,"labelX":-32,"labelY":-32,"labelScale":80}}}',
     '{"name":"overlayRelease","value":{"id":"AAAAAAAAAAAAAAAAAAAAAAAA","version":"r","hashVersion":3,"sha512":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' +
@@ -45,5 +45,7 @@ const
     '{"name":"overlayStart","value":{"version":1,"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","productId":"cleaner.pubg","requestId":"rrrrrrrr","sequence":1,"status":"AUTHORIZED","durationMs"' +
     ':5000,"serverTime":1,"expiresAt":1}}',
     '{"name":"nhwReport","value":{"version":1,"status":"RECORDED","terminate":false}}',
+    '{"name":"overlayUsage","value":{"version":1,"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","requestId":"rrrrrrrr","sequence":0,"licenseReference":"AAAAAAAAAAAAAAAAAAAAAAAA","limit":1,"rema' +
+    'ining":0,"status":"ACTIVE"}}',
     '{"name":"overlayTheme","value":{"version":1,"sessionId":"AAAAAAAAAAAAAAAAAAAAAAAA","requestId":"rrrrrrrr","sequence":1,"theme":0}}'
   );

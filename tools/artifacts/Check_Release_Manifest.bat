@@ -7,17 +7,17 @@ rem spec.json, deployment-policy.json and default release-manifest.json stay her
 set "GCRT_EXIT=1"
 set "GCRT_PAUSE=0"
 if "%~1"=="" set "GCRT_PAUSE=1"
-if not exist "%~dp0peace.release-tools.js" goto missing_helper
+if not exist "%~dp0spacex.release-tools.js" goto missing_helper
 "%SystemRoot%\System32\where.exe" node.exe >nul 2>&1
 if errorlevel 1 goto missing_node
-node.exe "%~dp0peace.release-tools.js" check %*
+node.exe "%~dp0spacex.release-tools.js" check %*
 set "GCRT_EXIT=%ERRORLEVEL%"
 goto finish
 :missing_helper
 echo ERROR: place this BAT beside spacex.release-tools.js in the matching Server\tools folder.
 goto finish
 :missing_node
-echo ERROR: node.exe was not found in PATH. Use the Relay Server Node.js runtime.
+echo ERROR: node.exe was not found in PATH. Use the SpaceX Server Node.js runtime.
 :finish
 echo.
 if "%GCRT_PAUSE%"=="1" pause

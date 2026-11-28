@@ -34,12 +34,12 @@ async function Select(args,home){
  const question=text=>new Promise(resolve=>rl.question(text,resolve));
  try{
   console.log('IDE probe folder: '+path.resolve(home,"../../Desktop/SpaceX.Tests/SpaceX.Build/SpaceX.Outputs/manual-ide"));
-  const selections=[];for(const label of ['A final EXE','B final EXE','O final EXE','spacex.ProcessMitigationProfileProbe.exe','spacex.OverlayMitigationProbe.exe']){const value=(await question(label+' absolute path: ')).trim().replace(/^"(.*)"$/,'$1');if(!value||!path.isAbsolute(value))throw Error('MITIGATION_ABSOLUTE_PATH_REQUIRED');selections.push(value);}return selections;
+  const selections=[];for(const label of ['A final EXE','B final EXE','O final EXE','SpaceX.ProcessMitigationProfileProbe.exe','SpaceX.OverlayMitigationProbe.exe']){const value=(await question(label+' absolute path: ')).trim().replace(/^"(.*)"$/,'$1');if(!value||!path.isAbsolute(value))throw Error('MITIGATION_ABSOLUTE_PATH_REQUIRED');selections.push(value);}return selections;
  }finally{rl.close();}
 }
 async function Main(args,home=MODULE_RESOURCE_ROOT){
  if(process.platform!=='win32'||process.arch!=='x64')throw Error('MITIGATION_ACTUAL_WINDOWS_X64_REQUIRED');
- if(args.includes('--help')){console.log('Run_Mitigation_Compatibility.bat [A.exe B.exe O.exe spacex.ProcessMitigationProfileProbe.exe spacex.OverlayMitigationProbe.exe]');return;}
+ if(args.includes('--help')){console.log('Run_Mitigation_Compatibility.bat [A.exe B.exe O.exe SpaceX.ProcessMitigationProfileProbe.exe SpaceX.OverlayMitigationProbe.exe]');return;}
  const files=await Select(args,home),startedAt=new Date().toISOString(),runId='mitigation-'+startedAt.replace(/[:.]/g,'-')+'-'+crypto.randomBytes(4).toString('hex');
  const source=require("../artifacts/spacex.manual-release-check").inventory(home).sourceManifestSha512;
  const scratch=fs.mkdtempSync(path.join(os.tmpdir(),'Game-Mitigation-'));let snapshots=[];
@@ -50,7 +50,7 @@ async function Main(args,home=MODULE_RESOURCE_ROOT){
   }
   const native={};for(const [i,scope]of ['AB','O'].entries()){
    const file=files[i+3];if(!fs.existsSync(file)){probes[scope]={sha512:null,unchanged:false};continue;}
-   const s=Snapshot(file,path.join(scratch,scope==='O'?'spacex.OverlayMitigationProbe.exe':'spacex.ProcessMitigationProfileProbe.exe'));snapshots.push(s);native[scope]=s;probes[scope]={sha512:s.sha512,unchanged:true};
+   const s=Snapshot(file,path.join(scratch,scope==='O'?'SpaceX.OverlayMitigationProbe.exe':'SpaceX.ProcessMitigationProfileProbe.exe'));snapshots.push(s);native[scope]=s;probes[scope]={sha512:s.sha512,unchanged:true};
   }
   const rows=[];for(const mode of ['observe','prohibit'])for(const scope of ['AB','O']){
    console.log('Running '+scope+' / '+mode+' in a new test process...');const s=native[scope],r=Execute(s?.destination,s?.sha512,mode,scope);rows.push(r.row);

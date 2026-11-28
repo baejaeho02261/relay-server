@@ -43,7 +43,7 @@ try {
  if(-not [Environment]::UserInteractive -or [Diagnostics.Process]::GetCurrentProcess().SessionId -eq 0){throw 'WINDOWS_TEST_FINAL_INTERACTIVE_WINDOWS_REQUIRED'}
  if($env:GAME_RELEASE_APPROVAL_KEY_B64){throw 'WINDOWS_TEST_FINAL_PRODUCTION_KEYS_FORBIDDEN'}
  $node=(Get-Command node.exe -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source
- $private=Join-Path ([IO.Path]::GetTempPath()) ('CozyFinalWindows-'+[Guid]::NewGuid().ToString('N'));New-TestPrivateDirectory $private
+ $private=Join-Path ([IO.Path]::GetTempPath()) ('SpaceXFinalWindows-'+[Guid]::NewGuid().ToString('N'));New-TestPrivateDirectory $private
  $work=Join-Path $private 'source';$web=Join-Path $work 'Server';$bundle=Join-Path $private 'final-files'
  $null=Run-Observed 'snapshot' $node @((Join-Path $source 'Server\tools\build\spacex.source-snapshot.js'),'snapshot',$source,$work) $source 120
  $npm=(Get-Command npm.cmd -CommandType Application -ErrorAction Stop|Select-Object -First 1).Source

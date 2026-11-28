@@ -43,16 +43,16 @@ test('an isolated historical VM activation retains its floor without permitting 
   const activated=f.ops.ActivatePair({...f.output.select,expectedRevision:f.ops.Revision(),expectedPolicyRevision:f.auth.Policy().revision},'HISTORICAL_VM_TEST_FIXTURE');
   assert.equal(activated.eligible,true);assert.doesNotThrow(()=>f.ops.RequireRuntimePair(...f.output.rows));
   reason(f.ops.PreviewProductionPair(f.output.select),'COZY_VM_V1_EMBEDDED_KEY_RETIRED');
-  assert.equal(f.ops.State().requireCozyProtection,true);
+  assert.equal(f.ops.State().RequireSpaceXProtection,true);
   assert.throws(()=>f.ops.RequireRuntimePair(...f.source.rows),/COZY_PROTECTION_REQUIRED/);
   reason(f.ops.PreviewProductionPair(f.source.select),'COZY_PROTECTION_REQUIRED');
-  assert.throws(()=>f.ops.SetControls({expectedRevision:f.ops.Revision(),requireCozyProtection:false},'FIXTURE_OPERATOR'),/SECURITY_OPERATIONS_INVALID/);
+  assert.throws(()=>f.ops.SetControls({expectedRevision:f.ops.Revision(),RequireSpaceXProtection:false},'FIXTURE_OPERATOR'),/SECURITY_OPERATIONS_INVALID/);
   delete f.output.rows[2].ownProtection;assert.throws(()=>f.ops.RequireRuntimePair(...f.output.rows),/COZY_PROTECTION_COHORT_INCOMPLETE/);
 });
 
 test('own-engine state is optional in old stores and cannot have an invalid persisted type',()=>{
-  const f=Fixture();delete f.db.securityOperations.requireCozyProtection;assert.equal(f.ops.State().requireCozyProtection,false);
-  assert.throws(()=>f.ops.ValidateState({...f.db.securityOperations,requireCozyProtection:'true'}),/STORAGE_INVALID/);
+  const f=Fixture();delete f.db.securityOperations.RequireSpaceXProtection;assert.equal(f.ops.State().RequireSpaceXProtection,false);
+  assert.throws(()=>f.ops.ValidateState({...f.db.securityOperations,RequireSpaceXProtection:'true'}),/STORAGE_INVALID/);
 });
 
 test('legacy cohorts keep their existing publication and runtime behavior before the packing floor',()=>{

@@ -10,7 +10,7 @@ if not exist "%ROTATION_INPUT%" (
   pause
   exit /b 1
 )
-node "%~dp0peace.transport-key-maintenance.js" prepare "%ROTATION_INPUT%"
+node "%~dp0spacex.transport-key-maintenance.js" prepare "%ROTATION_INPUT%"
 set "ROTATION_EXIT=%ERRORLEVEL%"
 echo Results are saved beside this BAT. Restart the server after a successful change.
 pause

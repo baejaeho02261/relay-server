@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const schema=require('../../contracts/protocol/spacex.packet-schema-v1.json'),contract=require('../../services/protocol/spacex.packet-schema'),protocol=require('../../services/protocol/spacex.desktop-request-protocol'),fixtures=require('../fixtures/protocol/spacex.packet-schema-cases.json');
 let checks=0;function reject(x){assert.throws(()=>contract.ValidateEnvelope(x),/PROTOCOL_SCHEMA_INVALID/);checks++;}
 function clone(x){return structuredClone(x);}function resolve(x){return x.$ref?schema.definitions[x.$ref]:x;}
-assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,46);
+assert.equal(fixtures.schemaSha512,contract.sha512);assert.equal(fixtures.cases.length,schema.commands.length);
 for(let i=0;i<fixtures.cases.length;i++){
  const packet=fixtures.cases[i],command=schema.commands[i];
  assert.equal(contract.ValidateEnvelope(packet),packet);protocol.Resolve(packet.operation,packet.body.action);checks++;

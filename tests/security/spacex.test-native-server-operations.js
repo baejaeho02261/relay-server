@@ -65,7 +65,7 @@ test('all role clients own calls through lifecycle locks and current report refr
     ['SpaceX.Overlay/SpaceX.Overlay.Client.pas','TOverlayClient','ReportIntegrityCore']]) {
     const text=read('SpaceX.Source/'+file), method=text.split('function '+type+'.InvokeServerPolicy(')[1].split('\nfunction ')[0].split('\nprocedure ')[0];
     assert(method,type);assert.match(method,/FGate.Enter/);assert.match(method,/TMonitor.Enter\(FLock\)/);
-    assert(method.indexOf(report)<method.indexOf('InvokeCozyServerOperation('),type);
+    assert(method.indexOf(report)<method.indexOf('InvokeSpaceXServerOperation('),type);
     assert.match(method,/OwnRuntime\(/,'Each role forwards its actual registered runtime context inside the admitted call');
     assert.match(method,/finally TMonitor.Exit\(FLock\); end/);assert.match(method,/finally FGate.Leave; end/);
   }
@@ -97,7 +97,7 @@ test('Windows probe wiring includes actual execution and its required source dir
   }
   assert.match(batch,/"%PROBE_OUT%\\%%P.exe"\n\s+if errorlevel 1 exit \/b 1/);
   assert.match(batch,/SpaceX.ServerOperationsProtocolProbe.dpr/);
-  assert.match(batch,/SpaceX.PointerGraphProbe" set "PROBE_DEFINES=RELEASE;COZY_POINTER_GRAPH_PROBE"/);
+  assert.match(batch,/SpaceX.PointerGraphProbe" set "PROBE_DEFINES=RELEASE;SPACEX_POINTER_GRAPH_PROBE"/);
   const runner = ReadContractFile(path.resolve(__dirname,'../../tools/windows/Invoke-NativeContracts6To10.ps1'),'utf8');
   assert.match(runner,/'SpaceX.ServerOperationsProtocolProbe','SpaceX.PointerGraphProbe','pe-corpus'/);
   assert.match(runner,/foreach\(\$name in \$names\[4\.\.\(\$names.Count-3\)\]\).*Invoke-ContractCommand \$name/);

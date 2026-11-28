@@ -270,7 +270,7 @@ check('Native Present distinguishes occlusion/failure, and portable tests can ne
   inOrder(present, ['game_imgui_runtime_failed||game_imgui_dx11_failed)return -1;', 'ImGui::Render();', 'c->frame_started=false;', '#ifndef GAME_IMGUI_PORTABLE_TEST', 'ImGui_ImplDX11_RenderDrawData(', 'game_imgui_runtime_failed||game_imgui_dx11_failed)return -1;', '->Present(1,0)', 'hr==DXGI_STATUS_OCCLUDED)return 0;', 'if(FAILED(hr))return -1;', 'return hr==S_OK?1:0;', '#else', 'return -1;', '#endif'], 'Bridge Present');
   const build = read("SpaceX.ImGui/SpaceX.Build/SpaceX.Build_ImGui_Win64.bat");
   assert.doesNotMatch(build, /(?:-D|\/D)\s*GAME_IMGUI_PORTABLE_TEST/);
-  inOrder(build, ['set "GAME_IMGUI_COMPILER=%BDS%\\bin\\bcc64.exe"', 'if not exist "%GAME_IMGUI_COMPILER%"', '"%GAME_IMGUI_COMPILER%" -c', 'SpaceX.Audit-Object.ps1', 'move /y "%COZY_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.pending.o" "%COZY_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.o"'], 'Validated compiler and audited static build');
+  inOrder(build, ['set "GAME_IMGUI_COMPILER=%BDS%\\bin\\bcc64.exe"', 'if not exist "%GAME_IMGUI_COMPILER%"', '"%GAME_IMGUI_COMPILER%" -c', 'SpaceX.Audit-Object.ps1', 'move /y "%SPACEX_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.pending.o" "%SPACEX_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.o"'], 'Validated compiler and audited static build');
 });
 
 check('GPU failure HRESULT survives the C/Pascal boundary and failed frames cannot claim readiness', () => {
@@ -304,8 +304,8 @@ check('Project generates one central object before Delphi and propagates all aud
     }
   }
   const objectDir=project.match(/<DCC_ObjPath>([^;<]+);\$\(DCC_ObjPath\)<\/DCC_ObjPath>/)[1];
-  assert.equal(objectDir,'$(CozyNativeRoot)\\SpaceX.ImGui\\SpaceX.Objects');
-  assert(build.includes('set "COZY_IMGUI_OBJECT_DIR=%~dp0..\\SpaceX.Objects"'));
+  assert.equal(objectDir,'$(SpaceXNativeRoot)\\SpaceX.ImGui\\SpaceX.Objects');
+  assert(build.includes('set "SPACEX_IMGUI_OBJECT_DIR=%~dp0..\\SpaceX.Objects"'));
   const nativeTarget=project.match(/<Target Name="PrepareOverlayNative"[\s\S]*?<\/Target>/)?.[0];
   assert(nativeTarget,'Native preparation is an explicit build target');
   assert.match(project,/<BuildDependsOn>PrepareOverlayNative;/);assert.match(project,/<RebuildDependsOn>PrepareOverlayNative;/);
@@ -319,7 +319,7 @@ check('Project generates one central object before Delphi and propagates all aud
   assert.doesNotMatch(publish,/<Exec\b/,'Do not normalize the same executable twice');
   assert.doesNotMatch(publish, /<(?:Move|Delete|RemoveDir)\b/);
   assert.match(project,/<PreBuildEventIgnoreExitCode>false<\/PreBuildEventIgnoreExitCode>/);
-  inOrder(build,['DisableDelayedExpansion','if not "%~1"=="" set "BDS=%~1"','pushd "%~dp0.."','if errorlevel 1 goto directory_failed','if not defined BDS','"%GAME_IMGUI_COMPILER%" -c','if errorlevel 1 goto failed','if not exist "%COZY_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.pending.o" goto failed','SpaceX.Audit-Object.ps1','if errorlevel 1 goto failed','move /y','if errorlevel 1 goto failed','if not exist "%COZY_IMGUI_OBJECT_DIR%\\'+objectName+'" goto failed','exit /b 0'],'Object generation gates');
+  inOrder(build,['DisableDelayedExpansion','if not "%~1"=="" set "BDS=%~1"','pushd "%~dp0.."','if errorlevel 1 goto directory_failed','if not defined BDS','"%GAME_IMGUI_COMPILER%" -c','if errorlevel 1 goto failed','if not exist "%SPACEX_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.pending.o" goto failed','SpaceX.Audit-Object.ps1','if errorlevel 1 goto failed','move /y','if errorlevel 1 goto failed','if not exist "%SPACEX_IMGUI_OBJECT_DIR%\\'+objectName+'" goto failed','exit /b 0'],'Object generation gates');
   assert.match(build.slice(build.indexOf(':failed\n')),/exit \/b 1/);
   // The explicit $L path resolves the single audited object directory even
   // without IDE search options. Adjacent source-tree object copies are forbidden.
@@ -327,7 +327,7 @@ check('Project generates one central object before Delphi and propagates all aud
   assert.doesNotMatch(build,/\.\.\\SpaceX\.game_imgui_bridge(?:\.pending)?\.o/);
   assert(!fs.existsSync(path.join(native,'SpaceX.Source/SpaceX.Overlay/SpaceX.game_imgui_bridge.o')));
   const failure=build.slice(build.indexOf('\n:failed\n'),build.indexOf('\n:find_rad_studio\n'));
-  for(const file of ['%COZY_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.o','%COZY_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.pending.o']){
+  for(const file of ['%SPACEX_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.o','%SPACEX_IMGUI_OBJECT_DIR%\\SpaceX.game_imgui_bridge.pending.o']){
     assert(build.slice(0,build.indexOf('"%GAME_IMGUI_COMPILER%" -c')).includes('del /q "'+file+'"'),'Pre-build cleanup '+file);
     assert(failure.includes('del /q "'+file+'"'),'Failed-build cleanup '+file);
   }
@@ -401,7 +401,7 @@ check('O receives the entitlement and shared theme only after a valid signed tra
     'if Assigned(FGetLicensedCard) then FLicensedCard := FGetLicensedCard();',
     'if (FLicensedCard < -1) or (FLicensedCard > 17) then FLicensedCard := -1;',
     'ImGuiNewFrame(', 'SceneAction := ImGuiProductScene(FContext, 0, Theme.Index, SceneFlags, FSceneSeconds,',
-    '0, FLicensedCard, 0)', 'ImGuiEndCanvas(',
+    'Usage.LicenseReference, FLicensedCard, Usage.RemainingFraction)', 'ImGuiEndCanvas(',
     'if not AuthorityValid then Exit;', 'ImGuiPresent('], 'Verified entitlement and shared palette');
   assert.match(renderer, /WorkspaceSceneFlag = \$1000;/);
   assert.doesNotMatch(renderer, /FRequestProductRun|FProductRunState|ReadRunState|FCarouselPosition|FBusyCursor/);
@@ -416,94 +416,105 @@ check('O receives the entitlement and shared theme only after a valid signed tra
   const licensed=controller.slice(controller.indexOf('function TOverlayWorker.LicensedCard:'),
     controller.indexOf('function TOverlayWorker.RequestProductRun('));
   inOrder(licensed,['TMonitor.Enter(FLock);', 'Result := -1;', 'not Terminated and not FFailed and FTransferred and',
-    '(FDeadline > CozyTick) then Result := FProductCard;', 'TMonitor.Exit(FLock);'], 'Expiring read-only entitlement');
+    '(FDeadline > SpaceXTick) then Result := FProductCard;', 'TMonitor.Exit(FLock);'], 'Expiring read-only entitlement');
   assert.match(controller,/Result\s*:=\s*Worker\.LicensedCard;/);
 });
 
-check('O draws four text tabs and keeps fixed space palettes in Settings', () => {
+check('O has icon navigation, passive views and receipt-gated workspace interactions', () => {
   const scene=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_scene.h');
   const b=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_license.h');
   const palette=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_palette.h');
-  const tabs=scene.slice(scene.indexOf('static const char* const CozyWorkspaceTabs[]'),scene.indexOf('static void cozy_workspace_general('));
-  inOrder(tabs,['"General"', '"Market"', '"Usage"', '"Settings"', 'CozyWorkspaceRailCenter=44.f',
-    'static void cozy_workspace_tabs('], 'Four ordered workspace labels');
-  assert.doesNotMatch(tabs,/cozy_workspace_alien|cozy_fontawesome|CozyFa/);
-  const tabControls=tabs.slice(tabs.indexOf('static void cozy_workspace_tabs('));
-  inOrder(tabControls,['const float center=CozyWorkspaceRailCenter+42.f*i;',
-    'v.box(24.f,center-18.f,95.f,center+18.f)',
-    'cozy_palette_item(area,CozyWorkspaceTabs[i],', 'v.context->overlay_tab=',
-    'if (previous!=v.context->overlay_tab) v.context->overlay_tab_reveal=0.f;',
-    'cozy_workspace_border_ink(v.palette,6.f)',
-    'const bool selected=v.context->overlay_tab==i;', 'motion=cozy_workspace_motion(',
-    'license_glass_contour(v.draw,v.at(25.f,center-15.f),v.at(94.f,center+15.f),',
-    '7.f*v.scale,fill,fill,rim);', 'v.text(59.5f,center,16.25f,63.f,CozyWorkspaceTabs[i],ink,.5f);'],
-    'Edge alignment, keyboard targets and an animated rounded selection');
-  assert.doesNotMatch(tabControls,/AddImage|AddRect/);
-  const workspaceView=scene.slice(scene.indexOf('struct CozyWorkspaceView'),scene.indexOf('enum CozyWorkspaceTab'));
-  inOrder(workspaceView,['cozy_scene_font_size(size*scale)', 'CalcTextSizeA(',
-    'ImFloor(start.x+.5f)', 'ImFloor(start.y+.5f)'], 'Text uses density-aware atlas sizing and pixel alignment');
-  const checkbox=scene.slice(scene.indexOf('static void cozy_workspace_checkbox('),scene.indexOf('static int cozy_workspace_settings('));
-  inOrder(checkbox,['cozy_palette_item(row,label,interactive)', 'disabled=!disabled;',
-    'ImGuiItemStatusFlags_Checkable', 'ImGuiItemStatusFlags_Checked', 'motion=cozy_workspace_motion(',
+  const flight=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_spaceflight.h');
+  const tabs=scene.slice(scene.indexOf('static const char* const SpaceXWorkspaceTabs[]'),
+    scene.indexOf('static void spacex_workspace_general('));
+  inOrder(tabs,['"Local Player"', '"Aim"', '"Rage"', '"Packet"', '"Usage"', '"Settings"', '"Profile"', '"Games"',
+    'SpaceXWorkspaceRailCenters[]', 'static void spacex_workspace_icon', 'static void spacex_workspace_tabs('],
+    'Ordered workspace icons with Games last');
+  const rail=tabs.slice(tabs.indexOf('static void spacex_workspace_tabs('));
+  inOrder(rail,['spacex_palette_item(area,SpaceXWorkspaceTabs[i],','v.context->overlay_tab=',
+    'overlay_tab_reveal=0.f','spacex_workspace_motion(','spacex_workspace_icon(v,i,center,ink)',
+    'const float separators[]'], 'Keyboard targets and animated icon selection');
+  assert.doesNotMatch(rail,/AddImage|AddRect|v\.text\(/);
+
+  const workspaceView=scene.slice(scene.indexOf('struct SpaceXWorkspaceView'),scene.indexOf('enum SpaceXWorkspaceTab'));
+  inOrder(workspaceView,['spacex_appearance_caption','spacex_scene_font_size(size*scale)', 'CalcTextSizeA(',
+    'ImFloor(start.x+.5f)', 'ImFloor(start.y+.5f)', 'clipped.ClipWith(clip)'],
+    'Localized density-aware typography and viewport-bounded pointer targets');
+  const checkbox=scene.slice(scene.indexOf('static bool spacex_workspace_checkbox('),
+    scene.indexOf('static const char* const SpaceXWorkspaceCuratedNames[]'));
+  inOrder(checkbox,['spacex_palette_item(row,label,interactive)','ImGuiItemStatusFlags_Checkable',
+    'motion=spacex_workspace_motion(', 'spacex_appearance_check(',
     'v.box(324.f,center-8.f,340.f,center+8.f)', 'license_glass_contour(v.draw,checkbox.Min,checkbox.Max,',
-    'if (amount>0.f)', 'PathStroke(mark,0,stroke);', 'AddCircleFilled(left,', 'AddCircleFilled(right,'],
-    'Theme checkbox keeps the full row target with a smaller filled box and round checkmark caps');
-  const settings=scene.slice(scene.indexOf('static int cozy_workspace_settings('),scene.indexOf('static int cozy_overlay_workspace('));
-  assert.equal((settings.match(/cozy_workspace_checkbox\(/g)||[]).length,2);
-  inOrder(settings,['cozy_palette_item(selector,','cozy_workspace_theme_name(selected)', 'if(saving&&!is_font)',
-    'PathArcTo(', 'render_selector(theme_selector', 'render_selector(font_selector',
-    'cozy_workspace_checkbox(', 'overlay_stars_paused', 'cozy_workspace_checkbox(', 'overlay_stars_hidden',
-    'if(!open)', 'if(!saving&&failed&&previous>0)', 'retry_box', 'if(button.pressed)return previous;',
-    'const bool font_menu=c->overlay_font_open;', 'int requested=0;', 'for(int i=0;i<rows;++i)',
-    'const int value=font_menu?i:cozy_workspace_theme_at(i);', 'if(item.pressed)',
-    'if(!chosen)', 'requested=(value+1)|(font_menu?CozyWorkspaceFontAction:0);',
-    'c->overlay_last_preference_action=requested;', 'return requested;'],
-    'Independent selectors, checkboxes and a bounded retry preserve the preference action');
-  const choices=scene.slice(scene.indexOf('static const char* const CozyWorkspaceCuratedNames[]'),
-    scene.indexOf('static ImU32 cozy_workspace_theme_swatch('));
+    'PathStroke(mark,0,stroke);', 'return item.pressed;'], 'Checkbox clicks request an effect without applying it');
+  assert.doesNotMatch(checkbox,/disabled=!disabled/);
+
+  const settings=scene.slice(scene.indexOf('static int spacex_workspace_appearance('),
+    scene.indexOf('static constexpr uint32_t SpaceXOverlayUsageStatus'));
+  assert.equal((settings.match(/spacex_workspace_checkbox\(/g)||[]).length,2);
+  inOrder(settings,['"Checkbox color"','"Text color"','"Language"',
+    'SpaceXAppearanceLocaleCount','io.MouseWheel','SpaceXWorkspaceAppearanceAction|(selected+1)',
+    'render_selector(theme_selector','render_selector(font_selector','"Theme"','"Typeface"',
+    'return SpaceXOverlayUsageAction+1','return SpaceXOverlayUsageAction+2',
+    'spacex_workspace_appearance(v,','requested=(value+1)|(font_menu?SpaceXWorkspaceFontAction:0);'],
+    'Appearance options share fixed primitives and explicit interactions');
+  const choices=scene.slice(scene.indexOf('static const char* const SpaceXWorkspaceCuratedNames[]'),
+    scene.indexOf('static ImU32 spacex_workspace_theme_swatch('));
   inOrder(choices,['"Pure Black"', '"Eclipse"', '"Aurora"', '"Pulsar"', '"Deep Space"', '"Supernova"',
-    'CozyPalettePresetCount+IM_ARRAYSIZE(CozyCuratedPalettes)',
-    'CozyCuratedPalettes[row-CozyPalettePresetCount].theme',
-    'return CozyWorkspaceCuratedNames[i];', 'return "Saved Theme";'],
+    'SpaceXPalettePresetCount+IM_ARRAYSIZE(SpaceXCuratedPalettes)',
+    'SpaceXCuratedPalettes[row-SpaceXPalettePresetCount].theme',
+    'return SpaceXWorkspaceCuratedNames[i];', 'return "Saved Theme";'],
     'Existing off-list persisted RGB can be replaced using any named fixed palette');
-  assert.doesNotMatch(settings,/rgb_slider|color_editor|Custom color|Saving theme|Shared theme|Appearance|\.rule\(/i);
-  assert.doesNotMatch(scene,/cozy_workspace_rgb_slider|cozy_workspace_color_editor/);
-  const usage=scene.slice(scene.indexOf('static void cozy_workspace_usage_meter('),scene.indexOf('static void cozy_workspace_checkbox('));
-  inOrder(usage,['ImLerp(start,328.f,amount)', 'AddRectFilled(', 'static void cozy_workspace_usage(',
-    '"Preview"', 'cozy_workspace_usage_meter(v,151.f,', '.58f', 'cozy_workspace_usage_meter(v,252.f,', '.32f'],
-    'Usage renders clearly labeled sample bars');
-  assert.doesNotMatch(usage,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
-  const workspace=scene.slice(scene.indexOf('static int cozy_overlay_workspace('),scene.indexOf('static int32_t cozy_scene_frame('));
-  inOrder(workspace,['cozy_palette_apply_theme(c,selected,', 'cozy_palette_panel(', '!c->overlay_stars_hidden',
-    'cozy_workspace_tabs(v,popover,reduced_motion);', 'content.opacity*=',
-    'if (c->overlay_tab==CozyWorkspaceSettings)', 'return cozy_workspace_settings(',
-    'if (c->overlay_tab==CozyWorkspaceUsage)', 'cozy_workspace_usage(',
-    'if (c->overlay_tab==CozyWorkspaceGeneral) cozy_workspace_general(content,licensed_card);'],
-    'Tab content eases in and General receives the authenticated identity');
-  assert.doesNotMatch(workspace,/cozy_workspace_market|CozyWorkspaceMarket|headings|\.text\(|\.rule\(|->AddLine\(/);
-  const general=scene.slice(scene.indexOf('static void cozy_workspace_general('),scene.indexOf('static void cozy_workspace_usage_meter('));
-  inOrder(general,['if (licensed_card<0 || !CozyOverlayTitles[licensed_card]) return;', 'const unsigned seed=',
-    'const float center_x=', 'const ImRect area=', 'AddLine(stars[i-1],stars[i],',
-    'CozyOverlayTitles[licensed_card]'], 'General renders a product-specific chart and the entitled name');
-  assert.doesNotMatch(general,/\.hit\(|cozy_palette_item|ImGui::(?:Button|InvisibleButton|InputText)|AddImage|StartProduct/);
+
+  const usage=scene.slice(scene.indexOf('static void spacex_workspace_usage('),
+    scene.indexOf('static bool spacex_workspace_checkbox('));
+  inOrder(usage,['if(amount<0.f)','"Usage unavailable"','static_cast<unsigned>(amount*100.f+.5f)',
+    '"Remaining"','AddRectFilled(track.Min','ImLerp(112.f,337.f,amount)'],
+    'One authenticated usage value with an explicit unavailable state');
+  assert.doesNotMatch(usage,/Preview|Current session|Rolling window|\.hit\(|spacex_palette_item/);
+  const general=scene.slice(scene.indexOf('static void spacex_workspace_general('),
+    scene.indexOf('static void spacex_workspace_profile('));
+  assert.match(general,/licensed_card<0\|\|!SpaceXOverlayTitles\[licensed_card\]/);
+  assert.doesNotMatch(general,/AddLine|AddCircle|AddImage|\.hit\(/);
+  const profile=scene.slice(scene.indexOf('static void spacex_workspace_profile('),
+    scene.indexOf('static void spacex_workspace_usage('));
+  inOrder(profile,['spacex_earth_logo(v.draw','if(!profile_hint)return','profile_hint-1','v.text('],
+    'Profile shares the Earth artwork and draws a public reference to the existing license');
+  assert.doesNotMatch(profile,/Clipboard|license_form|\.hit\(|spacex_palette_item/);
+  const receipt=scene.slice(scene.indexOf('static void spacex_workspace_usage_receipt('),
+    scene.indexOf('static void spacex_workspace_scroll('));
+  inOrder(receipt,['if(!c->overlay_usage_requested)return','kind==c->overlay_usage_action',
+    'status==SpaceXOverlayUsageApproved','if(kind==0)spacex_flight_begin(c)',
+    'c->overlay_usage_requested=false;'], 'Local effects require the matching approval');
+  assert.match(flight,/ImGui::IsKeyDown\(ImGuiKey_Space\)/);
+  assert.match(flight,/c->flight_score=ImMin\(999999u,c->flight_score\+100u\)/);
+  assert.doesNotMatch(flight,/CreateProcess|ReadProcessMemory|SendInput|Clipboard/);
+  const workspace=scene.slice(scene.indexOf('static int spacex_overlay_workspace('),
+    scene.indexOf('static int32_t spacex_scene_frame('));
+  inOrder(workspace,['spacex_palette_apply_theme(c,selected,','spacex_workspace_usage_receipt(c,flags);',
+    'spacex_palette_panel(','!c->overlay_stars_hidden','spacex_workspace_tabs(v,popover,reduced_motion);',
+    'spacex_workspace_scroll(v,content,tab,popover);','ImGui::PushClipRect(content.clip.Min',
+    'spacex_workspace_settings(content,selected','spacex_workspace_usage(content,remaining)',
+    'spacex_workspace_general(content,licensed_card)','spacex_workspace_profile(content,profile_hint)',
+    'spacex_workspace_flight(content,usage_ready','ImGui::PopClipRect();','c->overlay_usage_requested=true;'],
+    'Scroll, profile, usage, and flight remain within the existing authorized scene');
+  assert.doesNotMatch(settings,/rgb_slider|color_editor|Custom color|Saving theme/i);
   assert.match(scene,/if \(!reduced_motion && \(!workspace \|\| !c->overlay_stars_paused\)\) c->license_elapsed \+= io\.DeltaTime;/);
-  assert.match(scene,/if \(workspace\) \{\s*action=cozy_overlay_workspace\(c,draw,origin,scale,opacity,selected,licensed_card,flags,reduced_motion\);/);
   assert.doesNotMatch(scene,/AddImage|game_cover|game_mark/);
-  assert.doesNotMatch(workspace,/cozy_palette_controls\(/);
-  assert.match(b,/cozy_palette_apply_theme\(c,theme,true\);/);
-  assert.match(b,/cozy_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette,true,true,\s*c->desktop_star_percent\);/);
-  assert.doesNotMatch(b,/cozy_palette_controls\(|cozy_palette_hsv\(|game_cover|game_mark/);
-  assert.match(palette,/CozyPalettePresetCount = 4;/);
-  assert.match(palette,/if\s*\(show_stars\)\s*cozy_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars,density\);/);
+  assert.doesNotMatch(workspace,/spacex_palette_controls\(/);
+  assert.match(b,/spacex_palette_apply_theme\(c,theme,true\);/);
+  assert.match(b,/spacex_palette_panel\(v\.draw,origin,scale,c->license_elapsed,opacity,v\.palette,true,true,\s*c->desktop_star_percent\);/);
+  assert.doesNotMatch(b,/spacex_palette_controls\(|spacex_palette_hsv\(|game_cover|game_mark/);
+  assert.match(palette,/SpaceXPalettePresetCount = 4;/);
+  assert.match(palette,/if\s*\(show_stars\)\s*spacex_palette_stars\(draw,origin,scale,elapsed,opacity,palette\.stars,density\);/);
   assert.doesNotMatch(method('function TOverlayWindow.ThemeHit(', 'procedure TOverlayWindow.RecordRuntimeFailure;'),
     /FLicensedCard|FGetLicensedCard|Authorize|\.Post\(/);
   const legacy=scene.slice(scene.indexOf('extern "C" int32_t GAME_IMGUI_CALL game_imgui_scene_v2('));
-  assert.match(legacy,/cozy_scene_frame\(game_context\(handle\),phase,selected,flags,-1,\s*animation_seconds,carousel_position,0\.f\)/);
+  assert.match(legacy,/spacex_scene_frame\(game_context\(handle\),phase,selected,flags,-1,\s*animation_seconds,carousel_position,0\.f\)/);
   const names=['PUBG','TALESRUNNER','LOST_SAGA','APEX_LEGENDS','OVERWATCH','COUNTER_STRIKE_2',
     'ROBLOX','BRAWL_STARS','PUBG_MOBILE','GENSHIN_IMPACT','POKEMON_GO','CLASH_ROYALE'];
   const rawScene=fs.readFileSync(path.join(native,'SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_scene.h'),'utf8');
-  const titles=rawScene.match(/static const char\* const CozyOverlayTitles\[\] = \{([\s\S]*?)\};/)[1];
-  assert.deepEqual([...titles.matchAll(/COZY_TEXT_GAME_IMGUI_SCENE_([A-Z_0-9]+)_[0-9A-F]{8}/g)].map(match=>match[1]), names);
+  const titles=rawScene.match(/static const char\* const SpaceXOverlayTitles\[\] = \{([\s\S]*?)\};/)[1];
+  assert.deepEqual([...titles.matchAll(/SPACEX_TEXT_GAME_IMGUI_SCENE_([A-Z_0-9]+)_[0-9A-F]{8}/g)].map(match=>match[1]), names);
   assert.match(titles,/nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,/,
     'Retired indices do not shift the canonical product mapping');
 });
@@ -514,36 +525,39 @@ check('B and O use the authenticated claim theme and only a visible O edit can c
   const client=read('SpaceX.Source/SpaceX.Overlay/SpaceX.Overlay.Client.pas');
   const controller=read('SpaceX.Source/SpaceX.Overlay/SpaceX.Overlay.pas');
   assert.match(bootstrap,/BootstrapDesktopSettings\(Data, False, Result\);/);
-  assert.match(bootstrap,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(3\)\);/);
+  assert.match(bootstrap,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(4\)\);/);
   assert.match(session,/RunLicenseWindow\([\s\S]*?Session\.ThemeIndex,\s*function: Boolean\s*begin Result := Worker\.RequestPreparation; end,\s*function: Boolean\s*begin Result := Worker\.RequestCommit; end,\s*@Session\.DesktopStage, Session\.FontIndex\);/);
   assert.match(client,/BootstrapDesktopSettings\(Reply, True, FSession\);/);
-  assert.match(client,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(3\)\);/);
+  assert.match(client,/Body\.AddPair\('themeVersion', TJSONNumber\.Create\(4\)\);/);
   assert.match(controller,/TOverlayWorker\.Create\(Context, Client, Image, Guard,\s*@Session\.DesktopStage, Session\.ThemeIndex, Session\.FontIndex\)/);
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['Theme := FReadTheme()', 'ImGuiProductScene(FContext, 0, Theme.Index,',
     'not BootstrapThemeValid(ChosenTheme) or (ChosenFont < 0)',
     'PresentResult := ImGuiPresent(FContext);', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE)',
     'if FRendered and FSceneRevealComplete and (SceneAction > 0) and',
-    'Assigned(FQueueTheme) and AuthorityValid then FQueueTheme(ChosenTheme, ChosenFont);'], 'Visible edit dispatch');
+    'AuthorityValid then', 'FQueueTheme(ChosenTheme, ChosenFont, ChosenAppearance);'], 'Visible edit dispatch');
   const worker=controller.slice(controller.indexOf('function TOverlayWorker.ProcessThemeSave('),
     controller.indexOf('function TOverlayWorker.ShouldClose:'));
   const execute=controller.slice(controller.indexOf('procedure TOverlayWorker.Execute;'));
-  inOrder(execute,['else if (CozyTick >= NextCheck) or SnapshotDue then','Refresh;',
-    'if not SnapshotDue then ProcessThemeSave(ThemeWriteBudgetMs);'],
+  inOrder(execute,['else if (SpaceXTick >= NextCheck) or SnapshotDue then','Refresh;',
+    'if not SnapshotDue then', 'if not ProcessUsage(NextCheck) then ProcessThemeSave(ThemeWriteBudgetMs);'],
     'Pending lease and inventory work takes priority over a theme write');
   assert.equal((execute.match(/ProcessThemeSave\(ThemeWriteBudgetMs\)/g)||[]).length,1);
   assert.match(worker,/FDeadline - At < RenewalReserve \+ ThemeMinimumWriteMs/);
   assert.match(worker,/WriteDeadline := At \+ WriteBudget/);
   assert.doesNotMatch(worker,/NextCheck/);
-  assert.match(controller,/not FThemeSaving and\s*\(CozyTick >= FThemeQueueDeadline\)/);
-  inOrder(worker,['Saved := FClient.SaveTheme(FContext.Security, Index, Font, WriteDeadline, Retryable)',
+  assert.match(controller,/not FThemeSaving and\s*\(SpaceXTick >= FThemeQueueDeadline\)/);
+  inOrder(worker,['Saved := FClient.SaveTheme(FContext.Security, Index, Font, Appearance, WriteDeadline, Retryable)',
     'if not Terminated and not FFailed and FTransferred and (FDeadline > At) then',
-    'if Saved then', 'FTheme.Index := Index;', 'FTheme.FontIndex := Font;', 'FTheme.Status := otsIdle;',
+    'if Saved then', 'FTheme.Index := Index;', 'FTheme.FontIndex := Font;',
+    'FTheme.DesktopStage.Appearance := Appearance;', 'FTheme.Status := otsIdle;',
     'if Retryable and not FThemeRetried', 'FThemeRetried := True;', 'FTheme.Status := otsFailed;'],
     'Confirmation and one bounded retry are both subordinate to the existing grant');
   const save=client.slice(client.indexOf('function TOverlayClient.SaveTheme('),client.indexOf('function TOverlayClient.InvokeServerPolicy('));
   inOrder(save,['not FTransferConfirmed', "if (FThemePendingRequestID = '') or (FThemePendingIndex <> Index) or",
-    '(FThemePendingFont <> Font) then', "'COZY-OVERLAY-THEME-V2'", '#10 + IntToStr(Font);',
+    '(FThemePendingFont <> Font) or (FThemePendingAppearance <> Appearance) then',
+    "'COZY-OVERLAY-THEME-V2'", "'COZY-OVERLAY-THEME-V3'", '#10 + IntToStr(Font);',
+    'if FThemeAppearanceSupported then Canonical := Canonical + #10 + IntToStr(Appearance);',
     'Security.Sign(Canonical)', 'FThemePendingRequestID := RequestID;',
     "Body.AddPair('requestId', FThemePendingRequestID);", "Reply := Post('overlayTheme', Body, Deadline)",
     "BootstrapValidateObject(Reply, '|version|sessionId|requestId|sequence|theme|font|', 6)",
@@ -567,10 +581,10 @@ check('Existing worker product authorization still rejects denied, stale and mis
   assert.doesNotMatch(request,/AuthorizeProductStart|\.Post\(/,'The UI callback only queues bounded work');
   const process=controller.slice(controller.indexOf('procedure TOverlayWorker.ProcessProductRun;'),controller.indexOf('function TOverlayWorker.ShouldClose:'));
   inOrder(process,['MaintainLease(False);', 'FClient.AuthorizeProductStart(FContext.Security, Card,',
-    'not OverlayProductCanStart(FProductCard, Card)', '(GrantDeadline <= CozyTick +', 'OverlayProductRunMilliseconds(Card) + OverlayRunGrantMarginMilliseconds)',
+    'not OverlayProductCanStart(FProductCard, Card)', '(GrantDeadline <= SpaceXTick +', 'OverlayProductRunMilliseconds(Card) + OverlayRunGrantMarginMilliseconds)',
     'FProductRunState := 3;', 'FProductGrantDeadline := GrantDeadline;', 'FProductRunState := 2;'],'Worker rejects denied or stale grants');
   const grant=controller.slice(controller.indexOf('function TOverlayWorker.ProductRunState:'),controller.indexOf('procedure TOverlayWorker.ProcessProductRun;'));
-  assert.match(grant,/FProductGrantDeadline <= CozyTick \+\s*OverlayProductRunMilliseconds\(FRunProductCard\) \+ OverlayRunGrantMarginMilliseconds/);
+  assert.match(grant,/FProductGrantDeadline <= SpaceXTick \+\s*OverlayProductRunMilliseconds\(FRunProductCard\) \+ OverlayRunGrantMarginMilliseconds/);
   assert.match(grant,/if Result in \[2,3\] then/,'An accepted or rejected grant is consumed once');
   assert.doesNotMatch(controller,/RequestCohortShutdown|FRunRequestedAt/,'START has no cohort-shutdown path');
 });
@@ -634,7 +648,7 @@ check('O rounds the surface and uses native scene hit testing for tabs, settings
 check('Intro runs after showing and drag unlocks once a complete frame has visibly presented',()=>{
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
   inOrder(paint,['if not FWindowShown or (FWindow=0) or not ApiIsWindowVisible(FWindow) then',
-    'begin FRendered:=False; Exit; end;', 'NowSeconds := CozyFrameSeconds;',
+    'begin FRendered:=False; Exit; end;', 'NowSeconds := SpaceXFrameSeconds;',
     'if not FSceneRevealComplete then FSceneSeconds := FSceneSeconds + Delta;',
     'ImGuiProductScene(', 'ImGuiPresent(', 'FRendered := (PresentResult = IMGUI_PRESENT_VISIBLE)',
     'if FRendered and (FSceneSeconds >= SceneRevealSeconds) then', 'FSceneRevealComplete := True;'], 'Visible one-shot reveal');
@@ -654,7 +668,7 @@ check('B and O clip their full-bleed composition surface with one soft DPI-scale
   const palette=read('SpaceX.ImGui/SpaceX.Bridge/SpaceX.Core/SpaceX.game_imgui_palette.h');
   inOrder(contour,['const int rings=continuous_rim?4:3;', 'continuous_rim?-.65f:-.5f',
     'ImMin(continuous_rim?0.f:.5f,half)', 'ImU32 ink=outline;',
-    'if(ring==0)ink&=~IM_COL32_A_MASK;', 'if(ring==rings-1)ink=cozy_scene_mix(top,bottom,',
+    'if(ring==0)ink&=~IM_COL32_A_MASK;', 'if(ring==rings-1)ink=spacex_scene_mix(top,bottom,',
     'draw->PrimWriteVtx(p,uv,ink);'],
     'The continuous curve and straight edge share rim RGB, with coverage outside the same stroke');
   assert.match(palette,/bool license_rim=true/);
@@ -699,9 +713,9 @@ check('Monitor-paced rendering uses QPC deltas without a second fixed timer',()=
     'ApiTranslateMessage(Msg); ApiDispatchMessageW(Msg);', 'Paint;', 'Tick();', 'else if ApiWaitForInput=WAIT_FAILED'], 'Bounded input drain and visible-frame work');
   assert.match(renderer,/MsgWaitForMultipleObjectsEx[\s\S]*?50/);
   const paint=method('procedure TOverlayWindow.Paint;', 'procedure TOverlayWindow.Resize;');
-  inOrder(paint,['NowSeconds := CozyFrameSeconds;', 'Elapsed := NowSeconds - FLastFrameSeconds;',
+  inOrder(paint,['NowSeconds := SpaceXFrameSeconds;', 'Elapsed := NowSeconds - FLastFrameSeconds;',
     'FSceneSeconds := FSceneSeconds + Delta;'], 'Independent high-resolution scene clock');
-  assert.match(clock,/function CozyFrameSeconds: Double;[\s\S]*?ClockSlot_QueryPerformanceCounter/);
+  assert.match(clock,/function SpaceXFrameSeconds: Double;[\s\S]*?ClockSlot_QueryPerformanceCounter/);
   assert.match(bridge,/dxgi->SetMaximumFrameLatency\(1\)/);
   assert.match(bridge,/swap_chain->Present\(1,0\)/);
 });

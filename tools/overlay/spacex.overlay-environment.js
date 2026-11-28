@@ -74,9 +74,9 @@ function Run(probe){
  // detects changed inputs; it does not attest how the prebuilt EXE was built.
  const sourceBefore=SourceSnapshot();
  const nonce=crypto.randomBytes(32).toString('hex'),runId='overlay-environment-'+new Date().toISOString().replace(/[:.]/g,'-')+'-'+nonce.slice(0,8),dir=path.join(MODULE_RESOURCE_ROOT,'overlay-environment-runs',runId);fs.mkdirSync(dir,{recursive:true});
- const copy=path.join(dir,'spacex.OverlayEnvironmentProbe.exe'),rawFile=path.join(dir,'measurement.json'),log=path.join(dir,'probe.log');fs.writeFileSync(copy,bytes,{flag:'wx'});
+ const copy=path.join(dir,'SpaceX.OverlayEnvironmentProbe.exe'),rawFile=path.join(dir,'measurement.json'),log=path.join(dir,'probe.log');fs.writeFileSync(copy,bytes,{flag:'wx'});
  const startedAt=new Date().toISOString();
- console.log('Build tests/cozy.manual-ide/spacex.OverlayEnvironmentProbe.dproj in RAD Studio Win64 Release first.');
+ console.log('Build Desktop/SpaceX.Tests/SpaceX.Overlay/SpaceX.OverlayEnvironmentProbe.dproj in RAD Studio Win64 Release first.');
  console.log('This workflow needs real local monitors with DIFFERENT scale settings and real RDP reconnect.');
  console.log('Window: drag the rounded surface on each monitor and switch focus while holding the mouse button.');
  console.log('Perform the local monitor tests BEFORE connecting RDP. Return to same session. Release F6 for checkpoint, F10 to finish.');
@@ -94,6 +94,6 @@ function Run(probe){
  report.sourceManifestSha512=sourceBefore.sourceManifestSha512;report.sourceFiles=sourceBefore.sourceFiles;report.sourceInputsUnchanged=sourceUnchanged;
  const reportFile=path.join(MODULE_RESOURCE_ROOT,runId+'.json');fs.writeFileSync(reportFile,JSON.stringify(report,null,2)+'\n',{flag:'wx'});console.log(JSON.stringify({outcome:report.outcome,reportFile,measurementFile:rawFile,stages:report.stages},null,2));process.exitCode=report.outcome==='PASS'?0:report.outcome==='INCOMPLETE'?2:1;return report;
 }
-if(require.main===module){try{const [action,probe]=process.argv.slice(2);if(action!=='run'||!probe||process.argv.length!==4)throw Error('Usage: node spacex.overlay-environment.js run "ABSOLUTE_cozy.OverlayEnvironmentProbe.exe"');Run(probe);}catch(e){console.error(e.message);process.exitCode=1;}}
+if(require.main===module){try{const [action,probe]=process.argv.slice(2);if(action!=='run'||!probe||process.argv.length!==4)throw Error('Usage: node spacex.overlay-environment.js run "ABSOLUTE_PATH_TO_SpaceX.OverlayEnvironmentProbe.exe"');Run(probe);}catch(e){console.error(e.message);process.exitCode=1;}}
 module.exports={Validate,Evaluate,Run};
 

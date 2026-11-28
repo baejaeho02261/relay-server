@@ -47,7 +47,7 @@ check('Overlay preparation keeps the same request identity and signed execute bo
  assert.match(api,/Result := PostJSON\('execute', ExecuteBody, \(Action = 'overlay'\) or\s*\(Action = 'redeem'\) or \(Action = 'release'\)\)/);
  const retry=api.split('function TGameApi.PostJSON(')[1].split('function TGameApi.ExecuteProof(')[0];
  assert.ok(retry.includes('Attempts := 2'));
- assert.ok(retry.includes('Deadline := CozyTick + 15000'));
+ assert.ok(retry.includes('Deadline := SpaceXTick + 15000'));
  assert.ok(retry.indexOf('for Attempt := 1 to Attempts')<retry.indexOf('Response := FTransport.PostJSON(Operation, Body, Budget)'));
  assert.ok(retry.indexOf('Break;')<retry.indexOf("Response.GetValue('ok')"));
  assert.doesNotMatch(retry,/on E: EGameApi do\s*(?:begin)?\s*Continue/);
@@ -95,7 +95,7 @@ check('Authority and each signed report retry share one monotonic deadline acros
  assert.ok(observe.indexOf('Clock := TStopwatch.StartNew')<observe.indexOf('for Attempt := 1 to 2'));
  assert.match(authority,/ObservationBudgetMs - Clock\.ElapsedMilliseconds/);
  assert.match(authority,/Transport\.PostJSON\('security', Body, RemainingBudget\(Clock, Cancelled\)\)/);
- assert.match(observe,/const Runtime: ICozyRuntimeMeasurement/);
+ assert.match(observe,/const Runtime: ISpaceXRuntimeMeasurement/);
  assert.match(observe,/FileSHA512, FileCRC64, Clock, Cancelled, OwnImage, Runtime\)/);
  const once=authority.split('procedure ObserveOnce(')[1].split('procedure RequireServerObservation(')[0];
  assert.match(once,/CurrentImage, Code, CrcLayers, MeasurementState, Runtime\)/);
@@ -106,10 +106,10 @@ check('Authority and each signed report retry share one monotonic deadline acros
   assert.ok(loop>0);
   // A may clamp the initial budget to its earlier original flow deadline.
   // Only the initial clock anchor is created once; no retry can reset it.
-  assert.equal((retry.match(/Deadline := CozyTick/g)||[]).length,1);
-  assert.ok(retry.indexOf('Deadline := CozyTick + 15000')<loop);
+  assert.equal((retry.match(/Deadline := SpaceXTick/g)||[]).length,1);
+  assert.ok(retry.indexOf('Deadline := SpaceXTick + 15000')<loop);
   const attempts=retry.slice(loop,retry.indexOf('Response.GetValue('));
-  assert.match(attempts,/NowTick := CozyTick/);
+  assert.match(attempts,/NowTick := SpaceXTick/);
   assert.match(attempts,/NowTick >= Deadline/);
   assert.match(attempts,/Deadline - NowTick/);
   assert.match(attempts,/on E: EConnectTransport do/);

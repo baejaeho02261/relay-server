@@ -131,7 +131,7 @@ function Scenario(name){
     assert.equal(preview.release.hardwareAttested,false);
     ReadOnlyFailure(m,()=>m.ops.ActivateProductionPair({...Select(rows),expectedRevision:m.ops.Revision(),expectedPolicyRevision:m.auth.Policy().revision},'SYNTHETIC_OPERATOR'),'COZY_VM_V1_EMBEDDED_KEY_RETIRED');
     assert.deepEqual(m.store.Load().active,{});
-    assert.equal(m.ops.State().requireCozyProtection,false);
+    assert.equal(m.ops.State().RequireSpaceXProtection,false);
     assert.equal(m.ops.State().requirePackingEvidence,false);
     assert.equal(m.auth.Policy().requireReleaseSignature,true);
     assert.equal(JSON.stringify(m.ops.State().releaseGovernance.manifests[original.manifestId]),originalRecord);

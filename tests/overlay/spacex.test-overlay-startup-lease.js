@@ -52,9 +52,9 @@ test('150s O ready and 450s B startup bounds are absolute; ordinary pipe/AB stay
  assert.match(handoff,/OverlayReadyTimeoutMS = 150000/);
  assert.match(handoff,/if PreserveParent then\s+Inc\(Deadline, OverlayReadyTimeoutMS - HandoffTimeoutMS\)/);
  assert.equal((handoff.match(/Inc\(Deadline, OverlayReadyTimeoutMS/g)||[]).length,1);
- assert.match(api,/ParentStartupDeadline := CozyTick \+ 450000/);
+ assert.match(api,/ParentStartupDeadline := SpaceXTick \+ 450000/);
  assert.equal((api.match(/ParentStartupDeadline\s*:=/g)||[]).length,1);
- assert.match(api,/CozyTick >= ParentStartupDeadline/);
+ assert.match(api,/SpaceXTick >= ParentStartupDeadline/);
 });
 test('native initial O window uses the original Claim bound until fresh Verify (source)',()=>{
  const client=native('SpaceX.Source/SpaceX.Overlay/SpaceX.Overlay.Client.pas');
@@ -63,7 +63,7 @@ test('native initial O window uses the original Claim bound until fresh Verify (
  assert.match(client,/FInitialClaimDeadlineTick := ClaimTick \+ UInt64\(Remaining\)/);
  assert.match(client,/RequireInitialClaimActive;\s+FInitialClaimDeadlineTick := 0;\s+StartupPhaseCore\('AUTHORIZED'\)/);
  assert.match(worker,/FInitialDeadline := Client\.InitialClaimDeadlineTick/);
- assert.match(worker,/\(\(FDeadline = 0\) and \(CozyTick >= FInitialDeadline\)\)/);
+ assert.match(worker,/\(\(FDeadline = 0\) and \(SpaceXTick >= FInitialDeadline\)\)/);
 });
 test('native expired old lease cannot be revived by repeated server receipt (source)',()=>{const s=native("SpaceX.Source/SpaceX.Overlay/SpaceX.Overlay.Client.pas");assert.match(s,/PreviousDeadline := FLeaseDeadlineTick;\s+FLeaseDeadlineTick := 0;/);assert.match(s,/FLeaseDeadlineTick := VerifyRequestTick \+ UInt64\(Result\)/);assert.match(s,/ServerTime = FLastLeaseServerTime/);assert.match(s,/if PreviousDeadline < FLeaseDeadlineTick then FLeaseDeadlineTick := PreviousDeadline/);assert.match(s,/if ServerTime < FLastLeaseServerTime then InvalidResponse/);});
 test('no API-removal shortcut for virtual memory or synchronization (source)',()=>{const ci=native("SpaceX.Source/SpaceX.Integrity/SpaceX.CodeIntegrity.pas");assert.match(ci,/VirtualQuery/);assert.ok(!ci.includes('ReadProcessMemory'));for(const n of ["SpaceX.Source/SpaceX.Handoff/SpaceX.Handoff.pas","SpaceX.Source/SpaceX.Integrity/SpaceX.Integrity.pas","SpaceX.Source/SpaceX.Integrity/SpaceX.ModuleInventory.pas"]){assert.match(native(n),/THandle\(NativeInt\(-1\)\)/);assert.ok(!/Slot_GetCurrentProcess\s*:=/.test(native(n)));}});
@@ -73,7 +73,7 @@ test('role resource inputs and mandatory prebuild preserve version/manifest with
   // anchor is installed. A fresh source tree must compile the reviewed RC input
   // before Delphi; a checked-in generated resource is not a prerequisite.
   const shared=native('SpaceX.Build/SpaceX.ReleaseMetadata.targets');
-  assert.match(shared,/<Target Name="PrepareCozyReleaseMetadata"[\s\S]*?BeforeTargets="[^"\n]*_PasCoreCompile[^"\n]*PrepareOverlayNative"/);
+  assert.match(shared,/<Target Name="PrepareSpaceXReleaseMetadata"[\s\S]*?BeforeTargets="[^"\n]*_PasCoreCompile[^"\n]*PrepareOverlayNative"/);
   assert.match(shared,/<Error Condition="!Exists\('\$\(BDS\)\\bin\\brcc32\.exe'\)"/);
   assert.match(shared,/<Exec Condition="'\$\(_GameRole\)'=='A' or '\$\(_GameRole\)'=='B'"[\s\S]*?brcc32\.exe&quot; -fo&quot;\$\(_GameProjectName\)Resources\.res&quot; &quot;\$\(_GameProjectName\)\.rc&quot;/);
   assert.ok(shared.indexOf('SpaceX.Prepare-IssuedATrust.ps1')<shared.indexOf('brcc32.exe&quot; -fo'));

@@ -22,8 +22,8 @@ test('actual product local gates retain their matching role before application w
     const source = read(`SpaceX.Projects/${name}/${name}.dpr`);
     const body = source.slice(source.lastIndexOf('\nbegin\n'));
     const runCall = name === 'SpaceX.Client'
-      ? `ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}), @ExitCode);`
-      : `ExitCode := ${run}(TCozyNHWMonitor.Create(${traceScope}));`;
+      ? `ExitCode := ${run}(TSpaceXMonitorMonitor.Create(${traceScope}), @ExitCode);`
+      : `ExitCode := ${run}(TSpaceXMonitorMonitor.Create(${traceScope}));`;
     const start = body.indexOf(`RequireNativeStartup(${role}`), application = body.indexOf(runCall);
     assert(start >= 0 && application >= 0 && start < application, name);
     assert.equal((body.match(/RequireNativeStartup\(/g) || []).length, 1);
@@ -139,7 +139,7 @@ for (const [name, role] of roles) test(`${role} isolated fixture has exact produ
     assert.equal(bytes.readUInt32LE(4),32,'supplied role resource must be a Windows RES');
   }
   assert.match(fixture, /\{\$IFNDEF GAME_STARTUP_ROLE_PROBE\}/);
-  assert.doesNotMatch(fixture, /DEFINE GAME_APPLICATION_BUILD|ExitCode := RunLauncher|ExitCode := RunLicenseClient|ExitCode := RunOverlay|RequireCozyProtection\(/);
+  assert.doesNotMatch(fixture, /DEFINE GAME_APPLICATION_BUILD|ExitCode := RunLauncher|ExitCode := RunLicenseClient|ExitCode := RunOverlay|RequireSpaceXProtection\(/);
   assert(fixture.includes(`RunStartupRoleProbe(${role});`));
   assert.match(read(`SpaceX.Tests/SpaceX.Startup/${name}StartupProbe.dproj`), /<TestOnlyDefine>GAME_STARTUP_ROLE_PROBE<\/TestOnlyDefine>/);
   const contract = read('SpaceX.Tests/SpaceX.Startup/SpaceX.StartupRoleProbeContracts.inc');
@@ -151,7 +151,7 @@ for (const [name, role] of roles) test(`${role} isolated fixture has exact produ
 test('source binding generator reviews every conditional and preserves native NOT_RUN scope', checks, () => {
   const generator = read('SpaceX.Tests/SpaceX.Startup/SpaceX.generate-startup-contracts.py');
   assert.match(generator, /PRODUCTION_DISABLED = \{/);
-  for (const define of ['COZY_HASH_WORKER_TESTS','GAME_DEVICE_SECURITY_TESTS','GAME_STARTUP_ROLE_PROBE','GAME_TRANSPORT_TESTS']) assert(generator.includes(`'${define}'`));
+  for (const define of ['SPACEX_HASH_WORKER_TESTS','GAME_DEVICE_SECURITY_TESTS','GAME_STARTUP_ROLE_PROBE','GAME_TRANSPORT_TESTS']) assert(generator.includes(`'${define}'`));
   assert.doesNotMatch(generator, /re\.fullmatch\(r'GAME_\.\*/);
   assert.match(generator, /raise ValueError\('Unknown production conditional '/);
   assert.match(read('SpaceX.Tests/SpaceX.Startup/SpaceX.test-startup-contracts.py'), /Unknown production conditional GAME_UNREVIEWED_PROBE/);

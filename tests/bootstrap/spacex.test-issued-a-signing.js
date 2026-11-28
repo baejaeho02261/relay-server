@@ -5,8 +5,8 @@ const test=require('node:test'),assert=require('node:assert/strict'),crypto=requ
 // after spawnSync has observed that exit (also portable to Windows locks).
 if(process.argv[2]!=='--issued-a-child'){
  test('isolated signer cases release process-owned locks before directory cleanup',{timeout:45000},()=>{
-  const owned=fs.mkdtempSync(path.join(os.tmpdir(),'peace-issued-signature-'));
-  const env={...process.env,COZY_ISSUED_A_TEST_DIR:owned};delete env.NODE_TEST_CONTEXT;
+  const owned=fs.mkdtempSync(path.join(os.tmpdir(),'spacex-issued-signature-'));
+  const env={...process.env,SPACEX_ISSUED_A_TEST_DIR:owned};delete env.NODE_TEST_CONTEXT;
   try{
    const result=require('node:child_process').spawnSync(process.execPath,['--test-reporter=tap',__filename,'--issued-a-child'],{env,encoding:'utf8',timeout:35000,maxBuffer:4*1024*1024,windowsHide:true});
    if(result.stdout)process.stdout.write(result.stdout);
@@ -16,8 +16,8 @@ if(process.argv[2]!=='--issued-a-child'){
   assert.equal(fs.existsSync(owned),false);
  });
 }else{
-const temp=process.env.COZY_ISSUED_A_TEST_DIR;
-assert.ok(typeof temp==='string'&&path.isAbsolute(temp)&&path.basename(temp).startsWith('peace-issued-signature-'));
+const temp=process.env.SPACEX_ISSUED_A_TEST_DIR;
+assert.ok(typeof temp==='string'&&path.isAbsolute(temp)&&path.basename(temp).startsWith('spacex-issued-signature-'));
 assert.equal(fs.lstatSync(temp).isDirectory(),true);
 process.env.DATA_DIR=temp;process.env.HA_ENABLED='0';process.env.STORAGE_ENGINE='json';
 const signing=require('../../services/bootstrap/spacex.issued-a-signing'),keyTool=require('../../tools/security/spacex.issued-a-signing-key'),{WithAnchor}=require('../fixtures/bootstrap/spacex.issued-a-fixture');
@@ -65,11 +65,22 @@ test('distinct purpose reservation prevents transport key reuse',()=>{
  const other=crypto.generateKeyPairSync('rsa',{modulusLength:2048}),otherTemplate=WithAnchor(fixture.crcPeFixture(),other.publicKey);
  require('../../services/security/spacex.desktop-key-purposes').Reserve(other.publicKey,'SERVER_TRANSPORT');SetKey(other.privateKey.export({type:'pkcs8',format:'pem'}));assert.equal(signing.Readiness(otherTemplate).reason,'SECURITY_KEY_PURPOSE_CONFLICT');SetKey();
 });
-test('public export and Pascal include carry no private material; generation validates before writing',()=>{
- const pub=keyTool.PublicJSON(identity);assert.equal(keyTool.ParsePublic(pub).keyId,identity.keyId);const inc=keyTool.Include(identity);assert.ok(inc.startsWith('\uFEFF'));assert.match(inc,/\{\$J-\}/);assert.match(inc,/array\[0\.\.330\]/);assert.equal(inc.includes('PRIVATE KEY'),false);
+test('public export and both include spellings carry the same verified anchor',()=>{
+ const pub=keyTool.PublicJSON(identity);assert.equal(keyTool.ParsePublic(pub).keyId,identity.keyId);const inc=keyTool.Include(identity);assert.ok(inc.startsWith('\uFEFF'));assert.match(inc,/\{\$J-\}/);assert.match(inc,/SpaceXIssuedATrustAnchor: array\[0\.\.330\]/);assert.equal(inc.includes('PRIVATE KEY'),false);
  const out=path.join(temp,'new-private.pem');assert.throws(()=>keyTool.main(['--action','generate','--private-key-file',out]),{message:'ISSUED_A_KEY_OUTPUT_REQUIRED'});assert.equal(fs.existsSync(out),false);
  const pubPath=path.join(temp,'public.json'),incPath=path.join(temp,'public.inc');fs.writeFileSync(pubPath,JSON.stringify(pub));const result=keyTool.main(['--action','include','--public-json-file',pubPath,'--include-out',incPath]);assert.equal(result.keyId,identity.keyId);assert.equal(fs.readFileSync(incPath,'utf8'),inc);
  assert.throws(()=>keyTool.main(['--action','include','--public-json-file',pubPath,'--include-out',incPath]),{message:'ISSUED_A_OUTPUT_NEW_ABSOLUTE_PATH_REQUIRED'});
+ const oldPath=path.join(temp,'legacy-public.inc'),canonical=path.join(temp,'normalized-public.inc');
+ fs.writeFileSync(oldPath,inc.replace('SpaceXIssuedATrustAnchor','CozyIssuedATrustAnchor'));
+ const migrated=keyTool.main(['--action','include','--public-include-file',oldPath,'--include-out',canonical]);
+ assert.equal(migrated.keyId,identity.keyId);assert.equal(migrated.privateKeyPrinted,false);
+ assert.equal(fs.readFileSync(canonical,'utf8'),inc);
+ assert.throws(()=>keyTool.main(['--action','include','--public-json-file',pubPath,'--public-include-file',oldPath,'--public-json-out',out]),{message:'ISSUED_A_KEY_USAGE'});
+ for(const forged of [inc.replace('$43','$00'),inc.replace(identity.keyId,'a0'.repeat(32)),inc+'{$I alternate.inc}',inc.replace('$43','$43,$00'),Buffer.from([0xff,0xfe,0xff])]){
+  fs.writeFileSync(oldPath,forged);
+  assert.throws(()=>keyTool.main(['--action','include','--public-include-file',oldPath,'--include-out',out]),{message:'ISSUED_A_PUBLIC_INCLUDE_INVALID'});
+  assert.equal(fs.existsSync(out),false);
+ }
 });
 test('external key output is private and a later output failure removes only owned files',()=>{
  const privateFile=path.join(temp,'owned-private.pem'),publicFile=path.join(temp,'owned-public.json'),includeFile=path.join(temp,'owned-public.inc'),kept=path.join(temp,'operator-existing.txt');

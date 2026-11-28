@@ -25,7 +25,7 @@ function Child(mode){
   store.Load();store.Atomic(db=>{
    db.artifacts={[A]:Artifact(A),[B]:Artifact(B,'B')};db.active={A,B};
    db.workspaceGarbage={[G]:{sha512:'5'.repeat(128),size:24,createdAt:Date.now()}};
-   const ops=operations.Defaults();ops.revision=7;ops.requireBuildContract=true;ops.requireTestEvidence=true;ops.requirePackingEvidence=true;ops.requireCozyProtection=true;
+   const ops=operations.Defaults();ops.revision=7;ops.requireBuildContract=true;ops.requireTestEvidence=true;ops.requirePackingEvidence=true;ops.RequireSpaceXProtection=true;
    ops.signerStates['f'.repeat(64)]={state:'REVOKED',changedAt:Date.now(),changedBy:'SYNTHETIC_OPERATOR'};
    ops.releaseGovernance.minimumSecurityVersion=9;ops.releaseGovernance.requireManifest=true;db.securityOperations=ops;
    db.securityAuthorityPolicy={...security.Defaults(),minVersionA:'2.0.0',minVersionB:'3.0.0',minVersionO:'4.0.0',revokedSha512:['6'.repeat(128)]};
@@ -55,7 +55,7 @@ function Child(mode){
   const before=Applied(),db=store.Load();
   for(const key of ['artifacts','active','launchers','flows','overlays','issueReceipts'])assert.deepEqual(db[key],{});
   assert.equal(db.secret,before.secret);assert.deepEqual(db.securityAuthorityPolicy,before.policy);assert.deepEqual(db.workspaceJournal,before.journal);assert.deepEqual(db.adminCredentialRevocations,{syntheticPreserved:true});
-  assert.equal(db.serverRecovery.epoch,7);assert.equal(db.securityOperations.requireCozyProtection,true);assert.equal(db.securityOperations.requirePackingEvidence,true);assert.equal(db.securityOperations.releaseGovernance.minimumSecurityVersion,9);assert.equal(db.securityOperations.signerStates['f'.repeat(64)].state,'REVOKED');assert.equal(db.securityOperations.requireBuildContract,true);assert.equal(db.securityOperations.requireTestEvidence,true);assert.equal(db.releaseSafety.revokedCohorts['7'.repeat(128)].reason,'SYNTHETIC_REVOKED_COHORT');
+  assert.equal(db.serverRecovery.epoch,7);assert.equal(db.securityOperations.RequireSpaceXProtection,true);assert.equal(db.securityOperations.requirePackingEvidence,true);assert.equal(db.securityOperations.releaseGovernance.minimumSecurityVersion,9);assert.equal(db.securityOperations.signerStates['f'.repeat(64)].state,'REVOKED');assert.equal(db.securityOperations.requireBuildContract,true);assert.equal(db.securityOperations.requireTestEvidence,true);assert.equal(db.releaseSafety.revokedCohorts['7'.repeat(128)].reason,'SYNTHETIC_REVOKED_COHORT');
   assert.deepEqual(db.deviceRegistry.bindings,{});assert.deepEqual(db.deviceIdentity.enrollments,{});assert.equal(db.deviceIdentity.mode,'PERSISTENT');assert.equal(db.deviceIdentity.keyGenerations['e'.repeat(64)],6);
   const revision=db.revision;assert.equal(reset.Apply(RESET).phase,'APPLIED');assert.equal(store.Load().revision,revision);assert.ok(fs.existsSync(store.ArtifactPath(A)));assert.equal(reset.Status().phase,'APPLIED');
  }else if(mode==='cleanup'){

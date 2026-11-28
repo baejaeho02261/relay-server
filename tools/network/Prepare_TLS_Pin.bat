@@ -8,13 +8,13 @@ if /i "%~2"=="/nopause" set "GAME_TOOL_PAUSE=0"
 echo Usage: Prepare_TLS_Pin.bat [/nopause]
 if not "%~1"=="" if /i not "%~1"=="/nopause" goto usage
 if not "%~2"=="" goto usage
-if not exist "%~dp0peace.tls-pin-maintenance.js" goto missing_helper
+if not exist "%~dp0spacex.tls-pin-maintenance.js" goto missing_helper
 "%SystemRoot%\System32\where.exe" node.exe >nul 2>&1
 if errorlevel 1 goto missing_node
 pushd "%~dp0.."
 if errorlevel 1 goto missing_helper
 set "GAME_TOOL_PUSHED=1"
-node.exe "%~dp0peace.tls-pin-maintenance.js" prepare
+node.exe "%~dp0spacex.tls-pin-maintenance.js" prepare
 set "GAME_TOOL_RESULT=%errorlevel%"
 goto finish
 :missing_node

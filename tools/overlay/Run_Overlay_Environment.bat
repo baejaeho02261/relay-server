@@ -24,11 +24,11 @@ if errorlevel 1 (
 if defined GAME_OVERLAY_ENV_PROBE goto run
 set "GAME_OVERLAY_ENV_PROBE=%~dp0..\..\..\Desktop\SpaceX.Tests\SpaceX.Build\SpaceX.Outputs\manual-ide\SpaceX.OverlayEnvironmentProbe.exe"
 if exist "%GAME_OVERLAY_ENV_PROBE%" goto run
-echo Build tests\spacex.manual-ide\spacex.OverlayEnvironmentProbe.dproj in the RAD Studio IDE: Win64 Release.
-set /p "GAME_OVERLAY_ENV_PROBE=Full path to spacex.OverlayEnvironmentProbe.exe: "
+echo Build Desktop\SpaceX.Tests\SpaceX.Overlay\SpaceX.OverlayEnvironmentProbe.dproj in the RAD Studio IDE: Win64 Release.
+set /p "GAME_OVERLAY_ENV_PROBE=Full path to SpaceX.OverlayEnvironmentProbe.exe: "
 :run
 set "GAME_OVERLAY_ENV_PROBE=%GAME_OVERLAY_ENV_PROBE:"=%"
-node "%~dp0peace.overlay-environment.js" run "%GAME_OVERLAY_ENV_PROBE%"
+node "%~dp0spacex.overlay-environment.js" run "%GAME_OVERLAY_ENV_PROBE%"
 set "GAME_OVERLAY_ENV_EXIT=%ERRORLEVEL%"
 popd
 if not defined GAME_OVERLAY_ENV_NOPAUSE pause
@@ -38,5 +38,5 @@ popd
 if not defined GAME_OVERLAY_ENV_NOPAUSE pause
 exit /b 1
 :usage
-echo Usage: Run_Overlay_Environment.bat ["ABSOLUTE_cozy.OverlayEnvironmentProbe.exe"] [/nopause]
+echo Usage: Run_Overlay_Environment.bat ["ABSOLUTE_SpaceX.OverlayEnvironmentProbe.exe"] [/nopause]
 exit /b 1

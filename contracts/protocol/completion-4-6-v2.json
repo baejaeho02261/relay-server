@@ -135,7 +135,7 @@
       "pure Python SHA-512 and bitwise CRC, independent PE parser"
     ],
     "manualWindowsEntry": "Server/tools/runtime/Run_Manual_Windows_Tests.bat",
-    "ideProbeGroup": "Desktop/spacex.tests/cozy.manual-ide/spacex.ManualNativeTests.groupproj",
+    "ideProbeGroup": "Desktop/SpaceX.Tests/SpaceX.Build/SpaceX.ManualNativeTests.groupproj",
     "partialIsNotPass": true,
     "hardwareCollectionDefault": false
   },

@@ -57,6 +57,20 @@ function ReadBoundedInput(file, min, max, code) {
 function ReleaseCanonical(component, version, sha512) {
   return ['GAME-RELEASE-APPROVAL-V2', component, version, sha512].join('\n');
 }
+function ReadReleaseKey(keyFile) {
+  const keyBytes = ReadBoundedInput(keyFile, 1, 16384, 'KEY_FILE_INVALID');
+  let key;
+  try {
+    if (keyBytes.includes(Buffer.from('ENCRYPTED PRIVATE KEY'))) stop('ENCRYPTED_KEY_NOT_SUPPORTED');
+    try { key = crypto.createPrivateKey({ key: keyBytes, format: 'pem' }); }
+    catch (_) { stop('KEY_PEM_INVALID'); }
+  } finally { keyBytes.fill(0); }
+  if (key.asymmetricKeyType !== 'ed25519') stop('ED25519_KEY_REQUIRED');
+  return key;
+}
+function KeyId(publicKey) {
+  return crypto.createHash('sha256').update(publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
+}
 function SignRelease(component, version, file, keyFile) {
   if (!['A', 'B', 'O'].includes(component) || typeof version !== 'string' || version.length > 40 || !/^\d+(?:\.\d+){0,3}$/.test(version)) stop('RELEASE_ARGUMENT_INVALID');
   const bytes = ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID');
@@ -66,16 +80,9 @@ function SignRelease(component, version, file, keyFile) {
     if (typeof env.GC_APPROVAL_PREPARED_SHA512 !== 'string' || !/^[a-f0-9]{128}$/.test(env.GC_APPROVAL_PREPARED_SHA512)) stop(component === 'B' ? 'CLIENT_PREPARATION_REQUIRED' : 'OVERLAY_PREPARATION_REQUIRED');
     if (sha512 !== env.GC_APPROVAL_PREPARED_SHA512) stop(component === 'B' ? 'CLIENT_PREPARED_IMAGE_CHANGED' : 'OVERLAY_PREPARED_IMAGE_CHANGED');
   }
-  const keyBytes = ReadBoundedInput(keyFile, 1, 16384, 'KEY_FILE_INVALID');
-  let key;
-  try {
-    if (keyBytes.includes(Buffer.from('ENCRYPTED PRIVATE KEY'))) stop('ENCRYPTED_KEY_NOT_SUPPORTED');
-    try { key = crypto.createPrivateKey({ key: keyBytes, format: 'pem' }); }
-    catch (_) { stop('KEY_PEM_INVALID'); }
-  } finally { keyBytes.fill(0); }
-  if (key.asymmetricKeyType !== 'ed25519') stop('ED25519_KEY_REQUIRED');
+  const key = ReadReleaseKey(keyFile);
   const publicKey = crypto.createPublicKey(key);
-  const keyId = crypto.createHash('sha256').update(publicKey.export({ type: 'spki', format: 'der' })).digest('hex');
+  const keyId = KeyId(publicKey);
   const signature = crypto.sign(null, Buffer.from(ReleaseCanonical(component, version, sha512), 'utf8'), key).toString('base64');
   return { component, version, sha512, ...PeCapabilities(bytes),
     trustedKey: { keyId, publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString() },
@@ -244,6 +251,10 @@ function main() {
   if (action === 'probe') {
     return { version: process.version, major: Number(process.versions.node.split('.')[0]), lts: process.release.lts || '' };
   }
+  if (action === 'key-id') {
+    if (!env.GC_APPROVAL_KEY || !path.isAbsolute(env.GC_APPROVAL_KEY)) stop('KEY_PATH_INVALID');
+    return { keyId: KeyId(crypto.createPublicKey(ReadReleaseKey(env.GC_APPROVAL_KEY))) };
+  }
   if (action === 'new-key') {
     if (!env.GC_APPROVAL_KEY || !path.isAbsolute(env.GC_APPROVAL_KEY)) stop('KEY_PATH_INVALID');
     if (fs.existsSync(env.GC_APPROVAL_KEY)) stop('KEY_ALREADY_EXISTS');
@@ -253,7 +264,7 @@ function main() {
     try { saveNew(env.GC_APPROVAL_KEY, secretBytes, 0o600); }
     finally { secretBytes.fill(0); }
     // Node's key object/string lifetime is GC-managed, not guaranteed erasure.
-    return { created: true, keyId: crypto.createHash('sha256').update(pair.publicKey.export({ type: 'spki', format: 'der' })).digest('hex') };
+    return { created: true, keyId: KeyId(pair.publicKey) };
   }
   if (action === 'self-test') {
     const pair = crypto.generateKeyPairSync('ed25519');
@@ -276,7 +287,7 @@ function main() {
   const currentHash = crypto.createHash('sha512').update(ReadBoundedInput(file, 512, 64 * 1024 * 1024, 'RELEASE_FILE_INVALID')).digest('hex');
   if (approval.sha512 !== currentHash) stop('EXE_CHANGED_DURING_SIGNING');
   const pub = crypto.createPublicKey(approval.trustedKey.publicKey);
-  const keyId = crypto.createHash('sha256').update(pub.export({ type: 'spki', format: 'der' })).digest('hex');
+  const keyId = KeyId(pub);
   if (pub.asymmetricKeyType !== 'ed25519' || keyId !== approval.trustedKey.keyId || keyId !== approval.approval.keyId) stop('PUBLIC_KEY_MISMATCH');
   const canonical = ['GAME-RELEASE-APPROVAL-V2', component, version, currentHash].join('\n');
   if (!crypto.verify(null, Buffer.from(canonical, 'utf8'), pub, Buffer.from(approval.approval.signature, 'base64'))) stop('SIGNATURE_RECHECK_FAILED');
@@ -748,25 +759,50 @@ function Get-NodeRuntime {
     }
 }
 
+function Show-KeyId {
+    param([string]$Path, [string]$Node, [string]$Base)
+    try {
+        $result = Invoke-Worker $Node @{GC_APPROVAL_ACTION='key-id';GC_APPROVAL_KEY=$Path} $Base
+        Write-Host ('    keyId: ' + $result.keyId)
+    } catch { Write-Host '    keyId를 읽지 못했습니다. 기존 배포 키를 직접 선택할 수 있습니다.' }
+}
+
 function Choose-Key {
     param([string]$HomeDirectory, [string]$Node, [string]$Base)
     $keys = Join-Path $HomeDirectory 'keys'
     $defaultKey = Join-Path $keys 'release-ed25519.pem'
+    # Keep the previous installation's key in its original location.
+    $legacyKeys = Join-Path (Join-Path (Split-Path -Parent $HomeDirectory) 'cozy.ClientReleaseTools') 'keys'
+    $legacyKey = Join-Path $legacyKeys 'release-ed25519.pem'
+    $hasDefault = Test-Path -LiteralPath $defaultKey -PathType Leaf
+    $hasLegacy = Test-Path -LiteralPath $legacyKey -PathType Leaf
+    $showBoth = $hasDefault -and $hasLegacy
     Write-Host ''
     Write-Host '[1] 기존 배포 개인키(.pem) 선택 - 기존 배포 키가 있으면 이 항목'
-    if (Test-Path -LiteralPath $defaultKey -PathType Leaf) {
-        Write-Host '[2] 이 도구로 만든 기본 개인키 재사용'
+    if ($showBoth) {
+        Write-Host '서버 신뢰 서명자 목록에서 정상 사용(ACTIVE)인 keyId와 일치하는 항목을 선택하세요.'
+        Write-Host '[2] 현재 SpaceX 기본 개인키 사용'
+        Show-KeyId $defaultKey $Node $Base
+        Write-Host '[3] 이전 설치의 기본 배포 개인키 재사용'
+        Show-KeyId $legacyKey $Node $Base
+    } elseif ($hasDefault) {
+        Write-Host '[2] 현재 SpaceX 기본 개인키 재사용'
+    } elseif ($hasLegacy) {
+        Write-Host '[2] 이전 설치의 기본 배포 개인키 재사용'
     } else {
         Write-Host '[2] 처음 사용하는 새 Ed25519 개인키 생성'
     }
-    $choice = (Read-Host '개인키 선택 [1/2]').Trim()
+    $options = if ($showBoth) { '1/2/3' } else { '1/2' }
+    $choice = (Read-Host ('개인키 선택 [' + $options + ']')).Trim()
     if ($choice -eq '1') {
         $chosen = Choose-File '기존 배포용 Ed25519 PEM 개인키 선택' 'PEM 개인키 (*.pem)|*.pem|모든 파일 (*.*)|*.*' $Base
         if (-not $chosen) { throw '개인키 선택이 취소되었습니다.' }
         return $chosen
     }
-    if ($choice -ne '2') { throw '개인키 선택은 1 또는 2를 입력해 주세요.' }
-    if (Test-Path -LiteralPath $defaultKey -PathType Leaf) { return $defaultKey }
+    if ($showBoth -and $choice -eq '3') { return $legacyKey }
+    if ($choice -ne '2') { throw ('개인키 선택은 ' + $options + ' 중 하나를 입력해 주세요.') }
+    if ($hasDefault) { return $defaultKey }
+    if ($hasLegacy) { return $legacyKey }
     Write-Host ''
     Write-Host '새 키는 기존 서버 신뢰 키를 자동으로 대체하거나 등록하지 않습니다.'
     Write-Host '기존 서명 도구와 호환되는 비암호화 PKCS#8 PEM으로 저장합니다.'

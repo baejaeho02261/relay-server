@@ -2,7 +2,7 @@
 setlocal EnableExtensions DisableDelayedExpansion
 where node.exe >nul 2>nul
 if errorlevel 1 goto missing_node
-node "%~dp0peace.run-crc-pe-comparison.js" %*
+node "%~dp0spacex.run-crc-pe-comparison.js" %*
 set "CRC_PE_EXIT=%ERRORLEVEL%"
 exit /b %CRC_PE_EXIT%
 :missing_node

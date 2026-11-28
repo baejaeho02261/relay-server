@@ -27,7 +27,7 @@ set "GCIM_EXIT=0"
 goto finish
 :build_failed
 echo ERROR: ImGui preparation failed. Stop the Delphi build.
-echo Review Desktop\SpaceX.ImGui\SpaceX.Build\SpaceX.ImGui.Build.log.
+echo Review Desktop\SpaceX.ImGui\SpaceX.Objects\SpaceX.ImGui.Build.log.
 goto finish
 :bad_layout
 echo ERROR: the complete SpaceX source tree is required.

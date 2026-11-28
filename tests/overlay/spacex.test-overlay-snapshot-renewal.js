@@ -59,12 +59,12 @@ const maintenanceSource=part(worker,'procedure TOverlayWorker.MaintainLease(','p
 test('source: committed transfer is independent of physical B exit; cleanup still requires exit',()=>{order(renewal,'TransferConfirmed := FClient.TransferConfirmed','if TransferConfirmed and not FTransferred then','FTransferred := True','CleanupParent := ParentExited and FTransferred and not FParentRetirementDone','FContext.CleanupTransferredParent;','FParentRetirementDone := True;');assert.doesNotMatch(renewal,/if ParentExited and not FTransferred then/);} );
 test('source: due complete snapshots are dispatched without waiting for the normal renewal timer',()=>{
  assert.match(execution,/if not FParentRetirementDone and not FContext.ParentIsAlive then/);
- order(execution,'if not AwaitingTransfer then','else if (CozyTick >= NextCheck) or SnapshotDue then','Refresh;');
- assert.match(worker,/OverlaySnapshotDue\(CozyTick, FLastSnapshotAt, FTransferred,\s+FClient.SnapshotDeadlineTick, FLastSnapshotDuration\)/);
+ order(execution,'if not AwaitingTransfer then','else if (SpaceXTick >= NextCheck) or SnapshotDue then','Refresh;');
+ assert.match(worker,/OverlaySnapshotDue\(SpaceXTick, FLastSnapshotAt, FTransferred,\s+FClient.SnapshotDeadlineTick, FLastSnapshotDuration\)/);
  const refresh=part(worker,'procedure TOverlayWorker.Refresh;','procedure TOverlayWorker.MaintainLease(');
  order(refresh,'if RequestCancelled then','if FTransferred then MaintainLease(False);','Image := FImage.VerifyNow(Budget);','IncludeModules := SnapshotDue;');
  assert.doesNotMatch(refresh,/ProcessThemeSave|ThemeInventoryBudgetMs/);
- order(execution,'else if (CozyTick >= NextCheck) or SnapshotDue then','Refresh;',
+ order(execution,'else if (SpaceXTick >= NextCheck) or SnapshotDue then','Refresh;',
        'if not SnapshotDue then ProcessThemeSave(ThemeWriteBudgetMs);');
  assert.equal((execution.match(/ProcessThemeSave\(/g)||[]).length,1);
 });
@@ -82,17 +82,17 @@ test('source: renewal overhead is bounded and cannot hide cancellation, generati
  assert.match(inventory,/MaximumCheckpointAllowanceMilliseconds: UInt64 = 12000;/);
  order(scan,'Budget.DeadlineTick := Started + MaximumScanMilliseconds;','AllowanceLeft := CheckpointAllowanceMilliseconds;',
        'AllowanceLeft := MaximumCheckpointAllowanceMilliseconds;','Assigned(Cancelled)) and Cancelled()',
-       'Row := ModuleRow(','Rows.AddElement(Row);','BetweenModules();','CheckpointElapsed := CozyTick - CheckpointAt;',
+       'Row := ModuleRow(','Rows.AddElement(Row);','BetweenModules();','CheckpointElapsed := SpaceXTick - CheckpointAt;',
        'if CheckpointElapsed > AllowanceLeft then CheckpointElapsed := AllowanceLeft;',
        'Inc(Budget.DeadlineTick, CheckpointElapsed);','Dec(AllowanceLeft, CheckpointElapsed);',
-       'GenerationStable := GenerationStable and (StartGeneration = EndGeneration);','Finished := CozyTick;',
+       'GenerationStable := GenerationStable and (StartGeneration = EndGeneration);','Finished := SpaceXTick;',
        'if (Finished >= Budget.DeadlineTick) or','(Assigned(Cancelled) and Cancelled()) then Truncated := True;',
        'Complete := Complete and not Truncated and GenerationStable;',
        'TJSONNumber.Create(Int64(Started))','TJSONNumber.Create(Int64(Finished))');
 });
-test('source: each accepted full transaction updates duration and completion timestamp',()=>{order(worker,'FClient.ReportIntegrity(FContext.Security','if IncludeModules then','FLastSnapshotAt := CozyTick;','FLastSnapshotDuration := FLastSnapshotAt - RefreshStarted;');});
-test('source: fresh lease publication precedes diagnostics and B cleanup',()=>{order(renewal,'CozyTick >= FDeadline','FDeadline := Deadline;','FClient.PrepareLifecycle(Deadline);','FContext.CleanupTransferredParent;');const c=part(client,'function TOverlayClient.VerifyCore(','function TOverlayClient.ChunkCore(');assert.doesNotMatch(c,/FLifecycle\.Prepare/);} );
-test('source: independent bounded permit deadlines for O and B; A and B too',()=>{const c=part(client,'procedure TOverlayClient.PrepareLifecycle(','function TOverlayClient.GetLeaseDeadlineTick:');order(c,"FLifecycle.Prepare('B'",'At := CozyTick; Limit := At + 1500;',"FLifecycle.Prepare('O'");assert.equal((c.match(/if DeadlineTick < Limit then Limit := DeadlineTick/g)||[]).length,2);assert.match(licenseSource,/Prepare\('B'[^\n]+\n\s+DiagnosticDeadline := TLifecycleReporter.Tick \+ 1500;\n\s+Lifecycle.Prepare\('A'/);} );
+test('source: each accepted full transaction updates duration and completion timestamp',()=>{order(worker,'FClient.ReportIntegrity(FContext.Security','if IncludeModules then','FLastSnapshotAt := SpaceXTick;','FLastSnapshotDuration := FLastSnapshotAt - RefreshStarted;');});
+test('source: fresh lease publication precedes diagnostics and B cleanup',()=>{order(renewal,'SpaceXTick >= FDeadline','FDeadline := Deadline;','FClient.PrepareLifecycle(Deadline);','FContext.CleanupTransferredParent;');const c=part(client,'function TOverlayClient.VerifyCore(','function TOverlayClient.ChunkCore(');assert.doesNotMatch(c,/FLifecycle\.Prepare/);} );
+test('source: independent bounded permit deadlines for O and B; A and B too',()=>{const c=part(client,'procedure TOverlayClient.PrepareLifecycle(','function TOverlayClient.GetLeaseDeadlineTick:');order(c,"FLifecycle.Prepare('B'",'At := SpaceXTick; Limit := At + 1500;',"FLifecycle.Prepare('O'");assert.equal((c.match(/if DeadlineTick < Limit then Limit := DeadlineTick/g)||[]).length,2);assert.match(licenseSource,/Prepare\('B'[^\n]+\n\s+DiagnosticDeadline := TLifecycleReporter.Tick \+ 1500;\n\s+Lifecycle.Prepare\('A'/);} );
 test('source: snapshot scheduling does not grant runtime permission',()=>{const f=part(state,'function OverlaySnapshotDue(NowTick, LastAcceptedTick: UInt64;\n  Transferred: Boolean; SnapshotDeadline,','function OverlayLeaseNeedsMaintenance(NowTick, Deadline, LastDuration: UInt64;\n  Force: Boolean; SnapshotDeadline: UInt64)');assert.match(f,/NowTick - LastAcceptedTick >= 15000/);assert.match(f,/LastSnapshotDuration/);assert.doesNotMatch(f,/FDeadline\s*:=|SessionToken|osAuthorized/);} );
 test('source: skip useless batch proof only when known snapshot ceiling is already attained',()=>{assert.match(state,/if not Force and \(SnapshotDeadline <> 0\)/);assert.match(state,/SnapshotDeadline - Deadline <= 1000/);assert.match(maintenanceSource,/FClient.LeaseSnapshotLimited/);order(state,'if Deadline <= NowTick then',"raise EInvalidOpException.Create('OVERLAY_LEASE_EXPIRED')",'if not Force and (SnapshotDeadline <> 0)');});
 test('source: monotonic snapshot mapping retains same snapshot earliest bound',()=>{assert.match(client,/SnapshotDeadline := VerifyRequestTick \+ UInt64\(Remaining\)/);assert.match(client,/SnapshotExpiresAt = FLastSnapshotExpiresAt/);assert.match(client,/OldSnapshotDeadline < SnapshotDeadline/);assert.match(client,/Remaining > 120000/);});

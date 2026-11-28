@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {ReadContractFile,UnitConstants,UsedUnits,CppConstants}=require('../fixtures/source/spacex.native-string-contract');
-const NAME='CozyText_Example_ProtocolDomain_1234abcd',UNIT='SpaceX.Strings.Example';
+const NAME='SpaceXText_Example_ProtocolDomain_1234abcd',UNIT='SpaceX.Strings.Example';
 function Fixture(t){
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'peace-string-contract-')),root=path.join(temp,'Desktop');
  const folder=path.join(root,'SpaceX.Source/SpaceX.Configuration');fs.mkdirSync(folder,{recursive:true});
@@ -26,7 +26,7 @@ test('missing uses linkage, unknown identifiers and changed unit data fail inste
  const s=Fixture(t),raw=fs.readFileSync(s.source,'utf8');
  fs.writeFileSync(s.source,raw.replace('uses '+UNIT+';','uses System.SysUtils;'));
  assert.throws(()=>ReadContractFile(s.source,'utf8'),/USES_MISSING/);
- fs.writeFileSync(s.source,raw.replace(' = '+NAME+';',' = CozyText_Unknown_ProtocolDomain_abcd1234;'));
+ fs.writeFileSync(s.source,raw.replace(' = '+NAME+';',' = SpaceXText_Unknown_ProtocolDomain_abcd1234;'));
  assert.throws(()=>ReadContractFile(s.source,'utf8'),/REFERENCE/);
  fs.writeFileSync(s.source,raw);fs.writeFileSync(s.unitFile,fs.readFileSync(s.unitFile,'utf8').replace('COZY-TEST','FORGED'));
  assert.throws(()=>ReadContractFile(s.source,'utf8'),/CONSTANT_CHANGED/);
@@ -54,7 +54,7 @@ test('paths cannot escape source tree and map cannot silently omit constants',t=
  const s=Fixture(t);s.map.units[0].path='../Other.pas';fs.writeFileSync(s.mapFile,JSON.stringify(s.map));
  assert.throws(()=>ReadContractFile(s.source,'utf8'),/PATH/);
  s.map.units[0].path='SpaceX.Source/SpaceX.Configuration/'+UNIT+'.pas';s.save();
- fs.writeFileSync(s.unitFile,fs.readFileSync(s.unitFile,'utf8').replace('implementation',"CozyText_Extra_Value_aabbccdd = 'extra';\nimplementation"));
+ fs.writeFileSync(s.unitFile,fs.readFileSync(s.unitFile,'utf8').replace('implementation',"SpaceXText_Extra_Value_aabbccdd = 'extra';\nimplementation"));
  assert.throws(()=>ReadContractFile(s.source,'utf8'),/UNINDEXED_CONSTANT/);
 });
 test('uses parser handles path-qualified project imports; binary and nonnative files remain exact',t=>{
@@ -80,7 +80,7 @@ test('include files require a real including owner with the required constant un
 });
 test('C++ macros preserve literal prefixes/raw spelling and do not expand names inside literals/comments',t=>{
  const s=Fixture(t),dir=path.join(s.root,'SpaceX.ImGui/SpaceX.Strings');fs.mkdirSync(dir,{recursive:true});
- const name='COZY_TEXT_EXAMPLE_PROTOCOL_1234ABCD',unitPath='SpaceX.ImGui/SpaceX.Strings/SpaceX.Strings.Tests.h';
+ const name='SPACEX_TEXT_EXAMPLE_PROTOCOL_1234ABCD',unitPath='SpaceX.ImGui/SpaceX.Strings/SpaceX.Strings.Tests.h';
  const sourcePath='SpaceX.ImGui/example.cpp',source=path.join(s.root,sourcePath),header=path.join(s.root,unitPath);
  const expression='u8R"tag(한글 "quote"\nline)tag"';
  fs.writeFileSync(header,'#ifndef TEST_HEADER\n#define TEST_HEADER\n#define '+name+' '+expression+'\n#endif\n');

@@ -44,14 +44,14 @@ test('API module ownership precedes parsing and target pinning precedes applicat
   // ordering does not depend on this optional diagnostic output parameter.
   const diagnostic=role==='gcrLauncher'?'(?:\\s*,\\s*@ExitCode)?':'';
   const gates=[...dpr.matchAll(new RegExp('RequireNativeStartup\\(\\s*'+role+diagnostic+'\\s*\\);','g'))];
-  const seal=dpr.indexOf('SealApiPointerStorage;'),gate=gates[0]?.index??-1,work=dpr.indexOf('ExitCode := '+run+'(TCozyNHWMonitor.Create('+traceScope+'));');
+  const seal=dpr.indexOf('SealApiPointerStorage;'),gate=gates[0]?.index??-1,work=dpr.indexOf('ExitCode := '+run+'(TSpaceXMonitorMonitor.Create('+traceScope+'));');
   assert.equal(gates.length,1,file+' must use exactly one matching native startup gate');
   assert.ok(seal>=0&&gate>seal&&work>gate,file+' must seal and validate/pin before application work');
  }
 });
 test('Two attempts share one monotonic budget and fresh observations',()=>{assert.ok(native.includes('ObservationBudgetMs = 25000'));assert.match(native,/Clock := TStopwatch\.StartNew;[\s\S]*?for Attempt := 1 to 2/);assert.ok(native.includes('WaitBeforeRetry(Clock, Cancelled, OperationKey)'));assert.ok(native.includes("BindContext(Body, 'challenge')"));assert.ok(native.includes("BindContext(SubmitBody, 'submit')"));assert.ok(native.includes("(Attempt = 2) or not E.Retryable"));});
 test('Concurrent same-operation guard is bounded and removed in finally',()=>{assert.ok(native.includes('ActiveObservations.Count >= 128'));assert.ok(native.includes('ActiveObservations.ContainsKey(OperationKey)'));assert.match(native,/finally\s+EndObservation\(OperationKey\);\s+WipeText\(OperationKey\);/);assert.ok(native.includes("SessionID + '|' + Intent + '|' + Binding"));});
-test('Cancellation is wired to the existing atomic B stop flag',()=>{assert.ok(native.includes('if Assigned(Cancelled) and Cancelled() then'));assert.ok(native.includes('if not CozyWaitForDelay(Piece,'));assert.ok(native.includes('Result := Assigned(Cancelled) and Cancelled();'));assert.ok(c("SpaceX.Source/SpaceX.Platform/SpaceX.Api.pas").includes('Result := InterlockedCompareExchange(FStopRequested, 0, 0) <> 0;'));});
+test('Cancellation is wired to the existing atomic B stop flag',()=>{assert.ok(native.includes('if Assigned(Cancelled) and Cancelled() then'));assert.ok(native.includes('if not SpaceXWaitForDelay(Piece,'));assert.ok(native.includes('Result := Assigned(Cancelled) and Cancelled();'));assert.ok(c("SpaceX.Source/SpaceX.Platform/SpaceX.Api.pas").includes('Result := InterlockedCompareExchange(FStopRequested, 0, 0) <> 0;'));});
 test('All callers share a preparation-inclusive transport budget and cancellation',()=>{
  assert.ok(transport.includes('RequestBudgetMs: Cardinal = 0'));
  assert.ok(transport.includes('RequestClock := TStopwatch.StartNew'));

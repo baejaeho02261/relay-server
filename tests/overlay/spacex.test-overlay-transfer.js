@@ -97,6 +97,93 @@ const revoked=setup();verify(revoked);
 check('An old O authorization is rejected until O measures and verifies again',()=>{clock+=30001;reject(()=>bootstrap.Execute(revoked.commit),'BOOTSTRAP_OVERLAY_NOT_READY');verify(revoked);bootstrap.Execute(revoked.commit);});
 check('License revocation remains authoritative after B is fully retired',()=>{licenses.Revoke(revoked.activation.licenseId,{requestId:require('node:crypto').randomUUID(),reason:'TEST_TRANSFER_LICENSE_REVOKE'},'TEST');reject(()=>overlay.AuthenticateIntegrityReport(revoked.context),'DESKTOP_ACTIVATION_INVALID');});
 check('Durable validators reject one-sided or resurrected transfer records',()=>{const db=structuredClone(bootstrap.Initialize()),row=db.flows[parent(s).id];overlay.ValidateStore(db);overlay.ValidateTransferRows(db);overlay.ValidateParentTransfer(db,row);row.sessionHash='a'.repeat(64);assert.throws(()=>overlay.ValidateParentTransfer(db,row),/OVERLAY_STORE_INVALID/);delete row.sessionHash;delete db.overlays[s.prepared.overlayId].transferVersion;assert.throws(()=>overlay.ValidateParentTransfer(db,row),/OVERLAY_STORE_INVALID/);});
+
+function usageRequest(s,operation,sequence){
+ const body={action:'overlayUsage',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,operation,requestId:crypto.randomUUID(),sequence};
+ body.signature=fixture.Sign(s.overlayDevice,['SPACEX-OVERLAY-USAGE-V1',body.sessionId,operation,body.requestId,String(sequence)].join('\n'));
+ return body;
+}
+function protectedCall(body){
+ const envelope={operation:'bootstrap',body};
+ const dispatch=require('../../services/authentication/spacex.desktop-protected-dispatch');
+ require('../../services/protocol/spacex.packet-schema').ValidateEnvelope(envelope);
+ return dispatch.Execute(dispatch.Prepare(envelope),envelope,{bootstrap:bootstrap.Execute});
+}
+function usagePreference(s,appearance,sequence){
+ const body={action:'overlayTheme',sessionId:s.o.sessionId,sessionToken:s.o.sessionToken,
+  requestId:crypto.randomUUID(),sequence,theme:0x1000000,font:1,appearance};
+ body.signature=fixture.Sign(s.overlayDevice,['COZY-OVERLAY-THEME-V3',body.sessionId,body.requestId,String(sequence),
+  String(body.theme),String(body.font),String(body.appearance)].join('\n'));
+ return body;
+}
+const metered=setup();verify(metered);
+check('Usage requires the exact O device, a committed transfer, and current signed evidence',()=>{
+ const read=usageRequest(metered,'read',0);
+ reject(()=>bootstrap.Execute(read),'BOOTSTRAP_OVERLAY_NOT_READY');
+ bootstrap.Execute(metered.commit);
+ reject(()=>bootstrap.Execute({...read,sessionToken:'wrong'}),'BOOTSTRAP_SESSION_INVALID');
+ reject(()=>bootstrap.Execute({...read,signature:fixture.Sign(metered.d,'different purpose')}),'BOOTSTRAP_PROOF_INVALID');
+ reject(()=>bootstrap.Execute(usageRequest(metered,'read',1)),'BOOTSTRAP_INPUT_INVALID');
+ reject(()=>bootstrap.Execute(usageRequest(metered,'consume',2)),'BOOTSTRAP_REQUEST_REUSED');
+ const revision=bootstrap.Initialize().revision,expiry=child(metered).sessionExpiresAt;
+ assert.equal(bootstrap.ProofTasks(read).length,1);
+ const balance=protectedCall(read);
+ assert.equal(balance.licenseReference,metered.activation.licenseId.replace(/^DL-/,''));
+ assert.equal(balance.remaining,100);assert.equal(balance.sequence,0);
+ assert.equal(bootstrap.Initialize().revision,revision);assert.equal(child(metered).sessionExpiresAt,expiry);
+});
+check('Usage debit can be retried exactly without spending or renewing the lease twice',()=>{
+ const debit=usageRequest(metered,'consume',1),expiry=child(metered).sessionExpiresAt;
+ const result=bootstrap.Execute(debit);assert.equal(result.remaining,99);assert.equal(result.sequence,1);
+ const revision=bootstrap.Initialize().revision;
+ assert.deepEqual(bootstrap.Execute(debit),result);
+ assert.equal(bootstrap.Initialize().revision,revision);assert.equal(child(metered).sessionExpiresAt,expiry);
+ reject(()=>bootstrap.Execute(usageRequest(metered,'consume',1)),'BOOTSTRAP_REQUEST_REUSED');
+ const read=bootstrap.Execute(usageRequest(metered,'read',0));assert.equal(read.remaining,99);assert.equal(read.sequence,1);
+});
+check('New appearance saves charge a changed setting once and do not charge a no-op',()=>{
+ const first=usagePreference(metered,1,1),result=protectedCall(first);
+ assert.deepEqual(protectedCall(first),result);
+ protectedCall(usagePreference(metered,1,2));
+ const read=protectedCall(usageRequest(metered,'read',0));assert.equal(read.remaining,98);assert.equal(read.sequence,1);
+});
+const unrelated=setup();verify(unrelated);bootstrap.Execute(unrelated.commit);
+check('Final usage debit retires just the bound execution and license and cannot grant replay authority',()=>{
+ let final;
+ for(let sequence=2;sequence<=99;sequence++){
+  const request=usageRequest(metered,'consume',sequence),balance=protectedCall(request);
+  assert.equal(balance.remaining,99-sequence);
+  assert.equal(balance.status,sequence===99?'EXHAUSTED':'ACTIVE');
+  if(sequence===99)final={request,balance};
+ }
+ assert.deepEqual(protectedCall(final.request),final.balance);
+ reject(()=>protectedCall(usageRequest(metered,'consume',100)),'BOOTSTRAP_REVOKED');
+ const terminal=protectedCall(usageRequest(metered,'read',0));assert.equal(terminal.status,'EXHAUSTED');assert.equal(terminal.remaining,0);
+ assert.equal(child(metered).sessionNonce,undefined);assert.equal(parent(metered).transferRecoveryUntil,undefined);
+ assert.equal(child(metered).reason,'USAGE_EXHAUSTED');
+ const license=licenses.Detail(metered.activation.licenseId).license;
+ assert.equal(license.status,'REVOKED');assert.equal(license.reason,'USAGE_EXHAUSTED');assert.equal(license.revokedAt,clock);
+ assert.equal(licenses.Detail(unrelated.activation.licenseId).license.status,'USED');
+ assert.equal(bootstrap.Execute(usageRequest(unrelated,'read',0)).remaining,100);
+ const cleanup={action:'overlayClose',sessionId:metered.o.sessionId,sessionToken:metered.o.sessionToken};
+ assert.equal(bootstrap.Execute(cleanup).status,'REVOKED');
+ const script="const x=JSON.parse(require('node:fs').readFileSync(0,'utf8'));Date.now=()=>x.clock;const b=require(process.argv[1]);b.Initialize();const result=b.Execute(x.request);if(result.status!=='EXHAUSTED'||result.remaining!==0)throw Error('USAGE_REPLAY_MISMATCH');";
+ const restart=cp.spawnSync(process.execPath,['-e',script,require.resolve('../../services/bootstrap/spacex.desktop-bootstrap')],{env:process.env,input:JSON.stringify({clock,request:final.request}),encoding:'utf8',timeout:10000});
+ assert.equal(restart.status,0,restart.stderr);
+ clock+=30001;
+ reject(()=>bootstrap.Execute(final.request),'BOOTSTRAP_EXPIRED');
+ reject(()=>protectedCall(usageRequest(metered,'read',0)),'BOOTSTRAP_EXPIRED');
+});
+check('Final appearance debit exposes a signed zero balance for the exact retired O',()=>{
+ verify(unrelated);
+ const store=require('../../services/bootstrap/spacex.desktop-bootstrap-store');
+ store.Atomic(next=>{next.licenseUsage[unrelated.activation.licenseId]={limit:100,remaining:1,exhaustedAt:0};});
+ const completed=protectedCall(usagePreference(unrelated,2,1));assert.equal(completed.appearance,2);
+ const result=protectedCall(usageRequest(unrelated,'read',0));assert.equal(result.status,'EXHAUSTED');assert.equal(result.remaining,0);
+ assert.equal(child(unrelated).reason,'USAGE_EXHAUSTED');assert.equal(child(unrelated).appearanceV3Receipt,undefined);
+ reject(()=>protectedCall(usagePreference(unrelated,1,2)),'BOOTSTRAP_REVOKED');
+});
+
 const generation=setup();verify(generation);bootstrap.Execute(generation.commit);
 check('Issuer retirement keeps transferred O, issuer revocation closes O after B has retired',()=>{
  const ring=require('../../services/bootstrap/spacex.issued-a-keyring'),signing=require('../../services/bootstrap/spacex.issued-a-signing');

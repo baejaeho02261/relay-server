@@ -42,7 +42,7 @@ update_ready=commands.split('function TLicenseCommandMailbox.UpdateReady(',1)[1]
 request_launch=commands.split('function TLicenseCommandMailbox.RequestLaunch(',1)[1].split('function TLicenseCommandMailbox.RequestCommit(',1)[0]
 request_commit=commands.split('function TLicenseCommandMailbox.RequestCommit(',1)[1].split('function TLicenseCommandMailbox.TakeCommit(',1)[0]
 take_commit=commands.split('function TLicenseCommandMailbox.TakeCommit(',1)[1].split('function TLicenseCommandMailbox.RemainingCommitWait(',1)[0]
-main=license_session.split('function RunLicenseClient(const Monitor: ICozyProtectionSession;')[-1].split('\ninitialization')[0]
+main=license_session.split('function RunLicenseClient(const Monitor: ISpaceXProtectionSession;')[-1].split('\ninitialization')[0]
 check('A deletion stays in authenticated handoff', re.search(r'SetFileInfo\(LauncherFile,\s*FileDispositionInfoClass', claim) is not None)
 check('B is not unlinked at claim time', 'UnlinkVerifiedOwnImage(' not in claim)
 check('The verified B handle is transferred rather than reopened after license', 'FBinaryCleanupFile := BinaryFile;\n    BinaryFile := 0;' in claim and 'OpenSafeImage(' not in cleanup)
@@ -76,7 +76,7 @@ check('License renewal cannot revive an expired or stopped gallery permission',
       renew_activated.index('Previous := FApi.Current;') < renew_activated.index('if not Previous.IsActive then')
       < renew_activated.index('Renewed := FApi.Verify;')
       < renew_activated.index('if Terminated or FCommands.Stopping then Exit;', renew_activated.index('Renewed := FApi.Verify;'))
-      < renew_activated.index('(CozyTick >= Previous.LeaseDeadlineTick) or not Renewed.IsActive')
+      < renew_activated.index('(SpaceXTick >= Previous.LeaseDeadlineTick) or not Renewed.IsActive')
       < renew_activated.index('ScheduleLicenseRenewal(Renewed);')
       and 'FCommands.Complete(WorkerFailed); Exit;' in renew_activated)
 check('Hidden O preparation starts with a new license verification and observes renewal time',
@@ -89,7 +89,7 @@ check('A stopped or duplicate preparation cannot reopen work or retain a key',
       and 'not (FState in [WorkerPreparing, WorkerReady]) then Exit;' in update_ready
       and 'FStopping := True; FPreparationPending := False; FReleasePending := False;' in commands
       and '((FState <> WorkerBusy) or (FPending <> nil)) then Exit;' in commands)
-check('A ready child, deliberate click and one-shot commit are distinct synchronized transitions',
+check('A ready child, automatic launch and one-shot commit are distinct synchronized transitions',
       update_ready.index('FLock.Acquire;') < update_ready.index('FReleaseDeadline := Deadline;', update_ready.index('FProgress := 99;'))
       < update_ready.index('FState := WorkerReady;') < update_ready.index('finally FLock.Release;')
       and 'if FStopping or (FState <> WorkerReady) or' in request_launch
@@ -102,10 +102,10 @@ check('A ready child, deliberate click and one-shot commit are distinct synchron
       and '(At >= FReleaseDeadline) then Exit;' in take_commit
       and take_commit.index('FReleasePending := False;') < take_commit.index('FReleaseTaken := True;')
       < take_commit.index('Deadline := FReleaseDeadline;') < take_commit.index('Result := True;')
-      and wait_for_commit.index('FCommands.UpdateReady(At, LatestDeadline)') < wait_for_commit.index('if FCommands.TakeCommit(CozyTick, Result) then')
-      and wait_for_commit.index('(At >= HoldDeadline)') < wait_for_commit.index('if FCommands.TakeCommit(CozyTick, Result) then')
+      and wait_for_commit.index('FCommands.UpdateReady(At, LatestDeadline)') < wait_for_commit.index('if FCommands.TakeCommit(SpaceXTick, Result) then')
+      and wait_for_commit.index('(At >= HoldDeadline)') < wait_for_commit.index('if FCommands.TakeCommit(SpaceXTick, Result) then')
       and wait_for_commit.index('(WaitForSingleObject(Handles[1], 0) <> WAIT_TIMEOUT)')
-      < wait_for_commit.index('if FCommands.TakeCommit(CozyTick, Result) then'))
+      < wait_for_commit.index('if FCommands.TakeCommit(SpaceXTick, Result) then'))
 check('An aging proof disarms 100 percent without closing the same prepared child',
       update_ready.index('FProgress := 99;') < update_ready.index('Inc(Reserve, LicenseReadyMinimumMilliseconds);')
       < update_ready.index('if (Deadline > At) and (Deadline - At > Reserve) then')
@@ -114,10 +114,10 @@ check('An aging proof disarms 100 percent without closing the same prepared chil
       < pause_ready.index('FReleaseDeadline := 0;') < pause_ready.index('finally FLock.Release;')
       and 'LatestDeadline := ReadReleaseDeadline(PauseReady);\n      RequirePending;' in wait_for_commit
       and 'if (At >= HoldDeadline) or not FCommands.UpdateReady(At, LatestDeadline) then Abort;' in wait_for_commit
-      and 'if FCommands.TakeCommit(CozyTick, Result) then\n      begin RequirePending; Exit; end;' in wait_for_commit
+      and 'if FCommands.TakeCommit(SpaceXTick, Result) then\n      begin RequirePending; Exit; end;' in wait_for_commit
       and 'if FCommands.State = WorkerLaunching then' in wait_for_commit
       and 'WaitMilliseconds := LicenseReadyPollMilliseconds;' in wait_for_commit)
-check('Later verification can tighten a clicked launch but cannot extend it',
+check('Later verification can tighten an accepted launch but cannot extend it',
       update_ready.index('if FState = WorkerLaunching then')
       < update_ready.index('if Deadline < FReleaseDeadline then FReleaseDeadline := Deadline;')
       < update_ready.index('Exit(At < FReleaseDeadline);'))
@@ -152,15 +152,18 @@ loader=license_scene.split('static void license_loader(',1)[1].split('static boo
 loader_earth=license_scene.split('static void license_loader_earth(',1)[1].split('static void license_loader_arc(',1)[0]
 loader_arc=license_scene.split('static void license_loader_arc(',1)[1].split('static void license_completion_mark(',1)[0]
 loader_stage=license_scene.split('static int license_loading_stage(',1)[1].split('static void license_loader(',1)[0]
-check('The loader preserves a dim Earth and draws an animated feathered copper arc',
+check('The loader softens the Earth and draws an animated arc in the current theme',
       loader.index('license_loader_earth(v,earth,earth_radius);')
       < loader.index('license_loader_arc(v,layout,c->scene_run_progress);')
-      and 'const float dim=ImLerp(.54f,.19f,blend)*v.alpha;' in loader_earth
-      and 'CozyEarthProjection view(cozy_earth_camera(v.c->license_earth_seconds));' in loader_earth
-      and 'cozy_earth_countries(' in loader_earth
+      and 'const float dim=ImLerp(.35f,.115f,blend)*v.alpha;' in loader_earth
+      and 'ImLerp(2.1f,3.5f,blend)' in loader_earth
+      and 'SpaceXEarthProjection view(spacex_earth_camera(v.c->license_earth_seconds));' in loader_earth
+      and 'spacex_earth_countries(' in loader_earth
       and 'license_elapsed*3.65' in loader_arc
       and 'const float sweep=ImLerp(.38f,.73f,fill)' in loader_arc
-      and 'cozy_scene_mix(IM_COL32(194,72,32,255),IM_COL32(255,162,91,255),t)' in loader_arc
+      and 'spacex_scene_mix(v.palette.panel,v.palette.accent,.68f)' in loader_arc
+      and 'spacex_scene_mix(v.palette.accent,v.palette.stars,.30f)' in loader_arc
+      and 'spacex_scene_mix(tail,lead,t)' in loader_arc
       and loader_arc.count('color&~IM_COL32_A_MASK') == 2
       and not any(token in license_scene+license_art for token in
           ['cozy_rocket_', 'license_white_hole', 'license_tower(', 'Starting shortly', 'Open O']))
@@ -173,14 +176,15 @@ check('Stage text is driven by worker milestones and pending progress excludes c
       and 'ImMin(ImClamp(progress,0.f,.99f),c->scene_run_progress+dt*1.85f);' in loader
       and 'license_loading_stage(progress)' in loader
       and 'license_loader_text(v,layout,labels[stage]' in loader)
-check('The completion mark animates before it becomes interactive and only a later frame can click',
-      'const bool prior_ready=c->license_ready_blend>=1.f&&prior_phase==LicenseRocketPhase;' in loader
-      and loader.index('c->license_ready_blend=ImMin(1.f,') < loader.index('license_completion_mark(v,layout,reveal);')
+check('Ready is passive and emits readiness only after the completion mark is fully animated',
+      loader.index('c->license_ready_blend=ImMin(1.f,') < loader.index('license_completion_mark(v,layout,reveal);')
       < loader.index('if(phase==LicenseRocketPhase&&reveal>=1.f)')
-      < loader.index('if(prior_ready&&license_completion_control(v,layout))')
+      < loader.index('v.actions|=LicenseRocketReadyAction;')
       and 'if(transfer&&reveal>=1.f)v.actions|=LicenseDepartureMessageAction;' in loader
       and '(phase==LicenseTransferredPhase||phase==3)&&reveal>=1.f' in loader
-      and all(token in loader for token in ['"Opening workspace"', '"Complete"']))
+      and all(token in loader for token in ['"Ready"', '"Complete"'])
+      and not any(token in license_scene for token in ['"Opening workspace"', 'LicenseRocketHit',
+          'LicenseRocketLaunchAction', 'license_completion_control', 'prior_ready']))
 check('Only definitive key rejection silently reopens the same B without a timer',
       all("E.Code = '"+code+"'" in redeem for code in ['LICENSE_KEY_INVALID','DESKTOP_KEY_INVALID','DESKTOP_KEY_USED','DESKTOP_EXPIRED','DESKTOP_REVOKED','DESKTOP_RELEASED'])
       and 'if not Terminated and not FCommands.Stopping then\n            FCommands.Complete(WorkerIdle);' in redeem
@@ -189,9 +193,7 @@ check('Confirmed transfer terminates B worker without another proof or active un
 check('B window exits on transfer and joins worker before destroying resources', 'State = WorkerTransferred' in window and main.index('Worker.Free;') < main.index('Api.Free;') < main.index('Context.Free;'))
 paint=window.split('procedure TLicenseWindow.Paint;',1)[1].split('function TLicenseWindow.Message(',1)[0]
 window_run=window.split('function TLicenseWindow.Run(const BeforeShow: TProc): Integer;',1)[1].split('function RunLicenseWindow(',1)[0]
-selected=window.split('procedure TLicenseWindow.LaunchSelected;',1)[1].split('procedure TLicenseWindow.ObserveRedemption(',1)[0]
-rocket_input=window.split('function TLicenseWindow.RocketInputEnabled:',1)[1].split('function TLicenseWindow.ControlInputEnabled(',1)[0]
-submit=window.split('procedure TLicenseWindow.Submit;',1)[1].split('procedure TLicenseWindow.LaunchSelected;',1)[0]
+submit=window.split('procedure TLicenseWindow.Submit;',1)[1].split('procedure TLicenseWindow.ObserveRedemption(',1)[0]
 window_cancel=window.split('procedure TLicenseWindow.CancelInput;',1)[1].split('procedure TLicenseWindow.Close;',1)[0]
 paste=window.split('procedure TLicenseWindow.PasteKey;',1)[1].split('procedure TLicenseWindow.Submit;',1)[0]
 check('The Earth borrows a protected key only for focused clipboard, scan or absorption frames',
@@ -216,7 +218,7 @@ check('Only the visible Earth action imports the clipboard and its revealed key 
       and not any(token in window for token in ['ApiSetClipboardData', 'ApiEmptyClipboard', 'WM_CLIPBOARDUPDATE', 'WM_PASTE', 'LicenseSceneConfirm']))
 check('A validated clipboard snapshot replaces the prior key only after a fresh focus check',
       paste.index('if not SceneInputEnabled then Exit;') < paste.index('ApiOpenClipboard(FWindow)')
-      < paste.index('if not ClipboardKeySpan(') < paste.index('Value := TCozySensitiveText.Create(')
+      < paste.index('if not ClipboardKeySpan(') < paste.index('Value := TSpaceXSensitiveText.Create(')
       < paste.index('ApiCloseClipboard;') < paste.rindex('if not SceneInputEnabled then Exit;')
       < paste.index('Previous := FKey;') < paste.index('FKey := Value;')
       < paste.index('FResetKeySequence := True;') < paste.index('FAutoSubmitPending := True;')
@@ -238,11 +240,11 @@ check('A verified transfer waits for a visibly presented message before closing 
       < transfer_close.index('else FDepartureMessageSeconds := 0;')
       and 'if FPresentationComplete and (FState() = WorkerTransferred) then Result := 0;' in window_run
       and not re.search(r'License(?:PhaseToast|SceneToastComplete)',window))
-unpresented=paint.split('if not FVisibleFrame then',1)[1].split('if (Phase = LicensePhaseTransfer) and not FCommitRequested',1)[0]
+unpresented=paint.split('if not FVisibleFrame then',1)[1].split('if (Phase = LicensePhaseReady)',1)[0]
 check('A temporarily unavailable surface preserves the result and its timeout exits unsuccessfully',
-      window_run.index('if State = WorkerTransferred then') < window_run.index('FTransferVisualDeadline := CozyTick + LicensePresentationTimeoutMs;')
-      < window_run.index('if CozyTick >= FTransferVisualDeadline then')
-      < window_run.index('begin Close; Break; end;',window_run.index('if CozyTick >= FTransferVisualDeadline then'))
+      window_run.index('if State = WorkerTransferred then') < window_run.index('FTransferVisualDeadline := SpaceXTick + LicensePresentationTimeoutMs;')
+      < window_run.index('if SpaceXTick >= FTransferVisualDeadline then')
+      < window_run.index('begin Close; Break; end;',window_run.index('if SpaceXTick >= FTransferVisualDeadline then'))
       and window_run.count('Result := 0') == 1
       and paint.index('if not ApiIsWindowVisible(FWindow) then') < paint.index('ImGuiNewFrame(FContext,')
       < paint.index('Presented := ImGuiPresent(FContext);') < paint.index('FShown := ApiIsWindowVisible(FWindow);')
@@ -252,31 +254,26 @@ check('A temporarily unavailable surface preserves the result and its timeout ex
       and all(token not in unpresented for token in ['Close;', 'FOutcomePhase :=', 'FOutcomeProgress :=', 'AdvancePresentedSequence', 'FCommit()'])
       and 'if FMinimized or FClosing or not FShown or not FVisibleFrame then' in window_run
       and paint.index('if FResizePending then Resize;') < paint.index('Presented := ImGuiPresent(FContext);'))
-check('Only a later present after the full ready frame can deliver a launch action',
-      paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if not FVisibleFrame then')
-      < paint.index('if Phase = LicensePhaseRocket then')
-      < paint.index('if FRocketReady and ((Actions and LicenseSceneRocketLaunch) <> 0) then')
-      < paint.index('begin LaunchSelected; Exit; end;')
-      < paint.index('FRocketReady := (Actions and LicenseSceneRocketReady) <> 0;')
-      and 'LaunchSelected' not in window_run and 'AdvanceAutomaticLaunch' not in window
-      and window.count('LaunchSelected;') == 3)
-check('A visible completion mark may queue one handoff while the authorized worker is still live',
-      all(token in rocket_input for token in ['WindowInputEnabled and FRocketReady and not FLaunchRequested',
-          'not FRedemptionPending and (FOutcomePhase = 0)', '(FState() = WorkerReady)'])
-      and selected.index('if not RocketInputEnabled then Exit;') < selected.index('FRocketReady := False;')
-      < selected.index('Accepted := FLaunch();') < selected.index('State := FState();')
-      < selected.index('if Accepted or (State = WorkerLaunching) or (State = WorkerTransferred) then')
-      < selected.index('FLaunchRequested := True;')
-      and 'else if not (State in [WorkerPreparing, WorkerReady]) then Close;' in selected
-      and 'if not Assigned(FLaunch) then' in selected)
-refused=selected.split('else if State = WorkerIdle then',1)[1].split('else if not',1)[0]
-check('A request with a retracted idle grant returns silently to the Earth',
-      selected.index('Accepted := FLaunch();') < selected.index('State := FState();')
-      < selected.index('else if State = WorkerIdle then') and 'FShowRetryFrame := True' in refused
-      and all(token not in refused for token in ['Close;', 'FKey.Clear', 'FFocused := False', 'CancelInput', 'CopyText']))
+check('A fully presented Ready holds for 350 ms before the window requests automatic launch',
+      'LicenseReadyPresentationSeconds = 0.35;' in window
+      and paint.index('Presented := ImGuiPresent(FContext);') < paint.index('if not FVisibleFrame then')
+      < paint.index('(Actions and LicenseSceneReady)')
+      < paint.index('FReadyPresentedSeconds := FReadyPresentedSeconds + PresentedDelta;')
+      < paint.index('FReadyPresentedSeconds >= LicenseReadyPresentationSeconds')
+      < paint.index('FLaunch()')
+      and window.count('FLaunch()') == 1
+      and all(token not in window for token in ['LaunchSelected', 'RocketInputEnabled',
+          'HitLaunchRocket', 'LicenseSceneRocketLaunch', 'FLaunchRequested']))
+check('The ready interval starts over when the window loses a visible ready frame',
+      'CancelInput;' in unpresented and 'FReadyPresentedSeconds := 0;' in window_cancel
+      and 'else FReadyPresentedSeconds := 0;' in paint
+      and paint.index('FReadyPresentedSeconds >= LicenseReadyPresentationSeconds')
+      < paint.index('FReadyPresentedSeconds := 0;',paint.index('FReadyPresentedSeconds >= LicenseReadyPresentationSeconds'))
+      < paint.index('FLaunch()')
+      and 'if PresentedDelta > LicensePresentationMaxFrameSeconds then' in paint)
 check('The preparation and completion mark are distinct from both server handoff phases',
       'else if State = WorkerLaunching then Phase := LicensePhaseTransfer' in paint
-      and 'else if State = WorkerReady then Phase := LicensePhaseRocket' in paint
+      and 'else if State = WorkerReady then Phase := LicensePhaseReady' in paint
       and 'else if State = WorkerPreparing then Phase := LicensePhasePreparing' in paint
       and 'else if (State = WorkerBusy) or (State = WorkerLicensed) then Phase := 1' in paint
       and paint.index('if FOutcomePhase <> 0 then Phase := FOutcomePhase')
@@ -284,7 +281,7 @@ check('The preparation and completion mark are distinct from both server handoff
       and 'ScenePhase := LicenseCustomThemePhase or ((FThemeIndex and $FFFFFF) shl 4) or Phase' in paint
       and 'ScenePhase := Phase or (FThemeIndex shl 8);' in paint
       and 'license_loader(v,phase,run_progress' in license_scene)
-check('The first visibly presented opening state releases commit once',
+check('The first visibly presented frame after automatic launch releases commit once',
       paint.index('Presented := ImGuiPresent(FContext);')
       < paint.index('if not FVisibleFrame then')
       < paint.index('if (Phase = LicensePhaseTransfer) and not FCommitRequested and')
@@ -292,11 +289,10 @@ check('The first visibly presented opening state releases commit once',
       < paint.index('if not Assigned(FCommit) or not FCommit() then')
       < paint.index('FCommitRequested := True;')
       and paint.count('FCommit()') == 1
-      and all(token not in selected for token in ['FCommit', 'FPrepare'])
       and 'WaitForCommit(ChildProcess, HoldDeadline, ReadReleaseDeadline);' in launch)
 check('Automatic submission creates a separate sensitive key owner and consumes its one-shot latch',
       submit.index('if not FAutoSubmitPending or not SceneInputEnabled or (FKey.Count = 0) then Exit;')
-      < submit.index('FAutoSubmitPending := False;') < submit.index('Key := TCozySensitiveText.Create(MaximumKeyCharacters);')
+      < submit.index('FAutoSubmitPending := False;') < submit.index('Key := TSpaceXSensitiveText.Create(MaximumKeyCharacters);')
       < submit.index('Key.AppendBuffer(FKey);') < submit.index('FRedemptionPending := FSubmit(Key);')
       < submit.index('finally') < submit.index('FreeAndNil(Key);')
       and not any(token in submit for token in ['CopyText', 'Key := FKey', 'FKey := nil', 'FreeAndNil(FKey)', 'ImGuiClearInput', 'FKey.Clear']))
@@ -348,7 +344,7 @@ check('B uses a taskbar-free tool window and retains normal OS close handling',
       and not any(token in window for token in ['LicenseSceneMinimize', 'LicenseSceneClose', 'ApiShowWindow(FWindow, SW_MINIMIZE)']))
 press=window.split('    WM_LBUTTONDOWN:',1)[1].split('    WM_LBUTTONUP:',1)[0]
 release=window.split('    WM_LBUTTONUP:',1)[1].split('    WM_MOUSEWHEEL',1)[0]
-check('A background drag is thresholded and only native Earth or a ready completion mark receive a press',
+check('A background drag is thresholded and only the native Earth control receives a press',
       press.index('Hit := ImGuiLicenseHit(FContext, X, Y);') < press.index('if Hit = HitBackground then')
       and press.index('if Hit = HitOutsideCorner then Exit;') < press.index('if Hit = HitBackground then')
       < press.index('FGesture := lgBackground;')
@@ -372,14 +368,14 @@ check('B hit testing rejects the shadow margin and arcs before considering targe
       and ' = HitOutsideCorner) then Exit(HTTRANSPARENT);' in window)
 keys=window.split('    WM_KEYDOWN, WM_SYSKEYDOWN:',1)[1].split('    WM_KEYUP, WM_SYSKEYUP:',1)[0]
 check('Keys activate controls only through the focused native scene',
-      keys.index('if SceneInputEnabled or RocketInputEnabled then') < keys.index('ImGuiKey(FContext, WParam, True);')
+      keys.index('if SceneInputEnabled then') < keys.index('ImGuiKey(FContext, WParam, True);')
       and all(token not in keys for token in ['FKey.', 'PasteKey', 'Submit', 'VK_RETURN'])
       and 'WM_CHAR: Exit;' in window)
 cursor=window.split('procedure TLicenseWindow.UpdateCursor(Force: Boolean);',1)[1].split('procedure TLicenseWindow.FitWindow(',1)[0]
 client_project=root/'Desktop/SpaceX.Projects/SpaceX.Client'
 cursor_rc=(client_project/'SpaceX.Client.rc').read_text(encoding='utf-8-sig')
 cursor_pairs=[(411,412,'')]+[(base,base+1,str(base)) for base in range(420,438,2)]
-check('B loads the custom action cursor only on an interactive Earth or completion mark',
+check('B loads the custom action cursor only on an interactive Earth',
       'CursorResource := BootstrapCursorResource(FThemeIndex);' in window
       and 'FNormalCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(CursorResource)));' in window
       and 'FHandCursor := ApiLoadCursorW(HInstance, PWideChar(NativeUInt(CursorResource + 1)));' in window
@@ -392,13 +388,12 @@ check('B loads the custom action cursor only on an interactive Earth or completi
       < cursor.index('Hit := ImGuiLicenseHit(FContext, Position.X - Bounds.Left, Position.Y - Bounds.Top);')
       < cursor.index('if Hit = HitOutsideCorner then begin PointerLeft; Exit; end;')
       < cursor.index('ControlInputEnabled(Hit) then') < cursor.index('Cursor := FHandCursor;') < cursor.index('ApiSetCursor(Cursor);')
-      and '((Hit = HitClipboardPlanet) and SceneInputEnabled)' in window
-      and '((Hit = HitLaunchRocket) and RocketInputEnabled)' in window
+      and re.search(r'Result := \(?\(Hit = HitClipboardPlanet\) and SceneInputEnabled\)?;',window) is not None
       and 'if not WindowInputEnabled or FRedemptionPending or (FOutcomePhase <> 0) or' in window
       and 'WM_MOUSELEAVE: begin PointerLeft; Exit; end;' in window
       and 'then ImGuiMousePos(FContext, -1E30, -1E30);' in window)
 check('Pending verification rejects duplicate keyboard and control submissions while releasing mouse capture',
-      'if SceneInputEnabled or RocketInputEnabled then' in keys
+      'if SceneInputEnabled then' in keys
       and 'Result := State = WorkerIdle;' in window
       and 'not FAutoSubmitPending or not SceneInputEnabled' in submit
       and 'ImGuiMouseButton(FContext, 0, False);' in submit
@@ -414,7 +409,7 @@ check('Destructor releases both B ownership and uncommitted O parent pins', all(
 start=api.split('function TGameApi.StartOverlayCore(RestrictedPrivileges: Boolean;',1)[1].split('function TGameApi.RedeemCore(',1)[0]
 check('B transfer is committed only after native O ready', start.index('Result := LaunchOverlay(') < start.index('TransferClient.CommitTransfer(') < start.index('FOverlayStarted := True;'))
 check('Readiness caps the final request separately from preparation and preserves the cleanup reserve',
-      start.index('HoldDeadline := CozyTick + OverlayReadyHoldMilliseconds;')
+      start.index('HoldDeadline := SpaceXTick + OverlayReadyHoldMilliseconds;')
       < start.index('if ParentStartupDeadline < HoldDeadline then HoldDeadline := ParentStartupDeadline;')
       < start.index('Assigned(PauseReady) and PauseReady() then')
       < start.index('then RenewParent();', start.index('Assigned(PauseReady) and PauseReady() then'))
@@ -443,7 +438,7 @@ renew=overlay.split('procedure TOverlayWorker.RenewLease(',1)[1].split('procedur
 check('O independently confirms server transfer before B cleanup', renew.index('Lease := FClient.Verify(') < renew.index('TransferConfirmed := FClient.TransferConfirmed;') < renew.index('CleanupParent := ParentExited and FTransferred and not FParentRetirementDone;') < renew.index('if CleanupParent then') < renew.index('FContext.CleanupTransferredParent;'))
 snapshot_due=overlay.split('function TOverlayWorker.SnapshotDue: Boolean;',1)[1].split('procedure TOverlayWorker.Refresh;',1)[0]
 check('Full snapshot scheduling remains server-bound and transfer-aware',
-      'OverlaySnapshotDue(CozyTick, FLastSnapshotAt, FTransferred,' in snapshot_due
+      'OverlaySnapshotDue(SpaceXTick, FLastSnapshotAt, FTransferred,' in snapshot_due
       and 'FClient.SnapshotDeadlineTick, FLastSnapshotDuration);' in snapshot_due
       and refresh.index('if FTransferred then MaintainLease(False);') < refresh.index('Image := FImage.VerifyNow(Budget);')
       < refresh.index('IncludeModules := SnapshotDue;')
@@ -451,17 +446,17 @@ check('Full snapshot scheduling remains server-bound and transfer-aware',
 ready=overlay.split('procedure TOverlayWorker.FirstFrameReady;',1)[1].split('procedure TOverlayWorker.Refresh;',1)[0]
 barrier=overlay.split('procedure TOverlayWorker.PrepareTransferBeforeShow;',1)[1].split('procedure TOverlayWorker.StartAuthorized;',1)[0]
 check('Hidden readiness is published under the lock before waiting for B process exit', barrier.index('TMonitor.Enter(FLock)') < barrier.index('FContext.ConfirmOverlayReady') < barrier.index('FReadyForTransfer := True;') < barrier.index('TMonitor.Exit(FLock)') < barrier.index('while FContext.ParentIsAlive do'))
-check('O transition remains bounded by last authenticated lease', '(CozyTick >= FDeadline)' in overlay and "raise EBootstrap.Create('OVERLAY_TRANSFER_NOT_CONFIRMED')" in renew)
+check('O transition remains bounded by last authenticated lease', '(SpaceXTick >= FDeadline)' in overlay and "raise EBootstrap.Create('OVERLAY_TRANSFER_NOT_CONFIRMED')" in renew)
 check('Window keeps rendering separate from API ownership and has no auto assignment', 'ImGuiCreate(FWindow, True)' in window and not any(x in window for x in ['TGameApi', 'Bootstrap.Claim', 'Redeem(', 'SERVER_ASSIGNED_V1', 'Vcl.Forms', 'FMX.Forms']))
 # These inspect the production unit's lock boundaries and cleanup ordering.
 # They intentionally do not simulate a worker and do not claim runtime coverage.
 cancel=overlay.split('function TOverlayWorker.RequestCancelled: Boolean;',1)[1].split('procedure TOverlayWorker.FirstFrameReady;',1)[0]
 stop=overlay.split('procedure TOverlayWorker.Stop;',1)[1].split('function TOverlayWorker.AwaitingTransfer:',1)[0]
 close=overlay.split('function TOverlayWorker.ShouldClose: Boolean;',1)[1].split('procedure TOverlayWorker.Execute;',1)[0]
-run=overlay.split('function RunOverlay(const Monitor: ICozyProtectionSession): Integer;')[-1].split('\ninitialization')[0]
+run=overlay.split('function RunOverlay(const Monitor: ISpaceXProtectionSession): Integer;')[-1].split('\ninitialization')[0]
 check('First visible frame requires confirmed transfer and actual parent retirement',
       ready.index('TMonitor.Enter(FLock)') < ready.index('not FTransferred or not FParentRetirementDone') < ready.index('OverlayTransition(FState, osVisible);')
-      and '(CozyTick >= FDeadline)' in ready
+      and '(SpaceXTick >= FDeadline)' in ready
       and 'ConfirmOverlayReady' not in ready)
 check('Repeated successful frame callbacks cannot duplicate visibility publication',
       ready.index('if FFirstFrameShown then Exit;') < ready.index('FFirstFrameShown := True;'))
@@ -469,14 +464,14 @@ check('Stop invalidates authorization under the same lock used to publish ready'
       stop.index('Terminate;') < stop.index('TMonitor.Enter(FLock)') < stop.index('FFailed := True;') < stop.index('FDeadline := 0;') < stop.index('TMonitor.Exit(FLock)'))
 check('In-flight report and verification callbacks cancel on sticky failure and expired lease',
       'Result := Terminated or FFailed or' in cancel
-      and '((FDeadline <> 0) and (CozyTick >= FDeadline))' in cancel
+      and '((FDeadline <> 0) and (SpaceXTick >= FDeadline))' in cancel
       and cancel.index('TMonitor.Enter(FLock)') < cancel.index('FFailed := True;') < cancel.index('TMonitor.Exit(FLock)')
       and 'function: Boolean begin Result := RequestCancelled; end);' in renew
       and 'function: Boolean begin Result := RequestCancelled; end' in refresh)
 publish=renew[renew.rindex('TMonitor.Enter(FLock);'):]
 check('Late lease replies cannot reopen stopped or elapsed authorization',
-      publish.index('if Terminated or FFailed or (Deadline <= CozyTick)') < publish.index('FDeadline := Deadline;')
-      and '((FDeadline <> 0) and (CozyTick >= FDeadline))' in publish
+      publish.index('if Terminated or FFailed or (Deadline <= SpaceXTick)') < publish.index('FDeadline := Deadline;')
+      and '((FDeadline <> 0) and (SpaceXTick >= FDeadline))' in publish
       and publish.index('FFailed := True;') < publish.index('FDeadline := Deadline;') < publish.index('TMonitor.Exit(FLock)'))
 check('UI expiry is sticky and snapshots readiness with its deadline under one lock',
       close.index('TMonitor.Enter(FLock)') < close.index('Result := Terminated or FFailed') < close.index('FFailed := True;') < close.index('TMonitor.Exit(FLock)')
@@ -506,7 +501,7 @@ check('B only maps a completed matching receipt within the unchanged server fres
       all(value in budget for value in ["Reply.GetValue('snapshotBudget')", 'SnapshotID <> FModuleSnapshotID',
         'ExpiresAt - ServerTime > MaxLeaseMilliseconds', 'Elapsed >= UInt64(Duration)', 'RequireModuleSnapshotLease;',
         'ServerTime < FModuleReceiptServerTime'])
-      and send.index('StartedAt := CozyTick;') < send.index('Challenge := PostJSON(')
+      and send.index('StartedAt := SpaceXTick;') < send.index('Challenge := PostJSON(')
       and send.index('Reply := PostJSON(') < send.index('ApplyModuleSnapshotBudget(Reply, StartedAt);')
       and "JsonInteger(Payload, 'batchIndex') + 1 =" in send
       and "JsonInteger(Payload, 'batchCount'))" in send)
@@ -515,7 +510,7 @@ check('Cached receipt mapping never extends the first monotonic deadline or revi
       and 'if Deadline < FModuleDeadlineTick then FModuleDeadlineTick := Deadline;' in budget
       and '(ServerTime <> FModuleReceiptServerTime)' in budget
       and '(ExpiresAt <> FModuleReceiptExpiresAt)' in budget
-      and '(FModuleDeadlineTick <> 0) and (FModuleDeadlineTick <= CozyTick)' in api)
+      and '(FModuleDeadlineTick <> 0) and (FModuleDeadlineTick <= SpaceXTick)' in api)
 check('B schedules full refresh using observed collection and all batches plus a chunk/renewal reserve',
       'ModuleSnapshotCheckpointReserve = 30000;' in api
       and 'FModuleCycleMilliseconds := NowTick - FModuleGenerationStarted;' in modules

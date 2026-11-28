@@ -15,7 +15,7 @@
 Node.js가 설치된 Windows 명령 프롬프트에서 풀 소스 최상위 폴더로 이동합니다. 실제 EXE 절대 경로와 **아직 없는** 결과 파일 경로를 넣습니다.
 
 ```bat
-call "SpaceX\Server\tools\runtime\Run_Native_Json_Differential.bat" "C:\Cozy\SpaceX\Desktop\SpaceX.Tests\SpaceX.Protocol\SpaceX.ProtocolJsonDifferentialProbe.exe" "C:\Cozy\json-differential-result.json"
+call "SpaceX\Server\tools\runtime\Run_Native_Json_Differential.bat" "C:\Work\SpaceXRelease\SpaceX\Desktop\SpaceX.Tests\SpaceX.Protocol\SpaceX.ProtocolJsonDifferentialProbe.exe" "C:\Work\SpaceXRelease\json-differential-result.json"
 ```
 
 기본 시드 `1129339441`과 256개 변이 입력을 사용합니다. 마지막에 시드와 변이 개수(0~2000)를 지정할 수도 있습니다. EXE는 별도 상주 프로그램 없이 한 번 생성되고, 여러 입력을 처리한 뒤 stdin을 닫고 종료를 기다립니다. 요청당 2초, 전체 기본 60초, 입력당 128 KiB, 출력·오류 출력 상한을 적용합니다. 검사는 서버 연결·라이선스·실제 사용자 데이터를 요구하지 않습니다.
@@ -33,7 +33,7 @@ call "SpaceX\Server\tools\runtime\Run_Native_Json_Differential.bat" "C:\Cozy\Spa
 실패 파일을 같은 EXE로 다시 검사하려면 새 보고서 이름을 사용합니다.
 
 ```bat
-node "SpaceX\Server\tools\security\spacex.native-json-differential.js" "C:\Cozy\SpaceX\Desktop\SpaceX.Tests\SpaceX.Protocol\SpaceX.ProtocolJsonDifferentialProbe.exe" "C:\Cozy\json-differential-replay.json" 1129339441 0 "C:\Cozy\json-differential-result.json"
+node "SpaceX\Server\tools\security\spacex.native-json-differential.js" "C:\Work\SpaceXRelease\SpaceX\Desktop\SpaceX.Tests\SpaceX.Protocol\SpaceX.ProtocolJsonDifferentialProbe.exe" "C:\Work\SpaceXRelease\json-differential-replay.json" 1129339441 0 "C:\Work\SpaceXRelease\json-differential-result.json"
 ```
 
 실제 운영 입력에는 토큰이 포함될 수 있으므로 이 도구에는 제공된 합성 코퍼스와 개발용 재현 입력만 넣으세요. 생성한 보고서는 공개 저장소·배포 파일에 자동 업로드하지 않습니다.

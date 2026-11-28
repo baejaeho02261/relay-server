@@ -78,12 +78,15 @@ test(`authenticated B/O claims share signed appearance and published layouts on 
   assert.equal(Call({action:'overlayCommit',handoffVersion:1,sessionId:session.sessionId,
    sessionToken:session.sessionToken,overlayId,signature}).status,'TRANSFERRED');
  }
- function SignedTheme({device,live},theme,sequence,font){
+ function SignedTheme({device,live},theme,sequence,font,appearance){
   const requestId=crypto.randomUUID();
-  const canonical=[font===undefined?'COZY-OVERLAY-THEME-V1':'COZY-OVERLAY-THEME-V2',
-   live.sessionId,requestId,String(sequence),String(theme),...(font===undefined?[]:[String(font)])].join('\n');
+  const version=appearance!==undefined?3:font!==undefined?2:1;
+  const canonical=['COZY-OVERLAY-THEME-V'+version,
+   live.sessionId,requestId,String(sequence),String(theme),...(font===undefined?[]:[String(font)]),
+   ...(appearance===undefined?[]:[String(appearance)])].join('\n');
   return {action:'overlayTheme',sessionId:live.sessionId,sessionToken:live.sessionToken,
-   requestId,theme,sequence,...(font===undefined?{}:{font}),signature:fixture.Sign(device,canonical)};
+   requestId,theme,sequence,...(font===undefined?{}:{font}),...(appearance===undefined?{}:{appearance}),
+   signature:fixture.Sign(device,canonical)};
  }
  const first=fixture.Device();
  try{
@@ -232,6 +235,33 @@ test(`authenticated B/O claims share signed appearance and published layouts on 
   const previewFresh=StartB(fixture.Device(),3);
   assert.equal(previewFresh.session.theme,black);
   assert.equal(previewFresh.session.font,0);
+  const modernDevice=fixture.Device(),modernB=StartB(modernDevice,4),modernO=ClaimO(modernB,4);
+  assert.equal(modernB.session.theme,black);
+  assert.equal(modernB.session.font,1);
+  assert.equal(modernB.session.appearance,0);
+  assert.equal(modernO.live.font,1);
+  assert.equal(modernO.live.appearance,0);
+  Transfer(modernB,modernO);
+  const appearance=249*256+7*16+7;
+  const ui=SignedTheme(modernO,curated[0],1,0,appearance);
+  assert.throws(()=>Call({...ui,font:undefined}),/PROTOCOL_SCHEMA_INVALID|BOOTSTRAP_INPUT_INVALID/);
+  assert.throws(()=>Call({...ui,appearance:appearance+1}),/PROTOCOL_SCHEMA_INVALID/);
+  assert.throws(()=>Call({...ui,appearance:0x0080}),/BOOTSTRAP_INPUT_INVALID/);
+  assert.throws(()=>Call({...ui,appearance:16}),/BOOTSTRAP_PROOF_INVALID/);
+  const appearanceReceipt=Call(ui),appearanceRevision=store.Load().revision;
+  assert.equal(appearanceReceipt.appearance,appearance);
+  assert.deepEqual(Call(ui),appearanceReceipt);
+  assert.equal(store.Load().revision,appearanceRevision);
+  assert.equal(persistence.Projection(modernDevice,3).font,0,'Saved Consolas is preserved for every claim version');
+  assert.equal(Object.hasOwn(persistence.Projection(modernDevice,3),'appearance'),false);
+  assert.equal(Call({action:'overlayClose',sessionId:modernO.live.sessionId,sessionToken:modernO.live.sessionToken}).status,'CLOSED');
+  assert.equal(Object.hasOwn(store.Load().overlays[modernO.overlayId],'appearanceV3Receipt'),false);
+  machinePolicy.Set(modernDevice.machineId,false,{requestId:crypto.randomUUID(),reason:'Approve v4 appearance resume test'},'TEST');
+  const reloadedB=StartB(fixture.Child(modernDevice),4),reloadedO=ClaimO(reloadedB,4).live;
+  assert.equal(reloadedB.session.appearance,appearance);
+  assert.equal(reloadedO.appearance,appearance);
+  assert.equal(reloadedO.theme,curated[0]);
+  assert.equal(reloadedO.font,0);
   machinePolicy.Set(first.machineId,false,{requestId:crypto.randomUUID(),reason:'Approve a legacy test run'},'TEST');
   const legacy=StartB(fixture.Child(first));
   assert.equal(legacy.session.theme,0);

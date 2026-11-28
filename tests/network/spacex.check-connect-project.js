@@ -22,14 +22,14 @@ for(const entry of fs.readdirSync(root,{withFileTypes:true}))assert(!entry.isFil
 // targets. Never distribute an old/default issuer just to satisfy a source
 // archive check; all other project references still must exist now.
 const releaseTargets=read('SpaceX.Build/SpaceX.ReleaseMetadata.targets');
-assert.match(releaseTargets,/<Target Name="PrepareCozyReleaseMetadata"[\s\S]*?BeforeTargets="[^"\n]*_PasCoreCompile[^"\n]*PrepareOverlayNative"/);
+assert.match(releaseTargets,/<Target Name="PrepareSpaceXReleaseMetadata"[\s\S]*?BeforeTargets="[^"\n]*_PasCoreCompile[^"\n]*PrepareOverlayNative"/);
 assert.match(releaseTargets,/<Error Condition="!Exists\('\$\(BDS\)\\bin\\brcc32\.exe'\)"/);
 assert.match(releaseTargets,/<Exec Condition="'\$\(_GameRole\)'=='A' or '\$\(_GameRole\)'=='B'"[\s\S]*?brcc32\.exe&quot; -fo&quot;\$\(_GameProjectName\)Resources\.res&quot; &quot;\$\(_GameProjectName\)\.rc&quot;/);
 assert.ok(releaseTargets.indexOf('SpaceX.Prepare-IssuedATrust.ps1')<releaseTargets.indexOf('brcc32.exe&quot; -fo'));
 assert.doesNotMatch(releaseTargets,/ContinueOnError="(?:true|WarnAndContinue)"|IgnoreExitCode="true"/i);
 const prepareTrust=read('SpaceX.Build/SpaceX.Prepare-IssuedATrust.ps1');
 assert.match(prepareTrust,/\$outputPath = Join-Path \$configuration 'SpaceX\.IssuedA\.Trust\.bin'/);
-assert.match(prepareTrust,/if \(\$source\.Contains\('COZY_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED'\)\)\s*\{\s*throw 'COZY_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED'/);
+assert.match(prepareTrust,/if \(\$source\.Contains\('SPACEX_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED'\)\)\s*\{\s*throw 'SPACEX_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED'/);
 assert.match(prepareTrust,/ISSUED_A_PUBLIC_KEY_ID_INVALID/);
 assert.match(prepareTrust,/\$stream\.Write\(\$anchor, 0, \$anchor\.Length\); \$stream\.Flush\(\$true\)/);
 assert.match(prepareTrust,/\[IO\.File\]::Move\(\$pending, \$outputPath\)/);
@@ -71,13 +71,13 @@ for (const [name, role] of [["SpaceX.Client", 'B'], ["SpaceX.Launcher", 'A'], ["
   assert(rcBytes.every(value=>value<128),'Legacy brcc32 resource scripts must be ASCII without a UTF-8 BOM: '+name);
   assert.doesNotMatch(project, /PublishRandomExecutable|RandomArtifactName|RandomArtifactDirectory/);
   const localProperties=project.match(/TreatAsLocalProperty="([^"]+)"/)[1].split(';');
-  for(const property of ['CozyNativeRoot','CompiledArtifact','DCC_UnitSearchPath','DCC_IncludePath','DCC_ObjPath'])assert(localProperties.includes(property),'Global build properties must not redirect '+property);
+  for(const property of ['SpaceXNativeRoot','CompiledArtifact','DCC_UnitSearchPath','DCC_IncludePath','DCC_ObjPath'])assert(localProperties.includes(property),'Global build properties must not redirect '+property);
   for(const property of ['DCC_UnitSearchPath','DCC_IncludePath']){
     const listed=project.match(new RegExp('<'+property+'>([^<]+)</'+property+'>'))[1].split(';');
-    assert.deepEqual(listed.slice(0,-1),sourceDirectories.map(x=>'$(CozyNativeRoot)\\'+x.replaceAll('/','\\')));
+    assert.deepEqual(listed.slice(0,-1),sourceDirectories.map(x=>'$(SpaceXNativeRoot)\\'+x.replaceAll('/','\\')));
     assert.equal(listed.at(-1),'$('+property+')');
   }
-  if(role==='O'||role==='B')assert(project.includes('<DCC_ObjPath>$(CozyNativeRoot)\\SpaceX.ImGui\\SpaceX.Objects;$(DCC_ObjPath)</DCC_ObjPath>'));
+  if(role==='O'||role==='B')assert(project.includes('<DCC_ObjPath>$(SpaceXNativeRoot)\\SpaceX.ImGui\\SpaceX.Objects;$(DCC_ObjPath)</DCC_ObjPath>'));
   for(const entry of fs.readdirSync(directory))assert(!/\.(?:pas|inc)$/i.test(entry),'Product project must not shadow functional source units');
   assert.match(project, /<Icon_MainIcon\s*\/>/);
   assert.ok(!/\.ico\b/i.test(project));
@@ -102,7 +102,7 @@ for (const [name, role] of [["SpaceX.Client", 'B'], ["SpaceX.Launcher", 'A'], ["
   assert.ok(seal >= 0 && startup > seal, 'Native startup validation must follow API sealing');
   const startupArgument=expectedRole+', @ExitCode';
   const afterStartup='\\s+ExitCode := 31009;',afterProtection='\\s+ExitCode := 31099;';
-  assert.match(dpr.slice(startup), new RegExp("RequireNativeStartup\\("+startupArgument+"\\);"+afterStartup+"\\s+RequireCozyProtection\\('"+role+"'\\);"+afterProtection+"\\s+ExitCode := Run"), 'Role-specific startup and sealed protection checks must precede application execution');
+  assert.match(dpr.slice(startup), new RegExp("RequireNativeStartup\\("+startupArgument+"\\);"+afterStartup+"\\s+RequireSpaceXProtection\\('"+role+"'\\);"+afterProtection+"\\s+ExitCode := Run"), 'Role-specific startup and sealed protection checks must precede application execution');
   assert(dpr.includes("SpaceX.Protection.Engine in '..\\..\\SpaceX.Source\\SpaceX.Protection\\SpaceX.Protection.Engine.pas'"));
   for (const unit of ['SpaceX.Monitor.Monitor', 'SpaceX.Monitor.Logging', 'SpaceX.Monitor.Engine']) {
     const relative='..\\..\\SpaceX.Source\\SpaceX.Protection\\'+unit+'.pas';
@@ -184,7 +184,7 @@ for(const name of ["SpaceX.Client","SpaceX.Launcher","SpaceX.Overlay"])assert.ok
 
 const licenseSource = fs.readFileSync(path.join(root, "SpaceX.Source/SpaceX.License/SpaceX.License.Session.pas"), 'utf8');
 const windowSource = fs.readFileSync(path.join(root, "SpaceX.Source/SpaceX.License/SpaceX.License.Window.pas"), 'utf8');
-const entry = licenseSource.slice(licenseSource.indexOf('function RunLicenseClient(const Monitor: ICozyProtectionSession;', licenseSource.indexOf('implementation')));
+const entry = licenseSource.slice(licenseSource.indexOf('function RunLicenseClient(const Monitor: ISpaceXProtectionSession;', licenseSource.indexOf('implementation')));
 assert.ok(entry.indexOf('Context.CompleteClaimAndCleanup(') >= 0 && entry.indexOf('Context.CompleteClaimAndCleanup(') < entry.indexOf('RunLicenseWindow('), 'License window starts only after authenticated handoff and cleanup');
 assert.ok(entry.includes('Api.CheckIntegrity;') && entry.includes('Worker.StartChecks;'));
 assert.ok(entry.includes('Worker := TLicenseWorker.Create(Api);') && entry.includes('Worker.SubmitKey(Key)'));

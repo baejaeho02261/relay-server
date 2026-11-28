@@ -373,6 +373,9 @@
         "font": {
           "$ref": "uiFont"
         },
+        "appearance": {
+          "$ref": "uiAppearance"
+        },
         "desktopDesign": {
           "$ref": "desktopDesign"
         }
@@ -3216,6 +3219,55 @@
       ],
       "additionalProperties": false
     },
+    "overlayUsage": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "$ref": "version1"
+        },
+        "sessionId": {
+          "$ref": "id24"
+        },
+        "requestId": {
+          "$ref": "request"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "licenseReference": {
+          "$ref": "id24"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "remaining": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "status": {
+          "enum": [
+            "ACTIVE",
+            "EXHAUSTED"
+          ]
+        }
+      },
+      "required": [
+        "version",
+        "sessionId",
+        "requestId",
+        "sequence",
+        "licenseReference",
+        "limit",
+        "remaining",
+        "status"
+      ],
+      "additionalProperties": false
+    },
     "uiTheme": {
       "anyOf": [
         {
@@ -3231,7 +3283,12 @@
       ]
     },
     "uiThemeVersion": {
-      "enum": [1, 2, 3]
+      "enum": [1, 2, 3, 4]
+    },
+    "uiAppearance": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 63863
     },
     "uiFont": {
       "enum": [
@@ -3340,6 +3397,9 @@
         },
         "font": {
           "$ref": "uiFont"
+        },
+        "appearance": {
+          "$ref": "uiAppearance"
         }
       },
       "required": [
@@ -5393,6 +5453,53 @@
     },
     {
       "operation": "bootstrap",
+      "action": "overlayUsage",
+      "body": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "overlayUsage"
+            ]
+          },
+          "sessionId": {
+            "$ref": "id24"
+          },
+          "sessionToken": {
+            "$ref": "token"
+          },
+          "operation": {
+            "enum": [
+              "read",
+              "consume"
+            ]
+          },
+          "requestId": {
+            "$ref": "request"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "signature": {
+            "$ref": "signature"
+          }
+        },
+        "required": [
+          "action",
+          "sessionId",
+          "sessionToken",
+          "operation",
+          "requestId",
+          "sequence",
+          "signature"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "operation": "bootstrap",
       "action": "overlayTheme",
       "body": {
         "type": "object",
@@ -5421,6 +5528,9 @@
           },
           "font": {
             "$ref": "uiFont"
+          },
+          "appearance": {
+            "$ref": "uiAppearance"
           },
           "signature": {
             "$ref": "signature"
@@ -5573,6 +5683,9 @@
         "terminate"
       ],
       "additionalProperties": false
+    },
+    "overlayUsage": {
+      "$ref": "overlayUsage"
     },
     "overlayTheme": {
       "$ref": "overlayTheme"

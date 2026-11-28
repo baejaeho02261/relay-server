@@ -67,7 +67,7 @@ test('native source: disk-origin page baseline, full hashes and two-generation c
 });
 test('native source: acceleration has explicit reference fallback and alignment-safe bounded blocks',{skip:!fs.existsSync(nativeRoot)},()=>{
  const s=native('SpaceX.Source/SpaceX.Integrity/SpaceX.CrcLayers.pas'),probe=native('SpaceX.Tests/SpaceX.Integrity/SpaceX.CrcProbe.dpr');
- for(const marker of ['cmReference','COZY_CRC32C_REFERENCE_ONLY','while Remaining >= 8 do','Move(P^, Chunk[0], 8)','if Count = 0 then Exit'])assert(s.includes(marker),marker);
+ for(const marker of ['cmReference','SPACEX_CRC32C_REFERENCE_ONLY','while Remaining >= 8 do','Move(P^, Chunk[0], 8)','if Count = 0 then Exit'])assert(s.includes(marker),marker);
  for(const marker of ['CRC32C_ALIGNMENT_PARITY','CRC32C_SPLIT_PARITY','PAGE_SHA512_REJECTS_CRC_COLLISION','observedProcessPeakWorkingSetBytes','--maximum-pages'])assert(probe.includes(marker),marker);
 });
 test('actual portable native probe parity when explicitly provided',{skip:!process.env.CRC_PROBE},()=>{

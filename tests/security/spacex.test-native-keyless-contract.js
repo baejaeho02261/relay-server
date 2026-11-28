@@ -27,14 +27,14 @@ test('Native initialized V2 slot is byte-identical to server public-only slot', 
 });
 
 test('Production parser has no VM interpreter or embedded-key decryption path', () => {
-  assert.doesNotMatch(engine, /HandoffDecrypt|ConfigurationKey|ClientKey|OpenProgram|ExecuteFunction|EvaluateCozyProtection|CozyVmEvaluateBytecode/);
+  assert.doesNotMatch(engine, /HandoffDecrypt|ConfigurationKey|ClientKey|OpenProgram|ExecuteFunction|EvaluateCozyProtection|SpaceXVmEvaluateBytecode/);
   assert.match(engine, /U16\(Slot, 16\) <> 2/);
   assert.match(engine, /for I := 136 to SlotTrailerAt - 1 do/);
   assert.match(engine, /'COZY-SERVER-POLICY-ID-V2' \+ #10/);
   assert.match(engine, /ExpectedID <> Result\.PolicyID/);
   assert.match(engine, /Digest := DeviceSHA256\(Bytes\)/);
   const reference = read('SpaceX.Tests/SpaceX.Protection/SpaceX.Protection.VmReference.pas');
-  assert.match(reference, /function CozyVmEvaluateBytecode/);
+  assert.match(reference, /function SpaceXVmEvaluateBytecode/);
   for (const name of ['Launcher', 'Client', 'Overlay']) {
     assert.doesNotMatch(read(`SpaceX.Projects/SpaceX.${name}/SpaceX.${name}.dpr`), /VmReference/);
   }

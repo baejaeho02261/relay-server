@@ -6,5 +6,5 @@ if "%~3"=="" (
 )
 rem New JSON is colocated with this BAT; no keys, approvals or binaries change.
 rem Existing output is not overwritten: archive/remove it explicitly before rerun.
-node "%~dp0peace.audit-final-artifacts.js" "%~f1" "%~f2" "%~f3" "%~dp0..\final-artifact-audit.json"
+node "%~dp0spacex.audit-final-artifacts.js" "%~f1" "%~f2" "%~f3" "%~dp0..\final-artifact-audit.json"
 exit /b %errorlevel%

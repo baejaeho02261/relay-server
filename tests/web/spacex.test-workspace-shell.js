@@ -3,8 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {JSDOM}=require('jsdom');
 const root=path.resolve(__dirname,'../../public'),html=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const appearance=fs.readFileSync(path.join(root,'scripts/interface/spacex.admin-appearance.js'),'utf8');
+const orbit=fs.readFileSync(path.join(root,'scripts/interface/spacex.admin-login-space.js'),'utf8');
+const atlas=JSON.parse(fs.readFileSync(path.join(root,'icons/login-atlas.json'),'utf8'));
 function Open({reduce=false,blocked=false}={}){
- const dom=new JSDOM(html,{url:'https://admin.example.test/',runScripts:'outside-only'}),w=dom.window;
+ const dom=new JSDOM(html,{url:'https://admin.example.test/',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
  w.matchMedia=()=>({matches:reduce});
  if(blocked)Object.defineProperty(w,'localStorage',{get(){throw Error('STORAGE_BLOCKED');}});
  w.eval(appearance);return dom;
@@ -21,16 +23,19 @@ test('appearance controls remain operable when preferences cannot be stored',()=
   d.getElementById('theme-toggle').click();assert.equal(d.documentElement.dataset.theme,'light');assert.match(d.getElementById('theme-toggle').textContent,/다크 모드/);
   d.querySelector('[data-motion-toggle]').click();assert.equal(d.documentElement.dataset.motion,'paused');
   const controls=[...d.querySelectorAll('[data-motion-toggle]')];assert.ok(controls.every(x=>x.getAttribute('aria-pressed')==='true'));
-  controls[1].click();assert.equal(d.documentElement.dataset.motion,'running');
+  assert.equal(controls.length,1);
+  controls[0].click();assert.equal(d.documentElement.dataset.motion,'running');
   assert.ok(d.getElementById('login-password').required);assert.equal(d.getElementById('passkey-login-btn').type,'button');
  }finally{w.close();}
 });
-test('reduced motion is honored before login and both motion controls stay synchronized',()=>{
+test('reduced motion is honored and administrator login has no role or pause selector',()=>{
  const dom=Open({reduce:true}),w=dom.window,d=w.document;
  try{
   assert.equal(d.documentElement.dataset.motion,'paused');
   assert.ok([...d.querySelectorAll('[data-motion-toggle]')].every(x=>x.getAttribute('aria-label')==='애니메이션 켜기'));
-  assert.equal(d.getElementById('login-role').options.length,3);
+  assert.equal(d.getElementById('login-role').type,'hidden');
+  assert.equal(d.getElementById('login-role').value,'admin');
+  assert.equal(d.querySelector('#login-screen [data-motion-toggle]'),null);
   assert.equal(d.getElementById('login-password').autocomplete,'current-password');
  }finally{w.close();}
 });
@@ -46,7 +51,7 @@ test('new shell retains every supported route and loads only existing local appl
   }
   assert.equal(d.querySelectorAll('#modal [aria-modal="true"]').length,1);
   assert.ok(d.querySelector('#nav button[data-view="simulator"]').hasAttribute('data-admin-only'));
-  assert.equal(d.querySelector('#login-screen .login-planet img').getAttribute('src'),'/icons/earth.svg');
+  assert.equal(d.querySelector('#login-screen .login-earth-fallback').getAttribute('src'),'/icons/earth.svg');
   assert.equal(d.getElementById('rail-toggle').getAttribute('aria-controls'),'main-menu');
   assert.equal(d.getElementById('menu-toggle').getAttribute('aria-controls'),'main-menu');
   assert.equal(d.getElementById('rail-close').parentElement.className,'sidebar-brand');
@@ -55,6 +60,57 @@ test('new shell retains every supported route and loads only existing local appl
   assert.equal(d.querySelector('.workspace-commandbar #page-title').textContent,'운영 개요');
   assert.equal(d.getElementById('workspace-tabs'),null);
   assert.ok(d.querySelector('[data-rail-desktop-tab="members"]').hasAttribute('data-admin-only'));
+ }finally{w.close();}
+});
+
+test('Earth opens the masked editor, animates the native map, and clears the password on exit',async()=>{
+ const dom=Open(),w=dom.window,d=w.document;
+ try{
+  const earth=d.getElementById('login-earth'),screen=d.getElementById('login-screen');
+  const canvas=d.getElementById('login-space'),password=d.getElementById('login-password');
+  const form=d.getElementById('login-form'),calls=[];
+  const ctx=new Proxy({}, {get(target,key){return target[key]||((...args)=>{calls.push([key,...args]);});}});
+  canvas.getContext=()=>ctx;
+  canvas.getBoundingClientRect=()=>({left:0,top:0});
+  earth.getBoundingClientRect=()=>({left:450,top:200,width:300,height:300});
+  Object.defineProperties(canvas,{clientWidth:{value:1200},clientHeight:{value:700}});
+  let nextFrame=null;
+  w.requestAnimationFrame=callback=>{nextFrame=callback;return 1;};
+  w.fetch=async url=>{
+   assert.equal(url,'/icons/login-atlas.json');
+   return {ok:true,json:async()=>atlas};
+  };
+  const frame=now=>{const run=nextFrame;nextFrame=null;calls.length=0;assert.ok(run);run(now);return calls.slice();};
+  w.eval(orbit);
+  await new Promise(resolve=>w.setTimeout(resolve,0));
+  assert.ok(screen.classList.contains('login-atlas-ready'));
+  assert.equal(form.hidden,true);
+  const initial=frame(20);
+  assert.ok(initial.filter(([name])=>name==='lineTo').length>2000);
+  const animated=frame(75);
+  assert.notDeepEqual(initial.find(([name])=>name==='arc'),animated.find(([name])=>name==='arc'));
+  earth.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
+  assert.equal(earth.getAttribute('aria-expanded'),'true');
+  assert.equal(form.hidden,false);
+  assert.equal(d.activeElement,password);
+  assert.equal(password.type,'password');
+  const secret='LOCAL-SYNTHETIC-TEST-ONLY';
+  password.value=secret;
+  password.dispatchEvent(new w.Event('input',{bubbles:true}));
+  for(let now=110;now<=950;now+=50)frame(now);
+  const masked=frame(1000);
+  assert.ok(masked.filter(([name])=>name==='arc').length>=animated.filter(([name])=>name==='arc').length+secret.length);
+  assert.ok(!JSON.stringify(masked).includes(secret),'canvas must receive masks only');
+  password.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  assert.equal(earth.getAttribute('aria-expanded'),'false');
+  assert.equal(d.activeElement,earth);
+  assert.equal(form.hidden,true);
+  assert.equal(password.value,'');
+  earth.click();password.value=secret;
+  screen.classList.add('hidden');
+  await new Promise(resolve=>w.setTimeout(resolve,0));
+  assert.equal(password.value,'');
+  assert.equal(form.hidden,true);
  }finally{w.close();}
 });
 

@@ -4,6 +4,7 @@
 const delegation=require("../bootstrap/spacex.desktop-handoff-delegation"),crypto=require('node:crypto'),fs=require('node:fs'),store=require("../bootstrap/spacex.desktop-bootstrap-store");
 const config=require("../../config/spacex.runtime-configuration"),products=require("../licensing/spacex.licensed-products");
 const theme=require('../devices/spacex.desktop-ui-theme');
+const usage=require('../licensing/spacex.desktop-usage');
 // One immutable B->O startup capability: the native parent allows at most
 // 300s to download/verify O and 110s for authenticated child startup. This is
 // not a lease: every use still requires the parent's CURRENT live authority.
@@ -24,7 +25,7 @@ function Ticket(row){return Token('OVERLAY-HANDOFF',row.id,row.ticketNonce);}
 function SessionToken(row){return Token('OVERLAY-SESSION',row.sessionId,row.sessionNonce);}
 function Token(domain,key,value){if(!value)Fail('BOOTSTRAP_SESSION_CLOSED');return crypto.createHmac('sha256',Buffer.from(store.Load().secret,'hex')).update(['GAME-OVERLAY-V1',domain,key,value].join('|')).digest('base64url');}
 function Canonical(row,kind){const artifact=store.Load().artifacts[row.releaseId];return ['GAME-OVERLAY-'+kind+'-V2','3',row.id,row.parentSessionId,delegation.Parent(row).deviceId,row.machineId,artifact.id,artifact.sha512,artifact.crc64,artifact.xxh3_128,artifact.blake3,artifact.codeSha512,artifact.codeCrc64,artifact.codeXxh3_128,artifact.codeBlake3,String(artifact.size),row.ticketBinding,String(row.expiresAt)].join('\n');}
-function License(row){const license=require("../licensing/spacex.desktop-licenses").DB().licenses[row.licenseId];if(!license||products.Retired(license.productId)||!license.consumed||license.status!=='USED'||license.releasedAt||license.expiresAt&&license.expiresAt<=now()||license.deviceId!==delegation.Parent(row).deviceId||license.bootstrapSessionId!==row.parentSessionId)Fail('DESKTOP_ACTIVATION_INVALID');require("../devices/spacex.desktop-machine-policy").AssertAllowed(row.machineId,row.machinePolicyGeneration,row.parentSessionId);return license;}
+function License(row){const license=require("../licensing/spacex.desktop-licenses").DB().licenses[row.licenseId];if(!license||products.Retired(license.productId)||!license.consumed||license.status!=='USED'||license.releasedAt||license.expiresAt&&license.expiresAt<=now()||license.deviceId!==delegation.Parent(row).deviceId||license.bootstrapSessionId!==row.parentSessionId||usage.ExhaustedAt(row.licenseId))Fail('DESKTOP_ACTIVATION_INVALID');require("../devices/spacex.desktop-machine-policy").AssertAllowed(row.machineId,row.machinePolicyGeneration,row.parentSessionId);return license;}
 function Transferred(row,parent){return row.transferVersion===1&&Number.isSafeInteger(row.transferredAt)&&parent?.closedByOverlay===true&&parent.overlayTransferVersion===1&&parent.transferredOverlayId===row.id&&parent.transferredAt===row.transferredAt&&parent.status==='CLOSED';}
 function RequireArtifact(row){const db=store.Load(),parent=db.flows[row.parentFlowId];if(!parent||parent.overlayReleaseId!==row.releaseId||(!Transferred(row,parent)&&(parent.status!=='CLAIMED'||parent.sessionExpiresAt<=now()))||parent.sessionId!==row.parentSessionId||parent.licenseId!==row.licenseId)Fail('BOOTSTRAP_FLOW_INVALID');require('../bootstrap/spacex.issued-a-keyring').AssertLauncher(db.launchers[parent.launcherId],db);require("../security/spacex.desktop-security-authority").RequireArtifact(db.artifacts[db.launchers[parent.launcherId]?.artifactId]);require("../security/spacex.desktop-security-authority").RequireArtifact(db.artifacts[parent.releaseId]);require("../security/spacex.desktop-security-authority").RequireArtifact(db.artifacts[row.releaseId]);require("../security/spacex.desktop-security-operations").RequireRuntimePair(db.artifacts[db.launchers[parent.launcherId]?.artifactId],db.artifacts[parent.releaseId],db.artifacts[row.releaseId]);if(!Transferred(row,parent))Boot().AssertFlowLifetime(parent);return db.artifacts[row.releaseId];}
 function Expired(row){return require("../runtime/spacex.desktop-deadline").persistent.expired('O.'+(row.status==='CLAIMED'?'session:':'handoff:')+row.id,row.status==='CLAIMED'?Math.max(row.claimedAt||0,row.lastVerifiedAt||0,row.transferredAt||0):row.createdAt,row.status==='CLAIMED'?row.sessionExpiresAt:row.expiresAt);}
@@ -33,7 +34,7 @@ function Live(row){if(row){require("../recovery/spacex.desktop-recovery").Assert
 function Retire(row,afterCommit=false){
  store.AfterCommit(()=>{for(const kind of ['O.session:','O.handoff:','O.claim-recovery:','O.verify-recovery:','O.start-recovery:'])require("../runtime/spacex.desktop-deadline").persistent.forget(kind+row.id);});
  row.retiredAt||=now();
- for(const key of ['verifyReceipt','ticketNonce','sessionNonce','claimRecoveryUntil','claimFingerprint','themeReceipt','themeRgbReceipt','appearanceReceipt'])delete row[key];
+ for(const key of ['verifyReceipt','ticketNonce','sessionNonce','claimRecoveryUntil','claimFingerprint','themeReceipt','themeRgbReceipt','appearanceReceipt','appearanceV3Receipt'])delete row[key];
  row.chunkOffsets=[];
  const clearVolatile=()=>{
   require("../devices/spacex.desktop-device-identity").RetireContext(row,'O');
@@ -158,16 +159,17 @@ function ValidateStartReceipt(row){
  if(!plain(value)||Object.keys(value).sort().join(',')!=='at,fingerprint,productId,requestId,sequence,until'||!products.IsStoredProduct(value.productId)||typeof value.requestId!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(value.requestId)||!Number.isSafeInteger(value.sequence)||value.sequence<1||value.sequence>2147483647||!/^[a-f0-9]{128}$/.test(value.fingerprint)||!Number.isSafeInteger(value.at)||value.at<row.claimedAt||!Number.isSafeInteger(value.until)||value.until<value.at+5000||value.until>value.at+TRANSFER_RECOVERY_MS||row.transferVersion!==1||row.productScopeVersion!==1)throw Error('OVERLAY_STORE_INVALID');
 }
 function ThemeRequest(body){
- Fields(body,['sessionId','sessionToken','requestId','sequence','theme','font','signature']);
+ Fields(body,['sessionId','sessionToken','requestId','sequence','theme','font','appearance','signature']);
  if(!/^[A-F0-9]{24}$/.test(body.sessionId||'')||typeof body.sessionToken!=='string'||body.sessionToken.length>200||typeof body.signature!=='string'||body.signature.length>1000||!ThemeValues(body))Fail('BOOTSTRAP_INPUT_INVALID',400);
 }
 function ThemeValues(value){
- return typeof value.requestId==='string'&&/^[-A-Za-z0-9_]{8,80}$/.test(value.requestId)&&Number.isSafeInteger(value.sequence)&&value.sequence>=1&&value.sequence<=2147483647&&theme.Valid(value.theme)&&(!Object.hasOwn(value,'font')||theme.ValidFont(value.font));
+ return typeof value.requestId==='string'&&/^[-A-Za-z0-9_]{8,80}$/.test(value.requestId)&&Number.isSafeInteger(value.sequence)&&value.sequence>=1&&value.sequence<=2147483647&&theme.Valid(value.theme)&&(!Object.hasOwn(value,'font')||theme.ValidFont(value.font))&&(!Object.hasOwn(value,'appearance')||theme.ValidFont(value.font)&&theme.ValidAppearance(value.appearance));
 }
 function ThemeCanonical(body){
- const version=Object.hasOwn(body,'font')?2:1;
+ const version=Object.hasOwn(body,'appearance')?3:Object.hasOwn(body,'font')?2:1;
  const lines=['COZY-OVERLAY-THEME-V'+version,body.sessionId,body.requestId,String(body.sequence),String(body.theme)];
- if(version===2)lines.push(String(body.font));
+ if(version>=2)lines.push(String(body.font));
+ if(version===3)lines.push(String(body.appearance));
  return lines.join('\n');
 }
 function ThemeAuthority(row,parent){
@@ -180,10 +182,10 @@ function ThemeAuthority(row,parent){
 }
 function ThemeResult(row,value){
  return {version:1,sessionId:row.sessionId,requestId:value.requestId,sequence:value.sequence,theme:value.theme,
-  ...(Object.hasOwn(value,'font')?{font:value.font}:{})};
+  ...(Object.hasOwn(value,'font')?{font:value.font}:{}),...(Object.hasOwn(value,'appearance')?{appearance:value.appearance}:{})};
 }
 function LatestThemeReceipt(row){
- return [row.appearanceReceipt,row.themeReceipt,row.themeRgbReceipt].reduce((latest, value)=>
+ return [row.appearanceV3Receipt,row.appearanceReceipt,row.themeReceipt,row.themeRgbReceipt].reduce((latest, value)=>
   (value?.sequence??0)>(latest?.sequence??0)?value:latest,undefined);
 }
 function SaveTheme(body){
@@ -197,21 +199,20 @@ function SaveTheme(body){
   return ThemeResult(row,prior);
  }
  const receipt={requestId:body.requestId,sequence:body.sequence,theme:body.theme,fingerprint,
-  ...(Object.hasOwn(body,'font')?{font:body.font}:{})};
+  ...(Object.hasOwn(body,'font')?{font:body.font}:{}),...(Object.hasOwn(body,'appearance')?{appearance:body.appearance}:{})};
  Atomic('OVERLAY_THEME','SERVER',next=>{
   Boot().AssertSecurityAvailable();const item=next.overlays[row.id];
   ThemeAuthority(item,next.flows[row.parentFlowId]);
   if(body.sequence<=(LatestThemeReceipt(item)?.sequence??0))Fail('BOOTSTRAP_REQUEST_REUSED',409);
-  theme.Write(next,item,body.theme,body.font);
-  if(Object.hasOwn(receipt,'font')){
-   // Retain a v1-shaped sequence floor so older relays can read the row.
-   item.appearanceReceipt=receipt;
-   const {font,...legacy}=receipt;
-   StoreThemeReceipt(item,legacy);
-  }else{
-   delete item.appearanceReceipt;
-   StoreThemeReceipt(item,receipt);
-  }
+  const changed=theme.Write(next,item,body.theme,body.font,body.appearance);
+  const {appearance,font,...legacy}=receipt;
+  // Retain both older receipt shapes so prior servers can read the row.
+  if(appearance!==undefined)item.appearanceV3Receipt=receipt;
+  else delete item.appearanceV3Receipt;
+  if(font!==undefined)item.appearanceReceipt={...legacy,font};
+  else delete item.appearanceReceipt;
+  StoreThemeReceipt(item,legacy);
+  if(appearance!==undefined&&changed)DebitUsage(next,item);
  });
  return ThemeResult(row,receipt);
 }
@@ -233,6 +234,8 @@ function ValidateThemeReceipt(row){
   // clear legacy receipts during recovery without touching the new field.
   if(!plain(value)||Object.keys(value).sort().join(',')!=='fingerprint,font,requestId,sequence,theme'||!ThemeValues(value)||typeof value.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(value.fingerprint)||row.transferVersion!==1||legacy&&legacy.sequence===value.sequence&&(legacy.fingerprint!==value.fingerprint||legacy.theme!==value.theme||legacy.requestId!==value.requestId))throw Error('OVERLAY_STORE_INVALID');
  }
+ const extended=row.appearanceV3Receipt;
+ if(extended!==undefined&&(!plain(extended)||Object.keys(extended).sort().join(',')!=='appearance,fingerprint,font,requestId,sequence,theme'||!ThemeValues(extended)||typeof extended.fingerprint!=='string'||!/^[a-f0-9]{128}$/.test(extended.fingerprint)||row.transferVersion!==1||value?.sequence===extended.sequence&&(value.fingerprint!==extended.fingerprint||value.theme!==extended.theme||value.font!==extended.font||value.requestId!==extended.requestId)))throw Error('OVERLAY_STORE_INVALID');
 }
 function Verify(body){
  Fields(body,['sessionId','sessionToken','machineId','binarySha512','binaryCrc64','codeSha512','codeCrc64','capturePrivacyVersion','renewalBudgetVersion','productScopeVersion']);
@@ -419,12 +422,92 @@ function ValidateVerifyReceipt(row){
  if(Object.hasOwn(q,'productScopeVersion')!==Object.hasOwn(q,'productId')||Object.hasOwn(q,'productId')&&(q.productScopeVersion!==1||row.productScopeVersion!==1||typeof q.productId!=='string'||q.productId!==''&&!products.IsStoredProduct(q.productId)))throw Error('OVERLAY_STORE_INVALID');
  if(Object.hasOwn(q,'renewalBudget')){const b=q.renewalBudget;if(!plain(b)||Object.keys(b).sort().join(',')!=='observationExpiresAt,snapshotExpiresAt,version'||b.version!==1||!Number.isSafeInteger(b.snapshotExpiresAt)||b.snapshotExpiresAt<0||b.snapshotExpiresAt>q.serverTime+120000||(b.snapshotExpiresAt!==0&&b.snapshotExpiresAt<q.expiresAt)||!Number.isSafeInteger(b.observationExpiresAt)||b.observationExpiresAt<q.expiresAt)throw Error('OVERLAY_STORE_INVALID');}
 }
-function ValidateTransferRows(db){for(const row of Object.values(db.overlays||{})){if(row.productScopeVersion!==undefined&&(row.productScopeVersion!==1||!Number.isSafeInteger(row.claimedAt)||['PREPARED','READY'].includes(row.status)))throw Error('OVERLAY_STORE_INVALID');ValidateVerifyReceipt(row);ValidateShutdownIntent(row);ValidateStartReceipt(row);ValidateThemeReceipt(row);if(row.authorizedAt!==undefined&&(!Number.isSafeInteger(row.authorizedAt)||row.authorizedAt<row.claimedAt||row.authorizedAt!==row.lastVerifiedAt))throw Error('OVERLAY_STORE_INVALID');if(row.transferVersion===undefined){if(row.transferredAt!==undefined)throw Error('OVERLAY_STORE_INVALID');continue;}const parent=db.flows[row.parentFlowId];if(row.transferVersion!==1||!Number.isSafeInteger(row.transferredAt)||row.transferredAt<row.claimedAt||row.authorizedAt===undefined||parent?.transferredOverlayId!==row.id||parent?.transferredAt!==row.transferredAt||parent?.overlayTransferVersion!==1||parent?.closedByOverlay!==true||!['CLOSED','REVOKED','EXPIRED'].includes(parent.status))throw Error('OVERLAY_STORE_INVALID');}}
-function Execute(body){if(!plain(body))Fail('BOOTSTRAP_INPUT_INVALID',400);const purpose=require("../protocol/spacex.desktop-request-protocol").Resolve('bootstrap',body.action);if(!purpose.name.startsWith('overlay.'))Fail('BOOTSTRAP_INPUT_INVALID',400);if(!['overlayClose','overlayAbort','overlayShutdown'].includes(body.action))Boot().EnsureSecurityAvailable();Prune();let response;switch(body.action){case 'overlayChunk':response=Chunk(body);break;case 'overlayFinish':response=Finish(body);break;case 'overlayClaim':response=Claim(body);break;case 'overlayProgress':return Progress(body);case 'overlayVerify':response=Verify(body);break;case 'overlayStart':response=Start(body);break;case 'overlayTheme':response=SaveTheme(body);break;case 'overlayCommit':response=Commit(body);break;case 'overlayClose':response=Close(body);break;case 'overlayShutdown':response=Shutdown(body);break;case 'overlayAbort':response=Abort(body);break;default:Fail('BOOTSTRAP_INPUT_INVALID',400);}return require('../protocol/spacex.packet-schema').ValidateDocument(body.action==='overlayChunk'&&body.count===2?'overlayChunkBatch':body.action,response);}
+function ParseUsage(body){
+ Fields(body,['sessionId','sessionToken','operation','requestId','sequence','signature']);
+ if(!/^[A-F0-9]{24}$/.test(body.sessionId||'')||typeof body.sessionToken!=='string'||body.sessionToken.length>200||
+    typeof body.signature!=='string'||body.signature.length>1000||typeof body.requestId!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(body.requestId)||
+    !['read','consume'].includes(body.operation)||!Number.isSafeInteger(body.sequence)||body.sequence>2147483647||
+    (body.operation==='read'?body.sequence!==0:body.sequence<1))Fail('BOOTSTRAP_INPUT_INVALID',400);
+}
+function UsageCanonical(body){
+ return ['SPACEX-OVERLAY-USAGE-V1',body.sessionId,body.operation,body.requestId,String(body.sequence)].join('\n');
+}
+function UsageAuthority(row,db){
+ const parent=db.flows[row.parentFlowId],launcher=parent&&db.launchers[parent.launcherId];
+ ThemeAuthority(row,parent);
+ if(!launcher||launcher.status!=='CONSUMED'||launcher.flowId!==parent.id)Fail('BOOTSTRAP_OVERLAY_NOT_READY',409);
+ return parent;
+}
+function UsageResult(row,requestId,sequence,{limit,remaining}){
+ return {version:1,sessionId:row.sessionId,requestId,sequence,licenseReference:row.licenseId.replace(/^DL-/,''),limit,remaining,status:remaining?'ACTIVE':'EXHAUSTED'};
+}
+function ExactUsageReceipt(row,body,fingerprint){
+ const receipt=row.usageReceipt;
+ if(body.operation!=='consume'||!receipt||body.sequence>receipt.sequence)return null;
+ if(receipt.sequence!==body.sequence||receipt.fingerprint!==fingerprint)Fail('BOOTSTRAP_REQUEST_REUSED',409);
+ if(require('../runtime/spacex.desktop-deadline').persistent.expired('O.usage-recovery:'+row.id,receipt.at,receipt.at+TRANSFER_RECOVERY_MS))Fail('BOOTSTRAP_EXPIRED');
+ return receipt;
+}
+function UsageSession(body){
+ ParseUsage(body);
+ const db=store.Load(),row=Session(body.sessionId,body.sessionToken);
+ const fingerprint=require('../protocol/spacex.desktop-request-protocol').Fingerprint('overlay.usage',body);
+ const prior=ExactUsageReceipt(row,body,fingerprint);
+ const exhaustedAt=usage.Snapshot(db,row.licenseId).exhaustedAt;
+ // An exhausted session can acknowledge only its zero balance or recover
+ // its exact final debit. Neither path revives an execution capability.
+ if(exhaustedAt&&row.status==='REVOKED'&&row.reason==='USAGE_EXHAUSTED'&&exhaustedAt===row.revokedAt&&
+    (body.operation==='read'||prior?.remaining===0)){
+  if(require('../runtime/spacex.desktop-deadline').persistent.expired('O.usage-exhausted:'+row.id,exhaustedAt,exhaustedAt+TRANSFER_RECOVERY_MS))Fail('BOOTSTRAP_EXPIRED');
+ }else UsageAuthority(row,db);
+ return {db,row,fingerprint,prior};
+}
+function DebitUsage(next,item,at=now()){
+ const parent=UsageAuthority(item,next);
+ const count=usage.Charge(next,item.licenseId,at);
+ if(count.remaining===0){
+  Boot().RetireFlow(parent,next,{sessionOnly:true});
+  Boot().RetireLauncher(next.launchers[parent.launcherId],at);
+  for(const key of ['transferRecoveryUntil','transferReceiptHash','transferFingerprint'])delete parent[key];
+  item.status='REVOKED';item.revokedAt=at;item.reason='USAGE_EXHAUSTED';
+  Retire(item,true);
+ }
+ return count;
+}
+function Usage(body){
+ const {db,row,fingerprint,prior}=UsageSession(body);
+ Boot().Verify(row,UsageCanonical(body),body.signature);
+ const balance=usage.Snapshot(db,row.licenseId),sequence=row.usageReceipt?.sequence??0;
+ if(body.operation==='read')return UsageResult(row,body.requestId,sequence,balance);
+ if(prior)return UsageResult(row,prior.requestId,prior.sequence,prior);
+ if(body.sequence!==sequence+1)Fail('BOOTSTRAP_REQUEST_REUSED',409);
+ const debit=next=>{
+  Boot().AssertSecurityAvailable();
+  const item=next.overlays[row.id];
+  if(body.sequence!==(item.usageReceipt?.sequence??0)+1)Fail('BOOTSTRAP_REQUEST_REUSED',409);
+  const at=now(),{limit,remaining}=DebitUsage(next,item,at);
+  item.usageReceipt={requestId:body.requestId,sequence:body.sequence,fingerprint,at,limit,remaining};
+  return UsageResult(item,body.requestId,body.sequence,{limit,remaining});
+ };
+ if(balance.remaining===1)return Atomic('OVERLAY_USAGE_EXHAUSTED','SERVER',debit);
+ return store.Atomic(debit);
+}
+function ValidateUsageReceipt(row,db){
+ const r=row.usageReceipt;if(r===undefined)return;
+ const balance=db.licenseUsage?.[row.licenseId];
+ if(!plain(r)||Object.keys(r).sort().join(',')!=='at,fingerprint,limit,remaining,requestId,sequence'||row.transferVersion!==1||
+    !Number.isSafeInteger(r.at)||r.at<row.transferredAt||!Number.isSafeInteger(r.sequence)||r.sequence<1||r.sequence>2147483647||
+    typeof r.requestId!=='string'||!/^[-A-Za-z0-9_]{8,80}$/.test(r.requestId)||!/^[a-f0-9]{128}$/.test(r.fingerprint)||
+    !Number.isSafeInteger(r.limit)||r.limit<1||r.limit>usage.DEFAULT_LIMIT||!Number.isSafeInteger(r.remaining)||r.remaining<0||r.remaining>=r.limit||
+    !balance||balance.limit!==r.limit||balance.remaining>r.remaining||r.remaining===0&&(row.status!=='REVOKED'||row.reason!=='USAGE_EXHAUSTED'||r.at!==row.revokedAt))throw Error('OVERLAY_STORE_INVALID');
+}
+function ValidateTransferRows(db){for(const row of Object.values(db.overlays||{})){if(row.productScopeVersion!==undefined&&(row.productScopeVersion!==1||!Number.isSafeInteger(row.claimedAt)||['PREPARED','READY'].includes(row.status)))throw Error('OVERLAY_STORE_INVALID');ValidateVerifyReceipt(row);ValidateShutdownIntent(row);ValidateStartReceipt(row);ValidateThemeReceipt(row);ValidateUsageReceipt(row,db);if(row.authorizedAt!==undefined&&(!Number.isSafeInteger(row.authorizedAt)||row.authorizedAt<row.claimedAt||row.authorizedAt!==row.lastVerifiedAt))throw Error('OVERLAY_STORE_INVALID');if(row.transferVersion===undefined){if(row.transferredAt!==undefined)throw Error('OVERLAY_STORE_INVALID');continue;}const parent=db.flows[row.parentFlowId];if(row.transferVersion!==1||!Number.isSafeInteger(row.transferredAt)||row.transferredAt<row.claimedAt||row.authorizedAt===undefined||parent?.transferredOverlayId!==row.id||parent?.transferredAt!==row.transferredAt||parent?.overlayTransferVersion!==1||parent?.closedByOverlay!==true||!['CLOSED','REVOKED','EXPIRED'].includes(parent.status))throw Error('OVERLAY_STORE_INVALID');}}
+function Execute(body){if(!plain(body))Fail('BOOTSTRAP_INPUT_INVALID',400);const purpose=require("../protocol/spacex.desktop-request-protocol").Resolve('bootstrap',body.action);if(!purpose.name.startsWith('overlay.'))Fail('BOOTSTRAP_INPUT_INVALID',400);if(!['overlayClose','overlayAbort','overlayShutdown'].includes(body.action))Boot().EnsureSecurityAvailable();Prune();let response;switch(body.action){case 'overlayChunk':response=Chunk(body);break;case 'overlayFinish':response=Finish(body);break;case 'overlayClaim':response=Claim(body);break;case 'overlayProgress':return Progress(body);case 'overlayVerify':response=Verify(body);break;case 'overlayStart':response=Start(body);break;case 'overlayUsage':response=Usage(body);break;case 'overlayTheme':response=SaveTheme(body);break;case 'overlayCommit':response=Commit(body);break;case 'overlayClose':response=Close(body);break;case 'overlayShutdown':response=Shutdown(body);break;case 'overlayAbort':response=Abort(body);break;default:Fail('BOOTSTRAP_INPUT_INVALID',400);}return require('../protocol/spacex.packet-schema').ValidateDocument(body.action==='overlayChunk'&&body.count===2?'overlayChunkBatch':body.action,response);}
 function ProofTasks(body){
  const db=store.Load(),row=db.overlays?.[body.overlayId],work=require("../integrity/spacex.desktop-proof-work");
  if(body.action==='overlayFinish'&&row)return [work.Job(delegation.Parent(row).publicKey,Canonical(row,'FINISH'),body.signature)];
  if(body.action==='overlayStart'){ParseStart(body);const r=Session(body.sessionId,body.sessionToken);Live(r);return [work.Job(r.publicKey,StartCanonical(body),body.signature)];}
+ if(body.action==='overlayUsage'){const {row}=UsageSession(body);return [work.Job(row.publicKey,UsageCanonical(body),body.signature)];}
  if(body.action==='overlayTheme'){ThemeRequest(body);const r=Session(body.sessionId,body.sessionToken);ThemeAuthority(r,db.flows[r.parentFlowId]);return [work.Job(r.publicKey,ThemeCanonical(body),body.signature)];}
  if(body.action==='overlayProgress'){const r=Session(body.sessionId,body.sessionToken);Live(r);return [work.Job(r.publicKey,require('./spacex.desktop-overlay-startup').Canonical(body),body.signature)];}
  if(body.action==='overlayClaim'&&row)return delegation.ProofTasks(row,body,'O',Canonical(row,'CLAIM'));

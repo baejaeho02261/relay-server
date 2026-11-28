@@ -11,7 +11,7 @@ const roles=[
 ];
 for(const [file,role,budget,bound]of roles)test(role+' narrows only a failed large transport receive inside its original request budget',{skip:!available},()=>{
  const source=read(file),chunk=source.split('function '+role+'.ChunkCore(')[1].split('\nend;')[0];
- assert.ok(chunk.indexOf('Deadline := CozyTick + '+budget)<chunk.indexOf('while True do'));
+ assert.ok(chunk.indexOf('Deadline := SpaceXTick + '+budget)<chunk.indexOf('while True do'));
  assert.ok(chunk.indexOf(bound)<chunk.indexOf('while True do'));
  const loop=chunk.slice(chunk.indexOf('while True do'));
  assert.doesNotMatch(loop,/Deadline\s*:=|Ticket\s*:=|Offset\s*:=|Flow\.\w+\s*:=/);

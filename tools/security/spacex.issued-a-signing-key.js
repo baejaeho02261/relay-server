@@ -12,7 +12,20 @@ function ParsePublic(value){
 }
 function Include(identity){
  const bytes=signing.AnchorBytes(identity.publicKey),lines=[];for(let i=0;i<bytes.length;i+=12)lines.push('  '+Array.from(bytes.subarray(i,i+12),v=>'$'+v.toString(16).toUpperCase().padStart(2,'0')).join(', ')+(i+12<bytes.length?',':''));
- return '\uFEFF'+['{ Public verification anchor only. Never put a private key in this file. }','{ Key ID: '+identity.keyId+' }','{$J-}','const','  CozyIssuedATrustAnchor: array[0..330] of Byte = (',...lines,'  );',''].join('\r\n');
+ return '\uFEFF'+['{ Public verification anchor only. Never put a private key in this file. }','{ Key ID: '+identity.keyId+' }','{$J-}','const','  SpaceXIssuedATrustAnchor: array[0..330] of Byte = (',...lines,'  );',''].join('\r\n');
+}
+function ParseInclude(bytes){
+ // Accept only the public constant emitted by this tool and its historical
+ // spelling. Treat the Pascal include as data, never as compiler input.
+ const source=new TextDecoder('utf-8',{fatal:true}).decode(bytes).trim();
+ const declaration=/^(?:\{ Public verification anchor only\. Never put a private key in this file\. \}\s*)?(?:\{ Key ID: ([a-f0-9]{64}) \}\s*)?(?:\{\$J-\}\s*)?const\s+(?:SpaceX|Cozy)IssuedATrustAnchor\s*:\s*array\s*\[0\.\.330\]\s+of\s+Byte\s*=\s*\(([\s$0-9a-f,]+)\)\s*;$/i.exec(source);
+ if(!declaration)Fail('ISSUED_A_PUBLIC_INCLUDE_INVALID');
+ const tokens=declaration[2].split(',').map(token=>token.trim());
+ if(tokens.length!==331||tokens.some(token=>!/^\$[0-9a-f]{2}$/i.test(token)))Fail('ISSUED_A_PUBLIC_INCLUDE_INVALID');
+ const anchor=Buffer.from(tokens.map(token=>Number.parseInt(token.slice(1),16)));
+ const identity=signing.IdentityFromBlob(anchor.subarray(48));
+ if(!anchor.equals(signing.AnchorBytes(identity.publicKey))||declaration[1]&&declaration[1].toLowerCase()!==identity.keyId)Fail('ISSUED_A_PUBLIC_INCLUDE_INVALID');
+ return identity;
 }
 function ValidateOutput(file){
  if(!file||!path.isAbsolute(file)||fs.existsSync(file))Fail('ISSUED_A_OUTPUT_NEW_ABSOLUTE_PATH_REQUIRED');
@@ -29,7 +42,7 @@ function WritePrivateWindows(file,bytes,created){
  // No private file exists while the new empty directory inherits its parent
  // ACL. Restrict that directory first, so no preexisting reader can retain a
  // handle to the private file across the ACL change.
- const directory=fs.mkdtempSync(path.join(path.dirname(file),'.cozy-issued-key-')),dirIdentity=fs.lstatSync(directory),staged=path.join(directory,'key.pending');let fd,identity;
+ const directory=fs.mkdtempSync(path.join(path.dirname(file),'.spacex-issued-key-')),dirIdentity=fs.lstatSync(directory),staged=path.join(directory,'key.pending');let fd,identity;
  try{
   RestrictDirectory(directory);
   const dirNow=fs.lstatSync(directory);if(!dirNow.isDirectory()||dirNow.isSymbolicLink()||dirNow.dev!==dirIdentity.dev||dirNow.ino!==dirIdentity.ino)Fail('ISSUED_A_PRIVATE_ACL_REQUIRED');
@@ -58,10 +71,11 @@ function ExternalPrivate(file){
 function Cleanup(created){for(const row of created.reverse()){try{const st=fs.lstatSync(row.file);if(st.isFile()&&!st.isSymbolicLink()&&st.dev===row.dev&&st.ino===row.ino)fs.unlinkSync(row.file);}catch(_){}}}
 function main(args){
  const options={};for(let i=0;i<args.length;i+=2){if(!/^--[a-z-]+$/.test(args[i]||'')||args[i+1]===undefined||Object.hasOwn(options,args[i]))Fail('ISSUED_A_KEY_USAGE');options[args[i]]=args[i+1];}
- if(Object.keys(options).some(k=>!['--action','--private-key-file','--public-json-file','--public-json-out','--include-out'].includes(k)))Fail('ISSUED_A_KEY_USAGE');
+ if(Object.keys(options).some(k=>!['--action','--private-key-file','--public-json-file','--public-include-file','--public-json-out','--include-out'].includes(k)))Fail('ISSUED_A_KEY_USAGE');
  const action=options['--action'];if(!['generate','export','include'].includes(action))Fail('ISSUED_A_KEY_USAGE');
  if(!options['--public-json-out']&&!options['--include-out'])Fail('ISSUED_A_KEY_OUTPUT_REQUIRED');
- if(action==='include'&&options['--private-key-file']||action!=='include'&&options['--public-json-file'])Fail('ISSUED_A_KEY_USAGE');
+ const useJson=Object.hasOwn(options,'--public-json-file'),useInclude=Object.hasOwn(options,'--public-include-file');
+ if(action==='include'?(Object.hasOwn(options,'--private-key-file')||useJson&&useInclude):(useJson||useInclude))Fail('ISSUED_A_KEY_USAGE');
  const outputs=[options['--public-json-out'],options['--include-out'],...(action==='generate'?[options['--private-key-file']]:[])].filter(Boolean);
  if(new Set(outputs.map(x=>path.resolve(x))).size!==outputs.length)Fail('ISSUED_A_DUPLICATE_OUTPUT');
  for(const file of outputs)ValidateOutput(file);
@@ -76,7 +90,14 @@ function main(args){
  }else if(options['--action']==='export'){
   ExternalPrivate(options['--private-key-file']||'');const privateKey=ReadPrivate(options['--private-key-file']||'');identity=signing.PublicIdentity(crypto.createPublicKey(privateKey));
  }else if(options['--action']==='include'){
-  const file=options['--public-json-file'];if(!file||!path.isAbsolute(file))Fail('ISSUED_A_PUBLIC_JSON_PATH_REQUIRED');const bytes=require('../../services/artifacts/spacex.bounded-artifact-read').Read(file,4096);try{identity=ParsePublic(JSON.parse(bytes.toString('utf8')));}finally{bytes.fill(0);}
+  const file=options[useInclude?'--public-include-file':'--public-json-file'];
+  if(!file||!path.isAbsolute(file))Fail(useInclude?'ISSUED_A_PUBLIC_INCLUDE_PATH_REQUIRED':'ISSUED_A_PUBLIC_JSON_PATH_REQUIRED');
+  const bytes=require('../../services/artifacts/spacex.bounded-artifact-read').Read(file,4096);
+  try{
+   if(useInclude){
+    try{identity=ParseInclude(bytes);}catch(_){Fail('ISSUED_A_PUBLIC_INCLUDE_INVALID');}
+   }else identity=ParsePublic(JSON.parse(bytes.toString('utf8')));
+  }finally{bytes.fill(0);}
  }else Fail('ISSUED_A_KEY_USAGE');
  if(options['--public-json-out'])WriteNew(options['--public-json-out'],JSON.stringify(PublicJSON(identity),null,2)+'\n',0o644,created);
  if(options['--include-out'])WriteNew(options['--include-out'],Include(identity),0o644,created);

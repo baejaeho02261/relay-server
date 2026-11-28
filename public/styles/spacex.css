@@ -91,50 +91,120 @@
 }
 @keyframes star-drift { to { transform: translate3d(44px, -37px, 0); } }
 
-/* Sign-in uses the real B globe atlas and the existing access methods. */
+/* The opening scene has its own Pure Black palette, independent of the dashboard. */
+body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
 #login-screen {
-  background: transparent;
-  padding: clamp(20px, 5vw, 73px);
-  color: var(--login-ink);
+  --login-diameter: min(62vw, 47svh, 400px);
+  --login-orbit-ink: #a7b6cd;
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 0;
+  background: #000;
+  color: #f2f5fb;
+  color-scheme: dark;
 }
-#login-screen .login-layout {
-  grid-template-columns: minmax(0, 1fr) minmax(330px, 414px);
-  align-items: center;
-  gap: clamp(25px, 5vw, 80px);
-  max-width: 1240px;
+#login-screen .login-space {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
-#login-screen .login-story {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+.login-orb-controls {
+  position: relative;
+  width: var(--login-diameter);
+  height: var(--login-diameter);
+}
+.login-earth-fallback {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  height: auto;
+  max-width: none;
+  transform: translate(-50%, -50%);
+  filter: grayscale(1) brightness(.5);
+  pointer-events: none;
+}
+.login-atlas-ready .login-earth-fallback { visibility: hidden; }
+#login-screen .login-earth {
+  position: absolute;
+  inset: 0;
   min-height: 0;
   padding: 0;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: none;
+  color: inherit;
+  box-shadow: none;
+  cursor: pointer;
+  clip-path: circle(50%);
 }
-#login-screen .login-brand { align-self: flex-start; margin: 0 0 12px; }
-#login-screen .login-brand .brand-symbol { width: 43px; height: 43px; }
-#login-screen .login-wordmark { margin: 0; font-size: clamp(26px, 2.65vw, 40px); font-weight: 700; letter-spacing: -.065em; }
-.login-planet { display: grid; place-items: center; min-width: 0; margin: -16px -22px -29px; }
-.login-planet img { display: block; width: 100%; height: auto; max-height: min(69vh, 610px); object-fit: contain; animation: planet-drift 16s ease-in-out infinite alternate; }
-@keyframes planet-drift { from { transform: translateY(3px); } to { transform: translateY(-9px); } }
-.space-login-controls { position: absolute; top: 3px; right: 0; z-index: 2; }
-.space-login-controls .motion-toggle { width: 36px; min-height: 36px; border: 1px solid var(--line); }
-.space-login-controls .motion-toggle svg { width: 16px; height: 16px; }
-#login-screen .login-card {
-  padding: clamp(23px, 3vw, 36px);
-  border: 1px solid var(--line-strong);
-  border-radius: 27px;
-  background: var(--shell-pane);
-  box-shadow: var(--shadow-float);
-  -webkit-backdrop-filter: blur(19px);
-  backdrop-filter: blur(19px);
+#login-screen .login-earth:hover { box-shadow: inset 0 0 0 2px #444954; }
+#login-screen .login-earth:focus-visible { box-shadow: inset 0 0 0 2px var(--login-orbit-ink); outline: none; }
+.login-orb-form {
+  position: absolute;
+  top: calc(100% + 18px);
+  left: 50%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: min(270px, calc(100vw - 34px));
+  transform: translateX(-50%);
+  animation: enter-login-orbit .24s ease-out both;
 }
-#login-screen .login-card h2 { margin: 0 0 23px; font-size: 26px; font-weight: 650; }
-#login-screen .login-card label { margin-top: 17px; }
-#login-screen .login-card input,#login-screen .login-card select { border-color: var(--line); background: var(--bg-2); }
-#login-screen .login-card :is(input,select):focus { border-color: var(--accent); }
-#login-screen .login-card .primary { justify-content: space-between; font-size: 13px; padding-inline: 17px; }
-#login-screen .login-card .small-note { font-size: 11px; }
-#login-screen .login-security-note { font-size: 11px; }
+@keyframes enter-login-orbit {
+  from { opacity: 0; transform: translate(-50%, -7px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+#login-screen #login-password,
+#login-screen .login-orb-action {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid #303239;
+  border-radius: 24px;
+  background: #000;
+  color: #f2f5fb;
+  box-shadow: none;
+  outline-offset: 3px;
+  animation: none;
+}
+#login-screen #login-password { font-size: 16px; letter-spacing: .2em; }
+#login-screen #login-password:focus-visible,
+#login-screen .login-orb-action:focus-visible { outline: 2px solid var(--login-orbit-ink); }
+#login-screen .login-orb-action {
+  display: grid;
+  width: 44px;
+  padding: 0;
+  place-items: center;
+}
+#login-screen .login-orb-action:hover { border-color: var(--login-orbit-ink); }
+.login-orb-action svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#login-screen #login-error {
+  grid-column: 1 / -1;
+  min-height: 0;
+  margin: 0;
+  color: #ffc0c0;
+  text-align: center;
+  font-size: 12px;
+}
+#login-screen #login-error:empty { display: none; }
+@media (prefers-reduced-motion: reduce) { .login-orb-form { animation: none; } }
 
 /* Responsive raised rail and a separate workspace with an action bar first. */
 .app {
@@ -293,13 +363,6 @@
 }
 @media (max-width: 760px) {
   #rail-toggle { display: none; }
-  .space-login-controls { top: 1px; }
-  #login-screen .login-layout { grid-template-columns: minmax(0, 1fr); gap: 12px; max-width: 437px; }
-  #login-screen .login-brand { margin: 0; }
-  .login-planet { margin: -7px 0 -14px; }
-  .login-planet img { width: min(335px, 100%); max-height: 240px; }
-  #login-screen .login-card h2 { margin-bottom: 17px; font-size: 23px; }
-  #login-screen .login-card .login-security-note { padding-top: 14px; margin-top: 18px; }
   .app { --shell-pad: 8px; --shell-inset: 15px; --shell-radius: 18px; }
   .app .sidebar { inset: var(--shell-pad) auto var(--shell-pad) var(--shell-pad); width: min(320px, calc(100vw - 36px)); height: auto; }
   .app.menu-open::before { background: rgba(2, 4, 12, .65); }

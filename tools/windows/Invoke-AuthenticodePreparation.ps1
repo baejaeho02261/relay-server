@@ -55,11 +55,11 @@ function Run-Owned([string]$Name,[string]$Executable,[string[]]$Arguments,[int]$
 }
 try{
  . (Join-Path $PSScriptRoot 'WindowsCommon.ps1')
- if(-not ('CozySigning.AtomicDirectory' -as [type])){
+ if(-not ('SpaceXSigning.AtomicDirectory' -as [type])){
   Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
-namespace CozySigning { public static class AtomicDirectory {
+namespace SpaceXSigning { public static class AtomicDirectory {
  [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
  [return: MarshalAs(UnmanagedType.Bool)]
  public static extern bool CreateDirectoryW(string path, IntPtr securityAttributes);
@@ -82,8 +82,8 @@ namespace CozySigning { public static class AtomicDirectory {
  if((Read-Hash $node) -cne $NodeSha512.ToLowerInvariant()){throw 'WINDOWS_TEST_AUTHENTICODE_NODE_HASH_MISMATCH'}
  # Same volume as the final destination makes the final rename atomic. Native
  # CreateDirectory fails for an existing path, so cleanup never claims one.
- $private=Join-Path $destinationParent ('.CozyAuthenticode-'+[Guid]::NewGuid().ToString('N'))
- if(-not [CozySigning.AtomicDirectory]::CreateDirectoryW($private,[IntPtr]::Zero)){throw 'WINDOWS_TEST_AUTHENTICODE_PRIVATE_CREATE_FAILED'}
+ $private=Join-Path $destinationParent ('.SpaceXAuthenticode-'+[Guid]::NewGuid().ToString('N'))
+ if(-not [SpaceXSigning.AtomicDirectory]::CreateDirectoryW($private,[IntPtr]::Zero)){throw 'WINDOWS_TEST_AUTHENTICODE_PRIVATE_CREATE_FAILED'}
  $privateCreated=$true;$privateCreatedAt=(Get-Item -LiteralPath $private -Force).CreationTimeUtc.Ticks
  Set-PrivateAcl $private
  [IO.File]::WriteAllText((Join-Path $private 'test-owned-marker'),'COZY_AUTHENTICODE_PREPARATION_V1')

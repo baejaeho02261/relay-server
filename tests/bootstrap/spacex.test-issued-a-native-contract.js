@@ -37,7 +37,7 @@ test('Native verification occurs before endpoint parsing and has no unsigned fal
  assert.match(unit,/TResourceStream\.CreateFromID\(HInstance, IssuedTrustResourceID, RT_RCDATA\)/);
  assert.match(unit,/if Trust\.Size <> IssuedAnchorBytes then Invalid/);
  assert.match(unit,/Trust\.ReadBuffer\(Anchor\[0\], Length\(Anchor\)\)/);
- assert.doesNotMatch(unit,/CozyIssuedATrustAnchor|\{\$I [^}]*SpaceX\.IssuedA\.Trust\.inc\}/);
+ assert.doesNotMatch(unit,/(?:Cozy|SpaceX)IssuedATrustAnchor|\{\$I [^}]*SpaceX\.IssuedA\.Trust\.inc\}/);
  assert.match(unit,/SameBytes\(KeyID, 0, Anchor, 16, 32\)/);assert.match(unit,/SameBytes\(KeyID, 0, Header, 24, 32\)/);
  assert.doesNotMatch(unit,/CreatePrivateKey|NCryptSignHash|private.*pem/i);
 });

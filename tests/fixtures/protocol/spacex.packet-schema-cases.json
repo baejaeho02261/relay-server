@@ -1,5 +1,5 @@
 {
-  "schemaSha512": "6b407f68277bbb0adaf94f96b02aa2b2fecbef4effde4ba35a3a3a371d8c8dee77e0857d5c07811f128850bc888e729062d90de4deae36ada90c25c02261b4e6",
+  "schemaSha512": "5464b24ab8f925af9ee38dd59d0e76adf75240a7d6052c5dfdb56a8034aa2359ccea24df834d56d32a6abb2678b6bdf84f66fd1bc954f27a35bd32c85fb869bb",
   "cases": [
     {
       "operation": "bootstrap",
@@ -546,6 +546,19 @@
         "productId": "cleaner.pubg",
         "requestId": "rrrrrrrr",
         "sequence": 1,
+        "signature": "{}"
+      }
+    },
+    {
+      "operation": "bootstrap",
+      "tlsPinVersion": 1,
+      "body": {
+        "action": "overlayUsage",
+        "sessionId": "AAAAAAAAAAAAAAAAAAAAAAAA",
+        "sessionToken": "{}",
+        "operation": "read",
+        "requestId": "rrrrrrrr",
+        "sequence": 0,
         "signature": "{}"
       }
     },

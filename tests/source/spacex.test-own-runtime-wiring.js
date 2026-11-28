@@ -40,13 +40,13 @@ for (const [file, cls, profile, image] of [
   const source = read('SpaceX.Source/' + file);
   const constructor = routine(source, 'constructor ' + cls + '.Create');
   assert.ok(constructor.indexOf('FTransport := TConnectTransport.Create') < constructor.indexOf('FRuntimeGraph :='), cls + ' registers actual constructed transport');
-  assert.ok(constructor.includes(`TCozyOwnedRuntimeGraph.Create(${profile}, Self, FGate, FTransport)`));
+  assert.ok(constructor.includes(`TSpaceXOwnedRuntimeGraph.Create(${profile}, Self, FGate, FTransport)`));
   const destroy = routine(source, 'destructor ' + cls + '.Destroy');
   assert.ok(destroy.indexOf('FGate.CloseAndWait') < destroy.indexOf('FRuntimeGraph.Close'), cls + ' drains active calls before retirement');
   assert.ok(destroy.indexOf('FRuntimeGraph.Close') < destroy.indexOf('FTransport.Free'), cls + ' retires while dependencies remain alive');
   const capture = routine(source, 'function ' + cls + '.OwnRuntime');
   assert.ok(capture.includes(`FRuntimeGraph.BindDependencies(Security, ${image}, CodeIntegrity)`));
-  assert.match(capture, /CozyRuntimeBindings\(Self, FGate, FTransport, Security,/);
+  assert.match(capture, /SpaceXRuntimeBindings\(Self, FGate, FTransport, Security,/);
   assert.ok(capture.includes(image + ', CodeIntegrity)'));
   assert.ok((source.match(/OwnRuntime\(/g) || []).length >= 5, cls + ' forwards runtime scope to report, authority and server operation');
 }

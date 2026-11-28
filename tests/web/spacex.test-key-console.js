@@ -43,15 +43,15 @@ try{
  test('An explicit reserved A keeps its assignment metadata with a manual-input B',()=>{F.CurrentCohort({version:'92.1',marker:'KEY_WINDOW_RESTORED'});reserved=d.Create({productId:'cleaner.pubg',label:'Historical reserved key',requestId:crypto.randomUUID()},'TEST');oldIssue=b.IssueLauncher({requestId:crypto.randomUUID(),label:'old reserved A',licenseId:reserved.license.id},'TEST');secondDev=F.Device();secondSession=openIssued(secondDev,oldIssue);});
  test('Historical A assignment cannot auto-authorize the new license-window build',()=>{bad(()=>d.Execute(proof(secondDev,secondSession,'redeem',{licenseKey:'SERVER_ASSIGNED_V1'})),'DESKTOP_KEY_INVALID');assert.equal(d.Detail(reserved.license.id).license.status,'AVAILABLE');});
  test('The user-entered valid KEY wins over unused historical A assignment metadata',()=>{other=d.Create({productId:'cleaner.pubg',label:'Actually entered key',requestId:crypto.randomUUID()},'TEST');const r=d.Execute(proof(secondDev,secondSession,'redeem',{licenseKey:other.licenseKey}));assert.equal(r.licenseId,other.license.id);assert.equal(d.Detail(reserved.license.id).license.status,'AVAILABLE');assert.equal(b.Initialize().launchers[oldIssue.launcherId].assignedLicenseId,reserved.license.id);assert.equal(w.Detail(reserved.license.id).flows.length,0);assert.ok(w.Detail(other.license.id).flows.some(x=>x.launcherId===oldIssue.launcherId));});
- test('B activates an explicitly imported key once and waits for each presented handoff phase',()=>{
+ test('B activates an explicitly imported key once and automatically advances after the presented Ready hold',()=>{
   const native=path.resolve(MODULE_RESOURCE_ROOT,'../../Desktop');
   const text=ReadContractFile(path.join(native,'SpaceX.Source/SpaceX.License/SpaceX.License.Session.pas'),'utf8');
   const window=ReadContractFile(path.join(native,'SpaceX.Source/SpaceX.License/SpaceX.License.Window.pas'),'utf8');
-  const entry=text.split('function RunLicenseClient(const Monitor: ICozyProtectionSession;').at(-1);
+  const entry=text.split('function RunLicenseClient(const Monitor: ISpaceXProtectionSession;').at(-1);
   assert(entry.indexOf('Context.CompleteClaimAndCleanup(')<entry.indexOf('RunLicenseWindow('));
   for(const word of ['Worker := TLicenseWorker.Create(Api);','Worker.SubmitKey(Key)','Worker.RequestStop;','Worker.StopAndJoin;','Worker.Free;'])assert(entry.includes(word),word);
   const paste=window.split('procedure TLicenseWindow.PasteKey;')[1].split('procedure TLicenseWindow.Submit;')[0];
-  const submit=window.split('procedure TLicenseWindow.Submit;')[1].split('procedure TLicenseWindow.LaunchSelected;')[0];
+  const submit=window.split('procedure TLicenseWindow.Submit;')[1].split('procedure TLicenseWindow.ObserveRedemption(')[0];
   assert.match(paste,/if not SceneInputEnabled then Exit;[\s\S]*?FKey := Value;[\s\S]*?FResetKeySequence := True;\s+FAutoSubmitPending := True;/);
   assert.match(submit,/if not FAutoSubmitPending or not SceneInputEnabled or \(FKey.Count = 0\) then Exit;\s+FAutoSubmitPending := False;[\s\S]*?Key.AppendBuffer\(FKey\);\s+FRedemptionPending := FSubmit\(Key\);/);
   assert.match(submit,/finally\s+FreeAndNil\(Key\);/);
@@ -62,14 +62,18 @@ try{
   const advance=window.split('procedure TLicenseWindow.AdvancePresentedSequence(')[1].split('procedure TLicenseWindow.Paint;')[0];
   assert.match(advance,/LicensePhaseRejectScan: FOutcomePhase := LicensePhaseRejected;/);
   assert.match(advance,/LicensePhaseAcceptScan: FOutcomePhase := LicensePhaseAccepted;[\s\S]*?if not Assigned\(FPrepare\) or not FPrepare\(\) then Close;/);
-  assert.match(paint,/else if State = WorkerLaunching then Phase := LicensePhaseTransfer\s+else if State = WorkerReady then Phase := LicensePhaseRocket\s+else if State = WorkerPreparing then Phase := LicensePhasePreparing\s+else if \(State = WorkerBusy\) or \(State = WorkerLicensed\) then Phase := 1/);
+  assert.match(paint,/else if State = WorkerLaunching then Phase := LicensePhaseTransfer\s+else if State = WorkerReady then Phase := LicensePhaseReady\s+else if State = WorkerPreparing then Phase := LicensePhasePreparing\s+else if \(State = WorkerBusy\) or \(State = WorkerLicensed\) then Phase := 1/);
   assert.doesNotMatch(window,/License(?:PhaseToast|SceneToastComplete)/);
   assert.match(window,/ApiCreateWindowExW\(WS_EX_TOOLWINDOW or NoRedirectionBitmap,/);
   assert.doesNotMatch(window,/\bWS_EX_APPWINDOW\b/);
   const hit=window.split('function TLicenseWindow.ControlInputEnabled(Hit: Integer): Boolean;')[1]
     .split('function TLicenseWindow.DragThresholdReached(')[0];
-  assert.match(hit,/\(\(Hit = HitClipboardPlanet\) and SceneInputEnabled\) or\s*\(\(Hit = HitLaunchRocket\) and RocketInputEnabled\)/);
-  assert.match(paint,/if FRocketReady and \(\(Actions and LicenseSceneRocketLaunch\) <> 0\) then\s*begin LaunchSelected; Exit; end;/);
+  assert.match(hit,/Result := \(?\(Hit = HitClipboardPlanet\) and SceneInputEnabled\)?;/);
+  assert.doesNotMatch(window,/\b(?:RocketInputEnabled|HitLaunchRocket|LicenseSceneRocketLaunch|LaunchSelected)\b/);
+  assert.match(window,/LicenseReadyPresentationSeconds = 0\.35;/);
+  const cancelInput=window.split('procedure TLicenseWindow.CancelInput;')[1].split('procedure TLicenseWindow.ClearKey;')[0];
+  assert.match(cancelInput,/FReadyPresentedSeconds := 0;/);
+  assert.match(paint,/Presented := ImGuiPresent\(FContext\);[\s\S]*?if not FVisibleFrame then\s+begin[\s\S]*?CancelInput;\s+Exit;\s+end;[\s\S]*?\(Actions and LicenseSceneReady\)[\s\S]*?FReadyPresentedSeconds := FReadyPresentedSeconds \+ PresentedDelta;[\s\S]*?FReadyPresentedSeconds >= LicenseReadyPresentationSeconds[\s\S]*?FLaunch\(\)/);
   assert(text.includes('FCommands.Complete(WorkerTransferred);'));
   assert(window.includes('State = WorkerTransferred'));
   assert(entry.indexOf('Worker.Free;')<entry.indexOf('Api.Free;'));

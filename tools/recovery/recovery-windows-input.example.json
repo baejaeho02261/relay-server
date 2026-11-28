@@ -13,6 +13,6 @@
     "O": "C:\\ApprovedRelease\\spacex.Overlay.exe"
   },
   "allowIsolatedPcUnlock": true,
-  "issuedASigningKeyFile": "C:\\Users\\Operator\\AppData\\Local\\Cozy.ServerKeys\\issued-a-private.pem",
+  "issuedASigningKeyFile": "C:\\Users\\Operator\\AppData\\Local\\SpaceX.ServerKeys\\issued-a-private.pem",
   "allowIsolatedRequestApproval": true
 }

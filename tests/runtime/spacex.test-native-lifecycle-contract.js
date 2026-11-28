@@ -82,7 +82,7 @@ test('Shutdown reporter uses shared deadlines and never claims its own observed 
   assert.doesNotMatch(reporter, /WriteAll|WriteFile|CreateFile|\.SaveToFile|Sleep\(/);
 });
 test('A and B obtain permits before authority handoff and refresh during long active lifetimes', () => {
-  const runA = launcher.split('function RunLauncher(const Monitor: ICozyProtectionSession): Integer;')[1];
+  const runA = launcher.split('function RunLauncher(const Monitor: ISpaceXProtectionSession): Integer;')[1];
   order(runA, ['Client.BeginKeylessFlow(', "Lifecycle.Prepare('A'", 'Client.ReportIntegrity(']);
   order(runA, ["Lifecycle.Prepare('A'", 'Grant := Client.Finish(', 'HandoffSucceeded := LaunchWithHandoff(']);
   assert.match(launcher, /Bytes := Client\.Chunk\(Flow, Offset\);\s+if Lifecycle <> nil then Lifecycle\.Prepare\('A'/);
@@ -117,9 +117,9 @@ test('Failed O startup reports only the exact held child exit and verified file 
   order(start, ['TransferClient.AbortChild(', 'FailedChild.ProcessID <> 0', "FLifecycle.ObserveCleanup('O', FailedChild, True)", "FLifecycle.Prepare('O'", "FLifecycle.Submit('O'"]);
 });
 test('Actual cleanup follows worker join and image reader retirement, before final report', () => {
-  const b = licenseSource.split('function RunLicenseClient(const Monitor: ICozyProtectionSession;')[1];
+  const b = licenseSource.split('function RunLicenseClient(const Monitor: ISpaceXProtectionSession;')[1];
   order(b, ['Protection.StopAndDrain;', 'Worker.Free;', 'Api.RetireImagesForShutdown', 'Context.CleanupOwnImageForShutdown', 'Bootstrap.Close(', "Lifecycle.Submit('B'"]);
-  const o = overlay.split('function RunOverlay(const Monitor: ICozyProtectionSession): Integer;')[1];
+  const o = overlay.split('function RunOverlay(const Monitor: ISpaceXProtectionSession): Integer;')[1];
   order(o, ['Protection.StopMonitoring;', 'Worker.JoinBefore(', 'TOverlayClient.CloseSessionSnapshot(', 'Worker.WaitFor;', 'Protection.StopAndDrain;', 'FreeAndNil(Image)', 'Context.CleanupOwnImageForShutdown', 'Client.ShutdownClose(', "Lifecycle.Submit('O'"]);
   assert.match(handoff, /if not FCompleted then Exit;\s+FOwnObservation\.CleanupAttempted := True/);
   assert.match(handoff, /SameIdentity\(Info, FBinaryCleanupInfo\)/);
@@ -129,6 +129,6 @@ test('UI_HIDDEN follows actual native visibility query, never shutdown intent al
   const hide = renderer.split('procedure TOverlayWindow.BeginClosing;')[1].split('destructor TOverlayWindow.Destroy;')[0];
   order(hide, ['ApiShowWindow(FWindow, SW_HIDE)', 'ObserveHidden;', 'procedure TOverlayWindow.ObserveHidden;', 'ApiIsWindowVisible(FWindow) then Exit', 'FOnHidden()']);
   assert.match(renderer, /BindApiPointer\(Slot_IsWindowVisible, RequireProcAddressHash64\('user32\.dll', HASH_IsWindowVisible\)\)/);
-  assert.match(overlay, /FDeadline <> 0\) and \(CozyTick >= FDeadline\)[\s\S]*?Lifecycle\.Note\('O', 'LEASE_EXPIRED', 'OBSERVED'\)/);
+  assert.match(overlay, /FDeadline <> 0\) and \(SpaceXTick >= FDeadline\)[\s\S]*?Lifecycle\.Note\('O', 'LEASE_EXPIRED', 'OBSERVED'\)/);
 });
 console.log(`NATIVE_LIFECYCLE_SOURCE_CONTRACTS_PASS ${count}; Windows execution NOT_RUN`);

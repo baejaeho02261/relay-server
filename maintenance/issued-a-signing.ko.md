@@ -6,7 +6,7 @@
 
 ## 적용 순서
 
-전체 소스 공급본에는 기본 발급 공개키를 넣지 않습니다. `SpaceX.IssuedA.Trust.inc`는 설정 필요 표식이며, 공개키를 적용하지 않은 상태의 빌드는 `COZY_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED`로 중단됩니다. `SpaceX.IssuedA.Trust.bin`과 `SpaceX.LauncherResources.res`는 공개키 적용·빌드 과정에서 생성하므로 공급본에 포함하지 않습니다. 서버에 기존 복구 키가 ACTIVE이면 새 키를 만들지 않고 `SpaceX.Finish-IssuedA-Trust.bat`으로 그 공개키를 적용한 뒤 표시된 정확한 프로젝트를 빌드합니다.
+전체 소스 공급본에는 기본 발급 공개키를 넣지 않습니다. `SpaceX.IssuedA.Trust.inc`는 설정 필요 표식이며, 공개키를 적용하지 않은 상태의 빌드는 `SPACEX_ISSUED_A_PUBLIC_KEY_SETUP_REQUIRED`로 중단됩니다. `SpaceX.IssuedA.Trust.bin`과 `SpaceX.LauncherResources.res`는 공개키 적용·빌드 과정에서 생성하므로 공급본에 포함하지 않습니다. 서버에 기존 복구 키가 ACTIVE이면 새 키를 만들지 않고 `SpaceX.Finish-IssuedA-Trust.bat`으로 그 공개키를 적용한 뒤 표시된 정확한 프로젝트를 빌드합니다.
 
 `SpaceX.Finish-IssuedA-Trust.bat`과 복구 BAT의 공개키 적용 단계는 현재 공개키로 `SpaceX.LauncherResources.res`까지 미리 생성합니다. Node.js가 필요하며, 공개키 RCDATA 311·현재 manifest·버전 정보를 함께 검증합니다. `완료: A 공개 include·bin·SpaceX.LauncherResources.res를 갱신했습니다.` 출력 뒤 A를 Win64 Release로 빌드합니다. 이전 키를 가진 정적 `.res`는 배포하지 않습니다.
 
@@ -26,6 +26,7 @@
 - `--action generate --private-key-file <소스 밖 새 PEM 경로> --public-json-out <새 공개 JSON 경로> --include-out <새 include 경로>`: 전용 키와 공개 산출물을 생성합니다. 개인키 파일은 소스 패키지 밖에 두고 서버에만 비밀로 전달해야 합니다. Windows에서는 새 빈 임시 디렉터리의 ACL을 먼저 제한한 뒤 그 안에 개인키 파일을 만듭니다. 제한된 파일 ACL을 유지하는 create-only 하드 링크로 게시하며, 이를 지원하지 않는 파일시스템에서는 실패합니다. 실패하면 해당 작업이 만든 파일만 정리합니다.
 - `--action export --private-key-file <외부 PEM 경로> --public-json-out <새 공개 JSON 경로> --include-out <새 include 경로>`: 기존 키의 공개 정보만 내보냅니다.
 - `--action include --public-json-file <공개 JSON 경로> --include-out <새 include 경로>`: 공개 JSON만으로 Pascal include를 생성합니다. 생성한 내용을 확인한 뒤 기존 `SpaceX.IssuedA.Trust.inc`를 교체하고 A를 다시 빌드합니다.
+- `--action include --public-include-file <기존 공개 include 경로> --include-out <새 include 경로>`는 기존 공개 앵커를 검증한 뒤 같은 키 ID로 `SpaceXIssuedATrustAnchor` 선언을 생성합니다. 공개 JSON을 지정하는 옵션과 각각 사용합니다.
 
 키 회전 시 새 공개키를 포함한 새 A 템플릿을 승인·게시해야 합니다. 이미 서명한 발급 파일은 저장된 봉투와 기존 템플릿 공개키로 검증되며 새 개인키로 다시 서명되지 않습니다. 이전 A의 실행을 폐기하려면 아래 세대 관리의 REVOKED 또는 기존 배포 조합·파일 폐기 정책을 사용합니다. 단순히 서버 개인키를 변경하는 것은 기존 공개 서명을 무효화하지 않습니다.
 
@@ -74,7 +75,7 @@
 2. 기존 공개키 도구로 새 전용 키를 생성합니다. `Server` 폴더에서 다음 형식으로 실행합니다. 모든 경로는 실제 절대 경로로 바꾸며, 개인키는 소스 폴더 밖에 둡니다. 이 도구는 Node만 사용하며 Delphi·CI 환경을 요구하지 않습니다.
 
    ```text
-   node tools/security/spacex.issued-a-signing-key.js --action generate --private-key-file <외부의_새_private.pem> --public-json-out <새_issued-a-public.json> --include-out <새_Cozy.IssuedA.Trust.inc>
+   node tools/security/spacex.issued-a-signing-key.js --action generate --private-key-file <외부의_새_private.pem> --public-json-out <새_issued-a-public.json> --include-out <새_SpaceX.IssuedA.Trust.inc>
    ```
 
    기존 외부 개인키에서 공개 JSON만 필요하면 `generate` 대신 `export`를 사용합니다. 공개 JSON은 `version`, `algorithm`, `keyId`, `publicBlob` 네 필드뿐입니다. 관리자 화면에는 이 공개 JSON만 붙여넣습니다.

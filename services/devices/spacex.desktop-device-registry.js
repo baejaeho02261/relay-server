@@ -17,7 +17,7 @@ function Validate(value){
  const theme=require('./spacex.desktop-ui-theme');
  for(const [id,r]of Object.entries(value.bindings)){
   if(!ID.test(id)||!r||r.id!==id||r.identificationScheme!=='LEGACY_PC_HASH_V1'||!['REGISTERED','RETIRED'].includes(r.status)||!Number.isSafeInteger(r.firstSeenAt)||r.firstSeenAt<1||!Number.isSafeInteger(r.lastSeenAt)||r.lastSeenAt<r.firstSeenAt||!Array.isArray(r.proofs)||r.proofs.length>12)throw Error('DEVICE_REGISTRY_INVALID');
-  if((r.uiTheme!==undefined&&!theme.ValidPreset(r.uiTheme))||(r.uiThemeRgb!==undefined&&!theme.ValidRgb(r.uiThemeRgb))||(r.uiFont!==undefined&&!theme.ValidFont(r.uiFont)))throw Error('DEVICE_REGISTRY_INVALID');
+  if((r.uiTheme!==undefined&&!theme.ValidPreset(r.uiTheme))||(r.uiThemeRgb!==undefined&&!theme.ValidRgb(r.uiThemeRgb))||(r.uiFont!==undefined&&!theme.ValidFont(r.uiFont))||(r.uiAppearance!==undefined&&!theme.ValidAppearance(r.uiAppearance)))throw Error('DEVICE_REGISTRY_INVALID');
   if(r.status==='RETIRED'&&(!Number.isSafeInteger(r.retiredAt)||r.retiredAt<r.firstSeenAt))throw Error('DEVICE_REGISTRY_INVALID');
   for(const p of r.proofs)if(!p||!HASH.test(p.keyId)||!['A','B','O'].includes(p.stage)||p.authenticationScheme!=='EPHEMERAL_APP_RSA2048_V1'||p.assurance!=='APP_KEY_POSSESSION'||!Number.isSafeInteger(p.at)||p.at<r.firstSeenAt||!Number.isSafeInteger(p.epoch)||p.epoch<0)throw Error('DEVICE_REGISTRY_INVALID');
  }

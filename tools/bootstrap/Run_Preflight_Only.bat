@@ -3,7 +3,7 @@ setlocal EnableExtensions DisableDelayedExpansion
 title spacex.Client - Optional source/server checks
 where node.exe >nul 2>&1
 if errorlevel 1 goto :no_node
-if not exist "%~dp0peace.release-openssl-bootstrap.js" goto :wrong_folder
+if not exist "%~dp0spacex.release-openssl-bootstrap.js" goto :wrong_folder
 if not exist "%~dp0..\artifacts\spacex.release-preflight.js" goto :wrong_folder
 cd /d "%~dp0..\.."
 if errorlevel 1 goto :wrong_folder
@@ -15,7 +15,7 @@ echo ============================================================
 echo Existing reports are preserved. No software is installed.
 echo Real Windows A/B/O products are NOT executed.
 echo.
-node.exe "%~dp0peace.release-openssl-bootstrap.js" --preflight-auto
+node.exe "%~dp0spacex.release-openssl-bootstrap.js" --preflight-auto
 set "RESULT=%ERRORLEVEL%"
 echo.
 if "%RESULT%"=="0" (echo [OK] Preflight completed. This is NOT publication approval.) else (echo [FAIL] Keep the result directory and logs shown above.)
