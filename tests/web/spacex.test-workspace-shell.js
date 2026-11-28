@@ -94,12 +94,16 @@ test('Earth opens the masked editor, animates the native map, and clears the pas
   assert.equal(form.hidden,true);
   const initial=frame(20);
   assert.ok(initial.filter(([name])=>name==='lineTo').length>2000);
+  const globeArc=initial.findIndex(([name,x,y,radius])=>name==='arc'&&x===600&&y===350&&radius>100);
+  assert.ok(globeArc>=0);
+  assert.equal(initial.slice(0,globeArc).findLast(([name])=>name==='lineWidth')[1],2.1);
   const animated=frame(75);
   assert.notDeepEqual(initial.find(([name])=>name==='arc'),animated.find(([name])=>name==='arc'));
   earth.dispatchEvent(new w.Event('pointerenter'));
   const hovered=frame(92);
   const mapColor=operations=>operations.find(([name,value])=>name==='strokeStyle'&&value.startsWith('rgb('))[1];
-  assert.notEqual(mapColor(animated),mapColor(hovered),'Earth hover also changes every territory outline');
+  assert.equal(mapColor(animated),'rgb(48, 50, 57)');
+  assert.equal(mapColor(hovered),'rgb(52, 54, 61)','Earth hover uses the native B brightness mix');
   earth.dispatchEvent(new w.Event('pointerleave'));
   earth.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
   assert.equal(earth.getAttribute('aria-expanded'),'true');

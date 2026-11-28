@@ -154,7 +154,7 @@ body:has(#login-screen:not(.hidden)) > .skip-link { display: none; }
 }
 #login-screen .login-earth:focus-visible { box-shadow: inset 0 0 0 2px var(--login-orbit-ink); outline: none; }
 #login-screen:not([aria-busy]) .login-orb-controls:has(#login-password:focus) .login-earth {
-  box-shadow: inset 0 0 0 1px #40424a;
+  box-shadow: inset 0 0 0 1px #484a50;
 }
 #login-screen[aria-busy='true'] .login-earth { cursor: var(--space-pointer); }
 .login-orb-form {

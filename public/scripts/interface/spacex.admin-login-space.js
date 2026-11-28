@@ -118,7 +118,6 @@
   if (!ctx) return;
   const tau = 2 * Math.PI;
   const borderInk = [48, 50, 57];
-  const hoverBorderInk = [64, 66, 74];
   const starInk = '#a7b6cd';
   const satellites = [
     {period: 12, offset: -.56, distance: 1.22},
@@ -306,8 +305,8 @@
   }
 
   function outlineColor(highlight) {
-    const channels = borderInk.map((value, index) =>
-      Math.round(value + (hoverBorderInk[index] - value) * highlight));
+    // Match the native B brightness mix for the Pure Black border.
+    const channels = borderInk.map(value => Math.trunc(value + (255 - value) * .12 * highlight));
     return `rgb(${channels.join(', ')})`;
   }
 
@@ -471,7 +470,7 @@
       drawCountries(longitude, color, opacity);
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = color;
-      ctx.lineWidth = Math.max(.83, radius * .016);
+      ctx.lineWidth = Math.max(.73, radius * .014);
       ctx.beginPath();
       ctx.arc(centerX, centerY, radius - ctx.lineWidth / 2, 0, tau);
       ctx.stroke();
